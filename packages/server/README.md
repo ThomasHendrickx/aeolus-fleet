@@ -16,8 +16,10 @@ Environment variables, validated at startup (see `.env.example`):
 | `PORT` | `4000` | Port to listen on |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | `false` | `true` behind a reverse proxy, so the sign-in rate limit counts per client address from `X-Forwarded-For` |
-| `COOKIE_DOMAIN` | unset | The domain the console session cookie is set for, such as `example.com`, so a console on another host under it receives the cookie. Unset: the server's host only |
-| `CONSOLE_ORIGIN` | unset | The origin of a console on another host, such as `https://console.example.com`: the one origin allowed to call with credentials (CORS). Unset: no cross-origin calls, as when the console reaches `/trpc` on its own origin |
+| `COOKIE_DOMAIN` | unset | The domain the console session cookie is set for, such as `fleet.example.com`, so a console on another host under it receives the cookie. Every host under it does, so pick the narrowest domain the console and the server share. Unset: the server's host only |
+| `CONSOLE_ORIGIN` | unset | The origin of a console on another host, such as `https://console.fleet.example.com`: the one origin allowed to call with credentials (CORS). Unset: no cross-origin calls, as when the console reaches `/trpc` on its own origin |
+
+The web app still calls `/trpc` on its own origin, so running it on another host than the server also needs a web change that is not built yet.
 
 ## Server commands
 
