@@ -1,0 +1,89 @@
+import { createIdGenerator } from '@aeolus-fleet/common';
+import { describe, expect, it } from 'vitest';
+
+import { toAuthenticatedShip, toConsoleSessionCaller, toFleet, toLease, toShip } from './rows.js';
+
+const newId = createIdGenerator();
+const at = new Date('2026-09-29T12:00:00.000Z');
+const fleetId = newId('fleet');
+const shipId = newId('ship');
+
+const shipRow = {
+  id: shipId,
+  fleetId,
+  name: 'argo',
+  type: 'operator',
+  kind: 'operator',
+  scopes: ['messages:send', 'fleet:read'],
+  note: null,
+  createdAt: at,
+  retiredAt: null,
+};
+
+describe('mapping rows to domain objects', () => {
+  it('maps a fleet row', () => {
+    expect(toFleet({ id: fleetId, name: 'home fleet', createdAt: at })).toEqual({
+      id: fleetId,
+      name: 'home fleet',
+      createdAt: at,
+    });
+  });
+
+  it('maps a ship row, leaving out columns the domain does not know', () => {
+    expect(toShip({ ...shipRow, unknownColumn: 1 })).toEqual(shipRow);
+  });
+
+  it('maps a lease as raw SQL returns it, in snake_case', () => {
+    const leaseId = newId('lease');
+
+    expect(
+      toLease({
+        id: leaseId,
+        fleet_id: fleetId,
+        ship_id: shipId,
+        location: 'OTHER',
+        location_description: 'web console',
+        started_at: at,
+        ended_at: null,
+      }),
+    ).toEqual({
+      id: leaseId,
+      fleetId,
+      shipId,
+      location: { kind: 'OTHER', description: 'web console' },
+      startedAt: at,
+      endedAt: null,
+    });
+  });
+
+  it('maps the caller of a console session', () => {
+    const consoleSessionId = newId('consoleSession');
+
+    expect(
+      toConsoleSessionCaller({
+        console_session_id: consoleSessionId,
+        ship_id: shipId,
+        fleet_id: fleetId,
+        kind: 'operator',
+        scopes: ['fleet:read'],
+      }),
+    ).toEqual({ shipId, fleetId, kind: 'operator', scopes: ['fleet:read'], consoleSessionId });
+  });
+});
+
+describe('a row the domain cannot trust', () => {
+  it.each([
+    ['an id of another kind', { ...shipRow, id: fleetId }],
+    ['a malformed fleet id', { ...shipRow, fleetId: 'flt_nope' }],
+    ['an unknown kind', { ...shipRow, kind: 'admiral' }],
+    ['an unknown scope', { ...shipRow, scopes: ['fleet:sink'] }],
+  ])('fails loudly on a ship with %s', (_label, row) => {
+    expect(() => toShip(row)).toThrow();
+  });
+
+  it('fails loudly on a caller whose ship id is not a ship id', () => {
+    expect(() => toAuthenticatedShip({ ship_id: 'shp_nope', fleet_id: fleetId, kind: 'agent', scopes: [] })).toThrow(
+      /must be a ship id/,
+    );
+  });
+});
