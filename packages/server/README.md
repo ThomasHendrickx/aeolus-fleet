@@ -14,3 +14,15 @@ Environment variables, validated at startup (see `.env.example`):
 | `HOST` | `127.0.0.1` | Interface to listen on |
 | `PORT` | `4000` | Port to listen on |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
+| `TRUST_PROXY` | `false` | `true` behind a reverse proxy, so the sign-in rate limit counts per client address from `X-Forwarded-For` |
+
+## Server commands
+
+Run on the server, against the configured database, after `npm run db:migrate`:
+
+| Command | Does |
+| --- | --- |
+| `npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"` | Creates the fleet and its operator ship `argo`, and prints argo's secret once. Refuses when a fleet already exists |
+| `npm run argo:replace-secret -w @aeolus-fleet/server` | Replaces a lost argo secret: the old one stops working, every console session ends, the new secret is printed once |
+
+The console signs in with argo's secret and keeps only a session cookie (httpOnly, Secure, SameSite=Strict), valid 30 days after its last use.
