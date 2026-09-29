@@ -64,7 +64,7 @@ describe('signing out', () => {
 
     await useCases.signOut(first.caller);
 
-    await expect(useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     expect(core.state.leases.filter((lease) => lease.endedAt === null)).toHaveLength(1);
   });
 });

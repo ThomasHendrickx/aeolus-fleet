@@ -87,7 +87,7 @@ describe('signing in on Postgres', () => {
     const second = await core.useCases.signIn({ secret });
 
     await expect(core.useCases.authenticate.byConsoleSession(first.token)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(core.useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     await expect(liveSessions()).resolves.toEqual([expect.objectContaining({ id: second.consoleSessionId })]);
     await expect(openLeases()).resolves.toHaveLength(1);
     await expect(core.prisma.delivery.findUnique({ where: { id: deliveryId } })).resolves.toMatchObject({
@@ -126,7 +126,7 @@ describe('signing in on Postgres', () => {
 
     await expect(signIn({ secret })).rejects.toThrow('disk full');
 
-    await expect(core.useCases.authenticate.byConsoleSession(first.token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(core.useCases.authenticate.byConsoleSession(first.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     await expect(liveSessions()).resolves.toEqual([expect.objectContaining({ id: first.consoleSessionId })]);
     await expect(openLeases()).resolves.toHaveLength(1);
     await expect(eventTypes()).resolves.toEqual(['ShipClaimed']);
@@ -152,7 +152,7 @@ describe('a console session on Postgres', () => {
     try {
       const useCases = createUseCases({ prisma: restarted, clock: core.clock });
 
-      await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ shipId: argoId, fleetId });
+      await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId, fleetId } });
     } finally {
       await restarted.$disconnect();
     }

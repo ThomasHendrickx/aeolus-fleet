@@ -87,7 +87,7 @@ describe('signing in a second time', () => {
     const second = await useCases.signIn({ secret });
 
     await expect(useCases.authenticate.byConsoleSession(first.token)).resolves.toBeUndefined();
-    await expect(useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     expect(core.state.consoleSessions.filter((session) => session.endedAt === null)).toHaveLength(1);
   });
 
@@ -132,7 +132,7 @@ describe('signing in a second time', () => {
 
     await expect(failing({ secret })).rejects.toThrow('event log unavailable');
 
-    await expect(useCases.authenticate.byConsoleSession(first.token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(useCases.authenticate.byConsoleSession(first.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     expect(core.state.leases.filter((lease) => lease.endedAt === null)).toHaveLength(1);
   });
 });

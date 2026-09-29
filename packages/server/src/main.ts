@@ -3,7 +3,11 @@ import { ConfigError, loadConfig } from './config.js';
 
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
-  const server = createApp({ databaseUrl: config.databaseUrl, logger: { level: config.logLevel } });
+  const server = createApp({
+    databaseUrl: config.databaseUrl,
+    logger: { level: config.logLevel },
+    trustProxy: config.trustProxy,
+  });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

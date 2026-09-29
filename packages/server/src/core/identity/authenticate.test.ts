@@ -55,15 +55,19 @@ describe('authenticating with a ship secret', () => {
 });
 
 describe('authenticating with a console session', () => {
-  it('returns argo with the session id', async () => {
+  it('returns argo with the session id, and the expiry this use moved to', async () => {
     const { token, consoleSessionId } = await useCases.signIn({ secret });
+    core.clock.advance(DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toEqual({
-      shipId: argoId,
-      fleetId,
-      kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
-      consoleSessionId,
+      caller: {
+        shipId: argoId,
+        fleetId,
+        kind: 'operator',
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+        consoleSessionId,
+      },
+      expiresAt: new Date(core.clock.now().getTime() + 30 * DAY_MS),
     });
   });
 
@@ -71,7 +75,7 @@ describe('authenticating with a console session', () => {
     const { token } = await useCases.signIn({ secret });
     core.clock.advance(30 * DAY_MS - 1);
 
-    await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId } });
   });
 
   it('has expired 30 days after the last use', async () => {
@@ -87,7 +91,7 @@ describe('authenticating with a console session', () => {
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeDefined();
     core.clock.advance(29 * DAY_MS);
 
-    await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ shipId: argoId });
+    await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId } });
     expect(core.state.consoleSessions[0]).toMatchObject({
       lastUsedAt: core.clock.now(),
       expiresAt: new Date(core.clock.now().getTime() + 30 * DAY_MS),
