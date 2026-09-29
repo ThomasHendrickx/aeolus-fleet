@@ -88,6 +88,7 @@ describe('migrations', () => {
       'fleets',
       'leases',
       'messages',
+      'operators',
       'ships',
     ]);
     expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets']);
@@ -134,6 +135,27 @@ describe('the operator ship', () => {
     await expect(database.ship.update({ where: { id: argo.id }, data: { retiredAt: now } })).rejects.toThrow(
       /ships_operator_never_retired/,
     );
+  });
+});
+
+describe('operator accounts', () => {
+  function account(fleetId: FleetId, email = `${newId('operator')}@example.com`) {
+    return database.operator.create({
+      data: { id: newId('operator'), fleetId, email, passwordHash: 'hash', createdAt: now },
+    });
+  }
+
+  it('hold an email unique across all fleets', async () => {
+    await account(await createFleet(), 'thomas@example.com');
+
+    await expect(account(await createFleet(), 'thomas@example.com')).rejects.toThrow(/Unique constraint/);
+  });
+
+  it('are one per fleet', async () => {
+    const fleetId = await createFleet();
+    await account(fleetId);
+
+    await expect(account(fleetId)).rejects.toThrow(/Unique constraint/);
   });
 });
 
