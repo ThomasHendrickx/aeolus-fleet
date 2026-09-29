@@ -8,6 +8,7 @@
  * generator increments the random part instead of drawing a new one, so the ids it
  * hands out stay strictly ordered.
  */
+import { z } from 'zod';
 
 export const ID_PREFIXES = {
   fleet: 'flt',
@@ -21,6 +22,13 @@ export const ID_PREFIXES = {
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
+
+function isIdKind(value: string): value is IdKind {
+  return value in ID_PREFIXES;
+}
+
+/** Every kind of id, in the order of ID_PREFIXES. */
+export const ID_KINDS: readonly IdKind[] = Object.keys(ID_PREFIXES).filter(isIdKind);
 export type IdPrefix = (typeof ID_PREFIXES)[IdKind];
 export type Id<K extends IdKind> = `${(typeof ID_PREFIXES)[K]}_${string}`;
 
@@ -40,9 +48,7 @@ const RANDOM_BYTES = 10;
 const MAX_TIME = 2 ** 48 - 1;
 const BODY_PATTERN = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
-const KIND_BY_PREFIX = new Map<string, IdKind>(
-  Object.entries(ID_PREFIXES).map(([kind, prefix]) => [prefix, kind as IdKind]),
-);
+const KIND_BY_PREFIX = new Map<string, IdKind>(ID_KINDS.map((kind) => [ID_PREFIXES[kind], kind]));
 
 export interface IdGeneratorOptions {
   /** Milliseconds since the Unix epoch. Defaults to `Date.now`. */
@@ -112,6 +118,11 @@ export function parseId(value: string): ParsedId | undefined {
 /** True when the value is a well-formed id of the given kind. */
 export function isId<K extends IdKind>(value: unknown, kind: K): value is Id<K> {
   return typeof value === 'string' && parseId(value)?.kind === kind;
+}
+
+/** Parses an id of one kind arriving from outside (a request, the database) into its typed id. */
+export function idSchema<K extends IdKind>(kind: K): z.ZodType<Id<K>> {
+  return z.custom<Id<K>>((value) => isId(value, kind), { error: `must be a ${kind} id (${ID_PREFIXES[kind]}_...)` });
 }
 
 function encodeTime(time: number): string {
