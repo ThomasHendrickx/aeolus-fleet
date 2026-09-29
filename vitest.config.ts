@@ -26,6 +26,17 @@ export default defineConfig({
           exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: 'server:integration',
+          root: 'packages/server',
+          include: ['test/**/*.integration.test.ts'],
+          globalSetup: ['test/postgres.global-setup.ts'],
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
     ],
   },
 });
