@@ -3,6 +3,7 @@ import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
+import { createPrismaFleetRepository } from './adapters/prisma/registry.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createReplaceOperatorSecret, type ReplaceOperatorSecret } from './core/identity/replace-operator-secret.js';
@@ -36,7 +37,7 @@ export function createUseCases(options: { prisma: PrismaClient; clock?: Clock; i
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets }),
-    listFleets: createListFleets({ fleets: { list: () => uow.run((tx) => tx.fleets.list()) } }),
+    listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     signIn: createSignIn({ uow, clock, ids, ...secrets }),
     signOut: createSignOut({ uow, clock, ids }),
     replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),
