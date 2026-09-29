@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
 import { createApp } from '../packages/server/src/app.js';
 import { createUseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -30,7 +30,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   const useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
-  ({ secret } = unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
+  ({ secret } = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });

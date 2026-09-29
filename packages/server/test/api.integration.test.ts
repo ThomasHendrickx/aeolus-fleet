@@ -9,7 +9,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -32,7 +32,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   ({ fleetId, operatorShipId: argoId, secret: argoSecret } = unwrap(
-    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet' }),
+    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
   ));
 
   server = createApp({

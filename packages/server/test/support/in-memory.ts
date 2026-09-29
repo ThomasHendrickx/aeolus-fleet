@@ -2,11 +2,13 @@ import { createIdGenerator, type FleetId, type IdGenerator, type ShipId } from '
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
+import type { OperatorAccount } from '../../src/core/identity/operator-account.js';
 import type {
   AuthenticatedShip,
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  OperatorAccountRepository,
 } from '../../src/core/identity/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { Lease } from '../../src/core/registry/lease.js';
@@ -20,7 +22,7 @@ import type {
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent } from '../../src/core/shared/events.js';
-import type { RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
+import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
 
 /**
@@ -42,6 +44,7 @@ export interface InMemoryState {
   ships: Ship[];
   leases: Lease[];
   credentials: Credential[];
+  operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
   deliveries: InMemoryDelivery[];
   events: FleetEvent[];
@@ -53,6 +56,7 @@ export interface InMemoryTx {
   leases: LeaseRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
+  operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
   events: EventLog;
 }
@@ -65,6 +69,7 @@ export interface InMemoryCore {
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
+  passwords: PasswordHasher;
   random: RandomTokens;
 }
 
@@ -74,6 +79,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     ships: [],
     leases: [],
     credentials: [],
+    operatorAccounts: [],
     consoleSessions: [],
     deliveries: [],
     events: [],
@@ -100,6 +106,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
   const hasher: SecretHasher = { hash: (value) => `sha256(${value})` };
+  const passwords: PasswordHasher = {
+    hash: (password) => Promise.resolve(`argon2id(${password})`),
+    verify: (password, passwordHash) => Promise.resolve(passwordHash === `argon2id(${password})`),
+  };
 
   const ship = (fleetId: FleetId, shipId: ShipId): Ship | undefined =>
     state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
@@ -215,6 +225,30 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    operatorAccounts: {
+      create: (account) => {
+        if (state.operatorAccounts.some((held) => held.email === account.email || held.fleetId === account.fleetId)) {
+          return Promise.reject(new Error('unique violation: the email or the fleet already has an operator account'));
+        }
+        state.operatorAccounts.push({ ...account });
+        return Promise.resolve();
+      },
+      findByEmailForUpdate: (email) => {
+        const account = state.operatorAccounts.find((held) => held.email === email);
+        return Promise.resolve(account && { ...account });
+      },
+      findForFleetForUpdate: (fleetId) => {
+        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
+        return Promise.resolve(account && { ...account });
+      },
+      changePassword: ({ fleetId, operatorId, passwordHash }) => {
+        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
+        if (account) {
+          account.passwordHash = passwordHash;
+        }
+        return Promise.resolve();
+      },
+    },
     consoleSessions: {
       create: (session) => {
         if (state.consoleSessions.some((held) => held.fleetId === session.fleetId && held.endedAt === null)) {
@@ -304,7 +338,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ),
   };
 
-  return { state, uow, callers, listing, clock, ids, hasher, random };
+  return { state, uow, callers, listing, clock, ids, hasher, passwords, random };
 }
 
 const TABLES = [
@@ -312,6 +346,7 @@ const TABLES = [
   'ships',
   'leases',
   'credentials',
+  'operatorAccounts',
   'consoleSessions',
   'deliveries',
   'events',

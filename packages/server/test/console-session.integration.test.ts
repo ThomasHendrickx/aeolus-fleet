@@ -6,7 +6,7 @@ import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -23,7 +23,7 @@ let secret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId, secret } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' })));
+  ({ fleetId, operatorShipId: argoId, secret } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 });
 
 afterEach(async () => {

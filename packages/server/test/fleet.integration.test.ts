@@ -7,7 +7,7 @@ import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
-import { FLEET_URL, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -28,7 +28,7 @@ let argoSecret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' }));
+  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId, operatorShipId: argoId, secret: argoSecret } = fleet);
   argo = operatorCaller(fleet);
 });
