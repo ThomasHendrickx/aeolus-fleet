@@ -81,9 +81,9 @@ const coreImpure = {
 const coreContexts = ['registry', 'messaging', 'identity'];
 
 /**
- * From inside one context, another context is reachable only through its
+ * From anywhere else in core, a context is reachable only through its
  * public.ts (docs/architecture.md, "Code structure").
- * @param {string} context
+ * @param {string} [context] the context the importing file belongs to, if any
  * @returns {ImportRestriction[]}
  */
 function otherContextsInternals(context) {
@@ -91,8 +91,24 @@ function otherContextsInternals(context) {
     .filter((other) => other !== context)
     .map((other) => ({
       regex: `(^|/)${other}/(?!public\\.js$)`,
-      message: `core/${context} imports core/${other} only through ${other}/public.js, its published surface.`,
+      message: `Outside core/${other}, import it only through ${other}/public.js, its published surface.`,
     }));
+}
+
+/**
+ * Every restriction for a file in core: the import boundary, purity and the
+ * context boundaries seen from the given context.
+ * @param {string} [context]
+ */
+function coreRules(context) {
+  return {
+    ...importRules({
+      patterns: [...coreForbiddenImports, ...coreImpure.imports, ...otherContextsInternals(context)],
+      syntax: coreImpure.syntax,
+    }),
+    'no-restricted-properties': ['error', ...noModuleMocks, ...coreImpure.properties],
+    'no-restricted-globals': ['error', ...coreImpure.globals],
+  };
 }
 
 /** @type {ImportRestriction} */
@@ -270,17 +286,17 @@ export default defineConfig(
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
 
-  ...['registry', 'messaging', 'identity', 'shared'].map((context) => ({
+  // Every file in core, shared and any folder that is not a context included;
+  // then each context, which may import its own modules.
+  {
+    name: 'aeolus/core',
+    files: ['packages/server/src/core/**/*.ts'],
+    rules: coreRules(),
+  },
+  ...coreContexts.map((context) => ({
     name: `aeolus/core-${context}`,
     files: [`packages/server/src/core/${context}/**/*.ts`],
-    rules: {
-      ...importRules({
-        patterns: [...coreForbiddenImports, ...coreImpure.imports, ...otherContextsInternals(context)],
-        syntax: coreImpure.syntax,
-      }),
-      'no-restricted-properties': ['error', ...noModuleMocks, ...coreImpure.properties],
-      'no-restricted-globals': ['error', ...coreImpure.globals],
-    },
+    rules: coreRules(context),
   })),
 
   {
