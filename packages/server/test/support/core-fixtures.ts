@@ -68,27 +68,28 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
 }
 
 /**
- * Puts an agent ship with a valid secret straight into the state. Commissioning
- * arrives with slice 2; until then tests need a ship that is not argo.
+ * Puts an agent ship with a valid secret straight into the state, without
+ * commissioning it: for a ship with other scopes, in another fleet or already
+ * retired, which commissioning never makes.
  */
 export function addAgentShip(
   core: InMemoryCore,
-  ship: { fleetId: FleetId; scopes?: Scope[] },
+  ship: { fleetId: FleetId; name?: string; scopes?: Scope[]; retiredAt?: Date },
 ): { shipId: ShipId; secret: string } {
-  const { fleetId, scopes = ['messages:send', 'messages:receive'] } = ship;
+  const { fleetId, scopes = ['messages:send', 'messages:receive'], retiredAt = null } = ship;
   const at = core.clock.now();
   const shipId = core.ids('ship');
   const secret = `aeolus_sk_v1_agent-${shipId}`;
   core.state.ships.push({
     id: shipId,
     fleetId,
-    name: `agent-${shipId.slice(-6)}`,
+    name: ship.name ?? `agent-${shipId.slice(-6)}`,
     type: 'reviewer',
     kind: 'agent',
     scopes,
     note: null,
     createdAt: at,
-    retiredAt: null,
+    retiredAt,
   });
   core.state.credentials.push({
     id: core.ids('credential'),
@@ -100,4 +101,15 @@ export function addAgentShip(
     invalidatedAt: null,
   });
   return { shipId, secret };
+}
+
+/** A session crewing the ship, straight into the state: claiming arrives with slice 3. */
+export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): void {
+  core.state.leases.push({
+    id: core.ids('lease'),
+    ...ship,
+    location: { kind: 'DEVICE', description: null },
+    startedAt: core.clock.now(),
+    endedAt: null,
+  });
 }

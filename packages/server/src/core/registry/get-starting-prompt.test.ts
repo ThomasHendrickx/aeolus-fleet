@@ -2,6 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  crewShip,
   FLEET_URL,
   initialiseFleet,
   operatorCaller,
@@ -40,18 +41,6 @@ function credentialsOf(shipId: ShipId) {
 
 function validSecretsOf(shipId: ShipId) {
   return credentialsOf(shipId).filter((credential) => credential.invalidatedAt === null);
-}
-
-/** A session crewing the ship: claiming arrives with slice 3. */
-function crew(shipId: ShipId): void {
-  core.state.leases.push({
-    id: core.ids('lease'),
-    fleetId,
-    shipId,
-    location: { kind: 'DEVICE', description: null },
-    startedAt: core.clock.now(),
-    endedAt: null,
-  });
 }
 
 describe('getting a starting prompt', () => {
@@ -129,7 +118,7 @@ describe('getting a starting prompt', () => {
 
 describe('a starting prompt is issued only while the ship awaits crew', () => {
   it('is refused while a session crews the ship, and nothing changes', async () => {
-    crew(scoutId);
+    crewShip(core, { fleetId, shipId: scoutId });
     const before = structuredClone(core.state);
 
     await expect(useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toEqual({

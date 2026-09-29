@@ -34,9 +34,12 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ DATABASE_URL: databaseUrl })).toThrow(/PUBLIC_URL/);
   });
 
-  it.each(['fleet.example.com', 'ftp://fleet.example.com'])('rejects %j as the public URL: it is http or https', (url) => {
-    expect(() => loadConfig({ ...required, PUBLIC_URL: url })).toThrow(/PUBLIC_URL/);
-  });
+  it.each(['fleet.example.com', 'ftp://fleet.example.com'])(
+    'rejects %j as the public URL: it is http or https',
+    (url) => {
+      expect(() => loadConfig({ ...required, PUBLIC_URL: url })).toThrow(/PUBLIC_URL/);
+    },
+  );
 
   it('takes an http public URL, as on a development machine', () => {
     expect(loadConfig({ ...required, PUBLIC_URL: 'http://127.0.0.1:4000' }).publicUrl).toBe('http://127.0.0.1:4000');

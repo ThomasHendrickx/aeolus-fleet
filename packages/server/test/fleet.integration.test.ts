@@ -214,7 +214,7 @@ describe('commissioning a ship on Postgres', () => {
       },
       clock: core.clock,
       ids: newId,
-      secrets: { hasher: sha256Hasher, random: { next: () => 'random' } },
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
       fleetUrl: FLEET_URL,
     });
 
@@ -372,7 +372,7 @@ describe('getting a starting prompt on Postgres', () => {
 });
 
 describe('listing the fleet on Postgres', () => {
-  it('lists argo and a commissioned ship with their status and prompt state, in one query', async () => {
+  it('lists argo and a commissioned ship with their status and prompt state', async () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
@@ -417,7 +417,10 @@ describe('listing the fleet on Postgres', () => {
       data: { id: newId('lease'), fleetId, shipId: crewed.shipId, location: 'SERVER', startedAt: core.clock.now() },
     });
     await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });
-    await core.prisma.credential.updateMany({ where: { shipId: retired.shipId }, data: { invalidatedAt: core.clock.now() } });
+    await core.prisma.credential.updateMany({
+      where: { shipId: retired.shipId },
+      data: { invalidatedAt: core.clock.now() },
+    });
 
     const listed = await core.useCases.listFleet(argo);
 

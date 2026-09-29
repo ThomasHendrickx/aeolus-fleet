@@ -2,6 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  crewShip,
   identityUseCases,
   initialiseFleet,
   operatorCaller,
@@ -63,7 +64,7 @@ describe('listing the fleet', () => {
     ]);
   });
 
-  it("shows argo crewed and its secret claimed once the console signs in", async () => {
+  it('shows argo crewed and its secret claimed once the console signs in', async () => {
     unwrap(await identityUseCases(core).signIn({ secret: argoSecret }));
 
     const [listedArgo] = await useCases.listFleet(argo);
@@ -98,14 +99,7 @@ describe('listing the fleet', () => {
   });
 
   it('shows a ship crewed while a session holds its lease', async () => {
-    core.state.leases.push({
-      id: core.ids('lease'),
-      fleetId,
-      shipId: scoutId,
-      location: { kind: 'CLOUD', description: null },
-      startedAt: core.clock.now(),
-      endedAt: null,
-    });
+    crewShip(core, { fleetId, shipId: scoutId });
 
     await expect(listedScout()).resolves.toMatchObject({ status: 'crewed' });
   });

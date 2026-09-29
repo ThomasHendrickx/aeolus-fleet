@@ -29,7 +29,8 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ secret } = unwrap(await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet' })));
+  const useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  ({ secret } = unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
 
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });

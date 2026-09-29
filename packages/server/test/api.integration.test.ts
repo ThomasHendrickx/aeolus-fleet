@@ -211,7 +211,8 @@ describe('the fleet procedures at the API', () => {
   it('serve fleet.list to a ship with fleet:read, and refuse it fleet.commission without fleet:manage', async () => {
     const reader = client({ authorization: `Bearer ${await agentShip(['fleet:read'])}` });
 
-    await expect(reader.fleet.list.query()).resolves.toEqual(expect.arrayContaining([expect.anything()]));
+    const listed = await reader.fleet.list.query();
+    expect(listed.map((ship) => ship.id)).toContain(argoId);
     await expect(codeOf(reader.fleet.commission.mutate({ name: 'stowaway', type: 'reviewer' }))).resolves.toBe(
       'FORBIDDEN',
     );
@@ -248,8 +249,15 @@ describe('the fleet procedures at the API', () => {
     );
   });
 
+  it('refuse a commission with a name an active ship holds', async () => {
+    await asArgo().fleet.commission.mutate({ name: 'mooring', type: 'reviewer' });
+
+    await expect(codeOf(asArgo().fleet.commission.mutate({ name: 'mooring', type: 'lookout' }))).resolves.toBe(
+      'CONFLICT',
+    );
+  });
+
   it.each([
-    { label: 'a taken name', input: { name: 'scout', type: 'reviewer' }, code: 'CONFLICT' },
     { label: 'argo as a name', input: { name: 'argo', type: 'reviewer' }, code: 'CONFLICT' },
     { label: 'a name that is not a handle', input: { name: 'Sea Scout', type: 'reviewer' }, code: 'BAD_REQUEST' },
     {
@@ -258,10 +266,6 @@ describe('the fleet procedures at the API', () => {
       code: 'BAD_REQUEST',
     },
   ])('refuse a commission with $label', async ({ input, code }) => {
-    await asArgo()
-      .fleet.commission.mutate({ name: 'scout', type: 'reviewer' })
-      .catch(() => undefined);
-
     await expect(codeOf(asArgo().fleet.commission.mutate(input))).resolves.toBe(code);
   });
 
@@ -317,7 +321,10 @@ describe('the fleet procedures at the API', () => {
       const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' });
       const again = await asArgoThere.fleet.getStartingPrompt.mutate({ shipId });
       await asArgoThere.fleet.list.query();
-      await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' }).catch(() => undefined);
+      // A refused commission logs its error path too.
+      await expect(asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' })).rejects.toThrow(
+        'An active ship is already named logbook',
+      );
 
       expect(lines.length).toBeGreaterThan(0);
       const logs = lines.join('');

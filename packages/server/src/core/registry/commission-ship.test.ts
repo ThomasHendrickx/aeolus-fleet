@@ -2,6 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  addAgentShip,
   FLEET_URL,
   initialiseFleet,
   operatorCaller,
@@ -31,23 +32,6 @@ beforeEach(async () => {
 
 function shipsNamed(name: string): Ship[] {
   return core.state.ships.filter((ship) => ship.name === name);
-}
-
-/** An agent ship put straight into the state: retiring arrives with a later slice. */
-function aShip(ship: Pick<Ship, 'name'> & Partial<Ship>): Ship {
-  const created: Ship = {
-    id: core.ids('ship'),
-    fleetId,
-    type: 'reviewer',
-    kind: 'agent',
-    scopes: ['messages:send', 'messages:receive'],
-    note: null,
-    createdAt: core.clock.now(),
-    retiredAt: null,
-    ...ship,
-  };
-  core.state.ships.push(created);
-  return created;
 }
 
 describe('commissioning a ship', () => {
@@ -142,18 +126,18 @@ describe('the name of a new ship', () => {
   });
 
   it('can be the name of a retired ship', async () => {
-    const retired = aShip({ name: 'scout', retiredAt: core.clock.now() });
+    const retired = addAgentShip(core, { fleetId, name: 'scout', retiredAt: core.clock.now() });
 
     const { shipId } = unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' }));
 
     expect(shipsNamed('scout').map((ship) => [ship.id, ship.retiredAt])).toEqual([
-      [retired.id, core.clock.now()],
+      [retired.shipId, core.clock.now()],
       [shipId, null],
     ]);
   });
 
   it('can be taken in another fleet', async () => {
-    aShip({ name: 'scout', fleetId: core.ids('fleet') });
+    addAgentShip(core, { fleetId: core.ids('fleet'), name: 'scout' });
 
     await expect(commissionShip(argo, { name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
@@ -191,7 +175,9 @@ describe('the type and note of a new ship', () => {
   });
 
   it('refuses a note over 500 characters', async () => {
-    await expect(commissionShip(argo, { name: 'scout', type: 'reviewer', note: 'a'.repeat(501) })).resolves.toMatchObject({
+    const tooLong = { name: 'scout', type: 'reviewer', note: 'a'.repeat(501) };
+
+    await expect(commissionShip(argo, tooLong)).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'INVALID_SHIP_NOTE' },
     });
