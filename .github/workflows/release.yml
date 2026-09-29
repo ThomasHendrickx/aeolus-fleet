@@ -1,0 +1,84 @@
+# Publishes @aeolus-fleet/common, server and web to npm with one version.
+#
+# The only way the packages can be published: npm trusted publishing (OIDC) is
+# configured for exactly this file name, and tokens are disallowed (ADR 0011).
+# Never add an NPM_TOKEN or any other npm secret. Provenance is automatic.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version for all three packages, MAJOR.MINOR.PATCH (the first real release is 0.1.0)
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  release:
+    name: Publish ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Plain releases only: npm needs a dist-tag for a prerelease, which this workflow does not set.
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Version must be MAJOR.MINOR.PATCH, got '$VERSION'"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Use npm 11.5.1 or later (needed for trusted publishing)
+        run: |
+          if ! node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            process.exit(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)))) ? 0 : 1);
+          ' "$(npm --version)"; then
+            npm install --global npm@^11.5.1
+          fi
+          npm --version
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      - name: Set the version on all three packages
+        env:
+          VERSION: ${{ inputs.version }}
+        run: npm run set-version -- "$VERSION"
+
+      - run: npm run build
+
+      # Catch a problem in any package before the first one is published.
+      - name: Dry run all three
+        run: |
+          npm publish --dry-run --access public --workspace @aeolus-fleet/common
+          npm publish --dry-run --access public --workspace @aeolus-fleet/server
+          npm publish --dry-run --access public --workspace @aeolus-fleet/web
+
+      - name: Publish @aeolus-fleet/common
+        run: npm publish --access public --workspace @aeolus-fleet/common
+      - name: Publish @aeolus-fleet/server
+        run: npm publish --access public --workspace @aeolus-fleet/server
+      - name: Publish @aeolus-fleet/web
+        run: npm publish --access public --workspace @aeolus-fleet/web

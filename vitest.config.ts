@@ -12,6 +12,13 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'scripts:unit',
+          include: ['scripts/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'common:unit',
           root: 'packages/common',
           include: ['src/**/*.test.ts'],
