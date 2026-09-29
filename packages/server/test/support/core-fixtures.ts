@@ -1,10 +1,12 @@
-import type { FleetId, Scope, ShipId } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createReplaceOperatorSecret } from '../../src/core/identity/replace-operator-secret.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
+import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
+import type { Caller } from '../../src/core/shared/caller.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
 
@@ -17,6 +19,37 @@ export function identityUseCases(core: InMemoryCore) {
     replaceOperatorSecret: createReplaceOperatorSecret(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
   };
+}
+
+/** The fleet URL starting prompts carry in tests. */
+export const FLEET_URL = 'https://fleet.example.com';
+
+/** The registry use cases the operator calls, wired to the in-memory core. */
+export function registryUseCases(core: InMemoryCore) {
+  const deps = {
+    uow: core.uow,
+    clock: core.clock,
+    ids: core.ids,
+    secrets: { hasher: core.hasher, random: core.random },
+    fleetUrl: FLEET_URL,
+  };
+  return {
+    commissionShip: createCommissionShip(deps),
+  };
+}
+
+/** argo as the caller, holding every scope, as its secret or console session makes it. */
+export function operatorCaller(fleet: FleetInitialised): Caller {
+  return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
+}
+
+/** The ship secret a starting prompt holds. */
+export function secretIn(prompt: string): string {
+  const secret = /^Ship secret: (\S+)$/m.exec(prompt)?.[1];
+  if (secret === undefined) {
+    throw new Error(`No ship secret in the starting prompt:\n${prompt}`);
+  }
+  return secret;
 }
 
 /** Initialises a fleet named `test fleet` through the use case, so argo and its secret exist. */

@@ -121,11 +121,23 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
     ships: {
       create: (created) => {
+        if (
+          state.ships.some(
+            (held) => held.fleetId === created.fleetId && held.name === created.name && held.retiredAt === null,
+          )
+        ) {
+          return Promise.reject(new Error('unique violation: an active ship of the fleet already has this name'));
+        }
         state.ships.push({ ...created });
         return Promise.resolve();
       },
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
+      lockName: () => Promise.resolve(),
+      findActiveByName: (fleetId, name) =>
+        Promise.resolve(
+          state.ships.find((found) => found.fleetId === fleetId && found.name === name && found.retiredAt === null),
+        ),
     },
     leases: {
       findOpenForUpdate: (fleetId, shipId) =>
