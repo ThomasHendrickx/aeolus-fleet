@@ -8,10 +8,12 @@
     "node": ">=26"
   },
   "workspaces": [
-    "packages/common"
+    "packages/common",
+    "packages/server"
   ],
   "scripts": {
-    "build": "npm run build --workspace @aeolus-fleet/common",
+    "postinstall": "npm run generate --workspace @aeolus-fleet/server",
+    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/server",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",

@@ -27,3 +27,6 @@ coverage/
 
 # TypeScript build state
 *.tsbuildinfo
+
+# Prisma client, generated on npm install
+packages/server/src/adapters/prisma/generated/

@@ -1,0 +1,198 @@
+// Aeolus core tables (docs/architecture.md, "Core tables").
+//
+// Slice 0 holds only what the architecture states plainly: prefixed ids, fleet_id
+// on every table except fleets, and the columns and key constraints named there.
+// Columns whose shape is still an open question arrive with the slice that owns
+// them.
+//
+// References to rows of the same fleet carry fleet_id in the foreign key, so a
+// row can never point at another fleet's ship, message or operator.
+//
+// Timestamps have no database default: the application's Clock port sets every
+// one of them, so tests control time.
+//
+// Check constraints and the append-only rule for events live in the migration
+// SQL, because Prisma does not model them.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  runtime             = "nodejs"
+  previewFeatures     = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// The tenant: one operator's ships, messages and history. Ids start with flt_.
+model Fleet {
+  id        String   @id
+  name      String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  ships            Ship[]
+  leases           Lease[]
+  credentials      Credential[]
+  messages         Message[]
+  deliveries       Delivery[]
+  events           Event[]
+  operators        Operator[]
+  operatorSessions OperatorSession[]
+
+  @@map("fleets")
+}
+
+/// A durable, addressable identity with an inbox. Ids start with shp_.
+model Ship {
+  id        String    @id
+  fleetId   String    @map("fleet_id")
+  name      String
+  type      String
+  note      String?
+  createdAt DateTime  @map("created_at") @db.Timestamptz(3)
+  retiredAt DateTime? @map("retired_at") @db.Timestamptz(3)
+
+  fleet             Fleet        @relation(fields: [fleetId], references: [id])
+  leases            Lease[]
+  credentials       Credential[]
+  deliveries        Delivery[]   @relation("DeliveryRecipientShip")
+  claimedDeliveries Delivery[]   @relation("DeliveryClaimedByShip")
+
+  @@unique([fleetId, id])
+  /// A name is unique among ships that are not retired, and reusable after retirement.
+  @@unique([fleetId, name], map: "ships_fleet_id_name_active_key", where: { retiredAt: null })
+  @@map("ships")
+}
+
+/// The exclusive right of one session to crew a ship. Ids start with lse_.
+/// Location arrives with slice 3 (claim).
+model Lease {
+  id        String    @id
+  fleetId   String    @map("fleet_id")
+  shipId    String    @map("ship_id")
+  startedAt DateTime  @map("started_at") @db.Timestamptz(3)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  /// At most one open lease per ship.
+  @@unique([shipId], map: "leases_ship_id_open_key", where: { endedAt: null })
+  @@map("leases")
+}
+
+/// A ship secret, stored only as its hash. Ids start with crd_.
+model Credential {
+  id            String    @id
+  fleetId       String    @map("fleet_id")
+  shipId        String    @map("ship_id")
+  secretHash    String    @map("secret_hash")
+  issuedAt      DateTime  @map("issued_at") @db.Timestamptz(3)
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(3)
+  invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  /// At most one valid secret per ship.
+  @@unique([shipId], map: "credentials_ship_id_valid_key", where: { invalidatedAt: null })
+  @@map("credentials")
+}
+
+/// An immutable envelope plus an opaque payload of at most 64 KB. Ids start with msg_.
+/// Sender and selector arrive with slice 4 (send), together with the unique rule
+/// on sender plus idempotency key.
+model Message {
+  id             String   @id
+  fleetId        String   @map("fleet_id")
+  payload        String
+  contentType    String   @map("content_type")
+  idempotencyKey String   @map("idempotency_key")
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet      Fleet      @relation(fields: [fleetId], references: [id])
+  deliveries Delivery[]
+
+  @@unique([fleetId, id])
+  @@map("messages")
+}
+
+enum DeliveryState {
+  pending
+  delivered
+  acknowledged
+  undeliverable
+  abandoned
+
+  @@map("delivery_state")
+}
+
+/// One message to one resolved recipient: a ship or a type. Ids start with dlv_.
+/// Resolution arrives with the slice that resolves undeliverable deliveries.
+model Delivery {
+  id              String        @id
+  fleetId         String        @map("fleet_id")
+  messageId       String        @map("message_id")
+  recipientShipId String?       @map("recipient_ship_id")
+  recipientType   String?       @map("recipient_type")
+  state           DeliveryState @default(pending)
+  claimedByShipId String?       @map("claimed_by_ship_id")
+  attempts        Int           @default(0)
+  createdAt       DateTime      @map("created_at") @db.Timestamptz(3)
+
+  fleet         Fleet   @relation(fields: [fleetId], references: [id])
+  message       Message @relation(fields: [fleetId, messageId], references: [fleetId, id])
+  recipientShip Ship?   @relation("DeliveryRecipientShip", fields: [fleetId, recipientShipId], references: [fleetId, id], onDelete: Restrict)
+  claimedByShip Ship?   @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
+
+  /// One row per recipient.
+  @@unique([messageId, recipientShipId])
+  @@unique([messageId, recipientType])
+  @@index([fleetId, recipientShipId, state])
+  @@index([fleetId, recipientType, state])
+  @@map("deliveries")
+}
+
+/// Append-only log of every state change: never updated or deleted. Ids start with evt_.
+/// What an event records about ships and messages arrives with the first slice that writes one.
+model Event {
+  id         String   @id
+  fleetId    String   @map("fleet_id")
+  type       String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("events")
+}
+
+/// The human running the fleet. Ids start with opr_.
+model Operator {
+  id           String   @id
+  fleetId      String   @map("fleet_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet    Fleet             @relation(fields: [fleetId], references: [id])
+  sessions OperatorSession[]
+
+  @@unique([fleetId, id])
+  @@map("operators")
+}
+
+/// A signed-in operator. Ids start with ses_. Token and expiry arrive with slice 1.
+model OperatorSession {
+  id         String   @id
+  fleetId    String   @map("fleet_id")
+  operatorId String   @map("operator_id")
+  createdAt  DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet    Fleet    @relation(fields: [fleetId], references: [id])
+  operator Operator @relation(fields: [fleetId, operatorId], references: [fleetId, id])
+
+  @@map("operator_sessions")
+}

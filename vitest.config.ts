@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 // Workspace packages resolve to their TypeScript source in tests, like in the
 // editor and in typecheck (see customConditions in tsconfig.base.json).
@@ -15,6 +15,15 @@ export default defineConfig({
           name: 'common:unit',
           root: 'packages/common',
           include: ['src/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'server:unit',
+          root: 'packages/server',
+          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
         },
       },
     ],
