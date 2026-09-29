@@ -68,6 +68,8 @@ export default defineConfig({
           // in development mode, driven by Playwright.
           name: 'web:e2e',
           include: ['e2e/**/*.e2e.test.ts'],
+          // Each file starts its own next dev in packages/web; one at a time.
+          fileParallelism: false,
           globalSetup: ['packages/server/test/postgres.global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 240_000,

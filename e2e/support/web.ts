@@ -1,11 +1,13 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { chromium, type Browser } from 'playwright';
 
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const webRoot = fileURLToPath(new URL('../../packages/web', import.meta.url));
 
 /** A port nothing listens on right now. */
@@ -28,9 +30,12 @@ export interface RunningWeb {
 
 /**
  * Starts the web app with `next dev`, forwarding /trpc to the given server, and
- * waits until the sign-in page answers (the first request compiles it).
+ * waits until the sign-in page answers (the first request compiles it). The
+ * console bundles common's built package, as `npm run dev` does, so common is
+ * built first.
  */
 export async function startWeb(serverUrl: string): Promise<RunningWeb> {
+  await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = await freePort();
   const nextBin = createRequire(`${webRoot}/package.json`).resolve('next/dist/bin/next');
   const child = spawn(process.execPath, [nextBin, 'dev', '--port', String(port)], {
