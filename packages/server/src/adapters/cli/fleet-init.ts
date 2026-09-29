@@ -6,8 +6,9 @@ import type { CommandIo, ExitCode } from './io.js';
 const USAGE = 'Usage: npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"';
 
 /**
- * `fleet:init --name <name>`: creates the fleet and its operator ship argo, and
- * prints argo's secret once. Refuses when a fleet already exists.
+ * `fleet:init --name <name>`: asks for the operator's email and password, then
+ * creates the fleet, its operator ship argo and the operator account the
+ * console signs in with. Refuses when a fleet already exists.
  */
 export async function fleetInit(
   args: string[],
@@ -27,17 +28,30 @@ export async function fleetInit(
     return 2;
   }
 
-  const initialised = await deps.initialiseFleet({ name });
+  const email = await io.ask('Operator email: ');
+  const password = await io.ask('Operator password: ', { isHidden: true });
+  const repeated = await io.ask('Repeat the password: ', { isHidden: true });
+  if (email === undefined || password === undefined || repeated === undefined) {
+    io.err('fleet:init needs the operator email and the password twice. Nothing was created.');
+    return 2;
+  }
+  if (password !== repeated) {
+    io.err('The two passwords differ. Nothing was created.');
+    return 1;
+  }
+
+  const initialised = await deps.initialiseFleet({ name, email, password });
   if (!initialised.isOk) {
     io.err(initialised.error.message);
     return 1;
   }
 
-  const { fleetId, operatorShipId, secret } = initialised.value;
+  const { fleetId, operatorShipId, operatorId, secret } = initialised.value;
   io.out(
     [
       `Fleet initialised: ${fleetId}`,
       `Operator ship argo: ${operatorShipId}`,
+      `Operator account: ${operatorId}`,
       '',
       "argo's secret, shown this once. Store it safely now:",
       '',

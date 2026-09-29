@@ -52,8 +52,9 @@ describe('initialising the fleet on Postgres', () => {
 
     const accounts = await core.prisma.operator.findMany();
     expect(accounts).toEqual([
-      { id: operatorId, fleetId, email: OPERATOR.email, passwordHash: expect.stringMatching(/^\$argon2id\$/), createdAt: core.clock.now() },
+      expect.objectContaining({ id: operatorId, fleetId, email: OPERATOR.email, createdAt: core.clock.now() }),
     ]);
+    expect(accounts[0]?.passwordHash).toMatch(/^\$argon2id\$/);
     await expect(argon2idPasswordHasher.verify(OPERATOR.password, accounts[0]?.passwordHash)).resolves.toBe(true);
     expect(JSON.stringify(accounts)).not.toContain(OPERATOR.password);
   });

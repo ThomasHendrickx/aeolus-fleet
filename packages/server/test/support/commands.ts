@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -33,6 +32,8 @@ export async function runServerCommand(command: {
   child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
   child.stdin.end(answers.map((answer) => `${answer}\n`).join(''));
 
-  const [code] = await once(child, 'close');
-  return { code: typeof code === 'number' ? code : -1, stdout, stderr };
+  const code = await new Promise<number | null>((resolve) => {
+    child.once('close', resolve);
+  });
+  return { code: code ?? -1, stdout, stderr };
 }

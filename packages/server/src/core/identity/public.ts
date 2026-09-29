@@ -8,4 +8,5 @@ export {
   type CredentialTx,
   type SecretTools,
 } from './credential.js';
-export type { CredentialRepository } from './ports.js';
+export { operatorEmail, operatorPassword } from './operator-account.js';
+export type { CredentialRepository, OperatorAccountRepository } from './ports.js';

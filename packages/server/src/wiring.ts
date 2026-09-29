@@ -1,5 +1,6 @@
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
+import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
@@ -51,7 +52,7 @@ export function createUseCases(options: {
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
-    initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets }),
+    initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),

@@ -13,7 +13,13 @@ const newId = createIdGenerator();
 function recordingIo(): CommandIo & { stdout: string[]; stderr: string[] } {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  return { stdout, stderr, out: (text) => stdout.push(text), err: (text) => stderr.push(text) };
+  return {
+    stdout,
+    stderr,
+    out: (text) => stdout.push(text),
+    err: (text) => stderr.push(text),
+    ask: () => Promise.resolve(undefined),
+  };
 }
 
 function fleet(): Fleet {
