@@ -14,7 +14,6 @@ function setup(uowOverride?: (core: ReturnType<typeof createInMemoryCore>) => Un
     uow: uowOverride?.(core) ?? core.uow,
     clock: core.clock,
     ids: core.ids,
-    secrets: { hasher: core.hasher, random: core.random },
     passwords: core.passwords,
   });
   return { core, initialiseFleet };

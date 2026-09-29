@@ -1,13 +1,6 @@
 import type { FleetId, IdGenerator, OperatorId, ShipId } from '@aeolus-fleet/common';
 
-import {
-  issueShipSecret,
-  operatorEmail,
-  operatorPassword,
-  type CredentialTx,
-  type OperatorAccountRepository,
-  type SecretTools,
-} from '../identity/public.js';
+import { operatorEmail, operatorPassword, type OperatorAccountRepository } from '../identity/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
@@ -18,7 +11,7 @@ import { fleetName } from './fleet.js';
 import type { FleetRepository, ShipRepository } from './ports.js';
 import { operatorShip } from './ship.js';
 
-export interface InitialiseFleetTx extends CredentialTx {
+export interface InitialiseFleetTx {
   fleets: FleetRepository;
   ships: ShipRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -29,8 +22,6 @@ export interface FleetInitialised {
   fleetId: FleetId;
   operatorShipId: ShipId;
   operatorId: OperatorId;
-  /** `argo`'s secret, in plain text only here. */
-  secret: string;
 }
 
 export type InitialiseFleetRefusal = DomainError<
@@ -45,15 +36,15 @@ export type InitialiseFleet = (input: {
 
 /**
  * Use case: creates the fleet, its operator ship `argo` and the operator
- * account the console signs in with, in one transaction. Runs once per
- * installation: it refuses when any fleet exists. A server command, never a
- * public page (ADR 0012).
+ * account the console signs in with, in one transaction. argo gets no secret:
+ * that sign-in is the only way to crew it. Runs once per installation: it
+ * refuses when any fleet exists. A server command, never a public page
+ * (ADR 0012).
  */
 export function createInitialiseFleet(deps: {
   uow: UnitOfWork<InitialiseFleetTx>;
   clock: Clock;
   ids: IdGenerator;
-  secrets: Omit<SecretTools, 'ids'>;
   passwords: PasswordHasher;
 }): InitialiseFleet {
   return async (input) => {
@@ -89,11 +80,6 @@ export function createInitialiseFleet(deps: {
       const operatorId = deps.ids('operator');
       await tx.operatorAccounts.create({ id: operatorId, fleetId, email: email.value, passwordHash, createdAt: at });
 
-      const { secret } = await issueShipSecret(
-        { tx, ...deps.secrets, ids: deps.ids },
-        { fleetId, shipId: argo.id, at },
-      );
-
       await recordEvent({ events: tx.events, ids: deps.ids }, {
         fleetId,
         type: 'FleetInitialised',
@@ -110,7 +96,7 @@ export function createInitialiseFleet(deps: {
         details: { name: argo.name, type: argo.type, kind: argo.kind },
       });
 
-      return ok({ fleetId, operatorShipId: argo.id, operatorId, secret });
+      return ok({ fleetId, operatorShipId: argo.id, operatorId });
     });
   };
 }

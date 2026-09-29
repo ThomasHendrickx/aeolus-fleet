@@ -52,7 +52,7 @@ export function createUseCases(options: {
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
-    initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets, passwords: argon2idPasswordHasher }),
+    initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),

@@ -72,7 +72,6 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
     uow: core.uow,
     clock: core.clock,
     ids: core.ids,
-    secrets: { hasher: core.hasher, random: core.random },
     passwords: core.passwords,
   })({ name, ...OPERATOR });
   return unwrap(initialised);

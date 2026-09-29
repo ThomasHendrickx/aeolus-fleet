@@ -11,7 +11,7 @@ export interface ConsoleSessionUse {
 }
 
 export interface Authenticate {
-  /** The ship holding this valid secret, or undefined. */
+  /** The agent ship holding this valid secret, or undefined. Never `argo`: it has no secret (ADR 0012). */
   bySecret(secret: string): Promise<Caller | undefined>;
   /**
    * The caller of this live console session, or undefined. Each use keeps the
@@ -23,7 +23,10 @@ export interface Authenticate {
 /** Use case: turns a bearer secret or a console session token into the caller. */
 export function createAuthenticate(deps: { callers: CallerLookup; hasher: SecretHasher; clock: Clock }): Authenticate {
   return {
-    bySecret: (secret) => deps.callers.bySecretHash(deps.hasher.hash(secret)),
+    bySecret: async (secret) => {
+      const ship = await deps.callers.bySecretHash(deps.hasher.hash(secret));
+      return ship?.kind === 'agent' ? ship : undefined;
+    },
     byConsoleSession: async (token) => {
       const now = deps.clock.now();
       const expiresAt = consoleSessionExpiry(now);

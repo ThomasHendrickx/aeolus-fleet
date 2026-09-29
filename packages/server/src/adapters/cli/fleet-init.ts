@@ -45,19 +45,15 @@ export async function fleetInit(
     return 1;
   }
 
-  const { fleetId, operatorShipId, operatorId, secret } = initialised.value;
+  const { fleetId, operatorShipId, operatorId } = initialised.value;
   io.out(
     [
       `Fleet initialised: ${fleetId}`,
       `Operator ship argo: ${operatorShipId}`,
       `Operator account: ${operatorId}`,
       '',
-      "argo's secret, shown this once. Store it safely now:",
-      '',
-      `  ${secret}`,
-      '',
-      'Sign in to the console with the operator email and password. If the password is lost, run',
-      'operator:reset-password on the server.',
+      'Sign in to the console with the operator email and password: that crews argo.',
+      'If the password is lost, run operator:reset-password on the server.',
     ].join('\n'),
   );
   return 0;
