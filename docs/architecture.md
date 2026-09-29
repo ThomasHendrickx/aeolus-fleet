@@ -185,41 +185,15 @@ Four parts. The first three are published npm packages under the `aeolus-fleet` 
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
-```
-aeolus-fleet/                     public, Apache-2.0
-  packages/
-    common/
-      src/schemas/                 one schema per procedure input and output
-      src/ids/                     prefixed id format and parsing
-    server/
-      src/core/registry/           domain, use cases, ports
-      src/core/messaging/
-      src/core/identity/
-      src/core/shared/             fleet scope, unit of work, event log, clock, ids
-      src/adapters/prisma/         schema, migrations, repositories, notifier
-      src/adapters/trpc/           the router: ship, operator, web and subscription procedures
-      src/adapters/rest/           OpenAPI generation from the ship procedures
-      src/adapters/mcp/            MCP tools mapped onto the ship procedures
-      src/main.ts                  wiring and start
-    web/
-      app/                         Next.js routes (pages)
-      components/atoms/            shadcn/ui primitives on Base UI
-      components/molecules/        StatusBadge, SelectorPicker, StartingPromptBlock, ...
-      components/organisms/        ship table, message sheet, delivery timeline, ...
-      components/templates/        page layouts for desktop and phone
-  docs/                            blueprint, architecture, decision records
+Layers, not folders (the code shows the folders):
 
-aeolus-fleet-infra/               private
-  compose.yaml, Caddyfile, .env.example, backup/, deploy workflow
-```
+- `server/src/core`: domain, use cases, ports, per context (`registry`, `messaging`, `identity`, `shared`). Other contexts import a context only through its `public.ts`.
+- `server/src/adapters`: everything that touches a technology (Prisma, tRPC, HTTP, CLI, crypto, REST, MCP). Depends on core, never the reverse. REST and MCP go through the tRPC router.
+- Composition: the server's entry points build the adapters and inject them into the use cases.
+- `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
+- Every repository call takes a fleet scope (exception: decision 0007).
 
-Boundary rules:
-
-- `src/core` imports nothing from `src/adapters`, from Prisma, tRPC, Fastify or any other framework. Adapters depend on the core, never the other way round.
-- One context never imports another context's internals, only its published port (the Messaging to Registry selector lookup).
-- Every repository call takes a fleet scope; there is no query path that can read across fleets.
-- `web` reaches the server only through the tRPC router. It imports the router's type, never server code.
-- An import-boundary lint rule enforces this in CI, staged the way you already do it in Hemma.
+Lint and CI enforce these rules (slice 1b).
 
 ## Cross-cutting concerns
 

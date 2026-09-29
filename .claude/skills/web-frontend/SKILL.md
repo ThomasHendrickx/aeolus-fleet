@@ -5,6 +5,8 @@ description: Mandatory for changes under packages/web. Console structure, state,
 
 # Web console
 
+Before writing Next.js code, read the matching guide in `node_modules/next/dist/docs/`: Next.js 16 differs from training data.
+
 The console is `argo`. No domain logic: every rule is on the server via tRPC. Look from `docs/design.md`, behaviour from the blueprint.
 
 - `app/`: routes only (page, layout, `loading.tsx` skeleton, `error.tsx`). `components/{atoms,molecules,organisms,templates}`, `lib/`.

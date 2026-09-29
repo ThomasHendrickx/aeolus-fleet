@@ -6,6 +6,8 @@ import type { NextConfig } from 'next';
 const serverUrl = process.env.AEOLUS_SERVER_URL ?? 'http://127.0.0.1:4000';
 
 const nextConfig: NextConfig = {
+  // next dev would write AGENTS.md and CLAUDE.md here; the advice lives in the web-frontend skill instead.
+  agentRules: false,
   rewrites: () => Promise.resolve([{ source: '/trpc/:path*', destination: `${serverUrl}/trpc/:path*` }]),
 };
 
