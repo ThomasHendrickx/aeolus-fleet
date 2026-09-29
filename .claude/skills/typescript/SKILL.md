@@ -5,7 +5,7 @@ description: Mandatory for every .ts or .tsx change. Types, errors, validation, 
 
 # TypeScript
 
-- Forced by a library: `@ts-expect-error` with reason.
+- `@ts-expect-error` only when a library forces it, with the reason.
 - Ids: typed ids from `common` (`ShipId`), never `string`. Parse them (`idSchema`).
 - Closed sets: literal unions.
 - Readonly inputs; return new values, never mutate.

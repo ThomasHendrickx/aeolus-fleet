@@ -148,7 +148,7 @@ describe('boolean names', () => {
     },
   );
 
-  it('allows a name destructured from something else, checked where it is declared', async () => {
+  it('checks a destructured name where it is declared, not where it is destructured', async () => {
     const code = 'export function done(result: { ok: boolean }) {\n  const { ok } = result;\n  return ok;\n}';
 
     expect(reportsOf(await lint(code, probes.adapter), rule)).toEqual([expect.stringContaining('`ok`')]);

@@ -26,4 +26,4 @@ Rules:
 - Every blueprint invariant has a test that fails if the rule is removed.
 - Done: `npm run typecheck`, `npm run lint`, `npm test`; confirm new tests appear by name in the output.
 
-Enforced by lint/CI (`scripts/`): the `(red)` commit with only tests before production code, a test beside every use case, every test in a Vitest project, no `vi.mock`.
+Enforced by lint/CI (`eslint.config.js`, `scripts/`): the `(red)` commit with only tests before production code, a test beside every use case, every test in a Vitest project, no `vi.mock`.
