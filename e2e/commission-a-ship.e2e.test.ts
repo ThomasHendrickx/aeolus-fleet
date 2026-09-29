@@ -22,14 +22,13 @@ let useCases: UseCases;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
-let secret: string;
 const contexts: BrowserContext[] = [];
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
-  ({ secret } = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
 
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -50,7 +49,7 @@ async function signedInPage(): Promise<Page> {
   const context = await browser.newContext({ baseURL: web.url, permissions: ['clipboard-read', 'clipboard-write'] });
   contexts.push(context);
   const page = await context.newPage();
-  await signIn(page, secret);
+  await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   await page.getByText('Signed in as argo.').waitFor();
   return page;

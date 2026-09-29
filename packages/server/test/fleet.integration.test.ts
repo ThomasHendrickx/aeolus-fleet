@@ -24,12 +24,11 @@ let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
 let argo: Caller;
-let argoSecret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
   const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
-  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = fleet);
+  ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
 });
 
@@ -376,7 +375,7 @@ describe('listing the fleet on Postgres', () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
-    unwrap(await core.useCases.signIn({ secret: argoSecret }));
+    unwrap(await core.useCases.signIn(OPERATOR));
 
     await expect(core.useCases.listFleet(argo)).resolves.toEqual([
       {
@@ -384,7 +383,7 @@ describe('listing the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         status: 'crewed',
-        startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
+        startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
       },
       {
         id: shipId,

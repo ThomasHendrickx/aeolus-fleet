@@ -50,7 +50,7 @@ describe('the server commands', () => {
     await expect(database.fleet.findMany()).resolves.toEqual([expect.objectContaining({ name: 'home fleet' })]);
     await expect(database.operator.findMany()).resolves.toEqual([expect.objectContaining({ email: OPERATOR.email })]);
     expect(result.stdout).not.toContain(OPERATOR.password);
-    await expect(useCases.signIn({ secret: firstSecret })).resolves.toMatchObject({
+    await expect(useCases.signIn(OPERATOR)).resolves.toMatchObject({
       isOk: true,
       value: { caller: { kind: 'operator' } },
     });
@@ -70,21 +70,15 @@ describe('the server commands', () => {
   });
 
   it('argo:replace-secret makes the old secret fail, ends the sessions and prints a new one', async () => {
-    const { token } = unwrap(await useCases.signIn({ secret: firstSecret }));
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
 
     const result = await run('argo:replace-secret');
 
     expect(result.code).toBe(0);
     const newSecret = secretIn(result.stdout);
     expect(newSecret).not.toBe(firstSecret);
-    await expect(useCases.signIn({ secret: firstSecret })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'INVALID_SECRET' },
-    });
+    await expect(useCases.authenticate.bySecret(firstSecret)).resolves.toBeUndefined();
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
-    await expect(useCases.signIn({ secret: newSecret })).resolves.toMatchObject({
-      isOk: true,
-      value: { caller: { kind: 'operator' } },
-    });
+    await expect(useCases.authenticate.bySecret(newSecret)).resolves.toMatchObject({ kind: 'operator' });
   });
 });

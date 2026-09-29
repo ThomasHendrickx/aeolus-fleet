@@ -14,7 +14,14 @@ import { unwrap } from './result.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
-  const deps = { uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher, random: core.random };
+  const deps = {
+    uow: core.uow,
+    clock: core.clock,
+    ids: core.ids,
+    hasher: core.hasher,
+    random: core.random,
+    passwords: core.passwords,
+  };
   return {
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),

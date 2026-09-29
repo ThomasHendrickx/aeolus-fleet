@@ -5,6 +5,7 @@ import {
   crewShip,
   identityUseCases,
   initialiseFleet,
+  OPERATOR,
   operatorCaller,
   registryUseCases,
   secretIn,
@@ -64,12 +65,12 @@ describe('listing the fleet', () => {
     ]);
   });
 
-  it('shows argo crewed and its secret claimed once the console signs in', async () => {
-    unwrap(await identityUseCases(core).signIn({ secret: argoSecret }));
+  it('shows argo crewed once the operator signs in to the console', async () => {
+    unwrap(await identityUseCases(core).signIn(OPERATOR));
 
     const [listedArgo] = await useCases.listFleet(argo);
 
-    expect(listedArgo).toMatchObject({ status: 'crewed', startingPrompt: { isClaimed: true } });
+    expect(listedArgo).toMatchObject({ status: 'crewed' });
   });
 
   it('shows when the newest prompt was issued, unclaimed, after a new one replaced the first', async () => {

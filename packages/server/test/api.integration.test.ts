@@ -96,11 +96,11 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
   return secret;
 }
 
-async function signIn(secret: string): Promise<Response> {
+async function signIn(login: { email: string; password: string } = OPERATOR): Promise<Response> {
   return fetch(`${address}/trpc/console.signIn`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ secret }),
+    body: JSON.stringify(login),
   });
 }
 
@@ -145,7 +145,7 @@ describe('scopes at the API', () => {
 
 describe('the console session over HTTP', () => {
   it('signs in with a cookie that serves system.ping', async () => {
-    const response = await signIn(argoSecret);
+    const response = await signIn();
     const cookie = sessionCookieOf(response);
 
     expect(response.status).toBe(200);
@@ -154,30 +154,41 @@ describe('the console session over HTTP', () => {
   });
 
   it('stops serving the first cookie after a second sign-in', async () => {
-    const first = sessionCookieOf(await signIn(argoSecret));
-    const second = sessionCookieOf(await signIn(argoSecret));
+    const first = sessionCookieOf(await signIn());
+    const second = sessionCookieOf(await signIn());
 
     await expect(codeOf(client({ cookie: first }).system.ping.query())).resolves.toBe('UNAUTHORIZED');
     await expect(client({ cookie: second }).system.ping.query()).resolves.toMatchObject({ fleetCount: 1 });
   });
 
   it('signs out through the tRPC client: the cookie stops working', async () => {
-    const cookie = sessionCookieOf(await signIn(argoSecret));
+    const cookie = sessionCookieOf(await signIn());
 
     await client({ cookie }).console.signOut.mutate();
 
     await expect(codeOf(client({ cookie }).system.ping.query())).resolves.toBe('UNAUTHORIZED');
   });
 
-  it('refuses a wrong secret, then rate-limits the client', async () => {
+  it('refuses a wrong email and a wrong password with the very same answer, and no cookie', async () => {
+    clock.advance(60_000);
+
+    const wrongEmail = await signIn({ email: 'stranger@example.com', password: OPERATOR.password });
+    const wrongPassword = await signIn({ email: OPERATOR.email, password: 'wrong horse' });
+
+    expect([wrongEmail.status, wrongPassword.status]).toEqual([401, 401]);
+    await expect(wrongEmail.json()).resolves.toEqual(await wrongPassword.json());
+    expect([...wrongEmail.headers.getSetCookie(), ...wrongPassword.headers.getSetCookie()]).toEqual([]);
+  });
+
+  it('refuses a wrong password, then rate-limits the client', async () => {
     clock.advance(60_000);
     const statuses: number[] = [];
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      statuses.push((await signIn('aeolus_sk_v1_wrong')).status);
+      statuses.push((await signIn({ email: OPERATOR.email, password: 'wrong horse' })).status);
     }
 
     expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
-    expect((await signIn(argoSecret)).status).toBe(429);
+    expect((await signIn()).status).toBe(429);
   });
 });
 
@@ -237,7 +248,7 @@ describe('the fleet procedures at the API', () => {
   it('give a new starting prompt through the console session: the previous secret stops working', async () => {
     const { shipId, prompt: first } = await asArgo().fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
     clock.advance(60_000);
-    const cookie = sessionCookieOf(await signIn(argoSecret));
+    const cookie = sessionCookieOf(await signIn());
 
     const { prompt } = await client({ cookie }).fleet.getStartingPrompt.mutate({ shipId });
 

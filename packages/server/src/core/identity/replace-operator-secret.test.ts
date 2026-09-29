@@ -1,7 +1,7 @@
 import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
+import { identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 
@@ -24,15 +24,7 @@ describe("replacing argo's secret", () => {
     expect(shipId).toBe(argoId);
     expect(secret).toMatch(/^aeolus_sk_v1_./);
     expect(secret).not.toBe(oldSecret);
-    await expect(useCases.signIn({ secret: oldSecret })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'INVALID_SECRET' },
-    });
     await expect(useCases.authenticate.bySecret(oldSecret)).resolves.toBeUndefined();
-    await expect(useCases.signIn({ secret })).resolves.toMatchObject({
-      isOk: true,
-      value: { caller: { shipId: argoId } },
-    });
     await expect(useCases.authenticate.bySecret(secret)).resolves.toMatchObject({ shipId: argoId });
   });
 
@@ -45,7 +37,7 @@ describe("replacing argo's secret", () => {
   });
 
   it("ends every console session and argo's lease", async () => {
-    const { token } = unwrap(await useCases.signIn({ secret: oldSecret }));
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
     core.state.events.length = 0;
 
     unwrap(await useCases.replaceOperatorSecret({ fleetId }));
@@ -61,7 +53,7 @@ describe("replacing argo's secret", () => {
   });
 
   it('also ends a session that expired without signing out', async () => {
-    const { consoleSessionId } = unwrap(await useCases.signIn({ secret: oldSecret }));
+    const { consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
     core.clock.advance(31 * 24 * 60 * 60 * 1000);
 
     unwrap(await useCases.replaceOperatorSecret({ fleetId }));
