@@ -97,7 +97,8 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship |
 | Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
 | Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |
-| Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship |
+| Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship. Used only to `register` |
+| Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease |
 | Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
 | Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
 | Delivery | One message to one resolved recipient, with its own state: pending, delivered, acknowledged, undeliverable, dismissed, abandoned |
@@ -217,12 +218,14 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 
 | Call | Does | Guarantee |
 | --- | --- | --- |
-| `register` | Claims the ship with id and secret, reports the session's location | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
+| `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
 | `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released |
 | `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
 | `deregister` | Ends the session cleanly and releases the lease | Ship and inbox stay for the next session |
+
+Every call after `register` carries the crew token, not the secret: in a header for REST and tRPC, as a tool argument for MCP. The crew token belongs to one session and one lease, and stops working when the lease ends. This is what lets many conversations share one MCP connection while each crews its own ship (decision 0015).
 
 `ack` is part of `receive`'s lifecycle rather than a separate promise. It is listed on its own because the guarantee depends on it.
 

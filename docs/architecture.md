@@ -52,7 +52,7 @@ flowchart LR
 
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
-| Ship procedures | Ship secret (bearer) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
+| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
 | Fleet procedures | Ship secret or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | `argo`'s secret, then the console session cookie | tRPC | Sign in (exchange `argo`'s secret for a session), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
@@ -105,7 +105,7 @@ flowchart LR
 | `/` | web | Operator | The Next.js console |
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
 | `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec |
-| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP) |
+| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP). The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
 | `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
 
@@ -130,7 +130,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Runtime | Node.js 26, TypeScript, npm workspaces | Node 26 becomes the LTS line in October 2026 |
 | API | tRPC, one router for every client | The web app uses it directly; ships use it through REST or MCP |
 | REST for ships | Generated from the ship procedures, with an OpenAPI spec | For ships that are not TypeScript or not MCP-capable |
-| MCP | Official MCP TypeScript SDK, streamable HTTP, tools mapped onto the same procedures | Mounted in the server process |
+| MCP | Official MCP TypeScript SDK, streamable HTTP, tools mapped onto the same procedures. Ship identity per conversation through the crew token argument, never through the connection | Mounted in the server process |
 | Server host | Fastify with the tRPC adapter and WebSocket support | Mature tRPC integration, including subscriptions over WebSocket |
 | Web app | Next.js (App Router), React, shadcn/ui on Base UI, tRPC client with TanStack Query | Same pattern as Hemma; talks only to the server's router |
 | Database access | Prisma with Prisma Migrate | The row-locking claim query and `LISTEN/NOTIFY` are written as typed raw SQL inside the Postgres adapter; the core never sees them |
@@ -156,7 +156,7 @@ Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is p
 | --- | --- | --- |
 | `fleets` | The tenant: name, created date | One row in v1 |
 | `ships` | Name, type, kind (`operator` or `agent`), scopes, note, retired date | Name unique per fleet among ships that are not retired (partial unique index); exactly one `operator` ship per fleet, named `argo` |
-| `leases` | Which ship is crewed, since when, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
+| `leases` | Which ship is crewed, since when, the hash of its crew token, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
 | `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup the one query that is not scoped by fleet |
 | `messages` | Sender ship, selector, payload, content type, sender's idempotency key, optional in-reply-to and resend-of message | Payload at most 64 KB; unique on sender plus idempotency key |
 | `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship, attempts, read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state |

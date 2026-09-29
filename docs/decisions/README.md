@@ -18,3 +18,4 @@ One file per decision that was debated rather than obvious. Do not reopen a reco
 | 0012 | [The operator is a ship: `argo`](0012-operator-is-a-ship.md) |
 | 0013 | [Breaking changes are allowed before 1.0.0](0013-breaking-changes-before-1-0.md) |
 | 0014 | [Strict test-driven development](0014-strict-test-driven-development.md) |
+| 0015 | [Ship identity per conversation, not per connection](0015-ship-identity-per-conversation.md) |
