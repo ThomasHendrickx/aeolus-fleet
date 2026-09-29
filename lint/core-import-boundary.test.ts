@@ -1,46 +1,17 @@
-import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
-import { ESLint } from 'eslint';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { createLint, reportsOf } from './support/lint-probe.ts';
 
-// Lints source text as if it lived at the given path, with the repository's real
-// ESLint config, so this proves the rule that runs in CI. The probe files do not
-// exist on disk, so the only override lets the TypeScript project service type
-// them with the server's tsconfig.
-const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
+// server/src/core imports no framework, database or adapter (CLAUDE.md,
+// "Architecture rules").
+
 const coreProbe = 'packages/server/src/core/shared/boundary-probe.ts';
 const adapterProbe = 'packages/server/src/adapters/prisma/boundary-probe.ts';
-const coreFile = `${repositoryRoot}${coreProbe}`;
-const adapterFile = `${repositoryRoot}${adapterProbe}`;
+const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: [coreProbe, adapterProbe] });
 
-let eslint: ESLint;
-
-beforeAll(() => {
-  eslint = new ESLint({
-    cwd: repositoryRoot,
-    overrideConfig: {
-      languageOptions: {
-        parserOptions: {
-          projectService: {
-            allowDefaultProject: [coreProbe, adapterProbe],
-            defaultProject: 'packages/server/tsconfig.json',
-          },
-        },
-      },
-    },
-  });
-});
-
-async function boundaryViolations(code: string, filePath: string): Promise<string[]> {
-  const [result] = await eslint.lintText(code, { filePath });
-  const messages = result?.messages ?? [];
-  const fatal = messages.find((message) => message.fatal === true);
-  if (fatal) {
-    throw new Error(`ESLint could not parse the probe: ${fatal.message}`);
-  }
-  return messages
-    .filter((message) => message.ruleId === 'no-restricted-imports' || message.ruleId === 'no-restricted-syntax')
-    .map((message) => message.message);
+async function boundaryViolations(code: string, path: string): Promise<string[]> {
+  const messages = await lint(code, path);
+  return [...reportsOf(messages, 'no-restricted-imports'), ...reportsOf(messages, 'no-restricted-syntax')];
 }
 
 describe('core import boundary', () => {
@@ -60,14 +31,14 @@ describe('core import boundary', () => {
     ['Prisma through import()', "export const load = () => import('@prisma/client');"],
     ['Prisma through an import type', "export type Client = import('@prisma/client').PrismaClient;"],
   ])('fails when core imports %s', async (_label, code) => {
-    const violations = await boundaryViolations(code, coreFile);
+    const violations = await boundaryViolations(code, coreProbe);
 
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('server/src/core must not import ');
   });
 
   it('names Prisma in the failure', async () => {
-    const violations = await boundaryViolations("import { PrismaClient } from '@prisma/client';", coreFile);
+    const violations = await boundaryViolations("import { PrismaClient } from '@prisma/client';", coreProbe);
 
     expect(violations).toEqual([expect.stringContaining('must not import Prisma')]);
   });
@@ -75,14 +46,14 @@ describe('core import boundary', () => {
   it.each([
     ['another core module', "import type { Clock } from './clock.js';"],
     ['common', "import { createIdGenerator } from '@aeolus-fleet/common';"],
-    ['a Node built-in', "import { randomBytes } from 'node:crypto';"],
+    ['a Node built-in', "import { inspect } from 'node:util';"],
     ['a package whose name only starts like pg', "import pgp from 'pgp';"],
   ])('allows core to import %s', async (_label, code) => {
-    await expect(boundaryViolations(code, coreFile)).resolves.toEqual([]);
+    await expect(boundaryViolations(code, coreProbe)).resolves.toEqual([]);
   });
 
   it('allows adapters to import Prisma', async () => {
-    const violations = await boundaryViolations("import { PrismaClient } from '@prisma/client';", adapterFile);
+    const violations = await boundaryViolations("import { PrismaClient } from '@prisma/client';", adapterProbe);
 
     expect(violations).toEqual([]);
   });
