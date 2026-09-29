@@ -37,16 +37,20 @@ Requires Node 26 and npm. The integration tests start Postgres in Docker through
 npm install              # also generates the Prisma client
 npm run typecheck
 npm run lint
-npm test                 # unit and integration tests; npm run test:unit needs no Docker
+npx playwright install chromium   # once, for the end-to-end tests
+npm test                 # unit, integration and end-to-end tests; npm run test:unit needs no Docker
 ```
+
+The end-to-end tests drive the console in Chromium. To use a Chromium you already have, set `CHROMIUM_EXECUTABLE_PATH` instead of installing one.
 
 To run it locally against any Postgres 16 or newer:
 
 ```sh
 cp packages/server/.env.example packages/server/.env   # then point DATABASE_URL at your Postgres
 npm run db:migrate --workspace @aeolus-fleet/server
+npm run fleet:init --workspace @aeolus-fleet/server -- --name "my fleet"   # prints argo's secret once
 npm run dev --workspace @aeolus-fleet/server            # API on http://127.0.0.1:4000
-npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000
+npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000, sign in with argo's secret
 ```
 
 Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).

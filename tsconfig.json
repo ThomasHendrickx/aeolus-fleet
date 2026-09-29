@@ -4,5 +4,11 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["*.ts", "scripts/**/*.ts"]
+  "include": [
+    "*.ts",
+    "scripts/**/*.ts",
+    "e2e/**/*.ts",
+    // Declares what the Postgres global setup provides to the end-to-end tests.
+    "packages/server/test/postgres.global-setup.ts"
+  ]
 }

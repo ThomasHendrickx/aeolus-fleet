@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:unit": "vitest run --project '*:unit'",
     "test:integration": "vitest run --project '*:integration'",
+    "test:e2e": "vitest run --project '*:e2e'",
     "set-version": "node scripts/set-version.ts"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@types/node": "^26.6.3",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "playwright": "^1.63.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.2"
