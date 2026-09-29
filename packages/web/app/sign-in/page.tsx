@@ -29,7 +29,7 @@ function useHydrated(): boolean {
 export default function SignInPage() {
   const trpc = useTRPC();
   // Before hydration a native submit would send the form itself; the button waits for React.
-  const hydrated = useHydrated();
+  const isHydrated = useHydrated();
   const router = useRouter();
   const [secret, setSecret] = useState('');
   const signIn = useMutation(
@@ -66,7 +66,7 @@ export default function SignInPage() {
             setSecret(event.target.value);
           }}
         />
-        <button type="submit" disabled={!hydrated || signIn.isPending}>
+        <button type="submit" disabled={!isHydrated || signIn.isPending}>
           Sign in
         </button>
       </form>

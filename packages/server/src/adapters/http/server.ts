@@ -17,7 +17,7 @@ export interface HttpServerOptions {
   clock: Clock;
   logger: FastifyServerOptions['logger'];
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
-  trustProxy?: boolean;
+  shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
 }
 
@@ -28,7 +28,7 @@ export interface HttpServerOptions {
 export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const server = Fastify({
     logger: options.logger ?? false,
-    trustProxy: options.trustProxy ?? false,
+    trustProxy: options.shouldTrustProxy ?? false,
     // tRPC batches several procedure paths into one URL segment.
     routerOptions: { maxParamLength: 5000 },
   });
@@ -58,7 +58,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         },
         sessionCookie: {
           set: (token, expiresAt) => {
-            void res.header('set-cookie', sessionCookie(token, expiresAt, options.clock.now()));
+            void res.header('set-cookie', sessionCookie({ token, expiresAt, now: options.clock.now() }));
           },
           clear: () => {
             void res.header('set-cookie', clearedSessionCookie());

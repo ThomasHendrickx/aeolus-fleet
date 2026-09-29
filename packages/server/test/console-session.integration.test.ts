@@ -7,6 +7,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
 import { createUseCases } from '../src/wiring.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { unwrap } from './support/result.js';
 
 // The identity use cases on a real Postgres through the Prisma adapters:
 // takeover, sign-out, replacing the secret, rollback, concurrency and restart.
@@ -21,7 +22,7 @@ let secret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId, secret } = await core.useCases.initialiseFleet({ name: 'home fleet' }));
+  ({ fleetId, operatorShipId: argoId, secret } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' })));
 });
 
 afterEach(async () => {
@@ -65,7 +66,7 @@ async function deliveryInFlightToArgo(): Promise<string> {
 
 describe('signing in on Postgres', () => {
   it('stores the session by token hash and a lease from the web console', async () => {
-    const { token, consoleSessionId } = await core.useCases.signIn({ secret });
+    const { token, consoleSessionId } = unwrap(await core.useCases.signIn({ secret }));
 
     const [session] = await liveSessions();
     const [lease] = await openLeases();
@@ -81,10 +82,10 @@ describe('signing in on Postgres', () => {
   });
 
   it('takes over: the first session and lease end, deliveries in flight return to pending', async () => {
-    const first = await core.useCases.signIn({ secret });
+    const first = unwrap(await core.useCases.signIn({ secret }));
     const deliveryId = await deliveryInFlightToArgo();
 
-    const second = await core.useCases.signIn({ secret });
+    const second = unwrap(await core.useCases.signIn({ secret }));
 
     await expect(core.useCases.authenticate.byConsoleSession(first.token)).resolves.toBeUndefined();
     await expect(core.useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
@@ -98,9 +99,9 @@ describe('signing in on Postgres', () => {
   });
 
   it('serialises concurrent sign-ins: every one succeeds, one session and one lease stay', async () => {
-    const results = await Promise.allSettled(Array.from({ length: 5 }, () => core.useCases.signIn({ secret })));
+    const results = await Promise.all(Array.from({ length: 5 }, () => core.useCases.signIn({ secret })));
 
-    expect(results.map((result) => result.status)).toEqual(Array.from({ length: 5 }, () => 'fulfilled'));
+    expect(results.map((result) => result.isOk)).toEqual([true, true, true, true, true]);
     await expect(liveSessions()).resolves.toHaveLength(1);
     await expect(openLeases()).resolves.toHaveLength(1);
     const types = await eventTypes();
@@ -109,7 +110,7 @@ describe('signing in on Postgres', () => {
   });
 
   it('leaves the first session and lease untouched when a sign-in fails halfway', async () => {
-    const first = await core.useCases.signIn({ secret });
+    const first = unwrap(await core.useCases.signIn({ secret }));
     const failingUow = createPrismaUnitOfWork(core.prisma);
     const signIn = createSignIn({
       uow: {
@@ -135,7 +136,7 @@ describe('signing in on Postgres', () => {
 
 describe('a console session on Postgres', () => {
   it('expires 30 days after its last use, and each use moves that', async () => {
-    const { token } = await core.useCases.signIn({ secret });
+    const { token } = unwrap(await core.useCases.signIn({ secret }));
     core.clock.advance(29 * DAY_MS);
     await expect(core.useCases.authenticate.byConsoleSession(token)).resolves.toBeDefined();
     core.clock.advance(30 * DAY_MS - 1);
@@ -147,7 +148,7 @@ describe('a console session on Postgres', () => {
   });
 
   it('survives a server restart: a new client finds it', async () => {
-    const { token } = await core.useCases.signIn({ secret });
+    const { token } = unwrap(await core.useCases.signIn({ secret }));
     const restarted = createPrismaClient(core.databaseUrl);
     try {
       const useCases = createUseCases({ prisma: restarted, clock: core.clock });
@@ -161,7 +162,7 @@ describe('a console session on Postgres', () => {
 
 describe('signing out on Postgres', () => {
   it("ends the session and argo's lease", async () => {
-    const { token, caller } = await core.useCases.signIn({ secret });
+    const { token, caller } = unwrap(await core.useCases.signIn({ secret }));
     const deliveryId = await deliveryInFlightToArgo();
 
     await core.useCases.signOut(caller);
@@ -176,11 +177,14 @@ describe('signing out on Postgres', () => {
 
 describe("replacing argo's secret on Postgres", () => {
   it('makes the old secret fail, ends every session and the lease', async () => {
-    const { token } = await core.useCases.signIn({ secret });
+    const { token } = unwrap(await core.useCases.signIn({ secret }));
 
-    const replaced = await core.useCases.replaceOperatorSecret({ fleetId });
+    const replaced = unwrap(await core.useCases.replaceOperatorSecret({ fleetId }));
 
-    await expect(core.useCases.signIn({ secret })).rejects.toMatchObject({ code: 'INVALID_SECRET' });
+    await expect(core.useCases.signIn({ secret })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'INVALID_SECRET' },
+    });
     await expect(core.useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
     await expect(core.useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
     await expect(core.useCases.authenticate.bySecret(replaced.secret)).resolves.toMatchObject({ shipId: argoId });
@@ -191,16 +195,16 @@ describe("replacing argo's secret on Postgres", () => {
   });
 
   it('never lets a concurrent sign-in with the old secret outlive the replacement', async () => {
-    const [signIn, replaced] = await Promise.allSettled([
+    const [signIn, replaced] = await Promise.all([
       core.useCases.signIn({ secret }),
       core.useCases.replaceOperatorSecret({ fleetId }),
     ]);
 
-    expect(replaced.status).toBe('fulfilled');
-    if (signIn.status === 'fulfilled') {
+    expect(replaced.isOk).toBe(true);
+    if (signIn.isOk) {
       await expect(core.useCases.authenticate.byConsoleSession(signIn.value.token)).resolves.toBeUndefined();
     } else {
-      expect(signIn.reason).toMatchObject({ code: 'INVALID_SECRET' });
+      expect(signIn.error).toMatchObject({ kind: 'INVALID_SECRET' });
     }
     await expect(liveSessions()).resolves.toEqual([]);
     await expect(openLeases()).resolves.toEqual([]);

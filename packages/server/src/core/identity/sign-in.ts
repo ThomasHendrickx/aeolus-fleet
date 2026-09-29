@@ -1,11 +1,12 @@
 import type { ConsoleSessionId, IdGenerator } from '@aeolus-fleet/common';
 
-import { takeOverOperatorLease, type LeaseTx } from '../registry/index.js';
+import { takeOverOperatorLease, type LeaseTx } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { DomainError } from '../shared/errors.js';
+import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
+import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { CONSOLE_LOCATION, consoleSessionExpiry } from './console-session.js';
 import type { CredentialTx } from './credential.js';
@@ -23,7 +24,9 @@ export interface SignedIn {
   caller: Caller;
 }
 
-export type SignIn = (input: { secret: string }) => Promise<SignedIn>;
+export type SignInRefusal = DomainError<'INVALID_SECRET' | 'NOT_THE_OPERATOR_SHIP'>;
+
+export type SignIn = (input: { secret: string }) => Promise<Result<SignedIn, SignInRefusal>>;
 
 /**
  * Use case: the console exchanges `argo`'s secret for a session (ADR 0012).
@@ -38,21 +41,21 @@ export function createSignIn(deps: {
   random: RandomTokens;
 }): SignIn {
   return (input) =>
-    deps.uow.run(async (tx) => {
+    deps.uow.run(async (tx): Promise<Result<SignedIn, SignInRefusal>> => {
       const found = await tx.credentials.findValidBySecretHashForUpdate(deps.hasher.hash(input.secret));
       if (!found) {
-        throw new DomainError('INVALID_SECRET', 'This secret is not valid');
+        return refuse('INVALID_SECRET', 'This secret is not valid');
       }
       const { credential, ship } = found;
       if (ship.kind !== 'operator') {
-        throw new DomainError('NOT_THE_OPERATOR_SHIP', 'Only argo, the operator ship, signs in to the console');
+        return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo, the operator ship, signs in to the console');
       }
 
       const at = deps.clock.now();
       const actor = shipActor(ship.shipId);
 
       await tx.consoleSessions.endAll(ship.fleetId, at);
-      const leaseId = await takeOverOperatorLease(tx, deps.ids, {
+      const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
         fleetId: ship.fleetId,
         shipId: ship.shipId,
         kind: ship.kind,
@@ -60,8 +63,11 @@ export function createSignIn(deps: {
         actor,
         at,
       });
+      if (!takenOver.isOk) {
+        return takenOver;
+      }
       if (credential.claimedAt === null) {
-        await tx.credentials.markClaimed(ship.fleetId, credential.id, at);
+        await tx.credentials.markClaimed({ fleetId: ship.fleetId, credentialId: credential.id, at });
       }
 
       const token = deps.random.next();
@@ -71,7 +77,7 @@ export function createSignIn(deps: {
         id: consoleSessionId,
         fleetId: ship.fleetId,
         shipId: ship.shipId,
-        leaseId,
+        leaseId: takenOver.value,
         tokenHash: deps.hasher.hash(token),
         createdAt: at,
         lastUsedAt: at,
@@ -79,6 +85,6 @@ export function createSignIn(deps: {
         endedAt: null,
       });
 
-      return { token, consoleSessionId, expiresAt, caller: { ...ship, consoleSessionId } };
+      return ok({ token, consoleSessionId, expiresAt, caller: { ...ship, consoleSessionId } });
     });
 }

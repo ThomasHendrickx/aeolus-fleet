@@ -45,6 +45,6 @@ export interface EventLog {
 export type NewEvent = Omit<FleetEvent, 'id' | 'details'> & { details?: EventDetails };
 
 /** Gives the event its id and appends it. */
-export async function recordEvent(events: EventLog, ids: IdGenerator, event: NewEvent): Promise<void> {
-  await events.append({ ...event, id: ids('event'), details: event.details ?? {} });
+export async function recordEvent(deps: { events: EventLog; ids: IdGenerator }, event: NewEvent): Promise<void> {
+  await deps.events.append({ ...event, id: deps.ids('event'), details: event.details ?? {} });
 }

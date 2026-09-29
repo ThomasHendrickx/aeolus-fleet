@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { unwrap } from '../../../test/support/result.js';
 import { createSignIn } from './sign-in.js';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ beforeEach(async () => {
 
 describe('signing in to the console', () => {
   it("exchanges argo's secret for a session token valid 30 days", async () => {
-    const signedIn = await useCases.signIn({ secret });
+    const signedIn = unwrap(await useCases.signIn({ secret }));
 
     expect(signedIn.token).toEqual(expect.any(String));
     expect(signedIn.expiresAt).toEqual(new Date(core.clock.now().getTime() + THIRTY_DAYS_MS));
@@ -36,7 +37,7 @@ describe('signing in to the console', () => {
   });
 
   it('stores only the hash of the session token', async () => {
-    const { token, consoleSessionId } = await useCases.signIn({ secret });
+    const { token, consoleSessionId } = unwrap(await useCases.signIn({ secret }));
 
     expect(core.state.consoleSessions).toEqual([
       expect.objectContaining({ id: consoleSessionId, fleetId, shipId: argoId, tokenHash: core.hasher.hash(token) }),
@@ -45,7 +46,7 @@ describe('signing in to the console', () => {
   });
 
   it("takes argo's lease from the web console and writes ShipClaimed by argo", async () => {
-    const { consoleSessionId } = await useCases.signIn({ secret });
+    const { consoleSessionId } = unwrap(await useCases.signIn({ secret }));
 
     const [lease] = core.state.leases;
     expect(lease).toMatchObject({ shipId: argoId, location: { kind: 'OTHER', description: 'web console' }, endedAt: null });
@@ -56,16 +57,19 @@ describe('signing in to the console', () => {
   });
 
   it("marks argo's secret claimed on the first sign-in only", async () => {
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
     const firstClaim = core.clock.now();
     core.clock.advance(60_000);
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
 
     expect(core.state.credentials[0]?.claimedAt).toEqual(firstClaim);
   });
 
   it('refuses a wrong secret and writes nothing', async () => {
-    await expect(useCases.signIn({ secret: 'aeolus_sk_v1_wrong' })).rejects.toMatchObject({ code: 'INVALID_SECRET' });
+    await expect(useCases.signIn({ secret: 'aeolus_sk_v1_wrong' })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'INVALID_SECRET' },
+    });
 
     expect(core.state.consoleSessions).toEqual([]);
     expect(core.state.leases).toEqual([]);
@@ -73,9 +77,12 @@ describe('signing in to the console', () => {
   });
 
   it("refuses an agent ship's secret: only argo signs in to the console", async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
 
-    await expect(useCases.signIn({ secret: agent.secret })).rejects.toMatchObject({ code: 'NOT_THE_OPERATOR_SHIP' });
+    await expect(useCases.signIn({ secret: agent.secret })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'NOT_THE_OPERATOR_SHIP' },
+    });
     expect(core.state.consoleSessions).toEqual([]);
     expect(core.state.leases).toEqual([]);
   });
@@ -83,8 +90,8 @@ describe('signing in to the console', () => {
 
 describe('signing in a second time', () => {
   it('ends the first session: its token stops working', async () => {
-    const first = await useCases.signIn({ secret });
-    const second = await useCases.signIn({ secret });
+    const first = unwrap(await useCases.signIn({ secret }));
+    const second = unwrap(await useCases.signIn({ secret }));
 
     await expect(useCases.authenticate.byConsoleSession(first.token)).resolves.toBeUndefined();
     await expect(useCases.authenticate.byConsoleSession(second.token)).resolves.toMatchObject({ caller: { shipId: argoId } });
@@ -92,11 +99,11 @@ describe('signing in a second time', () => {
   });
 
   it("takes argo's lease over: the first lease ends and its deliveries in flight return to pending", async () => {
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
     core.state.deliveries.push({ id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId });
     core.state.events.length = 0;
 
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
 
     expect(core.state.leases.map((lease) => lease.endedAt === null)).toEqual([false, true]);
     expect(core.state.deliveries[0]).toMatchObject({ state: 'pending', claimedByShipId: null });
@@ -108,15 +115,18 @@ describe('signing in a second time', () => {
   });
 
   it("keeps argo's secret valid", async () => {
-    await useCases.signIn({ secret });
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
+    unwrap(await useCases.signIn({ secret }));
 
-    await expect(useCases.signIn({ secret })).resolves.toMatchObject({ caller: { shipId: argoId } });
+    await expect(useCases.signIn({ secret })).resolves.toMatchObject({
+      isOk: true,
+      value: { caller: { shipId: argoId } },
+    });
     await expect(useCases.authenticate.bySecret(secret)).resolves.toMatchObject({ shipId: argoId });
   });
 
   it('leaves the first session working when the second sign-in fails', async () => {
-    const first = await useCases.signIn({ secret });
+    const first = unwrap(await useCases.signIn({ secret }));
     const failing = createSignIn({
       uow: {
         run: (work) =>

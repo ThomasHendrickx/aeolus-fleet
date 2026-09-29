@@ -6,7 +6,7 @@ async function start(): Promise<void> {
   const server = createApp({
     databaseUrl: config.databaseUrl,
     logger: { level: config.logLevel },
-    trustProxy: config.trustProxy,
+    shouldTrustProxy: config.shouldTrustProxy,
   });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

@@ -1,15 +1,6 @@
-import type { ConsoleSessionId } from '@aeolus-fleet/common';
-
 import type { CallerLookup, ConsoleSessionRepository, CredentialRepository } from '../../core/identity/ports.js';
 import type { Db } from './client.js';
-import {
-  toAuthenticatedShip,
-  toConsoleSession,
-  toCredential,
-  type CallerSqlRow,
-  type ConsoleSessionSqlRow,
-  type CredentialSqlRow,
-} from './rows.js';
+import { toAuthenticatedShip, toConsoleSession, toConsoleSessionCaller, toCredential } from './rows.js';
 
 // Lock order, as the CredentialRepository port states: a credential first, then
 // console sessions, then leases. Sign-in, sign-out and replacing a secret all
@@ -24,7 +15,7 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
       // Not scoped by fleet: a secret carries no fleet (ADR 0007). Locking the
       // credential row makes a concurrent replacement either wait for this
       // transaction or invalidate the row before this query sees it.
-      const [row] = await db.$queryRaw<(CredentialSqlRow & CallerSqlRow)[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         SELECT c.id, c.fleet_id, c.ship_id, c.secret_hash, c.issued_at, c.claimed_at, c.invalidated_at,
                s.kind::text AS kind, s.scopes
         FROM credentials c
@@ -34,17 +25,17 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
       return row ? { credential: toCredential(row), ship: toAuthenticatedShip(row) } : undefined;
     },
     findValidForShipForUpdate: async (fleetId, shipId) => {
-      const [row] = await db.$queryRaw<CredentialSqlRow[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, ship_id, secret_hash, issued_at, claimed_at, invalidated_at
         FROM credentials
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND invalidated_at IS NULL
         FOR UPDATE`;
       return row ? toCredential(row) : undefined;
     },
-    markClaimed: async (fleetId, credentialId, at) => {
+    markClaimed: async ({ fleetId, credentialId, at }) => {
       await db.credential.updateMany({ where: { fleetId, id: credentialId, claimedAt: null }, data: { claimedAt: at } });
     },
-    invalidate: async (fleetId, credentialId, at) => {
+    invalidate: async ({ fleetId, credentialId, at }) => {
       await db.credential.updateMany({
         where: { fleetId, id: credentialId, invalidatedAt: null },
         data: { invalidatedAt: at },
@@ -58,15 +49,15 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
     create: async (session) => {
       await db.consoleSession.create({ data: session });
     },
-    end: async (fleetId, id, at) => {
-      const [row] = await db.$queryRaw<ConsoleSessionSqlRow[]>`
+    end: async ({ fleetId, consoleSessionId, at }) => {
+      const [row] = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}
-        WHERE fleet_id = ${fleetId} AND id = ${id} AND ended_at IS NULL
+        WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId} AND ended_at IS NULL
         RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at`;
       return row ? toConsoleSession(row) : undefined;
     },
     endAll: async (fleetId, at) => {
-      const rows = await db.$queryRaw<ConsoleSessionSqlRow[]>`
+      const rows = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}
         WHERE fleet_id = ${fleetId} AND ended_at IS NULL
         RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at`;
@@ -78,25 +69,24 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
 export function createPrismaCallerLookup(db: Db): CallerLookup {
   return {
     bySecretHash: async (secretHash) => {
-      const [row] = await db.$queryRaw<CallerSqlRow[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
         FROM credentials c
         JOIN ships s ON s.fleet_id = c.fleet_id AND s.id = c.ship_id
         WHERE c.secret_hash = ${secretHash} AND c.invalidated_at IS NULL AND s.retired_at IS NULL`;
       return row ? toAuthenticatedShip(row) : undefined;
     },
-    useConsoleSession: async (tokenHash, now, expiresAt) => {
+    useConsoleSession: async ({ tokenHash, now, expiresAt }) => {
       // One statement checks the session, moves its expiry and returns the ship.
       // GREATEST keeps two overlapping requests from moving either date back.
-      const [row] = await db.$queryRaw<(CallerSqlRow & { console_session_id: string })[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions cs
         SET last_used_at = GREATEST(cs.last_used_at, ${now}), expires_at = GREATEST(cs.expires_at, ${expiresAt})
         FROM ships s
         WHERE cs.token_hash = ${tokenHash} AND cs.ended_at IS NULL AND cs.expires_at > ${now}
           AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
         RETURNING cs.id AS console_session_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes`;
-      // The id was generated by this server (see rows.ts).
-      return row ? { ...toAuthenticatedShip(row), consoleSessionId: row.console_session_id as ConsoleSessionId } : undefined;
+      return row ? toConsoleSessionCaller(row) : undefined;
     },
   };
 }

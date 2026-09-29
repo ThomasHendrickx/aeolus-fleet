@@ -8,7 +8,7 @@ description: Mandatory for every code change. Strict red-green-refactor, commit 
 Server and common: no production code without a failing test that demands it. Web: tests alongside.
 
 Loop per behaviour:
-1. Red: one test, run it, see it fail for the right reason. Commit `test(<context>): <rule> (red)` with only the test.
+1. Red: one test, run it, see it fail for the right reason. Commit `test(<context>): <rule> (red)`.
 2. Green: least code to pass, run it by name. Commit `feat(<context>): <rule>`.
 3. Refactor with tests green.
 Push green heads only. One tiny rule may batch several tests.
@@ -25,3 +25,5 @@ Rules:
 - Each rule: happy path, every failure, boundaries (64 KB exact and one over).
 - Every blueprint invariant has a test that fails if the rule is removed.
 - Done: `npm run typecheck`, `npm run lint`, `npm test`; confirm new tests appear by name in the output.
+
+Enforced by lint/CI (`eslint.config.js`, `scripts/`): the `(red)` commit with only tests before production code, a test beside every use case, every test in a Vitest project, no `vi.mock`.

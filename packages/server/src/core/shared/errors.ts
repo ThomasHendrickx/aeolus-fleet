@@ -1,8 +1,7 @@
-/**
- * Why the domain refused a request. Adapters map a code to their own error
- * shape (a tRPC code, an exit code); the message is safe to show a caller.
- */
-export type DomainErrorCode =
+import { err, type Err } from './result.js';
+
+/** Every reason the domain refuses a request. */
+export type DomainErrorKind =
   | 'FLEET_ALREADY_EXISTS'
   | 'FLEET_NOT_FOUND'
   | 'INVALID_FLEET_NAME'
@@ -12,13 +11,16 @@ export type DomainErrorCode =
   | 'OPERATOR_SHIP_IS_PERMANENT'
   | 'SHIP_NAME_RESERVED';
 
-export class DomainError extends Error {
-  override name = 'DomainError';
+/**
+ * Why the domain refused a request. Adapters map the kind to their own error
+ * shape (a tRPC code, an exit code); the message is safe to show a caller.
+ */
+export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
+  readonly kind: K;
+  readonly message: string;
+}
 
-  constructor(
-    readonly code: DomainErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
+/** A refusal: the error result of the given kind. */
+export function refuse<K extends DomainErrorKind>(kind: K, message: string): Err<DomainError<K>> {
+  return err({ kind, message });
 }

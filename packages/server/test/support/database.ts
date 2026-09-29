@@ -4,8 +4,9 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import pg from 'pg';
 import { inject } from 'vitest';
+
+import { createPrismaClient } from '../../src/adapters/prisma/client.js';
 
 const run = promisify(execFile);
 const serverRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -24,12 +25,12 @@ export async function createEmptyDatabase(): Promise<string> {
   const adminUrl = inject('postgresUrl');
   const name = `aeolus_test_${randomBytes(6).toString('hex')}`;
 
-  const admin = new pg.Client({ connectionString: adminUrl });
-  await admin.connect();
+  const admin = createPrismaClient(adminUrl);
   try {
-    await admin.query(`CREATE DATABASE ${name}`);
+    // The name is generated above, never outside input.
+    await admin.$executeRawUnsafe(`CREATE DATABASE ${name}`);
   } finally {
-    await admin.end();
+    await admin.$disconnect();
   }
 
   const url = new URL(adminUrl);

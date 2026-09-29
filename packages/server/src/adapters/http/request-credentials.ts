@@ -24,7 +24,8 @@ export function readSessionToken(cookieHeader: string | undefined): string | und
 }
 
 /** A Set-Cookie value that keeps the token until the session expires. */
-export function sessionCookie(token: string, expiresAt: Date, now: Date): string {
+export function sessionCookie(cookie: { token: string; expiresAt: Date; now: Date }): string {
+  const { token, expiresAt, now } = cookie;
   const maxAgeSeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
   return `${SESSION_COOKIE_NAME}=${token}; Max-Age=${maxAgeSeconds}; ${ATTRIBUTES}`;
 }

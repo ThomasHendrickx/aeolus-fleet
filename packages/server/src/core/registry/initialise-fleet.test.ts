@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createInMemoryCore, type InMemoryTx } from '../../../test/support/in-memory.js';
-import { DomainError } from '../shared/errors.js';
+import { unwrap } from '../../../test/support/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { createInitialiseFleet } from './initialise-fleet.js';
 
@@ -20,7 +20,7 @@ describe('initialise fleet', () => {
   it('creates the fleet and argo, of kind operator with every scope', async () => {
     const { core, initialiseFleet } = setup();
 
-    const result = await initialiseFleet({ name: 'home fleet' });
+    const result = unwrap(await initialiseFleet({ name: 'home fleet' }));
 
     expect(core.state.fleets).toEqual([
       { id: result.fleetId, name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') },
@@ -43,7 +43,7 @@ describe('initialise fleet', () => {
   it("returns argo's secret once and stores only its hash", async () => {
     const { core, initialiseFleet } = setup();
 
-    const { secret, fleetId, operatorShipId } = await initialiseFleet({ name: 'home fleet' });
+    const { secret, fleetId, operatorShipId } = unwrap(await initialiseFleet({ name: 'home fleet' }));
 
     expect(secret).toMatch(/^aeolus_sk_v1_./);
     expect(core.state.credentials).toEqual([
@@ -61,7 +61,7 @@ describe('initialise fleet', () => {
   it('writes FleetInitialised and ShipCommissioned, caused by the system', async () => {
     const { core, initialiseFleet } = setup();
 
-    const { fleetId, operatorShipId } = await initialiseFleet({ name: 'home fleet' });
+    const { fleetId, operatorShipId } = unwrap(await initialiseFleet({ name: 'home fleet' }));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({
@@ -86,20 +86,22 @@ describe('initialise fleet', () => {
 
   it('refuses a second run and changes nothing', async () => {
     const { core, initialiseFleet } = setup();
-    await initialiseFleet({ name: 'home fleet' });
+    unwrap(await initialiseFleet({ name: 'home fleet' }));
     const before = structuredClone(core.state);
 
-    const second = initialiseFleet({ name: 'another fleet' });
+    const second = await initialiseFleet({ name: 'another fleet' });
 
-    await expect(second).rejects.toThrow(DomainError);
-    await expect(second).rejects.toMatchObject({ code: 'FLEET_ALREADY_EXISTS' });
+    expect(second).toEqual({
+      isOk: false,
+      error: { kind: 'FLEET_ALREADY_EXISTS', message: 'A fleet already exists: a fleet is initialised only once' },
+    });
     expect(core.state).toEqual(before);
   });
 
   it('trims the name', async () => {
     const { core, initialiseFleet } = setup();
 
-    await initialiseFleet({ name: '  home fleet \n' });
+    unwrap(await initialiseFleet({ name: '  home fleet \n' }));
 
     expect(core.state.fleets[0]?.name).toBe('home fleet');
   });
@@ -111,7 +113,13 @@ describe('initialise fleet', () => {
   ])('refuses %s and creates nothing', async (_label, name) => {
     const { core, initialiseFleet } = setup();
 
-    await expect(initialiseFleet({ name })).rejects.toMatchObject({ code: 'INVALID_FLEET_NAME' });
+    await expect(initialiseFleet({ name })).resolves.toEqual({
+      isOk: false,
+      error: {
+        kind: 'INVALID_FLEET_NAME',
+        message: 'A fleet name is 1 to 100 characters, not counting spaces around it',
+      },
+    });
     expect(core.state.fleets).toEqual([]);
   });
 

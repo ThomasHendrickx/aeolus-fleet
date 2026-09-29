@@ -1,7 +1,7 @@
 import { signInInputSchema } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { publicProcedure, router } from './trpc.js';
+import { okOrThrow, publicProcedure, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -18,7 +18,7 @@ export const consoleRouter = router({
     })
     .input(signInInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const { token, expiresAt } = await ctx.useCases.signIn({ secret: input.secret });
+      const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn({ secret: input.secret }));
       ctx.sessionCookie.set(token, expiresAt);
     }),
 

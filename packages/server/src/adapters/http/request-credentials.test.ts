@@ -4,11 +4,11 @@ import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } fro
 
 describe('readSessionToken', () => {
   it.each([
-    ['the only cookie', 'aeolus_session=abc', 'abc'],
-    ['one of several cookies', 'theme=dark; aeolus_session=abc; other=1', 'abc'],
-    ['a cookie with spaces around it', ' aeolus_session = abc ', 'abc'],
-  ])('reads %s', (_label, header, token) => {
-    expect(readSessionToken(header)).toBe(token);
+    { label: 'the only cookie', header: 'aeolus_session=abc' },
+    { label: 'one of several cookies', header: 'theme=dark; aeolus_session=abc; other=1' },
+    { label: 'a cookie with spaces around it', header: ' aeolus_session = abc ' },
+  ])('reads $label', ({ header }) => {
+    expect(readSessionToken(header)).toBe('abc');
   });
 
   it.each([
@@ -25,7 +25,7 @@ describe('sessionCookie', () => {
     const now = new Date('2026-09-29T12:00:00.000Z');
     const expiresAt = new Date('2026-10-29T12:00:00.500Z');
 
-    expect(sessionCookie('abc', expiresAt, now)).toBe(
+    expect(sessionCookie({ token: 'abc', expiresAt, now })).toBe(
       'aeolus_session=abc; Max-Age=2592000; Path=/; HttpOnly; Secure; SameSite=Strict',
     );
   });
@@ -33,7 +33,9 @@ describe('sessionCookie', () => {
   it('never has a negative age', () => {
     const now = new Date('2026-09-29T12:00:00.000Z');
 
-    expect(sessionCookie('abc', new Date('2026-09-28T12:00:00.000Z'), now)).toContain('Max-Age=0;');
+    expect(sessionCookie({ token: 'abc', expiresAt: new Date('2026-09-28T12:00:00.000Z'), now })).toContain(
+      'Max-Age=0;',
+    );
   });
 });
 

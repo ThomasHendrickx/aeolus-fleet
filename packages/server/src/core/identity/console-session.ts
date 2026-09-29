@@ -1,6 +1,6 @@
 import type { ConsoleSessionId, FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
 
-import { location, type Location } from '../registry/index.js';
+import type { Location } from '../registry/public.js';
 
 /**
  * The operator crewing `argo` through the web console. Only the hash of the
@@ -23,7 +23,7 @@ export interface ConsoleSession {
 export const CONSOLE_SESSION_IDLE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Where a console session crews `argo` from. */
-export const CONSOLE_LOCATION: Location = location('OTHER', 'web console');
+export const CONSOLE_LOCATION: Location = { kind: 'OTHER', description: 'web console' };
 
 /** When a session used at `usedAt` expires: it is valid strictly before that moment. */
 export function consoleSessionExpiry(usedAt: Date): Date {

@@ -19,6 +19,15 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          // Each guardrail lint rule, proven against the real ESLint config.
+          name: 'lint:unit',
+          include: ['lint/**/*.test.ts'],
+          testTimeout: 30_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'common:unit',
           root: 'packages/common',
           include: ['src/**/*.test.ts'],

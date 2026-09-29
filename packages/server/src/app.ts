@@ -10,7 +10,7 @@ export interface AppOptions {
   databaseUrl: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
-  trustProxy?: boolean;
+  shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
 }
 
@@ -27,7 +27,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     checkDatabase: () => checkDatabase(prisma),
     clock,
     logger: options.logger,
-    trustProxy: options.trustProxy,
+    shouldTrustProxy: options.shouldTrustProxy,
     signInRateLimit: options.signInRateLimit,
   });
 

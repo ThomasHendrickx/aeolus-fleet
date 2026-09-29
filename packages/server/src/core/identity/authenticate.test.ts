@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { unwrap } from '../../../test/support/result.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -29,7 +30,7 @@ describe('authenticating with a ship secret', () => {
   });
 
   it('returns an agent with only its own scopes', async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
 
     await expect(useCases.authenticate.bySecret(agent.secret)).resolves.toEqual({
       shipId: agent.shipId,
@@ -44,7 +45,7 @@ describe('authenticating with a ship secret', () => {
   });
 
   it('knows no secret of a retired ship', async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
     const ship = core.state.ships.find((candidate) => candidate.id === agent.shipId);
     if (ship) {
       ship.retiredAt = core.clock.now();
@@ -56,7 +57,7 @@ describe('authenticating with a ship secret', () => {
 
 describe('authenticating with a console session', () => {
   it('returns argo with the session id, and the expiry this use moved to', async () => {
-    const { token, consoleSessionId } = await useCases.signIn({ secret });
+    const { token, consoleSessionId } = unwrap(await useCases.signIn({ secret }));
     core.clock.advance(DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toEqual({
@@ -72,21 +73,21 @@ describe('authenticating with a console session', () => {
   });
 
   it('works until just before 30 days after the last use', async () => {
-    const { token } = await useCases.signIn({ secret });
+    const { token } = unwrap(await useCases.signIn({ secret }));
     core.clock.advance(30 * DAY_MS - 1);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId } });
   });
 
   it('has expired 30 days after the last use', async () => {
-    const { token } = await useCases.signIn({ secret });
+    const { token } = unwrap(await useCases.signIn({ secret }));
     core.clock.advance(30 * DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
   });
 
   it('counts the 30 days from the last use, not from signing in', async () => {
-    const { token } = await useCases.signIn({ secret });
+    const { token } = unwrap(await useCases.signIn({ secret }));
     core.clock.advance(29 * DAY_MS);
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeDefined();
     core.clock.advance(29 * DAY_MS);
@@ -99,13 +100,13 @@ describe('authenticating with a console session', () => {
   });
 
   it('knows no unknown token', async () => {
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
 
     await expect(useCases.authenticate.byConsoleSession('not-a-token')).resolves.toBeUndefined();
   });
 
   it('does not take the ship secret as a session token', async () => {
-    await useCases.signIn({ secret });
+    unwrap(await useCases.signIn({ secret }));
 
     await expect(useCases.authenticate.byConsoleSession(secret)).resolves.toBeUndefined();
   });

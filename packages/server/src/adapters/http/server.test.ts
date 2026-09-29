@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { addAgentShip, identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
@@ -37,8 +38,8 @@ afterEach(async () => {
   await server.close();
 });
 
-function signIn(body: unknown, headers: Record<string, string> = {}) {
-  return server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: body as object, headers });
+function signIn(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  return server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: body, headers });
 }
 
 /** Like the tRPC client: a JSON content type and no body. */
@@ -63,8 +64,10 @@ function cookieOf(response: { headers: Record<string, unknown> }): string {
   return header.split(';')[0] ?? '';
 }
 
-function errorCode(response: { json: () => unknown }): unknown {
-  return (response.json() as { error?: { data?: { code?: string } } }).error?.data?.code;
+const trpcErrorBody = z.object({ error: z.object({ data: z.object({ code: z.string() }) }) });
+
+function errorCode(response: { json: () => unknown }): string | undefined {
+  return trpcErrorBody.safeParse(response.json()).data?.error.data.code;
 }
 
 describe('/health', () => {
@@ -111,7 +114,7 @@ describe('console.signIn', () => {
 
   it("refuses an agent ship's secret with 403", async () => {
     start();
-    const agent = addAgentShip(core, core.state.fleets[0]?.id ?? expect.unreachable());
+    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
 
     const response = await signIn({ secret: agent.secret });
 
@@ -169,7 +172,7 @@ describe('a procedure that needs a scope', () => {
 
   it('refuses a ship without the scope with 403', async () => {
     start();
-    const agent = addAgentShip(core, core.state.fleets[0]?.id ?? expect.unreachable());
+    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
 
     const response = await ping({ authorization: `Bearer ${agent.secret}` });
 

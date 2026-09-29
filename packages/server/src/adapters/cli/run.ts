@@ -14,14 +14,14 @@ const io: CommandIo = {
 
 /** Runs a server command against the configured database and exits with its code. */
 export async function runCommand(
-  command: (args: string[], useCases: UseCases, io: CommandIo) => Promise<ExitCode>,
+  command: (run: { args: string[]; useCases: UseCases; io: CommandIo }) => Promise<ExitCode>,
 ): Promise<never> {
   let code: number;
   try {
     const config = loadConfig(process.env);
     const prisma = createPrismaClient(config.databaseUrl);
     try {
-      code = await command(process.argv.slice(2), createUseCases({ prisma }), io);
+      code = await command({ args: process.argv.slice(2), useCases: createUseCases({ prisma }), io });
     } finally {
       await prisma.$disconnect();
     }

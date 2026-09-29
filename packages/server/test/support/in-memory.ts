@@ -24,8 +24,8 @@ import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
- * one plain state object; the unit of work restores it when the work throws, so
- * tests can prove a use case leaves nothing behind.
+ * one plain state object; the unit of work restores it when the work refuses or
+ * throws, so tests can prove a use case leaves nothing behind.
  */
 
 /** Just enough of a delivery to prove what the lease operations do with deliveries in flight. */
@@ -139,7 +139,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.leases.push({ ...lease });
         return Promise.resolve();
       },
-      end: (fleetId, leaseId, endedAt) => {
+      end: ({ fleetId, leaseId, endedAt }) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === leaseId);
         if (lease?.endedAt !== null) {
           return Promise.resolve(undefined);
@@ -185,14 +185,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             (held) => held.fleetId === fleetId && held.shipId === shipId && held.invalidatedAt === null,
           ),
         ),
-      markClaimed: (fleetId, credentialId, at) => {
+      markClaimed: ({ fleetId, credentialId, at }) => {
         const credential = state.credentials.find((held) => held.fleetId === fleetId && held.id === credentialId);
         if (credential) {
           credential.claimedAt = at;
         }
         return Promise.resolve();
       },
-      invalidate: (fleetId, credentialId, at) => {
+      invalidate: ({ fleetId, credentialId, at }) => {
         const credential = state.credentials.find((held) => held.fleetId === fleetId && held.id === credentialId);
         if (credential) {
           credential.invalidatedAt = at;
@@ -208,8 +208,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.consoleSessions.push({ ...session });
         return Promise.resolve();
       },
-      end: (fleetId, id, at) => {
-        const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === id);
+      end: ({ fleetId, consoleSessionId, at }) => {
+        const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === consoleSessionId);
         if (session?.endedAt !== null) {
           return Promise.resolve(undefined);
         }
@@ -239,7 +239,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const run = queue.then(async () => {
         const snapshot = structuredClone(state);
         try {
-          return await work(tx);
+          const result = await work(tx);
+          if (!result.isOk) {
+            restore(state, snapshot);
+          }
+          return result;
         } catch (error) {
           restore(state, snapshot);
           throw error;
@@ -252,7 +256,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   const callers: CallerLookup = {
     bySecretHash: async (secretHash) => (await tx.credentials.findValidBySecretHashForUpdate(secretHash))?.ship,
-    useConsoleSession: (tokenHash, at, expiresAt) => {
+    useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
       const session = state.consoleSessions.find(
         (held) => held.tokenHash === tokenHash && held.endedAt === null && held.expiresAt > at,
       );
@@ -269,9 +273,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   return { state, uow, callers, clock, ids, hasher, random };
 }
 
+const TABLES = [
+  'fleets',
+  'ships',
+  'leases',
+  'credentials',
+  'consoleSessions',
+  'deliveries',
+  'events',
+] as const satisfies readonly (keyof InMemoryState)[];
+
 /** Puts every table back as it was, keeping the arrays tests already hold. */
 function restore(state: InMemoryState, snapshot: InMemoryState): void {
-  for (const key of Object.keys(state) as (keyof InMemoryState)[]) {
+  for (const key of TABLES) {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }

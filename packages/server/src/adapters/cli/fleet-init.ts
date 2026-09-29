@@ -1,7 +1,6 @@
 import { parseArgs } from 'node:util';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
-import { DomainError } from '../../core/shared/errors.js';
 import type { CommandIo, ExitCode } from './io.js';
 
 const USAGE = 'Usage: npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"';
@@ -28,26 +27,24 @@ export async function fleetInit(
     return 2;
   }
 
-  try {
-    const { fleetId, operatorShipId, secret } = await deps.initialiseFleet({ name });
-    io.out(
-      [
-        `Fleet initialised: ${fleetId}`,
-        `Operator ship argo: ${operatorShipId}`,
-        '',
-        "argo's secret, shown this once. Store it safely now:",
-        '',
-        `  ${secret}`,
-        '',
-        'Sign in to the console with it. If it is ever lost, run argo:replace-secret on the server.',
-      ].join('\n'),
-    );
-    return 0;
-  } catch (error) {
-    if (error instanceof DomainError) {
-      io.err(error.message);
-      return 1;
-    }
-    throw error;
+  const initialised = await deps.initialiseFleet({ name });
+  if (!initialised.isOk) {
+    io.err(initialised.error.message);
+    return 1;
   }
+
+  const { fleetId, operatorShipId, secret } = initialised.value;
+  io.out(
+    [
+      `Fleet initialised: ${fleetId}`,
+      `Operator ship argo: ${operatorShipId}`,
+      '',
+      "argo's secret, shown this once. Store it safely now:",
+      '',
+      `  ${secret}`,
+      '',
+      'Sign in to the console with it. If it is ever lost, run argo:replace-secret on the server.',
+    ].join('\n'),
+  );
+  return 0;
 }
