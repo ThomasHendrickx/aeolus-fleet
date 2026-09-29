@@ -17,3 +17,4 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0013](0013-breaking-changes-before-1-0.md) **Breaking changes before 1.0.0.** Allowed; no compatibility layers.
 - [0014](0014-strict-test-driven-development.md) **Strict TDD.** Server and common test first, `(red)` commit then green; push green only.
 - [0015](0015-ship-identity-per-conversation.md) **Identity per conversation.** `register` returns a crew token; later calls carry it; MCP connection has no ship credential.
+- [0016](0016-no-policy.md) **No policy.** Scopes are enforced exactly; Aeolus adds no protective rules. Risk is the operator's call.
