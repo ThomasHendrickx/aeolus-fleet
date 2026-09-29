@@ -3,9 +3,19 @@ import { z } from 'zod';
 /** A domain name alone, such as example.com: no scheme, port, path or leading dot. */
 const DOMAIN_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
 
-/** An http or https origin: the URL has nothing after its host and port but an optional slash. */
+/** An http or https origin: a URL with no user, path, query or fragment. A trailing slash is allowed. */
 function isOrigin(value: string): boolean {
-  return URL.canParse(value) && new URL(value).origin === value.replace(/\/$/, '');
+  const url = URL.parse(value);
+  return (
+    url !== null &&
+    url.username === '' &&
+    url.password === '' &&
+    url.pathname === '/' &&
+    url.search === '' &&
+    url.hash === '' &&
+    !value.endsWith('?') &&
+    !value.endsWith('#')
+  );
 }
 
 const environmentSchema = z.object({
