@@ -9,6 +9,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
+import { FLEET_URL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -29,10 +30,16 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   ({ fleetId, secret: argoSecret } = unwrap(
-    await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' }),
+    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet' }),
   ));
 
-  server = createApp({ databaseUrl, clock, logger: false, signInRateLimit: { limit: 5, windowMs: 60_000 } });
+  server = createApp({
+    databaseUrl,
+    publicUrl: FLEET_URL,
+    clock,
+    logger: false,
+    signInRateLimit: { limit: 5, windowMs: 60_000 },
+  });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 
@@ -171,7 +178,11 @@ describe('/health', () => {
   });
 
   it('reports 503 when Postgres is unreachable', async () => {
-    const unreachable = createApp({ databaseUrl: 'postgresql://aeolus:aeolus@127.0.0.1:1/aeolus', logger: false });
+    const unreachable = createApp({
+      databaseUrl: 'postgresql://aeolus:aeolus@127.0.0.1:1/aeolus',
+      publicUrl: FLEET_URL,
+      logger: false,
+    });
     try {
       const response = await unreachable.inject({ method: 'GET', url: '/health' });
 

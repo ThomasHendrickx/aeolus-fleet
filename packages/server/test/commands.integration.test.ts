@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
+import { FLEET_URL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 
@@ -23,7 +24,7 @@ let useCases: UseCases;
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database });
+  useCases = createUseCases({ prisma: database, fleetUrl: FLEET_URL });
 });
 
 afterAll(async () => {
@@ -37,7 +38,7 @@ async function npmRun(...args: string[]): Promise<{ code: number; stdout: string
   try {
     const { stdout, stderr } = await run('npm', ['run', '--silent', ...args], {
       cwd: repositoryRoot,
-      env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: 'https://fleet.example.com' },
+      env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL },
     });
     return { code: 0, stdout, stderr };
   } catch (error) {
