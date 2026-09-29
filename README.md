@@ -19,7 +19,7 @@ Pre-v1, design complete, build starting. The v1 acceptance test: two ships excha
 - [Solution and technical architecture](docs/architecture.md)
 - [Build plan](docs/build-plan.md)
 - [Decision records](docs/decisions/README.md)
-- [Design reference](docs/design.md)
+- [Design system](docs/design/README.md)
 
 ## Packages
 

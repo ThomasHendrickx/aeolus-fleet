@@ -1,0 +1,58 @@
+/* Helper classes the canvas markup uses. Reference for exact values only; the console uses Tailwind and shadcn, not these classes. */
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);font-family:var(--font-sans)}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+.i{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.i-sm{width:14px;height:14px}.i-lg{width:20px;height:20px}.i-xl{width:24px;height:24px}
+.fl-link{color:var(--foreground);text-decoration:underline;text-decoration-color:var(--input);text-underline-offset:3px}
+.fl-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:var(--radius-md);border:1px solid transparent;font:500 14px/1 var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color .15s,border-color .15s,opacity .15s}
+.fl-primary{background:var(--primary);color:var(--primary-foreground)}.fl-primary:hover,.is-hover.fl-primary{background:var(--primary-hover);color:var(--primary-foreground)}
+.fl-outline{background:var(--card);color:var(--foreground);border-color:var(--input);box-shadow:var(--shadow-sm)}.fl-outline:hover,.is-hover.fl-outline{background:var(--accent)}
+.fl-ghost{background:transparent;color:var(--foreground)}.fl-ghost:hover,.is-hover.fl-ghost{background:var(--accent)}
+.fl-danger{background:var(--destructive);color:var(--destructive-foreground)}.fl-danger:hover,.is-hover.fl-danger{opacity:.9;color:var(--destructive-foreground)}
+.fl-sm{height:32px;padding:0 12px;font-size:13px}.fl-xs{height:28px;padding:0 10px;font-size:13px;gap:6px}
+.fl-lg{height:44px;padding:0 16px;font-size:15px;border-radius:var(--radius-lg)}
+.fl-icon{width:36px;padding:0}.fl-icon.fl-sm{width:32px}.fl-icon.fl-xs{width:28px}.fl-icon.fl-lg{width:44px;padding:0}
+.fl-btn:disabled,.fl-btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed;pointer-events:none}
+.is-busy{cursor:progress}.is-busy .spin{animation:ds-spin .9s linear infinite}@keyframes ds-spin{to{transform:rotate(360deg)}}
+.is-focus{outline:2px solid var(--ring);outline-offset:2px}
+.fl-nav{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:var(--radius-sm);font:500 14px/1 var(--font-sans);color:var(--muted-foreground)}.fl-nav-on{background:var(--accent);color:var(--foreground)}
+.fl-input{height:36px;width:100%;padding:0 12px;border:1px solid var(--input);border-radius:var(--radius-md);background:var(--card);color:var(--foreground);font:400 14px/1.4 var(--font-sans);box-shadow:var(--shadow-sm);outline:none}
+.fl-focus{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 22%,transparent)}
+.fl-invalid{border-color:var(--destructive);box-shadow:0 0 0 3px color-mix(in oklch,var(--destructive) 16%,transparent)}
+.fl-input:disabled,.fl-input.is-disabled{opacity:.5;cursor:not-allowed;box-shadow:none;background:var(--muted)}
+.m-input{height:44px;font-size:16px;border-radius:var(--radius-lg)}
+.ph{color:var(--muted-foreground)}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.fl-badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 7px;border-radius:var(--radius-sm);border:1px solid;font:500 12px/1 var(--font-sans);white-space:nowrap}
+.fl-badge .i{width:13px;height:13px}.fl-dashed{border-style:dashed}
+.t-waiting{background:var(--tone-waiting-bg);color:var(--tone-waiting-fg);border-color:var(--tone-waiting-border)}
+.t-active{background:var(--tone-active-bg);color:var(--tone-active-fg);border-color:var(--tone-active-border)}
+.t-ok{background:var(--tone-ok-bg);color:var(--tone-ok-fg);border-color:var(--tone-ok-border)}
+.t-attention{background:var(--tone-attention-bg);color:var(--tone-attention-fg);border-color:var(--tone-attention-border)}
+.t-ended{background:var(--tone-ended-bg);color:var(--tone-ended-fg);border-color:var(--tone-ended-border)}
+.fl-type{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 7px;border-radius:var(--radius-sm);background:var(--secondary);color:var(--foreground);font:500 12px/1 var(--font-mono);white-space:nowrap}
+.fl-kind{background:var(--highlight);color:var(--primary)}
+.fl-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-xs);background:var(--muted);border:1px solid var(--border);color:var(--muted-foreground);font:500 11px/1 var(--font-sans)}
+.fl-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-full);font:600 11px/1 var(--font-sans);font-variant-numeric:tabular-nums}
+.fl-menu-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:var(--radius-sm);font:400 14px/1 var(--font-sans);color:var(--foreground);width:100%;border:0;background:none;text-align:left}.fl-menu-on{background:var(--accent)}.fl-menu-item .i{color:var(--muted-foreground)}.fl-menu-danger,.fl-menu-danger .i{color:var(--destructive-text)}.fl-menu-disabled{opacity:.45}
+.fl-tab{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted-foreground);font:500 14px/1 var(--font-sans);margin-bottom:-1px}.fl-tab-on{color:var(--foreground);border-bottom-color:var(--foreground)}
+.fl-seg{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 10px;border:0;border-radius:var(--radius-sm);background:none;color:var(--muted-foreground);font:500 13px/1 var(--font-sans);white-space:nowrap}.fl-seg-on{background:var(--card);color:var(--foreground);box-shadow:0 1px 2px oklch(0.2 0.02 257 / 0.12)}
+.seg-wrap{display:inline-flex;gap:2px;padding:3px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-md)}
+.fl-skel{background:var(--secondary);border-radius:var(--radius-sm);animation:fl-pulse 1.8s ease-in-out infinite;display:block}@keyframes fl-pulse{50%{opacity:.45}}
+.fl-num{font-variant-numeric:tabular-nums}.fl-mono{font-family:var(--font-mono)}.fl-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-dots{background-image:radial-gradient(color-mix(in oklch,var(--foreground) 10%,transparent) 1px,transparent 1.2px);background-size:22px 22px}
+.m-tab{color:var(--muted-foreground)}.m-tab-on{color:var(--primary)}
+.m-sheet-item{display:flex;align-items:center;gap:14px;height:52px;padding:0 6px;border-bottom:1px solid var(--border);color:var(--foreground);font:400 16px/1 var(--font-sans);width:100%}.m-sheet-item .i{color:var(--muted-foreground);width:20px;height:20px}.m-sheet-danger,.m-sheet-danger .i{color:var(--destructive-text)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.pop{background:var(--popover);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg)}
+.muted{color:var(--muted-foreground)}
+.tx-micro{font-size:11px;line-height:14px}.tx-caption{font-size:12px;line-height:16px}.tx-meta{font-size:13px;line-height:18px}.tx-body{font-size:14px;line-height:20px}
+.tx-section{font-size:15px;line-height:20px;font-weight:600}.tx-body-touch{font-size:15px;line-height:22px}.tx-input-touch{font-size:16px;line-height:24px}
+.tx-heading{font-size:18px;line-height:24px;font-weight:600}.tx-heading-touch{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-0.01em}
+.tx-title{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-0.01em}.tx-title-touch{font-size:24px;line-height:30px;font-weight:600;letter-spacing:-0.015em}
+.tx-metric{font-size:28px;line-height:32px;font-weight:600;letter-spacing:-0.02em}.tx-id{font-family:var(--font-mono);font-size:12px;line-height:16px}.tx-code{font-family:var(--font-mono);font-size:13px;line-height:20px}
+.w4{font-weight:400}.w5{font-weight:500}.w6{font-weight:600}
+.ds-frame{background:var(--background);color:var(--foreground);font-family:var(--font-sans)}
+.ds-label{font:500 12px/16px var(--font-sans);color:var(--muted-foreground);letter-spacing:0.01em}
+@media (prefers-reduced-motion:reduce){.fl-skel{animation:none}.is-busy .spin{animation:none}}
