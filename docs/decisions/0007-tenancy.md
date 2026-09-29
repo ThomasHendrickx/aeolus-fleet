@@ -13,3 +13,7 @@ Every table except `fleets` carries `fleet_id`, every uniqueness rule is per fle
 ## Rejected
 
 Single-tenant schema now, retrofit later.
+
+## Amendment, 2026-09-29
+
+One lookup is not scoped by fleet: finding a ship by the hash of its secret (or a console session by the hash of its token). It returns the ship and its fleet; every query after it is scoped. The hash of a random secret is unique across all fleets, enforced by a unique index.

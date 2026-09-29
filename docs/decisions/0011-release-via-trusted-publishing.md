@@ -15,3 +15,7 @@ The 0.0.0 versions on npm are name placeholders; the first real release is 0.1.0
 ## Rejected
 
 An `NPM_TOKEN` secret in GitHub Actions; publishing from a laptop.
+
+## Amendment, 2026-09-29
+
+A release also tags the released commit `v<version>` in the same workflow, so every version on npm matches a tag in git. The workflow needs `contents: write` for that; npm still authenticates through OIDC only.

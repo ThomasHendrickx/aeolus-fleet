@@ -13,3 +13,7 @@ Node.js 26 and TypeScript with npm workspaces; Fastify with the tRPC adapter and
 ## Rejected
 
 Vite SPA, Hono, Drizzle and server-sent events (proposed, rejected in favour of the known stack).
+
+## Amendment, 2026-09-29
+
+No Argon2id and no operator password: the operator signs in with the secret of the ship `argo` (decision 0012).

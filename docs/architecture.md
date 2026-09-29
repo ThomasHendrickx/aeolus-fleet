@@ -53,29 +53,29 @@ flowchart LR
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
 | Ship procedures | Ship secret (bearer) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
-| Operator procedures | Operator session (cookie) | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, inbox |
-| Operator-only web procedures | Operator session | tRPC | Sign in, sign out, first-run setup, change password |
-| Live subscriptions | Operator session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
+| Fleet procedures | Ship secret or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
+| Console procedures | `argo`'s secret, then the console session cookie | tRPC | Sign in (exchange `argo`'s secret for a session), sign out |
+| Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
 
-The only procedures that exist purely for the web app are the last two groups: sign-in and live updates. Everything else the operator does is an ordinary procedure that a script or a future CLI could call the same way.
+Every caller is a ship. A call is authorised by the caller's scopes, which live on the server with the ship; the console is simply `argo` holding every scope. The only procedures that exist purely for the web app are sign-in and live updates.
 
 ### Use cases (inbound ports)
 
 | Context | Use cases |
 | --- | --- |
-| Registry | Commission ship, rename ship, register session (claim lease), release ship, retire ship, issue starting prompt, list fleet |
-| Messaging | Send message, receive deliveries, acknowledge delivery, resend or dismiss undeliverable, mark operator message read or done |
-| Identity | Create operator account (first run), sign in, sign out, change password, reset password (server command), verify ship secret |
+| Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, retire ship, issue starting prompt, list fleet |
+| Messaging | Send message, receive deliveries, acknowledge delivery, resend or dismiss undeliverable, mark a message to `argo` read or done |
+| Identity | Verify ship secret (returns ship, fleet, kind and scopes), console sign in (takes `argo`'s lease over), sign out, replace `argo`'s secret (server command), verify console session |
 
 ### Outbound ports
 
 | Port | Purpose | v1 adapter |
 | --- | --- | --- |
-| Repositories per aggregate (Ship, Message, Delivery, Credential, OperatorAccount) | Load and store aggregates, always scoped to one fleet | Prisma on Postgres |
+| Repositories per aggregate (Ship, Message, Delivery, Credential, ConsoleSession) | Load and store aggregates, always scoped to one fleet | Prisma on Postgres |
 | `UnitOfWork` | Run a use case in one database transaction | Prisma interactive transaction |
 | `EventLog` | Append domain events: timeline, audit, live updates | Postgres table, written in the same transaction |
 | `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
-| `SecretHasher`, `PasswordHasher` | Hash ship secrets (SHA-256) and the operator password (Argon2id) | Node crypto, an Argon2 library |
+| `SecretHasher` | Hash ship secrets and console session tokens (SHA-256) | Node crypto |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
 The one cross-context call, Messaging asking Registry to resolve a selector and check that a ship is not retired, goes through a Registry port, never through Registry's tables.
@@ -106,7 +106,8 @@ flowchart LR
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
 | `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec |
 | `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP) |
-| `/health` | server | Monitoring | Liveness and database check |
+| `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
+| `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
 
 Only ports 80 (redirect) and 443 are open, and the fleet is reachable over public HTTPS: ship secrets carry the security. Postgres listens on the Compose network only. Estimated cost stays as in the blueprint: about €12.50 a month including VAT.
 
@@ -136,9 +137,9 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Queue | Own tables with row locks | Deliveries are domain objects with their own states and history; no job library |
 | Validation | Zod schemas in `common` | One schema per message shape for tRPC, REST, MCP and web forms |
 | Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
-| Operator auth | Argon2id password, server-side session in Postgres, httpOnly secure cookie | Decided earlier |
+| Operator auth | The operator is the ship `argo`. The console exchanges its secret for a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. No auth library: this is the ship-secret code applied to a cookie | Replaces email and password (decision 0012) |
 | Ship auth | Opaque bearer secret `aeolus_sk_v1_…`, stored as SHA-256 | Decided earlier |
-| Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `opr_`, `ses_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
+| Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `ses_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
 | Logging | pino, structured JSON to stdout | Never logs secrets or payloads |
 | Tests | Vitest; integration tests on a real Postgres (Testcontainers); Playwright for the web app | The guarantee lives in SQL, so it is proven against a real Postgres |
 | License | Apache-2.0 | Includes an explicit patent grant |
@@ -154,13 +155,13 @@ Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is p
 | Table | Holds | Key constraints |
 | --- | --- | --- |
 | `fleets` | The tenant: name, created date | One row in v1 |
-| `ships` | Name, type, note, retired date | Name unique per fleet among ships that are not retired (partial unique index) |
-| `leases` | Which ship is crewed, from where, since when | At most one open lease per ship (partial unique index) |
-| `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index) |
-| `messages` | Sender, selector, payload, content type, sender's idempotency key | Payload at most 64 KB; unique on sender plus idempotency key |
-| `deliveries` | Recipient ship or recipient type, state, claimed-by ship, attempts, resolution | One row per recipient; indexed on fleet, recipient and state |
-| `events` | Append-only log of every state change | Never updated or deleted: timeline, audit trail and live-update source |
-| `operators`, `operator_sessions` | Operator accounts and their sessions, each belonging to a fleet | One operator in v1 |
+| `ships` | Name, type, kind (`operator` or `agent`), scopes, note, retired date | Name unique per fleet among ships that are not retired (partial unique index); exactly one `operator` ship per fleet, named `argo` |
+| `leases` | Which ship is crewed, since when, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
+| `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup the one query that is not scoped by fleet |
+| `messages` | Sender ship, selector, payload, content type, sender's idempotency key, optional in-reply-to and resend-of message | Payload at most 64 KB; unique on sender plus idempotency key |
+| `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship, attempts, read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state |
+| `events` | Append-only log of every state change: type, time, actor ship (or system), ship, message and delivery it concerns, small details | Never updated or deleted: timeline, audit trail and live-update source |
+| `console_sessions` | Console sessions for `argo`: token hash, last used, expiry | At most one live session per fleet (signing in ends the previous one) |
 
 A message is the travelling ticket, not the cargo. The 64 KB limit is deliberate: real content lives where it belongs (a repo path, a pull request, a storage URL), and the payload carries the reference plus the instruction.
 
@@ -224,19 +225,19 @@ Boundary rules:
 
 | Concern | Approach |
 | --- | --- |
-| Tenancy | Every record belongs to a fleet. An operator session and a ship secret each resolve to exactly one fleet, and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
+| Tenancy | Every record belongs to a fleet. A ship secret or a console session resolves to exactly one ship and fleet (the one lookup that is not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
 | Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message |
 | Migrations | Prisma Migrate, run at startup under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command |
-| First run | While no operator exists, the web app shows setup and every other route is closed. It creates the fleet and its operator; after that the setup route is gone |
-| Password reset | A server command run on the host (inside the container on your setup), printing a one-time reset for the operator |
+| First run | A server command initialises the fleet: it creates the fleet and `argo`, and prints `argo`'s secret once. There is no setup page on the public web |
+| Lost operator secret | A server command replaces `argo`'s secret, prints the new one once, and ends every console session |
 | Time | All timestamps stored as UTC; the web app shows local time |
 | Payloads | Text with a content type (JSON or plain text), at most 64 KB, never parsed by the core. Content travels by reference |
 | Live updates | tRPC subscriptions over WebSocket carry the event id; a reconnecting browser resumes from its last id and the server replays what it missed from the `events` table |
-| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check; rate-limited sign-in; secrets and payloads never logged |
+| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check; rate-limited sign-in; every call checked against the caller's scopes; secrets and payloads never logged |
 | Observability | Structured logs to stdout, a `/health` endpoint, and the events table as the full history |
 | Testing | Unit tests on the core with in-memory adapters; integration tests on a real Postgres; the v1 acceptance test end to end (two ships exchange messages over MCP; one is released mid-delivery, the message is claimed again, nothing is lost); a Playwright smoke test for the console |
-| CI and release | GitHub Actions: lint, typecheck, tests on every push. Releases publish the three packages to npm with trusted publishing (the same OIDC setup as Tiphys). Container images are your infra repo's concern, not the product's |
-| Versioning | Ship REST lives under `/api/v1`; the three packages are released together with one semantic version |
+| CI and release | GitHub Actions: lint, typecheck, tests on every push. Releases publish the three packages to npm with trusted publishing (the same OIDC setup as Tiphys) and tag the released commit `v<version>`, so a version on npm always matches a tag in git. Container images are your infra repo's concern, not the product's |
+| Versioning | Ship REST lives under `/api/v1`; the three packages are released together with one semantic version. Before 1.0.0, breaking changes are allowed |
 
 ## Decision record
 
@@ -253,6 +254,7 @@ Boundary rules:
 | Network exposure | Public HTTPS, kept simple for now |
 | Payload size | 64 KB maximum; messages carry references, not content |
 | License | Apache-2.0 |
-| Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra` |
+| Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra`. The three packages stay in one repo while they share one version |
+| Operator | The ship `argo`, signing in with its secret; scopes on the server |
 
-Still open, deliberately later: the text of the starting prompt (drafted when the first ship sets sail), heartbeats and wake-ups (likely a ship template concern), and scopes per ship.
+Still open, deliberately later: the text of the starting prompt (drafted when the first ship sets sail), heartbeats and wake-ups (likely a ship template concern), and operator-editable scopes.

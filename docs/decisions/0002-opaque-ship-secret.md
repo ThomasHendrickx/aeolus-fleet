@@ -13,3 +13,7 @@ Each ship gets an opaque bearer secret `aeolus_sk_v1_<random>`, stored only as a
 ## Rejected
 
 A signed JWT as the ship credential (cannot be revoked instantly without a deny list). Short-lived JWTs exchanged for the ship key stay possible later, if third parties ever need to verify ships.
+
+## Amendment, 2026-09-29
+
+Scopes are in v1: four fixed scopes (`messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`), stored on the server with the ship and set when the ship is created. A ship never carries its scopes. Agent ships get `messages:send` and `messages:receive`; `argo` gets all four (decision 0012). A secret lookup returns the ship, its fleet, its kind and its scopes in one query.
