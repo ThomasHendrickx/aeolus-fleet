@@ -1,7 +1,9 @@
 // @ts-check
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
+import jsxA11y from 'eslint-plugin-jsx-a11y-x';
 import reactHooks from 'eslint-plugin-react-hooks';
+import reactX from 'eslint-plugin-react-x';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
@@ -98,6 +100,52 @@ const coreFromTheRouterDoors = {
   message: 'adapters/rest and adapters/mcp never import core: they map onto the tRPC router (ADR 0004).',
 };
 
+/** The console's atomic design layers, lowest first. Pages in app/ sit above them all. */
+const webLayers = ['atoms', 'molecules', 'organisms', 'templates'];
+
+/**
+ * @param {string} layer
+ * @returns {ImportRestriction}
+ */
+function upwardImports(layer) {
+  const above = [...webLayers.slice(webLayers.indexOf(layer) + 1), 'app'];
+  return {
+    regex: `^\\.{1,2}/(.+/)?(${above.join('|')})(/|$)`,
+    message: `components/${layer} never imports ${above.join(', ')}: atomic design imports downward only.`,
+  };
+}
+
+const propsOnlyMessage = 'Atoms and molecules take props only: no tRPC. Data arrives through an organism hook.';
+
+/** @type {ImportRestriction[]} */
+const trpcInPresentationalLayers = [
+  { regex: '^@trpc/', message: propsOnlyMessage },
+  { regex: '^@aeolus-fleet/server$', message: propsOnlyMessage },
+  { regex: '(^|/)lib/trpc(\\.[jt]sx?)?$', message: propsOnlyMessage },
+];
+
+const noManualMemoMessage = 'No manual memoisation in the console unless measured: drop useMemo, useCallback and memo.';
+const manualMemo = ['useMemo', 'useCallback', 'memo'];
+/** @type {PathRestriction[]} */
+const reactManualMemo = [{ name: 'react', importNames: manualMemo, message: noManualMemoMessage }];
+
+const browserStorageMessage =
+  "The console keeps no state in browser storage: server data comes through tRPC, view state lives in the URL, and argo's secret is never stored.";
+
+const webImpure = {
+  /** @type {PropertyRestriction[]} */
+  properties: [
+    ...['window', 'globalThis', 'self'].flatMap((object) =>
+      ['localStorage', 'sessionStorage'].map((property) => ({ object, property, message: browserStorageMessage })),
+    ),
+    ...manualMemo.map((property) => ({ object: 'React', property, message: noManualMemoMessage })),
+  ],
+  globals: [
+    { name: 'localStorage', message: browserStorageMessage },
+    { name: 'sessionStorage', message: browserStorageMessage },
+  ],
+};
+
 // esquery regex literals cannot contain a slash, so write it as \x2F.
 const esqueryRegex = (/** @type {string} */ regex) => `/${regex.replaceAll('/', '\\x2F')}/`;
 
@@ -188,9 +236,32 @@ export default defineConfig(
   {
     name: 'aeolus/web',
     files: ['packages/web/**/*.{ts,tsx}'],
-    extends: [nextPlugin.configs['core-web-vitals'], reactHooks.configs.flat['recommended-latest']],
+    extends: [
+      nextPlugin.configs['core-web-vitals'],
+      reactHooks.configs.flat['recommended-latest'],
+      jsxA11y.configs.recommended,
+    ],
+    plugins: { 'react-x': reactX },
     settings: {
       next: { rootDir: 'packages/web/' },
     },
+    rules: {
+      'react-x/no-array-index-key': 'error',
+      ...importRules({ patterns: prismaOutsideItsAdapter, paths: reactManualMemo }),
+      'no-restricted-properties': ['error', ...webImpure.properties],
+      'no-restricted-globals': ['error', ...webImpure.globals],
+    },
   },
+  ...webLayers.map((layer) => ({
+    name: `aeolus/web-${layer}`,
+    files: [`packages/web/components/${layer}/**/*.{ts,tsx}`],
+    rules: importRules({
+      patterns: [
+        ...prismaOutsideItsAdapter,
+        upwardImports(layer),
+        ...(layer === 'atoms' || layer === 'molecules' ? trpcInPresentationalLayers : []),
+      ],
+      paths: reactManualMemo,
+    }),
+  })),
 );
