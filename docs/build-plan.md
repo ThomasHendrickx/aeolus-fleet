@@ -28,15 +28,16 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | --- | --- | --- | --- |
 | 0 | Walking skeleton | npm workspaces (`common`, `server`, `web`), Node 26, TypeScript strict, ESLint with the core import-boundary rule, Vitest, Prisma schema for the core tables with `fleet_id`, Testcontainers Postgres, Fastify with `/health` and one tRPC procedure, a Next.js page calling it, GitHub Actions CI, the `release.yml` publish workflow | CI green on the PR; one request goes browser to database and back; a test proves `core` cannot import Prisma or Fastify; `release.yml` exists and `npm publish --dry-run` passes for all three packages in CI |
 | 1 | Fleet, `argo` and the console session | Fleet init command creating the fleet and `argo`; scopes and their check on every call; console sign-in exchanging `argo`'s secret for a session cookie (takeover); sign-out; command to replace `argo`'s secret; the event log's shape; health endpoints without fleet data; release tags the commit | See the slice 1 prompt below |
+| 1b | Guardrails | Lint rules and CI checks that enforce the skills mechanically, then the skills trimmed of what is enforced. Must merge before slice 2 | See the slice 1b prompt below |
 | 2 | Commission a ship | Commission use case (requires `fleet:manage`): name handle rules (`argo` reserved), type, kind `agent` with scopes `messages:send` and `messages:receive`, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
 | 3 | Claim | Ship authenticates with its secret and claims the lease, reporting its location (`DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description); ship becomes Crewed; lease held indefinitely | Claim with a revoked or unknown secret fails; a claim while another session holds the lease fails; claiming a retired ship fails; events written |
 | 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | A failed transaction leaves no message and no delivery; name resolution and limit tested |
 | 5 | Receive and acknowledge | Long-poll receive (about 25 s) with `FOR UPDATE SKIP LOCKED`, woken by LISTEN; acknowledge on receipt; claim count, undeliverable after 5 claims without ack | Two concurrent receivers never get the same delivery; a delivery is never lost across a server restart |
 | 6 | Release and deregister | Operator release ends the lease and invalidates the secret; ship `deregister` ends the session cleanly and releases the lease; direct deliveries back to the inbox, type deliveries back to the type queue with claim history | In-flight deliveries return and are received by the next crew; after a release the old secret fails |
-| 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
+| 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures. Ship identity per conversation (decision 0015): the MCP connection carries no ship credential; the `register` tool takes ship id and secret and returns a crew token; every other tool takes the crew token as an argument. Two conversations on one MCP connection crew two different ships, and a second conversation registering an already crewed ship is refused. If slice 3 built `register` without a crew token, add it here for all three doors | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
-After the acceptance test, in this order: the console in atomic design (atoms to templates, live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy.
+After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy.
 
 A second claim while a lease is held is rejected (blueprint, ship contract: `register` fails if another session holds a live lease). The operator frees the ship with Release.
 
@@ -141,6 +142,46 @@ A fleet can be initialised, and the operator can sign in to the console as the s
 
 After the PR: start a fresh session as a reviewer, give it the PR and the "Done when" list above, and ask it to verify each item against the code and the test output by name. Merge only after that.
 
+## Kickoff prompt: slice 1b (guardrails)
+
+Runs after slice 1 is merged, before slice 2.
+
+```markdown
+# Slice 1b: guardrails
+
+Read CLAUDE.md, docs/decisions/README.md, and all four skills in .claude/skills. Goal: enforce mechanically what the skills now ask for, so it never depends on an agent remembering.
+
+## ESLint (each rule proven by a test that fails when the rule is removed, like test/import-boundary.test.ts)
+
+- core/**: no Date.now, new Date(), Math.random, crypto; no throw.
+- core contexts: another context may import only its public.ts (core/registry/public.ts etc.); shared is open to all. Create the public.ts files that are needed.
+- @prisma/* and pg only in adapters/prisma.
+- adapters/rest and adapters/mcp must not import core/**; they go through the tRPC router.
+- web: components/atoms and molecules import no tRPC; no upward imports (atom never imports molecule, molecule never imports organism, and so on); no localStorage or sessionStorage; no useMemo, useCallback, memo; react no-array-index-key; jsx-a11y recommended.
+- All packages: consistent-type-assertions never (as const allowed); switch-exhaustiveness-check; max-params 2; no default exports except where Next.js requires them; kebab-case file names; boolean names start with is, has, can, should, was, did; no vi.mock.
+
+## CI checks (scripts in scripts/, run in ci.yml, each with a unit test)
+
+- TDD evidence: in a PR, every commit touching packages/server/src or packages/common/src non-test files is preceded by a commit whose subject ends in (red) and that only adds or changes test files. Commits before this slice are exempt.
+- Every *.test.ts is matched by a Vitest project.
+- Every use-case file in core has a sibling test file (define how a use-case file is recognised and write it down in the domain-modelling skill).
+- No em dash (U+2014) in the diff or in commit messages.
+- No pnpm-lock.yaml or yarn.lock; packageManager set to npm in package.json.
+- A PR adds a file under docs/work-history/.
+
+## Then
+
+- Fix every violation in existing code in separate commits.
+- Remove from the four skills every rule now enforced, leaving a one-line pointer "Enforced by lint/CI: ..." per skill. Keep skills minimal.
+
+## Done when
+
+- npm run typecheck, npm run lint, npm test green locally and in CI.
+- Each lint rule and CI check has a test proving it catches a violation.
+- The skills no longer repeat enforced rules.
+- Work-history entry and a PR description listing every rule, every check, and every open question.
+```
+
 ## Template: every slice after that
 
 Fill the three bracketed parts from the build plan row. Keep everything else as it is.
@@ -157,7 +198,7 @@ Read CLAUDE.md, docs/blueprint.md and docs/architecture.md first. Then read the 
 ## How to work
 
 1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
-2. Build inside out: domain and use case in core with unit tests, then the Prisma adapter with Testcontainers tests, then the tRPC procedure.
+2. Load the skills CLAUDE.md names for the code you touch. Build inside out and test first (red, green, refactor, with the red commits in the history): domain and use case in core, then the Prisma adapter with Testcontainers tests, then the tRPC procedure.
 3. Every state change writes its event to the event log in the same transaction.
 4. Keep the slice thin. Anything outside it goes into the PR description under "Noticed, not done".
 

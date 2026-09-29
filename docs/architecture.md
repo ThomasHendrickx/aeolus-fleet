@@ -52,7 +52,7 @@ flowchart LR
 
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
-| Ship procedures | Ship secret (bearer) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
+| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
 | Fleet procedures | Ship secret or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | `argo`'s secret, then the console session cookie | tRPC | Sign in (exchange `argo`'s secret for a session), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
@@ -105,7 +105,7 @@ flowchart LR
 | `/` | web | Operator | The Next.js console |
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
 | `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec |
-| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP) |
+| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP). The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
 | `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
 
@@ -130,7 +130,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Runtime | Node.js 26, TypeScript, npm workspaces | Node 26 becomes the LTS line in October 2026 |
 | API | tRPC, one router for every client | The web app uses it directly; ships use it through REST or MCP |
 | REST for ships | Generated from the ship procedures, with an OpenAPI spec | For ships that are not TypeScript or not MCP-capable |
-| MCP | Official MCP TypeScript SDK, streamable HTTP, tools mapped onto the same procedures | Mounted in the server process |
+| MCP | Official MCP TypeScript SDK, streamable HTTP, tools mapped onto the same procedures. Ship identity per conversation through the crew token argument, never through the connection | Mounted in the server process |
 | Server host | Fastify with the tRPC adapter and WebSocket support | Mature tRPC integration, including subscriptions over WebSocket |
 | Web app | Next.js (App Router), React, shadcn/ui on Base UI, tRPC client with TanStack Query | Same pattern as Hemma; talks only to the server's router |
 | Database access | Prisma with Prisma Migrate | The row-locking claim query and `LISTEN/NOTIFY` are written as typed raw SQL inside the Postgres adapter; the core never sees them |
@@ -156,7 +156,7 @@ Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is p
 | --- | --- | --- |
 | `fleets` | The tenant: name, created date | One row in v1 |
 | `ships` | Name, type, kind (`operator` or `agent`), scopes, note, retired date | Name unique per fleet among ships that are not retired (partial unique index); exactly one `operator` ship per fleet, named `argo` |
-| `leases` | Which ship is crewed, since when, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
+| `leases` | Which ship is crewed, since when, the hash of its crew token, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
 | `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup the one query that is not scoped by fleet |
 | `messages` | Sender ship, selector, payload, content type, sender's idempotency key, optional in-reply-to and resend-of message | Payload at most 64 KB; unique on sender plus idempotency key |
 | `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship, attempts, read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state |
@@ -185,41 +185,15 @@ Four parts. The first three are published npm packages under the `aeolus-fleet` 
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
-```
-aeolus-fleet/                     public, Apache-2.0
-  packages/
-    common/
-      src/schemas/                 one schema per procedure input and output
-      src/ids/                     prefixed id format and parsing
-    server/
-      src/core/registry/           domain, use cases, ports
-      src/core/messaging/
-      src/core/identity/
-      src/core/shared/             fleet scope, unit of work, event log, clock, ids
-      src/adapters/prisma/         schema, migrations, repositories, notifier
-      src/adapters/trpc/           the router: ship, operator, web and subscription procedures
-      src/adapters/rest/           OpenAPI generation from the ship procedures
-      src/adapters/mcp/            MCP tools mapped onto the ship procedures
-      src/main.ts                  wiring and start
-    web/
-      app/                         Next.js routes (pages)
-      components/atoms/            shadcn/ui primitives on Base UI
-      components/molecules/        StatusBadge, SelectorPicker, StartingPromptBlock, ...
-      components/organisms/        ship table, message sheet, delivery timeline, ...
-      components/templates/        page layouts for desktop and phone
-  docs/                            blueprint, architecture, decision records
+Layers, not folders (the code shows the folders):
 
-aeolus-fleet-infra/               private
-  compose.yaml, Caddyfile, .env.example, backup/, deploy workflow
-```
+- `server/src/core`: domain, use cases, ports, per context (`registry`, `messaging`, `identity`, `shared`). Other contexts import a context only through its `public.ts`.
+- `server/src/adapters`: everything that touches a technology (Prisma, tRPC, HTTP, CLI, crypto, REST, MCP). Depends on core, never the reverse. REST and MCP go through the tRPC router.
+- Composition: the server's entry points build the adapters and inject them into the use cases.
+- `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
+- Every repository call takes a fleet scope (exception: decision 0007).
 
-Boundary rules:
-
-- `src/core` imports nothing from `src/adapters`, from Prisma, tRPC, Fastify or any other framework. Adapters depend on the core, never the other way round.
-- One context never imports another context's internals, only its published port (the Messaging to Registry selector lookup).
-- Every repository call takes a fleet scope; there is no query path that can read across fleets.
-- `web` reaches the server only through the tRPC router. It imports the router's type, never server code.
-- An import-boundary lint rule enforces this in CI, staged the way you already do it in Hemma.
+Lint and CI enforce these rules (slice 1b).
 
 ## Cross-cutting concerns
 

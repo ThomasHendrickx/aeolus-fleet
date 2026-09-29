@@ -1,19 +1,9 @@
-# 0002. Opaque ship secret instead of JWT
+# 0002 Ship secrets and scopes
 
-Status: accepted, 2026-09-29
+- Secret: opaque `aeolus_sk_v1_<random>`, stored as SHA-256, max one valid per ship.
+- Scopes on the server with the ship, set at creation, never carried by the ship: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`. Agents: send and receive. `argo`: all.
+- Secret lookup returns ship, fleet, kind and scopes in one query.
 
-## Context
+Why: Instant revocation; scopes cannot be forged by a ship.
 
-Ships need a credential the operator can hand out in a starting prompt and revoke instantly.
-
-## Decision
-
-Each ship gets an opaque bearer secret `aeolus_sk_v1_<random>`, stored only as a SHA-256 hash. At most one valid secret per ship. Scopes, when they come, live server-side next to the key.
-
-## Rejected
-
-A signed JWT as the ship credential (cannot be revoked instantly without a deny list). Short-lived JWTs exchanged for the ship key stay possible later, if third parties ever need to verify ships.
-
-## Amendment, 2026-09-29
-
-Scopes are in v1: four fixed scopes (`messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`), stored on the server with the ship and set when the ship is created. A ship never carries its scopes. Agent ships get `messages:send` and `messages:receive`; `argo` gets all four (decision 0012). A secret lookup returns the ship, its fleet, its kind and its scopes in one query.
+Rejected: JWT as the ship credential (no instant revoke). Short-lived JWTs for third parties stay possible later.
