@@ -15,9 +15,10 @@ This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two s
 ## Still to do outside the code (Thomas)
 
 - [ ] Branch protection on main: PR required, CI must pass (once CI exists after slice 0)
-- [ ] Claim the npm org `aeolus-fleet`
-- [ ] Publish `0.0.1` placeholders for `@aeolus-fleet/server`, `@aeolus-fleet/web`, `@aeolus-fleet/common`
-- [ ] Configure trusted publishing (OIDC) for the three packages, linked to this repo
+- [x] Claim the npm org `aeolus-fleet`
+- [x] Publish `0.0.0` placeholders for `@aeolus-fleet/server`, `@aeolus-fleet/web`, `@aeolus-fleet/common`
+- [x] Configure trusted publishing (OIDC) for the three packages: GitHub Actions, repo `ThomasHendrickx/aeolus-fleet`, workflow `release.yml`
+- [x] Publishing access on all three packages: require two-factor authentication and disallow tokens
 
 ## The build plan
 
@@ -25,7 +26,7 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 
 | # | Slice | Builds | Done when |
 | --- | --- | --- | --- |
-| 0 | Walking skeleton | npm workspaces (`common`, `server`, `web`), Node 26, TypeScript strict, ESLint with the core import-boundary rule, Vitest, Prisma schema for the core tables with `fleet_id`, Testcontainers Postgres, Fastify with `/health` and one tRPC procedure, a Next.js page calling it, GitHub Actions CI | CI green on the PR; one request goes browser to database and back; a test proves `core` cannot import Prisma or Fastify |
+| 0 | Walking skeleton | npm workspaces (`common`, `server`, `web`), Node 26, TypeScript strict, ESLint with the core import-boundary rule, Vitest, Prisma schema for the core tables with `fleet_id`, Testcontainers Postgres, Fastify with `/health` and one tRPC procedure, a Next.js page calling it, GitHub Actions CI, the `release.yml` publish workflow | CI green on the PR; one request goes browser to database and back; a test proves `core` cannot import Prisma or Fastify; `release.yml` exists and `npm publish --dry-run` passes for all three packages in CI |
 | 1 | Fleet and operator | Fleet init script that creates the fleet and the operator (Argon2id), sign-in, server-side session cookie, `npm run reset-operator-password` | Sign-in works end to end in a Playwright test; wrong password and expired session are tested |
 | 2 | Commission a ship | Commission use case: name handle rules, type, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
 | 3 | Claim | Ship authenticates with its secret and claims the lease; ship becomes Crewed; lease held indefinitely | Claim with a revoked or unknown secret fails; a claim while another session holds the lease fails; claiming a retired ship fails; events written |
@@ -66,15 +67,24 @@ A walking skeleton: every layer exists, is wired, and is proven by a test and by
 - Tests: Vitest for unit tests; Testcontainers Postgres for one integration test that runs the migration and calls system.ping.
 - web: Next.js App Router page that calls system.ping through the tRPC client and shows the result. No styling work.
 - GitHub Actions: install, typecheck, lint, unit and integration tests on every PR.
+- The release workflow, `.github/workflows/release.yml`. The file name is fixed: npm trusted publishing for all three packages is configured for exactly this name, and it is the only way the packages can be published (tokens are disallowed). Requirements:
+  - Triggered manually (`workflow_dispatch`) with a version input. Never on push.
+  - `permissions: id-token: write` and `contents: read`. No `NPM_TOKEN` or any other npm secret.
+  - Node 26 with npm 11.5.1 or later (upgrade npm in the job if the bundled one is older).
+  - Runs typecheck, lint and tests, sets the same version in all three packages, builds, then publishes common, server and web in that order with `npm publish --access public`. Provenance is automatic.
+  - Every package.json keeps `repository.url` = `git+https://github.com/ThomasHendrickx/aeolus-fleet.git` with its `directory`; trusted publishing fails without an exact match.
+  - The first real version is 0.1.0 (0.0.0 is the name placeholder already on npm).
+  - Do not run it. Thomas triggers the first release.
 
 ## Out of scope
 
-Auth, ships, messages, MCP, REST, the console, Docker and deployment. If you think one of these is needed now, stop and ask.
+Auth, ships, messages, MCP, REST, the console, Docker, deployment and an actual release. If you think one of these is needed now, stop and ask.
 
 ## Done when
 
 - npm run typecheck, npm run lint and npm test pass locally and in CI.
 - A test proves the boundary rule fails when core imports Prisma.
+- `release.yml` meets the requirements above; a CI job runs `npm publish --dry-run` for all three packages.
 - The web page shows the ping result from a running server and database.
 - A work-history entry exists in docs/work-history/.
 - The PR description lists every file created and what each is for, and every question you could not answer from the docs.
