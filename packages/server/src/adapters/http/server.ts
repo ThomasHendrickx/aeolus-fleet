@@ -19,7 +19,14 @@ export interface HttpServerOptions {
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
   shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
+  /** The domain the session cookie is set for. Unset: the server's host only. */
+  cookieDomain?: string;
+  /** The origin of a console on another host, allowed to call with credentials. Unset: none. */
+  consoleOrigin?: string;
 }
+
+/** How long a browser may keep the answer to a preflight, in seconds. */
+const PREFLIGHT_MAX_AGE_S = 600;
 
 /**
  * The HTTP host: `/trpc` for the API and `/health` for monitoring. REST
@@ -34,6 +41,28 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   });
 
   const signInLimiter = createRateLimiter(options.signInRateLimit ?? DEFAULT_SIGN_IN_RATE_LIMIT, options.clock);
+  const { consoleOrigin, cookieDomain } = options;
+
+  // The console may run on another host under the cookie's domain (ADR 0012).
+  // Its origin, and no other, may call with credentials and read the answer.
+  if (consoleOrigin !== undefined) {
+    server.addHook('onRequest', async (request, reply) => {
+      void reply.header('vary', 'Origin');
+      if (request.headers.origin !== consoleOrigin) {
+        return;
+      }
+      void reply.header('access-control-allow-origin', consoleOrigin);
+      void reply.header('access-control-allow-credentials', 'true');
+      if (request.method === 'OPTIONS') {
+        await reply
+          .code(204)
+          .header('access-control-allow-methods', 'GET, POST')
+          .header('access-control-allow-headers', 'content-type')
+          .header('access-control-max-age', String(PREFLIGHT_MAX_AGE_S))
+          .send();
+      }
+    });
+  }
 
   // Server up and database reachable. Nothing about fleets.
   server.get('/health', async (_request, reply) => {
@@ -58,10 +87,10 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         },
         sessionCookie: {
           set: (token, expiresAt) => {
-            void res.header('set-cookie', sessionCookie({ token, expiresAt, now: options.clock.now() }));
+            void res.header('set-cookie', sessionCookie({ token, expiresAt, now: options.clock.now(), domain: cookieDomain }));
           },
           clear: () => {
-            void res.header('set-cookie', clearedSessionCookie());
+            void res.header('set-cookie', clearedSessionCookie(cookieDomain));
           },
         },
         clientKey: req.ip,

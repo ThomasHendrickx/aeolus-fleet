@@ -11,6 +11,14 @@ export const SESSION_COOKIE_NAME = 'aeolus_session';
 
 const ATTRIBUTES = 'Path=/; HttpOnly; Secure; SameSite=Strict';
 
+/**
+ * The cookie's scope: every host under the configured domain, so a console on
+ * another host of that domain sends it too; otherwise the server's host only.
+ */
+function scope(domain: string | undefined): string {
+  return domain === undefined ? ATTRIBUTES : `Domain=${domain}; ${ATTRIBUTES}`;
+}
+
 /** The session token from a Cookie request header, if there is one. */
 export function readSessionToken(cookieHeader: string | undefined): string | undefined {
   for (const pair of cookieHeader?.split(';') ?? []) {
@@ -24,15 +32,15 @@ export function readSessionToken(cookieHeader: string | undefined): string | und
 }
 
 /** A Set-Cookie value that keeps the token until the session expires. */
-export function sessionCookie(cookie: { token: string; expiresAt: Date; now: Date }): string {
-  const { token, expiresAt, now } = cookie;
+export function sessionCookie(cookie: { token: string; expiresAt: Date; now: Date; domain?: string }): string {
+  const { token, expiresAt, now, domain } = cookie;
   const maxAgeSeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
-  return `${SESSION_COOKIE_NAME}=${token}; Max-Age=${maxAgeSeconds}; ${ATTRIBUTES}`;
+  return `${SESSION_COOKIE_NAME}=${token}; Max-Age=${maxAgeSeconds}; ${scope(domain)}`;
 }
 
-/** A Set-Cookie value that removes the cookie. */
-export function clearedSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; Max-Age=0; ${ATTRIBUTES}`;
+/** A Set-Cookie value that removes the cookie, for the same domain it was set for. */
+export function clearedSessionCookie(domain?: string): string {
+  return `${SESSION_COOKIE_NAME}=; Max-Age=0; ${scope(domain)}`;
 }
 
 /** The secret from an `Authorization: Bearer <secret>` header, if there is one. */

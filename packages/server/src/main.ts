@@ -8,6 +8,8 @@ async function start(): Promise<void> {
     publicUrl: config.publicUrl,
     logger: { level: config.logLevel },
     shouldTrustProxy: config.shouldTrustProxy,
+    cookieDomain: config.cookieDomain,
+    consoleOrigin: config.consoleOrigin,
   });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
