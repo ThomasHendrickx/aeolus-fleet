@@ -1,6 +1,7 @@
 // @ts-check
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
+import checkFile from 'eslint-plugin-check-file';
 import jsxA11y from 'eslint-plugin-jsx-a11y-x';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactX from 'eslint-plugin-react-x';
@@ -146,6 +147,13 @@ const webImpure = {
   ],
 };
 
+/** @type {PropertyRestriction[]} */
+const noModuleMocks = ['mock', 'doMock'].map((property) => ({
+  object: 'vi',
+  property,
+  message: 'No module mocks: hand-write an in-memory fake of the port and assert outcomes (test-driven-development skill).',
+}));
+
 // esquery regex literals cannot contain a slash, so write it as \x2F.
 const esqueryRegex = (/** @type {string} */ regex) => `/${regex.replaceAll('/', '\\x2F')}/`;
 
@@ -209,6 +217,54 @@ export default defineConfig(
   },
 
   {
+    name: 'aeolus/all-packages',
+    plugins: { 'check-file': checkFile },
+    rules: {
+      'max-params': 'off',
+      '@typescript-eslint/max-params': ['error', { max: 2 }],
+      'no-restricted-exports': [
+        'error',
+        { restrictDefaultExports: { direct: true, named: true, defaultFrom: true, namedFrom: true, namespaceFrom: true } },
+      ],
+      // Dotted suffixes such as .test and .global-setup are not checked.
+      'check-file/filename-naming-convention': [
+        'error',
+        { '**/*.{js,ts,tsx}': 'KEBAB_CASE' },
+        { ignoreMiddleExtensions: true },
+      ],
+      'no-restricted-properties': ['error', ...noModuleMocks],
+    },
+  },
+  {
+    name: 'aeolus/all-packages-typed',
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/naming-convention': [
+        'error',
+        // A destructured name is its source's name, checked where that is declared.
+        { selector: ['variable', 'parameter'], modifiers: ['destructured'], types: ['boolean'], format: null },
+        {
+          selector: ['variable', 'parameter', 'classProperty', 'parameterProperty', 'typeProperty', 'accessor'],
+          types: ['boolean'],
+          format: ['PascalCase'],
+          prefix: ['is', 'has', 'can', 'should', 'was', 'did'],
+        },
+      ],
+    },
+  },
+  {
+    // Next.js reads these files' default export, and tools read their config files the same way.
+    name: 'aeolus/default-export-required',
+    files: [
+      'packages/web/app/**/{page,layout,loading,error,not-found,global-error,template,default}.tsx',
+      '**/*.config.{js,ts}',
+    ],
+    rules: { 'no-restricted-exports': 'off' },
+  },
+
+  {
     name: 'aeolus/prisma-in-its-adapter',
     ignores: ['packages/server/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
@@ -222,7 +278,7 @@ export default defineConfig(
         patterns: [...coreForbiddenImports, ...coreImpure.imports, ...otherContextsInternals(context)],
         syntax: coreImpure.syntax,
       }),
-      'no-restricted-properties': ['error', ...coreImpure.properties],
+      'no-restricted-properties': ['error', ...noModuleMocks, ...coreImpure.properties],
       'no-restricted-globals': ['error', ...coreImpure.globals],
     },
   })),
@@ -248,7 +304,7 @@ export default defineConfig(
     rules: {
       'react-x/no-array-index-key': 'error',
       ...importRules({ patterns: prismaOutsideItsAdapter, paths: reactManualMemo }),
-      'no-restricted-properties': ['error', ...webImpure.properties],
+      'no-restricted-properties': ['error', ...noModuleMocks, ...webImpure.properties],
       'no-restricted-globals': ['error', ...webImpure.globals],
     },
   },
