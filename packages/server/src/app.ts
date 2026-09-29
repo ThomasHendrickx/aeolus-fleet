@@ -1,18 +1,18 @@
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 
+import type { RateLimit } from './adapters/http/rate-limiter.js';
 import { buildHttpServer } from './adapters/http/server.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
-import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import type { Clock } from './core/shared/clock.js';
-import { createPing } from './core/shared/ping.js';
+import { createUseCases, systemClock } from './wiring.js';
 
 export interface AppOptions {
   databaseUrl: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
+  trustProxy?: boolean;
+  signInRateLimit?: RateLimit;
 }
-
-const systemClock: Clock = { now: () => new Date() };
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
@@ -23,11 +23,12 @@ export function createApp(options: AppOptions): FastifyInstance {
   const clock = options.clock ?? systemClock;
 
   const server = buildHttpServer({
-    useCases: {
-      ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
-    },
+    useCases: createUseCases({ prisma, clock }),
     checkDatabase: () => checkDatabase(prisma),
+    clock,
     logger: options.logger,
+    trustProxy: options.trustProxy,
+    signInRateLimit: options.signInRateLimit,
   });
 
   server.addHook('onClose', async () => {

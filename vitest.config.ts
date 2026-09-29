@@ -36,12 +36,32 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'web:unit',
+          root: 'packages/web',
+          include: ['lib/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'server:integration',
           root: 'packages/server',
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['test/postgres.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The console in a real browser: Postgres, the server and the web app
+          // in development mode, driven by Playwright.
+          name: 'web:e2e',
+          include: ['e2e/**/*.e2e.test.ts'],
+          globalSetup: ['packages/server/test/postgres.global-setup.ts'],
+          testTimeout: 60_000,
+          hookTimeout: 240_000,
         },
       },
     ],

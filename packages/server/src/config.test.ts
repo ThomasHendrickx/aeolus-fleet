@@ -11,7 +11,14 @@ describe('loadConfig', () => {
       host: '127.0.0.1',
       port: 4000,
       logLevel: 'info',
+      trustProxy: false,
     });
+  });
+
+  it('trusts a reverse proxy only when told to', () => {
+    expect(loadConfig({ DATABASE_URL: databaseUrl, TRUST_PROXY: 'true' }).trustProxy).toBe(true);
+    expect(loadConfig({ DATABASE_URL: databaseUrl, TRUST_PROXY: 'false' }).trustProxy).toBe(false);
+    expect(() => loadConfig({ DATABASE_URL: databaseUrl, TRUST_PROXY: 'yes' })).toThrow(/TRUST_PROXY/);
   });
 
   it('reads host, port and log level', () => {
