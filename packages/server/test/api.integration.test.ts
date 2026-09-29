@@ -249,11 +249,15 @@ describe('the fleet procedures at the API', () => {
   });
 
   it.each([
-    ['a taken name', { name: 'scout', type: 'reviewer' }, 'CONFLICT'],
-    ['argo as a name', { name: 'argo', type: 'reviewer' }, 'CONFLICT'],
-    ['a name that is not a handle', { name: 'Sea Scout', type: 'reviewer' }, 'BAD_REQUEST'],
-    ['a note over 500 characters', { name: 'pilot', type: 'reviewer', note: 'a'.repeat(501) }, 'BAD_REQUEST'],
-  ])('refuse a commission with %s', async (_label, input, code) => {
+    { label: 'a taken name', input: { name: 'scout', type: 'reviewer' }, code: 'CONFLICT' },
+    { label: 'argo as a name', input: { name: 'argo', type: 'reviewer' }, code: 'CONFLICT' },
+    { label: 'a name that is not a handle', input: { name: 'Sea Scout', type: 'reviewer' }, code: 'BAD_REQUEST' },
+    {
+      label: 'a note over 500 characters',
+      input: { name: 'pilot', type: 'reviewer', note: 'a'.repeat(501) },
+      code: 'BAD_REQUEST',
+    },
+  ])('refuse a commission with $label', async ({ input, code }) => {
     await asArgo()
       .fleet.commission.mutate({ name: 'scout', type: 'reviewer' })
       .catch(() => undefined);
