@@ -152,6 +152,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
 | `CredentialRevoked` | Identity | All calls with the old secret fail immediately |
+| `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 
 ## Key flows
 

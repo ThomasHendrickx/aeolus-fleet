@@ -256,7 +256,7 @@ describe('the fleet procedures at the API', () => {
     );
   });
 
-  it("commission a ship with argo's secret: listed as awaiting crew, its prompt unclaimed", async () => {
+  it('commission a ship as argo: listed as awaiting crew, its prompt unclaimed', async () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt } = await asArgo.fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
 
