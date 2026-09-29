@@ -1,7 +1,7 @@
 import { SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
-import { createReplaceOperatorSecret } from '../../src/core/identity/replace-operator-secret.js';
+import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
@@ -25,7 +25,7 @@ export function identityUseCases(core: InMemoryCore) {
   return {
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
-    replaceOperatorSecret: createReplaceOperatorSecret(deps),
+    resetOperatorPassword: createResetOperatorPassword(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
   };
 }

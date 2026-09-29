@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
-import type { CommandIo, ExitCode } from './io.js';
+import { askNewPassword, type CommandIo, type ExitCode } from './io.js';
 
 const USAGE = 'Usage: npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"';
 
@@ -29,18 +29,17 @@ export async function fleetInit(
   }
 
   const email = await io.ask('Operator email: ');
-  const password = await io.ask('Operator password: ', { isHidden: true });
-  const repeated = await io.ask('Repeat the password: ', { isHidden: true });
-  if (email === undefined || password === undefined || repeated === undefined) {
+  const password = email === undefined ? { kind: 'ended' as const } : await askNewPassword(io, 'Operator password: ');
+  if (email === undefined || password.kind === 'ended') {
     io.err('fleet:init needs the operator email and the password twice. Nothing was created.');
     return 2;
   }
-  if (password !== repeated) {
+  if (password.kind === 'differ') {
     io.err('The two passwords differ. Nothing was created.');
     return 1;
   }
 
-  const initialised = await deps.initialiseFleet({ name, email, password });
+  const initialised = await deps.initialiseFleet({ name, email, password: password.password });
   if (!initialised.isOk) {
     io.err(initialised.error.message);
     return 1;
@@ -57,7 +56,8 @@ export async function fleetInit(
       '',
       `  ${secret}`,
       '',
-      'Sign in to the console with it. If it is ever lost, run argo:replace-secret on the server.',
+      'Sign in to the console with the operator email and password. If the password is lost, run',
+      'operator:reset-password on the server.',
     ].join('\n'),
   );
   return 0;

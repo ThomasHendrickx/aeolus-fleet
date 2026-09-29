@@ -31,7 +31,7 @@
     "dev": "tsx watch --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/main.ts",
     "start": "node dist/main.js",
     "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/fleet-init.ts",
-    "argo:replace-secret": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/argo-replace-secret.ts",
+    "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/operator-reset-password.ts",
     "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {
