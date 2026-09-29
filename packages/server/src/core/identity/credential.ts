@@ -1,5 +1,6 @@
 import type { CredentialId, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
+import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { CredentialRepository } from './ports.js';
 
@@ -27,18 +28,24 @@ export interface SecretTools {
   ids: IdGenerator;
 }
 
+export interface IssuedShipSecret {
+  /** The secret in plain text: the one moment it exists. */
+  secret: string;
+  credentialId: CredentialId;
+}
+
 /**
  * Issues a new secret for a ship and stores only its hash. The caller
- * invalidates any earlier secret first. Returns the secret: the one moment it
- * exists in plain text.
+ * invalidates any earlier secret first.
  */
 export async function issueShipSecret(
   deps: SecretTools & { tx: CredentialTx },
   input: { fleetId: FleetId; shipId: ShipId; at: Date },
-): Promise<string> {
+): Promise<IssuedShipSecret> {
   const secret = SHIP_SECRET_PREFIX + deps.random.next();
+  const credentialId = deps.ids('credential');
   await deps.tx.credentials.create({
-    id: deps.ids('credential'),
+    id: credentialId,
     fleetId: input.fleetId,
     shipId: input.shipId,
     secretHash: deps.hasher.hash(secret),
@@ -46,5 +53,31 @@ export async function issueShipSecret(
     claimedAt: null,
     invalidatedAt: null,
   });
-  return secret;
+  return { secret, credentialId };
+}
+
+/**
+ * Invalidates the ship's valid secret, if it has one, and writes
+ * CredentialRevoked. The secret fails on the very next call.
+ */
+export async function revokeShipSecret(
+  deps: { tx: CredentialTx & { events: EventLog }; ids: IdGenerator },
+  input: { fleetId: FleetId; shipId: ShipId; actor: Actor; at: Date },
+): Promise<void> {
+  const { tx, ids } = deps;
+  const { fleetId, shipId, actor, at } = input;
+
+  const valid = await tx.credentials.findValidForShipForUpdate(fleetId, shipId);
+  if (!valid) {
+    return;
+  }
+  await tx.credentials.invalidate({ fleetId, credentialId: valid.id, at });
+  await recordEvent({ events: tx.events, ids }, {
+    fleetId,
+    type: 'CredentialRevoked',
+    occurredAt: at,
+    actor,
+    shipId,
+    details: { credentialId: valid.id },
+  });
 }

@@ -11,6 +11,7 @@ Environment variables, validated at startup (see `.env.example`):
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `DATABASE_URL` | required | Postgres 16 or newer, with a direct connection |
+| `PUBLIC_URL` | required | Where ships reach the fleet (`http://` or `https://`): the fleet URL every starting prompt carries |
 | `HOST` | `127.0.0.1` | Interface to listen on |
 | `PORT` | `4000` | Port to listen on |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |

@@ -1,0 +1,65 @@
+'use client';
+
+import { useFleetSnapshot, useGetStartingPrompt } from '../../lib/fleet';
+import { ShipRow } from '../molecules/ship-row';
+import { StartingPromptBlock } from '../molecules/starting-prompt-block';
+
+/**
+ * The fleet snapshot: every ship with its type, status and prompt state, and
+ * a new starting prompt for a ship awaiting crew, shown once.
+ */
+export function FleetList() {
+  const fleet = useFleetSnapshot();
+  const getStartingPrompt = useGetStartingPrompt();
+
+  if (fleet.isPending) {
+    return <p>Loading the fleet...</p>;
+  }
+  if (fleet.isError) {
+    return <p role="alert">The fleet could not be loaded: {fleet.error.message}</p>;
+  }
+
+  const issued = getStartingPrompt.data;
+  const issuedFor = issued && fleet.data.find((ship) => ship.id === issued.shipId);
+
+  return (
+    <section aria-labelledby="fleet-heading">
+      <h2 id="fleet-heading">Fleet</h2>
+      <table data-testid="fleet-list">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Type</th>
+            <th scope="col">Status</th>
+            <th scope="col">Starting prompt</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fleet.data.map((ship) => (
+            <ShipRow
+              key={ship.id}
+              ship={ship}
+              isIssuing={getStartingPrompt.isPending && getStartingPrompt.variables.shipId === ship.id}
+              onGetStartingPrompt={() => {
+                getStartingPrompt.mutate({ shipId: ship.id });
+              }}
+            />
+          ))}
+        </tbody>
+      </table>
+      {getStartingPrompt.isError ? (
+        <p role="alert">No new starting prompt: {getStartingPrompt.error.message}</p>
+      ) : null}
+      {issued ? (
+        <StartingPromptBlock
+          shipName={issuedFor?.name ?? issued.shipId}
+          prompt={issued.prompt}
+          onDone={() => {
+            getStartingPrompt.reset();
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}

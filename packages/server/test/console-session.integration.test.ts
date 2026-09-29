@@ -6,6 +6,7 @@ import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
 import { createUseCases } from '../src/wiring.js';
+import { FLEET_URL } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -151,7 +152,7 @@ describe('a console session on Postgres', () => {
     const { token } = unwrap(await core.useCases.signIn({ secret }));
     const restarted = createPrismaClient(core.databaseUrl);
     try {
-      const useCases = createUseCases({ prisma: restarted, clock: core.clock });
+      const useCases = createUseCases({ prisma: restarted, clock: core.clock, fleetUrl: FLEET_URL });
 
       await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId, fleetId } });
     } finally {

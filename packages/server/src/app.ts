@@ -8,6 +8,8 @@ import { createUseCases, systemClock } from './wiring.js';
 
 export interface AppOptions {
   databaseUrl: string;
+  /** Where ships reach the fleet: the fleet URL every starting prompt carries. */
+  publicUrl: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
   shouldTrustProxy?: boolean;
@@ -23,7 +25,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   const clock = options.clock ?? systemClock;
 
   const server = buildHttpServer({
-    useCases: createUseCases({ prisma, clock }),
+    useCases: createUseCases({ prisma, clock, fleetUrl: options.publicUrl }),
     checkDatabase: () => checkDatabase(prisma),
     clock,
     logger: options.logger,

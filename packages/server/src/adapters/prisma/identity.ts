@@ -2,9 +2,10 @@ import type { CallerLookup, ConsoleSessionRepository, CredentialRepository } fro
 import type { Db } from './client.js';
 import { toAuthenticatedShip, toConsoleSession, toConsoleSessionCaller, toCredential } from './rows.js';
 
-// Lock order, as the CredentialRepository port states: a credential first, then
-// console sessions, then leases. Sign-in, sign-out and replacing a secret all
-// follow it, so they serialise instead of deadlocking.
+// Lock order, as the CredentialRepository port states: the ship when a use case
+// locks it, then a credential, then console sessions, then leases. Sign-in,
+// sign-out, starting prompts and replacing a secret all follow it, so they
+// serialise instead of deadlocking.
 
 export function createPrismaCredentialRepository(db: Db): CredentialRepository {
   return {

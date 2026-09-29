@@ -11,6 +11,7 @@ import type {
 import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
+  FleetListing,
   FleetRepository,
   InFlightDeliveries,
   LeaseRepository,
@@ -60,6 +61,7 @@ export interface InMemoryCore {
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
   callers: CallerLookup;
+  listing: FleetListing;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
@@ -121,11 +123,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
     ships: {
       create: (created) => {
+        if (
+          state.ships.some(
+            (held) => held.fleetId === created.fleetId && held.name === created.name && held.retiredAt === null,
+          )
+        ) {
+          return Promise.reject(new Error('unique violation: an active ship of the fleet already has this name'));
+        }
         state.ships.push({ ...created });
         return Promise.resolve();
       },
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
+      lockName: () => Promise.resolve(),
+      findActiveByName: (fleetId, name) =>
+        Promise.resolve(
+          state.ships.find((found) => found.fleetId === fleetId && found.name === name && found.retiredAt === null),
+        ),
+      findForUpdate: (fleetId, shipId) => Promise.resolve(ship(fleetId, shipId)),
     },
     leases: {
       findOpenForUpdate: (fleetId, shipId) =>
@@ -270,7 +285,26 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, callers, clock, ids, hasher, random };
+  const listing: FleetListing = {
+    ships: (fleetId) =>
+      Promise.resolve(
+        state.ships
+          .filter((held) => held.fleetId === fleetId)
+          .sort((first, second) => first.id.localeCompare(second.id))
+          .map((held) => {
+            const secret = state.credentials.find(
+              (credential) => credential.shipId === held.id && credential.invalidatedAt === null,
+            );
+            return {
+              ship: { ...held },
+              isCrewed: state.leases.some((lease) => lease.shipId === held.id && lease.endedAt === null),
+              validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
+            };
+          }),
+      ),
+  };
+
+  return { state, uow, callers, listing, clock, ids, hasher, random };
 }
 
 const TABLES = [

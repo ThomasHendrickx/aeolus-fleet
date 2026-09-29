@@ -5,6 +5,7 @@ async function start(): Promise<void> {
   const config = loadConfig(process.env);
   const server = createApp({
     databaseUrl: config.databaseUrl,
+    publicUrl: config.publicUrl,
     logger: { level: config.logLevel },
     shouldTrustProxy: config.shouldTrustProxy,
   });

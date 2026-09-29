@@ -5,9 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
 import { createApp } from '../packages/server/src/app.js';
 import { createUseCases } from '../packages/server/src/wiring.js';
+import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
+import { signIn } from './support/console.js';
 import { launchChromium, startWeb, type RunningWeb } from './support/web.js';
 
 // Signing in to the console, end to end: a browser, the web app, the server and
@@ -27,9 +29,10 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ secret } = unwrap(await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })));
+  const useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  ({ secret } = unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
 
-  server = createApp({ databaseUrl, clock, logger: false });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb(serverUrl);
   browser = await launchChromium();
@@ -47,14 +50,6 @@ async function newPage(): Promise<Page> {
   const context = await browser.newContext({ baseURL: web.url });
   contexts.push(context);
   return context.newPage();
-}
-
-async function signIn(page: Page, withSecret: string): Promise<void> {
-  await page.goto('/sign-in');
-  await page.getByLabel("argo's secret").fill(withSecret);
-  const button = page.getByRole('button', { name: 'Sign in' });
-  await button.and(page.locator(':enabled')).waitFor();
-  await button.click();
 }
 
 async function expectSignedIn(page: Page): Promise<void> {
@@ -87,7 +82,7 @@ describe('the console sign-in', () => {
     await signIn(page, secret);
 
     await expectSignedIn(page);
-    await expect(page.getByText('2026').first().isVisible()).resolves.toBe(true);
+    await page.getByRole('row', { name: /argo/ }).waitFor();
     const cookies = await page.context().cookies();
     expect(cookies).toEqual([
       expect.objectContaining({ name: 'aeolus_session', httpOnly: true, secure: true, sameSite: 'Strict', path: '/' }),

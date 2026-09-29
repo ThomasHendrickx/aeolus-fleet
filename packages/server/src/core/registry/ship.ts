@@ -1,7 +1,10 @@
-import { SCOPES, type FleetId, type Scope, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type Scope, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
+import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
+import { shipName, shipType } from './ship-handle.js';
+import { shipNote } from './ship-note.js';
 
 /** A durable, addressable identity with an inbox. Outlives any session. */
 export interface Ship {
@@ -33,6 +36,111 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
     note: null,
     retiredAt: null,
   };
+}
+
+/** The scopes every agent ship gets at creation: it can only send and receive (ADR 0002). */
+export const AGENT_SCOPES: readonly Scope[] = ['messages:send', 'messages:receive'];
+
+export type CommissionRefusal = DomainError<
+  'INVALID_SHIP_NAME' | 'SHIP_NAME_RESERVED' | 'INVALID_SHIP_TYPE' | 'INVALID_SHIP_NOTE' | 'SHIP_NAME_TAKEN'
+>;
+
+/**
+ * A new agent ship, awaiting crew, and its ShipCommissioned event. The name is
+ * a handle, never `argo`, and unique among the fleet's active ships:
+ * `activeShipNamed` is the active ship that already holds it, if any, read
+ * while the name is locked.
+ */
+export function commissionAgentShip(
+  input: { id: ShipId; fleetId: FleetId; name: string; type: string; note?: string; at: Date; actor: Actor },
+  fleet: { activeShipNamed: Ship | undefined },
+): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
+  const name = shipName(input.name);
+  if (!name.isOk) {
+    return name;
+  }
+  const notReserved = checkNameIsNotReserved(name.value);
+  if (!notReserved.isOk) {
+    return notReserved;
+  }
+  const type = shipType(input.type);
+  if (!type.isOk) {
+    return type;
+  }
+  const note = shipNote(input.note);
+  if (!note.isOk) {
+    return note;
+  }
+  if (fleet.activeShipNamed) {
+    return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
+  }
+
+  const { id, fleetId, at, actor } = input;
+  const ship: Ship = {
+    id,
+    fleetId,
+    name: name.value,
+    type: type.value,
+    kind: 'agent',
+    scopes: [...AGENT_SCOPES],
+    note: note.value,
+    createdAt: at,
+    retiredAt: null,
+  };
+  return ok({
+    ship,
+    events: [
+      {
+        fleetId,
+        type: 'ShipCommissioned',
+        occurredAt: at,
+        actor,
+        shipId: id,
+        details: { name: ship.name, type: ship.type, kind: ship.kind },
+      },
+    ],
+  });
+}
+
+/**
+ * Awaiting crew, crewed or retired: derived from whether a session holds the
+ * ship's lease and whether the ship is retired, never set by hand.
+ */
+export function shipStatus(ship: Ship, lease: { isCrewed: boolean }): ShipStatus {
+  if (ship.retiredAt !== null) {
+    return 'retired';
+  }
+  return lease.isCrewed ? 'crewed' : 'awaitingCrew';
+}
+
+const STATUS_WORDS: Record<ShipStatus, string> = {
+  awaitingCrew: 'awaiting crew',
+  crewed: 'crewed',
+  retired: 'retired',
+};
+
+/**
+ * A starting prompt is issued only while the ship awaits crew. Never for `argo`:
+ * the console crews it, and only the server command replaces its secret, ending
+ * every console session with it (ADR 0012).
+ */
+export function checkCanIssueStartingPrompt(
+  ship: Ship,
+  lease: { isCrewed: boolean },
+): Result<void, DomainError<'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' | 'SHIP_NOT_AWAITING_CREW'>> {
+  if (ship.kind === 'operator') {
+    return refuse(
+      'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
+      `${ship.name} is crewed through the console and gets no starting prompt; a server command replaces its secret`,
+    );
+  }
+  const status = shipStatus(ship, lease);
+  return status === 'awaitingCrew'
+    ? ok(undefined)
+    : refuse(
+        'SHIP_NOT_AWAITING_CREW',
+        `${ship.name} is ${STATUS_WORDS[status]}: a starting prompt is issued only while a ship awaits crew`,
+      );
 }
 
 export function isReservedShipName(name: string): boolean {

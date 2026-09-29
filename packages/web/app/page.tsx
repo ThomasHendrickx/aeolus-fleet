@@ -1,21 +1,25 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { CommissionShipForm } from '../components/organisms/commission-ship-form';
+import { FleetList } from '../components/organisms/fleet-list';
 import { trpcErrorCode } from '../lib/errors';
+import { useFleetSnapshot } from '../lib/fleet';
 import { useTRPC } from '../lib/trpc';
 
 /**
- * The signed-in placeholder: proves the console session reaches the database
- * through an authorised call. The console design comes later.
+ * The fleet page, bare until the console design: the fleet, commissioning a
+ * ship and its starting prompts. Without a session it sends the operator to
+ * sign in.
  */
 export default function ConsolePage() {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const ping = useQuery(trpc.system.ping.queryOptions());
+  const fleet = useFleetSnapshot();
   const signOut = useMutation(
     trpc.console.signOut.mutationOptions({
       onSuccess: () => {
@@ -25,36 +29,30 @@ export default function ConsolePage() {
     }),
   );
 
-  const isSignedOut = trpcErrorCode(ping.error) === 'UNAUTHORIZED';
+  const isSignedOut = trpcErrorCode(fleet.error) === 'UNAUTHORIZED';
   useEffect(() => {
     if (isSignedOut) {
       router.replace('/sign-in');
     }
   }, [isSignedOut, router]);
 
-  if (ping.isPending || isSignedOut) {
+  if (fleet.isPending || isSignedOut) {
     return <p>Loading...</p>;
   }
 
-  if (ping.isError) {
-    return <p role="alert">The server did not answer: {ping.error.message}</p>;
+  if (fleet.isError) {
+    return <p role="alert">The server did not answer: {fleet.error.message}</p>;
   }
 
   return (
     <main>
       <h1>Aeolus</h1>
       <p>Signed in as argo.</p>
-      <dl>
-        <dt>Server time</dt>
-        <dd>
-          <time dateTime={ping.data.serverTime}>{new Date(ping.data.serverTime).toLocaleString()}</time>
-        </dd>
-        <dt>Fleets</dt>
-        <dd>{ping.data.fleetCount}</dd>
-      </dl>
       <button type="button" disabled={signOut.isPending} onClick={() => { signOut.mutate(); }}>
         Sign out
       </button>
+      <CommissionShipForm />
+      <FleetList />
     </main>
   );
 }

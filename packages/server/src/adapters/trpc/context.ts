@@ -1,6 +1,9 @@
 import type { Authenticate } from '../../core/identity/authenticate.js';
 import type { SignIn } from '../../core/identity/sign-in.js';
 import type { SignOut } from '../../core/identity/sign-out.js';
+import type { CommissionShip } from '../../core/registry/commission-ship.js';
+import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
+import type { ListFleet } from '../../core/registry/list-fleet.js';
 import type { Ping } from '../../core/shared/ping.js';
 
 /** The use cases procedures can call. Wired once at startup. */
@@ -9,6 +12,9 @@ export interface UseCases {
   signIn: SignIn;
   signOut: SignOut;
   authenticate: Authenticate;
+  commissionShip: CommissionShip;
+  getStartingPrompt: GetStartingPrompt;
+  listFleet: ListFleet;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

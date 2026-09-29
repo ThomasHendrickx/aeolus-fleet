@@ -2,7 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { addAgentShip, identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
+import {
+  addAgentShip,
+  identityUseCases,
+  initialiseFleet,
+  registryUseCases,
+} from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import type { RateLimit } from './rate-limiter.js';
 import { buildHttpServer } from './server.js';
@@ -20,6 +25,7 @@ function start(options: { checkDatabase?: () => Promise<void>; signInRateLimit?:
   server = buildHttpServer({
     useCases: {
       ...identityUseCases(core),
+      ...registryUseCases(core),
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
@@ -228,7 +234,11 @@ describe('a procedure that needs a scope', () => {
 
   it('answers 500 when the use case fails', async () => {
     server = buildHttpServer({
-      useCases: { ...identityUseCases(core), ping: () => Promise.reject(new Error('database unreachable')) },
+      useCases: {
+        ...identityUseCases(core),
+        ...registryUseCases(core),
+        ping: () => Promise.reject(new Error('database unreachable')),
+      },
       checkDatabase: reachable,
       clock: core.clock,
       logger: false,
