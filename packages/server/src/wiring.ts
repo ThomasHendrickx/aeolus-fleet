@@ -3,7 +3,7 @@ import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
-import { createPrismaFleetRepository } from './adapters/prisma/registry.js';
+import { createPrismaFleetListing, createPrismaFleetRepository } from './adapters/prisma/registry.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createReplaceOperatorSecret, type ReplaceOperatorSecret } from './core/identity/replace-operator-secret.js';
@@ -12,6 +12,7 @@ import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
+import { createListFleet, type ListFleet } from './core/registry/list-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
@@ -22,6 +23,7 @@ export interface UseCases {
   listFleets: ListFleets;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
+  listFleet: ListFleet;
   signIn: SignIn;
   signOut: SignOut;
   replaceOperatorSecret: ReplaceOperatorSecret;
@@ -53,6 +55,7 @@ export function createUseCases(options: {
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
+    listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     signIn: createSignIn({ uow, clock, ids, ...secrets }),
     signOut: createSignOut({ uow, clock, ids }),
     replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),

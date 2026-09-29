@@ -24,11 +24,12 @@ let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
 let argo: Caller;
+let argoSecret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
   const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' }));
-  ({ fleetId, operatorShipId: argoId } = fleet);
+  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = fleet);
   argo = operatorCaller(fleet);
 });
 
@@ -350,7 +351,6 @@ describe('listing the fleet on Postgres', () => {
   it('lists argo and a commissioned ship with their status and prompt state, in one query', async () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
-    const argoSecret = unwrap(await core.useCases.replaceOperatorSecret({ fleetId })).secret;
     core.clock.advance(60_000);
     unwrap(await core.useCases.signIn({ secret: argoSecret }));
 

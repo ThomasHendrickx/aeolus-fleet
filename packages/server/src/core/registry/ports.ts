@@ -52,3 +52,20 @@ export interface InFlightDeliveries {
   /** Returns every delivery the ship holds in flight to pending, and says how many. */
   returnToPending(fleetId: FleetId, shipId: ShipId): Promise<number>;
 }
+
+/** What the fleet listing reads about one ship: the ship, whether a session crews it, and its valid secret. */
+export interface ShipFacts {
+  ship: Ship;
+  isCrewed: boolean;
+  /** When the ship's valid secret was issued and claimed; null when it holds none. */
+  validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
+}
+
+/**
+ * Outbound port: every ship of the fleet with its lease and secret, read in one
+ * query, oldest ship first. Registry's need for secret dates, stated in its own
+ * words, so it never reaches into Identity.
+ */
+export interface FleetListing {
+  ships(fleetId: FleetId): Promise<ShipFacts[]>;
+}

@@ -6,6 +6,7 @@ import type { AuthenticatedShip } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
+import type { ShipFacts } from '../../core/registry/ports.js';
 import type { Ship } from '../../core/registry/ship.js';
 import type { Caller } from '../../core/shared/caller.js';
 
@@ -65,6 +66,22 @@ const shipSqlRow = z
 /** A ship as raw SQL returns it, in snake_case. */
 export function toShipFromSql(row: unknown): Ship {
   return shipSqlRow.parse(row);
+}
+
+const shipFactsSqlRow = z.object({
+  is_crewed: z.boolean(),
+  secret_issued_at: z.date().nullable(),
+  secret_claimed_at: z.date().nullable(),
+});
+
+/** A ship with whether it is crewed and its valid secret's dates, as the fleet listing reads it. */
+export function toShipFacts(row: unknown): ShipFacts {
+  const { is_crewed, secret_issued_at, secret_claimed_at } = shipFactsSqlRow.parse(row);
+  return {
+    ship: toShipFromSql(row),
+    isCrewed: is_crewed,
+    validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
+  };
 }
 
 const leaseSqlRow = z
