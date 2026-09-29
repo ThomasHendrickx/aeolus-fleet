@@ -21,8 +21,15 @@ import tseslint from 'typescript-eslint';
 /** @typedef {{ object: string, property: string, message: string }} PropertyRestriction */
 /** @typedef {{ name: string, importNames: string[], message: string }} PathRestriction */
 
+/** @type {ImportRestriction[]} */
+const prismaOutsideItsAdapter = [
+  { regex: '^@prisma/', message: '@prisma/* is imported only in server/src/adapters/prisma.' },
+  { regex: '^pg([-/].+)?$', message: 'pg is imported only in server/src/adapters/prisma.' },
+];
+
 /**
  * What server/src/core must never import (CLAUDE.md, "Architecture rules").
+ * It includes Prisma and pg, so the core needs no other list for them.
  * @type {ImportRestriction[]}
  */
 const coreForbiddenImports = [
@@ -84,6 +91,12 @@ function otherContextsInternals(context) {
       message: `core/${context} imports core/${other} only through ${other}/public.js, its published surface.`,
     }));
 }
+
+/** @type {ImportRestriction} */
+const coreFromTheRouterDoors = {
+  regex: '(^|/)core(/|$)',
+  message: 'adapters/rest and adapters/mcp never import core: they map onto the tRPC router (ADR 0004).',
+};
 
 // esquery regex literals cannot contain a slash, so write it as \x2F.
 const esqueryRegex = (/** @type {string} */ regex) => `/${regex.replaceAll('/', '\\x2F')}/`;
@@ -147,6 +160,12 @@ export default defineConfig(
     extends: [tseslint.configs.disableTypeChecked],
   },
 
+  {
+    name: 'aeolus/prisma-in-its-adapter',
+    ignores: ['packages/server/src/adapters/prisma/**'],
+    rules: importRules({ patterns: prismaOutsideItsAdapter }),
+  },
+
   ...['registry', 'messaging', 'identity', 'shared'].map((context) => ({
     name: `aeolus/core-${context}`,
     files: [`packages/server/src/core/${context}/**/*.ts`],
@@ -159,6 +178,12 @@ export default defineConfig(
       'no-restricted-globals': ['error', ...coreImpure.globals],
     },
   })),
+
+  {
+    name: 'aeolus/router-doors',
+    files: ['packages/server/src/adapters/{rest,mcp}/**/*.ts'],
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, coreFromTheRouterDoors] }),
+  },
 
   {
     name: 'aeolus/web',
