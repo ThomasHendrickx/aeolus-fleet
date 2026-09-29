@@ -14,7 +14,7 @@ export interface Config {
   port: number;
   logLevel: string;
   /** True behind a reverse proxy: the client address comes from X-Forwarded-For. */
-  trustProxy: boolean;
+  shouldTrustProxy: boolean;
 }
 
 export class ConfigError extends Error {
@@ -39,6 +39,6 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     host: HOST,
     port: PORT,
     logLevel: LOG_LEVEL,
-    trustProxy: TRUST_PROXY === 'true',
+    shouldTrustProxy: TRUST_PROXY === 'true',
   };
 }
