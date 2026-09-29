@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { eventTypeSchema, locationKindSchema, scopeSchema, shipKindSchema } from './index.js';
+import { eventTypeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from './index.js';
 
 describe('scopeSchema', () => {
   it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'])('accepts %s', (scope) => {
@@ -36,6 +36,13 @@ describe('eventTypeSchema', () => {
       'ShipClaimed',
       'LeaseRevoked',
       'CredentialRevoked',
+      'StartingPromptIssued',
     ]);
+  });
+});
+
+describe('shipStatusSchema', () => {
+  it('knows awaiting crew, crewed and retired, nothing else', () => {
+    expect(shipStatusSchema.options).toEqual(['awaitingCrew', 'crewed', 'retired']);
   });
 });
