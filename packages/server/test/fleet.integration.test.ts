@@ -287,6 +287,30 @@ describe('getting a starting prompt on Postgres', () => {
     await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
   });
 
+  it('is refused when a session claims the ship while the prompt waits for its secret', async () => {
+    // A claim as slice 3 makes it: lock the valid secret, then open a lease and mark the secret claimed.
+    const hasLocked = Promise.withResolvers<void>();
+    const claim = core.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM credentials WHERE ship_id = ${scoutId} AND invalidated_at IS NULL FOR UPDATE`;
+      hasLocked.resolve();
+      await new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS));
+      await tx.lease.create({
+        data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },
+      });
+      await tx.credential.updateMany({
+        where: { shipId: scoutId, invalidatedAt: null },
+        data: { claimedAt: core.clock.now() },
+      });
+    });
+    await hasLocked.promise;
+
+    const prompt = core.useCases.getStartingPrompt(argo, { shipId: scoutId });
+    await claim;
+
+    await expect(prompt).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_AWAITING_CREW' } });
+    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+  });
+
   it('is refused for argo', async () => {
     await expect(core.useCases.getStartingPrompt(argo, { shipId: argoId })).resolves.toMatchObject({
       isOk: false,
