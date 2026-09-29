@@ -41,10 +41,10 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
         FOR UPDATE`;
       return row ? toCredential(row) : undefined;
     },
-    markClaimed: async (fleetId, credentialId, at) => {
+    markClaimed: async ({ fleetId, credentialId, at }) => {
       await db.credential.updateMany({ where: { fleetId, id: credentialId, claimedAt: null }, data: { claimedAt: at } });
     },
-    invalidate: async (fleetId, credentialId, at) => {
+    invalidate: async ({ fleetId, credentialId, at }) => {
       await db.credential.updateMany({
         where: { fleetId, id: credentialId, invalidatedAt: null },
         data: { invalidatedAt: at },
@@ -58,10 +58,10 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
     create: async (session) => {
       await db.consoleSession.create({ data: session });
     },
-    end: async (fleetId, id, at) => {
+    end: async ({ fleetId, consoleSessionId, at }) => {
       const [row] = await db.$queryRaw<ConsoleSessionSqlRow[]>`
         UPDATE console_sessions SET ended_at = ${at}
-        WHERE fleet_id = ${fleetId} AND id = ${id} AND ended_at IS NULL
+        WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId} AND ended_at IS NULL
         RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at`;
       return row ? toConsoleSession(row) : undefined;
     },
@@ -85,7 +85,7 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
         WHERE c.secret_hash = ${secretHash} AND c.invalidated_at IS NULL AND s.retired_at IS NULL`;
       return row ? toAuthenticatedShip(row) : undefined;
     },
-    useConsoleSession: async (tokenHash, now, expiresAt) => {
+    useConsoleSession: async ({ tokenHash, now, expiresAt }) => {
       // One statement checks the session, moves its expiry and returns the ship.
       // GREATEST keeps two overlapping requests from moving either date back.
       const [row] = await db.$queryRaw<(CallerSqlRow & { console_session_id: string })[]>`

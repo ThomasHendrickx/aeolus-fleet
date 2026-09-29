@@ -28,7 +28,7 @@ export interface LeaseRepository {
   findOpenForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Lease | undefined>;
   open(lease: Lease): Promise<void>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
-  end(fleetId: FleetId, leaseId: LeaseId, endedAt: Date): Promise<Lease | undefined>;
+  end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }
 
 /**

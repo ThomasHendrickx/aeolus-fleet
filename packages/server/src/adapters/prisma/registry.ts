@@ -56,7 +56,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         },
       });
     },
-    end: async (fleetId, leaseId, endedAt) => {
+    end: async ({ fleetId, leaseId, endedAt }) => {
       const [row] = await db.$queryRaw<LeaseSqlRow[]>`
         UPDATE leases SET ended_at = ${endedAt}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL

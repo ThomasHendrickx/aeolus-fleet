@@ -58,7 +58,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         },
         sessionCookie: {
           set: (token, expiresAt) => {
-            void res.header('set-cookie', sessionCookie(token, expiresAt, options.clock.now()));
+            void res.header('set-cookie', sessionCookie({ token, expiresAt, now: options.clock.now() }));
           },
           clear: () => {
             void res.header('set-cookie', clearedSessionCookie());

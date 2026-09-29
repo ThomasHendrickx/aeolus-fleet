@@ -23,7 +23,7 @@ export function createRateLimiter(limit: RateLimit, clock: Clock): RateLimiter {
       const now = clock.now().getTime();
       const current = windows.get(key);
       if (!current || now - current.startedAt >= limit.windowMs) {
-        forgetFinishedWindows(windows, now, limit.windowMs);
+        forgetFinishedWindows(windows, { now, windowMs: limit.windowMs });
         windows.set(key, { startedAt: now, count: 1 });
         return true;
       }
@@ -33,11 +33,8 @@ export function createRateLimiter(limit: RateLimit, clock: Clock): RateLimiter {
   };
 }
 
-function forgetFinishedWindows(
-  windows: Map<string, { startedAt: number }>,
-  now: number,
-  windowMs: number,
-): void {
+function forgetFinishedWindows(windows: Map<string, { startedAt: number }>, at: { now: number; windowMs: number }): void {
+  const { now, windowMs } = at;
   for (const [key, window] of windows) {
     if (now - window.startedAt >= windowMs) {
       windows.delete(key);

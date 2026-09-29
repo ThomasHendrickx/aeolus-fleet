@@ -27,7 +27,7 @@ export function createAuthenticate(deps: { callers: CallerLookup; hasher: Secret
     byConsoleSession: async (token) => {
       const now = deps.clock.now();
       const expiresAt = consoleSessionExpiry(now);
-      const caller = await deps.callers.useConsoleSession(deps.hasher.hash(token), now, expiresAt);
+      const caller = await deps.callers.useConsoleSession({ tokenHash: deps.hasher.hash(token), now, expiresAt });
       return caller ? { caller, expiresAt } : undefined;
     },
   };

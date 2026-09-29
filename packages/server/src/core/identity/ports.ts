@@ -25,15 +25,15 @@ export interface CredentialRepository {
   ): Promise<{ credential: Credential; ship: AuthenticatedShip } | undefined>;
   /** The ship's valid credential, locked until the unit of work ends. */
   findValidForShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Credential | undefined>;
-  markClaimed(fleetId: FleetId, credentialId: CredentialId, at: Date): Promise<void>;
-  invalidate(fleetId: FleetId, credentialId: CredentialId, at: Date): Promise<void>;
+  markClaimed(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;
+  invalidate(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */
 export interface ConsoleSessionRepository {
   create(session: ConsoleSession): Promise<void>;
   /** Ends the session if it has not ended and returns it; undefined when it had already ended. */
-  end(fleetId: FleetId, id: ConsoleSessionId, at: Date): Promise<ConsoleSession | undefined>;
+  end(change: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date }): Promise<ConsoleSession | undefined>;
   /** Ends every session of the fleet that has not ended, expired ones included, and returns them. */
   endAll(fleetId: FleetId, at: Date): Promise<ConsoleSession[]>;
 }
@@ -51,5 +51,5 @@ export interface CallerLookup {
    * has not ended and expires after `now`. Using it moves its last use to `now`
    * and its expiry to `expiresAt`.
    */
-  useConsoleSession(tokenHash: string, now: Date, expiresAt: Date): Promise<Caller | undefined>;
+  useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Caller | undefined>;
 }

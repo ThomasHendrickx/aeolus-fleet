@@ -27,9 +27,9 @@ export function createSignOut(deps: { uow: UnitOfWork<SignOutTx>; clock: Clock; 
 
     await deps.uow.run(async (tx) => {
       const at = deps.clock.now();
-      const session = await tx.consoleSessions.end(caller.fleetId, consoleSessionId, at);
+      const session = await tx.consoleSessions.end({ fleetId: caller.fleetId, consoleSessionId, at });
       if (session) {
-        await endLease(tx, deps.ids, {
+        await endLease({ tx, ids: deps.ids }, {
           fleetId: session.fleetId,
           leaseId: session.leaseId,
           actor: shipActor(session.shipId),

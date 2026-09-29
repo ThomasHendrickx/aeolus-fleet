@@ -47,8 +47,8 @@ export function createReplaceOperatorSecret(deps: {
 
       const old = await tx.credentials.findValidForShipForUpdate(fleetId, argo.id);
       if (old) {
-        await tx.credentials.invalidate(fleetId, old.id, at);
-        await recordEvent(tx.events, deps.ids, {
+        await tx.credentials.invalidate({ fleetId, credentialId: old.id, at });
+        await recordEvent({ events: tx.events, ids: deps.ids }, {
           fleetId,
           type: 'CredentialRevoked',
           occurredAt: at,
@@ -59,10 +59,16 @@ export function createReplaceOperatorSecret(deps: {
       }
 
       for (const session of await tx.consoleSessions.endAll(fleetId, at)) {
-        await endLease(tx, deps.ids, { fleetId, leaseId: session.leaseId, actor: SYSTEM, at, reason: 'secretReplaced' });
+        await endLease(
+          { tx, ids: deps.ids },
+          { fleetId, leaseId: session.leaseId, actor: SYSTEM, at, reason: 'secretReplaced' },
+        );
       }
 
-      const secret = await issueShipSecret(tx, deps, { fleetId, shipId: argo.id, at });
+      const secret = await issueShipSecret(
+        { tx, ids: deps.ids, hasher: deps.hasher, random: deps.random },
+        { fleetId, shipId: argo.id, at },
+      );
       return ok({ shipId: argo.id, secret });
     });
 }

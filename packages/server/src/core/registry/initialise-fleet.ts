@@ -59,19 +59,18 @@ export function createInitialiseFleet(deps: {
       await tx.ships.create(argo);
 
       const secret = await issueShipSecret(
-        tx,
-        { ...deps.secrets, ids: deps.ids },
+        { tx, ...deps.secrets, ids: deps.ids },
         { fleetId, shipId: argo.id, at },
       );
 
-      await recordEvent(tx.events, deps.ids, {
+      await recordEvent({ events: tx.events, ids: deps.ids }, {
         fleetId,
         type: 'FleetInitialised',
         occurredAt: at,
         actor: SYSTEM,
         details: { name },
       });
-      await recordEvent(tx.events, deps.ids, {
+      await recordEvent({ events: tx.events, ids: deps.ids }, {
         fleetId,
         type: 'ShipCommissioned',
         occurredAt: at,

@@ -55,7 +55,7 @@ export function createSignIn(deps: {
       const actor = shipActor(ship.shipId);
 
       await tx.consoleSessions.endAll(ship.fleetId, at);
-      const takenOver = await takeOverOperatorLease(tx, deps.ids, {
+      const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
         fleetId: ship.fleetId,
         shipId: ship.shipId,
         kind: ship.kind,
@@ -67,7 +67,7 @@ export function createSignIn(deps: {
         return takenOver;
       }
       if (credential.claimedAt === null) {
-        await tx.credentials.markClaimed(ship.fleetId, credential.id, at);
+        await tx.credentials.markClaimed({ fleetId: ship.fleetId, credentialId: credential.id, at });
       }
 
       const token = deps.random.next();

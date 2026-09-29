@@ -33,16 +33,15 @@ export interface SecretTools {
  * exists in plain text.
  */
 export async function issueShipSecret(
-  tx: CredentialTx,
-  tools: SecretTools,
+  deps: SecretTools & { tx: CredentialTx },
   input: { fleetId: FleetId; shipId: ShipId; at: Date },
 ): Promise<string> {
-  const secret = SHIP_SECRET_PREFIX + tools.random.next();
-  await tx.credentials.create({
-    id: tools.ids('credential'),
+  const secret = SHIP_SECRET_PREFIX + deps.random.next();
+  await deps.tx.credentials.create({
+    id: deps.ids('credential'),
     fleetId: input.fleetId,
     shipId: input.shipId,
-    secretHash: tools.hasher.hash(secret),
+    secretHash: deps.hasher.hash(secret),
     issuedAt: input.at,
     claimedAt: null,
     invalidatedAt: null,
