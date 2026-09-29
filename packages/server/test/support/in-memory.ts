@@ -139,7 +139,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.leases.push({ ...lease });
         return Promise.resolve();
       },
-      end: (fleetId, leaseId, endedAt) => {
+      end: ({ fleetId, leaseId, endedAt }) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === leaseId);
         if (lease?.endedAt !== null) {
           return Promise.resolve(undefined);
@@ -185,14 +185,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             (held) => held.fleetId === fleetId && held.shipId === shipId && held.invalidatedAt === null,
           ),
         ),
-      markClaimed: (fleetId, credentialId, at) => {
+      markClaimed: ({ fleetId, credentialId, at }) => {
         const credential = state.credentials.find((held) => held.fleetId === fleetId && held.id === credentialId);
         if (credential) {
           credential.claimedAt = at;
         }
         return Promise.resolve();
       },
-      invalidate: (fleetId, credentialId, at) => {
+      invalidate: ({ fleetId, credentialId, at }) => {
         const credential = state.credentials.find((held) => held.fleetId === fleetId && held.id === credentialId);
         if (credential) {
           credential.invalidatedAt = at;
@@ -208,8 +208,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.consoleSessions.push({ ...session });
         return Promise.resolve();
       },
-      end: (fleetId, id, at) => {
-        const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === id);
+      end: ({ fleetId, consoleSessionId, at }) => {
+        const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === consoleSessionId);
         if (session?.endedAt !== null) {
           return Promise.resolve(undefined);
         }
@@ -256,7 +256,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   const callers: CallerLookup = {
     bySecretHash: async (secretHash) => (await tx.credentials.findValidBySecretHashForUpdate(secretHash))?.ship,
-    useConsoleSession: (tokenHash, at, expiresAt) => {
+    useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
       const session = state.consoleSessions.find(
         (held) => held.tokenHash === tokenHash && held.endedAt === null && held.expiresAt > at,
       );

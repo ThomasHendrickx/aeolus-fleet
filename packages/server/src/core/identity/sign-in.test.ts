@@ -77,7 +77,7 @@ describe('signing in to the console', () => {
   });
 
   it("refuses an agent ship's secret: only argo signs in to the console", async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
 
     await expect(useCases.signIn({ secret: agent.secret })).resolves.toMatchObject({
       isOk: false,

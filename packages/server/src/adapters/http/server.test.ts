@@ -111,7 +111,7 @@ describe('console.signIn', () => {
 
   it("refuses an agent ship's secret with 403", async () => {
     start();
-    const agent = addAgentShip(core, core.state.fleets[0]?.id ?? expect.unreachable());
+    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
 
     const response = await signIn({ secret: agent.secret });
 
@@ -169,7 +169,7 @@ describe('a procedure that needs a scope', () => {
 
   it('refuses a ship without the scope with 403', async () => {
     start();
-    const agent = addAgentShip(core, core.state.fleets[0]?.id ?? expect.unreachable());
+    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
 
     const response = await ping({ authorization: `Bearer ${agent.secret}` });
 

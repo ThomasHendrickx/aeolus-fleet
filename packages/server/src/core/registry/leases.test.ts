@@ -23,7 +23,7 @@ const webConsole = unwrap(location('OTHER', 'web console'));
 
 async function takeOver() {
   const takenOver = await core.uow.run((tx) =>
-    takeOverOperatorLease(tx, core.ids, {
+    takeOverOperatorLease({ tx, ids: core.ids }, {
       fleetId,
       shipId: argoId,
       kind: 'operator',
@@ -85,11 +85,11 @@ describe('taking over the operator lease', () => {
   });
 
   it('refuses an agent ship: a second claim on it fails instead', async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
 
     await expect(
       core.uow.run((tx) =>
-        takeOverOperatorLease(tx, core.ids, {
+        takeOverOperatorLease({ tx, ids: core.ids }, {
           fleetId,
           shipId: agent.shipId,
           kind: 'agent',
@@ -109,7 +109,12 @@ describe('ending a lease', () => {
     core.state.events.length = 0;
     const end = () =>
       core.uow.run(async (tx) =>
-        ok(await endLease(tx, core.ids, { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' })),
+        ok(
+          await endLease(
+            { tx, ids: core.ids },
+            { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' },
+          ),
+        ),
       );
 
     await expect(end()).resolves.toEqual(ok(true));

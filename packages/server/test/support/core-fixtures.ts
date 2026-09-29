@@ -36,9 +36,9 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
  */
 export function addAgentShip(
   core: InMemoryCore,
-  fleetId: FleetId,
-  scopes: Scope[] = ['messages:send', 'messages:receive'],
+  ship: { fleetId: FleetId; scopes?: Scope[] },
 ): { shipId: ShipId; secret: string } {
+  const { fleetId, scopes = ['messages:send', 'messages:receive'] } = ship;
   const at = core.clock.now();
   const shipId = core.ids('ship');
   const secret = `aeolus_sk_v1_agent-${shipId}`;

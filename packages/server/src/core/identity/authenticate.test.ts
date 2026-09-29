@@ -30,7 +30,7 @@ describe('authenticating with a ship secret', () => {
   });
 
   it('returns an agent with only its own scopes', async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
 
     await expect(useCases.authenticate.bySecret(agent.secret)).resolves.toEqual({
       shipId: agent.shipId,
@@ -45,7 +45,7 @@ describe('authenticating with a ship secret', () => {
   });
 
   it('knows no secret of a retired ship', async () => {
-    const agent = addAgentShip(core, fleetId);
+    const agent = addAgentShip(core, { fleetId });
     const ship = core.state.ships.find((candidate) => candidate.id === agent.shipId);
     if (ship) {
       ship.retiredAt = core.clock.now();
