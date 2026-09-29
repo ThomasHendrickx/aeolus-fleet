@@ -383,7 +383,7 @@ describe('listing the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         status: 'crewed',
-        startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+        startingPrompt: null,
       },
       {
         id: shipId,
@@ -424,7 +424,7 @@ describe('listing the fleet on Postgres', () => {
     const listed = await core.useCases.listFleet(argo);
 
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt === null])).toEqual([
-      ['argo', 'awaitingCrew', false],
+      ['argo', 'awaitingCrew', true],
       ['scout', 'crewed', false],
       ['lookout', 'retired', true],
     ]);

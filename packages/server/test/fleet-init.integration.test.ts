@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
-import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -14,10 +13,10 @@ afterEach(async () => {
 });
 
 describe('initialising the fleet on Postgres', () => {
-  it('stores the fleet, argo, the hash of its secret and both events', async () => {
+  it('stores the fleet, argo without a secret, and both events', async () => {
     core = await createPostgresCore();
 
-    const { fleetId, operatorShipId, operatorId, secret } = unwrap(
+    const { fleetId, operatorShipId, operatorId } = unwrap(
       await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }),
     );
 
@@ -35,9 +34,7 @@ describe('initialising the fleet on Postgres', () => {
         retiredAt: null,
       }),
     ]);
-    await expect(core.prisma.credential.findMany()).resolves.toEqual([
-      expect.objectContaining({ shipId: operatorShipId, secretHash: sha256Hasher.hash(secret), invalidatedAt: null }),
-    ]);
+    await expect(core.prisma.credential.count()).resolves.toBe(0);
     const events = await core.prisma.event.findMany({ orderBy: { id: 'asc' } });
     expect(events.map((event) => [event.type, event.actorShipId, event.shipId, event.details])).toEqual([
       ['FleetInitialised', null, null, { name: 'home fleet', operatorId }],
@@ -88,7 +85,7 @@ describe('initialising the fleet on Postgres', () => {
     ]);
     await expect(core.prisma.fleet.count()).resolves.toBe(1);
     await expect(core.prisma.ship.count()).resolves.toBe(1);
-    await expect(core.prisma.credential.count()).resolves.toBe(1);
+    await expect(core.prisma.credential.count()).resolves.toBe(0);
     await expect(core.prisma.operator.count()).resolves.toBe(1);
   });
 });

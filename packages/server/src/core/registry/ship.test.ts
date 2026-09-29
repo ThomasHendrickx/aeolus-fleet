@@ -2,6 +2,7 @@ import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import {
+  checkCanClaimWithSecret,
   checkCanRelease,
   checkCanRename,
   checkCanRetire,
@@ -62,6 +63,16 @@ describe('the operator ship', () => {
       error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be renamed' },
     });
   });
+
+  it("refuses a secret claim: it has no secret, and only the operator's sign-in crews it", () => {
+    expect(checkCanClaimWithSecret(argo)).toEqual({
+      isOk: false,
+      error: {
+        kind: 'OPERATOR_SHIP_HAS_NO_SECRET',
+        message: "argo has no secret: only the operator's console sign-in crews it",
+      },
+    });
+  });
 });
 
 describe('an agent ship', () => {
@@ -69,6 +80,10 @@ describe('an agent ship', () => {
     expect(checkCanRetire(scout)).toEqual(allowed);
     expect(checkCanRelease(scout)).toEqual(allowed);
     expect(checkCanRename(scout, 'lookout')).toEqual(allowed);
+  });
+
+  it('can be claimed with its secret', () => {
+    expect(checkCanClaimWithSecret(scout)).toEqual(allowed);
   });
 
   it('can never be renamed to argo', () => {

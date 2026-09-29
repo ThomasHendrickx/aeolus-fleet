@@ -84,22 +84,13 @@ describe('initialise fleet', () => {
     expect(core.state.operatorAccounts).toEqual([]);
   });
 
-  it("returns argo's secret once and stores only its hash", async () => {
+  it('gives argo no secret: the operator account is the only way to crew it', async () => {
     const { core, initialiseFleet } = setup();
 
-    const { secret, fleetId, operatorShipId } = unwrap(await initialiseFleet({ name: 'home fleet', ...operator }));
+    const initialised = unwrap(await initialiseFleet({ name: 'home fleet', ...operator }));
 
-    expect(secret).toMatch(/^aeolus_sk_v1_./);
-    expect(core.state.credentials).toEqual([
-      expect.objectContaining({
-        fleetId,
-        shipId: operatorShipId,
-        secretHash: core.hasher.hash(secret),
-        claimedAt: null,
-        invalidatedAt: null,
-      }),
-    ]);
-    expect(JSON.stringify(core.state)).not.toContain(`"${secret}"`);
+    expect(core.state.credentials).toEqual([]);
+    expect(initialised).not.toHaveProperty('secret');
   });
 
   it('writes FleetInitialised, naming the operator account, and ShipCommissioned, caused by the system', async () => {

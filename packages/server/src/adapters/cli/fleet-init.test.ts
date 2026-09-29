@@ -34,13 +34,12 @@ function scriptedIo(answers: string[] = []): CommandIo & {
 
 const answers = ['thomas@example.com', 'correct horse', 'correct horse'];
 
-const initialised: InitialiseFleet = ({ name }) =>
+const initialised: InitialiseFleet = () =>
   Promise.resolve(
     ok({
       fleetId: newId('fleet'),
       operatorShipId: newId('ship'),
       operatorId: newId('operator'),
-      secret: `aeolus_sk_v1_secret-for-${name}`,
     }),
   );
 
@@ -71,6 +70,8 @@ describe('fleet:init', () => {
     expect(io.stdout).toHaveLength(1);
     expect(io.stdout[0]).toMatch(/Fleet initialised: flt_.+\nOperator ship argo: shp_.+\nOperator account: opr_/);
     expect(io.stdout[0]).not.toContain('correct horse');
+    expect(io.stdout[0]).not.toMatch(/secret/i);
+    expect(io.stdout[0]).toContain('operator:reset-password');
     expect(io.stderr).toEqual([]);
   });
 

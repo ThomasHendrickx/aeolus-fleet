@@ -11,22 +11,27 @@ let core: InMemoryCore;
 let useCases: ReturnType<typeof identityUseCases>;
 let fleetId: FleetId;
 let argoId: ShipId;
-let secret: string;
 
 beforeEach(async () => {
   core = createInMemoryCore();
   useCases = identityUseCases(core);
-  ({ fleetId, operatorShipId: argoId, secret } = await initialiseFleet(core));
+  ({ fleetId, operatorShipId: argoId } = await initialiseFleet(core));
 });
 
 describe('authenticating with a ship secret', () => {
-  it("returns argo with its fleet, kind and every scope", async () => {
-    await expect(useCases.authenticate.bySecret(secret)).resolves.toEqual({
-      shipId: argoId,
+  it('never returns argo, even for a secret stored for it: argo has no secret', async () => {
+    const secret = 'aeolus_sk_v1_stored-for-argo';
+    core.state.credentials.push({
+      id: core.ids('credential'),
       fleetId,
-      kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+      shipId: argoId,
+      secretHash: core.hasher.hash(secret),
+      issuedAt: core.clock.now(),
+      claimedAt: null,
+      invalidatedAt: null,
     });
+
+    await expect(useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
   });
 
   it('returns an agent with only its own scopes', async () => {

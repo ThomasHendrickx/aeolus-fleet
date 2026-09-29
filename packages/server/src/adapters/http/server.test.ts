@@ -16,7 +16,6 @@ import { buildHttpServer } from './server.js';
 const DAY_S = 24 * 60 * 60;
 
 let core: InMemoryCore;
-let secret: string;
 let server: FastifyInstance;
 
 const reachable = () => Promise.resolve();
@@ -38,7 +37,7 @@ function start(options: { checkDatabase?: () => Promise<void>; signInRateLimit?:
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-09-29T12:00:00.000Z');
-  ({ secret } = await initialiseFleet(core));
+  await initialiseFleet(core);
 });
 
 afterEach(async () => {
@@ -188,8 +187,9 @@ describe('a procedure that needs a scope', () => {
 
   it('serves a ship with the scope, by secret', async () => {
     start();
+    const reader = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable(), scopes: ['fleet:read'] });
 
-    const response = await ping({ authorization: `Bearer ${secret}` });
+    const response = await ping({ authorization: `Bearer ${reader.secret}` });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ result: { data: { serverTime: '2026-09-29T12:00:00.000Z', fleetCount: 1 } } });
@@ -244,7 +244,9 @@ describe('a procedure that needs a scope', () => {
       logger: false,
     });
 
-    expect((await ping({ authorization: `Bearer ${secret}` })).statusCode).toBe(500);
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    expect((await ping({ cookie })).statusCode).toBe(500);
   });
 });
 

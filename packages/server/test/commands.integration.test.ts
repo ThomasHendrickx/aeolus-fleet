@@ -31,14 +31,16 @@ function run(script: string, options: { args?: string[]; answers?: string[] } = 
 const NEW_PASSWORD = 'staple battery horse correct';
 
 describe('the server commands', () => {
-  it('fleet:init asks for the operator email and password, and creates the fleet, argo and the account', async () => {
+  it('fleet:init asks for the operator email and password, and creates the fleet, argo without a secret and the account', async () => {
     const result = await run('fleet:init', {
       args: ['--name', 'home fleet'],
       answers: [OPERATOR.email, OPERATOR.password, OPERATOR.password],
     });
 
     expect(result.code).toBe(0);
-    expect(result.stdout).toMatch(/aeolus_sk_v1_/);
+    expect(result.stdout).toContain('Operator account: opr_');
+    expect(result.stdout).not.toMatch(/aeolus_sk_v1_/);
+    await expect(database.credential.count()).resolves.toBe(0);
     await expect(database.fleet.findMany()).resolves.toEqual([expect.objectContaining({ name: 'home fleet' })]);
     await expect(database.operator.findMany()).resolves.toEqual([expect.objectContaining({ email: OPERATOR.email })]);
     expect(result.stdout).not.toContain(OPERATOR.password);

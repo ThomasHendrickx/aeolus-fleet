@@ -19,6 +19,7 @@ import { createTestClock } from './support/postgres-core.js';
 
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
+const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
 
 let databaseUrl: string;
 let database: PrismaClient;
@@ -26,12 +27,11 @@ let server: FastifyInstance;
 let address: string;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argoSecret: string;
 
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = unwrap(
+  ({ fleetId, operatorShipId: argoId } = unwrap(
     await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
   ));
 
@@ -40,7 +40,7 @@ beforeAll(async () => {
     publicUrl: FLEET_URL,
     clock,
     logger: false,
-    signInRateLimit: { limit: 5, windowMs: 60_000 },
+    signInRateLimit: SIGN_IN_RATE_LIMIT,
   });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
@@ -109,6 +109,16 @@ function sessionCookieOf(response: Response): string {
   return cookie?.split(';')[0] ?? '';
 }
 
+/**
+ * argo, through a new console session: argo has no secret, so the operator's
+ * sign-in is the only way to call as argo. A new rate-limit window first, so
+ * the sign-ins of many tests never hit the limit.
+ */
+async function signedInArgo(): Promise<TRPCClient<AppRouter>> {
+  clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+  return client({ cookie: sessionCookieOf(await signIn()) });
+}
+
 describe('the migrations', () => {
   it('are all applied', async () => {
     const applied = await database.$queryRaw<{ migration_name: string }[]>`
@@ -135,11 +145,28 @@ describe('scopes at the API', () => {
     await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe('FORBIDDEN');
   });
 
-  it("serve system.ping to argo's secret", async () => {
-    await expect(client({ authorization: `Bearer ${argoSecret}` }).system.ping.query()).resolves.toEqual({
-      serverTime: '2026-09-29T12:00:00.000Z',
+  it('serve system.ping to a ship with fleet:read', async () => {
+    const secret = await agentShip(['fleet:read']);
+
+    await expect(client({ authorization: `Bearer ${secret}` }).system.ping.query()).resolves.toEqual({
+      serverTime: clock.now().toISOString(),
       fleetCount: 1,
     });
+  });
+
+  it('refuse a secret stored for argo: argo has no secret, only the console session crews it', async () => {
+    const secret = `aeolus_sk_v1_${newId('credential')}`;
+    await database.credential.create({
+      data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: clock.now() },
+    });
+
+    try {
+      await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe(
+        'UNAUTHORIZED',
+      );
+    } finally {
+      await database.credential.deleteMany({ where: { shipId: argoId } });
+    }
   });
 });
 
@@ -193,7 +220,6 @@ describe('the console session over HTTP', () => {
 });
 
 describe('the fleet procedures at the API', () => {
-  const asArgo = () => client({ authorization: `Bearer ${argoSecret}` });
   const scout = { name: 'scout', type: 'reviewer' };
 
   it('refuse every fleet procedure without a caller', async () => {
@@ -231,11 +257,12 @@ describe('the fleet procedures at the API', () => {
   });
 
   it("commission a ship with argo's secret: listed as awaiting crew, its prompt unclaimed", async () => {
-    const { shipId, prompt } = await asArgo().fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
 
     expect(prompt).toContain(`Fleet URL: ${FLEET_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
-    const listed = await asArgo().fleet.list.query();
+    const listed = await asArgo.fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toEqual({
       id: shipId,
       name: 'scout',
@@ -245,12 +272,12 @@ describe('the fleet procedures at the API', () => {
     });
   });
 
-  it('give a new starting prompt through the console session: the previous secret stops working', async () => {
-    const { shipId, prompt: first } = await asArgo().fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
+  it('give a new starting prompt: the previous secret stops working', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt: first } = await asArgo.fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
     clock.advance(60_000);
-    const cookie = sessionCookieOf(await signIn());
 
-    const { prompt } = await client({ cookie }).fleet.getStartingPrompt.mutate({ shipId });
+    const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
 
     expect(secretIn(prompt)).not.toBe(secretIn(first));
     await expect(codeOf(client({ authorization: `Bearer ${secretIn(first)}` }).fleet.list.query())).resolves.toBe(
@@ -262,9 +289,10 @@ describe('the fleet procedures at the API', () => {
   });
 
   it('refuse a commission with a name an active ship holds', async () => {
-    await asArgo().fleet.commission.mutate({ name: 'mooring', type: 'reviewer' });
+    const asArgo = await signedInArgo();
+    await asArgo.fleet.commission.mutate({ name: 'mooring', type: 'reviewer' });
 
-    await expect(codeOf(asArgo().fleet.commission.mutate({ name: 'mooring', type: 'lookout' }))).resolves.toBe(
+    await expect(codeOf(asArgo.fleet.commission.mutate({ name: 'mooring', type: 'lookout' }))).resolves.toBe(
       'CONFLICT',
     );
   });
@@ -278,38 +306,41 @@ describe('the fleet procedures at the API', () => {
       code: 'BAD_REQUEST',
     },
   ])('refuse a commission with $label', async ({ input, code }) => {
-    await expect(codeOf(asArgo().fleet.commission.mutate(input))).resolves.toBe(code);
+    const asArgo = await signedInArgo();
+    await expect(codeOf(asArgo.fleet.commission.mutate(input))).resolves.toBe(code);
   });
 
   it('refuse a starting prompt for a ship that does not exist', async () => {
+    const asArgo = await signedInArgo();
     const shipId = newId('ship');
 
-    await expect(refusalOf(asArgo().fleet.getStartingPrompt.mutate({ shipId }))).resolves.toEqual({
+    await expect(refusalOf(asArgo.fleet.getStartingPrompt.mutate({ shipId }))).resolves.toEqual({
       code: 'NOT_FOUND',
       message: `Ship ${shipId} does not exist`,
     });
   });
 
   it('refuse a starting prompt for argo', async () => {
-    await expect(codeOf(asArgo().fleet.getStartingPrompt.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    const asArgo = await signedInArgo();
+    await expect(codeOf(asArgo.fleet.getStartingPrompt.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
   });
 
   it('never carry a secret or its hash in a list response', async () => {
-    const { prompt } = await asArgo().fleet.commission.mutate({ name: 'harbour', type: 'reviewer' });
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+    const { prompt } = await client({ cookie }).fleet.commission.mutate({ name: 'harbour', type: 'reviewer' });
 
-    const response = await fetch(`${address}/trpc/fleet.list`, { headers: { authorization: `Bearer ${argoSecret}` } });
+    const response = await fetch(`${address}/trpc/fleet.list`, { headers: { cookie } });
     const body = await response.text();
 
     expect(response.status).toBe(200);
     expect(body).toContain('harbour');
-    for (const secret of [secretIn(prompt), argoSecret]) {
-      expect(body).not.toContain(secret);
-      expect(body).not.toContain(sha256Hasher.hash(secret));
-    }
+    expect(body).not.toContain(secretIn(prompt));
+    expect(body).not.toContain(sha256Hasher.hash(secretIn(prompt)));
     expect(body).not.toContain('aeolus_sk_v1_');
   });
 
-  it('never write a secret to the logs, even at trace level', async () => {
+  it('never write a secret or the password to the logs, even at trace level', async () => {
     const lines: string[] = [];
     const logged = createApp({
       databaseUrl,
@@ -326,8 +357,13 @@ describe('the fleet procedures at the API', () => {
     });
     try {
       const url = await logged.listen({ host: '127.0.0.1', port: 0 });
+      const signedIn = await fetch(`${url}/trpc/console.signIn`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(OPERATOR),
+      });
       const asArgoThere = createTRPCClient<AppRouter>({
-        links: [httpBatchLink({ url: `${url}/trpc`, headers: { authorization: `Bearer ${argoSecret}` } })],
+        links: [httpBatchLink({ url: `${url}/trpc`, headers: { cookie: sessionCookieOf(signedIn) } })],
       });
 
       const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' });
@@ -340,7 +376,7 @@ describe('the fleet procedures at the API', () => {
 
       expect(lines.length).toBeGreaterThan(0);
       const logs = lines.join('');
-      for (const secret of [secretIn(prompt), secretIn(again.prompt), argoSecret]) {
+      for (const secret of [secretIn(prompt), secretIn(again.prompt), OPERATOR.password]) {
         expect(logs).not.toContain(secret);
       }
       expect(logs).not.toContain('aeolus_sk_v1_');

@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
@@ -7,7 +7,7 @@ import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -20,11 +20,10 @@ const newId = createIdGenerator();
 let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let secret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId, secret } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  ({ fleetId, operatorShipId: argoId } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 });
 
 afterEach(async () => {
@@ -246,17 +245,36 @@ describe('resetting the operator password on Postgres', () => {
 });
 
 describe('the caller lookups', () => {
+  async function commissionedSecret(): Promise<{ shipId: ShipId; secret: string }> {
+    const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    return { shipId, secret: secretIn(prompt) };
+  }
+
   it('find the ship, fleet, kind and scopes by secret hash alone', async () => {
+    const { shipId, secret } = await commissionedSecret();
+
     await expect(core.useCases.authenticate.bySecret(secret)).resolves.toEqual({
-      shipId: argoId,
+      shipId,
       fleetId,
-      kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+      kind: 'agent',
+      scopes: ['messages:send', 'messages:receive'],
     });
   });
 
   it('know no secret of another length or content', async () => {
+    const { secret } = await commissionedSecret();
+
     await expect(core.useCases.authenticate.bySecret(`${secret}x`)).resolves.toBeUndefined();
     await expect(core.useCases.authenticate.byConsoleSession(secret)).resolves.toBeUndefined();
+  });
+
+  it('never find argo by a secret, even one stored for it', async () => {
+    const secret = 'aeolus_sk_v1_stored-for-argo';
+    await core.prisma.credential.create({
+      data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: core.clock.now() },
+    });
+
+    await expect(core.useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
   });
 });
