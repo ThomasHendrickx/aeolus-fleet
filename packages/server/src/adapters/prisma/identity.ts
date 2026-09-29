@@ -1,6 +1,17 @@
-import type { CallerLookup, ConsoleSessionRepository, CredentialRepository } from '../../core/identity/ports.js';
+import type {
+  CallerLookup,
+  ConsoleSessionRepository,
+  CredentialRepository,
+  OperatorAccountRepository,
+} from '../../core/identity/ports.js';
 import type { Db } from './client.js';
-import { toAuthenticatedShip, toConsoleSession, toConsoleSessionCaller, toCredential } from './rows.js';
+import {
+  toAuthenticatedShip,
+  toConsoleSession,
+  toConsoleSessionCaller,
+  toCredential,
+  toOperatorAccount,
+} from './rows.js';
 
 // Lock order, as the CredentialRepository port states: the ship when a use case
 // locks it, then a credential, then console sessions, then leases. Sign-in,
@@ -41,6 +52,32 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
         where: { fleetId, id: credentialId, invalidatedAt: null },
         data: { invalidatedAt: at },
       });
+    },
+  };
+}
+
+export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRepository {
+  return {
+    create: async (account) => {
+      await db.operator.create({ data: account });
+    },
+    findByEmailForUpdate: async (email) => {
+      // Not scoped by fleet: signing in names no fleet (ADR 0007).
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE email = ${email}
+        FOR UPDATE`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+    findForFleetForUpdate: async (fleetId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE fleet_id = ${fleetId}
+        FOR UPDATE`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+    changePassword: async ({ fleetId, operatorId, passwordHash }) => {
+      await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { passwordHash } });
     },
   };
 }

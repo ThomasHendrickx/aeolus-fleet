@@ -86,13 +86,13 @@ describe('the operator account repository', () => {
     await accounts().create(account);
     const uow = createPrismaUnitOfWork(database);
     const order: string[] = [];
-    const { promise: firstHolds, resolve: releaseFirst } = Promise.withResolvers<void>();
-    const { promise: firstLocked, resolve: signalLocked } = Promise.withResolvers<void>();
+    const { promise: firstHolds, resolve: releaseFirst } = Promise.withResolvers<undefined>();
+    const { promise: firstLocked, resolve: signalLocked } = Promise.withResolvers<undefined>();
 
     const first = uow.run(async (tx) => {
       await tx.operatorAccounts.findByEmailForUpdate(account.email);
       order.push('first locked');
-      signalLocked();
+      signalLocked(undefined);
       await firstHolds;
       order.push('first done');
       return ok(undefined);
@@ -104,7 +104,7 @@ describe('the operator account repository', () => {
       return ok(undefined);
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
-    releaseFirst();
+    releaseFirst(undefined);
     await Promise.all([first, second]);
 
     expect(order).toEqual(['first locked', 'first done', 'second locked']);

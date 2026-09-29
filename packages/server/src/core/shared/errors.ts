@@ -4,8 +4,10 @@ import { err, type Err } from './result.js';
 export type DomainErrorKind =
   | 'FLEET_ALREADY_EXISTS'
   | 'FLEET_NOT_FOUND'
+  | 'INVALID_EMAIL'
   | 'INVALID_FLEET_NAME'
   | 'INVALID_LOCATION'
+  | 'INVALID_PASSWORD'
   | 'INVALID_SECRET'
   | 'INVALID_SHIP_NAME'
   | 'INVALID_SHIP_NOTE'

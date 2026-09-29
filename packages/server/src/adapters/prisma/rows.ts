@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { ConsoleSession } from '../../core/identity/console-session.js';
 import type { AuthenticatedShip } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
+import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
 import type { ShipFacts } from '../../core/registry/ports.js';
@@ -133,6 +134,28 @@ const credentialSqlRow = z
 
 export function toCredential(row: unknown): Credential {
   return credentialSqlRow.parse(row);
+}
+
+const operatorAccountSqlRow = z
+  .object({
+    id: idSchema('operator'),
+    fleet_id: idSchema('fleet'),
+    email: z.string(),
+    password_hash: z.string(),
+    created_at: z.date(),
+  })
+  .transform(
+    (row): OperatorAccount => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      email: row.email,
+      passwordHash: row.password_hash,
+      createdAt: row.created_at,
+    }),
+  );
+
+export function toOperatorAccount(row: unknown): OperatorAccount {
+  return operatorAccountSqlRow.parse(row);
 }
 
 const consoleSessionSqlRow = z
