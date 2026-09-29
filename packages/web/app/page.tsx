@@ -25,14 +25,14 @@ export default function ConsolePage() {
     }),
   );
 
-  const signedOut = trpcErrorCode(ping.error) === 'UNAUTHORIZED';
+  const isSignedOut = trpcErrorCode(ping.error) === 'UNAUTHORIZED';
   useEffect(() => {
-    if (signedOut) {
+    if (isSignedOut) {
       router.replace('/sign-in');
     }
-  }, [signedOut, router]);
+  }, [isSignedOut, router]);
 
-  if (ping.isPending || signedOut) {
+  if (ping.isPending || isSignedOut) {
     return <p>Loading...</p>;
   }
 
