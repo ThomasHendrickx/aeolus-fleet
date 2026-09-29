@@ -7,7 +7,7 @@
 import { git, repositoryRoot, type PullRequestRange } from './support/git.ts';
 import { runPullRequestCheck } from './support/report.ts';
 
-export const EM_DASH = '—';
+export const EM_DASH = '\u2014';
 
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 const RECORD_SEPARATOR = '\u001e';
