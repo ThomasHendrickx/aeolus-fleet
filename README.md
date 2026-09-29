@@ -29,6 +29,28 @@ Pre-v1, design complete, build starting. The v1 acceptance test: two ships excha
 | `@aeolus-fleet/web` | The operator console (Next.js) |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 
+## Development
+
+Requires Node 26 and npm. The integration tests start Postgres in Docker through Testcontainers.
+
+```sh
+npm install              # also generates the Prisma client
+npm run typecheck
+npm run lint
+npm test                 # unit and integration tests; npm run test:unit needs no Docker
+```
+
+To run it locally against any Postgres 16 or newer:
+
+```sh
+cp packages/server/.env.example packages/server/.env   # then point DATABASE_URL at your Postgres
+npm run db:migrate --workspace @aeolus-fleet/server
+npm run dev --workspace @aeolus-fleet/server            # API on http://127.0.0.1:4000
+npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000
+```
+
+Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
+
 ## Contributing
 
 - Branch from `main` and open a pull request.

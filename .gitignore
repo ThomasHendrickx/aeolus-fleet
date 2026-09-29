@@ -24,3 +24,11 @@ venv/
 # Logs & coverage
 *.log
 coverage/
+
+# TypeScript and Next.js build state
+*.tsbuildinfo
+.next/
+next-env.d.ts
+
+# Prisma client, generated on npm install
+packages/server/src/adapters/prisma/generated/

@@ -33,7 +33,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
 - tRPC is the single API door. REST and MCP map onto the same ship procedures; they never hold logic of their own.
 - Every table has fleet_id. Every query is scoped by it.
-- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_), from common/src/ids.
+- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_), from common/src/ids.
 - Every state change writes its event in the same transaction.
 - Payloads are at most 64 KB. A message is the travelling ticket; the reference is where the content lives.
 - Web follows atomic design: components/atoms, molecules, organisms, templates. shadcn/ui on Base UI for atoms.
