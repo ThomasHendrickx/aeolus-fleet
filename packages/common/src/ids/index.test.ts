@@ -108,15 +108,16 @@ describe('createIdGenerator', () => {
 
 describe('parseId', () => {
   it('returns the kind and the creation time', () => {
-    const id = createIdGenerator({ now: () => 1_759_147_200_000 })('operatorSession');
+    const id = createIdGenerator({ now: () => 1_759_147_200_000 })('consoleSession');
 
-    expect(parseId(id)).toEqual({ kind: 'operatorSession', timestamp: new Date(1_759_147_200_000) });
+    expect(parseId(id)).toEqual({ kind: 'consoleSession', timestamp: new Date(1_759_147_200_000) });
   });
 
   it.each([
     ['an empty string', ''],
     ['a value without a separator', 'shp01aryz6s410000000000000000'],
     ['an unknown prefix', 'usr_01aryz6s410000000000000000'],
+    ['the retired operator prefix', 'opr_01aryz6s410000000000000000'],
     ['an uppercase body', 'shp_01ARYZ6S410000000000000000'],
     ['an uppercase prefix', 'SHP_01aryz6s410000000000000000'],
     ['a short body', 'shp_01aryz6s41000000000000000'],

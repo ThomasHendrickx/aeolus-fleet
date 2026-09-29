@@ -17,8 +17,7 @@ export const ID_PREFIXES = {
   event: 'evt',
   lease: 'lse',
   credential: 'crd',
-  operator: 'opr',
-  operatorSession: 'ses',
+  consoleSession: 'ses',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -32,8 +31,7 @@ export type DeliveryId = Id<'delivery'>;
 export type EventId = Id<'event'>;
 export type LeaseId = Id<'lease'>;
 export type CredentialId = Id<'credential'>;
-export type OperatorId = Id<'operator'>;
-export type OperatorSessionId = Id<'operatorSession'>;
+export type ConsoleSessionId = Id<'consoleSession'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
