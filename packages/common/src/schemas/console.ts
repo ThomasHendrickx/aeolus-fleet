@@ -11,11 +11,14 @@ export const OPERATOR_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
 export const OPERATOR_PASSWORD_MAX_LENGTH = 1024;
 
 /**
- * Input of `console.signIn`: argo's secret, pasted by the operator. Whitespace
- * around it is dropped, because a pasted secret often carries a newline.
+ * Input of `console.signIn`: the operator's email and password. Whitespace
+ * around the email is dropped; the password is taken exactly as typed. The
+ * email's shape is not checked here: an email the server does not know is
+ * simply wrong, like a wrong password.
  */
 export const signInInputSchema = z.object({
-  secret: z.string().trim().min(1, "Paste argo's secret").max(256),
+  email: z.string().trim().min(1, 'Enter your email').max(OPERATOR_EMAIL_MAX_LENGTH),
+  password: z.string().min(1, 'Enter your password').max(OPERATOR_PASSWORD_MAX_LENGTH),
 });
 
 export type SignInInput = z.infer<typeof signInInputSchema>;

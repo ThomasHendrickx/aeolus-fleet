@@ -57,7 +57,7 @@ export function createUseCases(options: {
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
-    signIn: createSignIn({ uow, clock, ids, ...secrets }),
+    signIn: createSignIn({ uow, clock, ids, ...secrets, passwords: argon2idPasswordHasher }),
     signOut: createSignOut({ uow, clock, ids }),
     replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),

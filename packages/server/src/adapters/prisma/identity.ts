@@ -14,9 +14,9 @@ import {
 } from './rows.js';
 
 // Lock order, as the CredentialRepository port states: the ship when a use case
-// locks it, then a credential, then console sessions, then leases. Sign-in,
-// sign-out, starting prompts and replacing a secret all follow it, so they
-// serialise instead of deadlocking.
+// locks it, then a credential or the operator account, then console sessions,
+// then leases. Sign-in, sign-out, starting prompts and resetting the password
+// all follow it, so they serialise instead of deadlocking.
 
 export function createPrismaCredentialRepository(db: Db): CredentialRepository {
   return {

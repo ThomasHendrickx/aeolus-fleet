@@ -1,18 +1,19 @@
 import type { ConsoleSessionId, IdGenerator } from '@aeolus-fleet/common';
 
-import { takeOverOperatorLease, type LeaseTx } from '../registry/public.js';
+import { findOperatorShip, takeOverOperatorLease, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
-import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import { ok, type Result } from '../shared/result.js';
+import type { PasswordHasher, RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { CONSOLE_LOCATION, consoleSessionExpiry } from './console-session.js';
-import type { CredentialTx } from './credential.js';
-import type { ConsoleSessionRepository } from './ports.js';
+import { normaliseEmail } from './operator-account.js';
+import type { ConsoleSessionRepository, OperatorAccountRepository } from './ports.js';
 
-export interface SignInTx extends CredentialTx, LeaseTx {
+export interface SignInTx extends LeaseTx, ShipTx {
+  operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
 }
 
@@ -24,14 +25,21 @@ export interface SignedIn {
   caller: Caller;
 }
 
-export type SignInRefusal = DomainError<'INVALID_SECRET' | 'NOT_THE_OPERATOR_SHIP'>;
+/** Only a wrong email or password in practice: the account's fleet always has its argo. */
+export type SignInRefusal = DomainError<'WRONG_EMAIL_OR_PASSWORD' | 'FLEET_NOT_FOUND' | 'NOT_THE_OPERATOR_SHIP'>;
 
-export type SignIn = (input: { secret: string }) => Promise<Result<SignedIn, SignInRefusal>>;
+export type SignIn = (input: { email: string; password: string }) => Promise<Result<SignedIn, SignInRefusal>>;
 
 /**
- * Use case: the console exchanges `argo`'s secret for a session (ADR 0012).
- * Signing in ends the previous console session and takes argo's lease over, so
- * its deliveries in flight return to pending. The secret stays valid.
+ * Use case: the operator signs in to the console with email and password, and
+ * the session crews `argo` (ADR 0012). Signing in ends the previous console
+ * session and takes argo's lease over, so its deliveries in flight return to
+ * pending.
+ *
+ * A wrong email and a wrong password are one refusal, and both check a
+ * password, so neither the answer nor its timing says whether the email
+ * exists. The account stays locked until the session exists, so a password
+ * reset meanwhile either waits or is seen.
  */
 export function createSignIn(deps: {
   uow: UnitOfWork<SignInTx>;
@@ -39,26 +47,29 @@ export function createSignIn(deps: {
   ids: IdGenerator;
   hasher: SecretHasher;
   random: RandomTokens;
+  passwords: PasswordHasher;
 }): SignIn {
   return (input) =>
     deps.uow.run(async (tx): Promise<Result<SignedIn, SignInRefusal>> => {
-      const found = await tx.credentials.findValidBySecretHashForUpdate(deps.hasher.hash(input.secret));
-      if (!found) {
-        return refuse('INVALID_SECRET', 'This secret is not valid');
+      const account = await tx.operatorAccounts.findByEmailForUpdate(normaliseEmail(input.email));
+      const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash);
+      if (!account || !isPasswordRight) {
+        return refuse('WRONG_EMAIL_OR_PASSWORD', 'Wrong email or password');
       }
-      const { credential, ship } = found;
-      if (ship.kind !== 'operator') {
-        return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo, the operator ship, signs in to the console');
+      const found = await findOperatorShip(tx, account.fleetId);
+      if (!found.isOk) {
+        return found;
       }
+      const argo = found.value;
 
       const at = deps.clock.now();
-      const actor = shipActor(ship.shipId);
+      const actor = shipActor(argo.id);
 
-      await tx.consoleSessions.endAll(ship.fleetId, at);
+      await tx.consoleSessions.endAll(argo.fleetId, at);
       const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
-        fleetId: ship.fleetId,
-        shipId: ship.shipId,
-        kind: ship.kind,
+        fleetId: argo.fleetId,
+        shipId: argo.id,
+        kind: argo.kind,
         location: CONSOLE_LOCATION,
         actor,
         at,
@@ -66,17 +77,14 @@ export function createSignIn(deps: {
       if (!takenOver.isOk) {
         return takenOver;
       }
-      if (credential.claimedAt === null) {
-        await tx.credentials.markClaimed({ fleetId: ship.fleetId, credentialId: credential.id, at });
-      }
 
       const token = deps.random.next();
       const consoleSessionId = deps.ids('consoleSession');
       const expiresAt = consoleSessionExpiry(at);
       await tx.consoleSessions.create({
         id: consoleSessionId,
-        fleetId: ship.fleetId,
-        shipId: ship.shipId,
+        fleetId: argo.fleetId,
+        shipId: argo.id,
         leaseId: takenOver.value,
         tokenHash: deps.hasher.hash(token),
         createdAt: at,
@@ -85,6 +93,13 @@ export function createSignIn(deps: {
         endedAt: null,
       });
 
-      return ok({ token, consoleSessionId, expiresAt, caller: { ...ship, consoleSessionId } });
+      const caller: Caller = {
+        shipId: argo.id,
+        fleetId: argo.fleetId,
+        kind: argo.kind,
+        scopes: argo.scopes,
+        consoleSessionId,
+      };
+      return ok({ token, consoleSessionId, expiresAt, caller });
     });
 }

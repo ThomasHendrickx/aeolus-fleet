@@ -8,7 +8,6 @@ export type DomainErrorKind =
   | 'INVALID_FLEET_NAME'
   | 'INVALID_LOCATION'
   | 'INVALID_PASSWORD'
-  | 'INVALID_SECRET'
   | 'INVALID_SHIP_NAME'
   | 'INVALID_SHIP_NOTE'
   | 'INVALID_SHIP_TYPE'
@@ -18,7 +17,8 @@ export type DomainErrorKind =
   | 'SHIP_NAME_RESERVED'
   | 'SHIP_NAME_TAKEN'
   | 'SHIP_NOT_AWAITING_CREW'
-  | 'SHIP_NOT_FOUND';
+  | 'SHIP_NOT_FOUND'
+  | 'WRONG_EMAIL_OR_PASSWORD';
 
 /**
  * Why the domain refused a request. Adapters map the kind to their own error

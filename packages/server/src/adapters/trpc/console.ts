@@ -5,10 +5,11 @@ import { okOrThrow, publicProcedure, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
- * `argo`'s secret once and work with the session cookie from then on.
+ * the operator's email and password once and work with the session cookie,
+ * which crews `argo`, from then on.
  */
 export const consoleRouter = router({
-  /** Exchanges argo's secret for a session cookie. A mutation, so the secret travels in the body, never the URL. */
+  /** Exchanges the email and password for a session cookie. A mutation, so the password travels in the body, never the URL. */
   signIn: publicProcedure
     .use(({ ctx, next }) => {
       if (!ctx.takeSignInAttempt(ctx.clientKey)) {
@@ -18,7 +19,7 @@ export const consoleRouter = router({
     })
     .input(signInInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn({ secret: input.secret }));
+      const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn(input));
       ctx.sessionCookie.set(token, expiresAt);
     }),
 

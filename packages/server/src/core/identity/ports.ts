@@ -11,9 +11,9 @@ export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
 /**
  * Outbound port: ship secrets.
  *
- * Lock order, so concurrent sign-ins, sign-outs, starting prompts and secret
- * replacements never deadlock: the ship when the use case locks it, then a
- * credential, then console sessions, then leases.
+ * Lock order, so concurrent sign-ins, sign-outs, starting prompts and password
+ * resets never deadlock: the ship when the use case locks it, then a
+ * credential or the operator account, then console sessions, then leases.
  */
 export interface CredentialRepository {
   create(credential: Credential): Promise<void>;
