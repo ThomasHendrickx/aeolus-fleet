@@ -4,6 +4,7 @@ import { endLease, type LeaseTx } from '../registry/index.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { shipActor } from '../shared/events.js';
+import { ok } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { ConsoleSessionRepository } from './ports.js';
 
@@ -36,6 +37,7 @@ export function createSignOut(deps: { uow: UnitOfWork<SignOutTx>; clock: Clock; 
           reason: 'signedOut',
         });
       }
+      return ok(undefined);
     });
   };
 }

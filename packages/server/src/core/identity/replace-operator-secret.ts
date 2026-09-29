@@ -3,6 +3,8 @@ import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 import { endLease, findOperatorShip, type LeaseTx, type ShipTx } from '../registry/index.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, SYSTEM } from '../shared/events.js';
+import type { DomainError } from '../shared/errors.js';
+import { ok, type Result } from '../shared/result.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { issueShipSecret, type CredentialTx } from './credential.js';
@@ -18,7 +20,9 @@ export interface OperatorSecretReplaced {
   secret: string;
 }
 
-export type ReplaceOperatorSecret = (input: { fleetId: FleetId }) => Promise<OperatorSecretReplaced>;
+export type ReplaceOperatorSecret = (input: {
+  fleetId: FleetId;
+}) => Promise<Result<OperatorSecretReplaced, DomainError<'FLEET_NOT_FOUND'>>>;
 
 /**
  * Use case: a lost `argo` secret is replaced from the server (ADR 0012). The old
@@ -35,7 +39,11 @@ export function createReplaceOperatorSecret(deps: {
   return ({ fleetId }) =>
     deps.uow.run(async (tx) => {
       const at = deps.clock.now();
-      const argo = await findOperatorShip(tx, fleetId);
+      const found = await findOperatorShip(tx, fleetId);
+      if (!found.isOk) {
+        return found;
+      }
+      const argo = found.value;
 
       const old = await tx.credentials.findValidForShipForUpdate(fleetId, argo.id);
       if (old) {
@@ -55,6 +63,6 @@ export function createReplaceOperatorSecret(deps: {
       }
 
       const secret = await issueShipSecret(tx, deps, { fleetId, shipId: argo.id, at });
-      return { shipId: argo.id, secret };
+      return ok({ shipId: argo.id, secret });
     });
 }

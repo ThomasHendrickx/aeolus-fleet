@@ -2,8 +2,9 @@ import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { issueShipSecret, type CredentialTx, type SecretTools } from '../identity/index.js';
 import type { Clock } from '../shared/clock.js';
-import { DomainError } from '../shared/errors.js';
+import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
+import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { fleetName } from './fleet.js';
 import type { FleetRepository, ShipRepository } from './ports.js';
@@ -22,7 +23,9 @@ export interface FleetInitialised {
   secret: string;
 }
 
-export type InitialiseFleet = (input: { name: string }) => Promise<FleetInitialised>;
+export type InitialiseFleet = (input: {
+  name: string;
+}) => Promise<Result<FleetInitialised, DomainError<'INVALID_FLEET_NAME' | 'FLEET_ALREADY_EXISTS'>>>;
 
 /**
  * Use case: creates the fleet and its operator ship `argo`, and issues argo's
@@ -36,12 +39,16 @@ export function createInitialiseFleet(deps: {
   secrets: Omit<SecretTools, 'ids'>;
 }): InitialiseFleet {
   return async (input) => {
-    const name = fleetName(input.name);
+    const named = fleetName(input.name);
+    if (!named.isOk) {
+      return named;
+    }
+    const name = named.value;
 
     return deps.uow.run(async (tx) => {
       await tx.fleets.lockInitialisation();
       if ((await tx.fleets.count()) > 0) {
-        throw new DomainError('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once');
+        return refuse('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once');
       }
 
       const at = deps.clock.now();
@@ -73,7 +80,7 @@ export function createInitialiseFleet(deps: {
         details: { name: argo.name, type: argo.type, kind: argo.kind },
       });
 
-      return { fleetId, operatorShipId: argo.id, secret };
+      return ok({ fleetId, operatorShipId: argo.id, secret });
     });
   };
 }

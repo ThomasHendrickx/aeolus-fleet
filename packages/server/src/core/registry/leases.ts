@@ -1,7 +1,8 @@
 import type { FleetId, IdGenerator, LeaseId, ShipId, ShipKind } from '@aeolus-fleet/common';
 
-import { DomainError } from '../shared/errors.js';
+import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
+import { ok, type Result } from '../shared/result.js';
 import type { LeaseEndReason, Location } from './lease.js';
 import type { InFlightDeliveries, LeaseRepository } from './ports.js';
 
@@ -21,10 +22,10 @@ export async function takeOverOperatorLease(
   tx: LeaseTx,
   ids: IdGenerator,
   input: { fleetId: FleetId; shipId: ShipId; kind: ShipKind; location: Location; actor: Actor; at: Date },
-): Promise<LeaseId> {
+): Promise<Result<LeaseId, DomainError<'NOT_THE_OPERATOR_SHIP'>>> {
   const { fleetId, shipId, location, actor, at } = input;
   if (input.kind !== 'operator') {
-    throw new DomainError('NOT_THE_OPERATOR_SHIP', 'Only the operator ship can be taken over');
+    return refuse('NOT_THE_OPERATOR_SHIP', 'Only the operator ship can be taken over');
   }
 
   const held = await tx.leases.findOpenForUpdate(fleetId, shipId);
@@ -42,7 +43,7 @@ export async function takeOverOperatorLease(
     shipId,
     details: { leaseId, location: location.kind, locationDescription: location.description },
   });
-  return leaseId;
+  return ok(leaseId);
 }
 
 /**
