@@ -8,7 +8,7 @@ import { terminalIo } from './terminal.js';
 export async function runCommand(
   command: (run: { args: string[]; useCases: UseCases; io: CommandIo }) => Promise<ExitCode>,
 ): Promise<never> {
-  const io = terminalIo();
+  const io = terminalIo({ input: process.stdin, output: process.stdout, errors: process.stderr });
   let code: number;
   try {
     const config = loadConfig(process.env);
