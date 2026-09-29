@@ -32,11 +32,16 @@ describe('system.ping from HTTP to Postgres and back', () => {
     await database.$disconnect();
   });
 
-  it('applied the initial migration', async () => {
+  it('applied every migration', async () => {
     const applied = await database.$queryRaw<{ migration_name: string }[]>`
-      SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`;
+      SELECT migration_name FROM _prisma_migrations
+      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+      ORDER BY migration_name`;
 
-    expect(applied.map((row) => row.migration_name)).toEqual([expect.stringMatching(/^\d{14}_init$/)]);
+    expect(applied.map((row) => row.migration_name)).toEqual([
+      expect.stringMatching(/^\d{14}_init$/),
+      expect.stringMatching(/^\d{14}_fleet_argo_console_session$/),
+    ]);
   });
 
   it('returns the server time and zero fleets before any fleet exists', async () => {

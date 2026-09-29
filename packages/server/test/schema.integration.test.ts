@@ -30,8 +30,20 @@ async function createFleet(): Promise<FleetId> {
 
 async function createShip(fleetId: FleetId, name = `ship-${newId('ship').slice(-8)}`): Promise<ShipId> {
   const id = newId('ship');
-  await database.ship.create({ data: { id, fleetId, name, type: 'reviewer', createdAt: now } });
+  await database.ship.create({
+    data: { id, fleetId, name, type: 'reviewer', kind: 'agent', scopes: ['messages:send'], createdAt: now },
+  });
   return id;
+}
+
+function createOperatorShip(fleetId: FleetId, name = 'argo'): Promise<{ id: string }> {
+  return database.ship.create({
+    data: { id: newId('ship'), fleetId, name, type: 'operator', kind: 'operator', scopes: [], createdAt: now },
+  });
+}
+
+function lease(fleetId: FleetId, shipId: ShipId) {
+  return { id: newId('lease'), fleetId, shipId, location: 'DEVICE' as const, startedAt: now };
 }
 
 async function createMessage(fleetId: FleetId, payload = '{}'): Promise<MessageId> {
@@ -69,14 +81,13 @@ describe('migrations', () => {
       ORDER BY t.table_name`;
 
     expect(tables.map((table) => table.table_name)).toEqual([
+      'console_sessions',
       'credentials',
       'deliveries',
       'events',
       'fleets',
       'leases',
       'messages',
-      'operator_sessions',
-      'operators',
       'ships',
     ]);
     expect(tables.filter((table) => !table.has_fleet_id).map((table) => table.table_name)).toEqual(['fleets']);
@@ -101,14 +112,63 @@ describe('ships', () => {
   });
 });
 
+describe('the operator ship', () => {
+  it('exists at most once per fleet', async () => {
+    const fleetId = await createFleet();
+    await createOperatorShip(fleetId);
+
+    await expect(createOperatorShip(fleetId)).rejects.toThrow(/Unique constraint/);
+  });
+
+  it('is named argo', async () => {
+    await expect(createOperatorShip(await createFleet(), 'helm')).rejects.toThrow(/ships_operator_is_argo/);
+  });
+
+  it('holds the name argo alone: no agent ship takes it', async () => {
+    await expect(createShip(await createFleet(), 'argo')).rejects.toThrow(/ships_operator_is_argo/);
+  });
+
+  it('is never retired', async () => {
+    const argo = await createOperatorShip(await createFleet());
+
+    await expect(database.ship.update({ where: { id: argo.id }, data: { retiredAt: now } })).rejects.toThrow(
+      /ships_operator_never_retired/,
+    );
+  });
+});
+
+describe('scopes', () => {
+  it('are only the four known ones', async () => {
+    const id = await createShip(await createFleet());
+
+    await expect(
+      database.ship.update({ where: { id }, data: { scopes: ['messages:send', 'fleet:write'] } }),
+    ).rejects.toThrow(/ships_scopes_known/);
+    await expect(
+      database.ship.update({
+        where: { id },
+        data: { scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] },
+      }),
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] });
+  });
+
+  it('are never null', async () => {
+    const id = await createShip(await createFleet());
+
+    await expect(database.$executeRaw`UPDATE ships SET scopes = NULL WHERE id = ${id}`).rejects.toThrow(
+      /ships_scopes_known/,
+    );
+  });
+});
+
 describe('tenancy', () => {
   it("refuses a row that points at another fleet's ship", async () => {
     const shipOfAnotherFleet = await createShip(await createFleet());
     const fleetId = await createFleet();
 
-    await expect(
-      database.lease.create({ data: { id: newId('lease'), fleetId, shipId: shipOfAnotherFleet, startedAt: now } }),
-    ).rejects.toThrow(/Foreign key constraint/);
+    await expect(database.lease.create({ data: lease(fleetId, shipOfAnotherFleet) })).rejects.toThrow(
+      /Foreign key constraint/,
+    );
   });
 });
 
@@ -116,17 +176,26 @@ describe('leases', () => {
   it('allow at most one open lease per ship', async () => {
     const fleetId = await createFleet();
     const shipId = await createShip(fleetId);
-    const first = newId('lease');
-    await database.lease.create({ data: { id: first, fleetId, shipId, startedAt: now } });
+    const first = await database.lease.create({ data: lease(fleetId, shipId) });
 
-    await expect(
-      database.lease.create({ data: { id: newId('lease'), fleetId, shipId, startedAt: now } }),
-    ).rejects.toThrow(/Unique constraint/);
+    await expect(database.lease.create({ data: lease(fleetId, shipId) })).rejects.toThrow(/Unique constraint/);
 
-    await database.lease.update({ where: { id: first }, data: { endedAt: now } });
-    await expect(
-      database.lease.create({ data: { id: newId('lease'), fleetId, shipId, startedAt: now } }),
-    ).resolves.toMatchObject({ endedAt: null });
+    await database.lease.update({ where: { id: first.id }, data: { endedAt: now } });
+    await expect(database.lease.create({ data: lease(fleetId, shipId) })).resolves.toMatchObject({ endedAt: null });
+  });
+});
+
+describe('lease locations', () => {
+  it('take a description with OTHER only', async () => {
+    const fleetId = await createFleet();
+    const shipId = await createShip(fleetId);
+    const withLocation = (location: 'DEVICE' | 'OTHER', locationDescription: string | null) =>
+      database.lease.create({ data: { ...lease(fleetId, shipId), location, locationDescription } });
+
+    await expect(withLocation('OTHER', null)).rejects.toThrow(/leases_location_description/);
+    await expect(withLocation('OTHER', '  ')).rejects.toThrow(/leases_location_description/);
+    await expect(withLocation('DEVICE', 'laptop')).rejects.toThrow(/leases_location_description/);
+    await expect(withLocation('OTHER', 'web console')).resolves.toMatchObject({ location: 'OTHER' });
   });
 });
 
@@ -142,6 +211,64 @@ describe('credentials', () => {
 
     await database.credential.update({ where: { id: first.id }, data: { invalidatedAt: now } });
     await expect(database.credential.create({ data: credential() })).resolves.toMatchObject({ invalidatedAt: null });
+  });
+});
+
+describe('secret hashes', () => {
+  it('are unique across all fleets', async () => {
+    const secretHash = newId('credential');
+    const credential = async () => {
+      const fleetId = await createFleet();
+      const shipId = await createShip(fleetId);
+      return database.credential.create({ data: { id: newId('credential'), fleetId, shipId, secretHash, issuedAt: now } });
+    };
+
+    await credential();
+    await expect(credential()).rejects.toThrow(/Unique constraint/);
+  });
+});
+
+describe('console sessions', () => {
+  async function session(fleetId: FleetId, tokenHash = newId('consoleSession')) {
+    const argo = await database.ship.findFirstOrThrow({ where: { fleetId, kind: 'operator' } });
+    const { id: leaseId } = await database.lease.create({
+      data: { ...lease(fleetId, argo.id as ShipId), location: 'OTHER', locationDescription: 'web console' },
+    });
+    await database.lease.update({ where: { id: leaseId }, data: { endedAt: now } });
+    return database.consoleSession.create({
+      data: {
+        id: newId('consoleSession'),
+        fleetId,
+        shipId: argo.id,
+        leaseId,
+        tokenHash,
+        createdAt: now,
+        lastUsedAt: now,
+        expiresAt: now,
+      },
+    });
+  }
+
+  it('allow one live session per fleet', async () => {
+    const fleetId = await createFleet();
+    await createOperatorShip(fleetId);
+    const first = await session(fleetId);
+
+    await expect(session(fleetId)).rejects.toThrow(/Unique constraint/);
+
+    await database.consoleSession.update({ where: { id: first.id }, data: { endedAt: now } });
+    await expect(session(fleetId)).resolves.toMatchObject({ endedAt: null });
+  });
+
+  it('have token hashes unique across all fleets', async () => {
+    const tokenHash = newId('consoleSession');
+    const fleetId = await createFleet();
+    await createOperatorShip(fleetId);
+    const otherFleetId = await createFleet();
+    await createOperatorShip(otherFleetId);
+    await session(fleetId, tokenHash);
+
+    await expect(session(otherFleetId, tokenHash)).rejects.toThrow(/Unique constraint/);
   });
 });
 
@@ -181,6 +308,26 @@ describe('deliveries', () => {
     await expect(delivery({ recipientType: 'reviewer' })).resolves.toMatchObject({ state: 'pending', attempts: 0 });
   });
 
+  it('can be dismissed and carry a read date', async () => {
+    const fleetId = await createFleet();
+    const shipId = await createShip(fleetId);
+    const messageId = await createMessage(fleetId);
+
+    await expect(
+      database.delivery.create({
+        data: {
+          id: newId('delivery'),
+          fleetId,
+          messageId,
+          recipientShipId: shipId,
+          state: 'dismissed',
+          readAt: now,
+          createdAt: now,
+        },
+      }),
+    ).resolves.toMatchObject({ state: 'dismissed', readAt: now });
+  });
+
   it('hold one row per recipient', async () => {
     const fleetId = await createFleet();
     const shipId = await createShip(fleetId);
@@ -198,10 +345,32 @@ describe('deliveries', () => {
 });
 
 describe('events', () => {
+  it('keep their details as a JSON object', async () => {
+    const fleetId = await createFleet();
+    const event = (details: object) =>
+      database.event.create({ data: { id: newId('event'), fleetId, type: 'FleetInitialised', occurredAt: now, details } });
+
+    await expect(event(['name'])).rejects.toThrow(/events_details_object/);
+    await expect(event({ name: 'home fleet' })).resolves.toMatchObject({ details: { name: 'home fleet' } });
+  });
+
+  it("refuse a ship of another fleet as actor or subject", async () => {
+    const shipOfAnotherFleet = await createShip(await createFleet());
+    const fleetId = await createFleet();
+    const event = (ids: { actorShipId?: string; shipId?: string }) =>
+      database.event.create({
+        data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, ...ids },
+      });
+
+    await expect(event({ actorShipId: shipOfAnotherFleet })).rejects.toThrow(/Foreign key constraint/);
+    await expect(event({ shipId: shipOfAnotherFleet })).rejects.toThrow(/Foreign key constraint/);
+  });
+
+
   it('are append-only: never updated, deleted or truncated', async () => {
     const fleetId = await createFleet();
     const id = newId('event');
-    await database.event.create({ data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now } });
+    await database.event.create({ data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now, details: {} } });
 
     await expect(database.event.update({ where: { id }, data: { type: 'ShipRetired' } })).rejects.toThrow(
       /append-only: UPDATE/,
