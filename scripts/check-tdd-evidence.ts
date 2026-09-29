@@ -53,7 +53,7 @@ function touchesProduction(commit: Commit): boolean {
 
 /** A commit that only adds or changes tests, labelled `(red)`: the failing test before the code. */
 export function isRedCommit(commit: Commit): boolean {
-  const addsOrChangesTestsOnly = commit.files.every(
+  const hasOnlyAddedOrChangedTests = commit.files.every(
     (file) =>
       isTestFile(file.path) &&
       (file.status === 'A' ||
@@ -64,7 +64,7 @@ export function isRedCommit(commit: Commit): boolean {
     commit.subject.trimEnd().endsWith('(red)') &&
     commit.parents.length === 1 &&
     commit.files.length > 0 &&
-    addsOrChangesTestsOnly
+    hasOnlyAddedOrChangedTests
   );
 }
 
