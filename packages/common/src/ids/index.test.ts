@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createIdGenerator, ID_PREFIXES, isId, parseId, type IdKind } from './index.js';
+import { createIdGenerator, ID_KINDS, ID_PREFIXES, idSchema, isId, parseId } from './index.js';
 
 const zeroRandom = (bytes: Uint8Array): void => {
   bytes.fill(0);
@@ -23,7 +23,7 @@ function clockAt(...times: number[]): () => number {
 }
 
 describe('createIdGenerator', () => {
-  it.each(Object.entries(ID_PREFIXES) as [IdKind, string][])(
+  it.each(ID_KINDS.map((kind) => [kind, ID_PREFIXES[kind]] as const))(
     'prefixes %s ids with %s_ and a 26 character lowercase body',
     (kind, prefix) => {
       const id = createIdGenerator()(kind);
@@ -144,5 +144,31 @@ describe('isId', () => {
   it('rejects values that are not strings', () => {
     expect(isId(42, 'ship')).toBe(false);
     expect(isId(undefined, 'ship')).toBe(false);
+  });
+});
+
+describe('ID_KINDS', () => {
+  it('lists every kind of id, each with its prefix', () => {
+    expect(ID_KINDS).toEqual(['fleet', 'ship', 'message', 'delivery', 'event', 'lease', 'credential', 'consoleSession']);
+  });
+});
+
+describe('idSchema', () => {
+  const id = createIdGenerator()('ship');
+
+  it('parses an id of its kind, as that kind', () => {
+    expect(idSchema('ship').parse(id)).toBe(id);
+  });
+
+  it.each([
+    ['an id of another kind', createIdGenerator()('fleet')],
+    ['a malformed id', 'shp_not-a-ulid'],
+    ['a value that is not a string', 42],
+  ])('refuses %s', (_label, value) => {
+    expect(idSchema('ship').safeParse(value).success).toBe(false);
+  });
+
+  it('names the kind it expected', () => {
+    expect(idSchema('ship').safeParse('flt_x').error?.issues[0]?.message).toBe('must be a ship id (shp_...)');
   });
 });
