@@ -138,7 +138,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
 | Operator auth | Argon2id password, server-side session in Postgres, httpOnly secure cookie | Decided earlier |
 | Ship auth | Opaque bearer secret `aeolus_sk_v1_…`, stored as SHA-256 | Decided earlier |
-| Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`) | Every id shows what it refers to and sorts by creation time |
+| Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `opr_`, `ses_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
 | Logging | pino, structured JSON to stdout | Never logs secrets or payloads |
 | Tests | Vitest; integration tests on a real Postgres (Testcontainers); Playwright for the web app | The guarantee lives in SQL, so it is proven against a real Postgres |
 | License | Apache-2.0 | Includes an explicit patent grant |
