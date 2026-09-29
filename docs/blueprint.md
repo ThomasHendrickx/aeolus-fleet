@@ -28,15 +28,30 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Topic | v1 decision |
 | --- | --- |
 | Packages | Three npm packages: `@aeolus-fleet/server`, `@aeolus-fleet/web` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
-| Leases | A session that registers holds the lease indefinitely. Only the operator can revoke it. No heartbeats |
+| Leases | A session that registers holds the lease indefinitely. Only the operator can revoke it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
-| Operator login | Email and password: a user table with a hashed password (Argon2id). Initialising a fleet asks to create this user. A forgotten password is reset with a command on the server. The CLI can take this over later |
+| Operator login | The operator is a ship: `argo` (see The operator ship). Initialising a fleet creates it and prints its secret once. The web console signs in with that secret and gets a session cookie. A lost secret is replaced with a command on the server. No email, no password, no user table |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships can only send and receive |
 | Starting prompt | Drafted and tested when the first ship sets sail |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
 ## Users
 
-Aeolus has two kinds of users with equal standing: the human operator and the agent crewing a ship. The operator is also addressable as a participant, so an agent's question to a human is just a message.
+Aeolus has two kinds of users with equal standing: the human operator and the agent crewing a ship. The operator is a ship too, so an agent's question to a human is just a message to `argo`.
+
+### The operator ship (`argo`)
+
+Every fleet has exactly one operator ship, named `argo`. The web console is how the operator crews it.
+
+| Rule | Behaviour |
+| --- | --- |
+| Created with the fleet | Initialising a fleet creates `argo` and prints its secret once, on the server |
+| Permanent | `argo` can never be retired, released or renamed. The name `argo` is reserved: no other ship can take it |
+| Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope. Agent ships are of kind `agent` |
+| Signing in | The console exchanges `argo`'s secret for a session cookie. The secret stays valid; only the cookie lives in the browser |
+| One session at a time | Signing in ends any other console session and takes `argo`'s lease over. Its in-flight deliveries return to pending, so the new session receives them again |
+| Lost secret | A server command replaces the secret and ends every console session |
+| Inbox | Messages to `argo` are the operator inbox. Opening one marks it read; Reply or Mark done acknowledges it |
 
 ### The operator (human)
 
@@ -73,17 +88,19 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Term | Meaning |
 | --- | --- |
 | Fleet | The tenant: one operator's ships, messages and history. One installation can host several fleets; v1 runs one |
-| Operator | The human running the fleet. Also a participant with its own inbox |
+| Operator | The human running the fleet, crewing the ship `argo` through the web console |
+| `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
+| Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage` |
 | Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type and a status. The name is a handle (lowercase letters, digits, hyphens, max 48 characters), unique among active ships and reusable after retirement |
 | Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored template later. Used for addressing, never interpreted |
 | Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
 | Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship |
-| Location | Where the current session runs (device, cloud, server), as reported by the session |
+| Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
 | Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |
 | Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship |
-| Message | An immutable envelope plus an opaque payload, sent by one participant to a selector |
+| Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
 | Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
-| Delivery | One message to one resolved recipient, with its own state: pending, delivered, acknowledged, undeliverable, abandoned |
+| Delivery | One message to one resolved recipient, with its own state: pending, delivered, acknowledged, undeliverable, dismissed, abandoned |
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Starting prompt | The text the operator pastes into a new session: fleet URL, ship id, ship secret, how to use the contract. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
 | Retire | End a ship for good. Its id can never be claimed or addressed again |
@@ -111,7 +128,7 @@ The operator and the agents use the same API. The only dependency between contex
 
 | Context | Aggregate | Invariants |
 | --- | --- | --- |
-| Registry | Ship | Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand |
+| Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship; otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
 | Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, claimed by the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can claim it). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Redelivered after a lease is lost until acknowledged, so receivers treat the delivery id as an idempotency key |
 | Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the very next call |
@@ -119,6 +136,8 @@ The operator and the agents use the same API. The only dependency between contex
 ### Domain events
 
 Every state change emits an event. Events feed the timeline, push live updates to the web app, and wake waiting receivers. They are also the audit trail.
+
+Each event records its type and time, who caused it (a ship, `argo` included, or the system), which ship, message and delivery it concerns, and a small set of details. Kept minimal on purpose: before 1.0.0, breaking changes are allowed.
 
 | Event | Emitted by | Triggers |
 | --- | --- | --- |
@@ -128,7 +147,7 @@ Every state change emits an event. Events feed the timeline, push live updates t
 | `ShipRetired` | Registry | Unprocessed deliveries marked abandoned by operator, id blocked forever |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
-| `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. Abandoned deliveries stay in the timelines only |
+| `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
 | `CredentialRevoked` | Identity | All calls with the old secret fail immediately |
 
 ## Key flows
@@ -198,7 +217,7 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 
 | Call | Does | Guarantee |
 | --- | --- | --- |
-| `register` | Claims the ship with id and secret, reports the session's location | Fails if another session holds a live lease or the ship is retired |
+| `register` | Claims the ship with id and secret, reports the session's location | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
 | `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released |
 | `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key |
@@ -227,7 +246,7 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Later | Hook already in v1 |
 | --- | --- |
 | Stored ship templates and orders: the fleet prepares a ship from a blueprint, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
-| Scopes and permissions per ship | Scopes live server-side next to the opaque key; ship identity is an extendable object |
+| Operator-editable scopes per ship, finer scopes | v1 has four fixed scopes, stored with the ship on the server |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
 | Group and fleet-wide addressing (n-to-n) | Selector with a kind, one delivery row per recipient |
@@ -240,4 +259,4 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 - **Timeouts.** Only relevant once heartbeats exist. Proposed defaults: heartbeat every 30 seconds, lease expires after 90 seconds, dead-letter after 5 failed attempts.
 - **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship template concern, not fleet core.
 
-Decided since: npm organisation `aeolus-fleet` with three packages; public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
+Decided since: the operator is the ship `argo`, signing in with its secret; scopes stored on the server; npm organisation `aeolus-fleet` with three packages; public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.

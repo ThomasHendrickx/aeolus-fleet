@@ -22,3 +22,7 @@ Answered by Thomas while building slice 0 (walking skeleton):
 - The tables without a prefix of their own get four more: `lse_` (lease), `crd_` (credential), `opr_` (operator) and `ses_` (operator session).
 
 Rejected: TypeID (a UUIDv7 in base32, 74 random bits) and UUIDv7 in hex (longer and less readable in prompts).
+
+## Amendment 2, 2026-09-29
+
+`opr_` is retired: there is no operator account any more (decision 0012). `ses_` now names a console session.
