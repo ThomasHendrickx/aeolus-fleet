@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { unwrap } from '../../../test/support/result.js';
 import { shipActor, SYSTEM } from '../shared/events.js';
+import { ok } from '../shared/result.js';
 import { location } from './lease.js';
 import { endLease, takeOverOperatorLease } from './leases.js';
 
@@ -17,10 +19,10 @@ beforeEach(async () => {
   core.state.events.length = 0;
 });
 
-const webConsole = location('OTHER', 'web console');
+const webConsole = unwrap(location('OTHER', 'web console'));
 
-function takeOver() {
-  return core.uow.run((tx) =>
+async function takeOver() {
+  const takenOver = await core.uow.run((tx) =>
     takeOverOperatorLease(tx, core.ids, {
       fleetId,
       shipId: argoId,
@@ -30,6 +32,7 @@ function takeOver() {
       at: core.clock.now(),
     }),
   );
+  return unwrap(takenOver);
 }
 
 describe('taking over the operator lease', () => {
@@ -95,7 +98,7 @@ describe('taking over the operator lease', () => {
           at: core.clock.now(),
         }),
       ),
-    ).rejects.toMatchObject({ code: 'NOT_THE_OPERATOR_SHIP' });
+    ).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR_SHIP' } });
     expect(core.state.leases).toEqual([]);
   });
 });
@@ -105,12 +108,12 @@ describe('ending a lease', () => {
     const leaseId = await takeOver();
     core.state.events.length = 0;
     const end = () =>
-      core.uow.run((tx) =>
-        endLease(tx, core.ids, { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' }),
+      core.uow.run(async (tx) =>
+        ok(await endLease(tx, core.ids, { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' })),
       );
 
-    await expect(end()).resolves.toBe(true);
-    await expect(end()).resolves.toBe(false);
+    await expect(end()).resolves.toEqual(ok(true));
+    await expect(end()).resolves.toEqual(ok(false));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({

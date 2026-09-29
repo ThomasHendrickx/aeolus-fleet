@@ -6,6 +6,7 @@ import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import type { InMemoryCore } from './in-memory.js';
+import { unwrap } from './result.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -19,13 +20,14 @@ export function identityUseCases(core: InMemoryCore) {
 }
 
 /** Initialises a fleet named `test fleet` through the use case, so argo and its secret exist. */
-export function initialiseFleet(core: InMemoryCore, name = 'test fleet'): Promise<FleetInitialised> {
-  return createInitialiseFleet({
+export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): Promise<FleetInitialised> {
+  const initialised = await createInitialiseFleet({
     uow: core.uow,
     clock: core.clock,
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
   })({ name });
+  return unwrap(initialised);
 }
 
 /**

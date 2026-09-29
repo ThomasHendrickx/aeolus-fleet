@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ReplaceOperatorSecret } from '../../core/identity/replace-operator-secret.js';
 import type { Fleet } from '../../core/registry/fleet.js';
+import { refuse } from '../../core/shared/errors.js';
+import { ok } from '../../core/shared/result.js';
 import type { CommandIo } from './io.js';
 import { replaceArgoSecret } from './replace-argo-secret.js';
 
@@ -18,7 +20,7 @@ function fleet(): Fleet {
   return { id: newId('fleet'), name: 'home fleet', createdAt: new Date() };
 }
 
-const replaced: ReplaceOperatorSecret = () => Promise.resolve({ shipId: newId('ship'), secret: 'aeolus_sk_v1_new' });
+const replaced: ReplaceOperatorSecret = () => Promise.resolve(ok({ shipId: newId('ship'), secret: 'aeolus_sk_v1_new' }));
 
 describe('argo:replace-secret', () => {
   it("replaces the secret of the installation's fleet and prints the new one once", async () => {
@@ -52,6 +54,20 @@ describe('argo:replace-secret', () => {
       replaceArgoSecret([], { listFleets: () => Promise.resolve([fleet(), fleet()]), replaceOperatorSecret, io }),
     ).resolves.toBe(1);
     expect(replaceOperatorSecret).not.toHaveBeenCalled();
+  });
+
+  it('reports a refusal from the domain and exits 1', async () => {
+    const io = recordingIo();
+    const only = fleet();
+    const refused: ReplaceOperatorSecret = () =>
+      Promise.resolve(refuse('FLEET_NOT_FOUND', `Fleet ${only.id} does not exist`));
+
+    await expect(
+      replaceArgoSecret([], { listFleets: () => Promise.resolve([only]), replaceOperatorSecret: refused, io }),
+    ).resolves.toBe(1);
+
+    expect(io.stderr).toEqual([`Fleet ${only.id} does not exist`]);
+    expect(io.stdout).toEqual([]);
   });
 
   it('takes no arguments', async () => {

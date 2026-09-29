@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { unwrap } from './support/result.js';
 
 let core: PostgresCore | undefined;
 
@@ -14,7 +15,9 @@ describe('initialising the fleet on Postgres', () => {
   it('stores the fleet, argo, the hash of its secret and both events', async () => {
     core = await createPostgresCore();
 
-    const { fleetId, operatorShipId, secret } = await core.useCases.initialiseFleet({ name: 'home fleet' });
+    const { fleetId, operatorShipId, secret } = unwrap(
+      await core.useCases.initialiseFleet({ name: 'home fleet' }),
+    );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
       { id: fleetId, name: 'home fleet', createdAt: core.clock.now() },
@@ -42,10 +45,11 @@ describe('initialising the fleet on Postgres', () => {
 
   it('refuses a second run', async () => {
     core = await createPostgresCore();
-    await core.useCases.initialiseFleet({ name: 'home fleet' });
+    unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' }));
 
-    await expect(core.useCases.initialiseFleet({ name: 'second fleet' })).rejects.toMatchObject({
-      code: 'FLEET_ALREADY_EXISTS',
+    await expect(core.useCases.initialiseFleet({ name: 'second fleet' })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'FLEET_ALREADY_EXISTS' },
     });
     await expect(core.prisma.fleet.count()).resolves.toBe(1);
     await expect(core.prisma.event.count()).resolves.toBe(2);
@@ -55,16 +59,17 @@ describe('initialising the fleet on Postgres', () => {
     core = await createPostgresCore();
     const { initialiseFleet } = core.useCases;
 
-    const results = await Promise.allSettled(
+    const results = await Promise.all(
       Array.from({ length: 5 }, (_, index) => initialiseFleet({ name: `fleet ${String(index)}` })),
     );
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(
-      results
-        .filter((result) => result.status === 'rejected')
-        .map((result) => (result.reason as { code?: string }).code),
-    ).toEqual(['FLEET_ALREADY_EXISTS', 'FLEET_ALREADY_EXISTS', 'FLEET_ALREADY_EXISTS', 'FLEET_ALREADY_EXISTS']);
+    expect(results.filter((result) => result.isOk)).toHaveLength(1);
+    expect(results.flatMap((result) => (result.isOk ? [] : [result.error.kind]))).toEqual([
+      'FLEET_ALREADY_EXISTS',
+      'FLEET_ALREADY_EXISTS',
+      'FLEET_ALREADY_EXISTS',
+      'FLEET_ALREADY_EXISTS',
+    ]);
     await expect(core.prisma.fleet.count()).resolves.toBe(1);
     await expect(core.prisma.ship.count()).resolves.toBe(1);
     await expect(core.prisma.credential.count()).resolves.toBe(1);

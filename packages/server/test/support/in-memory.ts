@@ -24,8 +24,8 @@ import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
- * one plain state object; the unit of work restores it when the work throws, so
- * tests can prove a use case leaves nothing behind.
+ * one plain state object; the unit of work restores it when the work refuses or
+ * throws, so tests can prove a use case leaves nothing behind.
  */
 
 /** Just enough of a delivery to prove what the lease operations do with deliveries in flight. */
@@ -239,7 +239,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const run = queue.then(async () => {
         const snapshot = structuredClone(state);
         try {
-          return await work(tx);
+          const result = await work(tx);
+          if (!result.isOk) {
+            restore(state, snapshot);
+          }
+          return result;
         } catch (error) {
           restore(state, snapshot);
           throw error;

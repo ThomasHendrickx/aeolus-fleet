@@ -7,6 +7,7 @@ import { createApp } from '../packages/server/src/app.js';
 import { createUseCases } from '../packages/server/src/wiring.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
+import { unwrap } from '../packages/server/test/support/result.js';
 import { launchChromium, startWeb, type RunningWeb } from './support/web.js';
 
 // Signing in to the console, end to end: a browser, the web app, the server and
@@ -26,7 +27,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ secret } = await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' }));
+  ({ secret } = unwrap(await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })));
 
   server = createApp({ databaseUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });

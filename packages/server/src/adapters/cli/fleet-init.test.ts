@@ -2,7 +2,8 @@ import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
-import { DomainError } from '../../core/shared/errors.js';
+import { refuse } from '../../core/shared/errors.js';
+import { ok } from '../../core/shared/result.js';
 import { fleetInit } from './fleet-init.js';
 import type { CommandIo } from './io.js';
 
@@ -15,7 +16,9 @@ function recordingIo(): CommandIo & { stdout: string[]; stderr: string[] } {
 }
 
 const initialised: InitialiseFleet = ({ name }) =>
-  Promise.resolve({ fleetId: newId('fleet'), operatorShipId: newId('ship'), secret: `aeolus_sk_v1_secret-for-${name}` });
+  Promise.resolve(
+    ok({ fleetId: newId('fleet'), operatorShipId: newId('ship'), secret: `aeolus_sk_v1_secret-for-${name}` }),
+  );
 
 describe('fleet:init', () => {
   it("passes the name and prints argo's secret once", async () => {
@@ -51,7 +54,7 @@ describe('fleet:init', () => {
   it('reports a refusal from the domain and exits 1', async () => {
     const io = recordingIo();
     const refused: InitialiseFleet = () =>
-      Promise.reject(new DomainError('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once'));
+      Promise.resolve(refuse('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once'));
 
     await expect(fleetInit(['--name', 'again'], { initialiseFleet: refused, io })).resolves.toBe(1);
 

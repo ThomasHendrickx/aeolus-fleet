@@ -9,6 +9,7 @@ import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { createMigratedDatabase } from './support/database.js';
+import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
 
 // The API from HTTP to Postgres and back: scopes are checked at the door, the
@@ -26,9 +27,9 @@ let argoSecret: string;
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ fleetId, secret: argoSecret } = await createUseCases({ prisma: database, clock }).initialiseFleet({
-    name: 'home fleet',
-  }));
+  ({ fleetId, secret: argoSecret } = unwrap(
+    await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' }),
+  ));
 
   server = createApp({ databaseUrl, clock, logger: false, signInRateLimit: { limit: 5, windowMs: 60_000 } });
   address = await server.listen({ host: '127.0.0.1', port: 0 });

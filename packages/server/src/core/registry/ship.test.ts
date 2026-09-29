@@ -1,12 +1,11 @@
 import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { DomainError } from '../shared/errors.js';
 import {
-  assertCanRelease,
-  assertCanRename,
-  assertCanRetire,
-  assertNameIsNotReserved,
+  checkCanRelease,
+  checkCanRename,
+  checkCanRetire,
+  checkNameIsNotReserved,
   isReservedShipName,
   operatorShip,
   type Ship,
@@ -29,17 +28,7 @@ const scout: Ship = {
   retiredAt: null,
 };
 
-function refusal(action: () => void): DomainError {
-  try {
-    action();
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return error;
-    }
-    throw error;
-  }
-  throw new Error('expected the domain to refuse');
-}
+const allowed = { isOk: true, value: undefined };
 
 describe('the operator ship', () => {
   it('is argo, of kind operator and type operator, holding every scope', () => {
@@ -53,69 +42,50 @@ describe('the operator ship', () => {
   });
 
   it('can never be retired', () => {
-    const error = refusal(() => {
-      assertCanRetire(argo);
+    expect(checkCanRetire(argo)).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be retired' },
     });
-
-    expect(error.code).toBe('OPERATOR_SHIP_IS_PERMANENT');
-    expect(error.message).toBe('argo is the operator ship and can never be retired');
   });
 
   it('can never be released', () => {
-    const error = refusal(() => {
-      assertCanRelease(argo);
+    expect(checkCanRelease(argo)).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be released' },
     });
-
-    expect(error.code).toBe('OPERATOR_SHIP_IS_PERMANENT');
-    expect(error.message).toBe('argo is the operator ship and can never be released');
   });
 
   it('can never be renamed', () => {
-    const error = refusal(() => {
-      assertCanRename(argo, 'helm');
+    expect(checkCanRename(argo, 'helm')).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be renamed' },
     });
-
-    expect(error.code).toBe('OPERATOR_SHIP_IS_PERMANENT');
-    expect(error.message).toBe('argo is the operator ship and can never be renamed');
   });
 });
 
 describe('an agent ship', () => {
   it('can be retired, released and renamed', () => {
-    expect(() => {
-      assertCanRetire(scout);
-    }).not.toThrow();
-    expect(() => {
-      assertCanRelease(scout);
-    }).not.toThrow();
-    expect(() => {
-      assertCanRename(scout, 'lookout');
-    }).not.toThrow();
+    expect(checkCanRetire(scout)).toEqual(allowed);
+    expect(checkCanRelease(scout)).toEqual(allowed);
+    expect(checkCanRename(scout, 'lookout')).toEqual(allowed);
   });
 
   it('can never be renamed to argo', () => {
-    expect(
-      refusal(() => {
-        assertCanRename(scout, 'argo');
-      }).code,
-    ).toBe('SHIP_NAME_RESERVED');
+    expect(checkCanRename(scout, 'argo')).toMatchObject({ isOk: false, error: { kind: 'SHIP_NAME_RESERVED' } });
   });
 });
 
 describe('the reserved name', () => {
   it('is argo', () => {
     expect(isReservedShipName('argo')).toBe(true);
-    expect(
-      refusal(() => {
-        assertNameIsNotReserved('argo');
-      }).message,
-    ).toBe('The name argo is reserved for the operator ship');
+    expect(checkNameIsNotReserved('argo')).toEqual({
+      isOk: false,
+      error: { kind: 'SHIP_NAME_RESERVED', message: 'The name argo is reserved for the operator ship' },
+    });
   });
 
   it.each(['scout', 'argo-2', 'argonaut'])('leaves %s free', (name) => {
     expect(isReservedShipName(name)).toBe(false);
-    expect(() => {
-      assertNameIsNotReserved(name);
-    }).not.toThrow();
+    expect(checkNameIsNotReserved(name)).toEqual(allowed);
   });
 });
