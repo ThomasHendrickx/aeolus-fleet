@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { eventTypeSchema, leaseLocationSchema, scopeSchema, shipKindSchema } from './index.js';
+import { eventTypeSchema, locationKindSchema, scopeSchema, shipKindSchema } from './index.js';
 
 describe('scopeSchema', () => {
   it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'])('accepts %s', (scope) => {
@@ -18,13 +18,13 @@ describe('shipKindSchema', () => {
   });
 });
 
-describe('leaseLocationSchema', () => {
+describe('locationKindSchema', () => {
   it('knows DEVICE, CLOUD, SERVER and OTHER, nothing else', () => {
-    expect(leaseLocationSchema.options).toEqual(['DEVICE', 'CLOUD', 'SERVER', 'OTHER']);
+    expect(locationKindSchema.options).toEqual(['DEVICE', 'CLOUD', 'SERVER', 'OTHER']);
   });
 
   it('is case sensitive', () => {
-    expect(leaseLocationSchema.safeParse('device').success).toBe(false);
+    expect(locationKindSchema.safeParse('device').success).toBe(false);
   });
 });
 

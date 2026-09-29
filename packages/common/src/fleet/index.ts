@@ -17,9 +17,9 @@ export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
 
 /** Where the session crewing a ship runs. `OTHER` carries a short description. */
-export const LEASE_LOCATIONS = ['DEVICE', 'CLOUD', 'SERVER', 'OTHER'] as const;
-export const leaseLocationSchema = z.enum(LEASE_LOCATIONS);
-export type LeaseLocation = z.infer<typeof leaseLocationSchema>;
+export const LOCATION_KINDS = ['DEVICE', 'CLOUD', 'SERVER', 'OTHER'] as const;
+export const locationKindSchema = z.enum(LOCATION_KINDS);
+export type LocationKind = z.infer<typeof locationKindSchema>;
 
 /** The event types written so far. Each later slice adds the ones it writes. */
 export const EVENT_TYPES = [

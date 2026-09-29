@@ -1,0 +1,124 @@
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { addAgentShip, initialiseFleet } from '../../../test/support/core-fixtures.js';
+import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { shipActor, SYSTEM } from '../shared/events.js';
+import { location } from './lease.js';
+import { endLease, takeOverOperatorLease } from './leases.js';
+
+let core: InMemoryCore;
+let fleetId: FleetId;
+let argoId: ShipId;
+
+beforeEach(async () => {
+  core = createInMemoryCore();
+  ({ fleetId, operatorShipId: argoId } = await initialiseFleet(core));
+  core.state.events.length = 0;
+});
+
+const webConsole = location('OTHER', 'web console');
+
+function takeOver() {
+  return core.uow.run((tx) =>
+    takeOverOperatorLease(tx, core.ids, {
+      fleetId,
+      shipId: argoId,
+      kind: 'operator',
+      location: webConsole,
+      actor: shipActor(argoId),
+      at: core.clock.now(),
+    }),
+  );
+}
+
+describe('taking over the operator lease', () => {
+  it('opens a lease with its location and writes ShipClaimed', async () => {
+    const leaseId = await takeOver();
+
+    expect(core.state.leases).toEqual([
+      {
+        id: leaseId,
+        fleetId,
+        shipId: argoId,
+        location: { kind: 'OTHER', description: 'web console' },
+        startedAt: core.clock.now(),
+        endedAt: null,
+      },
+    ]);
+    expect(core.state.events).toEqual([
+      expect.objectContaining({
+        type: 'ShipClaimed',
+        actor: { kind: 'ship', shipId: argoId },
+        shipId: argoId,
+        details: { leaseId, location: 'OTHER', locationDescription: 'web console' },
+      }),
+    ]);
+  });
+
+  it('ends the lease held before, returns its deliveries in flight and writes LeaseRevoked first', async () => {
+    const first = await takeOver();
+    core.state.deliveries.push(
+      { id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId },
+      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId },
+    );
+    core.state.events.length = 0;
+    core.clock.advance(60_000);
+
+    const second = await takeOver();
+
+    expect(core.state.leases.map((lease) => [lease.id, lease.endedAt])).toEqual([
+      [first, core.clock.now()],
+      [second, null],
+    ]);
+    expect(core.state.deliveries).toEqual([
+      { id: 'dlv_in_flight', fleetId, state: 'pending', claimedByShipId: null },
+      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId },
+    ]);
+    expect(core.state.events.map((event) => [event.type, event.details])).toEqual([
+      ['LeaseRevoked', { leaseId: first, reason: 'takenOver', returnedDeliveries: 1 }],
+      ['ShipClaimed', { leaseId: second, location: 'OTHER', locationDescription: 'web console' }],
+    ]);
+  });
+
+  it('refuses an agent ship: a second claim on it fails instead', async () => {
+    const agent = addAgentShip(core, fleetId);
+
+    await expect(
+      core.uow.run((tx) =>
+        takeOverOperatorLease(tx, core.ids, {
+          fleetId,
+          shipId: agent.shipId,
+          kind: 'agent',
+          location: webConsole,
+          actor: shipActor(agent.shipId),
+          at: core.clock.now(),
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'NOT_THE_OPERATOR_SHIP' });
+    expect(core.state.leases).toEqual([]);
+  });
+});
+
+describe('ending a lease', () => {
+  it('ends it once: a second end changes nothing and writes nothing', async () => {
+    const leaseId = await takeOver();
+    core.state.events.length = 0;
+    const end = () =>
+      core.uow.run((tx) =>
+        endLease(tx, core.ids, { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' }),
+      );
+
+    await expect(end()).resolves.toBe(true);
+    await expect(end()).resolves.toBe(false);
+
+    expect(core.state.events).toEqual([
+      expect.objectContaining({
+        type: 'LeaseRevoked',
+        actor: { kind: 'system' },
+        shipId: argoId,
+        details: { leaseId, reason: 'secretReplaced', returnedDeliveries: 0 },
+      }),
+    ]);
+  });
+});
