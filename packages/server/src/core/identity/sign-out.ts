@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import { endLease, type LeaseTx } from '../registry/index.js';
+import { endLease, type LeaseTx } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { shipActor } from '../shared/events.js';

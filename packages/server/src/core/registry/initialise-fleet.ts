@@ -1,6 +1,6 @@
 import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import { issueShipSecret, type CredentialTx, type SecretTools } from '../identity/index.js';
+import { issueShipSecret, type CredentialTx, type SecretTools } from '../identity/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';

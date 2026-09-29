@@ -1,6 +1,6 @@
 import type { ConsoleSessionId, IdGenerator } from '@aeolus-fleet/common';
 
-import { takeOverOperatorLease, type LeaseTx } from '../registry/index.js';
+import { takeOverOperatorLease, type LeaseTx } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';

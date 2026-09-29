@@ -67,6 +67,24 @@ const coreImpure = {
   globals: [{ name: 'crypto', message: cryptoMessage }],
 };
 
+/** The bounded contexts in server/src/core. `shared` is open to all of them. */
+const coreContexts = ['registry', 'messaging', 'identity'];
+
+/**
+ * From inside one context, another context is reachable only through its
+ * public.ts (docs/architecture.md, "Code structure").
+ * @param {string} context
+ * @returns {ImportRestriction[]}
+ */
+function otherContextsInternals(context) {
+  return coreContexts
+    .filter((other) => other !== context)
+    .map((other) => ({
+      regex: `(^|/)${other}/(?!public\\.js$)`,
+      message: `core/${context} imports core/${other} only through ${other}/public.js, its published surface.`,
+    }));
+}
+
 // esquery regex literals cannot contain a slash, so write it as \x2F.
 const esqueryRegex = (/** @type {string} */ regex) => `/${regex.replaceAll('/', '\\x2F')}/`;
 
@@ -129,15 +147,18 @@ export default defineConfig(
     extends: [tseslint.configs.disableTypeChecked],
   },
 
-  {
-    name: 'aeolus/core',
-    files: ['packages/server/src/core/**/*.ts'],
+  ...['registry', 'messaging', 'identity', 'shared'].map((context) => ({
+    name: `aeolus/core-${context}`,
+    files: [`packages/server/src/core/${context}/**/*.ts`],
     rules: {
-      ...importRules({ patterns: [...coreForbiddenImports, ...coreImpure.imports], syntax: coreImpure.syntax }),
+      ...importRules({
+        patterns: [...coreForbiddenImports, ...coreImpure.imports, ...otherContextsInternals(context)],
+        syntax: coreImpure.syntax,
+      }),
       'no-restricted-properties': ['error', ...coreImpure.properties],
       'no-restricted-globals': ['error', ...coreImpure.globals],
     },
-  },
+  })),
 
   {
     name: 'aeolus/web',

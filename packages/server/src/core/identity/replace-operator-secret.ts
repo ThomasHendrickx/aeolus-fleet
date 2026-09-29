@@ -1,6 +1,6 @@
 import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import { endLease, findOperatorShip, type LeaseTx, type ShipTx } from '../registry/index.js';
+import { endLease, findOperatorShip, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, SYSTEM } from '../shared/events.js';
 import type { DomainError } from '../shared/errors.js';

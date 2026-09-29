@@ -1,6 +1,6 @@
 import type { ConsoleSessionId, FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
 
-import type { Location } from '../registry/index.js';
+import type { Location } from '../registry/public.js';
 
 /**
  * The operator crewing `argo` through the web console. Only the hash of the
