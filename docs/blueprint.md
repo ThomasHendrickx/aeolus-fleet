@@ -144,6 +144,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | Event | Emitted by | Triggers |
 | --- | --- | --- |
 | `ShipCommissioned` | Registry | Starting prompt generated, ship appears in the snapshot |
+| `StartingPromptIssued` | Registry | A new secret is out; the snapshot shows the prompt as unclaimed until a session claims the ship |
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `ShipRetired` | Registry | Unprocessed deliveries marked abandoned by operator, id blocked forever |
