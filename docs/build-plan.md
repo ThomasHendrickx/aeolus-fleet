@@ -29,6 +29,7 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | 0 | Walking skeleton | npm workspaces (`common`, `server`, `web`), Node 26, TypeScript strict, ESLint with the core import-boundary rule, Vitest, Prisma schema for the core tables with `fleet_id`, Testcontainers Postgres, Fastify with `/health` and one tRPC procedure, a Next.js page calling it, GitHub Actions CI, the `release.yml` publish workflow | CI green on the PR; one request goes browser to database and back; a test proves `core` cannot import Prisma or Fastify; `release.yml` exists and `npm publish --dry-run` passes for all three packages in CI |
 | 1 | Fleet, `argo` and the console session | Fleet init command creating the fleet and `argo`; scopes and their check on every call; console sign-in exchanging `argo`'s secret for a session cookie (takeover); sign-out; command to replace `argo`'s secret; the event log's shape; health endpoints without fleet data; release tags the commit | See the slice 1 prompt below |
 | 1b | Guardrails | Lint rules and CI checks that enforce the skills mechanically, then the skills trimmed of what is enforced. Must merge before slice 2 | See the slice 1b prompt below |
+| 1c | Operator login | Replace sign-in with `argo`'s secret by email and password; `argo` loses its secret. Runs before or after slice 2, must merge before slice 3 | See the slice 1c prompt below |
 | 2 | Commission a ship | Commission use case (requires `fleet:manage`): name handle rules (`argo` reserved), type, kind `agent` with scopes `messages:send` and `messages:receive`, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
 | 3 | Claim | Ship authenticates with its secret and claims the lease, reporting its location (`DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description); ship becomes Crewed; lease held indefinitely | Claim with a revoked or unknown secret fails; a claim while another session holds the lease fails; claiming a retired ship fails; events written |
 | 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | A failed transaction leaves no message and no delivery; name resolution and limit tested |
@@ -141,6 +142,38 @@ A fleet can be initialised, and the operator can sign in to the console as the s
 ```
 
 After the PR: start a fresh session as a reviewer, give it the PR and the "Done when" list above, and ask it to verify each item against the code and the test output by name. Merge only after that.
+
+## Kickoff prompt: slice 1c (operator login)
+
+```markdown
+# Slice 1c: operator login
+
+Start from the latest main. Read CLAUDE.md, docs/decisions/README.md and decision 0012 in full, then the code slice 1 built for sign-in, fleet init and argo. Do not read beyond that.
+
+## Goal
+
+Decision 0012 changed: the operator signs in with email and password; argo has no secret and can be crewed only through that login.
+
+## Build
+
+- Operator account: email (unique across the installation), Argon2id password hash, fleet_id. `opr_` prefix back in common.
+- `fleet:init` asks for email and password (twice for the password) and creates fleet, argo and the account. It no longer prints a secret. Still refuses a second run.
+- Replace `argo:replace-secret` with `operator:reset-password`: asks for a new password, ends every console session.
+- argo has no secret: remove its credential; `register` with a secret is refused for argo (in core, tested).
+- Sign-in with email and password returns the console session cookie; everything else about the session (random token hashed, httpOnly secure, 30 days after last use, one session at a time with lease takeover, rate limit) stays. A wrong email and a wrong password give the same error.
+- Config: cookie domain and allowed console origin (CORS with credentials), so web and server can run on different hosts under one domain. Defaults keep local development working.
+- Web: sign-in page with email and password. Remove anything that asks for a secret.
+- Update README and package READMEs for the new commands.
+
+## Done when
+
+- Unit tests in core: argo refuses a secret claim; sign-in ends the previous session.
+- Integration tests: wrong email and wrong password give the same error; a reset password ends all sessions; init refuses a second run.
+- Playwright: init, sign in, see the signed-in page, sign in again elsewhere and the first session stops working.
+- A console on another origin under the configured domain can sign in (integration test on the CORS and cookie settings).
+- npm run typecheck, npm run lint and npm test pass locally and in CI, guardrails included.
+- Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
+```
 
 ## Kickoff prompt: slice 1b (guardrails)
 
