@@ -40,9 +40,18 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Payloads are at most 64 KB. A message is the travelling ticket; the reference is where the content lives.
 - Web follows atomic design: components/atoms, molecules, organisms, templates. shadcn/ui on Base UI for atoms.
 
+## Skills
+
+Load the matching skill from `.claude/skills/` before writing code. They are mandatory, not suggestions:
+
+- `test-driven-development`: every code change. Strict red, green, refactor for server and common (decision 0014).
+- `domain-modelling`: anything under `packages/server/src/core` or `packages/server/src/adapters`.
+- `typescript`: every `.ts` or `.tsx` change.
+- `web-frontend`: anything under `packages/web`.
+
 ## Quality
 
-- npm run typecheck, npm run lint and npm test green before every commit. Zero lint errors, no eslint-disable without a comment explaining why.
+- npm run typecheck, npm run lint and npm test green before every commit, except a test-driven red commit that only adds the failing test and is labelled `(red)`. Push only a green head. Zero lint errors, no eslint-disable without a comment explaining why.
 - Every use case has unit tests with in-memory ports. Every adapter that touches Postgres has a Testcontainers test.
 - Delivery guarantees are proven by tests: concurrency, rollback, restart. A guarantee without a test does not exist.
 - Report a test as passing only after you saw it run by name.

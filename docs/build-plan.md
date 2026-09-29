@@ -36,7 +36,7 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
-After the acceptance test, in this order: the console in atomic design (atoms to templates, live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy.
+After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy.
 
 A second claim while a lease is held is rejected (blueprint, ship contract: `register` fails if another session holds a live lease). The operator frees the ship with Release.
 
@@ -157,7 +157,7 @@ Read CLAUDE.md, docs/blueprint.md and docs/architecture.md first. Then read the 
 ## How to work
 
 1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
-2. Build inside out: domain and use case in core with unit tests, then the Prisma adapter with Testcontainers tests, then the tRPC procedure.
+2. Load the skills CLAUDE.md names for the code you touch. Build inside out and test first (red, green, refactor, with the red commits in the history): domain and use case in core, then the Prisma adapter with Testcontainers tests, then the tRPC procedure.
 3. Every state change writes its event to the event log in the same transaction.
 4. Keep the slice thin. Anything outside it goes into the PR description under "Noticed, not done".
 
