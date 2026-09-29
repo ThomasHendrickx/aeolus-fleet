@@ -54,7 +54,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
 | Fleet procedures | Ship secret or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
-| Console procedures | `argo`'s secret, then the console session cookie | tRPC | Sign in (exchange `argo`'s secret for a session), sign out |
+| Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
 
 Every caller is a ship. A call is authorised by the caller's scopes, which live on the server with the ship; the console is simply `argo` holding every scope. The only procedures that exist purely for the web app are sign-in and live updates.
@@ -65,17 +65,17 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | --- | --- |
 | Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, retire ship, issue starting prompt, list fleet |
 | Messaging | Send message, receive deliveries, acknowledge delivery, resend or dismiss undeliverable, mark a message to `argo` read or done |
-| Identity | Verify ship secret (returns ship, fleet, kind and scopes), console sign in (takes `argo`'s lease over), sign out, replace `argo`'s secret (server command), verify console session |
+| Identity | Verify ship secret (returns ship, fleet, kind and scopes; never `argo`), console sign in with email and password (takes `argo`'s lease over), sign out, reset operator password (server command), verify console session |
 
 ### Outbound ports
 
 | Port | Purpose | v1 adapter |
 | --- | --- | --- |
-| Repositories per aggregate (Ship, Message, Delivery, Credential, ConsoleSession) | Load and store aggregates, always scoped to one fleet | Prisma on Postgres |
+| Repositories per aggregate (Ship, Message, Delivery, Credential, OperatorAccount, ConsoleSession) | Load and store aggregates, always scoped to one fleet | Prisma on Postgres |
 | `UnitOfWork` | Run a use case in one database transaction | Prisma interactive transaction |
 | `EventLog` | Append domain events: timeline, audit, live updates | Postgres table, written in the same transaction |
 | `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
-| `SecretHasher` | Hash ship secrets and console session tokens (SHA-256) | Node crypto |
+| `SecretHasher`, `PasswordHasher` | Hash ship secrets and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto, an Argon2 library |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
 The one cross-context call, Messaging asking Registry to resolve a selector and check that a ship is not retired, goes through a Registry port, never through Registry's tables.
@@ -137,7 +137,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Queue | Own tables with row locks | Deliveries are domain objects with their own states and history; no job library |
 | Validation | Zod schemas in `common` | One schema per message shape for tRPC, REST, MCP and web forms |
 | Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
-| Operator auth | The operator is the ship `argo`. The console exchanges its secret for a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. No auth library: this is the ship-secret code applied to a cookie | Replaces email and password (decision 0012) |
+| Operator auth | Email and password (Argon2id) for one operator account. Sign-in gives a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. The session crews `argo`; `argo` has no secret. No auth library | Decision 0012 |
 | Ship auth | Opaque bearer secret `aeolus_sk_v1_…`, stored as SHA-256 | Decided earlier |
 | Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `ses_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
 | Logging | pino, structured JSON to stdout | Never logs secrets or payloads |
@@ -161,7 +161,8 @@ Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is p
 | `messages` | Sender ship, selector, payload, content type, sender's idempotency key, optional in-reply-to and resend-of message | Payload at most 64 KB; unique on sender plus idempotency key |
 | `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship, attempts, read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state |
 | `events` | Append-only log of every state change: type, time, actor ship (or system), ship, message and delivery it concerns, small details | Never updated or deleted: timeline, audit trail and live-update source |
-| `console_sessions` | Console sessions for `argo`: token hash, last used, expiry | At most one live session per fleet (signing in ends the previous one) |
+| `operators` | The operator account: email, Argon2id password hash | Email unique across the installation (looked up before the fleet is known); one operator in v1 |
+| `console_sessions` | Console sessions crewing `argo`: token hash, last used, expiry | At most one live session per fleet (signing in ends the previous one) |
 
 A message is the travelling ticket, not the cargo. The 64 KB limit is deliberate: real content lives where it belongs (a repo path, a pull request, a storage URL), and the payload carries the reference plus the instruction.
 
@@ -202,8 +203,9 @@ Lint and CI enforce these rules (slice 1b).
 | Tenancy | Every record belongs to a fleet. A ship secret or a console session resolves to exactly one ship and fleet (the one lookup that is not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
 | Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message |
 | Migrations | Prisma Migrate, run at startup under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command |
-| First run | A server command initialises the fleet: it creates the fleet and `argo`, and prints `argo`'s secret once. There is no setup page on the public web |
-| Lost operator secret | A server command replaces `argo`'s secret, prints the new one once, and ends every console session |
+| First run | A server command initialises the fleet: it creates the fleet, `argo` and the operator account, asking for email and password. There is no setup page on the public web |
+| Forgotten password | A server command resets the operator password and ends every console session |
+| Console across hosts | The server sets the session cookie for a configured domain and allows a configured console origin (CORS with credentials), so web and server may run on different hosts under one domain |
 | Time | All timestamps stored as UTC; the web app shows local time |
 | Payloads | Text with a content type (JSON or plain text), at most 64 KB, never parsed by the core. Content travels by reference |
 | Live updates | tRPC subscriptions over WebSocket carry the event id; a reconnecting browser resumes from its last id and the server replays what it missed from the `events` table |
@@ -229,6 +231,6 @@ Lint and CI enforce these rules (slice 1b).
 | Payload size | 64 KB maximum; messages carry references, not content |
 | License | Apache-2.0 |
 | Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra`. The three packages stay in one repo while they share one version |
-| Operator | The ship `argo`, signing in with its secret; scopes on the server |
+| Operator | The ship `argo`, crewed only through the operator's email and password login; scopes on the server |
 
 Still open, deliberately later: the text of the starting prompt (drafted when the first ship sets sail), heartbeats and wake-ups (likely a ship template concern), and operator-editable scopes.

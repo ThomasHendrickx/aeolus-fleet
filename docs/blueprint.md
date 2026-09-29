@@ -31,7 +31,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Packages | Three npm packages: `@aeolus-fleet/server`, `@aeolus-fleet/web` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
 | Leases | A session that registers holds the lease indefinitely. Only the operator can revoke it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
-| Operator login | The operator is a ship: `argo` (see The operator ship). Initialising a fleet creates it and prints its secret once. The web console signs in with that secret and gets a session cookie. A lost secret is replaced with a command on the server. No email, no password, no user table |
+| Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
 | Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships can only send and receive |
 | Starting prompt | Drafted and tested when the first ship sets sail |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
@@ -46,12 +46,12 @@ Every fleet has exactly one operator ship, named `argo`. The web console is how 
 
 | Rule | Behaviour |
 | --- | --- |
-| Created with the fleet | Initialising a fleet creates `argo` and prints its secret once, on the server |
+| Created with the fleet | Initialising a fleet creates `argo` and the operator account. `argo` has no secret |
 | Permanent | `argo` can never be retired, released or renamed. The name `argo` is reserved: no other ship can take it |
 | Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope. Agent ships are of kind `agent` |
-| Signing in | The console exchanges `argo`'s secret for a session cookie. The secret stays valid; only the cookie lives in the browser |
+| Signing in | The operator signs in to the console with email and password and gets a session cookie. That session is `argo`'s crew. `register` with a secret is refused for `argo` |
 | One session at a time | Signing in ends any other console session and takes `argo`'s lease over. Its in-flight deliveries return to pending, so the new session receives them again |
-| Lost secret | A server command replaces the secret and ends every console session |
+| Forgotten password | A server command resets it and ends every console session |
 | Inbox | Messages to `argo` are the operator inbox. Opening one marks it read; Reply or Mark done acknowledges it |
 
 ### The operator (human)
@@ -265,4 +265,4 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 - **Timeouts.** Only relevant once heartbeats exist. Proposed defaults: heartbeat every 30 seconds, lease expires after 90 seconds, dead-letter after 5 failed attempts.
 - **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship template concern, not fleet core.
 
-Decided since: the operator is the ship `argo`, signing in with its secret; scopes stored on the server; npm organisation `aeolus-fleet` with three packages; public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
+Decided since: the operator is the ship `argo`, crewed only through the operator's email and password login; scopes stored on the server; npm organisation `aeolus-fleet` with three packages; public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
