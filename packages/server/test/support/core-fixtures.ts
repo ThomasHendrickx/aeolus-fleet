@@ -16,6 +16,7 @@ import { unwrap } from './result.js';
 export function identityUseCases(core: InMemoryCore) {
   const deps = {
     uow: core.uow,
+    accounts: core.accounts,
     clock: core.clock,
     ids: core.ids,
     hasher: core.hasher,

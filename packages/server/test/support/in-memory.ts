@@ -8,6 +8,7 @@ import type {
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  OperatorAccountLookup,
   OperatorAccountRepository,
 } from '../../src/core/identity/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
@@ -65,6 +66,7 @@ export interface InMemoryCore {
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
   callers: CallerLookup;
+  accounts: OperatorAccountLookup;
   listing: FleetListing;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
@@ -319,6 +321,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const accounts: OperatorAccountLookup = {
+    byEmail: (email) => {
+      const account = state.operatorAccounts.find((held) => held.email === email);
+      return Promise.resolve(account && { ...account });
+    },
+  };
+
   const listing: FleetListing = {
     ships: (fleetId) =>
       Promise.resolve(
@@ -338,7 +347,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ),
   };
 
-  return { state, uow, callers, listing, clock, ids, hasher, passwords, random };
+  return { state, uow, callers, accounts, listing, clock, ids, hasher, passwords, random };
 }
 
 const TABLES = [

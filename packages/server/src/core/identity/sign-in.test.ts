@@ -89,6 +89,7 @@ describe('signing in to the console', () => {
     const checked: (string | undefined)[] = [];
     const signIn = createSignIn({
       uow: core.uow,
+      accounts: core.accounts,
       clock: core.clock,
       ids: core.ids,
       hasher: core.hasher,
@@ -105,6 +106,63 @@ describe('signing in to the console', () => {
     await signIn({ email: 'stranger@example.com', password: OPERATOR.password });
 
     expect(checked).toEqual([undefined]);
+  });
+
+  it('checks the password before any unit of work, so no account row and no connection wait on it', async () => {
+    const steps: string[] = [];
+    const signIn = createSignIn({
+      uow: {
+        run: (work) => {
+          steps.push('unit of work');
+          return core.uow.run(work);
+        },
+      },
+      accounts: core.accounts,
+      clock: core.clock,
+      ids: core.ids,
+      hasher: core.hasher,
+      random: core.random,
+      passwords: {
+        ...core.passwords,
+        verify: (password, passwordHash) => {
+          steps.push('password checked');
+          return core.passwords.verify(password, passwordHash);
+        },
+      },
+    });
+
+    await signIn({ email: OPERATOR.email, password: 'wrong horse' });
+    await signIn({ email: 'stranger@example.com', password: OPERATOR.password });
+    unwrap(await signIn(OPERATOR));
+
+    expect(steps).toEqual(['password checked', 'password checked', 'password checked', 'unit of work']);
+  });
+
+  it('refuses a password that was reset between its check and the session, and writes nothing', async () => {
+    const signIn = createSignIn({
+      uow: core.uow,
+      accounts: core.accounts,
+      clock: core.clock,
+      ids: core.ids,
+      hasher: core.hasher,
+      random: core.random,
+      passwords: {
+        ...core.passwords,
+        verify: async (password, passwordHash) => {
+          const isRight = await core.passwords.verify(password, passwordHash);
+          const [account] = core.state.operatorAccounts;
+          if (account) {
+            account.passwordHash = await core.passwords.hash('reset meanwhile');
+          }
+          return isRight;
+        },
+      },
+    });
+
+    await expect(signIn(OPERATOR)).resolves.toEqual(WRONG_EMAIL_OR_PASSWORD);
+    expect(core.state.consoleSessions).toEqual([]);
+    expect(core.state.leases).toEqual([]);
+    expect(core.state.events).toEqual([]);
   });
 
   it('refuses a password that differs only in capitals or spaces', async () => {
@@ -160,6 +218,7 @@ describe('signing in a second time', () => {
             work({ ...tx, events: { append: () => Promise.reject(new Error('event log unavailable')) } }),
           ),
       },
+      accounts: core.accounts,
       clock: core.clock,
       ids: core.ids,
       hasher: core.hasher,

@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
+import { createPrismaOperatorAccountLookup } from '../src/adapters/prisma/identity.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
+import { ok } from '../src/core/shared/result.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
@@ -130,10 +132,32 @@ describe('signing in on Postgres', () => {
     ).resolves.toMatchObject({ isOk: true, value: { caller: { shipId: argoId, fleetId } } });
   });
 
+  it('checks a password while another transaction holds the account: a wrong one is refused at once', async () => {
+    const { promise: held, resolve: release } = Promise.withResolvers<undefined>();
+    const { promise: locked, resolve: signalLocked } = Promise.withResolvers<undefined>();
+    const holder = createPrismaUnitOfWork(core.prisma).run(async (tx) => {
+      await tx.operatorAccounts.findByEmailForUpdate(OPERATOR.email);
+      signalLocked(undefined);
+      await held;
+      return ok(undefined);
+    });
+    await locked;
+
+    const outcome = await Promise.race([
+      core.useCases.signIn({ email: OPERATOR.email, password: 'wrong horse' }),
+      new Promise((resolve) => setTimeout(resolve, 3_000, 'still waiting for the account')),
+    ]);
+    release(undefined);
+    await holder;
+
+    expect(outcome).toMatchObject({ isOk: false, error: { kind: 'WRONG_EMAIL_OR_PASSWORD' } });
+  });
+
   it('leaves the first session and lease untouched when a sign-in fails halfway', async () => {
     const first = unwrap(await core.useCases.signIn(OPERATOR));
     const failingUow = createPrismaUnitOfWork(core.prisma);
     const signIn = createSignIn({
+      accounts: createPrismaOperatorAccountLookup(core.prisma),
       uow: {
         run: (work) =>
           failingUow.run((tx) =>
