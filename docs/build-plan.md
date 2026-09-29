@@ -10,7 +10,7 @@ This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two s
 | Claude Code (per session) | Discovery in the repo, implementation, tests, the PR and its description |
 | A clean-room reviewer (fresh session) | Reading the PR against the slice's done criteria before merge |
 
-[blueprint.md](blueprint.md) and [architecture.md](architecture.md) are the source of truth, and [decisions/](decisions/) records why. When a session finds a gap, it stops and asks; it never fills the gap with its own guess. The design canvas is look and feel only ([design.md](design.md)).
+[blueprint.md](blueprint.md) and [architecture.md](architecture.md) are the source of truth, and [decisions/](decisions/) records why. When a session finds a gap, it stops and asks; it never fills the gap with its own guess. The design canvas is look and feel only ([design/README.md](design/README.md)).
 
 ## Still to do outside the code (Thomas)
 
