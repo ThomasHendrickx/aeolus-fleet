@@ -37,6 +37,7 @@ describe('eventTypeSchema', () => {
       'LeaseRevoked',
       'CredentialRevoked',
       'StartingPromptIssued',
+      'OperatorPasswordReset',
     ]);
   });
 });

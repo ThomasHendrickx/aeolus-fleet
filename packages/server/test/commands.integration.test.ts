@@ -28,17 +28,9 @@ function run(script: string, options: { args?: string[]; answers?: string[] } = 
   return runServerCommand({ script, ...options, env: { DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL } });
 }
 
-function secretIn(output: string): string {
-  const match = /aeolus_sk_v1_[A-Za-z0-9_-]{43}/.exec(output);
-  if (!match) {
-    throw new Error(`no secret in: ${output}`);
-  }
-  return match[0];
-}
+const NEW_PASSWORD = 'staple battery horse correct';
 
 describe('the server commands', () => {
-  let firstSecret: string;
-
   it('fleet:init asks for the operator email and password, and creates the fleet, argo and the account', async () => {
     const result = await run('fleet:init', {
       args: ['--name', 'home fleet'],
@@ -46,7 +38,7 @@ describe('the server commands', () => {
     });
 
     expect(result.code).toBe(0);
-    firstSecret = secretIn(result.stdout);
+    expect(result.stdout).toMatch(/aeolus_sk_v1_/);
     await expect(database.fleet.findMany()).resolves.toEqual([expect.objectContaining({ name: 'home fleet' })]);
     await expect(database.operator.findMany()).resolves.toEqual([expect.objectContaining({ email: OPERATOR.email })]);
     expect(result.stdout).not.toContain(OPERATOR.password);
@@ -69,16 +61,32 @@ describe('the server commands', () => {
     await expect(database.operator.count()).resolves.toBe(1);
   });
 
-  it('argo:replace-secret makes the old secret fail, ends the sessions and prints a new one', async () => {
+  it('operator:reset-password asks for a new password, ends the sessions, and the old password stops working', async () => {
     const { token } = unwrap(await useCases.signIn(OPERATOR));
 
-    const result = await run('argo:replace-secret');
+    const result = await run('operator:reset-password', { answers: [NEW_PASSWORD, NEW_PASSWORD] });
 
     expect(result.code).toBe(0);
-    const newSecret = secretIn(result.stdout);
-    expect(newSecret).not.toBe(firstSecret);
-    await expect(useCases.authenticate.bySecret(firstSecret)).resolves.toBeUndefined();
+    expect(result.stdout).toContain('Every console session has ended');
+    expect(result.stdout).not.toContain(NEW_PASSWORD);
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
-    await expect(useCases.authenticate.bySecret(newSecret)).resolves.toMatchObject({ kind: 'operator' });
+    await expect(useCases.signIn(OPERATOR)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'WRONG_EMAIL_OR_PASSWORD' },
+    });
+    await expect(useCases.signIn({ email: OPERATOR.email, password: NEW_PASSWORD })).resolves.toMatchObject({
+      isOk: true,
+      value: { caller: { kind: 'operator' } },
+    });
+  });
+
+  it('operator:reset-password refuses two different passwords and changes nothing', async () => {
+    const result = await run('operator:reset-password', { answers: ['one password', 'another password'] });
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('The two passwords differ');
+    await expect(useCases.signIn({ email: OPERATOR.email, password: NEW_PASSWORD })).resolves.toMatchObject({
+      isOk: true,
+    });
   });
 });

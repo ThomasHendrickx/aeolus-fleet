@@ -12,7 +12,7 @@ import { createPostgresCore, type PostgresCore } from './support/postgres-core.j
 import { unwrap } from './support/result.js';
 
 // The identity use cases on a real Postgres through the Prisma adapters:
-// takeover, sign-out, replacing the secret, rollback, concurrency and restart.
+// takeover, sign-out, resetting the password, rollback, concurrency and restart.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const newId = createIdGenerator();
@@ -198,21 +198,51 @@ describe('signing out on Postgres', () => {
   });
 });
 
-describe("replacing argo's secret on Postgres", () => {
-  it('makes the old secret fail, ends every session and the lease', async () => {
+describe('resetting the operator password on Postgres', () => {
+  const NEW_PASSWORD = 'staple battery horse correct';
+
+  it('makes the old password fail and the new one sign in, ends every session and the lease', async () => {
     const { token } = unwrap(await core.useCases.signIn(OPERATOR));
 
-    const replaced = unwrap(await core.useCases.replaceOperatorSecret({ fleetId }));
+    unwrap(await core.useCases.resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));
 
-    await expect(core.useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
     await expect(core.useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.bySecret(replaced.secret)).resolves.toMatchObject({ shipId: argoId });
     await expect(liveSessions()).resolves.toEqual([]);
     await expect(openLeases()).resolves.toEqual([]);
-    await expect(core.prisma.credential.count({ where: { invalidatedAt: null } })).resolves.toBe(1);
-    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'CredentialRevoked', 'LeaseRevoked']);
+    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'OperatorPasswordReset', 'LeaseRevoked']);
+    await expect(core.useCases.signIn(OPERATOR)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'WRONG_EMAIL_OR_PASSWORD' },
+    });
+    await expect(core.useCases.signIn({ email: OPERATOR.email, password: NEW_PASSWORD })).resolves.toMatchObject({
+      isOk: true,
+      value: { caller: { shipId: argoId } },
+    });
   });
 
+  it('stores the new password as an Argon2id hash only', async () => {
+    unwrap(await core.useCases.resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));
+
+    const account = await core.prisma.operator.findFirstOrThrow({ where: { fleetId } });
+    expect(account.passwordHash).toMatch(/^\$argon2id\$/);
+    await expect(argon2idPasswordHasher.verify(NEW_PASSWORD, account.passwordHash)).resolves.toBe(true);
+  });
+
+  it('never lets a concurrent sign-in with the old password outlive the reset', async () => {
+    const [signIn, reset] = await Promise.all([
+      core.useCases.signIn(OPERATOR),
+      core.useCases.resetOperatorPassword({ fleetId, password: NEW_PASSWORD }),
+    ]);
+
+    expect(reset.isOk).toBe(true);
+    if (signIn.isOk) {
+      await expect(core.useCases.authenticate.byConsoleSession(signIn.value.token)).resolves.toBeUndefined();
+    } else {
+      expect(signIn.error).toMatchObject({ kind: 'WRONG_EMAIL_OR_PASSWORD' });
+    }
+    await expect(liveSessions()).resolves.toEqual([]);
+    await expect(openLeases()).resolves.toEqual([]);
+  });
 });
 
 describe('the caller lookups', () => {
