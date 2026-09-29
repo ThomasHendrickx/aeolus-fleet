@@ -1,5 +1,7 @@
 // @ts-check
 import js from '@eslint/js';
+import nextPlugin from '@next/eslint-plugin-next';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
@@ -27,7 +29,9 @@ export default defineConfig(
   globalIgnores([
     '**/node_modules/',
     '**/dist/',
+    '**/.next/',
     '**/coverage/',
+    '**/next-env.d.ts',
     'packages/server/src/adapters/prisma/generated/',
   ]),
 
@@ -50,6 +54,15 @@ export default defineConfig(
   {
     files: ['**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+
+  {
+    name: 'aeolus/web',
+    files: ['packages/web/**/*.{ts,tsx}'],
+    extends: [nextPlugin.configs['core-web-vitals'], reactHooks.configs.flat['recommended-latest']],
+    settings: {
+      next: { rootDir: 'packages/web/' },
+    },
   },
 
   {
