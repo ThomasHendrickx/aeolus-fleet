@@ -9,6 +9,7 @@ import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
+import { signIn } from './support/console.js';
 import { launchChromium, startWeb, type RunningWeb } from './support/web.js';
 
 // Signing in to the console, end to end: a browser, the web app, the server and
@@ -50,14 +51,6 @@ async function newPage(): Promise<Page> {
   return context.newPage();
 }
 
-async function signIn(page: Page, withSecret: string): Promise<void> {
-  await page.goto('/sign-in');
-  await page.getByLabel("argo's secret").fill(withSecret);
-  const button = page.getByRole('button', { name: 'Sign in' });
-  await button.and(page.locator(':enabled')).waitFor();
-  await button.click();
-}
-
 async function expectSignedIn(page: Page): Promise<void> {
   await page.waitForURL(`${web.url}/`);
   await page.getByText('Signed in as argo.').waitFor();
@@ -88,7 +81,7 @@ describe('the console sign-in', () => {
     await signIn(page, secret);
 
     await expectSignedIn(page);
-    await expect(page.getByText('2026').first().isVisible()).resolves.toBe(true);
+    await page.getByRole('row', { name: /argo/ }).waitFor();
     const cookies = await page.context().cookies();
     expect(cookies).toEqual([
       expect.objectContaining({ name: 'aeolus_session', httpOnly: true, secure: true, sameSite: 'Strict', path: '/' }),
