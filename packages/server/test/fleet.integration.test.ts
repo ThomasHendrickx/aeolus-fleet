@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/core/registry/commission-ship.js';
+import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { FLEET_URL, operatorCaller, secretIn } from './support/core-fixtures.js';
@@ -46,12 +47,15 @@ async function shipsNamed(name: string) {
 }
 
 /**
- * The Prisma unit of work, with every transaction held just before it looks a
- * ship name up until all of them get there (or a moment passes). Without that
- * the transactions finish one after the other and never race; a lock taken
- * before the lookup keeps them apart anyway.
+ * The Prisma unit of work, with every transaction held at one step until all
+ * of them get there (or a moment passes). Without that the transactions finish
+ * one after the other and never race; a lock taken before that step keeps them
+ * apart anyway. `holdAt` returns the ports with the step wrapped.
  */
-function racingUnitOfWork(transactions: number): UnitOfWork<PrismaTx> {
+function racingUnitOfWork(
+  transactions: number,
+  holdAt: (tx: PrismaTx, allArrived: () => Promise<void>) => PrismaTx,
+): UnitOfWork<PrismaTx> {
   const uow = createPrismaUnitOfWork(core.prisma);
   let arrived: (() => void)[] = [];
   const allArrived = () =>
@@ -65,21 +69,7 @@ function racingUnitOfWork(transactions: number): UnitOfWork<PrismaTx> {
       }
       setTimeout(resolve, RACE_WAIT_MS);
     });
-  return {
-    run: (work) =>
-      uow.run((tx) =>
-        work({
-          ...tx,
-          ships: {
-            ...tx.ships,
-            findActiveByName: async (fleet, name) => {
-              await allArrived();
-              return tx.ships.findActiveByName(fleet, name);
-            },
-          },
-        }),
-      ),
-  };
+  return { run: (work) => uow.run((tx) => work(holdAt(tx, allArrived))) };
 }
 
 /** Every row of every table as JSON text, to search for what must never be stored. */
@@ -170,7 +160,16 @@ describe('commissioning a ship on Postgres', () => {
 
   it('serialises concurrent commissions of one name: one ship, every other one refused', async () => {
     const commissionShip = createCommissionShip({
-      uow: racingUnitOfWork(5),
+      uow: racingUnitOfWork(5, (tx, allArrived) => ({
+        ...tx,
+        ships: {
+          ...tx.ships,
+          findActiveByName: async (fleet, name) => {
+            await allArrived();
+            return tx.ships.findActiveByName(fleet, name);
+          },
+        },
+      })),
       clock: core.clock,
       ids: newId,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
@@ -221,5 +220,127 @@ describe('commissioning a ship on Postgres', () => {
     await expect(commissionShip(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
 
     await expect(everyRow()).resolves.toBe(before);
+  });
+});
+
+describe('getting a starting prompt on Postgres', () => {
+  let scoutId: ShipId;
+  let firstSecret: string;
+
+  beforeEach(async () => {
+    const commissioned = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    scoutId = commissioned.shipId;
+    firstSecret = secretIn(commissioned.prompt);
+    core.clock.advance(60_000);
+  });
+
+  async function validSecretsOfScout() {
+    return core.prisma.credential.findMany({ where: { shipId: scoutId, invalidatedAt: null } });
+  }
+
+  it('replaces the secret: the previous one fails on the very next call, the new one works', async () => {
+    const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
+
+    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.bySecret(secretIn(prompt))).resolves.toEqual({
+      shipId: scoutId,
+      fleetId,
+      kind: 'agent',
+      scopes: ['messages:send', 'messages:receive'],
+    });
+    await expect(validSecretsOfScout()).resolves.toEqual([
+      expect.objectContaining({ secretHash: sha256Hasher.hash(secretIn(prompt)), issuedAt: core.clock.now() }),
+    ]);
+  });
+
+  it('writes CredentialRevoked and StartingPromptIssued in the same transaction, caused by argo', async () => {
+    const [previous] = await validSecretsOfScout();
+
+    unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
+
+    const [issued] = await validSecretsOfScout();
+    await expect(eventsAbout(scoutId)).resolves.toEqual([
+      ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent' }],
+      ['StartingPromptIssued', argoId, { credentialId: previous?.id }],
+      ['CredentialRevoked', argoId, { credentialId: previous?.id }],
+      ['StartingPromptIssued', argoId, { credentialId: issued?.id }],
+    ]);
+  });
+
+  it('keeps the new secret out of every table', async () => {
+    const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
+
+    await expect(everyRow()).resolves.not.toContain(secretIn(prompt));
+  });
+
+  it('is refused while a session crews the ship', async () => {
+    // Claiming arrives with slice 3.
+    await core.prisma.lease.create({
+      data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },
+    });
+
+    await expect(core.useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'SHIP_NOT_AWAITING_CREW' },
+    });
+    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+  });
+
+  it('is refused for argo', async () => {
+    await expect(core.useCases.getStartingPrompt(argo, { shipId: argoId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' },
+    });
+  });
+
+  it('keeps exactly one valid secret under concurrent prompts, the last one issued', async () => {
+    const getStartingPrompt = createGetStartingPrompt({
+      uow: racingUnitOfWork(5, (tx, allArrived) => ({
+        ...tx,
+        credentials: {
+          ...tx.credentials,
+          findValidForShipForUpdate: async (fleet, ship) => {
+            await allArrived();
+            return tx.credentials.findValidForShipForUpdate(fleet, ship);
+          },
+        },
+      })),
+      clock: core.clock,
+      ids: newId,
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
+      fleetUrl: FLEET_URL,
+    });
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => getStartingPrompt(argo, { shipId: scoutId })),
+    );
+
+    expect(results.map((result) => result.isOk)).toEqual([true, true, true, true, true]);
+    const valid = await validSecretsOfScout();
+    expect(valid).toHaveLength(1);
+    const working = await Promise.all(
+      results.map((result) => (result.isOk ? core.useCases.authenticate.bySecret(secretIn(result.value.prompt)) : undefined)),
+    );
+    expect(working.filter((caller) => caller !== undefined)).toHaveLength(1);
+  });
+
+  it('leaves the previous secret valid when a write fails halfway', async () => {
+    const before = await everyRow();
+    const uow = createPrismaUnitOfWork(core.prisma);
+    const getStartingPrompt = createGetStartingPrompt({
+      uow: {
+        run: (work) =>
+          uow.run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } })),
+      },
+      clock: core.clock,
+      ids: newId,
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
+      fleetUrl: FLEET_URL,
+    });
+
+    await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('disk full');
+
+    await expect(everyRow()).resolves.toBe(before);
+    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
   });
 });

@@ -138,6 +138,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships.find((found) => found.fleetId === fleetId && found.name === name && found.retiredAt === null),
         ),
+      findForUpdate: (fleetId, shipId) => Promise.resolve(ship(fleetId, shipId)),
     },
     leases: {
       findOpenForUpdate: (fleetId, shipId) =>

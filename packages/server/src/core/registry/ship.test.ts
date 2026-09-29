@@ -8,6 +8,7 @@ import {
   checkNameIsNotReserved,
   isReservedShipName,
   operatorShip,
+  shipStatus,
   type Ship,
 } from './ship.js';
 
@@ -87,5 +88,22 @@ describe('the reserved name', () => {
   it.each(['scout', 'argo-2', 'argonaut'])('leaves %s free', (name) => {
     expect(isReservedShipName(name)).toBe(false);
     expect(checkNameIsNotReserved(name)).toEqual(allowed);
+  });
+});
+
+describe('the status of a ship', () => {
+  it('is awaiting crew while no session holds its lease', () => {
+    expect(shipStatus(scout, { isCrewed: false })).toBe('awaitingCrew');
+  });
+
+  it('is crewed while a session holds its lease', () => {
+    expect(shipStatus(scout, { isCrewed: true })).toBe('crewed');
+  });
+
+  it('is retired once retired, whatever its lease says', () => {
+    const retired = { ...scout, retiredAt: createdAt };
+
+    expect(shipStatus(retired, { isCrewed: false })).toBe('retired');
+    expect(shipStatus(retired, { isCrewed: true })).toBe('retired');
   });
 });
