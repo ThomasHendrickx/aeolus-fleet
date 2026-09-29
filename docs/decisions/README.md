@@ -14,3 +14,4 @@ One file per decision that was debated rather than obvious. Do not reopen a reco
 | 0008 | [Server, web and common as separate packages; infra private](0008-packages.md) |
 | 0009 | [Stack](0009-stack.md) |
 | 0010 | [Leases held until released, no heartbeats in v1](0010-leases-without-heartbeats.md) |
+| 0011 | [Releases publish only through trusted publishing](0011-release-via-trusted-publishing.md) |
