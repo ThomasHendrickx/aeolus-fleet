@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const environmentSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// or postgresql:// URL' }),
+  PUBLIC_URL: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }),
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(0).max(65_535).default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -10,6 +11,8 @@ const environmentSchema = z.object({
 
 export interface Config {
   databaseUrl: string;
+  /** Where ships reach the fleet: the fleet URL every starting prompt carries. */
+  publicUrl: string;
   host: string;
   port: number;
   logLevel: string;
@@ -33,9 +36,10 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     throw new ConfigError(`Invalid configuration:\n${problems.join('\n')}`);
   }
 
-  const { DATABASE_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY } = result.data;
+  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY } = result.data;
   return {
     databaseUrl: DATABASE_URL,
+    publicUrl: PUBLIC_URL,
     host: HOST,
     port: PORT,
     logLevel: LOG_LEVEL,
