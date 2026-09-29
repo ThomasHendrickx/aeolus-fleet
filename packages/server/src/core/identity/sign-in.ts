@@ -10,7 +10,7 @@ import type { PasswordHasher, RandomTokens, SecretHasher } from '../shared/secre
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { CONSOLE_LOCATION, consoleSessionExpiry } from './console-session.js';
 import { normaliseEmail } from './operator-account.js';
-import type { ConsoleSessionRepository, OperatorAccountRepository } from './ports.js';
+import type { ConsoleSessionRepository, OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
 
 export interface SignInTx extends LeaseTx, ShipTx {
   operatorAccounts: OperatorAccountRepository;
@@ -30,6 +30,8 @@ export type SignInRefusal = DomainError<'WRONG_EMAIL_OR_PASSWORD' | 'FLEET_NOT_F
 
 export type SignIn = (input: { email: string; password: string }) => Promise<Result<SignedIn, SignInRefusal>>;
 
+const WRONG_EMAIL_OR_PASSWORD = 'Wrong email or password';
+
 /**
  * Use case: the operator signs in to the console with email and password, and
  * the session crews `argo` (ADR 0012). Signing in ends the previous console
@@ -38,23 +40,33 @@ export type SignIn = (input: { email: string; password: string }) => Promise<Res
  *
  * A wrong email and a wrong password are one refusal, and both check a
  * password, so neither the answer nor its timing says whether the email
- * exists. The account stays locked until the session exists, so a password
- * reset meanwhile either waits or is seen.
+ * exists. The password is checked before the unit of work: Argon2 takes its
+ * time on purpose, and no account row or connection waits on it. The unit of
+ * work then locks the account and finds the same password hash, or refuses:
+ * a reset in between makes the checked password wrong, and a reset after
+ * waits for the lock, then ends the new session.
  */
 export function createSignIn(deps: {
   uow: UnitOfWork<SignInTx>;
+  accounts: OperatorAccountLookup;
   clock: Clock;
   ids: IdGenerator;
   hasher: SecretHasher;
   random: RandomTokens;
   passwords: PasswordHasher;
 }): SignIn {
-  return (input) =>
-    deps.uow.run(async (tx): Promise<Result<SignedIn, SignInRefusal>> => {
-      const account = await tx.operatorAccounts.findByEmailForUpdate(normaliseEmail(input.email));
-      const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash);
-      if (!account || !isPasswordRight) {
-        return refuse('WRONG_EMAIL_OR_PASSWORD', 'Wrong email or password');
+  return async (input) => {
+    const email = normaliseEmail(input.email);
+    const account = await deps.accounts.byEmail(email);
+    const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash);
+    if (!account || !isPasswordRight) {
+      return refuse('WRONG_EMAIL_OR_PASSWORD', WRONG_EMAIL_OR_PASSWORD);
+    }
+
+    return deps.uow.run(async (tx): Promise<Result<SignedIn, SignInRefusal>> => {
+      const locked = await tx.operatorAccounts.findByEmailForUpdate(email);
+      if (locked?.id !== account.id || locked.passwordHash !== account.passwordHash) {
+        return refuse('WRONG_EMAIL_OR_PASSWORD', WRONG_EMAIL_OR_PASSWORD);
       }
       const found = await findOperatorShip(tx, account.fleetId);
       if (!found.isOk) {
@@ -102,4 +114,5 @@ export function createSignIn(deps: {
       };
       return ok({ token, consoleSessionId, expiresAt, caller });
     });
+  };
 }

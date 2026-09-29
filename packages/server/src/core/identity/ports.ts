@@ -31,6 +31,15 @@ export interface CredentialRepository {
   invalidate(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;
 }
 
+/**
+ * Outbound port: finds the operator account by its normalised email outside
+ * any unit of work, so checking a password holds no row and no connection.
+ * One query, not scoped by fleet: signing in names no fleet (ADR 0007).
+ */
+export interface OperatorAccountLookup {
+  byEmail(email: string): Promise<OperatorAccount | undefined>;
+}
+
 /** Outbound port: the operator account. */
 export interface OperatorAccountRepository {
   create(account: OperatorAccount): Promise<void>;

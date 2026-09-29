@@ -2,6 +2,7 @@ import type {
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  OperatorAccountLookup,
   OperatorAccountRepository,
 } from '../../core/identity/ports.js';
 import type { Db } from './client.js';
@@ -52,6 +53,19 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
         where: { fleetId, id: credentialId, invalidatedAt: null },
         data: { invalidatedAt: at },
       });
+    },
+  };
+}
+
+export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup {
+  return {
+    byEmail: async (email) => {
+      // Not scoped by fleet: signing in names no fleet (ADR 0007). No lock:
+      // a plain read never waits for a sign-in or a reset holding the row.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE email = ${email}`;
+      return row ? toOperatorAccount(row) : undefined;
     },
   };
 }

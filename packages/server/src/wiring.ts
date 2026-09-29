@@ -5,6 +5,7 @@ import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaFleetListing, createPrismaFleetRepository } from './adapters/prisma/registry.js';
+import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
@@ -57,7 +58,14 @@ export function createUseCases(options: {
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
-    signIn: createSignIn({ uow, clock, ids, ...secrets, passwords: argon2idPasswordHasher }),
+    signIn: createSignIn({
+      uow,
+      accounts: createPrismaOperatorAccountLookup(prisma),
+      clock,
+      ids,
+      ...secrets,
+      passwords: argon2idPasswordHasher,
+    }),
     signOut: createSignOut({ uow, clock, ids }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
