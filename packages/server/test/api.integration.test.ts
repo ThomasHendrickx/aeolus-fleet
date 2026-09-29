@@ -386,6 +386,64 @@ describe('the fleet procedures at the API', () => {
   });
 });
 
+describe('a console on another origin under the configured domain', () => {
+  const CONSOLE_ORIGIN = 'https://console.fleet.example.com';
+  let acrossHosts: FastifyInstance;
+  let serverUrl: string;
+
+  beforeAll(async () => {
+    acrossHosts = createApp({
+      databaseUrl,
+      publicUrl: FLEET_URL,
+      clock,
+      logger: false,
+      cookieDomain: 'fleet.example.com',
+      consoleOrigin: CONSOLE_ORIGIN,
+    });
+    serverUrl = await acrossHosts.listen({ host: '127.0.0.1', port: 0 });
+  });
+
+  afterAll(async () => {
+    await acrossHosts.close();
+  });
+
+  it('signs in with credentials across origins, gets a cookie for the whole domain, and calls with it', async () => {
+    const preflight = await fetch(`${serverUrl}/trpc/console.signIn`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: CONSOLE_ORIGIN,
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+    const signedIn = await fetch(`${serverUrl}/trpc/console.signIn`, {
+      method: 'POST',
+      headers: { origin: CONSOLE_ORIGIN, 'content-type': 'application/json' },
+      body: JSON.stringify(OPERATOR),
+    });
+    const [setCookie = ''] = signedIn.headers.getSetCookie();
+    const listed = await fetch(`${serverUrl}/trpc/fleet.list`, {
+      headers: { origin: CONSOLE_ORIGIN, cookie: setCookie.split(';')[0] ?? '' },
+    });
+
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+    expect(preflight.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(signedIn.status).toBe(200);
+    expect(signedIn.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+    expect(signedIn.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(setCookie).toMatch(/; Domain=fleet\.example\.com; Path=\/; HttpOnly; Secure; SameSite=Strict$/);
+    expect(listed.status).toBe(200);
+    expect(listed.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+  });
+
+  it('lets no other origin read an answer', async () => {
+    const response = await fetch(`${serverUrl}/trpc/fleet.list`, { headers: { origin: 'https://elsewhere.example.com' } });
+
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
 describe('/health', () => {
   it('reports server and database up, and nothing about fleets', async () => {
     const response = await fetch(`${address}/health`);

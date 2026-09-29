@@ -15,8 +15,36 @@ describe('loadConfig', () => {
       port: 4000,
       logLevel: 'info',
       shouldTrustProxy: false,
+      cookieDomain: undefined,
+      consoleOrigin: undefined,
     });
   });
+
+  it('reads the cookie domain and the console origin, so the console can run on another host under one domain', () => {
+    expect(
+      loadConfig({ ...required, COOKIE_DOMAIN: 'fleet.example.com', CONSOLE_ORIGIN: 'https://console.fleet.example.com' }),
+    ).toMatchObject({ cookieDomain: 'fleet.example.com', consoleOrigin: 'https://console.fleet.example.com' });
+  });
+
+  it('takes the console origin with a trailing slash as the origin alone', () => {
+    expect(loadConfig({ ...required, CONSOLE_ORIGIN: 'http://localhost:3000/' }).consoleOrigin).toBe(
+      'http://localhost:3000',
+    );
+  });
+
+  it.each(['https://fleet.example.com', 'fleet.example.com/console', '.fleet.example.com', 'fleet example.com'])(
+    'rejects %j as the cookie domain: it is a domain name alone',
+    (domain) => {
+      expect(() => loadConfig({ ...required, COOKIE_DOMAIN: domain })).toThrow(/COOKIE_DOMAIN/);
+    },
+  );
+
+  it.each(['console.fleet.example.com', 'ftp://console.fleet.example.com', 'https://console.fleet.example.com/sign-in'])(
+    'rejects %j as the console origin: it is an http or https origin without a path',
+    (origin) => {
+      expect(() => loadConfig({ ...required, CONSOLE_ORIGIN: origin })).toThrow(/CONSOLE_ORIGIN/);
+    },
+  );
 
   it('trusts a reverse proxy only when told to', () => {
     expect(loadConfig({ ...required, TRUST_PROXY: 'true' }).shouldTrustProxy).toBe(true);

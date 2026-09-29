@@ -30,6 +30,15 @@ describe('sessionCookie', () => {
     );
   });
 
+  it('carries the configured cookie domain, so every host under it receives the cookie', () => {
+    const now = new Date('2026-09-29T12:00:00.000Z');
+    const expiresAt = new Date('2026-10-29T12:00:00.000Z');
+
+    expect(sessionCookie({ token: 'abc', expiresAt, now, domain: 'fleet.example.com' })).toBe(
+      'aeolus_session=abc; Max-Age=2592000; Domain=fleet.example.com; Path=/; HttpOnly; Secure; SameSite=Strict',
+    );
+  });
+
   it('never has a negative age', () => {
     const now = new Date('2026-09-29T12:00:00.000Z');
 
@@ -42,6 +51,12 @@ describe('sessionCookie', () => {
 describe('clearedSessionCookie', () => {
   it('removes the cookie with the same attributes', () => {
     expect(clearedSessionCookie()).toBe('aeolus_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict');
+  });
+
+  it('removes it for the configured cookie domain', () => {
+    expect(clearedSessionCookie('fleet.example.com')).toBe(
+      'aeolus_session=; Max-Age=0; Domain=fleet.example.com; Path=/; HttpOnly; Secure; SameSite=Strict',
+    );
   });
 });
 
