@@ -6,8 +6,12 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // "Architecture rules").
 
 const coreProbe = 'packages/server/src/core/shared/boundary-probe.ts';
+const unlistedCoreProbe = 'packages/server/src/core/boundary-probe.ts';
 const adapterProbe = 'packages/server/src/adapters/prisma/boundary-probe.ts';
-const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: [coreProbe, adapterProbe] });
+const lint = createLint({
+  tsconfig: 'packages/server/tsconfig.json',
+  probes: [coreProbe, unlistedCoreProbe, adapterProbe],
+});
 
 async function boundaryViolations(code: string, path: string): Promise<string[]> {
   const messages = await lint(code, path);
@@ -35,6 +39,12 @@ describe('core import boundary', () => {
 
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('server/src/core must not import ');
+  });
+
+  it('fails when a core file outside the context folders imports Prisma', async () => {
+    const violations = await boundaryViolations("import { PrismaClient } from '@prisma/client';", unlistedCoreProbe);
+
+    expect(violations).toEqual([expect.stringContaining('must not import Prisma')]);
   });
 
   it('names Prisma in the failure', async () => {

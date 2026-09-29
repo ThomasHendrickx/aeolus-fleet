@@ -8,10 +8,12 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 
 const coreProbe = 'packages/server/src/core/shared/purity-probe.ts';
 const coreTestProbe = 'packages/server/src/core/registry/purity-probe.test.ts';
+// A file in core but in none of the context folders, such as a new one.
+const unlistedCoreProbe = 'packages/server/src/core/purity-probe.ts';
 const adapterProbe = 'packages/server/src/adapters/http/purity-probe.ts';
 const lint = createLint({
   tsconfig: 'packages/server/tsconfig.json',
-  probes: [coreProbe, coreTestProbe, adapterProbe],
+  probes: [coreProbe, coreTestProbe, unlistedCoreProbe, adapterProbe],
 });
 
 const impurities = [
@@ -49,6 +51,10 @@ describe('the core is deterministic', () => {
     expect(reportsOf(await lint(code, coreTestProbe), rule)).toHaveLength(1);
   });
 
+  it.each(impurities)('refuses $label in a core file outside the context folders', async ({ code, rule }) => {
+    expect(reportsOf(await lint(code, unlistedCoreProbe), rule)).toHaveLength(1);
+  });
+
   it('allows a date built from a time it was given', async () => {
     const messages = await lint('export const later = (at: Date) => new Date(at.getTime() + 1);', coreProbe);
 
@@ -71,6 +77,10 @@ describe('the core never throws', () => {
 
   it('refuses a throw in a core test too', async () => {
     expect(reportsOf(await lint(throwing, coreTestProbe), 'no-restricted-syntax')).toHaveLength(1);
+  });
+
+  it('refuses a throw in a core file outside the context folders', async () => {
+    expect(reportsOf(await lint(throwing, unlistedCoreProbe), 'no-restricted-syntax')).toHaveLength(1);
   });
 
   it('allows an adapter to throw, for system failures', async () => {

@@ -10,6 +10,7 @@ const probes = {
   registry: 'packages/server/src/core/registry/contexts-probe.ts',
   messaging: 'packages/server/src/core/messaging/contexts-probe.ts',
   shared: 'packages/server/src/core/shared/contexts-probe.ts',
+  unlisted: 'packages/server/src/core/contexts-probe.ts',
 };
 const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: Object.values(probes) });
 
@@ -45,6 +46,11 @@ describe('context boundaries in the core', () => {
       code: "import type { Credential } from '../identity/credential.js';",
     },
     {
+      label: 'a core file outside the context folders imports a registry module',
+      path: probes.unlisted,
+      code: "import { location } from './registry/lease.js';",
+    },
+    {
       label: 'identity loads a registry module with import()',
       path: probes.identity,
       code: "export const load = () => import('../registry/lease.js');",
@@ -58,7 +64,7 @@ describe('context boundaries in the core', () => {
     const violations = await contextViolations(code, path);
 
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatch(/core\/\w+ imports core\/\w+ only through \w+\/public\.js, its published surface/);
+    expect(violations[0]).toMatch(/Outside core\/\w+, import it only through \w+\/public\.js, its published surface/);
   });
 
   it.each([
@@ -67,6 +73,11 @@ describe('context boundaries in the core', () => {
       label: 'registry imports the identity public.ts',
       path: probes.registry,
       code: "import { issueShipSecret } from '../identity/public.js';",
+    },
+    {
+      label: 'a core file outside the context folders imports the registry public.ts',
+      path: probes.unlisted,
+      code: "import { endLease } from './registry/public.js';",
     },
     { label: 'a context imports shared', path: probes.messaging, code: "import type { Clock } from '../shared/clock.js';" },
     { label: 'a context imports its own modules', path: probes.identity, code: "import { CONSOLE_LOCATION } from './console-session.js';" },
