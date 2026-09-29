@@ -107,6 +107,13 @@ describe('createIdGenerator', () => {
 });
 
 describe('parseId', () => {
+  it('knows an operator account id', () => {
+    expect(parseId('opr_01aryz6s410000000000000000')).toEqual({
+      kind: 'operator',
+      timestamp: new Date(1469918176385),
+    });
+  });
+
   it('returns the kind and the creation time', () => {
     const id = createIdGenerator({ now: () => 1_759_147_200_000 })('consoleSession');
 
@@ -117,7 +124,6 @@ describe('parseId', () => {
     ['an empty string', ''],
     ['a value without a separator', 'shp01aryz6s410000000000000000'],
     ['an unknown prefix', 'usr_01aryz6s410000000000000000'],
-    ['the retired operator prefix', 'opr_01aryz6s410000000000000000'],
     ['an uppercase body', 'shp_01ARYZ6S410000000000000000'],
     ['an uppercase prefix', 'SHP_01aryz6s410000000000000000'],
     ['a short body', 'shp_01aryz6s41000000000000000'],
@@ -149,7 +155,21 @@ describe('isId', () => {
 
 describe('ID_KINDS', () => {
   it('lists every kind of id, each with its prefix', () => {
-    expect(ID_KINDS).toEqual(['fleet', 'ship', 'message', 'delivery', 'event', 'lease', 'credential', 'consoleSession']);
+    expect(ID_KINDS).toEqual([
+      'fleet',
+      'ship',
+      'message',
+      'delivery',
+      'event',
+      'lease',
+      'credential',
+      'operator',
+      'consoleSession',
+    ]);
+  });
+
+  it('gives the operator account the opr_ prefix', () => {
+    expect(ID_PREFIXES.operator).toBe('opr');
   });
 });
 
