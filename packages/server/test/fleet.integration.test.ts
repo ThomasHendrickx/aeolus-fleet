@@ -345,3 +345,91 @@ describe('getting a starting prompt on Postgres', () => {
     await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
   });
 });
+
+describe('listing the fleet on Postgres', () => {
+  it('lists argo and a commissioned ship with their status and prompt state, in one query', async () => {
+    const commissionedAt = core.clock.now();
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const argoSecret = unwrap(await core.useCases.replaceOperatorSecret({ fleetId })).secret;
+    core.clock.advance(60_000);
+    unwrap(await core.useCases.signIn({ secret: argoSecret }));
+
+    await expect(core.useCases.listFleet(argo)).resolves.toEqual([
+      {
+        id: argoId,
+        name: 'argo',
+        type: 'operator',
+        status: 'crewed',
+        startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
+      },
+      {
+        id: shipId,
+        name: 'scout',
+        type: 'reviewer',
+        status: 'awaitingCrew',
+        startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+      },
+    ]);
+  });
+
+  it('shows the newest prompt after a new one replaced the first', async () => {
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    core.clock.advance(60_000);
+
+    unwrap(await core.useCases.getStartingPrompt(argo, { shipId }));
+
+    const listed = await core.useCases.listFleet(argo);
+    expect(listed.find((ship) => ship.id === shipId)?.startingPrompt).toEqual({
+      issuedAt: core.clock.now(),
+      isClaimed: false,
+    });
+  });
+
+  it('shows a crewed ship and a retired one, the retired one without a prompt once its secret is gone', async () => {
+    const crewed = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const retired = unwrap(await core.useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    // Claiming and retiring arrive with later slices.
+    await core.prisma.lease.create({
+      data: { id: newId('lease'), fleetId, shipId: crewed.shipId, location: 'SERVER', startedAt: core.clock.now() },
+    });
+    await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });
+    await core.prisma.credential.updateMany({ where: { shipId: retired.shipId }, data: { invalidatedAt: core.clock.now() } });
+
+    const listed = await core.useCases.listFleet(argo);
+
+    expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt === null])).toEqual([
+      ['argo', 'awaitingCrew', false],
+      ['scout', 'crewed', false],
+      ['lookout', 'retired', true],
+    ]);
+  });
+
+  it("lists only the caller's fleet", async () => {
+    const otherFleet = newId('fleet');
+    await core.prisma.fleet.create({ data: { id: otherFleet, name: 'other fleet', createdAt: core.clock.now() } });
+    await core.prisma.ship.create({
+      data: {
+        id: newId('ship'),
+        fleetId: otherFleet,
+        name: 'stranger',
+        type: 'reviewer',
+        kind: 'agent',
+        scopes: ['messages:send'],
+        createdAt: core.clock.now(),
+      },
+    });
+
+    const listed = await core.useCases.listFleet(argo);
+
+    expect(listed.map((ship) => ship.name)).toEqual(['argo']);
+  });
+
+  it('never carries a secret or its hash', async () => {
+    const { prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+
+    const listed = JSON.stringify(await core.useCases.listFleet(argo));
+
+    expect(listed).not.toContain(secretIn(prompt));
+    expect(listed).not.toContain(sha256Hasher.hash(secretIn(prompt)));
+  });
+});
