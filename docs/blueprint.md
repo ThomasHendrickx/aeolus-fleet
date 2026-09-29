@@ -14,6 +14,7 @@ It makes exactly two promises:
 What Aeolus deliberately is not:
 
 - **Not an orchestrator.** It never decides who does what. Coordination is done by ships.
+- **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's.
 - **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them.
 - **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's template and the session crewing it.
 - **Harness-agnostic.** Claude Code, Codex or any other agent runtime can crew a ship, as long as it speaks the ship contract.
@@ -249,6 +250,7 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Later | Hook already in v1 |
 | --- | --- |
 | Stored ship templates and orders: the fleet prepares a ship from a blueprint, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
+| Commanding ships: a type used as a template (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:manage` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
 | Operator-editable scopes per ship, finer scopes | v1 has four fixed scopes, stored with the ship on the server |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
