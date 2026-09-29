@@ -37,7 +37,7 @@ async function npmRun(...args: string[]): Promise<{ code: number; stdout: string
   try {
     const { stdout, stderr } = await run('npm', ['run', '--silent', ...args], {
       cwd: repositoryRoot,
-      env: { ...process.env, DATABASE_URL: databaseUrl },
+      env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: 'https://fleet.example.com' },
     });
     return { code: 0, stdout, stderr };
   } catch (error) {
