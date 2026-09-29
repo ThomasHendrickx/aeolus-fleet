@@ -41,6 +41,9 @@ export function ShipRow({
   onGetStartingPrompt: () => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
+  // Asked only while the unclaimed prompt is still out: once a session claims
+  // it, or the snapshot shows none, the row offers the button again.
+  const outstanding = isConfirming && isUnclaimedPromptOut(ship) ? ship.startingPrompt : null;
 
   function requestPrompt() {
     if (isUnclaimedPromptOut(ship)) {
@@ -59,16 +62,16 @@ export function ShipRow({
         <PromptState ship={ship} />
       </td>
       <td>
-        {ship.status === 'awaitingCrew' && !isConfirming ? (
+        {ship.status === 'awaitingCrew' && !outstanding ? (
           <button type="button" disabled={isIssuing} onClick={requestPrompt}>
             Get starting prompt
           </button>
         ) : null}
-        {isConfirming && ship.startingPrompt ? (
+        {outstanding ? (
           <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`}>
             <p>
-              An unclaimed prompt issued <IssuedAt iso={ship.startingPrompt.issuedAt} /> is still out. A new one stops
-              it working.
+              An unclaimed prompt issued <IssuedAt iso={outstanding.issuedAt} /> is still out. A new one stops it
+              working.
             </p>
             <button
               type="button"
