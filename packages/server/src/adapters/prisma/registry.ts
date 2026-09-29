@@ -5,7 +5,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
-import { toFleet, toLease, toShip, type LeaseSqlRow } from './rows.js';
+import { toFleet, toLease, toShip } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -36,7 +36,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
 export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     findOpenForUpdate: async (fleetId, shipId) => {
-      const [row] = await db.$queryRaw<LeaseSqlRow[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, ship_id, location::text AS location, location_description, started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
@@ -57,7 +57,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       });
     },
     end: async ({ fleetId, leaseId, endedAt }) => {
-      const [row] = await db.$queryRaw<LeaseSqlRow[]>`
+      const [row] = await db.$queryRaw<unknown[]>`
         UPDATE leases SET ended_at = ${endedAt}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
         RETURNING id, fleet_id, ship_id, location::text AS location, location_description, started_at, ended_at`;
