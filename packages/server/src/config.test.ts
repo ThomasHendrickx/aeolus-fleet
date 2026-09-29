@@ -26,10 +26,12 @@ describe('loadConfig', () => {
     ).toMatchObject({ cookieDomain: 'fleet.example.com', consoleOrigin: 'https://console.fleet.example.com' });
   });
 
-  it('takes the console origin with a trailing slash as the origin alone', () => {
-    expect(loadConfig({ ...required, CONSOLE_ORIGIN: 'http://localhost:3000/' }).consoleOrigin).toBe(
-      'http://localhost:3000',
-    );
+  it.each([
+    { label: 'a trailing slash', origin: 'http://localhost:3000/', expected: 'http://localhost:3000' },
+    { label: 'capitals in the host', origin: 'https://Console.Fleet.example.com', expected: 'https://console.fleet.example.com' },
+    { label: 'the default port', origin: 'https://console.fleet.example.com:443', expected: 'https://console.fleet.example.com' },
+  ])('takes the console origin with $label as the origin a browser sends', ({ origin, expected }) => {
+    expect(loadConfig({ ...required, CONSOLE_ORIGIN: origin }).consoleOrigin).toBe(expected);
   });
 
   it.each(['https://fleet.example.com', 'fleet.example.com/console', '.fleet.example.com', 'fleet example.com'])(
@@ -39,7 +41,13 @@ describe('loadConfig', () => {
     },
   );
 
-  it.each(['console.fleet.example.com', 'ftp://console.fleet.example.com', 'https://console.fleet.example.com/sign-in'])(
+  it.each([
+    'console.fleet.example.com',
+    'ftp://console.fleet.example.com',
+    'https://console.fleet.example.com/sign-in',
+    'https://console.fleet.example.com/?next=1',
+    'https://operator@console.fleet.example.com',
+  ])(
     'rejects %j as the console origin: it is an http or https origin without a path',
     (origin) => {
       expect(() => loadConfig({ ...required, CONSOLE_ORIGIN: origin })).toThrow(/CONSOLE_ORIGIN/);
