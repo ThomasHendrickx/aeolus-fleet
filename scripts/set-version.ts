@@ -9,6 +9,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { z } from 'zod';
+
 export const PUBLISHED_PACKAGES = ['common', 'server', 'web'] as const;
 
 const SCOPE = '@aeolus-fleet/';
@@ -17,11 +19,23 @@ const SEMVER =
 
 type Dependencies = Record<string, string>;
 
-interface Manifest {
-  name: string;
-  version: string;
-  dependencies?: Dependencies;
-  devDependencies?: Dependencies;
+const dependenciesSchema = z.record(z.string(), z.string()).optional();
+
+/** The fields set-version changes. */
+const manifestSchema = z.object({
+  version: z.string(),
+  dependencies: dependenciesSchema,
+  devDependencies: dependenciesSchema,
+});
+
+/** The dependencies, with the three packages pinned to the version. */
+function pinned(dependencies: Dependencies | undefined, version: string): Dependencies | undefined {
+  return (
+    dependencies &&
+    Object.fromEntries(
+      Object.entries(dependencies).map(([name, range]) => [name, name.startsWith(SCOPE) ? version : range]),
+    )
+  );
 }
 
 export function setVersion(repositoryRoot: string, version: string): void {
@@ -31,18 +45,17 @@ export function setVersion(repositoryRoot: string, version: string): void {
 
   for (const name of PUBLISHED_PACKAGES) {
     const path = join(repositoryRoot, 'packages', name, 'package.json');
-    const manifest = JSON.parse(readFileSync(path, 'utf8')) as Manifest;
+    // Every field stays where it is; only the version and the pinned dependencies change.
+    const manifest = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(path, 'utf8')));
+    const { dependencies, devDependencies } = manifestSchema.parse(manifest);
+    const updated = {
+      ...manifest,
+      version,
+      dependencies: pinned(dependencies, version),
+      devDependencies: pinned(devDependencies, version),
+    };
 
-    manifest.version = version;
-    for (const dependencies of [manifest.dependencies, manifest.devDependencies]) {
-      for (const dependency of Object.keys(dependencies ?? {})) {
-        if (dependencies && dependency.startsWith(SCOPE)) {
-          dependencies[dependency] = version;
-        }
-      }
-    }
-
-    writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+    writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`);
   }
 }
 

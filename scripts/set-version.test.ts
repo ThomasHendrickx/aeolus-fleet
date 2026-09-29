@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { PUBLISHED_PACKAGES, setVersion } from './set-version.ts';
 
@@ -24,15 +25,16 @@ afterEach(() => {
   rmSync(copy, { recursive: true, force: true });
 });
 
-interface Manifest {
-  version: string;
-  repository: unknown;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}
+const dependencies = z.record(z.string(), z.string()).optional();
+const manifestSchema = z.object({
+  version: z.string(),
+  repository: z.unknown(),
+  dependencies,
+  devDependencies: dependencies,
+});
 
-function manifest(name: string): Manifest {
-  return JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')) as Manifest;
+function manifest(name: string): z.infer<typeof manifestSchema> {
+  return manifestSchema.parse(JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')));
 }
 
 describe('setVersion', () => {
@@ -63,6 +65,16 @@ describe('setVersion', () => {
     });
   });
 
+  it('keeps every field of the manifest in its place', () => {
+    const keys = () => Object.keys(z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(path, 'utf8'))));
+    const path = join(copy, 'packages', 'server', 'package.json');
+    const before = keys();
+
+    setVersion(copy, '0.1.0');
+
+    expect(keys()).toEqual(before);
+  });
+
   it('accepts a prerelease', () => {
     setVersion(copy, '0.0.0-ci.123');
 
@@ -80,7 +92,7 @@ describe('setVersion', () => {
 describe('published manifests', () => {
   // npm trusted publishing fails unless repository.url matches exactly (ADR 0011).
   it.each(PUBLISHED_PACKAGES)('%s names this repository and its directory', (name) => {
-    const real = JSON.parse(readFileSync(join(repositoryRoot, 'packages', name, 'package.json'), 'utf8')) as Manifest;
+    const real = manifestSchema.parse(JSON.parse(readFileSync(join(repositoryRoot, 'packages', name, 'package.json'), 'utf8')));
 
     expect(real.repository).toEqual({
       type: 'git',
