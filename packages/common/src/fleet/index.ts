@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * The fleet's shared vocabulary (docs/blueprint.md, "Ubiquitous language"):
- * scopes, ship kinds, lease locations and event types. Server and web use the
- * same words.
+ * scopes, ship kinds, ship statuses, lease locations and event types. Server
+ * and web use the same words.
  */
 
 /** A permission of a ship, stored on the server with the ship and checked before every call. */
@@ -21,6 +21,14 @@ export const LOCATION_KINDS = ['DEVICE', 'CLOUD', 'SERVER', 'OTHER'] as const;
 export const locationKindSchema = z.enum(LOCATION_KINDS);
 export type LocationKind = z.infer<typeof locationKindSchema>;
 
+/**
+ * Whether a ship awaits crew, is crewed or is retired. Derived from its lease
+ * and its retired date, never set by hand.
+ */
+export const SHIP_STATUSES = ['awaitingCrew', 'crewed', 'retired'] as const;
+export const shipStatusSchema = z.enum(SHIP_STATUSES);
+export type ShipStatus = z.infer<typeof shipStatusSchema>;
+
 /** The event types written so far. Each later slice adds the ones it writes. */
 export const EVENT_TYPES = [
   'FleetInitialised',
@@ -28,6 +36,7 @@ export const EVENT_TYPES = [
   'ShipClaimed',
   'LeaseRevoked',
   'CredentialRevoked',
+  'StartingPromptIssued',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
