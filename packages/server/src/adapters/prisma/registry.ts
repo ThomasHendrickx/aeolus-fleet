@@ -42,11 +42,14 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       return row ? toShip(row) : undefined;
     },
     findForUpdate: async (fleetId, shipId) => {
+      // FOR NO KEY UPDATE, not FOR UPDATE: it still makes a second lock on the
+      // ship wait, but not the foreign key checks of rows that point at the
+      // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
-        FOR UPDATE`;
+        FOR NO KEY UPDATE`;
       return row ? toShipFromSql(row) : undefined;
     },
   };

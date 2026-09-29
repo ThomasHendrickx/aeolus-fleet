@@ -28,9 +28,10 @@ export interface ShipRepository {
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**
-   * The ship, locked until the unit of work ends: what changes its secret or
-   * its lease locks it first. Lock order: the ship, then its credential, then
-   * console sessions, then leases.
+   * The ship, locked against a second lock until the unit of work ends: what
+   * changes its secret or its lease locks it first. Lock order: the ship, then
+   * its credential, then console sessions, then leases. Rows that only point
+   * at the ship can still be written meanwhile.
    */
   findForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
 }

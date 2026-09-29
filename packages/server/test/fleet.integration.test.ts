@@ -289,10 +289,10 @@ describe('getting a starting prompt on Postgres', () => {
 
   it('is refused when a session claims the ship while the prompt waits for its secret', async () => {
     // A claim as slice 3 makes it: lock the valid secret, then open a lease and mark the secret claimed.
-    const hasLocked = Promise.withResolvers<void>();
+    const hasLocked = Promise.withResolvers<undefined>();
     const claim = core.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM credentials WHERE ship_id = ${scoutId} AND invalidated_at IS NULL FOR UPDATE`;
-      hasLocked.resolve();
+      hasLocked.resolve(undefined);
       await new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS));
       await tx.lease.create({
         data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },

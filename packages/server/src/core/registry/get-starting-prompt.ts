@@ -31,8 +31,11 @@ export type GetStartingPrompt = (
  * prompt lost before use costs nothing. The caller's scope (fleet:manage) is
  * checked before this runs.
  *
- * The ship is locked first, so concurrent prompts for one ship take turns and
- * the last one issued is the valid one.
+ * Locks in the fleet's order: the ship first, so concurrent prompts for one
+ * ship take turns and the last one issued is the valid one; then its secret;
+ * then its lease. The lease is read last, so a session that claimed the ship
+ * with the old secret meanwhile is seen, and the refusal rolls the revocation
+ * back.
  */
 export function createGetStartingPrompt(deps: {
   uow: UnitOfWork<GetStartingPromptTx>;
@@ -48,15 +51,15 @@ export function createGetStartingPrompt(deps: {
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
       }
+      const actor = shipActor(caller.shipId);
+      const at = deps.clock.now();
+      await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const lease = await tx.leases.findOpenForUpdate(fleetId, shipId);
       const allowed = checkCanIssueStartingPrompt(ship, { isCrewed: lease !== undefined });
       if (!allowed.isOk) {
         return allowed;
       }
 
-      const actor = shipActor(caller.shipId);
-      const at = deps.clock.now();
-      await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const prompt = await issueStartingPrompt(
         { tx, secrets: { ...deps.secrets, ids: deps.ids }, fleetUrl: deps.fleetUrl },
         { fleetId, shipId, actor, at },
