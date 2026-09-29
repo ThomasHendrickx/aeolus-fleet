@@ -1,10 +1,11 @@
 import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
-import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import type { Caller } from '../src/core/shared/caller.js';
+import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { FLEET_URL, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -14,6 +15,8 @@ import { unwrap } from './support/result.js';
 // and rollback.
 
 const newId = createIdGenerator();
+/** How long a racing transaction waits for the others before it goes on alone. */
+const RACE_WAIT_MS = 250;
 const TABLES = ['fleets', 'ships', 'leases', 'credentials', 'messages', 'deliveries', 'events', 'console_sessions'];
 
 let core: PostgresCore;
@@ -40,6 +43,43 @@ async function eventsAbout(shipId: ShipId) {
 
 async function shipsNamed(name: string) {
   return core.prisma.ship.findMany({ where: { fleetId, name }, orderBy: { id: 'asc' } });
+}
+
+/**
+ * The Prisma unit of work, with every transaction held just before it looks a
+ * ship name up until all of them get there (or a moment passes). Without that
+ * the transactions finish one after the other and never race; a lock taken
+ * before the lookup keeps them apart anyway.
+ */
+function racingUnitOfWork(transactions: number): UnitOfWork<PrismaTx> {
+  const uow = createPrismaUnitOfWork(core.prisma);
+  let arrived: (() => void)[] = [];
+  const allArrived = () =>
+    new Promise<void>((resolve) => {
+      arrived.push(resolve);
+      if (arrived.length === transactions) {
+        arrived.forEach((release) => {
+          release();
+        });
+        arrived = [];
+      }
+      setTimeout(resolve, RACE_WAIT_MS);
+    });
+  return {
+    run: (work) =>
+      uow.run((tx) =>
+        work({
+          ...tx,
+          ships: {
+            ...tx.ships,
+            findActiveByName: async (fleet, name) => {
+              await allArrived();
+              return tx.ships.findActiveByName(fleet, name);
+            },
+          },
+        }),
+      ),
+  };
 }
 
 /** Every row of every table as JSON text, to search for what must never be stored. */
@@ -129,14 +169,25 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('serialises concurrent commissions of one name: one ship, every other one refused', async () => {
+    const commissionShip = createCommissionShip({
+      uow: racingUnitOfWork(5),
+      clock: core.clock,
+      ids: newId,
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
+      fleetUrl: FLEET_URL,
+    });
+
     const results = await Promise.all(
-      Array.from({ length: 5 }, () => core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })),
+      Array.from({ length: 5 }, () => commissionShip(argo, { name: 'scout', type: 'reviewer' })),
     );
 
-    expect(results.filter((result) => result.isOk)).toHaveLength(1);
-    expect(results.filter((result) => !result.isOk)).toEqual(
-      Array.from({ length: 4 }, () => expect.objectContaining({ error: expect.objectContaining({ kind: 'SHIP_NAME_TAKEN' }) })),
-    );
+    expect(results.map((result) => (result.isOk ? 'commissioned' : result.error.kind)).sort()).toEqual([
+      'SHIP_NAME_TAKEN',
+      'SHIP_NAME_TAKEN',
+      'SHIP_NAME_TAKEN',
+      'SHIP_NAME_TAKEN',
+      'commissioned',
+    ]);
     const [scout] = await shipsNamed('scout');
     await expect(core.prisma.credential.count({ where: { shipId: scout?.id } })).resolves.toBe(1);
   });

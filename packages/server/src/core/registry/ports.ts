@@ -20,6 +20,13 @@ export interface FleetRepository {
 export interface ShipRepository {
   create(ship: Ship): Promise<void>;
   findOperatorShip(fleetId: FleetId): Promise<Ship | undefined>;
+  /**
+   * Holds the lock on this name in the fleet until the unit of work ends, so
+   * two commissions of one name never both find it free.
+   */
+  lockName(fleetId: FleetId, name: string): Promise<void>;
+  /** The ship of the fleet that is not retired and has this name. */
+  findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
 }
 
 /** Outbound port: leases, always within one fleet. */

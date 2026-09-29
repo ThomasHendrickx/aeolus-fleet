@@ -21,7 +21,8 @@ export async function runCommand(
     const config = loadConfig(process.env);
     const prisma = createPrismaClient(config.databaseUrl);
     try {
-      code = await command({ args: process.argv.slice(2), useCases: createUseCases({ prisma }), io });
+      const useCases = createUseCases({ prisma, fleetUrl: config.publicUrl });
+      code = await command({ args: process.argv.slice(2), useCases, io });
     } finally {
       await prisma.$disconnect();
     }

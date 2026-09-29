@@ -58,7 +58,7 @@ export function createInitialiseFleet(deps: {
       const argo = operatorShip({ id: deps.ids('ship'), fleetId, createdAt: at });
       await tx.ships.create(argo);
 
-      const secret = await issueShipSecret(
+      const { secret } = await issueShipSecret(
         { tx, ...deps.secrets, ids: deps.ids },
         { fleetId, shipId: argo.id, at },
       );

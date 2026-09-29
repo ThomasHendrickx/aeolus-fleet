@@ -9,6 +9,7 @@ import { createAuthenticate, type Authenticate } from './core/identity/authentic
 import { createReplaceOperatorSecret, type ReplaceOperatorSecret } from './core/identity/replace-operator-secret.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
+import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
 import type { Clock } from './core/shared/clock.js';
@@ -18,6 +19,7 @@ export interface UseCases {
   ping: Ping;
   initialiseFleet: InitialiseFleet;
   listFleets: ListFleets;
+  commissionShip: CommissionShip;
   signIn: SignIn;
   signOut: SignOut;
   replaceOperatorSecret: ReplaceOperatorSecret;
@@ -26,8 +28,17 @@ export interface UseCases {
 
 export const systemClock: Clock = { now: () => new Date() };
 
-/** Wires every use case to Postgres through Prisma. The HTTP app and the server commands share it. */
-export function createUseCases(options: { prisma: PrismaClient; clock?: Clock; ids?: IdGenerator }): UseCases {
+/**
+ * Wires every use case to Postgres through Prisma. The HTTP app and the server
+ * commands share it. `fleetUrl` is where ships reach the fleet: the URL every
+ * starting prompt carries.
+ */
+export function createUseCases(options: {
+  prisma: PrismaClient;
+  fleetUrl: string;
+  clock?: Clock;
+  ids?: IdGenerator;
+}): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
@@ -38,6 +49,7 @@ export function createUseCases(options: { prisma: PrismaClient; clock?: Clock; i
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
+    commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     signIn: createSignIn({ uow, clock, ids, ...secrets }),
     signOut: createSignOut({ uow, clock, ids }),
     replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),

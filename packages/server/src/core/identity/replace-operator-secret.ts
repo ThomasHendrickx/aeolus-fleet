@@ -65,7 +65,7 @@ export function createReplaceOperatorSecret(deps: {
         );
       }
 
-      const secret = await issueShipSecret(
+      const { secret } = await issueShipSecret(
         { tx, ids: deps.ids, hasher: deps.hasher, random: deps.random },
         { fleetId, shipId: argo.id, at },
       );
