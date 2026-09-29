@@ -63,8 +63,8 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.
 
 ## Destructive actions
-- No confirm: Mark done, Mark as unread, Resend, Dismiss, Get new prompt (the dialog states the old one stops working), Sign out.
-- Normal confirm (Dialog, phone bottom Sheet): Release; Retire a ship with no open deliveries; Rename (the dialog is the confirm).
+- No confirm: Mark done, Mark as unread, Resend, Dismiss, Get new prompt when none is outstanding, Sign out.
+- Normal confirm (Dialog, phone bottom Sheet): Get new prompt while an unclaimed one is out (it stops working); Release; Retire a ship with no open deliveries; Rename (the dialog is the confirm).
 - TypedConfirm only when an irreversible action discards pending work: Retire with open deliveries.
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
 - No other protective rules.
@@ -72,7 +72,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Copy
 - Plain, direct, present tense, "you" for the operator. Short sentences.
 - Sentence case everywhere: titles, buttons, menu items, tabs. Ship names, types and ids exactly as stored.
-- Terms: ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, delivery, pending, in flight, acknowledged, undeliverable, dismissed, abandoned, operator, argo. Not: lease, revoke, rotate, user, agent (except "agent session").
+- Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, delivery, pending, in flight, acknowledged, undeliverable, dismissed, abandoned, operator, argo. Not: lease, revoke, rotate, user, agent (except "agent session").
 - ShipName: add ` · XXXX` (last 4 id characters) in ShipTimeline, DeliveryHistory, retired ships and message parties. Never for argo.
 - Type address: Badge type chip in mono; prose "Any ship of type reviewer"; short "any reviewer".
 - Ids: mono, shortened in the middle (`shp_01J8XK4T…YB4C`), full value in `title`; CopyButton copies the full id.
