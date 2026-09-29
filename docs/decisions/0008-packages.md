@@ -1,15 +1,7 @@
-# 0008. Server, web and common as separate packages; infra private
+# 0008 Three packages, one repo; infra private
 
-Status: accepted, 2026-09-29
+`@aeolus-fleet/server`, `web`, `common` in this public Apache-2.0 repo, one version. Thomas's hosting lives in private `aeolus-fleet-infra`, consuming the published packages.
 
-## Context
+Why: Anyone can run a fleet; one version while the packages move together.
 
-Anyone should be able to run their own fleet, while Thomas's own hosting stays private.
-
-## Decision
-
-Three npm packages under the `aeolus-fleet` org: `@aeolus-fleet/server`, `@aeolus-fleet/web`, `@aeolus-fleet/common`, in this public Apache-2.0 repo. Thomas's Hetzner setup lives in the private `aeolus-fleet-infra` repo and consumes the published packages like any installer.
-
-## Rejected
-
-One combined package; infra in the public repo.
+Rejected: One combined package; separate repos per package; infra in public.

@@ -1,15 +1,7 @@
-# 0001. Acknowledge on receipt
+# 0001 Ack on receipt
 
-Status: accepted, 2026-09-29
+A ship acks a delivery when it receives it. Aeolus owns distribution, not execution; a session dying after ack is the operator's to recover.
 
-## Context
+Why: Ack after execution ties the fleet to the ship's work.
 
-A delivery needs a clear moment where it leaves the fleet's responsibility. Acknowledging after the work is done would make Aeolus responsible for whether a ship's work succeeds.
-
-## Decision
-
-Aeolus is responsible for distribution, not execution. A ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility.
-
-## Rejected
-
-Acknowledge after execution (ties the fleet to the ship's workload); automatic session restarts (a later concern).
+Rejected: Ack after execution; automatic session restarts (later).

@@ -13,7 +13,7 @@ Aeolus is responsible for distribution, not execution. A ship acknowledges on re
 - docs/blueprint.md: product, language, behaviour.
 - docs/architecture.md: stack, packages, code structure, tables.
 - docs/build-plan.md: the slice order and what done means for each slice.
-- docs/decisions/: why things are the way they are. Do not reopen a recorded decision; raise it as a question instead.
+- docs/decisions/README.md: every decision in one line. Read it first; open a decision file only for its full rule. Do not reopen a recorded decision; raise it as a question instead. Keep decision files short: current rule, why, rejected. No history (git has it).
 - docs/design.md: the design canvas, look and feel only. Behaviour comes from the blueprint.
 
 If the docs do not answer a behaviour question, stop and ask. Never decide product behaviour yourself.

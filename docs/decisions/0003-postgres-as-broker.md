@@ -1,15 +1,7 @@
-# 0003. Postgres is the broker
+# 0003 Postgres is the broker
 
-Status: accepted, 2026-09-29
+Messages and deliveries are Postgres rows. Send commits message plus deliveries before OK. Receive claims with `FOR UPDATE SKIP LOCKED`. `LISTEN/NOTIFY` wakes receivers after commit.
 
-## Context
+Why: Guarantee survives a process crash; one system to run.
 
-The delivery guarantee must survive a crash of the server process, and v1 runs on one small server.
-
-## Decision
-
-Messages and deliveries are rows in Postgres. Send stores the message and its deliveries in one transaction before returning OK. Receive claims with `FOR UPDATE SKIP LOCKED`. `LISTEN/NOTIFY` wakes waiting receivers after commit.
-
-## Rejected
-
-A separate queue product or job library (a second system to run, and deliveries are domain objects with their own states and history).
+Rejected: A queue product or job library.

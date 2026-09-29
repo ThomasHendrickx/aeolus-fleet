@@ -1,15 +1,7 @@
-# 0004. tRPC as the single API door
+# 0004 tRPC is the only API door
 
-Status: accepted, 2026-09-29
+One tRPC router for every client. REST (generated, OpenAPI) and MCP (official SDK, streamable HTTP) map onto the ship procedures with no logic of their own.
 
-## Context
+Why: Console and ships see identical behaviour; no back door.
 
-The operator console and ships must see identical behaviour, with no private back door for the console.
-
-## Decision
-
-One tRPC router serves every client. The web app uses it directly. Ships reach the same procedures through REST (generated from the router, with OpenAPI) or MCP (official SDK, streamable HTTP). REST and MCP hold no logic of their own.
-
-## Rejected
-
-REST-first with a separate console API; a separate web backend.
+Rejected: REST-first; a separate console backend.
