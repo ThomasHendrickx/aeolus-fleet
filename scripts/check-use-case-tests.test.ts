@@ -7,10 +7,14 @@ const signIn = 'export function createSignIn(deps: Deps): SignIn {\n  return () 
 
 describe('recognising a use-case file', () => {
   it.each([
-    ['an exported factory function', signIn, ['createSignIn']],
-    ['an exported async factory function', 'export async function createPing() {}\n', ['createPing']],
-    ['an exported factory constant', 'export const createListFleets = (deps: Deps) => () => deps.list();\n', ['createListFleets']],
-  ])('recognises %s', (_label, source, factories) => {
+    { label: 'an exported factory function', source: signIn, factories: ['createSignIn'] },
+    { label: 'an exported async factory function', source: 'export async function createPing() {}\n', factories: ['createPing'] },
+    {
+      label: 'an exported factory constant',
+      source: 'export const createListFleets = (deps: Deps) => () => deps.list();\n',
+      factories: ['createListFleets'],
+    },
+  ])('recognises $label', ({ source, factories }) => {
     expect(useCaseFactories(source)).toEqual(factories);
   });
 
