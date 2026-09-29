@@ -273,9 +273,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   return { state, uow, callers, clock, ids, hasher, random };
 }
 
+const TABLES = [
+  'fleets',
+  'ships',
+  'leases',
+  'credentials',
+  'consoleSessions',
+  'deliveries',
+  'events',
+] as const satisfies readonly (keyof InMemoryState)[];
+
 /** Puts every table back as it was, keeping the arrays tests already hold. */
 function restore(state: InMemoryState, snapshot: InMemoryState): void {
-  for (const key of Object.keys(state) as (keyof InMemoryState)[]) {
+  for (const key of TABLES) {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }

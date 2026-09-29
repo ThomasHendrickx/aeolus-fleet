@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -70,12 +70,12 @@ describe('migrations', () => {
   });
 
   it('give every table except fleets a fleet_id', async () => {
-    const tables = await database.$queryRaw<{ table_name: string; has_fleet_id: boolean }[]>`
+    const tables = await database.$queryRaw<{ table_name: string; hasFleetId: boolean }[]>`
       SELECT t.table_name,
              EXISTS (
                SELECT 1 FROM information_schema.columns c
                WHERE c.table_schema = t.table_schema AND c.table_name = t.table_name AND c.column_name = 'fleet_id'
-             ) AS has_fleet_id
+             ) AS "hasFleetId"
       FROM information_schema.tables t
       WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND t.table_name <> '_prisma_migrations'
       ORDER BY t.table_name`;
@@ -90,7 +90,7 @@ describe('migrations', () => {
       'messages',
       'ships',
     ]);
-    expect(tables.filter((table) => !table.has_fleet_id).map((table) => table.table_name)).toEqual(['fleets']);
+    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets']);
   });
 });
 
@@ -231,8 +231,9 @@ describe('secret hashes', () => {
 describe('console sessions', () => {
   async function session(fleetId: FleetId, tokenHash = newId('consoleSession')) {
     const argo = await database.ship.findFirstOrThrow({ where: { fleetId, kind: 'operator' } });
+    const argoId = idSchema('ship').parse(argo.id);
     const { id: leaseId } = await database.lease.create({
-      data: { ...lease(fleetId, argo.id as ShipId), location: 'OTHER', locationDescription: 'web console' },
+      data: { ...lease(fleetId, argoId), location: 'OTHER', locationDescription: 'web console' },
     });
     await database.lease.update({ where: { id: leaseId }, data: { endedAt: now } });
     return database.consoleSession.create({

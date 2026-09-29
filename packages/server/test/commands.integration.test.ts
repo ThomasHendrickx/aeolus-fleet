@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
@@ -29,6 +30,9 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
+/** What execFile rejects with when the command exits with a non-zero code. */
+const failedRun = z.object({ code: z.number().optional(), stdout: z.string().optional(), stderr: z.string().optional() });
+
 async function npmRun(...args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   try {
     const { stdout, stderr } = await run('npm', ['run', '--silent', ...args], {
@@ -37,7 +41,7 @@ async function npmRun(...args: string[]): Promise<{ code: number; stdout: string
     });
     return { code: 0, stdout, stderr };
   } catch (error) {
-    const failed = error as { code?: number; stdout?: string; stderr?: string };
+    const failed = failedRun.parse(error);
     return { code: failed.code ?? -1, stdout: failed.stdout ?? '', stderr: failed.stderr ?? '' };
   }
 }

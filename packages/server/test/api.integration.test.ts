@@ -2,6 +2,7 @@ import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -49,7 +50,7 @@ async function codeOf(call: Promise<unknown>): Promise<string | undefined> {
     await call;
   } catch (error) {
     if (error instanceof TRPCClientError) {
-      return (error.data as { code?: string } | undefined)?.code;
+      return z.object({ code: z.string() }).safeParse(error.data).data?.code;
     }
     throw error;
   }
