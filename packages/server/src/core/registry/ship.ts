@@ -1,4 +1,4 @@
-import { SCOPES, type FleetId, type Scope, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type Scope, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
@@ -100,6 +100,47 @@ export function commissionAgentShip(
       },
     ],
   });
+}
+
+/**
+ * Awaiting crew, crewed or retired: derived from whether a session holds the
+ * ship's lease and whether the ship is retired, never set by hand.
+ */
+export function shipStatus(ship: Ship, lease: { isCrewed: boolean }): ShipStatus {
+  if (ship.retiredAt !== null) {
+    return 'retired';
+  }
+  return lease.isCrewed ? 'crewed' : 'awaitingCrew';
+}
+
+const STATUS_WORDS: Record<ShipStatus, string> = {
+  awaitingCrew: 'awaiting crew',
+  crewed: 'crewed',
+  retired: 'retired',
+};
+
+/**
+ * A starting prompt is issued only while the ship awaits crew. Never for `argo`:
+ * the console crews it, and only the server command replaces its secret, ending
+ * every console session with it (ADR 0012).
+ */
+export function checkCanIssueStartingPrompt(
+  ship: Ship,
+  lease: { isCrewed: boolean },
+): Result<void, DomainError<'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' | 'SHIP_NOT_AWAITING_CREW'>> {
+  if (ship.kind === 'operator') {
+    return refuse(
+      'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
+      `${ship.name} is crewed through the console and gets no starting prompt; a server command replaces its secret`,
+    );
+  }
+  const status = shipStatus(ship, lease);
+  return status === 'awaitingCrew'
+    ? ok(undefined)
+    : refuse(
+        'SHIP_NOT_AWAITING_CREW',
+        `${ship.name} is ${STATUS_WORDS[status]}: a starting prompt is issued only while a ship awaits crew`,
+      );
 }
 
 export function isReservedShipName(name: string): boolean {

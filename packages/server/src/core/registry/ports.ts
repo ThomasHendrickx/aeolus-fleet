@@ -27,6 +27,12 @@ export interface ShipRepository {
   lockName(fleetId: FleetId, name: string): Promise<void>;
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
+  /**
+   * The ship, locked until the unit of work ends: what changes its secret or
+   * its lease locks it first. Lock order: the ship, then its credential, then
+   * console sessions, then leases.
+   */
+  findForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
 }
 
 /** Outbound port: leases, always within one fleet. */

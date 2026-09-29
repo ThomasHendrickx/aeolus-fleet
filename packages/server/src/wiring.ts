@@ -10,6 +10,7 @@ import { createReplaceOperatorSecret, type ReplaceOperatorSecret } from './core/
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
+import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
 import type { Clock } from './core/shared/clock.js';
@@ -20,6 +21,7 @@ export interface UseCases {
   initialiseFleet: InitialiseFleet;
   listFleets: ListFleets;
   commissionShip: CommissionShip;
+  getStartingPrompt: GetStartingPrompt;
   signIn: SignIn;
   signOut: SignOut;
   replaceOperatorSecret: ReplaceOperatorSecret;
@@ -50,6 +52,7 @@ export function createUseCases(options: {
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
+    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     signIn: createSignIn({ uow, clock, ids, ...secrets }),
     signOut: createSignOut({ uow, clock, ids }),
     replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),

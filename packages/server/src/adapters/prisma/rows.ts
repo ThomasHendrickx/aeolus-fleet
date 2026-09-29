@@ -36,6 +36,37 @@ export function toShip(row: unknown): Ship {
   return shipRow.parse(row);
 }
 
+const shipSqlRow = z
+  .object({
+    id: idSchema('ship'),
+    fleet_id: idSchema('fleet'),
+    name: z.string(),
+    type: z.string(),
+    kind: shipKindSchema,
+    scopes: z.array(scopeSchema),
+    note: z.string().nullable(),
+    created_at: z.date(),
+    retired_at: z.date().nullable(),
+  })
+  .transform(
+    (row): Ship => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      name: row.name,
+      type: row.type,
+      kind: row.kind,
+      scopes: row.scopes,
+      note: row.note,
+      createdAt: row.created_at,
+      retiredAt: row.retired_at,
+    }),
+  );
+
+/** A ship as raw SQL returns it, in snake_case. */
+export function toShipFromSql(row: unknown): Ship {
+  return shipSqlRow.parse(row);
+}
+
 const leaseSqlRow = z
   .object({
     id: idSchema('lease'),

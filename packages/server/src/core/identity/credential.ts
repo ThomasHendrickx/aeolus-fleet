@@ -1,5 +1,6 @@
 import type { CredentialId, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
+import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { CredentialRepository } from './ports.js';
 
@@ -53,4 +54,30 @@ export async function issueShipSecret(
     invalidatedAt: null,
   });
   return { secret, credentialId };
+}
+
+/**
+ * Invalidates the ship's valid secret, if it has one, and writes
+ * CredentialRevoked. The secret fails on the very next call.
+ */
+export async function revokeShipSecret(
+  deps: { tx: CredentialTx & { events: EventLog }; ids: IdGenerator },
+  input: { fleetId: FleetId; shipId: ShipId; actor: Actor; at: Date },
+): Promise<void> {
+  const { tx, ids } = deps;
+  const { fleetId, shipId, actor, at } = input;
+
+  const valid = await tx.credentials.findValidForShipForUpdate(fleetId, shipId);
+  if (!valid) {
+    return;
+  }
+  await tx.credentials.invalidate({ fleetId, credentialId: valid.id, at });
+  await recordEvent({ events: tx.events, ids }, {
+    fleetId,
+    type: 'CredentialRevoked',
+    occurredAt: at,
+    actor,
+    shipId,
+    details: { credentialId: valid.id },
+  });
 }

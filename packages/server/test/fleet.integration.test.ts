@@ -318,8 +318,9 @@ describe('getting a starting prompt on Postgres', () => {
     expect(results.map((result) => result.isOk)).toEqual([true, true, true, true, true]);
     const valid = await validSecretsOfScout();
     expect(valid).toHaveLength(1);
+    const prompts = results.flatMap((result) => (result.isOk ? [result.value.prompt] : []));
     const working = await Promise.all(
-      results.map((result) => (result.isOk ? core.useCases.authenticate.bySecret(secretIn(result.value.prompt)) : undefined)),
+      prompts.map((prompt) => core.useCases.authenticate.bySecret(secretIn(prompt))),
     );
     expect(working.filter((caller) => caller !== undefined)).toHaveLength(1);
   });

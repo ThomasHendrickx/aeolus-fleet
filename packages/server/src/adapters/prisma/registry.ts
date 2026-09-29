@@ -5,7 +5,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
-import { toFleet, toLease, toShip } from './rows.js';
+import { toFleet, toLease, toShip, toShipFromSql } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -39,6 +39,14 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     findActiveByName: async (fleetId, name) => {
       const row = await db.ship.findFirst({ where: { fleetId, name, retiredAt: null } });
       return row ? toShip(row) : undefined;
+    },
+    findForUpdate: async (fleetId, shipId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND id = ${shipId}
+        FOR UPDATE`;
+      return row ? toShipFromSql(row) : undefined;
     },
   };
 }

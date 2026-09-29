@@ -22,6 +22,13 @@ export function startingPromptText(input: { fleetUrl: string; shipId: ShipId; se
   ].join('\n');
 }
 
+/** A starting prompt as a use case hands it out: once. */
+export interface IssuedStartingPrompt {
+  shipId: ShipId;
+  /** The starting prompt, holding the ship's secret in plain text only here. */
+  prompt: string;
+}
+
 export interface StartingPromptTx extends CredentialTx {
   events: EventLog;
 }

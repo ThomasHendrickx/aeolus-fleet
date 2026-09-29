@@ -1,4 +1,4 @@
-import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { IdGenerator } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -8,16 +8,10 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { ShipRepository } from './ports.js';
 import { commissionAgentShip, type CommissionRefusal } from './ship.js';
-import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
+import { issueStartingPrompt, type IssuedStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
 export interface CommissionShipTx extends StartingPromptTx {
   ships: ShipRepository;
-}
-
-export interface IssuedStartingPrompt {
-  shipId: ShipId;
-  /** The starting prompt, holding the ship's secret in plain text only here. */
-  prompt: string;
 }
 
 export type CommissionShip = (

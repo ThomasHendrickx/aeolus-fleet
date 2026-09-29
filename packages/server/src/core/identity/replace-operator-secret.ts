@@ -2,12 +2,12 @@ import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { endLease, findOperatorShip, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, SYSTEM } from '../shared/events.js';
+import { SYSTEM } from '../shared/events.js';
 import type { DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { issueShipSecret, type CredentialTx } from './credential.js';
+import { issueShipSecret, revokeShipSecret, type CredentialTx } from './credential.js';
 import type { ConsoleSessionRepository } from './ports.js';
 
 export interface ReplaceOperatorSecretTx extends CredentialTx, LeaseTx, ShipTx {
@@ -45,18 +45,7 @@ export function createReplaceOperatorSecret(deps: {
       }
       const argo = found.value;
 
-      const old = await tx.credentials.findValidForShipForUpdate(fleetId, argo.id);
-      if (old) {
-        await tx.credentials.invalidate({ fleetId, credentialId: old.id, at });
-        await recordEvent({ events: tx.events, ids: deps.ids }, {
-          fleetId,
-          type: 'CredentialRevoked',
-          occurredAt: at,
-          actor: SYSTEM,
-          shipId: argo.id,
-          details: { credentialId: old.id },
-        });
-      }
+      await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId: argo.id, actor: SYSTEM, at });
 
       for (const session of await tx.consoleSessions.endAll(fleetId, at)) {
         await endLease(
