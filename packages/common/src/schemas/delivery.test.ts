@@ -49,6 +49,8 @@ describe('receivedDeliverySchema', () => {
     deliveryId: newId('delivery'),
     messageId: newId('message'),
     senderShipId: newId('ship'),
+    senderName: 'argo',
+    senderType: 'operator',
     recipient: { kind: 'ship', shipId: newId('ship') },
     payload: '{"review":"https://github.com/ThomasHendrickx/aeolus-fleet/pull/22"}',
     contentType: 'application/json',
@@ -57,7 +59,7 @@ describe('receivedDeliverySchema', () => {
     attempts: 1,
   };
 
-  it('accepts a delivery to the ship, with its message', () => {
+  it("accepts a delivery to the ship, with its message and its sender's id, name and type", () => {
     expect(receivedDeliverySchema.parse(delivery)).toEqual(delivery);
   });
 
@@ -72,6 +74,8 @@ describe('receivedDeliverySchema', () => {
     ['a send date that is not ISO 8601', { ...delivery, sentAt: 'yesterday' }],
     ['no attempt yet', { ...delivery, attempts: 0 }],
     ['a recipient of an unknown kind', { ...delivery, recipient: { kind: 'group', group: 'reviewers' } }],
+    ['no sender name', { ...delivery, senderName: undefined }],
+    ['no sender type', { ...delivery, senderType: undefined }],
   ])('rejects %s', (_label, candidate) => {
     expect(receivedDeliverySchema.safeParse(candidate).success).toBe(false);
   });
