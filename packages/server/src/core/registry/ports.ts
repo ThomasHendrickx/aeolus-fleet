@@ -1,4 +1,4 @@
-import type { FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Fleet } from './fleet.js';
 import type { Lease, Location } from './lease.js';
@@ -68,13 +68,25 @@ export interface LeaseRepository {
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }
 
+/** A delivery a lease held in flight, pending again: which one, the message it carries and its claims so far. */
+export interface ReturnedDelivery {
+  deliveryId: DeliveryId;
+  messageId: MessageId;
+  attempts: number;
+}
+
 /**
- * Outbound port: a ship's deliveries in flight. Registry's need, stated in its
- * own words, so it never reaches into Messaging.
+ * Outbound port: the deliveries a lease holds in flight. Registry's need,
+ * stated in its own words, so it never reaches into Messaging.
  */
 export interface InFlightDeliveries {
-  /** Returns every delivery the ship holds in flight to pending, clearing its claim, and says how many. */
-  returnToPending(fleetId: FleetId, shipId: ShipId): Promise<number>;
+  /**
+   * Returns every delivery the lease holds in flight to pending and lists
+   * them, oldest first. Only the claim is cleared: the recipient stays, so a
+   * delivery to the ship is back in its inbox and one to a type back in that
+   * type's queue, and its attempts stay, so the fifth claim still stops it.
+   */
+  returnToPending(fleetId: FleetId, leaseId: LeaseId): Promise<ReturnedDelivery[]>;
 }
 
 /** What the fleet listing reads about one ship: the ship, the lease of the session crewing it, and its valid secret. */

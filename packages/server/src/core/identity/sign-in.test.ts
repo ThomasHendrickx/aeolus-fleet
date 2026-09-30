@@ -1,7 +1,13 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
+import {
+  deliveryInFlight,
+  identityUseCases,
+  initialiseFleet,
+  OPERATOR,
+  openLeaseOf,
+} from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import { createSignIn } from './sign-in.js';
@@ -187,7 +193,7 @@ describe('signing in a second time', () => {
 
   it("takes argo's lease over: the first lease ends and its deliveries in flight return to pending", async () => {
     unwrap(await useCases.signIn(OPERATOR));
-    core.state.deliveries.push({ id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId });
+    deliveryInFlight(core, { fleetId, shipId: argoId, leaseId: openLeaseOf(core, argoId) });
     core.state.events.length = 0;
 
     unwrap(await useCases.signIn(OPERATOR));
@@ -196,6 +202,7 @@ describe('signing in a second time', () => {
     expect(core.state.deliveries[0]).toMatchObject({ state: 'pending', claimedByShipId: null });
     expect(core.state.events.map((event) => [event.type, event.actor])).toEqual([
       ['LeaseRevoked', { kind: 'ship', shipId: argoId }],
+      ['DeliveryReturned', { kind: 'ship', shipId: argoId }],
       ['ShipClaimed', { kind: 'ship', shipId: argoId }],
     ]);
     expect(core.state.events[0]?.details).toMatchObject({ reason: 'takenOver', returnedDeliveries: 1 });

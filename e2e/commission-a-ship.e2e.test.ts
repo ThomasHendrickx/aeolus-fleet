@@ -15,8 +15,9 @@ import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// Commissioning a ship, handing out its starting prompt and claiming it, end
-// to end: a browser signed in as argo, the web app, the server and Postgres.
+// Commissioning a ship, handing out its starting prompt, claiming it and
+// releasing it, end to end: a browser signed in as argo, the web app, the
+// server and Postgres.
 
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 
@@ -82,6 +83,27 @@ async function promptTextIn(page: Page, shipName: string): Promise<string> {
 
 async function promptSecretIn(page: Page, shipName: string): Promise<string> {
   return secretIn(await promptTextIn(page, shipName));
+}
+
+/** A tRPC client of the server, as a session crewing a ship calls it: with its crew token, if it has one. */
+function sessionClient(crewToken?: string) {
+  const headers: Record<string, string> = crewToken === undefined ? {} : { authorization: `Bearer ${crewToken}` };
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc`, headers })] });
+}
+
+/** Commissions a ship in the console and claims it through the API, as a session would; returns its crew token. */
+async function crewedShip(page: Page, ship: { name: string; type: string }): Promise<string> {
+  await commission(page, ship);
+  const prompt = await promptTextIn(page, ship.name);
+  await promptBlock(page, ship.name).getByRole('button', { name: 'Done' }).click();
+  const { crewToken } = await sessionClient().ship.register.mutate({
+    shipId: shipIdIn(prompt),
+    secret: secretIn(prompt),
+    location: { kind: 'CLOUD' },
+  });
+  await page.reload();
+  await shipRow(page, ship.name).getByText('Crewed').waitFor();
+  return crewToken;
 }
 
 /** Whether the secret is still valid: the one a session can claim its ship with. */
@@ -189,5 +211,46 @@ describe('claiming a commissioned ship', () => {
     await expect(shipRow(page, 'argo').getByTestId('fleet-ship-location').textContent()).resolves.toBe(
       'Other · web console',
     );
+  });
+});
+
+describe('releasing a crewed ship', () => {
+  it('releases it from the fleet list after a confirm: it shows Awaiting crew, and its session loses it', async () => {
+    const page = await signedInPage();
+    const crewToken = await crewedShip(page, { name: 'coxswain', type: 'reviewer' });
+    const row = shipRow(page, 'coxswain');
+
+    await row.getByTestId('fleet-ship-release').click();
+    await row.getByRole('group', { name: 'Release coxswain?' }).getByRole('button', { name: 'Release ship' }).click();
+
+    await row.getByText('Awaiting crew').waitFor();
+    await expect(row.getByTestId('fleet-ship-location').textContent()).resolves.toBe('');
+    await row.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();
+  });
+
+  it('keeps the ship crewed when the confirm is cancelled', async () => {
+    const page = await signedInPage();
+    const crewToken = await crewedShip(page, { name: 'bowman', type: 'reviewer' });
+    const row = shipRow(page, 'bowman');
+
+    await row.getByTestId('fleet-ship-release').click();
+    const confirmation = row.getByRole('group', { name: 'Release bowman?' });
+    await confirmation.getByText(/Its secret stops working/).waitFor();
+    await confirmation.getByRole('button', { name: 'Cancel' }).click();
+
+    await confirmation.waitFor({ state: 'detached' });
+    await row.getByText('Crewed').waitFor();
+    await expect(sessionClient(crewToken).ship.whoami.query()).resolves.toMatchObject({ name: 'bowman' });
+  });
+
+  it('offers no Release for argo, and none for a ship awaiting crew', async () => {
+    const page = await signedInPage();
+    await commission(page, { name: 'oarsman', type: 'reviewer' });
+    await promptBlock(page, 'oarsman').getByRole('button', { name: 'Done' }).click();
+    await shipRow(page, 'oarsman').getByText('Awaiting crew').waitFor();
+
+    await expect(shipRow(page, 'argo').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
+    await expect(shipRow(page, 'oarsman').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
   });
 });

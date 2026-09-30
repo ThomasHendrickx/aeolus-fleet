@@ -9,7 +9,6 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/un
 import { createReceiveDeliveries } from '../src/core/messaging/receive-deliveries.js';
 import { createSendMessage } from '../src/core/messaging/send-message.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { ok } from '../src/core/shared/result.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
@@ -109,15 +108,9 @@ function receiveWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
   return createReceiveDeliveries({ uow, clock: systemClock, ids: newId, wakeups, waitMs });
 }
 
-/** Ends the crew's lease and returns what it held in flight to pending, as a release will (slice 6). */
+/** The operator releases the crew's ship: its lease ends, and what it held in flight returns to pending. */
 async function endLeaseOf(crew: Crew): Promise<void> {
-  unwrap(
-    await createPrismaUnitOfWork(prisma).run(async (tx) => {
-      await tx.leases.end({ fleetId, leaseId: crew.leaseId, endedAt: new Date() });
-      await tx.inFlightDeliveries.returnToPending(fleetId, crew.shipId);
-      return ok(undefined);
-    }),
-  );
+  unwrap(await useCases.releaseShip(argo, { shipId: crew.shipId }));
 }
 
 function stored(deliveryId: DeliveryId) {

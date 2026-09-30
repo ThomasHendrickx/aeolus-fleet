@@ -12,7 +12,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
-import type { Lease, Location } from './lease.js';
+import { refuseEndedLease, type Lease, type LeaseEnded, type Location } from './lease.js';
 import { shipName, shipType } from './ship-handle.js';
 import { shipNote } from './ship-note.js';
 
@@ -233,8 +233,46 @@ export function checkCanRetire(ship: Ship): Result<void, Permanent> {
   return checkNotOperatorShip(ship, 'retired');
 }
 
-export function checkCanRelease(ship: Ship): Result<void, Permanent> {
-  return checkNotOperatorShip(ship, 'released');
+export type ReleaseRefusal = Permanent | DomainError<'SHIP_NOT_CREWED'>;
+
+/**
+ * The operator frees a ship from the session crewing it (Release), and the
+ * ship awaits a new crew: `heldLease` is its open lease, if any, read while
+ * locked. Only a crewed ship is released, never argo (ADR 0012). A ship
+ * awaiting crew has no session to free: an unclaimed prompt is replaced with
+ * a new prompt instead. Returns the lease to end.
+ */
+export function checkCanRelease(ship: Ship, heldLease: Lease | undefined): Result<Lease, ReleaseRefusal> {
+  const permanent = checkNotOperatorShip(ship, 'released');
+  if (!permanent.isOk) {
+    return permanent;
+  }
+  const status = shipStatus(ship, { isCrewed: heldLease !== undefined });
+  if (heldLease === undefined || status !== 'crewed') {
+    const instead = status === 'awaitingCrew' ? '. A new starting prompt replaces an unclaimed one' : '';
+    return refuse('SHIP_NOT_CREWED', `${ship.name} is ${STATUS_WORDS[status]}: only a crewed ship is released${instead}`);
+  }
+  return ok(heldLease);
+}
+
+/**
+ * The session crewing a ship ends its own lease (`deregister`), and the ship
+ * awaits a new crew: `heldLease` is the ship's open lease, if any, read while
+ * locked. Only while it is the crew's own lease: once that lease has ended,
+ * released or deregistered, the crew has nothing left to end, and a new
+ * crew's lease is never its to end. Never argo, which is never released
+ * (ADR 0012). Returns the lease to end.
+ */
+export function checkCanDeregister(
+  ship: Ship,
+  crew: { leaseId: LeaseId; heldLease: Lease | undefined },
+): Result<Lease, Permanent | LeaseEnded> {
+  const permanent = checkNotOperatorShip(ship, 'released');
+  if (!permanent.isOk) {
+    return permanent;
+  }
+  const { leaseId, heldLease } = crew;
+  return heldLease?.id === leaseId ? ok(heldLease) : refuseEndedLease();
 }
 
 export function checkCanRename(ship: Ship, newName: string): Result<void, Permanent | Reserved> {

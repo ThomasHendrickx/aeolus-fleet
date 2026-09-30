@@ -1,17 +1,18 @@
 'use client';
 
-import { useFleetSnapshot, useGetStartingPrompt } from '../../lib/fleet';
+import { useFleetSnapshot, useGetStartingPrompt, useReleaseShip } from '../../lib/fleet';
 import { ShipRow } from '../molecules/ship-row';
 import { StartingPromptBlock } from '../molecules/starting-prompt-block';
 
 /**
  * The fleet snapshot: every ship with its type, status, where the session
- * crewing it runs and its prompt state, and a new starting prompt for a ship
- * awaiting crew, shown once.
+ * crewing it runs and its prompt state, a new starting prompt for a ship
+ * awaiting crew, shown once, and Release for a crewed ship.
  */
 export function FleetList() {
   const fleet = useFleetSnapshot();
   const getStartingPrompt = useGetStartingPrompt();
+  const releaseShip = useReleaseShip();
 
   if (fleet.isPending) {
     return <p>Loading the fleet...</p>;
@@ -46,6 +47,10 @@ export function FleetList() {
               onGetStartingPrompt={() => {
                 getStartingPrompt.mutate({ shipId: ship.id });
               }}
+              isReleasing={releaseShip.isPending && releaseShip.variables.shipId === ship.id}
+              onRelease={() => {
+                releaseShip.mutate({ shipId: ship.id });
+              }}
             />
           ))}
         </tbody>
@@ -53,6 +58,7 @@ export function FleetList() {
       {getStartingPrompt.isError ? (
         <p role="alert">No new starting prompt: {getStartingPrompt.error.message}</p>
       ) : null}
+      {releaseShip.isError ? <p role="alert">The ship was not released: {releaseShip.error.message}</p> : null}
       {issued ? (
         <StartingPromptBlock
           shipName={issuedFor?.name ?? issued.shipId}

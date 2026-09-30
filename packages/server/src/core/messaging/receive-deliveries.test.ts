@@ -11,7 +11,9 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
+import { endLease } from '../registry/public.js';
 import type { Caller, Crew } from '../shared/caller.js';
+import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import { RECEIVE_WAIT_MS } from './receive-deliveries.js';
@@ -71,13 +73,17 @@ function eventsOf(type: string) {
   return core.state.events.filter((event) => event.type === type);
 }
 
-/** Ends the crew's lease and returns what it held in flight to pending, as a release will (slice 6). */
+/** Ends the crew's lease as argo's release does: what it held in flight returns to pending. */
 async function endLeaseOf(crew: Crew): Promise<void> {
-  await core.uow.run(async (tx) => {
-    await tx.leases.end({ fleetId, leaseId: crew.leaseId, endedAt: core.clock.now() });
-    await tx.inFlightDeliveries.returnToPending(fleetId, crew.shipId);
-    return ok(undefined);
-  });
+  const ended = await core.uow.run(async (tx) =>
+    ok(
+      await endLease(
+        { tx, ids: core.ids },
+        { fleetId, leaseId: crew.leaseId, actor: shipActor(argo.shipId), at: core.clock.now(), reason: 'released' },
+      ),
+    ),
+  );
+  expect(ended).toEqual(ok(true));
 }
 
 describe('how many deliveries a receive returns', () => {
@@ -355,7 +361,7 @@ describe('waiting for a delivery', () => {
     expect(core.wakeups.waits).toEqual([25_000, 15_000]);
   });
 
-  it('is refused when its lease ends while it waits', async () => {
+  it('is refused when its lease ends while it waits, and never holds the release up', async () => {
     core.wakeups.nextWaits.push(async () => {
       await endLeaseOf(scout);
       return 'woken';
@@ -366,5 +372,29 @@ describe('waiting for a delivery', () => {
       error: { kind: 'LEASE_ENDED' },
     });
     expect(core.wakeups.watching()).toBe(0);
+  });
+
+  it('hands nothing to its crew when a delivery wakes it after its ship was released', async () => {
+    const sent: DeliveryId[] = [];
+    core.wakeups.nextWaits.push(async () => {
+      await endLeaseOf(scout);
+      sent.push(await sendTo(toScout()));
+      return 'woken';
+    });
+
+    await expect(useCases.receiveDeliveries(scout, {})).resolves.toMatchObject({ isOk: false });
+    expect(sent.map((deliveryId) => stored(deliveryId))).toEqual([
+      expect.objectContaining({ state: 'pending', claimedByLeaseId: null, attempts: 0 }),
+    ]);
+  });
+
+  it('returns without deliveries at the end of its wait when its ship is released and nothing wakes it', async () => {
+    core.wakeups.nextWaits.push(async () => {
+      await endLeaseOf(scout);
+      core.clock.advance(RECEIVE_WAIT_MS);
+      return 'timedOut';
+    });
+
+    await expect(useCases.receiveDeliveries(scout, {})).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
   });
 });

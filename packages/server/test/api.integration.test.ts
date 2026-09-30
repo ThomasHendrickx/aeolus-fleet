@@ -288,6 +288,7 @@ describe('the fleet procedures at the API', () => {
       id: shipId,
       name: 'scout',
       type: 'reviewer',
+      kind: 'agent',
       status: 'awaitingCrew',
       startingPrompt: { issuedAt: clock.now().toISOString(), isClaimed: false },
       location: null,
@@ -810,6 +811,134 @@ describe('ship.receive and ship.ack at the API', () => {
     await expect(codeOf(receiver.asShip.ship.ack.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
     await expect(codeOf(receiver.asShip.ship.ack.mutate({ deliveryId: pending }))).resolves.toBe('CONFLICT');
     await expect(codeOf(other.asShip.ship.ack.mutate({ deliveryId: held }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('fleet.release and ship.deregister at the API', () => {
+  /** A ship commissioned by argo and claimed through register: its id, secret, crew token and a client calling with it. */
+  async function crewed(
+    name: string,
+  ): Promise<{ shipId: ShipId; secret: string; crewToken: string; asShip: TRPCClient<AppRouter> }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'rower' });
+    const secret = secretIn(prompt);
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } });
+    return { shipId, secret, crewToken, asShip: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  /** Every ship call the old crew token might still try, each with the code it gets. */
+  async function codesOfEveryShipCall(asShip: TRPCClient<AppRouter>, shipId: ShipId): Promise<(string | undefined)[]> {
+    return Promise.all([
+      codeOf(asShip.ship.whoami.query()),
+      codeOf(
+        asShip.ship.send.mutate({
+          selector: { kind: 'ship', shipId },
+          payload: 'still here?',
+          contentType: 'text/plain',
+          idempotencyKey: `key-${newId('message')}`,
+        }),
+      ),
+      codeOf(asShip.ship.receive.mutate({})),
+      codeOf(asShip.ship.ack.mutate({ deliveryId: newId('delivery') })),
+      codeOf(asShip.ship.deregister.mutate()),
+    ]);
+  }
+
+  const EVERY_CALL_REFUSED = ['UNAUTHORIZED', 'UNAUTHORIZED', 'UNAUTHORIZED', 'UNAUTHORIZED', 'UNAUTHORIZED'];
+
+  it('release a crewed ship as argo: the old crew token fails on every call, the old secret on register', async () => {
+    const { shipId, secret, asShip } = await crewed('longboat');
+    const asArgo = await signedInArgo();
+
+    await expect(asArgo.fleet.release.mutate({ shipId })).resolves.toEqual({});
+
+    await expect(codesOfEveryShipCall(asShip, shipId)).resolves.toEqual(EVERY_CALL_REFUSED);
+    await expect(
+      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } })),
+    ).resolves.toEqual({ code: 'UNAUTHORIZED', message: 'Wrong ship id or secret' });
+    const listed = await asArgo.fleet.list.query();
+    expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
+  });
+
+  it('deregister with the crew token: the old crew token fails on every call, the old secret on register', async () => {
+    const { shipId, secret, asShip } = await crewed('gig');
+
+    await expect(asShip.ship.deregister.mutate()).resolves.toEqual({});
+
+    await expect(codesOfEveryShipCall(asShip, shipId)).resolves.toEqual(EVERY_CALL_REFUSED);
+    await expect(
+      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } })),
+    ).resolves.toBe('UNAUTHORIZED');
+    const listed = await (await signedInArgo()).fleet.list.query();
+    expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
+  });
+
+  it('hand the delivery the old crew held in flight to the next crew, which registers with a new prompt', async () => {
+    const { shipId, asShip } = await crewed('pinnace');
+    const asArgo = await signedInArgo();
+    await asArgo.ship.send.mutate({
+      selector: { kind: 'ship', shipId },
+      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+    });
+    const { deliveries } = await asShip.ship.receive.mutate({});
+    const deliveryId = idSchema('delivery').parse(deliveries[0]?.deliveryId);
+
+    await asArgo.fleet.release.mutate({ shipId });
+    const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
+    const { crewToken } = await client().ship.register.mutate({
+      shipId,
+      secret: secretIn(prompt),
+      location: { kind: 'DEVICE' },
+    });
+
+    await expect(client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({})).resolves.toMatchObject({
+      deliveries: [{ deliveryId, attempts: 2 }],
+    });
+  });
+
+  it('deregister needs no scope: only the crew token', async () => {
+    const crewToken = await crewedShip([]);
+
+    await expect(client({ authorization: `Bearer ${crewToken}` }).ship.deregister.mutate()).resolves.toEqual({});
+  });
+
+  it('refuse release and deregister without a caller', async () => {
+    await expect(codeOf(client().fleet.release.mutate({ shipId: newId('ship') }))).resolves.toBe('UNAUTHORIZED');
+    await expect(codeOf(client().ship.deregister.mutate())).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('refuse deregister with the console session: it takes a crew token', async () => {
+    await expect(refusalOf((await signedInArgo()).ship.deregister.mutate())).resolves.toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'Call with the crew token register gave you',
+    });
+  });
+
+  it('refuse release to an agent ship, which lacks fleet:manage, and the ship stays crewed', async () => {
+    const { shipId, asShip } = await crewed('coracle');
+
+    await expect(codeOf(asShip.fleet.release.mutate({ shipId }))).resolves.toBe('FORBIDDEN');
+    await expect(asShip.ship.whoami.query()).resolves.toMatchObject({ shipId });
+  });
+
+  it('refuse to release argo, a ship awaiting crew, and a ship that does not exist', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId: awaiting } = await asArgo.fleet.commission.mutate({ name: 'punt', type: 'rower' });
+    const unknown = newId('ship');
+
+    await expect(refusalOf(asArgo.fleet.release.mutate({ shipId: argoId }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'argo is the operator ship and can never be released',
+    });
+    await expect(refusalOf(asArgo.fleet.release.mutate({ shipId: awaiting }))).resolves.toEqual({
+      code: 'CONFLICT',
+      message: 'punt is awaiting crew: only a crewed ship is released. A new starting prompt replaces an unclaimed one',
+    });
+    await expect(refusalOf(asArgo.fleet.release.mutate({ shipId: unknown }))).resolves.toEqual({
+      code: 'NOT_FOUND',
+      message: `Ship ${unknown} does not exist`,
+    });
   });
 });
 

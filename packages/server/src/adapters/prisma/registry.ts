@@ -6,7 +6,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
-import { toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
+import { toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -133,12 +133,20 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
 
 export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
   return {
-    returnToPending: async (fleetId, shipId) => {
-      const { count } = await db.delivery.updateMany({
-        where: { fleetId, claimedByShipId: shipId, state: 'delivered' },
-        data: { state: 'pending', claimedByShipId: null, claimedByLeaseId: null },
-      });
-      return count;
+    returnToPending: async (fleetId, leaseId) => {
+      // One statement, on the index of a lease's claims. The lease has just
+      // ended in this transaction, after any receive holding it FOR SHARE
+      // committed, so read committed sees every claim made under it. Only the
+      // claim is cleared: recipient and attempts stay.
+      const rows = await db.$queryRaw<unknown[]>`
+        WITH returned AS (
+          UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL
+          WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state = 'delivered'
+          RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+                    claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+        )
+        SELECT * FROM returned ORDER BY created_at, id`;
+      return rows.map(toDeliveryFromSql).map(({ id, messageId, attempts }) => ({ deliveryId: id, messageId, attempts }));
     },
   };
 }

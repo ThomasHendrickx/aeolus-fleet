@@ -7,7 +7,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 | Path | What |
 | --- | --- |
 | `/sign-in` | Sign in with the operator email and password; the session crews `argo`. Only a session cookie stays in the browser |
-| `/` | The fleet, bare until the console design: every ship with type, status, where a crewed ship's session runs, and prompt state; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); sign out. Without a session it sends you to `/sign-in` |
+| `/` | The fleet, bare until the console design: every ship with type, status, where a crewed ship's session runs, and prompt state; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out. Without a session it sends you to `/sign-in` |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
 
 ## Configuration

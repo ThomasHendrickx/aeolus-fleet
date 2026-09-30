@@ -51,6 +51,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   SHIP_NAME_RESERVED: 'CONFLICT',
   SHIP_NAME_TAKEN: 'CONFLICT',
   SHIP_NOT_AWAITING_CREW: 'CONFLICT',
+  SHIP_NOT_CREWED: 'CONFLICT',
   SHIP_NOT_FOUND: 'NOT_FOUND',
   UNRESOLVABLE_SELECTOR: 'NOT_FOUND',
   WRONG_EMAIL_OR_PASSWORD: 'UNAUTHORIZED',
@@ -182,22 +183,31 @@ export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, ne
 });
 
 /**
- * A procedure only a crew calls, with the crew token `register` gave it, and
- * that needs the given scope: receiving and acknowledging deliveries, which a
- * crew claims under its lease. The console session is no crew token, so it is
- * refused here; argo's inbox comes with its own procedures.
+ * A procedure only a crew calls, with the crew token `register` gave it: one
+ * session crewing one ship under one lease. `deregister` needs nothing more,
+ * since a crew ends only its own lease. The console session is no crew token,
+ * so it is refused here.
  */
-export function crewProcedure(scope: Scope) {
-  return publicProcedure.use(async ({ ctx, next }) => {
-    const { bearer } = ctx.credentials;
-    const crew = bearer === undefined ? undefined : await ctx.useCases.authenticate.byCrewToken(bearer);
-    if (!crew) {
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
-    }
-    if (!hasScope(crew, scope)) {
+export const crewProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  const { bearer } = ctx.credentials;
+  const crew = bearer === undefined ? undefined : await ctx.useCases.authenticate.byCrewToken(bearer);
+  if (!crew) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
+  }
+  return next({ ctx: { caller: crew, crew } });
+});
+
+/**
+ * A crew procedure that also needs the given scope: receiving and
+ * acknowledging deliveries, which a crew claims under its lease. argo's inbox
+ * comes with its own procedures.
+ */
+export function scopedCrewProcedure(scope: Scope) {
+  return crewProcedure.use(({ ctx, next }) => {
+    if (!hasScope(ctx.crew, scope)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
     }
-    return next({ ctx: { caller: crew, crew } });
+    return next();
   });
 }
 

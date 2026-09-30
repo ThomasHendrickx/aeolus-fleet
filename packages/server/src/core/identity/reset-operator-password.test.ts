@@ -1,7 +1,13 @@
 import { createIdGenerator, type FleetId, type OperatorId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
+import {
+  deliveryInFlight,
+  identityUseCases,
+  initialiseFleet,
+  OPERATOR,
+  openLeaseOf,
+} from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import { createResetOperatorPassword } from './reset-operator-password.js';
@@ -54,9 +60,9 @@ describe('resetting the operator password', () => {
     expect(JSON.stringify(core.state)).not.toContain(`"${NEW_PASSWORD}"`);
   });
 
-  it("ends every console session and argo's lease, and writes OperatorPasswordReset and LeaseRevoked by the system", async () => {
+  it("ends every console session and argo's lease, and writes OperatorPasswordReset, LeaseRevoked and DeliveryReturned by the system", async () => {
     const { token } = unwrap(await useCases.signIn(OPERATOR));
-    core.state.deliveries.push({ id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId });
+    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: argoId, leaseId: openLeaseOf(core, argoId) });
     core.state.events.length = 0;
 
     unwrap(await resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));
@@ -68,6 +74,7 @@ describe('resetting the operator password', () => {
     expect(core.state.events).toEqual([
       expect.objectContaining({ type: 'OperatorPasswordReset', actor: { kind: 'system' }, details: { operatorId } }),
       expect.objectContaining({ type: 'LeaseRevoked', actor: { kind: 'system' }, shipId: argoId }),
+      expect.objectContaining({ type: 'DeliveryReturned', actor: { kind: 'system' }, shipId: argoId, deliveryId }),
     ]);
     expect(core.state.events[1]?.details).toMatchObject({ reason: 'passwordReset', returnedDeliveries: 1 });
   });

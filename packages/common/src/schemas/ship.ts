@@ -4,7 +4,8 @@ import { idSchema } from '../ids/index.js';
 
 /**
  * Inputs and outputs of the ship procedures: `register` claims a ship with its
- * secret and returns a crew token; `whoami` tells the caller which ship it is.
+ * secret and returns a crew token; `whoami` tells the caller which ship it is;
+ * `deregister` ends the caller's own lease.
  */
 
 /** The longest description an OTHER location carries, not counting whitespace around it. */
@@ -61,3 +62,6 @@ export const whoamiOutputSchema = z.object({
 });
 
 export type WhoamiOutput = z.infer<typeof whoamiOutputSchema>;
+
+/** Output of `ship.deregister`: nothing; the OK is the answer. */
+export const deregisterOutputSchema = z.strictObject({});

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ok } from '../shared/result.js';
 import type { Lease } from './lease.js';
 import {
+  checkCanDeregister,
   checkCanRelease,
   claimShip,
   checkCanRename,
@@ -76,8 +77,8 @@ describe('the operator ship', () => {
     });
   });
 
-  it('can never be released', () => {
-    expect(checkCanRelease(argo)).toEqual({
+  it('can never be released, even while crewed', () => {
+    expect(checkCanRelease(argo, aLeaseOn(argo))).toEqual({
       isOk: false,
       error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be released' },
     });
@@ -102,9 +103,8 @@ describe('the operator ship', () => {
 });
 
 describe('an agent ship', () => {
-  it('can be retired, released and renamed', () => {
+  it('can be retired and renamed', () => {
     expect(checkCanRetire(scout)).toEqual(allowed);
-    expect(checkCanRelease(scout)).toEqual(allowed);
     expect(checkCanRename(scout, 'lookout')).toEqual(allowed);
   });
 
@@ -114,6 +114,63 @@ describe('an agent ship', () => {
 
   it('can never be renamed to argo', () => {
     expect(checkCanRename(scout, 'argo')).toMatchObject({ isOk: false, error: { kind: 'SHIP_NAME_RESERVED' } });
+  });
+});
+
+describe('releasing a ship', () => {
+  it('ends the lease of the session crewing it', () => {
+    const lease = aLeaseOn(scout);
+
+    expect(checkCanRelease(scout, lease)).toEqual(ok(lease));
+  });
+
+  it('is refused while the ship awaits crew: an unclaimed prompt is replaced with a new prompt, not released', () => {
+    expect(checkCanRelease(scout, undefined)).toEqual({
+      isOk: false,
+      error: {
+        kind: 'SHIP_NOT_CREWED',
+        message:
+          'scout is awaiting crew: only a crewed ship is released. A new starting prompt replaces an unclaimed one',
+      },
+    });
+  });
+
+  it('is refused for a retired ship', () => {
+    expect(checkCanRelease({ ...scout, retiredAt: claimedAt }, undefined)).toEqual({
+      isOk: false,
+      error: { kind: 'SHIP_NOT_CREWED', message: 'scout is retired: only a crewed ship is released' },
+    });
+  });
+});
+
+describe('deregistering', () => {
+  it("ends the crew's own lease", () => {
+    const lease = aLeaseOn(scout);
+
+    expect(checkCanDeregister(scout, { leaseId: lease.id, heldLease: lease })).toEqual(ok(lease));
+  });
+
+  it("is refused once the crew's lease has ended", () => {
+    expect(checkCanDeregister(scout, { leaseId: newId('lease'), heldLease: undefined })).toEqual({
+      isOk: false,
+      error: { kind: 'LEASE_ENDED', message: 'The lease of this crew token has ended: the ship needs a new crew' },
+    });
+  });
+
+  it('is refused while a new crew holds the ship: a crew ends only its own lease', () => {
+    expect(checkCanDeregister(scout, { leaseId: newId('lease'), heldLease: aLeaseOn(scout) })).toMatchObject({
+      isOk: false,
+      error: { kind: 'LEASE_ENDED' },
+    });
+  });
+
+  it('is refused for argo, which is never released', () => {
+    const lease = aLeaseOn(argo);
+
+    expect(checkCanDeregister(argo, { leaseId: lease.id, heldLease: lease })).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: 'argo is the operator ship and can never be released' },
+    });
   });
 });
 
