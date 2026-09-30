@@ -256,6 +256,28 @@ describe('leases', () => {
   });
 });
 
+describe('crew token hashes', () => {
+  it('are unique across all fleets', async () => {
+    const crewTokenHash = newId('lease');
+    const crewed = async () => {
+      const fleetId = await createFleet();
+      const shipId = await createShip(fleetId);
+      return database.lease.create({ data: { ...lease(fleetId, shipId), crewTokenHash } });
+    };
+
+    await crewed();
+    await expect(crewed()).rejects.toThrow(/Unique constraint/);
+  });
+
+  it('may be missing: a console session keeps its own token', async () => {
+    const fleetId = await createFleet();
+
+    await expect(database.lease.create({ data: lease(fleetId, await createShip(fleetId)) })).resolves.toMatchObject({
+      crewTokenHash: null,
+    });
+  });
+});
+
 describe('lease locations', () => {
   it('take a description with OTHER only', async () => {
     const fleetId = await createFleet();

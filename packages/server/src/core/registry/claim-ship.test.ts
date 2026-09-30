@@ -46,9 +46,11 @@ describe('claiming a ship with its secret', () => {
     );
 
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
+    const [lease] = openLeasesOf(scoutId);
+    expect(lease?.id).toMatch(/^lse_/);
     expect(openLeasesOf(scoutId)).toEqual([
       {
-        id: expect.stringMatching(/^lse_/),
+        id: lease?.id,
         fleetId,
         shipId: scoutId,
         location: { kind: 'CLOUD', description: null },
@@ -118,7 +120,7 @@ describe('a claim refused', () => {
   ): Promise<void> {
     const before = structuredClone(core.state);
 
-    await expect(useCases.claimShip(claim)).resolves.toEqual({ isOk: false, error: expect.objectContaining(error) });
+    await expect(useCases.claimShip(claim)).resolves.toMatchObject({ isOk: false, error });
 
     expect(core.state).toEqual(before);
   }

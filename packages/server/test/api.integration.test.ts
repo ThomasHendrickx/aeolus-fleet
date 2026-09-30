@@ -130,6 +130,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_init$/),
       expect.stringMatching(/^\d{14}_fleet_argo_console_session$/),
       expect.stringMatching(/^\d{14}_operator_login$/),
+      expect.stringMatching(/^\d{14}_crew_token$/),
     ]);
   });
 });

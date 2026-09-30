@@ -43,6 +43,7 @@ describe('mapping rows to domain objects', () => {
         ship_id: shipId,
         location: 'OTHER',
         location_description: 'web console',
+        crew_token_hash: null,
         started_at: at,
         ended_at: null,
       }),
@@ -51,9 +52,25 @@ describe('mapping rows to domain objects', () => {
       fleetId,
       shipId,
       location: { kind: 'OTHER', description: 'web console' },
+      crewTokenHash: null,
       startedAt: at,
       endedAt: null,
     });
+  });
+
+  it("maps a lease with the hash of its session's crew token", () => {
+    expect(
+      toLease({
+        id: newId('lease'),
+        fleet_id: fleetId,
+        ship_id: shipId,
+        location: 'DEVICE',
+        location_description: null,
+        crew_token_hash: 'sha256(aeolus_ct_v1_crew)',
+        started_at: at,
+        ended_at: null,
+      }),
+    ).toMatchObject({ location: { kind: 'DEVICE', description: null }, crewTokenHash: 'sha256(aeolus_ct_v1_crew)' });
   });
 
   it('maps the caller of a console session', () => {
