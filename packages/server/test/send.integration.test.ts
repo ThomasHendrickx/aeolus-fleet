@@ -39,12 +39,13 @@ beforeEach(async () => {
   scout = agentCaller({ fleetId, shipId: scoutId });
   core.clock.advance(60_000);
   notices = [];
-  listener = await listenForPendingDeliveries({
+  listener = listenForPendingDeliveries({
     databaseUrl: core.databaseUrl,
     onNotice: (notice) => {
       notices.push(notice);
     },
   });
+  await listener.listening;
 });
 
 afterEach(async () => {
@@ -132,6 +133,7 @@ describe('sending a message on Postgres', () => {
       recipientType: null,
       state: 'pending',
       claimedByShipId: null,
+      claimedByLeaseId: null,
       attempts: 0,
       readAt: null,
       createdAt: core.clock.now(),
@@ -260,7 +262,7 @@ describe('a send that fails', () => {
       label: 'right after the message insert',
       wrap: (tx: PrismaTx): PrismaTx => ({
         ...tx,
-        deliveries: { create: () => Promise.reject(new Error('disk full')) },
+        deliveries: { ...tx.deliveries, create: () => Promise.reject(new Error('disk full')) },
       }),
     },
     {

@@ -507,6 +507,55 @@ describe('deliveries', () => {
     ).resolves.toMatchObject({ state: 'dismissed', readAt: now });
   });
 
+  it('name the ship and the lease that claimed them while in flight or acknowledged, and neither while pending', async () => {
+    const fleetId = await createFleet();
+    const shipId = await createShip(fleetId);
+    const { id: leaseId } = await database.lease.create({ data: lease(fleetId, shipId) });
+    const delivery = async (claim: {
+      state: 'pending' | 'delivered' | 'acknowledged';
+      claimedByShipId?: ShipId;
+      claimedByLeaseId?: string;
+    }) =>
+      database.delivery.create({
+        data: { id: newId('delivery'), fleetId, messageId: await createMessage(fleetId), recipientShipId: shipId, createdAt: now, ...claim },
+      });
+
+    await expect(delivery({ state: 'delivered' })).rejects.toThrow(/deliveries_claim/);
+    await expect(delivery({ state: 'delivered', claimedByShipId: shipId })).rejects.toThrow(/deliveries_claim/);
+    await expect(delivery({ state: 'pending', claimedByShipId: shipId, claimedByLeaseId: leaseId })).rejects.toThrow(
+      /deliveries_claim/,
+    );
+    await expect(delivery({ state: 'delivered', claimedByShipId: shipId, claimedByLeaseId: leaseId })).resolves.toMatchObject({
+      claimedByLeaseId: leaseId,
+    });
+    await expect(
+      delivery({ state: 'acknowledged', claimedByShipId: shipId, claimedByLeaseId: leaseId }),
+    ).resolves.toMatchObject({ state: 'acknowledged' });
+    await expect(delivery({ state: 'pending' })).resolves.toMatchObject({ claimedByShipId: null, claimedByLeaseId: null });
+  });
+
+  it("refuse a claim by another fleet's lease", async () => {
+    const fleetId = await createFleet();
+    const shipId = await createShip(fleetId);
+    const otherFleetId = await createFleet();
+    const { id: foreignLeaseId } = await database.lease.create({ data: lease(otherFleetId, await createShip(otherFleetId)) });
+
+    await expect(
+      database.delivery.create({
+        data: {
+          id: newId('delivery'),
+          fleetId,
+          messageId: await createMessage(fleetId),
+          recipientShipId: shipId,
+          state: 'delivered',
+          claimedByShipId: shipId,
+          claimedByLeaseId: foreignLeaseId,
+          createdAt: now,
+        },
+      }),
+    ).rejects.toThrow(/Foreign key constraint/);
+  });
+
   it('hold one row per recipient', async () => {
     const fleetId = await createFleet();
     const shipId = await createShip(fleetId);

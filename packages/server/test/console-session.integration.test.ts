@@ -45,8 +45,9 @@ async function eventTypes() {
   return events.map((event) => event.type);
 }
 
-/** A message to argo that argo has claimed but not acknowledged. */
+/** A message to argo that argo's crew, the live console session, has claimed but not acknowledged. */
 async function deliveryInFlightToArgo(): Promise<string> {
+  const lease = await core.prisma.lease.findFirstOrThrow({ where: { shipId: argoId, endedAt: null } });
   const messageId = newId('message');
   await core.prisma.message.create({
     data: {
@@ -71,6 +72,7 @@ async function deliveryInFlightToArgo(): Promise<string> {
       recipientShipId: argoId,
       state: 'delivered',
       claimedByShipId: argoId,
+      claimedByLeaseId: lease.id,
       attempts: 1,
       createdAt: core.clock.now(),
     },
@@ -108,6 +110,7 @@ describe('signing in on Postgres', () => {
     await expect(core.prisma.delivery.findUnique({ where: { id: deliveryId } })).resolves.toMatchObject({
       state: 'pending',
       claimedByShipId: null,
+      claimedByLeaseId: null,
     });
     await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'LeaseRevoked', 'ShipClaimed']);
   });
