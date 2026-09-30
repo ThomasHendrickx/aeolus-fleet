@@ -95,7 +95,9 @@ describe('releasing a crewed ship', () => {
 
     await expect(listed(scoutId)).resolves.toMatchObject({ status: 'awaitingCrew', location: null });
     expect(core.state.leases.find((lease) => lease.id === scout.leaseId)?.endedAt).toEqual(core.clock.now());
-    await expect(identityUseCases(core).authenticate.byCrewToken(scoutCrewToken)).resolves.toBeUndefined();
+    await expect(identityUseCases(core).authenticate.byCrewToken(scoutCrewToken)).resolves.toMatchObject(
+      { isOk: false, error: { kind: 'LEASE_ENDED' } },
+    );
   });
 
   it('invalidates its secret: the old secret no longer claims the ship, and no prompt is out', async () => {

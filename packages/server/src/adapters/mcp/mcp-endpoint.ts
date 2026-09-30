@@ -29,6 +29,8 @@ import {
   type ShipCall,
   type ShipCallRefusal,
 } from '../trpc/ship-contract.js';
+import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
+import { MCP_PATH } from './mcp-url.js';
 
 /** How the server names itself to MCP clients. Its version is the ship contract's, as in `/api/v1`. */
 const SERVER_INFO = { name: 'aeolus-fleet', version: '1' };
@@ -102,13 +104,15 @@ async function callTool(
 
 /**
  * The MCP server answering one HTTP request: the ship tools, each a call
- * through the router. It answers `tools/list` and `tools/call` itself, at the
- * protocol level, rather than registering each tool: a registered tool's
- * arguments are validated by the SDK before its handler runs, and the router
- * must be the one to judge them, so a refusal reads with its own code.
+ * through the router, and the ship protocol as its instructions, which a
+ * client reads when it connects. It answers `tools/list` and `tools/call`
+ * itself, at the protocol level, rather than registering each tool: a
+ * registered tool's arguments are validated by the SDK before its handler
+ * runs, and the router must be the one to judge them, so a refusal reads with
+ * its own code.
  */
 function shipToolServer(request: FastifyRequest, options: McpEndpointOptions): McpServer {
-  const mcp = new McpServer(SERVER_INFO, { capabilities: { tools: {} } });
+  const mcp = new McpServer(SERVER_INFO, { capabilities: { tools: {} }, instructions: SHIP_PROTOCOL });
 
   mcp.server.setRequestHandler('tools/list', () => ({ tools: TOOLS }));
 
@@ -139,7 +143,7 @@ function webRequestOf(request: FastifyRequest): Request {
 
 /** Mounts `/mcp` on the HTTP server. */
 export function registerMcpEndpoint(server: FastifyInstance, options: McpEndpointOptions): void {
-  server.all('/mcp', async (request, reply) => {
+  server.all(MCP_PATH, async (request, reply) => {
     try {
       // A handler per request, so each tool call knows the request it came
       // with: its client address for the register limit, its id for the log.

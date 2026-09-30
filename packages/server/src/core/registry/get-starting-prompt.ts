@@ -42,7 +42,8 @@ export function createGetStartingPrompt(deps: {
   clock: Clock;
   ids: IdGenerator;
   secrets: Omit<SecretTools, 'ids'>;
-  fleetUrl: string;
+  /** Where a session reaches the fleet over MCP: the URL the starting prompt carries. */
+  mcpUrl: string;
 }): GetStartingPrompt {
   return (caller, { shipId }) =>
     deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, GetStartingPromptRefusal>> => {
@@ -61,7 +62,7 @@ export function createGetStartingPrompt(deps: {
       }
 
       const prompt = await issueStartingPrompt(
-        { tx, secrets: { ...deps.secrets, ids: deps.ids }, fleetUrl: deps.fleetUrl },
+        { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl },
         { fleetId, shipId, actor, at },
       );
       return ok({ shipId, prompt });

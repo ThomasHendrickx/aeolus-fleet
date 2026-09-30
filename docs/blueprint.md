@@ -33,7 +33,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
 | Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships can only send and receive |
-| Starting prompt | Drafted and tested when the first ship sets sail |
+| Starting prompt | Identity only: the fleet's MCP URL and how to add it, the ship's id and secret, how to pick the location, and "call register". How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
 ## Users
@@ -99,12 +99,13 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
 | Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |
 | Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship. Used only to `register` |
-| Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease |
+| Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease; a call with it afterwards is refused as lease ended, so the session knows its ship was released |
 | Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
 | Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
 | Delivery | One message to one resolved recipient, with its own state: pending, delivered, acknowledged, undeliverable, dismissed, abandoned |
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
-| Starting prompt | The text the operator pastes into a new session: fleet URL, ship id, ship secret, how to use the contract. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
+| Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
+| Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
 | Retire | End a ship for good. Its id can never be claimed or addressed again |
 
 ## Domain architecture
@@ -180,9 +181,9 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 ### Launch a ship
 
 1. The operator creates a ship in the web app: name, type, optional note.
-2. Aeolus generates the ship id and secret, and shows the starting prompt once: fleet URL, ship identity, secret and how to use the contract. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
+2. Aeolus generates the ship id and secret, and shows the starting prompt once: the fleet's MCP URL, the ship's id and secret, how to pick the location, and to call register. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
 3. The operator pastes that prompt into a new session on any machine.
-4. The session calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
+4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.
 
 ### Send, receive, acknowledge

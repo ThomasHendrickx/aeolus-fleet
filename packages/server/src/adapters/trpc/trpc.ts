@@ -1,7 +1,7 @@
 import type { Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
-import { hasScope, type Caller } from '../../core/shared/caller.js';
+import { hasScope, type Caller, type Crew } from '../../core/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../core/shared/errors.js';
 import type { Result } from '../../core/shared/result.js';
 import type { Context } from './context.js';
@@ -62,18 +62,39 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   SHIP_NOT_AWAITING_CREW: 'CONFLICT',
   SHIP_NOT_CREWED: 'CONFLICT',
   SHIP_NOT_FOUND: 'NOT_FOUND',
+  UNKNOWN_CREW_TOKEN: 'UNAUTHORIZED',
   UNRESOLVABLE_SELECTOR: 'NOT_FOUND',
   WRONG_EMAIL_OR_PASSWORD: 'UNAUTHORIZED',
   WRONG_SHIP_ID_OR_SECRET: 'UNAUTHORIZED',
 };
 
 /**
- * The value of a use case's result. A refusal becomes the matching tRPC error,
- * keeping its message: the one place domain error kinds meet API errors.
+ * The code a ship reads for a refusal whose tRPC code would hide it: a crew
+ * whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so it can tell a
+ * released ship from a wrong crew token. The HTTP status stays the tRPC
+ * code's. The ship doors read it from the tRPC error's cause.
  */
+export class ShipRefusalCode extends Error {
+  override name = 'ShipRefusalCode';
+  readonly code: 'LEASE_ENDED';
+
+  constructor(code: 'LEASE_ENDED') {
+    super(code);
+    this.code = code;
+  }
+}
+
+/** A refusal as the matching tRPC error, keeping its message: the one place domain error kinds meet API errors. */
+function apiErrorOf(error: DomainError): TRPCError {
+  const { kind, message } = error;
+  const cause = kind === 'LEASE_ENDED' ? new ShipRefusalCode(kind) : undefined;
+  return new TRPCError({ code: ERROR_CODES[kind], message, cause });
+}
+
+/** The value of a use case's result. A refusal becomes the matching tRPC error. */
 export function okOrThrow<T>(result: Result<T, DomainError>): T {
   if (!result.isOk) {
-    throw new TRPCError({ code: ERROR_CODES[result.error.kind], message: result.error.message });
+    throw apiErrorOf(result.error);
   }
   return result.value;
 }
@@ -151,6 +172,22 @@ export const consoleProcedure = publicProcedure.use(({ ctx, next }) => {
 });
 
 /**
+ * The crew of a bearer crew token; undefined when it never crewed a ship. One
+ * whose lease has ended is refused as such, so its session learns that the
+ * ship was released rather than that its token is wrong.
+ */
+async function crewOf(ctx: Context, bearer: string): Promise<Crew | undefined> {
+  const crew = await ctx.useCases.authenticate.byCrewToken(bearer);
+  if (crew.isOk) {
+    return crew.value;
+  }
+  if (crew.error.kind === 'LEASE_ENDED') {
+    throw apiErrorOf(crew.error);
+  }
+  return undefined;
+}
+
+/**
  * Resolves the caller from the crew token or the console session. A bearer
  * crew token wins over the cookie, and a wrong one fails rather than falling
  * back. The ship secret is no bearer: it works only for `register` (ADR 0015).
@@ -159,7 +196,7 @@ export const consoleProcedure = publicProcedure.use(({ ctx, next }) => {
 async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   const { bearer, sessionToken } = ctx.credentials;
   if (bearer !== undefined) {
-    return ctx.useCases.authenticate.byCrewToken(bearer);
+    return crewOf(ctx, bearer);
   }
   if (sessionToken !== undefined) {
     const use = await ctx.useCases.authenticate.byConsoleSession(sessionToken);
@@ -203,7 +240,7 @@ export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, ne
  */
 export const crewProcedure = publicProcedure.use(async ({ ctx, next }) => {
   const { bearer } = ctx.credentials;
-  const crew = bearer === undefined ? undefined : await ctx.useCases.authenticate.byCrewToken(bearer);
+  const crew = bearer === undefined ? undefined : await crewOf(ctx, bearer);
   if (!crew) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: CALL_WITH_CREW_TOKEN });
   }

@@ -7,7 +7,7 @@ import type {
 } from '../../core/identity/ports.js';
 import type { Db } from './client.js';
 import {
-  toAuthenticatedCrew,
+  toCrewTokenLease,
   toConsoleSession,
   toConsoleSessionCaller,
   toCredential,
@@ -121,11 +121,12 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
   return {
     byCrewTokenHash: async (crewTokenHash) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes, l.id AS lease_id
+        SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes, l.id AS lease_id,
+          l.ended_at IS NULL AS is_open
         FROM leases l
         JOIN ships s ON s.fleet_id = l.fleet_id AND s.id = l.ship_id
-        WHERE l.crew_token_hash = ${crewTokenHash} AND l.ended_at IS NULL AND s.retired_at IS NULL`;
-      return row ? toAuthenticatedCrew(row) : undefined;
+        WHERE l.crew_token_hash = ${crewTokenHash} AND s.retired_at IS NULL`;
+      return row ? toCrewTokenLease(row) : undefined;
     },
     useConsoleSession: async ({ tokenHash, now, expiresAt }) => {
       // One statement checks the session, moves its expiry and returns the ship.

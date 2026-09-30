@@ -35,7 +35,7 @@ const environmentSchema = z.object({
 
 export interface Config {
   databaseUrl: string;
-  /** Where ships reach the fleet: the fleet URL every starting prompt carries. */
+  /** Where ships reach the fleet: every starting prompt carries the fleet MCP URL under it. */
   publicUrl: string;
   host: string;
   port: number;

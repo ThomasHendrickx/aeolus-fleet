@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 import type { Context } from './context.js';
 import { appRouter } from './router.js';
-import { INTERNAL_ERROR_MESSAGE, type ProcedureMeta } from './trpc.js';
+import { INTERNAL_ERROR_MESSAGE, ShipRefusalCode, type ProcedureMeta } from './trpc.js';
 
 type JsonValue = z.infer<ReturnType<typeof z.json>>;
 
@@ -90,9 +90,13 @@ export const SHIP_CALLS: readonly ShipCall[] = Object.entries(appRouter.ship).ma
   };
 });
 
-/** What a caller learns of a call that did not succeed: the code, its HTTP status and a message it may read. */
+/**
+ * What a caller learns of a call that did not succeed: the code, its HTTP
+ * status and a message it may read. The code is tRPC's, or LEASE_ENDED for a
+ * crew whose ship was released.
+ */
 export interface ShipCallRefusal {
-  code: TRPC_ERROR_CODE_KEY;
+  code: TRPC_ERROR_CODE_KEY | ShipRefusalCode['code'];
   httpStatus: number;
   message: string;
   /** Only for a server failure: the request's id, under which the server log holds the whole failure. */
@@ -135,7 +139,8 @@ function refusalOf(error: TRPCError, requestId: string): ShipCallRefusal {
     return { code: error.code, httpStatus, message: INTERNAL_ERROR_MESSAGE, requestId };
   }
   const message = error.cause instanceof z.ZodError ? z.prettifyError(error.cause) : error.message;
-  return { code: error.code, httpStatus, message };
+  const code = error.cause instanceof ShipRefusalCode ? error.cause.code : error.code;
+  return { code, httpStatus, message };
 }
 
 /**

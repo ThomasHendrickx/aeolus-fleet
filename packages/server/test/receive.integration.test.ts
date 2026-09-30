@@ -74,11 +74,7 @@ async function crewedReviewer(name: string): Promise<Crew> {
   const { crewToken } = unwrap(
     await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }),
   );
-  const crew = await useCases.authenticate.byCrewToken(crewToken);
-  if (!crew) {
-    throw new Error(`The crew token of ${name} authenticates no crew`);
-  }
-  return crew;
+  return unwrap(await useCases.authenticate.byCrewToken(crewToken));
 }
 
 const toShip = (crew: Crew): Selector => ({ kind: 'ship', shipId: crew.shipId });

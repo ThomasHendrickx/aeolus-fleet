@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
-  FLEET_URL,
+  FLEET_MCP_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -62,10 +62,10 @@ describe('commissioning a ship', () => {
     expect(shipsNamed('scout')[0]?.note).toBeNull();
   });
 
-  it('issues the first starting prompt, with the fleet URL, the ship id and a new secret', async () => {
+  it('issues the first starting prompt, with the fleet MCP URL, the ship id and a new secret', async () => {
     const { shipId, prompt } = unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' }));
 
-    expect(prompt).toContain(`Fleet URL: ${FLEET_URL}`);
+    expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
     expect(secretIn(prompt)).toMatch(/^aeolus_sk_v1_./);
   });
@@ -198,7 +198,7 @@ describe('a failed commission', () => {
       clock: core.clock,
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
-      fleetUrl: FLEET_URL,
+      mcpUrl: FLEET_MCP_URL,
     });
 
     await expect(commission(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('event log unavailable');

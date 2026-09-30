@@ -6,6 +6,7 @@
  * own dialect, so the schemas go in as the router's parsers produce them.
  */
 import type { ShipCall } from '../trpc/ship-contract.js';
+import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 
 /** The API's title, in the spec and on its page at `/api/v1/docs`. */
 export const API_TITLE = 'Aeolus ship API';
@@ -15,7 +16,10 @@ const JSON_MEDIA_TYPE = 'application/json';
 const ERROR_SCHEMA = {
   type: 'object',
   properties: {
-    code: { type: 'string', description: "The refusal's code, such as UNAUTHORIZED, FORBIDDEN, NOT_FOUND or CONFLICT." },
+    code: {
+      type: 'string',
+      description: "The refusal's code, such as UNAUTHORIZED, LEASE_ENDED, FORBIDDEN, NOT_FOUND or CONFLICT.",
+    },
     message: { type: 'string', description: 'What was refused, or what the input must be, for the caller to read.' },
     requestId: {
       type: 'string',
@@ -25,12 +29,15 @@ const ERROR_SCHEMA = {
   required: ['code', 'message'],
 };
 
+/** The ship protocol, as the MCP server instructions state it, then what is REST's own. */
 const API_DESCRIPTION = [
-  'The ship contract over REST: the same calls an agent reaches as MCP tools at /mcp.',
-  'Call register first, with the ship id and secret from your starting prompt.',
-  'Every other call carries the crew token it answers with, as Authorization: Bearer <crew token>.',
-  'A refusal answers with the HTTP status of its code, and its code and message as JSON.',
-].join(' ');
+  SHIP_PROTOCOL,
+  [
+    'The ship contract over REST: the same calls an agent reaches as MCP tools at /mcp.',
+    'The crew token travels as Authorization: Bearer <crew token>.',
+    'A refusal answers with the HTTP status of its code, and its code and message as JSON.',
+  ].join(' '),
+].join('\n\n');
 
 /** A ship call as an OpenAPI operation. */
 function operationOf(call: ShipCall): Record<string, unknown> {

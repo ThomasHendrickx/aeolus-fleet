@@ -48,8 +48,11 @@ export function identityUseCases(core: InMemoryCore) {
   };
 }
 
-/** The fleet URL starting prompts carry in tests. */
+/** The fleet's public URL in tests: where ships reach it. */
 export const FLEET_URL = 'https://fleet.example.com';
+
+/** The fleet's MCP URL, which starting prompts carry in tests: /mcp under the public URL. */
+export const FLEET_MCP_URL = `${FLEET_URL}/mcp`;
 
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
@@ -58,7 +61,7 @@ export function registryUseCases(core: InMemoryCore) {
     clock: core.clock,
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
-    fleetUrl: FLEET_URL,
+    mcpUrl: FLEET_MCP_URL,
   };
   return {
     commissionShip: createCommissionShip(deps),
@@ -107,6 +110,15 @@ export function secretIn(prompt: string): string {
     throw new Error(`No ship secret in the starting prompt:\n${prompt}`);
   }
   return secret;
+}
+
+/** The fleet's MCP URL a starting prompt holds: where its session connects. */
+export function mcpUrlIn(prompt: string): string {
+  const url = /^Fleet MCP URL: (\S+)$/m.exec(prompt)?.[1];
+  if (url === undefined) {
+    throw new Error(`No fleet MCP URL in the starting prompt:\n${prompt}`);
+  }
+  return url;
 }
 
 /** The ship id a starting prompt holds. */
@@ -206,10 +218,10 @@ export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: S
 /** The crew a crew token makes the caller, as the API resolves it. */
 export async function crewOfToken(core: InMemoryCore, crewToken: string): Promise<Crew> {
   const crew = await identityUseCases(core).authenticate.byCrewToken(crewToken);
-  if (!crew) {
-    throw new Error('The crew token crews no ship');
+  if (!crew.isOk) {
+    throw new Error(`The crew token crews no ship: ${crew.error.message}`);
   }
-  return crew;
+  return crew.value;
 }
 
 /** The id of the ship's open lease. */

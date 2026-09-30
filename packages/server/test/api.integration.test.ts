@@ -9,7 +9,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
+import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -281,7 +281,7 @@ describe('the fleet procedures at the API', () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt } = await asArgo.fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
 
-    expect(prompt).toContain(`Fleet URL: ${FLEET_URL}`);
+    expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
     const listed = await asArgo.fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toEqual({

@@ -4,7 +4,7 @@
 
 - One route per ship procedure, each a call through the router by `trpc/ship-contract.ts`: `GET /api/v1/ship/whoami`, and `POST /api/v1/ship/<call>` with a JSON body for `register`, `send`, `receive`, `ack` and `deregister`.
 - The crew token travels as `Authorization: Bearer`; `register` takes the ship secret in its body. The console session cookie is never read here.
-- `GET /api/v1/openapi.json`: the OpenAPI 3.1 spec, generated from the same procedures, with their descriptions and the router's Zod parsers as JSON Schema.
+- `GET /api/v1/openapi.json`: the OpenAPI 3.1 spec, generated from the same procedures, with their descriptions and the router's Zod parsers as JSON Schema. Its description opens with the ship protocol (`trpc/ship-protocol.ts`), the text the MCP server sends as its instructions, then what is REST's own.
 - `GET /api/v1/docs`: that spec as a readable page titled like the spec, rendered by `@scalar/fastify-api-reference`. The page talks only to the fleet's own server: the server serves the viewer's script itself, the viewer uses the browser's fonts instead of Scalar's font CDN, Scalar's agent, developer tools and telemetry are off, and "Try it" calls the fleet without a proxy.
-- A refusal answers with its code's HTTP status and `{ "code", "message" }`; a call without a valid crew token is told to call with the crew token alone, since a ship has no console to sign in to.
+- A refusal answers with its code's HTTP status and `{ "code", "message" }`; a call without a valid crew token is told to call with the crew token alone, since a ship has no console to sign in to, and one whose lease has ended answers 401 with the code `LEASE_ENDED`.
 - A failure, in a procedure or in the adapter itself, answers 500 with `Internal error` and the request's id (`requestId`), and the log holds the whole failure under that id. Fastify's own refusals, such as a body that is not JSON, keep Fastify's format for now.

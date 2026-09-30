@@ -17,6 +17,7 @@ import type { RateLimit } from '../http/rate-limiter.js';
 import { buildHttpServer } from '../http/server.js';
 import type { UseCases } from '../trpc/context.js';
 import { SHIP_CALLS } from '../trpc/ship-contract.js';
+import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 import { registerRestApi } from './rest-api.js';
 
 // The ship contract as REST at /api/v1, through the HTTP host on the
@@ -130,6 +131,14 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(document.openapi).toMatch(/^3\.1\.\d+$/);
     expect(document.servers).toEqual([{ url: '/api/v1' }]);
     expect(document.info.description).toMatch(/Authorization: Bearer/);
+  });
+
+  it('states the ship protocol in its description, as the MCP server instructions do', async () => {
+    start();
+
+    const document = await spec();
+
+    expect(document.info.description.startsWith(`${SHIP_PROTOCOL}\n\n`)).toBe(true);
   });
 
   it('lists every ship procedure: whoami to GET, the others to POST', async () => {
@@ -370,6 +379,28 @@ describe('a ship call at /api/v1', () => {
       expect(response.statusCode).toBe(401);
       expect(response.json()).toEqual({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
     }
+  });
+
+  it.each([
+    { method: 'GET', call: 'whoami', payload: undefined },
+    {
+      method: 'POST',
+      call: 'send',
+      payload: { selector: { kind: 'ship', name: 'scout' }, payload: 'Anyone aboard?', idempotencyKey: 'key-1' },
+    },
+    { method: 'POST', call: 'receive', payload: undefined },
+    { method: 'POST', call: 'deregister', payload: undefined },
+  ] as const)('refuses $method $call with a crew token whose lease has ended with 401 and LEASE_ENDED: the ship was released', async ({ method, call, payload }) => {
+    start();
+    const crewToken = crewedShip('scout');
+    const authorization = `Bearer ${crewToken}`;
+    const deregistered = await server.inject({ method: 'POST', url: '/api/v1/ship/deregister', headers: { authorization } });
+
+    const response = await server.inject({ method, url: `/api/v1/ship/${call}`, payload, headers: { authorization } });
+
+    expect(deregistered.statusCode).toBe(200);
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' });
   });
 
   it('refuses input that does not parse with 400, naming the field and what it must be', async () => {

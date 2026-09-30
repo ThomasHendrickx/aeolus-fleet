@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewShip,
-  FLEET_URL,
+  FLEET_MCP_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -44,11 +44,11 @@ function validSecretsOf(shipId: ShipId) {
 }
 
 describe('getting a starting prompt', () => {
-  it('issues a new prompt with the fleet URL, the ship id and a new secret while the ship awaits crew', async () => {
+  it('issues a new prompt with the fleet MCP URL, the ship id and a new secret while the ship awaits crew', async () => {
     const { shipId, prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
     expect(shipId).toBe(scoutId);
-    expect(prompt).toContain(`Fleet URL: ${FLEET_URL}`);
+    expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
     expect(prompt).toContain(`Ship id: ${scoutId}`);
     expect(secretIn(prompt)).toMatch(/^aeolus_sk_v1_./);
     expect(secretIn(prompt)).not.toBe(firstSecret);
@@ -195,7 +195,7 @@ describe('a failed starting prompt', () => {
       clock: core.clock,
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
-      fleetUrl: FLEET_URL,
+      mcpUrl: FLEET_MCP_URL,
     });
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('event log unavailable');

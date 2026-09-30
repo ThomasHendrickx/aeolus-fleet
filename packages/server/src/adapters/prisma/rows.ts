@@ -2,7 +2,7 @@ import { deliveryStateSchema, idSchema, locationKindSchema, scopeSchema, shipKin
 import { z } from 'zod';
 
 import type { ConsoleSession } from '../../core/identity/console-session.js';
-import type { AuthenticatedCrew, AuthenticatedShip } from '../../core/identity/ports.js';
+import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
@@ -211,9 +211,17 @@ export function toAuthenticatedShip(row: unknown): AuthenticatedShip {
 const crewSqlRow = z.object({ lease_id: idSchema('lease') });
 
 /** The crew of a crew token: its ship, and the lease the token belongs to. */
-export function toAuthenticatedCrew(row: unknown): AuthenticatedCrew {
+function toAuthenticatedCrew(row: unknown): AuthenticatedCrew {
   const { lease_id } = crewSqlRow.parse(row);
   return { ...toAuthenticatedShip(row), leaseId: lease_id };
+}
+
+const crewTokenLeaseSqlRow = z.object({ is_open: z.boolean() });
+
+/** The lease a crew token belongs to: open, with its crew, or ended. */
+export function toCrewTokenLease(row: unknown): CrewTokenLease {
+  const { is_open } = crewTokenLeaseSqlRow.parse(row);
+  return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
 }
 
 const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession') });
