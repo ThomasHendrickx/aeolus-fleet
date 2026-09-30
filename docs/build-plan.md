@@ -235,7 +235,8 @@ A ship sends a message, and gets OK only once the message and its deliveries are
 
 - `send(selector, payload, contentType, idempotencyKey, inReplyTo?)`, requires `messages:send`. The sender is the calling ship: a crew token, or the console session as `argo`.
 - Selector `ship`: by id or by name, resolved to the id at send time; `argo` is addressable; a retired or unknown ship is rejected. Selector `type`: rejected unless at least one non-retired ship has that type; one delivery for the type queue.
-- Payload at most 64 KB; larger is rejected before anything is stored.
+- Payload at most 64 KB, measured on the serialized payload in bytes; larger is rejected before anything is stored.
+- `inReplyTo`: the id of a message in the same fleet; anything else is rejected.
 - Idempotency: unique on sender plus key; a repeat returns the original message id and stores nothing new.
 - Message, deliveries, event and `NOTIFY` in one transaction; OK only after commit.
 - `resend-of` exists in the schema but nothing sets it yet (Needs attention comes after the acceptance test).
@@ -243,7 +244,7 @@ A ship sends a message, and gets OK only once the message and its deliveries are
 
 ## How to work
 
-1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer (for example what `inReplyTo` must refer to). If there are questions, stop and ask them.
+1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
 2. Load the skills CLAUDE.md names. Test first (red, green, refactor); build inside out: core, Prisma adapter with Testcontainers, tRPC procedure.
 3. Messaging asks Registry who a selector resolves to only through `registry/public.ts`.
 4. Keep the slice thin; the rest goes under "Noticed, not done".
