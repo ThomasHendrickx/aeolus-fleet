@@ -282,6 +282,7 @@ describe('the fleet procedures at the API', () => {
       type: 'reviewer',
       status: 'awaitingCrew',
       startingPrompt: { issuedAt: clock.now().toISOString(), isClaimed: false },
+      location: null,
     });
   });
 
@@ -437,6 +438,19 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'navigator',
       type: 'reviewer',
+    });
+  });
+
+  it('register: the fleet list shows the ship crewed where its session runs, its prompt claimed', async () => {
+    const { shipId, secret } = await commissioned('rigger');
+
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: 'a ci runner' } });
+
+    const listed = await (await signedInArgo()).fleet.list.query();
+    expect(listed.find((ship) => ship.id === shipId)).toMatchObject({
+      status: 'crewed',
+      startingPrompt: { isClaimed: true },
+      location: { kind: 'OTHER', description: 'a ci runner' },
     });
   });
 

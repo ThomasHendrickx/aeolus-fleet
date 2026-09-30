@@ -322,6 +322,7 @@ describe('listing the fleet on Postgres', () => {
         type: 'operator',
         status: 'crewed',
         startingPrompt: null,
+        location: { kind: 'OTHER', description: 'web console' },
       },
       {
         id: shipId,
@@ -329,6 +330,7 @@ describe('listing the fleet on Postgres', () => {
         type: 'reviewer',
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+        location: null,
       },
     ]);
   });
@@ -349,10 +351,10 @@ describe('listing the fleet on Postgres', () => {
   it('shows a crewed ship and a retired one, the retired one without a prompt once its secret is gone', async () => {
     const crewed = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     const retired = unwrap(await core.useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
-    // Claiming and retiring arrive with later slices.
-    await core.prisma.lease.create({
-      data: { id: newId('lease'), fleetId, shipId: crewed.shipId, location: 'SERVER', startedAt: core.clock.now() },
-    });
+    unwrap(
+      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' } }),
+    );
+    // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });
     await core.prisma.credential.updateMany({
       where: { shipId: retired.shipId },
@@ -361,10 +363,10 @@ describe('listing the fleet on Postgres', () => {
 
     const listed = await core.useCases.listFleet(argo);
 
-    expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt === null])).toEqual([
-      ['argo', 'awaitingCrew', true],
-      ['scout', 'crewed', false],
-      ['lookout', 'retired', true],
+    expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([
+      ['argo', 'awaitingCrew', null, null],
+      ['scout', 'crewed', true, { kind: 'SERVER', description: null }],
+      ['lookout', 'retired', null, null],
     ]);
   });
 

@@ -101,10 +101,22 @@ describe('fleetListOutputSchema', () => {
     type: 'reviewer',
     status: 'awaitingCrew',
     startingPrompt: { issuedAt: '2026-09-29T12:00:00.000Z', isClaimed: false },
+    location: null,
   };
 
   it('accepts ships with their status and prompt state', () => {
     expect(fleetListOutputSchema.parse([ship])).toEqual([ship]);
+  });
+
+  it('accepts a crewed ship with the location its session reported', () => {
+    const crewed = {
+      ...ship,
+      status: 'crewed',
+      startingPrompt: { ...ship.startingPrompt, isClaimed: true },
+      location: { kind: 'OTHER', description: 'a ci runner' },
+    };
+
+    expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
   });
 
   it('accepts a ship without a prompt out', () => {
@@ -115,6 +127,8 @@ describe('fleetListOutputSchema', () => {
     ['an unknown status', { ...ship, status: 'sailing' }],
     ['a prompt date that is not ISO 8601', { ...ship, startingPrompt: { issuedAt: 'today', isClaimed: false } }],
     ['a ship id of another kind', { ...ship, id: newId('fleet') }],
+    ['a missing location', { ...ship, location: undefined }],
+    ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
   ])('rejects %s', (_label, listed) => {
     expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);
   });

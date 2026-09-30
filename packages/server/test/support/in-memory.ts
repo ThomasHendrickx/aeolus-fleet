@@ -344,9 +344,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             const secret = state.credentials.find(
               (credential) => credential.shipId === held.id && credential.invalidatedAt === null,
             );
+            const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
             return {
               ship: { ...held },
-              isCrewed: state.leases.some((lease) => lease.shipId === held.id && lease.endedAt === null),
+              openLease: lease ? { location: { ...lease.location } } : null,
               validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
             };
           }),
