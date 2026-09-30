@@ -97,10 +97,10 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     }
   });
 
-  /** A call's context: who it says it is, and where it came from. */
+  /** A call's context: who it says it is, how it may say so at this door, and where it came from. */
   const contextFor = (
     request: FastifyRequest,
-    caller: { credentials: RequestCredentials; sessionCookie: SessionCookie },
+    caller: { credentials: RequestCredentials; canUseConsoleSession: boolean; sessionCookie: SessionCookie },
   ): Context => ({
     useCases: options.useCases,
     ...caller,
@@ -122,6 +122,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             bearer: readBearer(req.headers.authorization),
             sessionToken: readSessionToken(req.headers.cookie),
           },
+          canUseConsoleSession: true,
           sessionCookie: {
             set: (token, expiresAt) => {
               void res.header(
@@ -148,7 +149,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   // The doors for ships: the credentials are the ones the call carries, never the console session.
   const shipDoor = {
     contextFor: (request: FastifyRequest, credentials: RequestCredentials) =>
-      contextFor(request, { credentials, sessionCookie: NO_SESSION_COOKIE }),
+      contextFor(request, { credentials, canUseConsoleSession: false, sessionCookie: NO_SESSION_COOKIE }),
   };
   registerRestApi(server, shipDoor);
   registerMcpEndpoint(server, shipDoor);

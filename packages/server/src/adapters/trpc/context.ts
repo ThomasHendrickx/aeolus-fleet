@@ -48,6 +48,12 @@ export interface SessionCookie {
 export interface Context {
   useCases: UseCases;
   credentials: RequestCredentials;
+  /**
+   * Whether the door takes the console session: `/trpc` does. The doors for
+   * ships (REST, MCP) take the crew token alone, so a refusal there names only
+   * the crew token; a ship has no console to sign in to.
+   */
+  canUseConsoleSession: boolean;
   sessionCookie: SessionCookie;
   /** The Origin header the request carried, if any. A browser sends one with every POST. */
   origin: string | undefined;

@@ -171,6 +171,9 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   return undefined;
 }
 
+/** What a caller without a valid crew token is told, at a door for ships and for a crew procedure. */
+const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
+
 /**
  * A procedure for any caller, whatever its scopes: the base of every scoped
  * procedure, and `whoami`, which tells a caller about itself. The caller comes
@@ -186,7 +189,8 @@ export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, ne
   }
   const caller = await resolveCaller(ctx);
   if (!caller) {
-    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
+    const message = ctx.canUseConsoleSession ? 'Sign in, or call with the crew token register gave you' : CALL_WITH_CREW_TOKEN;
+    throw new TRPCError({ code: 'UNAUTHORIZED', message });
   }
   return next({ ctx: { caller } });
 });
@@ -201,7 +205,7 @@ export const crewProcedure = publicProcedure.use(async ({ ctx, next }) => {
   const { bearer } = ctx.credentials;
   const crew = bearer === undefined ? undefined : await ctx.useCases.authenticate.byCrewToken(bearer);
   if (!crew) {
-    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: CALL_WITH_CREW_TOKEN });
   }
   return next({ ctx: { caller: crew, crew } });
 });
