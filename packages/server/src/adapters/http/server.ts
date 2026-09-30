@@ -10,7 +10,7 @@ import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } fro
 /** Ten sign-in attempts per client per minute. */
 export const DEFAULT_SIGN_IN_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
 
-/** Ten register attempts per client per minute, as for sign-in (ADR 0015). */
+/** Ten failed register attempts per client per minute; successful ones are never counted (ADR 0015). */
 export const DEFAULT_REGISTER_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
 
 export interface HttpServerOptions {
@@ -22,6 +22,7 @@ export interface HttpServerOptions {
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
   shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
+  /** Failed register attempts per client; successful ones are never counted. */
   registerRateLimit?: RateLimit;
   /** The domain the session cookie is set for. Unset: the server's host only. */
   cookieDomain?: string;
@@ -48,7 +49,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   });
 
   const signInLimiter = createRateLimiter(options.signInRateLimit ?? DEFAULT_SIGN_IN_RATE_LIMIT, options.clock);
-  const registerLimiter = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
+  const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
   const { consoleOrigin, cookieDomain } = options;
 
   // The console may run on another host under the cookie's domain (ADR 0012).
@@ -104,7 +105,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         consoleOrigin,
         clientKey: req.ip,
         takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
-        takeRegisterAttempt: (clientKey) => registerLimiter.take(clientKey),
+        registerFailures,
       }),
       onError: ({ path, error }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {

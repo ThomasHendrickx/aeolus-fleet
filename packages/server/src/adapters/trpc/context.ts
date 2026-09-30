@@ -47,6 +47,12 @@ export interface Context {
   clientKey: string;
   /** Counts sign-in attempts per client; false when over the limit. */
   takeSignInAttempt: (clientKey: string) => boolean;
-  /** Counts register attempts per client, apart from sign-in attempts; false when over the limit. */
-  takeRegisterAttempt: (clientKey: string) => boolean;
+  /**
+   * Failed register attempts per client, apart from sign-in attempts: only a
+   * wrong ship id or secret counts, never a successful claim (ADR 0015).
+   */
+  registerFailures: {
+    hasRoom(clientKey: string): boolean;
+    count(clientKey: string): void;
+  };
 }
