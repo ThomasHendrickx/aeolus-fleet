@@ -213,6 +213,62 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
   });
 });
 
+describe('the API docs at /api/v1/docs', () => {
+  const DOCS_PAGE = '/api/v1/docs/';
+  const FLEET_URL = 'https://fleet.example.com';
+
+  async function docsPage(): Promise<string> {
+    const response = await server.inject({ method: 'GET', url: DOCS_PAGE });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toMatch(/^text\/html/);
+    return response.body;
+  }
+
+  /** Every URL the page loads: its src and href attributes, resolved against the page. */
+  function loadedBy(page: string): URL[] {
+    return [...page.matchAll(/\s(?:src|href)="([^"]+)"/g)].map(([, url]) => new URL(url ?? '', `${FLEET_URL}${DOCS_PAGE}`));
+  }
+
+  it('sends /api/v1/docs on to the page at /api/v1/docs/', async () => {
+    start();
+
+    const response = await server.inject({ method: 'GET', url: '/api/v1/docs' });
+
+    expect(response.statusCode).toBe(301);
+    expect(response.headers.location).toBe(DOCS_PAGE);
+  });
+
+  it('answers with the viewer, rendering the spec at /api/v1/openapi.json', async () => {
+    start();
+
+    const page = await docsPage();
+
+    expect(page).toContain('Scalar.createApiReference(');
+    expect(page).toMatch(/"url":\s*"\/api\/v1\/openapi\.json"/);
+  });
+
+  it("serves the viewer's script itself: the page loads nothing from another host", async () => {
+    start();
+
+    const loaded = loadedBy(await docsPage());
+    const answers = await Promise.all(
+      loaded.map((url) => server.inject({ method: 'GET', url: `${url.pathname}${url.search}` })),
+    );
+
+    expect(loaded).not.toEqual([]);
+    expect(loaded.map((url) => url.origin)).toEqual(loaded.map(() => FLEET_URL));
+    expect(answers.map((answer) => answer.statusCode)).toEqual(loaded.map(() => 200));
+  });
+
+  it("keeps the viewer off Scalar's font CDN: it uses the browser's own fonts", async () => {
+    start();
+
+    const page = await docsPage();
+
+    expect(page).toMatch(/"withDefaultFonts":\s*false/);
+  });
+});
+
 describe('a ship call at /api/v1', () => {
   it('answers with the output as JSON', async () => {
     start();
