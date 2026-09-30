@@ -1,6 +1,6 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -16,6 +16,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import type { UseCases } from '../trpc/context.js';
 import type { RateLimit } from '../http/rate-limiter.js';
 import { buildHttpServer } from '../http/server.js';
+import { registerMcpEndpoint } from './mcp-endpoint.js';
 
 // The ship contract as MCP tools at /mcp, through the HTTP host on the
 // in-memory core: what the tools say about themselves, and how a refusal or a
@@ -343,5 +344,57 @@ describe('a ship tool call', () => {
       reason: 'database unreachable',
     });
     expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+  });
+});
+
+describe('a failure inside the MCP adapter, outside any procedure', () => {
+  /** /mcp alone on a bare server, logging to the lines, whose calls fail before they reach the router: building their context throws. */
+  function startFailingEndpoint(logLines: string[]): void {
+    server = Fastify({ logger: { level: 'error', stream: { write: (line: string) => void logLines.push(line) } } });
+    registerMcpEndpoint(server, {
+      contextFor: () => {
+        throw new Error('context lost');
+      },
+    });
+  }
+
+  function loggedOf(logLines: string[]): Record<string, unknown>[] {
+    return logLines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
+  }
+
+  it("answers a tool call with the generic message and the request's id, and logs the whole failure under that id", async () => {
+    const logLines: string[] = [];
+    startFailingEndpoint(logLines);
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
+    const client = await connect();
+
+    const text = await refusalText(client, { name: 'whoami', arguments: { crewToken: 'aeolus_ct_v1_crew' } });
+
+    const requestId = /^INTERNAL_SERVER_ERROR: Internal error \(request id (\S+)\)$/.exec(text)?.[1];
+    expect(requestId).toBeDefined();
+    const [logged, ...more] = loggedOf(logLines);
+    expect(more).toEqual([]);
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: requestId, reason: 'context lost' });
+    expect(logged?.stack).toMatch(/^Error: context lost\n\s+at \S/);
+  });
+
+  it("answers a request it cannot turn into one for the MCP server (a Host no URL can hold) with 500, the generic message and the request's id", async () => {
+    const logLines: string[] = [];
+    startFailingEndpoint(logLines);
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: { host: 'not a host', 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      payload: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    });
+
+    const answered = z
+      .strictObject({ code: z.literal('INTERNAL_SERVER_ERROR'), message: z.literal('Internal error'), requestId: z.string() })
+      .parse(response.json());
+    expect(response.statusCode).toBe(500);
+    const [logged, ...more] = loggedOf(logLines);
+    expect(more).toEqual([]);
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'Invalid URL' });
   });
 });

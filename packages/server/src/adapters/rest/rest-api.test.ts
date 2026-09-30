@@ -1,5 +1,5 @@
 import type { FleetId } from '@aeolus-fleet/common';
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -17,6 +17,7 @@ import type { RateLimit } from '../http/rate-limiter.js';
 import { buildHttpServer } from '../http/server.js';
 import type { UseCases } from '../trpc/context.js';
 import { SHIP_CALLS } from '../trpc/ship-contract.js';
+import { registerRestApi } from './rest-api.js';
 
 // The ship contract as REST at /api/v1, through the HTTP host on the
 // in-memory core: the OpenAPI spec, the crew token as a bearer, and how a
@@ -372,5 +373,48 @@ describe('a ship call at /api/v1', () => {
       reason: 'database unreachable',
     });
     expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+  });
+});
+
+describe('a failure inside the REST adapter, outside any procedure', () => {
+  it("answers 500 with the generic message and the request's id, and logs the whole failure under that id", async () => {
+    const logLines: string[] = [];
+    server = Fastify({ logger: { level: 'error', stream: { write: (line: string) => void logLines.push(line) } } });
+    registerRestApi(server, {
+      contextFor: () => {
+        throw new Error('context lost');
+      },
+    });
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/api/v1/ship/whoami',
+      headers: { authorization: 'Bearer aeolus_ct_v1_crew' },
+    });
+
+    const answered = z
+      .strictObject({ code: z.literal('INTERNAL_SERVER_ERROR'), message: z.literal('Internal error'), requestId: z.string() })
+      .parse(response.json());
+    expect(response.statusCode).toBe(500);
+    expect(response.body).not.toContain('context lost');
+    const [logged, ...more] = logLines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
+    expect(more).toEqual([]);
+    expect(logged).toMatchObject({ msg: 'request failed', reqId: answered.requestId, reason: 'context lost' });
+    expect(logged?.stack).toMatch(/^Error: context lost\n\s+at \S/);
+  });
+
+  it("leaves Fastify's own refusal of a body that is not JSON a refusal: 400, never a server failure", async () => {
+    start();
+    const crewToken = crewedShip();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/send',
+      headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+      payload: '{ not json',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).not.toContain('Internal error');
   });
 });
