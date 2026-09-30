@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 
 import type { Clock } from '../../core/shared/clock.js';
-import type { Context, UseCases } from '../trpc/context.js';
+import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
+import { registerRestApi } from '../rest/rest-api.js';
+import type { Context, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
 import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
@@ -39,8 +41,16 @@ export interface HttpServerOptions {
 const PREFLIGHT_MAX_AGE_S = 600;
 
 /**
- * The HTTP host: `/trpc` for the API and `/health` for monitoring. REST
- * (`/api/v1`) and MCP (`/mcp`) are mounted here once they exist.
+ * The session cookie at a door for ships: REST and MCP never read the console
+ * session, so they never set or clear its cookie either.
+ */
+const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined };
+
+/**
+ * The HTTP host: `/trpc` for the API, `/api/v1` (REST) and `/mcp` for ships,
+ * and `/health` for monitoring. Every door builds its calls' context the same
+ * way, so the register limit is one budget per client address across all of
+ * them.
  */
 export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const server = Fastify({
@@ -87,31 +97,44 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     }
   });
 
+  /** A call's context: who it says it is, how it may say so at this door, and where it came from. */
+  const contextFor = (
+    request: FastifyRequest,
+    caller: { credentials: RequestCredentials; canUseConsoleSession: boolean; sessionCookie: SessionCookie },
+  ): Context => ({
+    useCases: options.useCases,
+    ...caller,
+    origin: request.headers.origin,
+    consoleOrigin,
+    clientKey: request.ip,
+    requestId: request.id,
+    takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
+    registerFailures,
+  });
+
   const trpc: FastifyTRPCPluginOptions<AppRouter> = {
     prefix: '/trpc',
     trpcOptions: {
       router: appRouter,
-      createContext: ({ req, res }): Context => ({
-        useCases: options.useCases,
-        credentials: {
-          bearer: readBearer(req.headers.authorization),
-          sessionToken: readSessionToken(req.headers.cookie),
-        },
-        sessionCookie: {
-          set: (token, expiresAt) => {
-            void res.header('set-cookie', sessionCookie({ token, expiresAt, now: options.clock.now(), domain: cookieDomain }));
+      createContext: ({ req, res }): Context =>
+        contextFor(req, {
+          credentials: {
+            bearer: readBearer(req.headers.authorization),
+            sessionToken: readSessionToken(req.headers.cookie),
           },
-          clear: () => {
-            void res.header('set-cookie', clearedSessionCookie(cookieDomain));
+          canUseConsoleSession: true,
+          sessionCookie: {
+            set: (token, expiresAt) => {
+              void res.header(
+                'set-cookie',
+                sessionCookie({ token, expiresAt, now: options.clock.now(), domain: cookieDomain }),
+              );
+            },
+            clear: () => {
+              void res.header('set-cookie', clearedSessionCookie(cookieDomain));
+            },
           },
-        },
-        origin: req.headers.origin,
-        consoleOrigin,
-        clientKey: req.ip,
-        requestId: req.id,
-        takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
-        registerFailures,
-      }),
+        }),
       // The whole failure goes to the log only, under the request's id (the
       // label Fastify's own request lines use); the answer carries that id.
       onError: ({ path, error, ctx }) => {
@@ -122,6 +145,14 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     },
   };
   void server.register(fastifyTRPCPlugin, trpc);
+
+  // The doors for ships: the credentials are the ones the call carries, never the console session.
+  const shipDoor = {
+    contextFor: (request: FastifyRequest, credentials: RequestCredentials) =>
+      contextFor(request, { credentials, canUseConsoleSession: false, sessionCookie: NO_SESSION_COOKIE }),
+  };
+  registerRestApi(server, shipDoor);
+  registerMcpEndpoint(server, shipDoor);
 
   return server;
 }
