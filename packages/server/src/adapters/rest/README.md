@@ -5,4 +5,5 @@
 - One route per ship procedure, each a call through the router by `trpc/ship-contract.ts`: `GET /api/v1/ship/whoami`, and `POST /api/v1/ship/<call>` with a JSON body for `register`, `send`, `receive`, `ack` and `deregister`.
 - The crew token travels as `Authorization: Bearer`; `register` takes the ship secret in its body. The console session cookie is never read here.
 - `GET /api/v1/openapi.json`: the OpenAPI 3.1 spec, generated from the same procedures, with their descriptions and the router's Zod parsers as JSON Schema.
-- A refusal answers with its code's HTTP status and `{ "code", "message" }`; a server failure with 500, `Internal error` and the request's id (`requestId`), and the log holds the whole failure under that id.
+- A refusal answers with its code's HTTP status and `{ "code", "message" }`; a call without a valid crew token is told to call with the crew token alone, since a ship has no console to sign in to.
+- A failure, in a procedure or in the adapter itself, answers 500 with `Internal error` and the request's id (`requestId`), and the log holds the whole failure under that id. Fastify's own refusals, such as a body that is not JSON, keep Fastify's format for now.
