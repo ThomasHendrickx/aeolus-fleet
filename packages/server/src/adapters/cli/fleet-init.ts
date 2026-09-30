@@ -1,7 +1,9 @@
 import { parseArgs } from 'node:util';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
-import { askNewPassword, type CommandIo, type ExitCode } from './io.js';
+import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
+
+const NOTHING_CREATED = 'Nothing was created.';
 
 const USAGE = 'Usage: npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"';
 
@@ -27,6 +29,11 @@ export async function fleetInit(
     io.err(`fleet:init needs the fleet's name.\n${USAGE}`);
     return 2;
   }
+  const nameRefusal = nulRefusal([{ name: 'fleet name', text: name }], NOTHING_CREATED);
+  if (nameRefusal !== undefined) {
+    io.err(nameRefusal);
+    return 1;
+  }
 
   const email = await io.ask('Operator email: ');
   const password = email === undefined ? { kind: 'ended' as const } : await askNewPassword(io, 'Operator password: ');
@@ -36,6 +43,17 @@ export async function fleetInit(
   }
   if (password.kind === 'differ') {
     io.err('The two passwords differ. Nothing was created.');
+    return 1;
+  }
+  const answerRefusal = nulRefusal(
+    [
+      { name: 'operator email', text: email },
+      { name: 'operator password', text: password.password },
+    ],
+    NOTHING_CREATED,
+  );
+  if (answerRefusal !== undefined) {
+    io.err(answerRefusal);
     return 1;
   }
 

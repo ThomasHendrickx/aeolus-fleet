@@ -26,3 +26,12 @@ export async function askNewPassword(io: CommandIo, question: string): Promise<N
   }
   return password === repeated ? { kind: 'given', password } : { kind: 'differ' };
 }
+
+/**
+ * Postgres text can never store the character U+0000, so a command refuses
+ * it as the API does, naming what holds it. Undefined when no text does.
+ */
+export function nulRefusal(texts: readonly { name: string; text: string }[], outcome: string): string | undefined {
+  const holding = texts.find(({ text }) => text.includes('\u0000'));
+  return holding && `The ${holding.name} cannot hold the character U+0000 (NUL). ${outcome}`;
+}
