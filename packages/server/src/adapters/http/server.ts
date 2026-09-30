@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
@@ -44,6 +46,8 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const server = Fastify({
     logger: options.logger ?? false,
     trustProxy: options.shouldTrustProxy ?? false,
+    // Unique across restarts, so a caller's request id finds one log line.
+    genReqId: () => randomUUID(),
     // tRPC batches several procedure paths into one URL segment.
     routerOptions: { maxParamLength: 5000 },
   });
@@ -104,13 +108,15 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         origin: req.headers.origin,
         consoleOrigin,
         clientKey: req.ip,
+        requestId: req.id,
         takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
         registerFailures,
       }),
-      // A failure's stack trace goes to the log only, never into the answer.
-      onError: ({ path, error }) => {
+      // The whole failure goes to the log only, under the request's id (the
+      // label Fastify's own request lines use); the answer carries that id.
+      onError: ({ path, error, ctx }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {
-          server.log.error({ path, reason: error.message, stack: error.stack }, 'procedure failed');
+          server.log.error({ reqId: ctx?.requestId, path, reason: error.message, stack: error.stack }, 'procedure failed');
         }
       },
     },

@@ -47,6 +47,8 @@ export interface Context {
   consoleOrigin: string;
   /** Who is asking, for rate limits: the client address. */
   clientKey: string;
+  /** This request's own id: a server failure answers with it, and its log line carries it. */
+  requestId: string;
   /** Counts sign-in attempts per client; false when over the limit. */
   takeSignInAttempt: (clientKey: string) => boolean;
   /**

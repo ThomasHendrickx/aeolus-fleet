@@ -6,9 +6,19 @@ import type { DomainError, DomainErrorKind } from '../../core/shared/errors.js';
 import type { Result } from '../../core/shared/result.js';
 import type { Context } from './context.js';
 
+/** All a caller learns of a server failure, with the request's id; the log keeps the rest under that id. */
+const INTERNAL_ERROR_MESSAGE = 'Internal error';
+
 // Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
-// trace into every error it answers. The server logs failures instead.
-const t = initTRPC.context<Context>().create({ isDev: false });
+// trace into every error it answers. A server failure answers only that it
+// failed and the request's id; a refusal keeps its own code and message.
+const t = initTRPC.context<Context>().create({
+  isDev: false,
+  errorFormatter: ({ shape, error, ctx }) =>
+    error.code === 'INTERNAL_SERVER_ERROR'
+      ? { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } }
+      : shape,
+});
 
 export const router = t.router;
 
