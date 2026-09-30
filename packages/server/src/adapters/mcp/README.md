@@ -4,6 +4,7 @@
 
 - One tool per ship procedure (`register`, `whoami`, `send`, `receive`, `ack`, `deregister`), listed and called through the router by `trpc/ship-contract.ts`. It holds no logic of its own (ADR 0004); lint keeps the core out of it.
 - The connection carries no ship (ADR 0015): every tool but `register` takes the crew token as its `crewToken` argument, and no header of the connection is read as a credential.
-- A tool's description is its procedure's description; its input and output schemas are the router's Zod parsers as JSON Schema. The router, not the SDK, validates the arguments.
+- The server instructions, which a client reads when it connects in either protocol era, are the ship protocol (`trpc/ship-protocol.ts`): how to crew a ship, from register to the end of the turn. The OpenAPI spec at `/api/v1` opens with the same text.
+- A tool's description is its procedure's description, which states that call's own rules and none of the protocol's; its input and output schemas are the router's Zod parsers as JSON Schema. The router, not the SDK, validates the arguments.
 - A refusal is a tool error reading `CODE: message`; a call without a valid crew token reads `UNAUTHORIZED: Call with the crew token register gave you`, since a ship has no console to sign in to.
 - A failure, in a procedure or in the adapter itself, reads only `INTERNAL_SERVER_ERROR: Internal error (request id ...)` (a request that fails before it reaches a tool: 500 with the REST error body), and the log holds the whole failure under that id.

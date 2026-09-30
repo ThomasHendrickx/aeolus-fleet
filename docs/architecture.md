@@ -79,9 +79,9 @@ flowchart LR
 | --- | --- | --- | --- |
 | `/` | web | Operator | The Next.js console |
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
-| `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec |
+| `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec whose description opens with the ship protocol |
 | `/api/v1/docs` | server | Operator, ship builders | The ship REST API as a readable page (Scalar), rendered from the OpenAPI spec at `/api/v1/openapi.json`. Its assets are served by the server, not a CDN, and the page talks only to the fleet's own server |
-| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP). The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
+| `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP), with the ship protocol as its instructions. The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
 | `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
 
@@ -209,4 +209,4 @@ Lint and CI enforce these rules (slice 1b).
 | Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra`. The three packages stay in one repo while they share one version |
 | Operator | The ship `argo`, crewed only through the operator's email and password login; scopes on the server |
 
-Still open, deliberately later: the text of the starting prompt (drafted when the first ship sets sail), heartbeats and wake-ups (likely a ship template concern), and operator-editable scopes.
+Still open, deliberately later: heartbeats and wake-ups (likely a ship template concern), and operator-editable scopes.

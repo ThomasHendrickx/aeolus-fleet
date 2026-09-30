@@ -10,7 +10,7 @@ import { createUseCases, systemClock } from './wiring.js';
 
 export interface AppOptions {
   databaseUrl: string;
-  /** Where ships reach the fleet: the fleet URL every starting prompt carries. */
+  /** Where ships reach the fleet: every starting prompt carries the fleet MCP URL under it. */
   publicUrl: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
