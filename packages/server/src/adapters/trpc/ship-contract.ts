@@ -36,7 +36,8 @@ export interface ShipCall {
   description: string;
   /** How the caller says who it is: the ship secret in the input (`register`), or the crew token. */
   credential: 'secret' | 'crewToken';
-  input: ObjectSchema;
+  /** What it takes, if anything, and whether it may be left out (`receive`). */
+  input?: { schema: ObjectSchema; isRequired: boolean };
   output: ObjectSchema;
 }
 
@@ -48,18 +49,29 @@ const objectSchema = z.looseObject({
 
 const metaSchema: z.ZodType<ProcedureMeta> = z.object({ description: z.string().min(1) });
 
-/** The JSON Schema of a procedure's parser: what it takes (`input`) or what it answers (`output`). */
-function jsonSchemaOf(parser: unknown, io: 'input' | 'output'): ObjectSchema {
-  if (parser === undefined) {
-    return { type: 'object', properties: {}, required: [] };
-  }
+/** A procedure's parser, which must be Zod so its JSON Schema can be generated. */
+function zodParser(parser: unknown): z.ZodType {
   if (!(parser instanceof z.ZodType)) {
     throw new TypeError('A ship procedure parses its input and output with Zod, so its JSON Schema can be generated');
   }
+  return parser;
+}
+
+/** The JSON Schema of a procedure's parser: what it takes (`input`) or what it answers (`output`). */
+function jsonSchemaOf(parser: z.ZodType, io: 'input' | 'output'): ObjectSchema {
   // JSON Schema 2020-12, the dialect of OpenAPI 3.1 and MCP alike; naming it is left to the document holding it.
   const schema: Record<string, unknown> = { ...z.toJSONSchema(parser, { io }) };
   delete schema.$schema;
   return objectSchema.parse(schema);
+}
+
+/** What a procedure takes: none without an input parser; optional when its parser takes nothing at all. */
+function inputOf(parser: unknown): ShipCall['input'] {
+  if (parser === undefined) {
+    return undefined;
+  }
+  const input = zodParser(parser);
+  return { schema: jsonSchemaOf(input, 'input'), isRequired: !input.safeParse(undefined).success };
 }
 
 /** Every procedure under `ship`, in the router's order. Built once: the router never changes while the server runs. */
@@ -73,8 +85,8 @@ export const SHIP_CALLS: readonly ShipCall[] = Object.entries(appRouter.ship).ma
     type,
     description: metaSchema.parse(meta).description,
     credential: name === 'register' ? 'secret' : 'crewToken',
-    input: jsonSchemaOf(inputs[0], 'input'),
-    output: jsonSchemaOf(output, 'output'),
+    input: inputOf(inputs[0]),
+    output: jsonSchemaOf(zodParser(output), 'output'),
   };
 });
 
@@ -87,14 +99,12 @@ export interface ShipCallRefusal {
   requestId?: string;
 }
 
-export type ShipCallResult =
-  | { isOk: true; output: unknown }
-  | {
-      isOk: false;
-      refusal: ShipCallRefusal;
-      /** The whole error of a server failure, for the log only; never shown to the caller. */
-      failure?: TRPCError;
-    };
+export type ShipCallResult = { isOk: true; output: unknown } | { isOk: false; refusal: ShipCallRefusal };
+
+/** Where a server failure is logged whole: the request's own logger, which labels it with the request's id. */
+export interface FailureLog {
+  error(details: { path: string; reason: string; stack: string | undefined }, message: string): void;
+}
 
 /**
  * What a caller reads of an error. A refusal keeps its code and message, an
@@ -114,10 +124,14 @@ function refusalOf(error: TRPCError, requestId: string): ShipCallRefusal {
 /**
  * Calls the procedure with the raw input, as the context's caller. The
  * credentials in the context are the door's: a bearer crew token for REST, the
- * `crewToken` argument for MCP.
+ * `crewToken` argument for MCP. A server failure goes to the log whole, as
+ * `/trpc` logs it; the caller learns only that it failed.
  */
-export async function callShip(call: ShipCall, request: { ctx: Context; input: unknown }): Promise<ShipCallResult> {
-  const { ctx, input } = request;
+export async function callShip(
+  call: ShipCall,
+  request: { ctx: Context; input: unknown; log: FailureLog },
+): Promise<ShipCallResult> {
+  const { ctx, input, log } = request;
   try {
     const output: unknown = await callTRPCProcedure({
       router: appRouter,
@@ -131,7 +145,9 @@ export async function callShip(call: ShipCall, request: { ctx: Context; input: u
     return { isOk: true, output };
   } catch (thrown) {
     const error = getTRPCErrorFromUnknown(thrown);
-    const refusal = refusalOf(error, ctx.requestId);
-    return error.code === 'INTERNAL_SERVER_ERROR' ? { isOk: false, refusal, failure: error } : { isOk: false, refusal };
+    if (error.code === 'INTERNAL_SERVER_ERROR') {
+      log.error({ path: call.path, reason: error.message, stack: error.stack }, 'procedure failed');
+    }
+    return { isOk: false, refusal: refusalOf(error, ctx.requestId) };
   }
 }

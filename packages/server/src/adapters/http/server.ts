@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyServerO
 
 import type { Clock } from '../../core/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
+import { registerRestApi } from '../rest/rest-api.js';
 import type { Context, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
@@ -46,10 +47,10 @@ const PREFLIGHT_MAX_AGE_S = 600;
 const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined };
 
 /**
- * The HTTP host: `/trpc` for the API, `/mcp` for ships, and `/health` for
- * monitoring. REST (`/api/v1`) is mounted here once it exists. Every door
- * builds its calls' context the same way, so the register limit is one
- * budget per client address across all of them.
+ * The HTTP host: `/trpc` for the API, `/api/v1` (REST) and `/mcp` for ships,
+ * and `/health` for monitoring. Every door builds its calls' context the same
+ * way, so the register limit is one budget per client address across all of
+ * them.
  */
 export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const server = Fastify({
@@ -144,9 +145,13 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   };
   void server.register(fastifyTRPCPlugin, trpc);
 
-  registerMcpEndpoint(server, {
-    contextFor: (request, credentials) => contextFor(request, { credentials, sessionCookie: NO_SESSION_COOKIE }),
-  });
+  // The doors for ships: the credentials are the ones the call carries, never the console session.
+  const shipDoor = {
+    contextFor: (request: FastifyRequest, credentials: RequestCredentials) =>
+      contextFor(request, { credentials, sessionCookie: NO_SESSION_COOKIE }),
+  };
+  registerRestApi(server, shipDoor);
+  registerMcpEndpoint(server, shipDoor);
 
   return server;
 }

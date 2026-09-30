@@ -30,14 +30,15 @@ const crewTokenArgument = z.string();
 
 /** A ship call as an MCP tool: every one but `register` asks for the crew token first. */
 function toolOf(call: ShipCall): Tool {
+  const input = call.input?.schema ?? { type: 'object', properties: {}, required: [] };
   const inputSchema =
     call.credential === 'crewToken'
       ? {
-          ...call.input,
-          properties: { crewToken: CREW_TOKEN_PROPERTY, ...call.input.properties },
-          required: ['crewToken', ...call.input.required],
+          ...input,
+          properties: { crewToken: CREW_TOKEN_PROPERTY, ...input.properties },
+          required: ['crewToken', ...input.required],
         }
-      : call.input;
+      : input;
   return { name: call.name, description: call.description, inputSchema, outputSchema: call.output };
 }
 
@@ -82,17 +83,11 @@ function shipToolServer(request: FastifyRequest, options: McpEndpointOptions): M
     const result = await callShip(
       call,
       call.credential === 'crewToken'
-        ? { ctx: options.contextFor(request, { bearer: crewTokenArgument.safeParse(crewToken).data }), input }
-        : { ctx: options.contextFor(request, {}), input: args },
+        ? { ctx: options.contextFor(request, { bearer: crewTokenArgument.safeParse(crewToken).data }), input, log: request.log }
+        : { ctx: options.contextFor(request, {}), input: args, log: request.log },
     );
 
     if (!result.isOk) {
-      if (result.failure) {
-        request.log.error(
-          { path: call.path, reason: result.failure.message, stack: result.failure.stack },
-          'procedure failed',
-        );
-      }
       return refusalResult(result.refusal);
     }
     const structuredContent = z.record(z.string(), z.unknown()).parse(result.output);

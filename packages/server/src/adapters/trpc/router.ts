@@ -4,7 +4,7 @@ import { shipRouter } from './ship.js';
 import { systemRouter } from './system.js';
 import { router } from './trpc.js';
 
-/** The single API door (ADR 0004). REST and MCP will map onto these procedures. */
+/** The single API door (ADR 0004). REST and MCP map onto its ship procedures (ship-contract.ts). */
 export const appRouter = router({
   console: consoleRouter,
   fleet: fleetRouter,
