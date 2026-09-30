@@ -18,35 +18,10 @@ Companion document: [the product and domain blueprint](blueprint.md).
 
 The server has exactly one API door: a tRPC router. The web app calls it like any other client, so there is no private back door for the console. For ships, the same procedures are also reachable as REST (with an OpenAPI spec generated from the router) and as MCP tools, so an agent gets identical behaviour whichever way it connects. Behind the door, the domain core is built as ports and adapters.
 
-```mermaid
-flowchart LR
-  subgraph clients[Clients]
-    web["Operator web app"]
-    shipm["Ship via MCP"]
-    shipr["Ship via REST"]
-  end
-  subgraph server["@aeolus-fleet/server"]
-    router["tRPC router<br/>(REST and MCP mapped onto it)"]
-    subgraph core["core: no framework, no SQL"]
-      reg["Registry"]
-      msg["Messaging"]
-      idn["Identity"]
-    end
-    subgraph out["Outbound adapters"]
-      repo["Prisma repositories"]
-      uow["Unit of work"]
-      evl["Event log"]
-      ntf["Notifier (LISTEN/NOTIFY)"]
-    end
-  end
-  db[("Postgres")]
-  web --> router
-  shipm --> router
-  shipr --> router
-  router --> core
-  core --> out
-  out --> db
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/architecture-dark.svg">
+  <img alt="Aeolus architecture: clients reach one tRPC router directly or through the MCP and REST adapters; the router calls the core contexts Registry, Messaging and Identity, which use outbound adapters backed by Postgres." src="images/architecture-light.svg" width="680">
+</picture>
 
 ### The router
 

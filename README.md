@@ -23,35 +23,10 @@ Pre-v1, design complete, build starting. The v1 acceptance test: two ships excha
 
 ## Architecture
 
-```mermaid
-flowchart TB
-  console["Operator console<br/>@aeolus-fleet/web"]
-  mcpc["Agent via MCP<br/>Claude Code, chat"]
-  restc["Agent via REST<br/>any HTTP client"]
-  subgraph server["@aeolus-fleet/server"]
-    mcp["MCP adapter<br/>/mcp, crew token as argument"]
-    rest["REST adapter<br/>/api/v1 plus OpenAPI"]
-    router["tRPC router, the single door<br/>crew token or session, then scopes"]
-    subgraph core["core: no framework, no SQL"]
-      reg["Registry<br/>ships, leases, prompts"]
-      msg["Messaging<br/>messages, deliveries"]
-      idn["Identity<br/>tokens, operator login"]
-    end
-    subgraph out["Outbound adapters"]
-      repo["Repositories<br/>Prisma"]
-      uow["Unit of work<br/>one transaction"]
-      evl["Event log<br/>same transaction"]
-      ntf["Notifier<br/>LISTEN/NOTIFY"]
-    end
-  end
-  db[("Postgres<br/>broker, source of truth")]
-  console --> router
-  mcpc --> mcp --> router
-  restc --> rest --> router
-  router --> core
-  core --> out
-  out --> db
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.svg">
+  <img alt="Aeolus architecture: clients reach one tRPC router directly or through the MCP and REST adapters; the router calls the core contexts Registry, Messaging and Identity, which use outbound adapters backed by Postgres." src="docs/images/architecture-light.svg" width="680">
+</picture>
 
 Details in the [architecture](docs/architecture.md).
 
