@@ -1,15 +1,18 @@
-import { CONTENT_TYPE_MAX_LENGTH, isMediaType } from '@aeolus-fleet/common';
+import { CONTENT_TYPE_DEFAULT, CONTENT_TYPE_MAX_LENGTH, isMediaType } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 
 /**
  * What a payload's text is, as its sender says: any well-formed media type,
- * taken exactly as given and passed on untouched. The fleet never reads the
- * payload by it and allows no list of its own (ADR 0016). The rule is shared
- * with the common schema.
+ * taken exactly as given and passed on untouched, and text/plain when the
+ * sender does not say. The fleet never reads the payload by it and allows no
+ * list of its own (ADR 0016). The rule is shared with the common schema.
  */
-export function contentType(raw: string): Result<string, DomainError<'INVALID_CONTENT_TYPE'>> {
+export function contentType(raw: string | undefined): Result<string, DomainError<'INVALID_CONTENT_TYPE'>> {
+  if (raw === undefined) {
+    return ok(CONTENT_TYPE_DEFAULT);
+  }
   return raw.length <= CONTENT_TYPE_MAX_LENGTH && isMediaType(raw)
     ? ok(raw)
     : refuse(
