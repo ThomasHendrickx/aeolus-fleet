@@ -68,9 +68,54 @@ describe('the TDD evidence check', () => {
   it('refuses a second production commit after one (red) commit', () => {
     red();
     green('feat(registry): the rule');
+    const head = green('feat(registry): another rule');
+
+    expect(violations(head)).toEqual([expect.stringContaining('"feat(registry): another rule"')]);
+  });
+
+  it('passes a refactor(...) commit directly after a green commit, without a (red) commit', () => {
+    red();
+    green('feat(registry): the rule');
+    const head = green('refactor(registry): tidy the rule');
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it('refuses a refactor(...) commit that does not come directly after a green commit', () => {
+    red();
+    green('feat(registry): the rule');
+    repository.write('docs/notes.md', 'notes\n');
+    repository.commit('docs: notes');
     const head = green('refactor(registry): tidy the rule');
 
     expect(violations(head)).toEqual([expect.stringContaining('"refactor(registry): tidy the rule"')]);
+  });
+
+  it('refuses a second refactor(...) commit after one green commit', () => {
+    red();
+    green('feat(registry): the rule');
+    green('refactor(registry): tidy the rule');
+    const head = green('refactor(registry): tidy it again');
+
+    expect(violations(head)).toEqual([expect.stringContaining('"refactor(registry): tidy it again"')]);
+  });
+
+  it('refuses a refactor(...) commit after production code that had no (red) commit', () => {
+    const untested = green('feat(registry): untested');
+    const head = green('refactor(registry): tidy the rule');
+
+    expect(violations(head)).toEqual([
+      expect.stringContaining(`${untested.slice(0, 12)} "feat(registry): untested"`),
+      expect.stringContaining('"refactor(registry): tidy the rule"'),
+    ]);
+  });
+
+  it('takes only a subject starting with refactor(...) as a refactor', () => {
+    red();
+    green('feat(registry): the rule');
+    const head = green('chore(registry): refactor(registry) the rule');
+
+    expect(violations(head)).toHaveLength(1);
   });
 
   it('refuses a (red) commit that also changes production code', () => {
