@@ -61,4 +61,6 @@ Load the matching skill from `.claude/skills/` before writing code. They are man
 
 - One slice per session, one PR per slice. Keep the slice thin; list what you noticed but did not do.
 - Commit per logical step, not one catch-up commit.
-- Every session ends with docs/work-history/YYYY-MM-DD.<slice-name>.md: the prompt, every file touched, key decisions.
+- Repo text must serve the current commit. What git shows (what changed, the steps taken) lives in commits and the PR, never in files. Decisions go into the docs or an ADR as current state.
+- Earlier slices are not precedent. Do what the prompt and docs ask, nothing more. New rules, checks, exceptions or process steps come only from Thomas: propose, never add.
+- No self-review passes. The one review is a clean-room session after the PR.
