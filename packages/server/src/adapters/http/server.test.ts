@@ -1,9 +1,11 @@
+import type { FleetId, Scope } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
   addAgentShip,
+  crewShip,
   identityUseCases,
   initialiseFleet,
   OPERATOR,
@@ -77,6 +79,16 @@ function cookieOf(response: { headers: Record<string, unknown> }): string {
     throw new Error('expected one Set-Cookie header');
   }
   return header.split(';')[0] ?? '';
+}
+
+function fleetIdOf(inMemory: InMemoryCore): FleetId {
+  return inMemory.state.fleets[0]?.id ?? expect.unreachable();
+}
+
+/** An agent ship a session crews, straight into the state; returns its crew token. */
+function crewedAgent(scopes?: Scope[]): string {
+  const agent = addAgentShip(core, { fleetId: fleetIdOf(core), scopes });
+  return crewShip(core, { fleetId: fleetIdOf(core), shipId: agent.shipId });
 }
 
 const trpcErrorBody = z.object({ error: z.object({ data: z.object({ code: z.string() }) }) });
@@ -175,40 +187,53 @@ describe('console.signIn', () => {
 });
 
 describe('a procedure that needs a scope', () => {
-  it('refuses a call without a secret or a session with 401', async () => {
+  it('refuses a call without a crew token or a session with 401', async () => {
     start();
 
     const response = await ping();
 
     expect(response.statusCode).toBe(401);
     expect(errorCode(response)).toBe('UNAUTHORIZED');
+    expect(response.json<{ error: { message: string } }>().error.message).toBe(
+      'Sign in, or call with the crew token register gave you',
+    );
   });
 
   it('refuses a ship without the scope with 403', async () => {
     start();
-    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
+    const crewToken = crewedAgent();
 
-    const response = await ping({ authorization: `Bearer ${agent.secret}` });
+    const response = await ping({ authorization: `Bearer ${crewToken}` });
 
     expect(response.statusCode).toBe(403);
     expect(response.json<{ error: { message: string } }>().error.message).toBe('This call needs the fleet:read scope');
   });
 
-  it('serves a ship with the scope, by secret', async () => {
+  it('serves a ship with the scope, by its crew token', async () => {
     start();
-    const reader = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable(), scopes: ['fleet:read'] });
+    const crewToken = crewedAgent(['fleet:read']);
 
-    const response = await ping({ authorization: `Bearer ${reader.secret}` });
+    const response = await ping({ authorization: `Bearer ${crewToken}` });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ result: { data: { serverTime: '2026-09-29T12:00:00.000Z', fleetCount: 1 } } });
   });
 
-  it('refuses a wrong bearer secret even with a valid session cookie', async () => {
+  it('refuses the ship secret as the bearer: the secret works only for register', async () => {
+    start();
+    const reader = addAgentShip(core, { fleetId: fleetIdOf(core), scopes: ['fleet:read'] });
+    crewShip(core, { fleetId: fleetIdOf(core), shipId: reader.shipId });
+
+    const response = await ping({ authorization: `Bearer ${reader.secret}` });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('refuses a wrong bearer crew token even with a valid session cookie', async () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
 
-    const response = await ping({ authorization: 'Bearer aeolus_sk_v1_wrong', cookie });
+    const response = await ping({ authorization: 'Bearer aeolus_ct_v1_wrong', cookie });
 
     expect(response.statusCode).toBe(401);
   });

@@ -38,6 +38,14 @@ async function eventsAbout(shipId: ShipId) {
   return events.map((event) => [event.type, event.actorShipId, event.details]);
 }
 
+/** The ship a secret is valid for, the one it claims; undefined once the secret is invalid. */
+async function shipOfValidSecret(secret: string): Promise<string | undefined> {
+  const credential = await core.prisma.credential.findFirst({
+    where: { secretHash: sha256Hasher.hash(secret), invalidatedAt: null },
+  });
+  return credential?.shipId;
+}
+
 async function shipsNamed(name: string) {
   return core.prisma.ship.findMany({ where: { fleetId, name }, orderBy: { id: 'asc' } });
 }
@@ -202,13 +210,8 @@ describe('getting a starting prompt on Postgres', () => {
   it('replaces the secret: the previous one fails on the very next call, the new one works', async () => {
     const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.bySecret(secretIn(prompt))).resolves.toEqual({
-      shipId: scoutId,
-      fleetId,
-      kind: 'agent',
-      scopes: ['messages:send', 'messages:receive'],
-    });
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBeUndefined();
+    await expect(shipOfValidSecret(secretIn(prompt))).resolves.toBe(scoutId);
     await expect(validSecretsOfScout()).resolves.toEqual([
       expect.objectContaining({ secretHash: sha256Hasher.hash(secretIn(prompt)), issuedAt: core.clock.now() }),
     ]);
@@ -244,7 +247,7 @@ describe('getting a starting prompt on Postgres', () => {
       isOk: false,
       error: { kind: 'SHIP_NOT_AWAITING_CREW' },
     });
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBe(scoutId);
   });
 
   it('is refused for argo', async () => {
@@ -280,10 +283,8 @@ describe('getting a starting prompt on Postgres', () => {
     const valid = await validSecretsOfScout();
     expect(valid).toHaveLength(1);
     const prompts = results.flatMap((result) => (result.isOk ? [result.value.prompt] : []));
-    const working = await Promise.all(
-      prompts.map((prompt) => core.useCases.authenticate.bySecret(secretIn(prompt))),
-    );
-    expect(working.filter((caller) => caller !== undefined)).toHaveLength(1);
+    const working = await Promise.all(prompts.map((prompt) => shipOfValidSecret(secretIn(prompt))));
+    expect(working.filter((shipId) => shipId !== undefined)).toHaveLength(1);
   });
 
   it('leaves the previous secret valid when a write fails halfway', async () => {
@@ -303,7 +304,7 @@ describe('getting a starting prompt on Postgres', () => {
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('disk full');
 
     await expect(everyRow(core.prisma)).resolves.toBe(before);
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBe(scoutId);
   });
 });
 

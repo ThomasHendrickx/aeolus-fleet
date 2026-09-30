@@ -76,7 +76,7 @@ async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undef
  * unless told otherwise. Commissioning always gives the agent scopes, so a ship
  * with other scopes comes only this way.
  */
-async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']): Promise<string> {
+async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']): Promise<{ shipId: ShipId; secret: string }> {
   const shipId = newId('ship');
   const secret = `aeolus_sk_v1_${newId('credential')}`;
   await database.ship.create({
@@ -93,7 +93,24 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
   await database.credential.create({
     data: { id: newId('credential'), fleetId, shipId, secretHash: sha256Hasher.hash(secret), issuedAt: clock.now() },
   });
-  return secret;
+  return { shipId, secret };
+}
+
+/** An agent ship a session crews, straight into the database, as {@link agentShip} makes it; returns its crew token. */
+async function crewedShip(scopes?: Scope[]): Promise<string> {
+  const { shipId } = await agentShip(scopes);
+  const crewToken = `aeolus_ct_v1_${newId('lease')}`;
+  await database.lease.create({
+    data: {
+      id: newId('lease'),
+      fleetId,
+      shipId,
+      location: 'DEVICE',
+      crewTokenHash: sha256Hasher.hash(crewToken),
+      startedAt: clock.now(),
+    },
+  });
+  return crewToken;
 }
 
 async function signIn(login: { email: string; password: string } = OPERATOR): Promise<Response> {
@@ -141,33 +158,28 @@ describe('scopes at the API', () => {
   });
 
   it('refuse system.ping to an agent ship, which lacks fleet:read', async () => {
-    const secret = await agentShip();
+    const crewToken = await crewedShip();
 
-    await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).system.ping.query())).resolves.toBe(
+      'FORBIDDEN',
+    );
   });
 
-  it('serve system.ping to a ship with fleet:read', async () => {
-    const secret = await agentShip(['fleet:read']);
+  it('serve system.ping to a ship with fleet:read, by its crew token', async () => {
+    const crewToken = await crewedShip(['fleet:read']);
 
-    await expect(client({ authorization: `Bearer ${secret}` }).system.ping.query()).resolves.toEqual({
+    await expect(client({ authorization: `Bearer ${crewToken}` }).system.ping.query()).resolves.toEqual({
       serverTime: clock.now().toISOString(),
       fleetCount: 1,
     });
   });
 
-  it('refuse a secret stored for argo: argo has no secret, only the console session crews it', async () => {
-    const secret = `aeolus_sk_v1_${newId('credential')}`;
-    await database.credential.create({
-      data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: clock.now() },
-    });
+  it('refuse a ship secret as the bearer: the secret works only for register', async () => {
+    const { secret } = await agentShip(['fleet:read']);
 
-    try {
-      await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe(
-        'UNAUTHORIZED',
-      );
-    } finally {
-      await database.credential.deleteMany({ where: { shipId: argoId } });
-    }
+    await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe(
+      'UNAUTHORIZED',
+    );
   });
 });
 
@@ -232,7 +244,7 @@ describe('the fleet procedures at the API', () => {
   });
 
   it('refuse fleet.commission and fleet.getStartingPrompt to an agent ship, which lacks fleet:manage', async () => {
-    const agent = client({ authorization: `Bearer ${await agentShip()}` });
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
 
     await expect(codeOf(agent.fleet.commission.mutate({ name: 'stowaway', type: 'reviewer' }))).resolves.toBe(
       'FORBIDDEN',
@@ -242,13 +254,13 @@ describe('the fleet procedures at the API', () => {
   });
 
   it('refuse fleet.list to an agent ship, which lacks fleet:read', async () => {
-    const agent = client({ authorization: `Bearer ${await agentShip()}` });
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
 
     await expect(codeOf(agent.fleet.list.query())).resolves.toBe('FORBIDDEN');
   });
 
   it('serve fleet.list to a ship with fleet:read, and refuse it fleet.commission without fleet:manage', async () => {
-    const reader = client({ authorization: `Bearer ${await agentShip(['fleet:read'])}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
 
     const listed = await reader.fleet.list.query();
     expect(listed.map((ship) => ship.id)).toContain(argoId);
@@ -281,12 +293,8 @@ describe('the fleet procedures at the API', () => {
     const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
 
     expect(secretIn(prompt)).not.toBe(secretIn(first));
-    await expect(codeOf(client({ authorization: `Bearer ${secretIn(first)}` }).fleet.list.query())).resolves.toBe(
-      'UNAUTHORIZED',
-    );
-    await expect(codeOf(client({ authorization: `Bearer ${secretIn(prompt)}` }).fleet.list.query())).resolves.toBe(
-      'FORBIDDEN',
-    );
+    const valid = await database.credential.findMany({ where: { shipId, invalidatedAt: null } });
+    expect(valid.map((credential) => credential.secretHash)).toEqual([sha256Hasher.hash(secretIn(prompt))]);
   });
 
   it('refuse a commission with a name an active ship holds', async () => {

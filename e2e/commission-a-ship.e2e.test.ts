@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { sha256Hasher } from '../packages/server/src/adapters/crypto/secrets.js';
 import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
 import { createApp } from '../packages/server/src/app.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
@@ -75,8 +76,12 @@ async function promptSecretIn(page: Page, shipName: string): Promise<string> {
   return secretIn((await promptBlock(page, shipName).getByTestId('starting-prompt-text').textContent()) ?? '');
 }
 
+/** Whether the secret is still valid: the one a session can claim its ship with. */
 async function isValid(shipSecret: string): Promise<boolean> {
-  return (await useCases.authenticate.bySecret(shipSecret)) !== undefined;
+  const valid = await database.credential.count({
+    where: { secretHash: sha256Hasher.hash(shipSecret), invalidatedAt: null },
+  });
+  return valid === 1;
 }
 
 describe('commissioning a ship in the console', () => {

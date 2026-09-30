@@ -277,16 +277,18 @@ describe('resetting the operator password on Postgres', () => {
 });
 
 describe('the caller lookups', () => {
-  async function commissionedSecret(): Promise<{ shipId: ShipId; secret: string }> {
+  async function claimedScout(): Promise<{ shipId: ShipId; secret: string; crewToken: string }> {
     const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
     const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
-    return { shipId, secret: secretIn(prompt) };
+    const secret = secretIn(prompt);
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' } }));
+    return { shipId, secret, crewToken };
   }
 
-  it('find the ship, fleet, kind and scopes by secret hash alone', async () => {
-    const { shipId, secret } = await commissionedSecret();
+  it('find the ship, fleet, kind and scopes by crew token hash alone', async () => {
+    const { shipId, crewToken } = await claimedScout();
 
-    await expect(core.useCases.authenticate.bySecret(secret)).resolves.toEqual({
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
       shipId,
       fleetId,
       kind: 'agent',
@@ -294,19 +296,28 @@ describe('the caller lookups', () => {
     });
   });
 
-  it('know no secret of another length or content', async () => {
-    const { secret } = await commissionedSecret();
+  it('know no crew token of another length or content, and take neither the secret nor a crew token for the other', async () => {
+    const { secret, crewToken } = await claimedScout();
 
-    await expect(core.useCases.authenticate.bySecret(`${secret}x`)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.byConsoleSession(secret)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(`${crewToken}x`)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(secret)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byConsoleSession(crewToken)).resolves.toBeUndefined();
   });
 
-  it('never find argo by a secret, even one stored for it', async () => {
-    const secret = 'aeolus_sk_v1_stored-for-argo';
-    await core.prisma.credential.create({
-      data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: core.clock.now() },
-    });
+  it('know no crew token once its lease has ended', async () => {
+    const { shipId, crewToken } = await claimedScout();
+    // Release and deregister arrive with a later slice.
+    await core.prisma.lease.updateMany({ where: { shipId }, data: { endedAt: core.clock.now() } });
 
-    await expect(core.useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+  });
+
+  it('know no crew token of a retired ship', async () => {
+    const { shipId, crewToken } = await claimedScout();
+    // Retiring arrives with a later slice.
+    await core.prisma.ship.update({ where: { id: shipId }, data: { retiredAt: core.clock.now() } });
+
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
   });
 });
+

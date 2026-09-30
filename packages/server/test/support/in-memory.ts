@@ -306,10 +306,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const callers: CallerLookup = {
-    bySecretHash: async (secretHash) => {
-      const credential = await tx.credentials.findValidBySecretHashForUpdate(secretHash);
-      const owner = credential && ship(credential.fleetId, credential.shipId);
-      return owner?.retiredAt === null ? authenticated(owner) : undefined;
+    byCrewTokenHash: (crewTokenHash) => {
+      const lease = state.leases.find((held) => held.crewTokenHash === crewTokenHash && held.endedAt === null);
+      const owner = lease && ship(lease.fleetId, lease.shipId);
+      return Promise.resolve(owner?.retiredAt === null ? authenticated(owner) : undefined);
     },
     useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
       const session = state.consoleSessions.find(
