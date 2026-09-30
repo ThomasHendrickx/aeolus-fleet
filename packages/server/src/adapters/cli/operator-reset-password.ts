@@ -4,7 +4,7 @@ import type { ResetOperatorPassword } from '../../core/identity/reset-operator-p
 import type { ListFleets } from '../../core/registry/list-fleets.js';
 import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
 
-const USAGE = 'Usage: npm run operator:reset-password -w @aeolus-fleet/server';
+const USAGE = 'Usage: aeolus-server operator:reset-password';
 
 /**
  * `operator:reset-password`: asks for a new operator password, sets it, and

@@ -19,8 +19,12 @@
       "default": "./dist/index.js"
     }
   },
+  "bin": {
+    "aeolus-server": "dist/bin/aeolus-server.js"
+  },
   "files": [
     "dist",
+    "prisma.config.ts",
     "src/adapters/prisma/schema.prisma",
     "src/adapters/prisma/migrations"
   ],
@@ -28,11 +32,12 @@
     "generate": "prisma generate",
     "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --project tsconfig.json",
-    "dev": "tsx watch --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/main.ts",
-    "start": "node dist/main.js",
-    "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/fleet-init.ts",
-    "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/operator-reset-password.ts",
-    "db:migrate": "prisma migrate deploy"
+    "dev": "tsx watch --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts start",
+    "start": "node dist/bin/aeolus-server.js start",
+    "aeolus-server": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts",
+    "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts fleet:init",
+    "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts operator:reset-password",
+    "db:migrate": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts migrate"
   },
   "dependencies": {
     "@aeolus-fleet/common": "0.0.0",
@@ -43,6 +48,7 @@
     "@trpc/server": "^11.19.0",
     "fastify": "^5.12.5",
     "pg": "^8.23.0",
+    "prisma": "^7.10.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -50,7 +56,6 @@
     "@testcontainers/postgresql": "^12.2.0",
     "@trpc/client": "^11.19.0",
     "@types/pg": "^8.23.1",
-    "prisma": "^7.10.0",
     "tsx": "^4.23.15"
   }
 }

@@ -77,8 +77,13 @@ export function failureForLog(error: unknown): LoggedFailure {
   return error instanceof Error ? { reason: error.message, stack: error.stack } : { reason: String(error), stack: undefined };
 }
 
-/** A database error as one line for a terminal: its codes, never its message. */
-export function describeDatabaseCodes(database: DatabaseErrorCodes): string {
-  const named = [database.code, database.sqlState, database.kind].filter((part) => part !== undefined);
+/** A failure as one line for the operator's terminal: a database error by its codes, never its message. */
+export function describeFailure(error: unknown): string {
+  const failure = failureForLog(error);
+  if ('reason' in failure) {
+    return failure.reason;
+  }
+  const { code, sqlState, kind } = failure.database;
+  const named = [code, sqlState, kind].filter((part) => part !== undefined);
   return `The database failed (${named.length > 0 ? named.join(', ') : 'no code'}).`;
 }

@@ -5,7 +5,7 @@ import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.
 
 const NOTHING_CREATED = 'Nothing was created.';
 
-const USAGE = 'Usage: npm run fleet:init -w @aeolus-fleet/server -- --name "<fleet name>"';
+const USAGE = 'Usage: aeolus-server fleet:init --name "<fleet name>"';
 
 /**
  * `fleet:init --name <name>`: asks for the operator's email and password, then
@@ -71,7 +71,7 @@ export async function fleetInit(
       `Operator account: ${operatorId}`,
       '',
       'Sign in to the console with the operator email and password: that crews argo.',
-      'If the password is lost, run operator:reset-password on the server.',
+      'If the password is lost, run aeolus-server operator:reset-password on the server.',
     ].join('\n'),
   );
   return 0;
