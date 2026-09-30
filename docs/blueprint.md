@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-09-29.
+Owner: Thomas Hendrickx. Last updated 2026-09-30.
 
 ## Purpose
 
@@ -152,6 +152,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
+| `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 
