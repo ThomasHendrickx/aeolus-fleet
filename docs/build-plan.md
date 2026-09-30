@@ -274,7 +274,7 @@ A crewed ship receives its deliveries and acknowledges them; no delivery is ever
 
 ## Build
 
-- `receive()`, requires `messages:receive`, authenticated by crew token. In one transaction: this crew's own unacknowledged in-flight deliveries, then the oldest pending deliveries for this ship or its type, claimed with `FOR UPDATE SKIP LOCKED`; each returned delivery is marked in flight, its claim recorded (claimed-by ship and lease) and its attempt count increased. A delivery returned again to the same crew counts as a claim.
+- `receive(max?)`: the ship chooses how many, 1 to 10, default 1 (decision 0016: the fleet does not decide for the ship). Requires `messages:receive`, authenticated by crew token. In one transaction, up to `max`: this crew's own unacknowledged in-flight deliveries first, then the oldest pending deliveries for this ship or its type, claimed with `FOR UPDATE SKIP LOCKED`; each returned delivery is marked in flight, its claim recorded (claimed-by ship and lease) and its attempt count increased. A delivery returned again to the same crew counts as a claim.
 - A delivery reaching its fifth claim without an acknowledgement becomes undeliverable instead of being returned.
 - Long poll: when nothing is available, wait on the listener for up to about 25 seconds, then return empty. A notification for this ship or its type wakes it.
 - The listener reconnects after a lost database connection and never crashes the server; a receive waiting during a reconnect still returns within its wait.
@@ -284,13 +284,13 @@ A crewed ship receives its deliveries and acknowledges them; no delivery is ever
 
 ## How to work
 
-1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer (for example how many deliveries one receive returns). If there are questions, stop and ask them.
+1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
 2. Load the skills CLAUDE.md names. Test first (red, green, refactor); build inside out: core, Prisma adapter with Testcontainers, tRPC procedure.
 3. Keep the slice thin; the rest goes under "Noticed, not done".
 
 ## Done when
 
-- Core tests: claim, reclaim by the same crew, fifth claim to undeliverable, ack rules (wrong ship, not in flight, twice).
+- Core tests: `max` default and bounds, in-flight returned before pending within `max`; claim, reclaim by the same crew, fifth claim to undeliverable, ack rules (wrong ship, not in flight, twice).
 - Integration: two concurrent receivers of one type never get the same delivery; a receive waiting on an empty inbox returns as soon as a send commits, and never for a rolled-back send; a delivery whose receive reply was lost is returned by the next receive of the same crew; a delivery survives a server restart (stop and start the app against the same database) and is received afterwards; the listener recovers after its connection is killed.
 - API: send from one ship, receive and ack on another, with crew tokens.
 - npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
