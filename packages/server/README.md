@@ -15,7 +15,7 @@ Environment variables, validated at startup (see `.env.example`):
 | `HOST` | `127.0.0.1` | Interface to listen on |
 | `PORT` | `4000` | Port to listen on |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
-| `TRUST_PROXY` | `false` | `true` behind a reverse proxy, so the sign-in rate limit counts per client address from `X-Forwarded-For` |
+| `TRUST_PROXY` | `false` | `true` behind a reverse proxy, so the sign-in and register rate limits count per client address from `X-Forwarded-For`; without it every client behind the proxy shares one budget |
 | `COOKIE_DOMAIN` | unset | The domain the console session cookie is set for, such as `fleet.example.com`, so a console on another host under it receives the cookie. Every host under it does, so pick the narrowest domain the console and the server share. Unset: the server's host only |
 | `CONSOLE_ORIGIN` | `PUBLIC_URL`'s origin | The console's origin, such as `https://console.fleet.example.com`: the only origin a state-changing console call (sign-in, sign-out, a change made with the session cookie) is taken from, and the one origin allowed to call with credentials from another host (CORS). The default fits web and server behind one host. In development the console runs on `http://localhost:3000` (see `.env.example`) |
 
