@@ -167,6 +167,61 @@ describe('the TDD evidence check', () => {
     expect(violations(head)).toEqual([]);
   });
 
+  it('passes a commit that changes only comments in production code, without a (red) commit', () => {
+    repository.write(
+      'packages/server/src/core/registry/fleet.ts',
+      '/** The fleet: one operator\'s ships. */\nexport const fleet = 1; // one fleet in v1\n',
+    );
+    const head = repository.commit('docs(registry): say what the fleet is');
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it('passes a comment-only change in the Prisma schema', () => {
+    repository.write('packages/server/src/adapters/prisma/schema.prisma', 'model Fleet {\n  id String @id\n}\n');
+    base = repository.commit('feat(prisma): fleets');
+    repository.write(
+      'packages/server/src/adapters/prisma/schema.prisma',
+      '/// The tenant.\nmodel Fleet {\n  id String @id // flt_\n}\n',
+    );
+    const head = repository.commit('docs(prisma): say what a fleet is');
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it('refuses a commit that changes a comment and code together', () => {
+    repository.write('packages/server/src/core/registry/fleet.ts', '/** Two fleets now. */\nexport const fleet = 2;\n');
+    const head = repository.commit('docs(registry): a comment, and more');
+
+    expect(violations(head)).toEqual([expect.stringContaining('"docs(registry): a comment, and more"')]);
+  });
+
+  it('refuses a change inside a string that looks like a comment', () => {
+    repository.write('packages/server/src/core/registry/fleet.ts', "export const fleet = '// not a comment';\n");
+    base = repository.commit('feat(registry): fleet as text');
+    repository.write('packages/server/src/core/registry/fleet.ts', "export const fleet = '// still not one';\n");
+    const head = repository.commit('docs(registry): reword');
+
+    expect(violations(head)).toHaveLength(1);
+  });
+
+  it('judges a new production file as code, even one holding only comments', () => {
+    repository.write('packages/server/src/core/registry/ship.ts', '// Ships arrive later.\n');
+    const head = repository.commit('docs(registry): a placeholder');
+
+    expect(violations(head)).toHaveLength(1);
+  });
+
+  it('judges a comment-only change to a migration as code: it reads only TypeScript and Prisma', () => {
+    const migration = 'packages/server/src/adapters/prisma/migrations/1_init/migration.sql';
+    repository.write(migration, 'CREATE TABLE fleets (id TEXT);\n');
+    base = repository.commit('feat(prisma): the first migration');
+    repository.write(migration, '-- The tenants.\nCREATE TABLE fleets (id TEXT);\n');
+    const head = repository.commit('docs(prisma): comment the migration');
+
+    expect(violations(head)).toHaveLength(1);
+  });
+
   it('judges common/src like server/src', () => {
     repository.write('packages/common/src/ids/index.ts', 'export const id = 1;\n');
     const head = repository.commit('feat(common): ids');
