@@ -539,7 +539,7 @@ describe("state-changing console calls come from the console's origin", () => {
     expect(stowaways()).toHaveLength(1);
   });
 
-  it('serves a query with the session cookie from any origin: reading changes nothing', async () => {
+  it('serves a query with the session cookie from another origin: it changes nothing in the fleet, and CORS keeps the answer from that page', async () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
 

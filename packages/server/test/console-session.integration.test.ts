@@ -320,4 +320,3 @@ describe('the caller lookups', () => {
     await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
   });
 });
-

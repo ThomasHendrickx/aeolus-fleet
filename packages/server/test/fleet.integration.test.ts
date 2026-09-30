@@ -238,10 +238,7 @@ describe('getting a starting prompt on Postgres', () => {
   });
 
   it('is refused while a session crews the ship', async () => {
-    // Claiming arrives with slice 3.
-    await core.prisma.lease.create({
-      data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },
-    });
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' } }));
 
     await expect(core.useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toMatchObject({
       isOk: false,
