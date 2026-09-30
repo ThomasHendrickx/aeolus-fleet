@@ -173,8 +173,10 @@ describe('initialise fleet', () => {
       credentials: [],
       operatorAccounts: [],
       consoleSessions: [],
+      messages: [],
       deliveries: [],
       events: [],
+      notices: [],
     });
   });
 });

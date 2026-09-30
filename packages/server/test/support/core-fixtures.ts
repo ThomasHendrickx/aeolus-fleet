@@ -4,6 +4,7 @@ import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
+import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
@@ -54,6 +55,16 @@ export function registryUseCases(core: InMemoryCore) {
   };
 }
 
+/** The messaging use cases, wired to the in-memory core. */
+export function messagingUseCases(core: InMemoryCore) {
+  return { sendMessage: createSendMessage({ uow: core.uow, clock: core.clock, ids: core.ids }) };
+}
+
+/** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */
+export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller {
+  return { ...ship, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
+}
+
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
 export function operatorCaller(fleet: FleetInitialised): Caller {
   return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
@@ -99,9 +110,9 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
  */
 export function addAgentShip(
   core: InMemoryCore,
-  ship: { fleetId: FleetId; name?: string; scopes?: Scope[]; retiredAt?: Date },
+  ship: { fleetId: FleetId; name?: string; type?: string; scopes?: Scope[]; retiredAt?: Date },
 ): { shipId: ShipId; secret: string } {
-  const { fleetId, scopes = ['messages:send', 'messages:receive'], retiredAt = null } = ship;
+  const { fleetId, type = 'reviewer', scopes = ['messages:send', 'messages:receive'], retiredAt = null } = ship;
   const at = core.clock.now();
   const shipId = core.ids('ship');
   const secret = `aeolus_sk_v1_agent-${shipId}`;
@@ -109,7 +120,7 @@ export function addAgentShip(
     id: shipId,
     fleetId,
     name: ship.name ?? `agent-${shipId.slice(-6)}`,
-    type: 'reviewer',
+    type,
     kind: 'agent',
     scopes,
     note: null,
