@@ -1,4 +1,4 @@
-import { idSchema, SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, SCOPES, type DeliveryId, type FleetId, type MessageId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
@@ -75,6 +75,15 @@ export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller 
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
 export function operatorCaller(fleet: FleetInitialised): Caller {
   return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
+}
+
+/** The id of the delivery a send stored for the message. */
+export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): DeliveryId {
+  const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
+  if (!delivery) {
+    throw new Error(`The send of ${messageId} stored no delivery`);
+  }
+  return delivery.id;
 }
 
 /** The ship secret a starting prompt holds. */

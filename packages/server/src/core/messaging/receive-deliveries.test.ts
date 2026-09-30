@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewAboard,
+  deliveryIdOf,
   initialiseFleet,
   messagingUseCases,
   operatorCaller,
@@ -53,11 +54,7 @@ async function sendTo(selector: Selector): Promise<DeliveryId> {
       idempotencyKey: `review-${core.ids('message')}`,
     }),
   );
-  const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
-  if (!delivery) {
-    throw new Error(`The send of ${messageId} stored no delivery`);
-  }
-  return delivery.id;
+  return deliveryIdOf(core, messageId);
 }
 
 /** The ids of the deliveries one receive returns. */

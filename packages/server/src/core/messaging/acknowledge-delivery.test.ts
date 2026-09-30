@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addAgentShip,
   crewAboard,
+  deliveryIdOf,
   initialiseFleet,
   messagingUseCases,
   operatorCaller,
@@ -46,11 +47,7 @@ async function sendTo(selector: Selector): Promise<DeliveryId> {
       idempotencyKey: `review-${core.ids('message')}`,
     }),
   );
-  const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
-  if (!delivery) {
-    throw new Error(`The send of ${messageId} stored no delivery`);
-  }
-  return delivery.id;
+  return deliveryIdOf(core, messageId);
 }
 
 /** Sends a delivery to the crew's ship and has the crew receive it: in flight, held by that ship. */
