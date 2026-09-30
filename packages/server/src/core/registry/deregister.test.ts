@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -24,7 +24,6 @@ let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
 let deregister: ReturnType<typeof createDeregister>;
-let fleetId: FleetId;
 let argoId: ShipId;
 let argo: Caller;
 let scoutId: ShipId;
@@ -36,7 +35,7 @@ let lookoutId: ShipId;
 beforeEach(async () => {
   core = createInMemoryCore('2026-09-30T12:00:00.000Z');
   const fleet = await initialiseFleet(core);
-  ({ fleetId, operatorShipId: argoId } = fleet);
+  ({ operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   useCases = registryUseCases(core);
   messaging = messagingUseCases(core);

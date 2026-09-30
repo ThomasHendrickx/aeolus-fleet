@@ -60,8 +60,8 @@ async function nextCrewOf(shipId: ShipId): Promise<Crew> {
   return crewOfToken(core, crewToken);
 }
 
-/** Sends a message from argo, and the crew receives it: its delivery is in flight with the crew. */
-async function inFlightWith(crew: Crew, selector: Selector): Promise<DeliveryId> {
+/** Sends a message from argo and returns its delivery's id. */
+async function sendTo(selector: Selector): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await messaging.sendMessage(argo, {
       selector,
@@ -70,7 +70,12 @@ async function inFlightWith(crew: Crew, selector: Selector): Promise<DeliveryId>
       idempotencyKey: `review-${core.ids('message')}`,
     }),
   );
-  const deliveryId = deliveryIdOf(core, messageId);
+  return deliveryIdOf(core, messageId);
+}
+
+/** Sends a message from argo, and the crew receives it: its delivery is in flight with the crew. */
+async function inFlightWith(crew: Crew, selector: Selector): Promise<DeliveryId> {
+  const deliveryId = await sendTo(selector);
   const { deliveries } = unwrap(await messaging.receiveDeliveries(crew, {}));
   expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
   return deliveryId;
@@ -130,8 +135,10 @@ describe('releasing a crewed ship', () => {
   });
 
   it('writes CredentialRevoked, LeaseRevoked and one DeliveryReturned per returned delivery, caused by the operator', async () => {
-    const direct = await inFlightWith(scout, { kind: 'ship', shipId: scoutId });
-    const forType = await inFlightWith(scout, { kind: 'type', type: 'reviewer' });
+    const direct = await sendTo({ kind: 'ship', shipId: scoutId });
+    const forType = await sendTo({ kind: 'type', type: 'reviewer' });
+    const { deliveries } = unwrap(await messaging.receiveDeliveries(scout, { max: 2 }));
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([direct, forType]);
     const credential = core.state.credentials.find((held) => held.shipId === scoutId && held.invalidatedAt === null);
     core.state.events.length = 0;
 
@@ -175,13 +182,12 @@ describe('releasing a crewed ship', () => {
 describe('a release refused', () => {
   /** Releases, expects the refusal, and proves the release left nothing behind. */
   async function expectRefused(
-    caller: Caller,
-    shipId: ShipId,
+    release: { caller: Caller; shipId: ShipId },
     error: { kind: string; message?: string },
   ): Promise<void> {
     const before = structuredClone(core.state);
 
-    await expect(releaseShip(caller, { shipId })).resolves.toMatchObject({ isOk: false, error });
+    await expect(releaseShip(release.caller, { shipId: release.shipId })).resolves.toMatchObject({ isOk: false, error });
 
     expect(core.state).toEqual(before);
   }
@@ -189,14 +195,14 @@ describe('a release refused', () => {
   it('refuses argo, which is never released, even while the operator crews it', async () => {
     unwrap(await identityUseCases(core).signIn(OPERATOR));
 
-    await expectRefused(argo, argoId, {
+    await expectRefused({ caller: argo, shipId: argoId }, {
       kind: 'OPERATOR_SHIP_IS_PERMANENT',
       message: 'argo is the operator ship and can never be released',
     });
   });
 
   it('refuses a ship awaiting crew, and its unclaimed prompt stays valid', async () => {
-    await expectRefused(argo, lookoutId, {
+    await expectRefused({ caller: argo, shipId: lookoutId }, {
       kind: 'SHIP_NOT_CREWED',
       message: 'lookout is awaiting crew: only a crewed ship is released. A new starting prompt replaces an unclaimed one',
     });
@@ -206,23 +212,29 @@ describe('a release refused', () => {
   it('refuses a retired ship', async () => {
     const { shipId } = addAgentShip(core, { fleetId, name: 'wreck', retiredAt: core.clock.now() });
 
-    await expectRefused(argo, shipId, { kind: 'SHIP_NOT_CREWED', message: 'wreck is retired: only a crewed ship is released' });
+    await expectRefused(
+      { caller: argo, shipId },
+      { kind: 'SHIP_NOT_CREWED', message: 'wreck is retired: only a crewed ship is released' },
+    );
   });
 
   it('refuses a ship released already: it awaits crew', async () => {
     unwrap(await releaseShip(argo, { shipId: scoutId }));
 
-    await expectRefused(argo, scoutId, { kind: 'SHIP_NOT_CREWED' });
+    await expectRefused({ caller: argo, shipId: scoutId }, { kind: 'SHIP_NOT_CREWED' });
   });
 
   it('refuses a ship that does not exist', async () => {
     const unknown = core.ids('ship');
 
-    await expectRefused(argo, unknown, { kind: 'SHIP_NOT_FOUND', message: `Ship ${unknown} does not exist` });
+    await expectRefused(
+      { caller: argo, shipId: unknown },
+      { kind: 'SHIP_NOT_FOUND', message: `Ship ${unknown} does not exist` },
+    );
   });
 
   it("refuses another fleet's ship: the caller's fleet scopes the call, and the ship stays crewed", async () => {
-    await expectRefused({ ...argo, fleetId: core.ids('fleet') }, scoutId, { kind: 'SHIP_NOT_FOUND' });
+    await expectRefused({ caller: { ...argo, fleetId: core.ids('fleet') }, shipId: scoutId }, { kind: 'SHIP_NOT_FOUND' });
     await expect(listed(scoutId)).resolves.toMatchObject({ status: 'crewed' });
   });
 });

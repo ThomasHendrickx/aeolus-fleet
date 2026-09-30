@@ -112,7 +112,7 @@ describe('signing in on Postgres', () => {
       claimedByShipId: null,
       claimedByLeaseId: null,
     });
-    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'LeaseRevoked', 'ShipClaimed']);
+    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'LeaseRevoked', 'DeliveryReturned', 'ShipClaimed']);
   });
 
   it('serialises concurrent sign-ins: every one succeeds, one session and one lease stay', async () => {
@@ -231,7 +231,7 @@ describe('signing out on Postgres', () => {
     await expect(liveSessions()).resolves.toEqual([]);
     await expect(openLeases()).resolves.toEqual([]);
     await expect(core.prisma.delivery.findUnique({ where: { id: deliveryId } })).resolves.toMatchObject({ state: 'pending' });
-    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'LeaseRevoked']);
+    await expect(eventTypes()).resolves.toEqual(['ShipClaimed', 'LeaseRevoked', 'DeliveryReturned']);
   });
 });
 

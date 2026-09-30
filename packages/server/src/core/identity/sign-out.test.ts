@@ -28,7 +28,8 @@ beforeEach(async () => {
 describe('signing out', () => {
   it("ends the session and releases argo's lease", async () => {
     const { token, caller } = unwrap(await useCases.signIn(OPERATOR));
-    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: argoId, leaseId: openLeaseOf(core, argoId) });
+    const leaseId = openLeaseOf(core, argoId);
+    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: argoId, leaseId });
     core.state.events.length = 0;
     core.clock.advance(60_000);
 
@@ -43,7 +44,7 @@ describe('signing out', () => {
         type: 'LeaseRevoked',
         actor: { kind: 'ship', shipId: argoId },
         shipId: argoId,
-        details: expect.objectContaining({ reason: 'signedOut', returnedDeliveries: 1 }),
+        details: { leaseId, reason: 'signedOut', returnedDeliveries: 1 },
       }),
       expect.objectContaining({ type: 'DeliveryReturned', actor: { kind: 'ship', shipId: argoId }, deliveryId }),
     ]);
