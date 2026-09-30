@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * The fleet's shared vocabulary (docs/blueprint.md, "Ubiquitous language"):
- * scopes, ship kinds, ship statuses, lease locations and event types. Server
- * and web use the same words.
+ * scopes, ship kinds, ship statuses, lease locations, selector kinds, delivery
+ * states and event types. Server and web use the same words.
  */
 
 /** A permission of a ship, stored on the server with the ship and checked before every call. */
@@ -29,6 +29,19 @@ export const SHIP_STATUSES = ['awaitingCrew', 'crewed', 'retired'] as const;
 export const shipStatusSchema = z.enum(SHIP_STATUSES);
 export type ShipStatus = z.infer<typeof shipStatusSchema>;
 
+/** Who a message is for: one ship (by id or by name) or any ship of a type. Group and fleet come later. */
+export const SELECTOR_KINDS = ['ship', 'type'] as const;
+export const selectorKindSchema = z.enum(SELECTOR_KINDS);
+export type SelectorKind = z.infer<typeof selectorKindSchema>;
+
+/**
+ * Where one delivery stands. It leaves pending only by acknowledgement,
+ * undeliverable, or the operator abandoning it (docs/blueprint.md, "Key flows").
+ */
+export const DELIVERY_STATES = ['pending', 'delivered', 'acknowledged', 'undeliverable', 'dismissed', 'abandoned'] as const;
+export const deliveryStateSchema = z.enum(DELIVERY_STATES);
+export type DeliveryState = z.infer<typeof deliveryStateSchema>;
+
 /** The event types written so far. Each later slice adds the ones it writes. */
 export const EVENT_TYPES = [
   'FleetInitialised',
@@ -38,6 +51,7 @@ export const EVENT_TYPES = [
   'CredentialRevoked',
   'StartingPromptIssued',
   'OperatorPasswordReset',
+  'MessageAccepted',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
