@@ -33,12 +33,12 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | 2 | Commission a ship | Commission use case (requires `fleet:manage`): name handle rules (`argo` reserved), type, kind `agent` with scopes `messages:send` and `messages:receive`, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
 | 3 | Claim | Claim with the secret (location, crew token, lock order), `whoami`, Origin check on console calls, plus three small follow-ups | See the slice 3 prompt below |
 | 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; idempotency key per sender; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | See the slice 4 prompt below |
-| 5 | Receive and acknowledge | Long-poll receive (about 25 s) with `FOR UPDATE SKIP LOCKED`, woken by LISTEN; acknowledge on receipt; claim count, undeliverable after 5 claims without ack | Two concurrent receivers never get the same delivery; a delivery is never lost across a server restart |
+| 5 | Receive and acknowledge | Long-poll receive (about 25 s) with `FOR UPDATE SKIP LOCKED`, woken by LISTEN; the crew's own unacknowledged in-flight deliveries are returned again; acknowledge on receipt; claim count, undeliverable after 5 claims without ack | See the slice 5 prompt below |
 | 6 | Release and deregister | Operator release and ship `deregister` both end the lease and invalidate the secret; direct deliveries back to the inbox, type deliveries back to the type queue with claim history | In-flight deliveries return and are received by the next crew; after a release or a deregister the old secret fails on `register` |
 | 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures. Ship identity per conversation (decision 0015): the MCP connection carries no ship credential; the `register` tool takes ship id and secret and returns a crew token; every other tool takes the crew token as an argument. Two conversations on one MCP connection crew two different ships, and a second conversation registering an already crewed ship is refused. If slice 3 built `register` without a crew token, add it here for all three doors | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
-After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy (the web server reads the Aeolus server address at start-up and passes it to the browser, never a build-time setting, so a published web package works on any host).
+After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm (retire locks the ship `FOR NO KEY UPDATE` before abandoning direct deliveries, so a racing send's `FOR SHARE` serialises with it), Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy (production hardening first: log database errors by code, never by message, so no request data reaches the log; the server commands refuse U+0000 like the API; the web server reads the Aeolus server address at start-up and passes it to the browser, never a build-time setting, so a published web package works on any host).
 
 A second claim while a lease is held is rejected (blueprint, ship contract: `register` fails if another session holds a live lease). The operator frees the ship with Release.
 
@@ -257,6 +257,42 @@ Small follow-up decided by Thomas (own commits): no error response ever carries 
 - Integration: a transaction that fails after the message insert leaves no message, no delivery and no event; a `LISTEN`er receives the notification only after commit, never for a rolled-back send; two concurrent sends with the same key yield one message; a payload exactly at the limit is accepted, one byte over is rejected.
 - API: an error response carries no stack trace.
 - API: send works with a crew token and as `argo` from the console session; a ship without `messages:send` is refused.
+- npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
+- Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
+```
+
+## Kickoff prompt: slice 5 (receive and acknowledge)
+
+```markdown
+# Slice 5: receive and acknowledge
+
+Start from the latest main. Read CLAUDE.md, docs/decisions/README.md (full files: 0001, 0003, 0010, 0015), docs/blueprint.md (Delivery, the delivery state diagram, "Send, receive, acknowledge", the ship contract) and docs/architecture.md ("How the delivery guarantee is implemented"), then the code that already exists for the parts this slice touches, including slice 4's notification listener. Other slices in docs/build-plan.md are context only.
+
+## Goal
+
+A crewed ship receives its deliveries and acknowledges them; no delivery is ever handed to two ships, and none is lost.
+
+## Build
+
+- `receive()`, requires `messages:receive`, authenticated by crew token. In one transaction: this crew's own unacknowledged in-flight deliveries, then the oldest pending deliveries for this ship or its type, claimed with `FOR UPDATE SKIP LOCKED`; each returned delivery is marked in flight, its claim recorded (claimed-by ship and lease) and its attempt count increased. A delivery returned again to the same crew counts as a claim.
+- A delivery reaching its fifth claim without an acknowledgement becomes undeliverable instead of being returned.
+- Long poll: when nothing is available, wait on the listener for up to about 25 seconds, then return empty. A notification for this ship or its type wakes it.
+- The listener reconnects after a lost database connection and never crashes the server; a receive waiting during a reconnect still returns within its wait.
+- `ack(deliveryId)`: moves the delivery to acknowledged only if it is in flight and claimed by the calling ship; acknowledging twice returns OK.
+- Events: delivery claimed, delivery acknowledged, delivery undeliverable; each in the transaction that changes the delivery.
+- `argo`'s inbox (read, done) is not part of this slice.
+
+## How to work
+
+1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer (for example how many deliveries one receive returns). If there are questions, stop and ask them.
+2. Load the skills CLAUDE.md names. Test first (red, green, refactor); build inside out: core, Prisma adapter with Testcontainers, tRPC procedure.
+3. Keep the slice thin; the rest goes under "Noticed, not done".
+
+## Done when
+
+- Core tests: claim, reclaim by the same crew, fifth claim to undeliverable, ack rules (wrong ship, not in flight, twice).
+- Integration: two concurrent receivers of one type never get the same delivery; a receive waiting on an empty inbox returns as soon as a send commits, and never for a rolled-back send; a delivery whose receive reply was lost is returned by the next receive of the same crew; a delivery survives a server restart (stop and start the app against the same database) and is received afterwards; the listener recovers after its connection is killed.
+- API: send from one ship, receive and ack on another, with crew tokens.
 - npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
 - Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
 ```

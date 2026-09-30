@@ -132,7 +132,7 @@ The operator and the agents use the same API. The only dependency between contex
 | --- | --- | --- |
 | Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship; otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
-| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, claimed by the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can claim it). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Redelivered after a lease is lost until acknowledged, so receivers treat the delivery id as an idempotency key |
+| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, claimed by the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can claim it). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Returned again by every `receive` of the same crew while in flight, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
 | Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship or deregistering invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the next `register`; a session already crewing keeps its crew token until the lease ends |
 
 ### Domain events
@@ -163,8 +163,10 @@ stateDiagram-v2
   [*] --> pending: message accepted
   pending --> delivered: receive (claim)
   delivered --> acknowledged: ack
+  delivered --> delivered: receive again by the same crew (counts as a claim)
   delivered --> pending: ship released before ack
   pending --> undeliverable: fifth claim without ack
+  delivered --> undeliverable: fifth claim without ack
   pending --> abandoned: ship retired (direct deliveries)
   acknowledged --> [*]
 ```
@@ -185,7 +187,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 1. The sender calls `send` with a selector, a payload and its own idempotency key, so a network retry never creates the message twice: a repeat with the same key and the same request returns the original message, and the same key with a different request is refused.
 2. Aeolus verifies the sender, resolves the selector and stores the message plus its deliveries in one transaction. Only then does it return OK with the message id. An unresolvable selector is rejected.
-3. The receiver is woken and calls `receive`. The delivery becomes in flight until the ship acknowledges it or is released.
+3. The receiver is woken and calls `receive`. The delivery becomes in flight until the ship acknowledges it or is released. If the reply is lost, the next `receive` returns it again.
 4. The receiver acknowledges on receipt by calling `ack`. The delivery is done and the sender can see it.
 
 ### Crash recovery
@@ -223,7 +225,7 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | --- | --- | --- |
 | `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
-| `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released |
+| `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
 | `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
