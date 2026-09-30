@@ -209,7 +209,7 @@ Lint and CI enforce these rules (slice 1b).
 | Time | All timestamps stored as UTC; the web app shows local time |
 | Payloads | Text with a content type (JSON or plain text), at most 64 KB, never parsed by the core. Content travels by reference |
 | Live updates | tRPC subscriptions over WebSocket carry the event id; a reconnecting browser resumes from its last id and the server replays what it missed from the `events` table |
-| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check; rate-limited sign-in; every call checked against the caller's scopes; secrets and payloads never logged |
+| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check; rate-limited sign-in and failed `register` attempts; every call checked against the caller's scopes; secrets and payloads never logged |
 | Observability | Structured logs to stdout, a `/health` endpoint, and the events table as the full history |
 | Testing | Unit tests on the core with in-memory adapters; integration tests on a real Postgres; the v1 acceptance test end to end (two ships exchange messages over MCP; one is released mid-delivery, the message is claimed again, nothing is lost); a Playwright smoke test for the console |
 | CI and release | GitHub Actions: lint, typecheck, tests on every push. Releases publish the three packages to npm with trusted publishing (the same OIDC setup as Tiphys) and tag the released commit `v<version>`, so a version on npm always matches a tag in git. Container images are your infra repo's concern, not the product's |
