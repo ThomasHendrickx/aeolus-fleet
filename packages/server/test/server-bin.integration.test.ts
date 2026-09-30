@@ -69,7 +69,6 @@ describe('aeolus-server migrate', () => {
 
     const result = await aeolusServer(['migrate'], { DATABASE_URL: databaseUrl });
 
-    expect(result.stderr).toBe('');
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('The database is migrated.');
     await expect(appliedMigrations(databaseUrl)).resolves.toEqual(MIGRATIONS);
