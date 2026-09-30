@@ -8,6 +8,7 @@ import {
   crewShip,
   identityUseCases,
   initialiseFleet,
+  messagingUseCases,
   OPERATOR,
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
@@ -38,6 +39,7 @@ function start(
     useCases: {
       ...identityUseCases(core),
       ...registryUseCases(core),
+      ...messagingUseCases(core),
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
@@ -380,6 +382,7 @@ describe('a procedure that needs a scope', () => {
       useCases: {
         ...identityUseCases(core),
         ...registryUseCases(core),
+        ...messagingUseCases(core),
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
@@ -410,6 +413,7 @@ describe('error responses', () => {
       useCases: {
         ...identityUseCases(core),
         ...registryUseCases(core),
+        ...messagingUseCases(core),
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
