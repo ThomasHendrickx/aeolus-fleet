@@ -1,6 +1,7 @@
 import {
   ackInputSchema,
   ackOutputSchema,
+  deregisterOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
   registerInputSchema,
@@ -11,7 +12,15 @@ import {
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { authenticatedProcedure, crewProcedure, okOrThrow, publicProcedure, router, scopedProcedure } from './trpc.js';
+import {
+  authenticatedProcedure,
+  crewProcedure,
+  okOrThrow,
+  publicProcedure,
+  router,
+  scopedCrewProcedure,
+  scopedProcedure,
+} from './trpc.js';
 
 /**
  * Ship procedures: the ship contract. `register` takes the ship's id and
@@ -65,7 +74,7 @@ export const shipRouter = router({
    * about 25 seconds when none is there, then answers with none. A mutation:
    * every delivery it returns is claimed.
    */
-  receive: crewProcedure('messages:receive')
+  receive: scopedCrewProcedure('messages:receive')
     .input(receiveInputSchema)
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -74,11 +83,21 @@ export const shipRouter = router({
     }),
 
   /** Acknowledges a delivery the ship received: it is done. Acknowledging it again is OK. */
-  ack: crewProcedure('messages:receive')
+  ack: scopedCrewProcedure('messages:receive')
     .input(ackInputSchema)
     .output(ackOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.acknowledgeDelivery(ctx.crew, input));
       return {};
     }),
+
+  /**
+   * Ends the calling crew's own lease, and with it its crew token: the ship
+   * awaits a new crew, its secret stops working, and what it held in flight
+   * returns to pending for the next crew. Needs only the crew token.
+   */
+  deregister: crewProcedure.output(deregisterOutputSchema).mutation(async ({ ctx }) => {
+    okOrThrow(await ctx.useCases.deregister(ctx.crew));
+    return {};
+  }),
 });

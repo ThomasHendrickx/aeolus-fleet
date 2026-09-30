@@ -18,9 +18,11 @@ import { createReceiveDeliveries } from '../../src/core/messaging/receive-delive
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
+import { createDeregister } from '../../src/core/registry/deregister.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
+import { createReleaseShip } from '../../src/core/registry/release-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
@@ -49,7 +51,7 @@ export function identityUseCases(core: InMemoryCore) {
 /** The fleet URL starting prompts carry in tests. */
 export const FLEET_URL = 'https://fleet.example.com';
 
-/** The registry use cases, wired to the in-memory core: the operator's, and the claim a session makes. */
+/** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
   const deps = {
     uow: core.uow,
@@ -61,7 +63,9 @@ export function registryUseCases(core: InMemoryCore) {
   return {
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
+    releaseShip: createReleaseShip(deps),
     claimShip: createClaimShip(deps),
+    deregister: createDeregister(deps),
     listFleet: createListFleet({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
   };
