@@ -64,6 +64,23 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
+  // Before the server stops taking requests and waits for the ones it holds:
+  // a waiting receive answers no deliveries at once instead of holding it up.
+  // Connections idle at that moment close at once (Fastify's default); one
+  // whose request ends later is told to close with its answer, or it would
+  // stay open, idle, until its keep-alive timeout.
+  let isStopping = false;
+  server.addHook('preClose', (done) => {
+    isStopping = true;
+    wakeups.endAll();
+    done();
+  });
+  server.addHook('onSend', async (_request, reply) => {
+    if (isStopping) {
+      void reply.header('connection', 'close');
+    }
+  });
+
   server.addHook('onClose', async () => {
     await listener.close();
     await prisma.$disconnect();
