@@ -6,7 +6,7 @@ import type { AuthenticatedCrew, AuthenticatedShip } from '../../core/identity/p
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
-import type { DeliveryNotice } from '../../core/messaging/ports.js';
+import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
 import type { ShipFacts } from '../../core/registry/ports.js';

@@ -7,7 +7,7 @@
  */
 import pg from 'pg';
 
-import type { DeliveryNotice, Notifier } from '../../core/messaging/ports.js';
+import type { DeliveryNotice, Notifier } from '../../core/shared/notifier.js';
 import type { Db } from './client.js';
 import { toDeliveryNotice } from './rows.js';
 

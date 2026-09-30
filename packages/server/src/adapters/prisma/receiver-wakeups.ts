@@ -6,7 +6,8 @@
  * misses one still returns within its wait, so nothing the guarantee depends
  * on lives here.
  */
-import type { DeliveryNotice, ReceiverAddress, ReceiverWakeups, ReceiverWatch } from '../../core/messaging/ports.js';
+import type { ReceiverAddress, ReceiverWakeups, ReceiverWatch } from '../../core/messaging/ports.js';
+import type { DeliveryNotice } from '../../core/shared/notifier.js';
 
 export interface ReceiverWakeupHub extends ReceiverWakeups {
   /** Wakes the receives watching the ship or the type the delivery is pending for. */

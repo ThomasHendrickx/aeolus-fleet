@@ -5,6 +5,7 @@ import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
+import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -12,7 +13,7 @@ import { contentType } from './content-type.js';
 import { idempotencyKey } from './idempotency-key.js';
 import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MessageRepository, Notifier, RequestHasher } from './ports.js';
+import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends ResolveSelectorTx {

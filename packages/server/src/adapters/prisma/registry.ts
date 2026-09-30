@@ -146,7 +146,9 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
                     claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
         )
         SELECT * FROM returned ORDER BY created_at, id`;
-      return rows.map(toDeliveryFromSql).map(({ id, messageId, attempts }) => ({ deliveryId: id, messageId, attempts }));
+      return rows
+        .map(toDeliveryFromSql)
+        .map(({ id, messageId, recipient, attempts }) => ({ deliveryId: id, messageId, recipient, attempts }));
     },
   };
 }

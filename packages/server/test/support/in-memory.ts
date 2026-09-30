@@ -13,10 +13,8 @@ import type {
 } from '../../src/core/identity/ports.js';
 import type { Delivery, Message } from '../../src/core/messaging/message.js';
 import type {
-  DeliveryNotice,
   DeliveryRepository,
   MessageRepository,
-  Notifier,
   ReceiverAddress,
   ReceiverWakeups,
 } from '../../src/core/messaging/ports.js';
@@ -32,6 +30,7 @@ import type {
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent } from '../../src/core/shared/events.js';
+import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
 
@@ -245,7 +244,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           delivery.claimedByLeaseId = null;
         }
         return Promise.resolve(
-          inFlight.map(({ id, messageId, attempts }) => ({ deliveryId: id, messageId, attempts })),
+          inFlight.map(({ id, messageId, recipient, attempts }) => ({
+            deliveryId: id,
+            messageId,
+            recipient: structuredClone(recipient),
+            attempts,
+          })),
         );
       },
     },

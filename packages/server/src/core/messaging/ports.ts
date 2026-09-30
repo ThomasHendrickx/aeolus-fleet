@@ -1,6 +1,5 @@
 import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
-import type { Recipient } from '../shared/selector.js';
 import type { Delivery, Message } from './message.js';
 
 /** One sender's idempotency key, in its fleet. */
@@ -68,22 +67,6 @@ export interface DeliveryRepository {
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** Stores the delivery's state, its claim and its attempts. */
   update(delivery: Delivery): Promise<void>;
-}
-
-/** Which delivery is pending, and for whom: never its payload. */
-export interface DeliveryNotice {
-  fleetId: FleetId;
-  deliveryId: DeliveryId;
-  recipient: Recipient;
-}
-
-/**
- * Outbound port: wakes whoever waits to receive a delivery. Sent as part of
- * the caller's unit of work: it reaches listeners only once that commits, and
- * never when it rolls back, so nobody is woken for a message that does not exist.
- */
-export interface Notifier {
-  deliveryPending(notice: DeliveryNotice): Promise<void>;
 }
 
 /** Where a waiting receive listens: its ship, and the queue of its type, in its fleet. */

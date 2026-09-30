@@ -4,7 +4,7 @@ import type {
   CredentialRepository,
   OperatorAccountRepository,
 } from '../../core/identity/ports.js';
-import type { DeliveryRepository, MessageRepository, Notifier } from '../../core/messaging/ports.js';
+import type { DeliveryRepository, MessageRepository } from '../../core/messaging/ports.js';
 import type {
   FleetRepository,
   InFlightDeliveries,
@@ -12,6 +12,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { EventLog } from '../../core/shared/events.js';
+import type { Notifier } from '../../core/shared/notifier.js';
 import type { Result } from '../../core/shared/result.js';
 import type { UnitOfWork } from '../../core/shared/unit-of-work.js';
 import type { Db, PrismaClient } from './client.js';

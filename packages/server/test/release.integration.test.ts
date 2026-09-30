@@ -5,12 +5,12 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
-import type { DeliveryNotice } from '../src/core/messaging/ports.js';
 import { createReceiveDeliveries } from '../src/core/messaging/receive-deliveries.js';
 import { createDeregister } from '../src/core/registry/deregister.js';
 import { createReleaseShip } from '../src/core/registry/release-ship.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { DomainError } from '../src/core/shared/errors.js';
+import type { DeliveryNotice } from '../src/core/shared/notifier.js';
 import type { Result } from '../src/core/shared/result.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
