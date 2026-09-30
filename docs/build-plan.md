@@ -1,6 +1,6 @@
 # Aeolus: build plan
 
-Owner: Thomas Hendrickx. Last updated 2026-09-29.
+Owner: Thomas Hendrickx. Last updated 2026-09-30.
 
 This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two ships exchange messages back and forth) in nine Claude Code sessions, one PR each. Session 1 uses the kickoff prompt below; every session after it uses the slice template.
 
@@ -32,9 +32,9 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | 1c | Operator login | Replace sign-in with `argo`'s secret by email and password; `argo` loses its secret. Runs before or after slice 2, must merge before slice 3 | See the slice 1c prompt below |
 | 2 | Commission a ship | Commission use case (requires `fleet:manage`): name handle rules (`argo` reserved), type, kind `agent` with scopes `messages:send` and `messages:receive`, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
 | 3 | Claim | Claim with the secret (location, crew token, lock order), `whoami`, Origin check on console calls, plus three small follow-ups | See the slice 3 prompt below |
-| 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | A failed transaction leaves no message and no delivery; name resolution and limit tested |
+| 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; idempotency key per sender; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | See the slice 4 prompt below |
 | 5 | Receive and acknowledge | Long-poll receive (about 25 s) with `FOR UPDATE SKIP LOCKED`, woken by LISTEN; acknowledge on receipt; claim count, undeliverable after 5 claims without ack | Two concurrent receivers never get the same delivery; a delivery is never lost across a server restart |
-| 6 | Release and deregister | Operator release ends the lease and invalidates the secret; ship `deregister` ends the session cleanly and releases the lease; direct deliveries back to the inbox, type deliveries back to the type queue with claim history | In-flight deliveries return and are received by the next crew; after a release the old secret fails |
+| 6 | Release and deregister | Operator release and ship `deregister` both end the lease and invalidate the secret; direct deliveries back to the inbox, type deliveries back to the type queue with claim history | In-flight deliveries return and are received by the next crew; after a release or a deregister the old secret fails on `register` |
 | 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures. Ship identity per conversation (decision 0015): the MCP connection carries no ship credential; the `register` tool takes ship id and secret and returns a crew token; every other tool takes the crew token as an argument. Two conversations on one MCP connection crew two different ships, and a second conversation registering an already crewed ship is refused. If slice 3 built `register` without a crew token, add it here for all three doors | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
@@ -216,6 +216,43 @@ Small follow-ups decided by Thomas (own commits):
 - API: a state-changing console call from a foreign Origin is refused.
 - Playwright: commission a ship, claim it through the API, see it listed as Crewed with its location.
 - The three follow-ups are each proven by a test.
+- npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
+- Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
+```
+
+## Kickoff prompt: slice 4 (send)
+
+```markdown
+# Slice 4: send
+
+Start from the latest main. Read CLAUDE.md, docs/decisions/README.md (full files: 0003, 0006, 0015), docs/blueprint.md (Message, Selector, Delivery; "Send, receive, acknowledge") and docs/architecture.md ("How the delivery guarantee is implemented", tables `messages` and `deliveries`), then the code that already exists for the parts this slice touches. Other slices in docs/build-plan.md are context only.
+
+## Goal
+
+A ship sends a message, and gets OK only once the message and its deliveries are durably stored.
+
+## Build
+
+- `send(selector, payload, contentType, idempotencyKey, inReplyTo?)`, requires `messages:send`. The sender is the calling ship: a crew token, or the console session as `argo`.
+- Selector `ship`: by id or by name, resolved to the id at send time; `argo` is addressable; a retired or unknown ship is rejected. Selector `type`: rejected unless at least one non-retired ship has that type; one delivery for the type queue.
+- Payload at most 64 KB; larger is rejected before anything is stored.
+- Idempotency: unique on sender plus key; a repeat returns the original message id and stores nothing new.
+- Message, deliveries, event and `NOTIFY` in one transaction; OK only after commit.
+- `resend-of` exists in the schema but nothing sets it yet (Needs attention comes after the acceptance test).
+- No console page: sending from the console comes with the console work.
+
+## How to work
+
+1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer (for example what `inReplyTo` must refer to). If there are questions, stop and ask them.
+2. Load the skills CLAUDE.md names. Test first (red, green, refactor); build inside out: core, Prisma adapter with Testcontainers, tRPC procedure.
+3. Messaging asks Registry who a selector resolves to only through `registry/public.ts`.
+4. Keep the slice thin; the rest goes under "Noticed, not done".
+
+## Done when
+
+- Core tests: every rejection above; name resolved to id at send; idempotent repeat returns the original.
+- Integration: a transaction that fails after the message insert leaves no message, no delivery and no event; a `LISTEN`er receives the notification only after commit, never for a rolled-back send; two concurrent sends with the same key yield one message; a payload exactly at the limit is accepted, one byte over is rejected.
+- API: send works with a crew token and as `argo` from the console session; a ship without `messages:send` is refused.
 - npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
 - Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
 ```

@@ -29,7 +29,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Topic | v1 decision |
 | --- | --- |
 | Packages | Three npm packages: `@aeolus-fleet/server`, `@aeolus-fleet/web` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
-| Leases | A session that registers holds the lease indefinitely. Only the operator can revoke it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
+| Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
 | Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships can only send and receive |
@@ -78,7 +78,7 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Prove it is still alive (later, not v1) | `heartbeat`: keeps the ship's lease and its entry in the fleet snapshot fresh |
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, get an OK only once the message is durably stored |
-| Leave cleanly | `deregister`: end the session. The ship and its inbox stay, ready for the next crew |
+| Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
 
 What an agent never has to do: poll other agents, know their location, retry by hand, or ask the operator to recover a lost message.
 
@@ -133,7 +133,7 @@ The operator and the agents use the same API. The only dependency between contex
 | Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship; otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
 | Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, claimed by the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can claim it). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Redelivered after a lease is lost until acknowledged, so receivers treat the delivery id as an idempotency key |
-| Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the very next call |
+| Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship or deregistering invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the next `register`; a session already crewing keeps its crew token until the lease ends |
 
 ### Domain events
 
@@ -151,7 +151,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
-| `CredentialRevoked` | Identity | All calls with the old secret fail immediately |
+| `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 
 ## Key flows
@@ -226,7 +226,7 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released |
 | `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
-| `deregister` | Ends the session cleanly and releases the lease | Ship and inbox stay for the next session |
+| `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
 
 Every call after `register` carries the crew token, not the secret: in a header for REST and tRPC, as a tool argument for MCP. The crew token belongs to one session and one lease, and stops working when the lease ends. This is what lets many conversations share one MCP connection while each crews its own ship (decision 0015).
 
