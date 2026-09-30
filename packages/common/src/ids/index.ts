@@ -122,9 +122,17 @@ export function isId<K extends IdKind>(value: unknown, kind: K): value is Id<K> 
   return typeof value === 'string' && parseId(value)?.kind === kind;
 }
 
-/** Parses an id of one kind arriving from outside (a request, the database) into its typed id. */
+/**
+ * Parses an id of one kind arriving from outside (a request, the database) into
+ * its typed id. A template literal rather than a custom check, so the schema
+ * also describes itself in JSON Schema: a string of the prefix and a body,
+ * named by its kind, for the REST and MCP doors that explain themselves.
+ */
 export function idSchema<K extends IdKind>(kind: K): z.ZodType<Id<K>> {
-  return z.custom<Id<K>>((value) => isId(value, kind), { error: `must be a ${kind} id (${ID_PREFIXES[kind]}_...)` });
+  const named = `${kind} id (${ID_PREFIXES[kind]}_...)`;
+  return z
+    .templateLiteral([ID_PREFIXES[kind], '_', z.string().regex(BODY_PATTERN)], { error: `must be a ${named}` })
+    .meta({ description: `A ${named}` });
 }
 
 function encodeTime(time: number): string {
