@@ -1,5 +1,5 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
   addAgentShip,
@@ -11,6 +11,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
+import type { ClaimShipTx } from './claim-ship.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -192,5 +193,13 @@ describe('a claim refused', () => {
     ['a description on DEVICE', { kind: 'DEVICE' as const, description: 'my laptop' }],
   ])('refuses %s', async (_label, location) => {
     await expectRefused({ shipId: scoutId, secret: scoutSecret, location }, { kind: 'INVALID_LOCATION' });
+  });
+});
+
+describe('the ports a claim sees', () => {
+  it('reads the ship but can never lock it: a new starting prompt holds it while it waits for the secret', () => {
+    // Checked by the type checker: locking the ship here would deadlock with a
+    // prompt that holds it and waits for the secret this claim holds.
+    expectTypeOf<ClaimShipTx['ships']>().not.toHaveProperty('findForUpdate');
   });
 });
