@@ -611,33 +611,6 @@ describe('ship.send at the API', () => {
     });
   });
 
-  it('refuses a note holding U+0000 with BAD_REQUEST, and commissions nothing', async () => {
-    const asArgo = await signedInArgo();
-
-    await expect(
-      refusalOf(asArgo.fleet.commission.mutate({ name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
-    ).resolves.toEqual({ code: 'BAD_REQUEST', message: 'The input field note cannot hold the character U+0000 (NUL)' });
-    await expect(database.ship.count({ where: { name: 'nul-note' } })).resolves.toBe(0);
-  });
-
-  it('refuses a location description holding U+0000 with BAD_REQUEST, and opens no lease', async () => {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name: 'nul-lookout', type: 'reviewer' });
-
-    await expect(
-      refusalOf(
-        client().ship.register.mutate({
-          shipId,
-          secret: secretIn(prompt),
-          location: { kind: 'OTHER', description: 'ci\u0000runner' },
-        }),
-      ),
-    ).resolves.toEqual({
-      code: 'BAD_REQUEST',
-      message: 'The input field location.description cannot hold the character U+0000 (NUL)',
-    });
-    await expect(database.lease.count({ where: { shipId } })).resolves.toBe(0);
-  });
-
   it('refuses the same key with another request with CONFLICT', async () => {
     const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
     const input = toArgo();
@@ -719,6 +692,35 @@ describe('ship.send at the API', () => {
     expect(body).toContain('No active ship is named nobody');
     expect(body).not.toContain('"stack"');
     expect(body).not.toMatch(/\s{2,}at \S/);
+  });
+});
+
+describe('text input holding U+0000 at the API', () => {
+  it('refuses a note holding U+0000 with BAD_REQUEST, and commissions nothing', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(
+      refusalOf(asArgo.fleet.commission.mutate({ name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
+    ).resolves.toEqual({ code: 'BAD_REQUEST', message: 'The input field note cannot hold the character U+0000 (NUL)' });
+    await expect(database.ship.count({ where: { name: 'nul-note' } })).resolves.toBe(0);
+  });
+
+  it('refuses a location description holding U+0000 with BAD_REQUEST, and opens no lease', async () => {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name: 'nul-lookout', type: 'reviewer' });
+
+    await expect(
+      refusalOf(
+        client().ship.register.mutate({
+          shipId,
+          secret: secretIn(prompt),
+          location: { kind: 'OTHER', description: 'ci\u0000runner' },
+        }),
+      ),
+    ).resolves.toEqual({
+      code: 'BAD_REQUEST',
+      message: 'The input field location.description cannot hold the character U+0000 (NUL)',
+    });
+    await expect(database.lease.count({ where: { shipId } })).resolves.toBe(0);
   });
 });
 
