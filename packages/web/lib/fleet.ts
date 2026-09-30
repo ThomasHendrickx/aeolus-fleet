@@ -28,3 +28,10 @@ export function useGetStartingPrompt() {
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.getStartingPrompt.mutationOptions({ onSuccess: refresh }));
 }
+
+/** Releases a crewed ship: the session crewing it loses it, and the ship awaits a new crew. */
+export function useReleaseShip() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.release.mutationOptions({ onSuccess: refresh }));
+}

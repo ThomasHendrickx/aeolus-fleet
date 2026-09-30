@@ -4,6 +4,7 @@ import type { ListedShip, ShipStatus } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { locationText } from '../../lib/location';
+import { isReleasable } from '../../lib/release';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 
 const STATUS_LABELS: Record<ShipStatus, string> = {
@@ -28,18 +29,83 @@ function PromptState({ ship }: { ship: ListedShip }) {
 }
 
 /**
+ * Release for a crewed ship, after a normal confirm (docs/design/conventions.md,
+ * "Confirm"): a new starting prompt crews the ship again, so no typed confirm.
+ * The confirm says what happens to the session, its secret and what it holds
+ * in flight.
+ */
+function ReleaseAction({
+  ship,
+  isReleasing,
+  onRelease,
+}: {
+  ship: ListedShip;
+  isReleasing: boolean;
+  onRelease: () => void;
+}) {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  if (!isConfirming) {
+    return (
+      <button
+        type="button"
+        data-testid="fleet-ship-release"
+        disabled={isReleasing}
+        onClick={() => {
+          setIsConfirming(true);
+        }}
+      >
+        {isReleasing ? 'Releasing...' : 'Release'}
+      </button>
+    );
+  }
+  return (
+    <div role="group" aria-label={`Release ${ship.name}?`}>
+      <p>Release {ship.name}?</p>
+      <p>
+        The session crewing it loses it now. Its secret stops working, so that session cannot come back. Deliveries in
+        flight return to pending; nothing is lost. {ship.name} shows as Awaiting crew until you get a new starting
+        prompt.
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          setIsConfirming(false);
+          onRelease();
+        }}
+      >
+        Release ship
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setIsConfirming(false);
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+/**
  * One ship in the fleet list. A ship awaiting crew offers a new starting
  * prompt; while an unclaimed one is still out, it asks first, because the new
- * prompt stops the old one working.
+ * prompt stops the old one working. A crewed ship other than argo offers
+ * Release, after a confirm.
  */
 export function ShipRow({
   ship,
   isIssuing,
   onGetStartingPrompt,
+  isReleasing,
+  onRelease,
 }: {
   ship: ListedShip;
   isIssuing: boolean;
   onGetStartingPrompt: () => void;
+  isReleasing: boolean;
+  onRelease: () => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
   // Asked only while the unclaimed prompt is still out: once a session claims
@@ -69,6 +135,7 @@ export function ShipRow({
             Get starting prompt
           </button>
         ) : null}
+        {isReleasable(ship) ? <ReleaseAction ship={ship} isReleasing={isReleasing} onRelease={onRelease} /> : null}
         {promptToReplace ? (
           <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`}>
             <p>
