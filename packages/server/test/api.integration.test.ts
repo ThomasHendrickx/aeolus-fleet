@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -151,6 +151,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_fleet_argo_console_session$/),
       expect.stringMatching(/^\d{14}_operator_login$/),
       expect.stringMatching(/^\d{14}_crew_token$/),
+      expect.stringMatching(/^\d{14}_send$/),
     ]);
   });
 });
@@ -363,7 +364,7 @@ describe('the fleet procedures at the API', () => {
     expect(body).not.toContain('aeolus_sk_v1_');
   });
 
-  it('never write a secret, a crew token or the password to the logs, even at trace level', async () => {
+  it('never write a secret, a crew token, the password or a payload to the logs, even at trace level', async () => {
     const lines: string[] = [];
     const logged = createApp({
       databaseUrl,
@@ -402,6 +403,12 @@ describe('the fleet procedures at the API', () => {
         location: { kind: 'DEVICE' },
       });
       await asShipThere({ authorization: `Bearer ${crewToken}` }).ship.whoami.query();
+      await asShipThere({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
+        selector: { kind: 'ship', name: 'argo' },
+        payload: 'the logbook payload',
+        contentType: 'text/plain',
+        idempotencyKey: 'logbook-1',
+      });
       // A refused register logs its error path too.
       await expect(
         asShipThere({}).ship.register.mutate({ shipId, secret: secretIn(again.prompt), location: { kind: 'DEVICE' } }),
@@ -418,6 +425,7 @@ describe('the fleet procedures at the API', () => {
       }
       expect(logs).not.toContain('aeolus_sk_v1_');
       expect(logs).not.toContain('aeolus_ct_v1_');
+      expect(logs).not.toContain('the logbook payload');
     } finally {
       await logged.close();
     }
@@ -508,6 +516,211 @@ describe('the ship procedures at the API', () => {
     await expect(
       codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' } })),
     ).resolves.toBe('BAD_REQUEST');
+  });
+});
+
+describe('ship.send at the API', () => {
+  /** A ship commissioned by argo and claimed through register: its id and crew token. */
+  async function crewedByRegister(name: string): Promise<{ shipId: ShipId; crewToken: string }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'courier' });
+    const { crewToken } = await client().ship.register.mutate({
+      shipId,
+      secret: secretIn(prompt),
+      location: { kind: 'CLOUD' },
+    });
+    return { shipId, crewToken };
+  }
+
+  /** A plain-text message to argo, with a key of its own unless told otherwise. */
+  function toArgo(overrides: Partial<SendInput> = {}): SendInput {
+    return {
+      selector: { kind: 'ship', name: 'argo' },
+      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/22',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+      ...overrides,
+    };
+  }
+
+  it('sends with a crew token: the message is stored from that ship, and its id comes back', async () => {
+    const { shipId, crewToken } = await crewedByRegister('dispatch');
+
+    const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate(toArgo());
+
+    expect(messageId).toMatch(/^msg_/);
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      senderShipId: shipId,
+      selectorKind: 'ship',
+      selectorShipId: argoId,
+    });
+    await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
+      recipientShipId: argoId,
+      state: 'pending',
+    });
+  });
+
+  it('sends as argo from the console session', async () => {
+    const { shipId } = await crewedByRegister('relay');
+
+    const { messageId } = await (await signedInArgo()).ship.send.mutate(
+      toArgo({ selector: { kind: 'ship', shipId } }),
+    );
+
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      senderShipId: argoId,
+      selectorShipId: shipId,
+    });
+  });
+
+  it('returns the original id for a repeat of the idempotency key', async () => {
+    const { crewToken } = await crewedByRegister('echo');
+    const asShip = client({ authorization: `Bearer ${crewToken}` });
+    const input = toArgo();
+
+    const first = await asShip.ship.send.mutate(input);
+    const repeated = await asShip.ship.send.mutate(input);
+
+    expect(repeated).toEqual(first);
+    await expect(database.message.count({ where: { idempotencyKey: input.idempotencyKey } })).resolves.toBe(1);
+  });
+
+  it('takes any media type as the content type, and refuses what is not one with BAD_REQUEST', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    const { messageId } = await asShip.ship.send.mutate(toArgo({ contentType: 'text/markdown; charset=utf-8' }));
+
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      contentType: 'text/markdown; charset=utf-8',
+    });
+    await expect(codeOf(asShip.ship.send.mutate(toArgo({ contentType: 'markdown' })))).resolves.toBe('BAD_REQUEST');
+  });
+
+  it.each([
+    { field: 'payload', value: 'review\u0000' },
+    { field: 'idempotencyKey', value: 'key\u0000' },
+    { field: 'contentType', value: 'text/plain\u0000' },
+  ])('refuses the character U+0000 in $field with BAD_REQUEST and a clear message, never a server failure', async ({
+    field,
+    value,
+  }) => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(asShip.ship.send.mutate({ ...toArgo(), [field]: value }))).resolves.toEqual({
+      code: 'BAD_REQUEST',
+      message: `The input field ${field} cannot hold the character U+0000 (NUL)`,
+    });
+  });
+
+  it('refuses the same key with another request with CONFLICT', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+    const input = toArgo();
+    await asShip.ship.send.mutate(input);
+
+    await expect(refusalOf(asShip.ship.send.mutate({ ...input, payload: 'something else' }))).resolves.toEqual({
+      code: 'CONFLICT',
+      message: 'This idempotency key was already used for another message: send a new message with a new key',
+    });
+  });
+
+  it('refuses a ship without messages:send, and stores nothing', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+    const input = toArgo();
+
+    await expect(refusalOf(reader.ship.send.mutate(input))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the messages:send scope',
+    });
+    await expect(database.message.count({ where: { idempotencyKey: input.idempotencyKey } })).resolves.toBe(0);
+  });
+
+  it('refuses a send without a caller', async () => {
+    await expect(codeOf(client().ship.send.mutate(toArgo()))).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('refuses a send with the session cookie from a foreign origin', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    await expect(
+      codeOf(client({ cookie, origin: 'https://sibling.fleet.example.com' }).ship.send.mutate(toArgo())),
+    ).resolves.toBe('FORBIDDEN');
+  });
+
+  it('refuses a selector that resolves to no ship, and a reply to no message, with NOT_FOUND', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+    const inReplyTo = newId('message');
+
+    await expect(refusalOf(asShip.ship.send.mutate(toArgo({ selector: { kind: 'ship', name: 'nobody' } })))).resolves.toEqual({
+      code: 'NOT_FOUND',
+      message: 'No active ship is named nobody',
+    });
+    await expect(refusalOf(asShip.ship.send.mutate(toArgo({ selector: { kind: 'type', type: 'nobody' } })))).resolves.toEqual({
+      code: 'NOT_FOUND',
+      message: 'No active ship has the type nobody',
+    });
+    await expect(refusalOf(asShip.ship.send.mutate(toArgo({ inReplyTo })))).resolves.toEqual({
+      code: 'NOT_FOUND',
+      message: `Message ${inReplyTo} does not exist: a reply names a message of the fleet`,
+    });
+  });
+
+  it('accepts a payload of exactly 64 KB, and refuses one byte more with BAD_REQUEST, storing nothing', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+    const atTheLimit = toArgo({ payload: 'é'.repeat(32_768) });
+    const overTheLimit = toArgo({ payload: `${'é'.repeat(32_768)}a` });
+
+    const { messageId } = await asShip.ship.send.mutate(atTheLimit);
+
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      payload: atTheLimit.payload,
+    });
+    await expect(codeOf(asShip.ship.send.mutate(overTheLimit))).resolves.toBe('BAD_REQUEST');
+    await expect(
+      database.message.count({ where: { idempotencyKey: overTheLimit.idempotencyKey } }),
+    ).resolves.toBe(0);
+  });
+
+  it('answers a refused send without a stack trace', async () => {
+    const response = await fetch(`${address}/trpc/ship.send`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${await crewedShip()}`, 'content-type': 'application/json' },
+      body: JSON.stringify(toArgo({ selector: { kind: 'ship', name: 'nobody' } })),
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(404);
+    expect(body).toContain('No active ship is named nobody');
+    expect(body).not.toContain('"stack"');
+    expect(body).not.toMatch(/\s{2,}at \S/);
+  });
+});
+
+describe('text input holding U+0000 at the API', () => {
+  it('refuses a note holding U+0000 with BAD_REQUEST, and commissions nothing', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(
+      refusalOf(asArgo.fleet.commission.mutate({ name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
+    ).resolves.toEqual({ code: 'BAD_REQUEST', message: 'The input field note cannot hold the character U+0000 (NUL)' });
+    await expect(database.ship.count({ where: { name: 'nul-note' } })).resolves.toBe(0);
+  });
+
+  it('refuses a location description holding U+0000 with BAD_REQUEST, and opens no lease', async () => {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name: 'nul-lookout', type: 'reviewer' });
+
+    await expect(
+      refusalOf(
+        client().ship.register.mutate({
+          shipId,
+          secret: secretIn(prompt),
+          location: { kind: 'OTHER', description: 'ci\u0000runner' },
+        }),
+      ),
+    ).resolves.toEqual({
+      code: 'BAD_REQUEST',
+      message: 'The input field location.description cannot hold the character U+0000 (NUL)',
+    });
+    await expect(database.lease.count({ where: { shipId } })).resolves.toBe(0);
   });
 });
 

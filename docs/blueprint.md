@@ -183,7 +183,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 ### Send, receive, acknowledge
 
-1. The sender calls `send` with a selector, a payload and its own idempotency key, so a network retry never creates the message twice.
+1. The sender calls `send` with a selector, a payload and its own idempotency key, so a network retry never creates the message twice: a repeat with the same key and the same request returns the original message, and the same key with a different request is refused.
 2. Aeolus verifies the sender, resolves the selector and stores the message plus its deliveries in one transaction. Only then does it return OK with the message id. An unresolvable selector is rejected.
 3. The receiver is woken and calls `receive`. The delivery becomes in flight until the ship acknowledges it or is released.
 4. The receiver acknowledges on receipt by calling `ack`. The delivery is done and the sender can see it.
@@ -224,7 +224,7 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
 | `receive` | Returns the next deliveries, waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released |
-| `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key |
+| `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
 

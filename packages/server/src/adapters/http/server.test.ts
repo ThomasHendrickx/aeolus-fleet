@@ -8,6 +8,7 @@ import {
   crewShip,
   identityUseCases,
   initialiseFleet,
+  messagingUseCases,
   OPERATOR,
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
@@ -38,6 +39,7 @@ function start(
     useCases: {
       ...identityUseCases(core),
       ...registryUseCases(core),
+      ...messagingUseCases(core),
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
@@ -380,6 +382,7 @@ describe('a procedure that needs a scope', () => {
       useCases: {
         ...identityUseCases(core),
         ...registryUseCases(core),
+        ...messagingUseCases(core),
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
@@ -391,6 +394,130 @@ describe('a procedure that needs a scope', () => {
     const cookie = cookieOf(await signIn(OPERATOR));
 
     expect((await ping({ cookie })).statusCode).toBe(500);
+  });
+});
+
+describe('error responses', () => {
+  // Vitest sets NODE_ENV to test, which tRPC treats as development: unless
+  // told otherwise, it puts the stack trace into every error it answers.
+
+  /** Neither a stack property nor a stack frame line anywhere in the body. */
+  function expectNoStackTrace(response: { body: string }): void {
+    expect(response.body).not.toContain('"stack"');
+    expect(response.body).not.toMatch(/\s{2,}at \S/);
+  }
+
+  /** A server whose ping fails as a lost database would, logging to `lines`. */
+  function startWithFailingPing(lines: string[] = []): void {
+    server = buildHttpServer({
+      useCases: {
+        ...identityUseCases(core),
+        ...registryUseCases(core),
+        ...messagingUseCases(core),
+        ping: () => Promise.reject(new Error('database unreachable')),
+      },
+      checkDatabase: reachable,
+      clock: core.clock,
+      logger: {
+        level: 'error',
+        stream: {
+          write: (line: string) => {
+            lines.push(line);
+          },
+        },
+      },
+      consoleOrigin: FLEET_ORIGIN,
+    });
+  }
+
+  it('carry no stack trace for a refusal', async () => {
+    start();
+
+    const response = await ping();
+
+    expect(response.statusCode).toBe(401);
+    expectNoStackTrace(response);
+  });
+
+  it('carry no stack trace for input that does not parse', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/trpc/ship.register',
+      payload: { shipId: 'not a ship id', secret: '', location: { kind: 'MOON' } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expectNoStackTrace(response);
+  });
+
+  it('carry no stack trace for a failure', async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await ping({ cookie });
+
+    expect(response.statusCode).toBe(500);
+    expectNoStackTrace(response);
+  });
+
+  const failureBody = z.object({
+    error: z.object({ message: z.string(), data: z.object({ code: z.string(), requestId: z.string().min(1) }) }),
+  });
+
+  it("answer a failure with a generic message and the request's id, never the error's own words", async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await ping({ cookie });
+
+    const { error } = failureBody.parse(response.json());
+    expect(error.message).toBe('Internal error');
+    expect(error.data.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(response.body).not.toContain('database unreachable');
+  });
+
+  it('give every request its own id', async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const first = failureBody.parse((await ping({ cookie })).json());
+    const second = failureBody.parse((await ping({ cookie })).json());
+
+    expect(first.error.data.requestId).not.toBe(second.error.data.requestId);
+  });
+
+  it("keep a refusal's own code and message, with no request id", async () => {
+    start();
+
+    const response = await ping();
+
+    expect(response.json()).toEqual({
+      error: {
+        message: 'Sign in, or call with the crew token register gave you',
+        code: -32001,
+        data: { code: 'UNAUTHORIZED', httpStatus: 401, path: 'system.ping' },
+      },
+    });
+  });
+
+  it("leave the whole failure in the server log under the request's id: its path, its reason and its stack", async () => {
+    const lines: string[] = [];
+    startWithFailingPing(lines);
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const { error } = failureBody.parse((await ping({ cookie })).json());
+
+    const [logged, ...more] = lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
+    expect(more).toEqual([]);
+    expect(logged).toMatchObject({
+      msg: 'procedure failed',
+      reqId: error.data.requestId,
+      path: 'system.ping',
+      reason: 'database unreachable',
+    });
+    expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
   });
 });
 
@@ -584,5 +711,75 @@ describe("state-changing console calls come from the console's origin", () => {
 
     expect(response.statusCode).toBe(200);
     expect(stowaways()).toHaveLength(1);
+  });
+});
+
+describe('text input holding the character U+0000', () => {
+  // Postgres text can never store U+0000, so one check at the door refuses it
+  // in any text input, as a bad request that names the field.
+  const nulMessage = (field: string) => `The input field ${field} cannot hold the character U+0000 (NUL)`;
+
+  const refusal = z.object({ error: z.object({ message: z.string(), data: z.object({ code: z.string() }) }) });
+
+  it('refuses a note holding it with 400, and commissions nothing', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+    const ships = core.state.ships.length;
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/trpc/fleet.commission',
+      payload: { name: 'scout', type: 'reviewer', note: 'reviews\u0000 pull requests' },
+      headers: { cookie, origin: FLEET_ORIGIN },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(refusal.parse(response.json()).error.message).toBe(nulMessage('note'));
+    expect(core.state.ships).toHaveLength(ships);
+  });
+
+  it('refuses a location description holding it with 400, naming the nested field, and opens no lease', async () => {
+    start();
+    const agent = addAgentShip(core, { fleetId: fleetIdOf(core) });
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/trpc/ship.register',
+      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'OTHER', description: 'ci\u0000runner' } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(refusal.parse(response.json()).error.message).toBe(nulMessage('location.description'));
+    expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
+  });
+
+  it('refuses a sign-in whose password holds it with 400', async () => {
+    start();
+
+    const response = await signIn({ ...OPERATOR, password: `${OPERATOR.password}\u0000` });
+
+    expect(response.statusCode).toBe(400);
+    expect(refusal.parse(response.json()).error.message).toBe(nulMessage('password'));
+  });
+
+  it('refuses a payload holding it with 400, and sends nothing', async () => {
+    start();
+    const crewToken = crewedAgent();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/trpc/ship.send',
+      payload: {
+        selector: { kind: 'ship', name: 'argo' },
+        payload: 'review\u0000',
+        contentType: 'text/plain',
+        idempotencyKey: 'review-22',
+      },
+      headers: { authorization: `Bearer ${crewToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(refusal.parse(response.json()).error.message).toBe(nulMessage('payload'));
+    expect(core.state.messages).toEqual([]);
   });
 });

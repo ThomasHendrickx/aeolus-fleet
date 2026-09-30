@@ -49,7 +49,18 @@ async function eventTypes() {
 async function deliveryInFlightToArgo(): Promise<string> {
   const messageId = newId('message');
   await core.prisma.message.create({
-    data: { id: messageId, fleetId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, createdAt: core.clock.now() },
+    data: {
+      id: messageId,
+      fleetId,
+      senderShipId: argoId,
+      selectorKind: 'ship',
+      selectorShipId: argoId,
+      payload: '{}',
+      contentType: 'application/json',
+      idempotencyKey: messageId,
+      requestHash: messageId,
+      createdAt: core.clock.now(),
+    },
   });
   const deliveryId = newId('delivery');
   await core.prisma.delivery.create({

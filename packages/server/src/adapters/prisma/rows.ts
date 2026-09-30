@@ -5,11 +5,14 @@ import type { ConsoleSession } from '../../core/identity/console-session.js';
 import type { AuthenticatedShip } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
+import type { Message } from '../../core/messaging/message.js';
+import type { DeliveryNotice } from '../../core/messaging/ports.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
 import type { ShipFacts } from '../../core/registry/ports.js';
 import type { Ship } from '../../core/registry/ship.js';
 import type { Caller } from '../../core/shared/caller.js';
+import type { Recipient } from '../../core/shared/selector.js';
 
 // Maps database rows to domain objects. A row is outside data: each one is
 // parsed with the common schemas, so an id, kind or scope the domain does not
@@ -211,4 +214,46 @@ const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('cons
 export function toConsoleSessionCaller(row: unknown): Caller {
   const { console_session_id } = consoleSessionCallerSqlRow.parse(row);
   return { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+}
+
+const messageRow = z.object({
+  id: idSchema('message'),
+  fleetId: idSchema('fleet'),
+  senderShipId: idSchema('ship'),
+  payload: z.string(),
+  contentType: z.string(),
+  idempotencyKey: z.string(),
+  requestHash: z.string(),
+  inReplyToMessageId: idSchema('message').nullable(),
+  createdAt: z.date(),
+});
+
+/** The selector columns of a message: a ship's id for a ship selector, a type for a type selector. */
+const selectorColumns = z.union([
+  z
+    .object({ selectorKind: z.literal('ship'), selectorShipId: idSchema('ship'), selectorType: z.null() })
+    .transform((row): Recipient => ({ kind: 'ship', shipId: row.selectorShipId })),
+  z
+    .object({ selectorKind: z.literal('type'), selectorShipId: z.null(), selectorType: z.string() })
+    .transform((row): Recipient => ({ kind: 'type', type: row.selectorType })),
+]);
+
+export function toMessage(row: unknown): Message {
+  return { ...messageRow.parse(row), selector: selectorColumns.parse(row) };
+}
+
+const recipientSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ship'), shipId: idSchema('ship') }),
+  z.object({ kind: z.literal('type'), type: z.string() }),
+]);
+
+const deliveryNoticeSchema = z.object({
+  fleetId: idSchema('fleet'),
+  deliveryId: idSchema('delivery'),
+  recipient: recipientSchema,
+});
+
+/** A pending delivery's notice, as the payload of its NOTIFY carries it. */
+export function toDeliveryNotice(payload: unknown): DeliveryNotice {
+  return deliveryNoticeSchema.parse(payload);
 }

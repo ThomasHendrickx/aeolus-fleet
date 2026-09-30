@@ -49,10 +49,22 @@ function lease(fleetId: FleetId, shipId: ShipId) {
   return { id: newId('lease'), fleetId, shipId, location: 'DEVICE' as const, startedAt: now };
 }
 
+/** A message from a new ship of the fleet to the type queue `reviewer`. */
 async function createMessage(fleetId: FleetId, payload = '{}'): Promise<MessageId> {
   const id = newId('message');
   await database.message.create({
-    data: { id, fleetId, payload, contentType: 'application/json', idempotencyKey: id, createdAt: now },
+    data: {
+      id,
+      fleetId,
+      senderShipId: await createShip(fleetId),
+      selectorKind: 'type',
+      selectorType: 'reviewer',
+      payload,
+      contentType: 'application/json',
+      idempotencyKey: id,
+      requestHash: id,
+      createdAt: now,
+    },
   });
   return id;
 }
@@ -383,6 +395,79 @@ describe('messages', () => {
     const fleetId = await createFleet();
     // 32,769 two-byte characters: under 64 K characters, over 64 KB.
     await expect(createMessage(fleetId, 'é'.repeat(32_769))).rejects.toThrow(/messages_payload_max_64kb/);
+  });
+
+  interface SelectorColumns {
+    selectorKind: 'ship' | 'type';
+    selectorShipId?: ShipId;
+    selectorType?: string;
+  }
+
+  /** A message from the sender, to the type queue `reviewer` unless given other selector columns. */
+  function message(
+    fleetId: FleetId,
+    sent: { senderShipId: ShipId; idempotencyKey?: string; selector?: SelectorColumns },
+  ) {
+    const { selector = { selectorKind: 'type', selectorType: 'reviewer' }, ...columns } = sent;
+    return database.message.create({
+      data: {
+        id: newId('message'),
+        fleetId,
+        payload: '{}',
+        contentType: 'application/json',
+        idempotencyKey: newId('message'),
+        requestHash: 'request',
+        createdAt: now,
+        ...selector,
+        ...columns,
+      },
+    });
+  }
+
+  it('hold an idempotency key once per sender', async () => {
+    const fleetId = await createFleet();
+    const sender = await createShip(fleetId);
+    const other = await createShip(fleetId);
+
+    await message(fleetId, { senderShipId: sender, idempotencyKey: 'review-22' });
+    await expect(message(fleetId, { senderShipId: sender, idempotencyKey: 'review-22' })).rejects.toThrow(
+      /Unique constraint/,
+    );
+    await expect(message(fleetId, { senderShipId: other, idempotencyKey: 'review-22' })).resolves.toMatchObject({
+      idempotencyKey: 'review-22',
+    });
+  });
+
+  it('name a ship for a ship selector and a type for a type selector, never both', async () => {
+    const fleetId = await createFleet();
+    const sender = await createShip(fleetId);
+
+    const withSelector = (selector: SelectorColumns) => message(fleetId, { senderShipId: sender, selector });
+
+    await expect(withSelector({ selectorKind: 'ship' })).rejects.toThrow(/messages_one_selector/);
+    await expect(
+      withSelector({ selectorKind: 'ship', selectorShipId: sender, selectorType: 'reviewer' }),
+    ).rejects.toThrow(/messages_one_selector/);
+    await expect(withSelector({ selectorKind: 'type', selectorShipId: sender })).rejects.toThrow(
+      /messages_one_selector/,
+    );
+    await expect(withSelector({ selectorKind: 'type' })).rejects.toThrow(/messages_one_selector/);
+    await expect(withSelector({ selectorKind: 'ship', selectorShipId: sender })).resolves.toMatchObject({
+      selectorKind: 'ship',
+      selectorShipId: sender,
+      selectorType: null,
+    });
+  });
+
+  it("refuse a sender or an addressed ship of another fleet", async () => {
+    const shipOfAnotherFleet = await createShip(await createFleet());
+    const fleetId = await createFleet();
+    const sender = await createShip(fleetId);
+
+    await expect(message(fleetId, { senderShipId: shipOfAnotherFleet })).rejects.toThrow(/Foreign key constraint/);
+    await expect(
+      message(fleetId, { senderShipId: sender, selector: { selectorKind: 'ship', selectorShipId: shipOfAnotherFleet } }),
+    ).rejects.toThrow(/Foreign key constraint/);
   });
 });
 

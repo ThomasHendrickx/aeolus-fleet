@@ -1,6 +1,7 @@
 import type { Authenticate } from '../../core/identity/authenticate.js';
 import type { SignIn } from '../../core/identity/sign-in.js';
 import type { SignOut } from '../../core/identity/sign-out.js';
+import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
@@ -19,6 +20,7 @@ export interface UseCases {
   listFleet: ListFleet;
   claimShip: ClaimShip;
   whoami: Whoami;
+  sendMessage: SendMessage;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */
@@ -45,6 +47,8 @@ export interface Context {
   consoleOrigin: string;
   /** Who is asking, for rate limits: the client address. */
   clientKey: string;
+  /** This request's own id: a server failure answers with it, and its log line carries it. */
+  requestId: string;
   /** Counts sign-in attempts per client; false when over the limit. */
   takeSignInAttempt: (clientKey: string) => boolean;
   /**

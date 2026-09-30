@@ -6,15 +6,31 @@ import type { DomainError, DomainErrorKind } from '../../core/shared/errors.js';
 import type { Result } from '../../core/shared/result.js';
 import type { Context } from './context.js';
 
-const t = initTRPC.context<Context>().create();
+/** All a caller learns of a server failure, with the request's id; the log keeps the rest under that id. */
+const INTERNAL_ERROR_MESSAGE = 'Internal error';
+
+// Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
+// trace into every error it answers. A server failure answers only that it
+// failed and the request's id; a refusal keeps its own code and message.
+const t = initTRPC.context<Context>().create({
+  isDev: false,
+  errorFormatter: ({ shape, error, ctx }) =>
+    error.code === 'INTERNAL_SERVER_ERROR'
+      ? { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } }
+      : shape,
+});
 
 export const router = t.router;
 
 const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   FLEET_ALREADY_EXISTS: 'CONFLICT',
   FLEET_NOT_FOUND: 'NOT_FOUND',
+  IDEMPOTENCY_KEY_REUSED: 'CONFLICT',
+  IN_REPLY_TO_NOT_FOUND: 'NOT_FOUND',
+  INVALID_CONTENT_TYPE: 'BAD_REQUEST',
   INVALID_EMAIL: 'BAD_REQUEST',
   INVALID_FLEET_NAME: 'BAD_REQUEST',
+  INVALID_IDEMPOTENCY_KEY: 'BAD_REQUEST',
   INVALID_LOCATION: 'BAD_REQUEST',
   INVALID_PASSWORD: 'BAD_REQUEST',
   INVALID_SHIP_NAME: 'BAD_REQUEST',
@@ -24,10 +40,13 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   OPERATOR_SHIP_GETS_NO_STARTING_PROMPT: 'FORBIDDEN',
   OPERATOR_SHIP_HAS_NO_SECRET: 'FORBIDDEN',
   OPERATOR_SHIP_IS_PERMANENT: 'FORBIDDEN',
+  // BAD_REQUEST, as when the schema at the door refuses the same payload.
+  PAYLOAD_TOO_LARGE: 'BAD_REQUEST',
   SHIP_NAME_RESERVED: 'CONFLICT',
   SHIP_NAME_TAKEN: 'CONFLICT',
   SHIP_NOT_AWAITING_CREW: 'CONFLICT',
   SHIP_NOT_FOUND: 'NOT_FOUND',
+  UNRESOLVABLE_SELECTOR: 'NOT_FOUND',
   WRONG_EMAIL_OR_PASSWORD: 'UNAUTHORIZED',
   WRONG_SHIP_ID_OR_SECRET: 'UNAUTHORIZED',
 };
@@ -43,8 +62,58 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
   return result.value;
 }
 
-/** A procedure that needs no caller: the base of the console procedures, and `register`, which takes the ship secret. */
-export const publicProcedure = t.procedure;
+type InputPath = readonly (string | number)[];
+
+/** Where in the input the first text holding U+0000 is; undefined when no text does. */
+function pathToNul(value: unknown, path: InputPath): InputPath | undefined {
+  if (typeof value === 'string') {
+    return value.includes('\u0000') ? path : undefined;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = pathToNul(item, [...path, index]);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+  if (typeof value === 'object' && value !== null) {
+    for (const [key, item] of Object.entries(value)) {
+      const found = pathToNul(item, [...path, key]);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** A field's path as a caller writes it: `location.description`, `items[2].note`. */
+function fieldName(path: InputPath): string {
+  return path.map((part, index) => (typeof part === 'number' ? `[${part}]` : index === 0 ? part : `.${part}`)).join('');
+}
+
+/**
+ * A procedure that needs no caller: the base of every procedure, of the
+ * console procedures, and of `register`, which takes the ship secret.
+ *
+ * Postgres text can never store the character U+0000, so this one check at
+ * the door refuses it in any text input, as a bad request naming the field,
+ * before anything else reads the input.
+ */
+export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => {
+  // Input that does not parse is left to the procedure: one without input,
+  // such as sign-out with an empty body, never reads it; one with input
+  // refuses it as before.
+  const input: unknown = await getRawInput().catch(() => undefined);
+  const path = pathToNul(input, []);
+  if (path) {
+    const where = path.length === 0 ? 'The input' : `The input field ${fieldName(path)}`;
+    throw new TRPCError({ code: 'BAD_REQUEST', message: `${where} cannot hold the character U+0000 (NUL)` });
+  }
+  return next();
+});
 
 /**
  * Refuses a state-changing console call from anywhere but the console's

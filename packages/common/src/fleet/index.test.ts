@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { eventTypeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from './index.js';
+import {
+  deliveryStateSchema,
+  eventTypeSchema,
+  locationKindSchema,
+  scopeSchema,
+  selectorKindSchema,
+  shipKindSchema,
+  shipStatusSchema,
+} from './index.js';
 
 describe('scopeSchema', () => {
   it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'])('accepts %s', (scope) => {
@@ -38,6 +46,7 @@ describe('eventTypeSchema', () => {
       'CredentialRevoked',
       'StartingPromptIssued',
       'OperatorPasswordReset',
+      'MessageAccepted',
     ]);
   });
 });
@@ -45,5 +54,24 @@ describe('eventTypeSchema', () => {
 describe('shipStatusSchema', () => {
   it('knows awaiting crew, crewed and retired, nothing else', () => {
     expect(shipStatusSchema.options).toEqual(['awaitingCrew', 'crewed', 'retired']);
+  });
+});
+
+describe('selectorKindSchema', () => {
+  it('knows ship and type, nothing else yet', () => {
+    expect(selectorKindSchema.options).toEqual(['ship', 'type']);
+  });
+});
+
+describe('deliveryStateSchema', () => {
+  it('knows the six delivery states, nothing else', () => {
+    expect(deliveryStateSchema.options).toEqual([
+      'pending',
+      'delivered',
+      'acknowledged',
+      'undeliverable',
+      'dismissed',
+      'abandoned',
+    ]);
   });
 });

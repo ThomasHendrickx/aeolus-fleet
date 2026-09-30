@@ -11,6 +11,8 @@ import type {
   OperatorAccountLookup,
   OperatorAccountRepository,
 } from '../../src/core/identity/ports.js';
+import type { Delivery, Message } from '../../src/core/messaging/message.js';
+import type { DeliveryNotice, DeliveryRepository, MessageRepository, Notifier } from '../../src/core/messaging/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
@@ -32,13 +34,11 @@ import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
  * throws, so tests can prove a use case leaves nothing behind.
  */
 
-/** Just enough of a delivery to prove what the lease operations do with deliveries in flight. */
-export interface InMemoryDelivery {
-  id: string;
-  fleetId: FleetId;
-  state: 'pending' | 'delivered' | 'acknowledged';
-  claimedByShipId: ShipId | null;
-}
+/**
+ * A delivery as a send stores it, or just enough of one to prove what the
+ * lease operations do with deliveries in flight.
+ */
+export type InMemoryDelivery = Pick<Delivery, 'id' | 'fleetId' | 'state' | 'claimedByShipId'> & Partial<Delivery>;
 
 export interface InMemoryState {
   fleets: Fleet[];
@@ -47,8 +47,11 @@ export interface InMemoryState {
   credentials: Credential[];
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
+  messages: Message[];
   deliveries: InMemoryDelivery[];
   events: FleetEvent[];
+  /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
+  notices: DeliveryNotice[];
 }
 
 export interface InMemoryTx {
@@ -59,7 +62,10 @@ export interface InMemoryTx {
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
+  messages: MessageRepository;
+  deliveries: DeliveryRepository;
   events: EventLog;
+  notifier: Notifier;
 }
 
 export interface InMemoryCore {
@@ -85,8 +91,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     credentials: [],
     operatorAccounts: [],
     consoleSessions: [],
+    messages: [],
     deliveries: [],
     events: [],
+    notices: [],
   };
 
   let now = new Date(startAt);
@@ -159,6 +167,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(found && { ...found });
       },
       findForUpdate: (fleetId, shipId) => Promise.resolve(ship(fleetId, shipId)),
+      findForShare: (fleetId, shipId) => {
+        const found = ship(fleetId, shipId);
+        return Promise.resolve(found && { ...found });
+      },
+      findActiveByNameForShare: (fleetId, name) => {
+        const found = state.ships.find((held) => held.fleetId === fleetId && held.name === name && held.retiredAt === null);
+        return Promise.resolve(found && { ...found });
+      },
+      hasActiveShipOfType: (fleetId, type) =>
+        Promise.resolve(
+          state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null),
+        ),
     },
     leases: {
       findOpenForUpdate: (fleetId, shipId) =>
@@ -277,9 +297,49 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(open.map((session) => ({ ...session })));
       },
     },
+    messages: {
+      create: (message) => {
+        if (
+          state.messages.some(
+            (held) =>
+              held.fleetId === message.fleetId &&
+              held.senderShipId === message.senderShipId &&
+              held.idempotencyKey === message.idempotencyKey,
+          )
+        ) {
+          return Promise.reject(new Error('unique violation: the sender already used this idempotency key'));
+        }
+        state.messages.push(structuredClone(message));
+        return Promise.resolve();
+      },
+      lockIdempotencyKey: () => Promise.resolve(),
+      findByIdempotencyKey: ({ fleetId, senderShipId, idempotencyKey }) => {
+        const found = state.messages.find(
+          (held) =>
+            held.fleetId === fleetId && held.senderShipId === senderShipId && held.idempotencyKey === idempotencyKey,
+        );
+        return Promise.resolve(found && structuredClone(found));
+      },
+      find: (fleetId, messageId) => {
+        const found = state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+    },
+    deliveries: {
+      create: (delivery) => {
+        state.deliveries.push(structuredClone(delivery));
+        return Promise.resolve();
+      },
+    },
     events: {
       append: (event) => {
         state.events.push({ ...event });
+        return Promise.resolve();
+      },
+    },
+    notifier: {
+      deliveryPending: (notice) => {
+        state.notices.push(structuredClone(notice));
         return Promise.resolve();
       },
     },
@@ -364,8 +424,10 @@ const TABLES = [
   'credentials',
   'operatorAccounts',
   'consoleSessions',
+  'messages',
   'deliveries',
   'events',
+  'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 
 /** Puts every table back as it was, keeping the arrays tests already hold. */

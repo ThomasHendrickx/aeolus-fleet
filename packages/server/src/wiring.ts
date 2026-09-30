@@ -15,6 +15,7 @@ import { createAuthenticate, type Authenticate } from './core/identity/authentic
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
+import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
 import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
@@ -34,6 +35,7 @@ export interface UseCases {
   listFleet: ListFleet;
   claimShip: ClaimShip;
   whoami: Whoami;
+  sendMessage: SendMessage;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -68,6 +70,7 @@ export function createUseCases(options: {
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
+    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),
