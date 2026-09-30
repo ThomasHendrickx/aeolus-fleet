@@ -109,6 +109,15 @@ export function secretIn(prompt: string): string {
   return secret;
 }
 
+/** The fleet's MCP URL a starting prompt holds: where its session connects. */
+export function mcpUrlIn(prompt: string): string {
+  const url = /^Fleet MCP URL: (\S+)$/m.exec(prompt)?.[1];
+  if (url === undefined) {
+    throw new Error(`No fleet MCP URL in the starting prompt:\n${prompt}`);
+  }
+  return url;
+}
+
 /** The ship id a starting prompt holds. */
 export function shipIdIn(prompt: string): ShipId {
   const shipId = /^Ship id: (\S+)$/m.exec(prompt)?.[1];
