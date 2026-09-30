@@ -156,8 +156,8 @@ Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is p
 | --- | --- | --- |
 | `fleets` | The tenant: name, created date | One row in v1 |
 | `ships` | Name, type, kind (`operator` or `agent`), scopes, note, retired date | Name unique per fleet among ships that are not retired (partial unique index); exactly one `operator` ship per fleet, named `argo` |
-| `leases` | Which ship is crewed, since when, the hash of its crew token, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index) |
-| `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup the one query that is not scoped by fleet |
+| `leases` | Which ship is crewed, since when, the hash of its crew token, and the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) | At most one open lease per ship (partial unique index); the crew token hash is unique across all fleets, so the crew token lookup is not scoped by fleet either |
+| `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup one of the queries that are not scoped by fleet |
 | `messages` | Sender ship, selector, payload, content type, sender's idempotency key, optional in-reply-to and resend-of message | Payload at most 64 KB; unique on sender plus idempotency key |
 | `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship, attempts, read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state |
 | `events` | Append-only log of every state change: type, time, actor ship (or system), ship, message and delivery it concerns, small details | Never updated or deleted: timeline, audit trail and live-update source |

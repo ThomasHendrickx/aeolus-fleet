@@ -15,8 +15,8 @@ import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// Commissioning a ship and handing out its starting prompt, end to end: a
-// browser signed in as argo, the web app, the server and Postgres.
+// Commissioning a ship, handing out its starting prompt and claiming it, end
+// to end: a browser signed in as argo, the web app, the server and Postgres.
 
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 
