@@ -43,7 +43,7 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
   return result.value;
 }
 
-/** A procedure that needs no caller: signing in and out, and `register`, which takes the ship secret. */
+/** A procedure that needs no caller: the base of the console procedures, and `register`, which takes the ship secret. */
 export const publicProcedure = t.procedure;
 
 /**
@@ -87,9 +87,9 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
 }
 
 /**
- * A procedure for any caller, whatever its scopes: only `whoami`, which tells
- * a caller about itself. The caller comes from the server, never from the
- * request.
+ * A procedure for any caller, whatever its scopes: the base of every scoped
+ * procedure, and `whoami`, which tells a caller about itself. The caller comes
+ * from the server, never from the request.
  */
 export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, next }) => {
   // A mutation on the console session's cookie changes state: checked before

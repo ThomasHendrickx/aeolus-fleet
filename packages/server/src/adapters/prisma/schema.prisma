@@ -118,8 +118,8 @@ model Lease {
 }
 
 /// A ship secret, stored only as its hash. Ids start with crd_.
-/// The hash is unique across all fleets: finding a ship by its secret is the one
-/// lookup not scoped by fleet (ADR 0007).
+/// The hash is unique across all fleets: finding a ship by its secret is one of the
+/// lookups not scoped by fleet (ADR 0007).
 model Credential {
   id            String    @id
   fleetId       String    @map("fleet_id")
