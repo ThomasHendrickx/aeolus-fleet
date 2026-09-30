@@ -15,7 +15,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { readBearer } from '../http/request-credentials.js';
 import type { Context, RequestCredentials } from '../trpc/context.js';
 import { callShip, refusalBody, SHIP_CALLS, unexpectedFailure } from '../trpc/ship-contract.js';
-import { openApiDocument } from './openapi.js';
+import { API_TITLE, openApiDocument } from './openapi.js';
 
 const PREFIX = '/api/v1';
 
@@ -32,11 +32,20 @@ export interface RestApiOptions {
 export function registerRestApi(server: FastifyInstance, options: RestApiOptions): void {
   server.get(OPENAPI_PATH, () => OPENAPI_DOCUMENT);
 
-  // The viewer reads the spec above, and the server serves its script itself;
-  // Scalar's default fonts would come from its CDN, so the browser's own are used.
+  // The viewer reads the spec above, and the server serves its script itself.
+  // The page talks only to the fleet: Scalar's fonts would come from its CDN,
+  // and its agent and developer tools call Scalar's services. With no request
+  // proxy set, "Try it" calls the fleet directly.
   void server.register(fastifyApiReference, {
     routePrefix: `${PREFIX}/docs`,
-    configuration: { url: OPENAPI_PATH, withDefaultFonts: false },
+    configuration: {
+      url: OPENAPI_PATH,
+      pageTitle: API_TITLE,
+      withDefaultFonts: false,
+      agent: { disabled: true },
+      showDeveloperTools: 'never',
+      telemetry: false,
+    },
   });
 
   for (const call of SHIP_CALLS) {
