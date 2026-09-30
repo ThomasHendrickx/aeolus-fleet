@@ -1,6 +1,6 @@
 import type { DeliveryId, IdGenerator, MessageId, ShipId } from '@aeolus-fleet/common';
 
-import { holdLease, type HoldLeaseTx, type LeaseEnded, type Ship } from '../registry/public.js';
+import { findShip, holdLease, type HoldLeaseTx, type LeaseEnded, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
@@ -22,6 +22,9 @@ export interface ReceivedDelivery {
   deliveryId: DeliveryId;
   messageId: MessageId;
   senderShipId: ShipId;
+  /** The sender's name and type as they are now, so the crew can answer it by name. */
+  senderName: string;
+  senderType: string;
   /** Who the delivery is for: the crew's ship, or its type. */
   recipient: Recipient;
   payload: string;
@@ -37,7 +40,7 @@ export interface DeliveriesReceived {
   deliveries: ReceivedDelivery[];
 }
 
-export type ReceiveRefusal = DomainError<'INVALID_RECEIVE_MAX'> | LeaseEnded;
+export type ReceiveRefusal = DomainError<'INVALID_RECEIVE_MAX' | 'SHIP_NOT_FOUND'> | LeaseEnded;
 
 export type ReceiveDeliveries = (
   crew: Crew,
@@ -57,12 +60,13 @@ interface ClaimDeps {
  * Claims up to `max` deliveries for the crew in one unit of work: holds its
  * lease, then takes its own deliveries in flight, then the oldest pending ones
  * for its ship or its type. One that turns undeliverable is handed to no one,
- * and the next one claimable takes its place.
+ * and the next one claimable takes its place. Each one handed over names its
+ * sender as Registry holds it now.
  */
 async function claimForCrew(
   deps: ClaimDeps,
   claim: { crew: Crew; max: number },
-): Promise<Result<{ ship: Ship; deliveries: ReceivedDelivery[] }, LeaseEnded>> {
+): Promise<Result<{ ship: Ship; deliveries: ReceivedDelivery[] }, ReceiveRefusal>> {
   const { tx, ids, at } = deps;
   const { crew, max } = claim;
   const ship = await holdLease(tx, crew);
@@ -92,10 +96,17 @@ async function claimForCrew(
         await recordEvent({ events: tx.events, ids }, event);
       }
       if (outcome === 'claimed') {
+        const sender = await findShip(tx, { fleetId: crew.fleetId, shipId: message.senderShipId });
+        if (!sender.isOk) {
+          // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
+          return sender;
+        }
         handedOut.push({
           deliveryId: changed.id,
           messageId: message.id,
           senderShipId: message.senderShipId,
+          senderName: sender.value.name,
+          senderType: sender.value.type,
           recipient: changed.recipient,
           payload: message.payload,
           contentType: message.contentType,
@@ -116,7 +127,8 @@ async function claimForCrew(
  * returns is in flight, claimed by the crew's ship and lease, until the ship
  * acknowledges it or the lease ends, and the crew's next receive returns it
  * again, counted as another claim, so a lost reply loses nothing. Its fifth
- * claim makes it undeliverable instead.
+ * claim makes it undeliverable instead. Each delivery names its sender by id,
+ * and by the name and type the sender has now, so the crew can answer by name.
  *
  * When nothing is there it waits, about 25 seconds, for a wake-up for its ship
  * or its type (ADR 0003: LISTEN/NOTIFY after commit), then returns empty. It

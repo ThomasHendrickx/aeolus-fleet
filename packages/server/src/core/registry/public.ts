@@ -4,5 +4,5 @@ export { location, type Lease, type LeaseEnded, type LeaseEndReason, type Locati
 export { endLease, holdLease, takeOverOperatorLease, type HoldLeaseTx, type LeaseTx } from './leases.js';
 export type { InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
 export { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from './resolve-selector.js';
-export { findOperatorShip, type ShipTx } from './ships.js';
+export { findOperatorShip, findShip, type FindShipTx, type ShipTx } from './ships.js';
 export { OPERATOR_SHIP_NAME, type Ship } from './ship.js';
