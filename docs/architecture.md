@@ -177,8 +177,9 @@ Lint and CI enforce these rules (slice 1b).
 | Concern | Approach |
 | --- | --- |
 | Tenancy | Every record belongs to a fleet. A ship secret, a crew token or a console session resolves to exactly one ship and fleet (the lookups that are not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
-| Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message |
-| Migrations | Prisma Migrate, run at startup under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command |
+| Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message. The web app reads the server's address when it runs and passes it to the browser, never at build time, so one published build serves any fleet |
+| Running from npm | Each package has a `bin` command for what an operator runs: `aeolus-server start`, `migrate`, `fleet:init` and `operator:reset-password`; `aeolus-web start`. The infra repo installs a pinned version and runs these, knowing nothing of the source |
+| Migrations | Prisma Migrate, run at startup (`aeolus-server start`) under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command (`aeolus-server migrate`) |
 | First run | A server command initialises the fleet: it creates the fleet, `argo` and the operator account, asking for email and password. There is no setup page on the public web |
 | Forgotten password | A server command resets the operator password and ends every console session |
 | Console across hosts | The server sets the session cookie for a configured domain and allows a configured console origin (CORS with credentials), so web and server may run on different hosts under one domain. Unset, the console origin is the public URL's |
