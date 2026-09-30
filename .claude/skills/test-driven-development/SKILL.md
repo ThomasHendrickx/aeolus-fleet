@@ -26,4 +26,4 @@ Rules:
 - Every blueprint invariant has a test that fails if the rule is removed.
 - Done: `npm run typecheck`, `npm run lint`, `npm test`; confirm new tests appear by name in the output.
 
-Enforced by lint/CI (`eslint.config.js`, `scripts/`): the `(red)` commit with only tests before production code (a `refactor(...)` commit may follow a green one; a change to comments alone needs neither), a test beside every use case, every test in a Vitest project, no `vi.mock`, no `vi.fn` or `vi.spyOn` in core and common.
+Enforced by lint/CI (`eslint.config.js`, `scripts/`): a `feat` or `fix` commit touching production code comes right after a `(red)` commit with only tests (every other commit type passes), a test beside every use case, every test in a Vitest project, no `vi.mock`, no `vi.fn` or `vi.spyOn` in core and common.
