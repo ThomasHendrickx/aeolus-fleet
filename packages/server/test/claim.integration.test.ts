@@ -234,6 +234,30 @@ describe('claiming a ship on Postgres', () => {
     ]);
   });
 
+  it('lets a claim win over a new starting prompt that holds the ship but not yet the secret, without a deadlock', async () => {
+    // The prompt holds the ship FOR NO KEY UPDATE and waits for the secret the
+    // claim holds. A claim that locked the ship as well would wait for the
+    // prompt in turn: a deadlock. Reading the ship without a lock avoids it.
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      credentials: {
+        ...tx.credentials,
+        findValidForShipForUpdate: async (fleet, ship) => {
+          await hold();
+          return tx.credentials.findValidForShipForUpdate(fleet, ship);
+        },
+      },
+    }));
+    const prompt = getStartingPromptWith(uow)(argo, { shipId: scoutId });
+    await reached;
+
+    const claim = core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice });
+
+    await expect(claim).resolves.toMatchObject({ isOk: true });
+    await expect(prompt).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_AWAITING_CREW' } });
+    await expect(openLeasesOfScout()).resolves.toHaveLength(1);
+  });
+
   it('leaves no lease and the secret unclaimed when a write fails halfway', async () => {
     const before = await everyRow(core.prisma);
     const uow = createPrismaUnitOfWork(core.prisma);
