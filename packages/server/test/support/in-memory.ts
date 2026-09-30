@@ -65,6 +65,8 @@ export interface InMemoryTx {
 export interface InMemoryCore {
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
+  /** The ships, read outside a unit of work. */
+  ships: ShipRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -351,7 +353,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ),
   };
 
-  return { state, uow, callers, accounts, listing, clock, ids, hasher, passwords, random };
+  return { state, uow, ships: tx.ships, callers, accounts, listing, clock, ids, hasher, passwords, random };
 }
 
 const TABLES = [

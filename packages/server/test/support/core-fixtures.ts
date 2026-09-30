@@ -9,6 +9,7 @@ import { createCommissionShip } from '../../src/core/registry/commission-ship.js
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
+import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller } from '../../src/core/shared/caller.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
@@ -49,6 +50,7 @@ export function registryUseCases(core: InMemoryCore) {
     getStartingPrompt: createGetStartingPrompt(deps),
     claimShip: createClaimShip(deps),
     listFleet: createListFleet({ listing: core.listing }),
+    whoami: createWhoami({ ships: core.ships }),
   };
 }
 

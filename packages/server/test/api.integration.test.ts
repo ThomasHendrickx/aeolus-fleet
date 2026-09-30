@@ -285,7 +285,7 @@ describe('the fleet procedures at the API', () => {
     });
   });
 
-  it('give a new starting prompt: the previous secret stops working', async () => {
+  it('give a new starting prompt: the previous secret stops working, the new one registers', async () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt: first } = await asArgo.fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
     clock.advance(60_000);
@@ -293,8 +293,15 @@ describe('the fleet procedures at the API', () => {
     const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
 
     expect(secretIn(prompt)).not.toBe(secretIn(first));
-    const valid = await database.credential.findMany({ where: { shipId, invalidatedAt: null } });
-    expect(valid.map((credential) => credential.secretHash)).toEqual([sha256Hasher.hash(secretIn(prompt))]);
+    await expect(
+      codeOf(client().ship.register.mutate({ shipId, secret: secretIn(first), location: { kind: 'DEVICE' } })),
+    ).resolves.toBe('UNAUTHORIZED');
+    const { crewToken } = await client().ship.register.mutate({
+      shipId,
+      secret: secretIn(prompt),
+      location: { kind: 'DEVICE' },
+    });
+    expect(crewToken).toMatch(/^aeolus_ct_v1_./);
   });
 
   it('refuse a commission with a name an active ship holds', async () => {
@@ -349,7 +356,7 @@ describe('the fleet procedures at the API', () => {
     expect(body).not.toContain('aeolus_sk_v1_');
   });
 
-  it('never write a secret or the password to the logs, even at trace level', async () => {
+  it('never write a secret, a crew token or the password to the logs, even at trace level', async () => {
     const lines: string[] = [];
     const logged = createApp({
       databaseUrl,
@@ -378,6 +385,18 @@ describe('the fleet procedures at the API', () => {
       const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' });
       const again = await asArgoThere.fleet.getStartingPrompt.mutate({ shipId });
       await asArgoThere.fleet.list.query();
+      const asShipThere = (headers: Record<string, string>) =>
+        createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${url}/trpc`, headers })] });
+      const { crewToken } = await asShipThere({}).ship.register.mutate({
+        shipId,
+        secret: secretIn(again.prompt),
+        location: { kind: 'DEVICE' },
+      });
+      await asShipThere({ authorization: `Bearer ${crewToken}` }).ship.whoami.query();
+      // A refused register logs its error path too.
+      await expect(
+        asShipThere({}).ship.register.mutate({ shipId, secret: secretIn(again.prompt), location: { kind: 'DEVICE' } }),
+      ).rejects.toThrow('logbook is crewed');
       // A refused commission logs its error path too.
       await expect(asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' })).rejects.toThrow(
         'An active ship is already named logbook',
@@ -385,13 +404,88 @@ describe('the fleet procedures at the API', () => {
 
       expect(lines.length).toBeGreaterThan(0);
       const logs = lines.join('');
-      for (const secret of [secretIn(prompt), secretIn(again.prompt), OPERATOR.password]) {
+      for (const secret of [secretIn(prompt), secretIn(again.prompt), OPERATOR.password, crewToken]) {
         expect(logs).not.toContain(secret);
       }
       expect(logs).not.toContain('aeolus_sk_v1_');
+      expect(logs).not.toContain('aeolus_ct_v1_');
     } finally {
       await logged.close();
     }
+  });
+});
+
+describe('the ship procedures at the API', () => {
+  /** A ship commissioned by argo: its id and the secret from its starting prompt. */
+  async function commissioned(name: string): Promise<{ shipId: ShipId; secret: string }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'reviewer' });
+    return { shipId, secret: secretIn(prompt) };
+  }
+
+  function asShip(crewToken: string): TRPCClient<AppRouter> {
+    return client({ authorization: `Bearer ${crewToken}` });
+  }
+
+  it('register a ship with the secret from its prompt: whoami answers with the crew token', async () => {
+    const { shipId, secret } = await commissioned('navigator');
+
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } });
+
+    expect(crewToken).toMatch(/^aeolus_ct_v1_./);
+    await expect(asShip(crewToken).ship.whoami.query()).resolves.toEqual({
+      shipId,
+      fleetId,
+      name: 'navigator',
+      type: 'reviewer',
+    });
+  });
+
+  it('refuse whoami with the ship secret: it works only for register', async () => {
+    const { shipId, secret } = await commissioned('bosun');
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' } });
+
+    await expect(codeOf(asShip(secret).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('refuse whoami without a caller', async () => {
+    await expect(codeOf(client().ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('answer whoami for the console session: argo', async () => {
+    await expect((await signedInArgo()).ship.whoami.query()).resolves.toEqual({
+      shipId: argoId,
+      fleetId,
+      name: 'argo',
+      type: 'operator',
+    });
+  });
+
+  it('refuse register with a wrong secret, and say only that the ship id or secret is wrong', async () => {
+    const { shipId } = await commissioned('purser');
+
+    await expect(
+      refusalOf(client().ship.register.mutate({ shipId, secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } })),
+    ).resolves.toEqual({ code: 'UNAUTHORIZED', message: 'Wrong ship id or secret' });
+  });
+
+  it('refuse a second register while the ship is crewed', async () => {
+    const { shipId, secret } = await commissioned('helmsman');
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' } });
+
+    await expect(
+      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'SERVER' } })),
+    ).resolves.toEqual({
+      code: 'CONFLICT',
+      message: 'helmsman is crewed: a session claims a ship only while it awaits crew',
+    });
+  });
+
+  it('refuse register with an OTHER location without its description', async () => {
+    const { shipId, secret } = await commissioned('cook');
+
+    await expect(
+      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' } })),
+    ).resolves.toBe('BAD_REQUEST');
   });
 });
 

@@ -27,6 +27,7 @@ function start(
   options: {
     checkDatabase?: () => Promise<void>;
     signInRateLimit?: RateLimit;
+    registerRateLimit?: RateLimit;
     cookieDomain?: string;
     consoleOrigin?: string;
   } = {},
@@ -41,6 +42,7 @@ function start(
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
+    registerRateLimit: options.registerRateLimit,
     cookieDomain: options.cookieDomain,
     consoleOrigin: options.consoleOrigin,
   });
@@ -183,6 +185,74 @@ describe('console.signIn', () => {
     });
 
     expect(fromElsewhere.statusCode).toBe(200);
+  });
+});
+
+describe('ship.register', () => {
+  /** Like the tRPC client: a JSON body, and no credentials but the secret in it. */
+  function register(input: { shipId: string; secret: string; location: Record<string, string> }, remoteAddress?: string) {
+    return server.inject({ method: 'POST', url: '/trpc/ship.register', payload: input, remoteAddress });
+  }
+
+  function aWrongClaim() {
+    return { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } };
+  }
+
+  it('returns the crew token for the secret, and whoami answers with that token', async () => {
+    start();
+    const agent = addAgentShip(core, { fleetId: fleetIdOf(core), name: 'scout' });
+
+    const registered = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } });
+    const { crewToken } = z
+      .object({ result: z.object({ data: z.object({ crewToken: z.string() }) }) })
+      .parse(registered.json()).result.data;
+    const whoami = await server.inject({
+      method: 'GET',
+      url: '/trpc/ship.whoami',
+      headers: { authorization: `Bearer ${crewToken}` },
+    });
+
+    expect(registered.statusCode).toBe(200);
+    expect(crewToken).toMatch(/^aeolus_ct_v1_./);
+    expect(whoami.json()).toEqual({
+      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer' } },
+    });
+  });
+
+  it('refuses a wrong ship id or secret with 401', async () => {
+    start();
+
+    const response = await register(aWrongClaim());
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json<{ error: { message: string } }>().error.message).toBe('Wrong ship id or secret');
+  });
+
+  it('refuses further attempts from a client over the rate limit with 429', async () => {
+    start({ registerRateLimit: { limit: 3, windowMs: 60_000 } });
+    const agent = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect((await register(aWrongClaim())).statusCode).toBe(401);
+    }
+
+    const limited = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } });
+
+    expect(limited.statusCode).toBe(429);
+    expect(errorCode(limited)).toBe('TOO_MANY_REQUESTS');
+    expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
+    core.clock.advance(60_000);
+    expect(
+      (await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } })).statusCode,
+    ).toBe(200);
+  });
+
+  it('counts attempts per client address, apart from sign-in attempts', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 }, signInRateLimit: { limit: 1, windowMs: 60_000 } });
+
+    expect((await register(aWrongClaim())).statusCode).toBe(401);
+    expect((await register(aWrongClaim(), '203.0.113.7')).statusCode).toBe(401);
+    expect((await register(aWrongClaim())).statusCode).toBe(429);
+    expect((await signIn(OPERATOR)).statusCode).toBe(200);
   });
 });
 
