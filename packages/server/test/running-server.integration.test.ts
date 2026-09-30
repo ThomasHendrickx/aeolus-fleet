@@ -46,9 +46,13 @@ afterEach(async () => {
   await database.$disconnect();
 });
 
-/** Starts the server on the test database and returns its address. */
-async function start(receiveWaitMs = LONG_WAIT_MS): Promise<{ server: FastifyInstance; address: string }> {
-  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs });
+/** Starts the server on the test database and returns its address. Its log lines go to `logLines` when given. */
+async function start(
+  receiveWaitMs = LONG_WAIT_MS,
+  logLines?: string[],
+): Promise<{ server: FastifyInstance; address: string }> {
+  const logger = logLines && { level: 'info', stream: { write: (line: string) => void logLines.push(line) } };
+  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: logger ?? false, receiveWaitMs });
   running.push(server);
   return { server, address: await server.listen({ host: '127.0.0.1', port: 0 }) };
 }
@@ -134,9 +138,12 @@ describe('the running server', () => {
   });
 
   it('ends a waiting receive at once when it stops: the receive answers no deliveries', async () => {
-    const { server, address } = await start();
+    const logLines: string[] = [];
+    const { server, address } = await start(LONG_WAIT_MS, logLines);
     const receiver = await crewed(address, 'mooring');
     const receiving = client(address, receiver.crewToken).ship.receive.mutate({});
+    // Stopped only once the receive reached the server: a request still on its way would meet a closing socket.
+    await expect.poll(() => logLines.some((line) => line.includes('ship.receive'))).toBe(true);
     await pause(SETTLE_MS);
     const stoppingAt = performance.now();
 
