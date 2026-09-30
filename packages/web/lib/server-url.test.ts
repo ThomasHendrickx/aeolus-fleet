@@ -11,8 +11,8 @@ describe('the server address', () => {
     expect(serverUrlFrom({ AEOLUS_SERVER_URL: 'https://fleet.example.com/' })).toBe('https://fleet.example.com');
   });
 
-  it('is the server beside the web app when AEOLUS_SERVER_URL is unset or empty', () => {
-    expect(serverUrlFrom({})).toBe('http://127.0.0.1:4000');
-    expect(serverUrlFrom({ AEOLUS_SERVER_URL: '' })).toBe('http://127.0.0.1:4000');
+  it('is the server beside the web app, by localhost like the console, when AEOLUS_SERVER_URL is unset or empty', () => {
+    expect(serverUrlFrom({})).toBe('http://localhost:4000');
+    expect(serverUrlFrom({ AEOLUS_SERVER_URL: '' })).toBe('http://localhost:4000');
   });
 });
