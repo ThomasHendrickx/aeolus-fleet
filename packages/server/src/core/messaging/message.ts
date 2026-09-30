@@ -1,11 +1,4 @@
-import type {
-  ContentType,
-  DeliveryId,
-  DeliveryState,
-  FleetId,
-  MessageId,
-  ShipId,
-} from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -25,7 +18,8 @@ export interface Message {
   /** The selector as resolved at send time: a ship's id, never its name, or a type. */
   selector: Recipient;
   payload: string;
-  contentType: ContentType;
+  /** A media type, exactly as the sender gave it. */
+  contentType: string;
   /** Unique per sender: a repeat returns this message instead of storing a new one. */
   idempotencyKey: string;
   /** The message of the same fleet this one replies to. */
@@ -56,7 +50,7 @@ export interface MessageToAccept {
   fleetId: FleetId;
   senderShipId: ShipId;
   payload: string;
-  contentType: ContentType;
+  contentType: string;
   idempotencyKey: string;
   inReplyTo: MessageId | undefined;
   at: Date;

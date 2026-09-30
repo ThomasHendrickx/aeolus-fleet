@@ -27,6 +27,3 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_one_selector" CHECK (
   ("selector_kind" = 'ship' AND "selector_ship_id" IS NOT NULL AND "selector_type" IS NULL)
   OR ("selector_kind" = 'type' AND "selector_type" IS NOT NULL AND "selector_ship_id" IS NULL)
 );
-
--- A payload is JSON or plain text.
-ALTER TABLE "messages" ADD CONSTRAINT "messages_content_type_known" CHECK ("content_type" IN ('application/json', 'text/plain'));

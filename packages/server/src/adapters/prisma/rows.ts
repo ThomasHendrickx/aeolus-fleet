@@ -1,4 +1,4 @@
-import { contentTypeSchema, idSchema, locationKindSchema, scopeSchema, shipKindSchema } from '@aeolus-fleet/common';
+import { idSchema, locationKindSchema, scopeSchema, shipKindSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { ConsoleSession } from '../../core/identity/console-session.js';
@@ -221,7 +221,7 @@ const messageRow = z.object({
   fleetId: idSchema('fleet'),
   senderShipId: idSchema('ship'),
   payload: z.string(),
-  contentType: contentTypeSchema,
+  contentType: z.string(),
   idempotencyKey: z.string(),
   inReplyToMessageId: idSchema('message').nullable(),
   createdAt: z.date(),

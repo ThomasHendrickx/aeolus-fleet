@@ -1,4 +1,4 @@
-import type { ContentType, IdGenerator, MessageId } from '@aeolus-fleet/common';
+import type { IdGenerator, MessageId } from '@aeolus-fleet/common';
 
 import { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -8,6 +8,7 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { contentType } from './content-type.js';
 import { idempotencyKey } from './idempotency-key.js';
 import { acceptMessage, type AcceptRefusal } from './message.js';
 import { payload } from './payload.js';
@@ -23,7 +24,8 @@ export interface SendMessageTx extends ResolveSelectorTx {
 export interface MessageToSend {
   selector: Selector;
   payload: string;
-  contentType: ContentType;
+  /** Any well-formed media type, passed on untouched. */
+  contentType: string;
   idempotencyKey: string;
   /** The id of the message, in the same fleet, this one replies to. */
   inReplyTo?: MessageId;
@@ -35,7 +37,7 @@ export interface MessageSent {
 }
 
 export type SendMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_IDEMPOTENCY_KEY'>
+  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY'>
   | UnresolvableSelector
   | AcceptRefusal;
 
@@ -46,8 +48,9 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * the caller, `argo` included; its scope (messages:send) is checked before
  * this runs. The message, its delivery, MessageAccepted and the notice that
  * wakes its receivers are one unit of work: the sender gets its id only once
- * all of it is committed (ADR 0003). A payload over 64 KB or a bad key is
- * refused before the unit of work starts, so nothing is stored.
+ * all of it is committed (ADR 0003). A payload over 64 KB, a content type that
+ * is no media type or a bad key is refused before the unit of work starts, so
+ * nothing is stored.
  *
  * A repeat, the same sender with the same idempotency key, returns the
  * original message's id and stores nothing, whatever else it says: the key is
@@ -61,6 +64,10 @@ export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock:
     const text = payload(input.payload);
     if (!text.isOk) {
       return text;
+    }
+    const mediaType = contentType(input.contentType);
+    if (!mediaType.isOk) {
+      return mediaType;
     }
     const key = idempotencyKey(input.idempotencyKey);
     if (!key.isOk) {
@@ -90,7 +97,7 @@ export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock:
           fleetId,
           senderShipId,
           payload: text.value,
-          contentType: input.contentType,
+          contentType: mediaType.value,
           idempotencyKey: key.value,
           inReplyTo,
           at: deps.clock.now(),

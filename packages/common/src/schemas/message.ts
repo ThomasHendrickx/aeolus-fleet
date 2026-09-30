@@ -25,10 +25,33 @@ export function payloadBytes(payload: string): number {
   return utf8.encode(payload).byteLength;
 }
 
-/** A payload is text with a content type: JSON or plain text. Never parsed by the fleet. */
-export const CONTENT_TYPES = ['application/json', 'text/plain'] as const;
-export const contentTypeSchema = z.enum(CONTENT_TYPES);
-export type ContentType = z.infer<typeof contentTypeSchema>;
+/** The longest content type a sender may give, parameters included. */
+export const CONTENT_TYPE_MAX_LENGTH = 256;
+
+// A media type as RFC 9110 defines it ("Media Type"): type "/" subtype, then
+// parameters, each `;` name `=` a token or a quoted string, with optional
+// spaces or tabs around the `;`. Empty parameters are allowed, as there.
+const TOKEN = "[!#$%&'*+\\-.^_`|~0-9A-Za-z]+";
+const QUOTED_STRING = '"(?:[\\t \\x21\\x23-\\x5B\\x5D-\\x7E\\x80-\\xFF]|\\\\[\\t \\x21-\\x7E\\x80-\\xFF])*"';
+const SPACE = '[ \\t]*';
+const MEDIA_TYPE = new RegExp(`^${TOKEN}/${TOKEN}(?:${SPACE};${SPACE}(?:${TOKEN}=(?:${TOKEN}|${QUOTED_STRING}))?)*$`);
+
+/** Whether the value is a well-formed media type: type/subtype with optional parameters (RFC 9110). */
+export function isMediaType(value: string): boolean {
+  return MEDIA_TYPE.test(value);
+}
+
+const CONTENT_TYPE_MESSAGE = `A content type is a media type such as text/plain or application/json; charset=utf-8, of at most ${CONTENT_TYPE_MAX_LENGTH} characters`;
+
+/**
+ * A payload's content type: any well-formed media type, taken and passed on
+ * exactly as sent, case and parameters included. The fleet never reads the
+ * payload by it (ADR 0016: no policy).
+ */
+export const contentTypeSchema = z
+  .string()
+  .max(CONTENT_TYPE_MAX_LENGTH, CONTENT_TYPE_MESSAGE)
+  .refine(isMediaType, CONTENT_TYPE_MESSAGE);
 
 /** The longest idempotency key a sender may give. It is opaque: any text of 1 to this many characters. */
 export const IDEMPOTENCY_KEY_MAX_LENGTH = 256;
