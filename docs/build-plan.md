@@ -22,37 +22,47 @@ This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two s
 
 ## The build plan
 
-One session per row, one PR per session, merged before the next starts. Slices 0 to 6 (with 1b and 1c) are done; git history holds what each built. Slices 5 to 8 prove the promise; the console and the rest come after the acceptance test passes.
+One session per row, one PR per session, merged before the next starts. Slices 0 to 6b (with 1b and 1c) are done; git history holds what each built. Slices 7 and 8 prove the promise; the deploy follows at once, so Thomas can delegate from one session; the console and the rest come after that.
 
 | # | Slice | Builds | Done when |
 | --- | --- | --- | --- |
-| 6b | Contract fixes | Sender name and type on a received delivery; `contentType` defaults to `text/plain`; returned deliveries wake receivers | See the slice 6b prompt below |
-| 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures. Ship identity per conversation (decision 0015): the MCP connection carries no ship credential; the `register` tool takes ship id and secret and returns a crew token; every other tool takes the crew token as an argument. Each tool's description states its rules, because agents read them on every call: ack every delivery right away; `receive` is safe to call again at once; `inReplyTo` takes the message id, not the delivery id; `idempotencyKey` is a new unique string per message, reused only to retry the same send. Errors come back as readable text with their code. Two conversations on one MCP connection crew two different ships, and a second conversation registering an already crewed ship is refused. If slice 3 built `register` without a crew token, add it here for all three doors | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
+| 7 | MCP and REST | `/mcp` tools and `/api/v1` REST with OpenAPI, mapped onto the ship procedures, self-explaining | See the slice 7 prompt below |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
-After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm (retire locks the ship `FOR NO KEY UPDATE` before abandoning direct deliveries, so a racing send's `FOR SHARE` serialises with it), Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy (production hardening first: log database errors by code, never by message, so no request data reaches the log; the server commands refuse U+0000 like the API; a stopping server ends waiting receives and closes idle connections at once; the web server reads the Aeolus server address at start-up and passes it to the browser, never a build-time setting, so a published web package works on any host).
+Right after the acceptance test: production hardening (log database errors by code, never by message, so no request data reaches the log; the server commands refuse U+0000 like the API; a stopping server ends waiting receives and closes idle connections at once; the web server reads the Aeolus server address at start-up and passes it to the browser, never a build-time setting, so a published web package works on any host), then the private `aeolus-fleet-infra` repo and the Hetzner deploy. Thomas's decision session is then an agent ship (messages only); he commissions and releases ships in the bare console.
 
-## Kickoff prompt: slice 6b (contract fixes from the first two-ship test)
+Then, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm (retire locks the ship `FOR NO KEY UPDATE` before abandoning direct deliveries, so a racing send's `FOR SHARE` serialises with it), Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`).
+
+## Kickoff prompt: slice 7 (MCP and REST)
 
 ```markdown
-# Slice 6b: contract fixes
+# Slice 7: MCP and REST
 
-Start from the latest main. Read CLAUDE.md, docs/decisions/README.md, docs/blueprint.md (Message, Delivery, the ship contract) and docs/architecture.md ("How the delivery guarantee is implemented"), then the code for `ship.send`, `ship.receive` and release. Other slices in docs/build-plan.md are context only.
+Start from the latest main. Read CLAUDE.md, docs/decisions/README.md (full files: 0004, 0015), docs/blueprint.md (the ship contract) and docs/architecture.md (doors, `/mcp`, `/api/v1`), then the ship procedures in the tRPC router. Other slices in docs/build-plan.md are context only.
 
 ## Goal
 
-Three small changes found when two agent sessions talked through the API.
+An agent reaches its ship through MCP or REST, with no repo to read: the tools and the OpenAPI spec explain themselves.
 
 ## Build
 
-- A received delivery carries the sender's current name and type next to its id, so an agent can answer by name.
-- `contentType` is optional on send and defaults to `text/plain`; any well-formed media type is still accepted.
-- A delivery returned to pending by a release or deregister wakes waiting receivers (`NOTIFY` in the same transaction), like a send does.
-- Update the blueprint's ship contract and the architecture to the new current state.
+- `/mcp`: remote MCP server with the official TypeScript SDK, streamable HTTP. One tool per ship procedure: `register`, `whoami`, `send`, `receive`, `ack`, `deregister`. Each tool calls the tRPC router; no logic of its own.
+- Identity per conversation (decision 0015): the connection carries no credential. `register` takes ship id, secret and location and returns the crew token; every other tool takes the crew token as an argument.
+- Each tool's description states its rules, because agents read them on every call: ack every delivery right away; `receive` waits up to about 25 s and is safe to call again at once; answer by `senderName`; `inReplyTo` takes the message id, not the delivery id; `idempotencyKey` is a new unique string per message, reused only to retry the same send; the crew token is returned once, keep it.
+- Tool errors come back as readable text with their code.
+- `/api/v1`: REST for the same ship procedures, crew token as a Bearer header, with an OpenAPI spec generated from the router and served next to it, carrying the same rules in its descriptions.
+
+## How to work
+
+1. Before coding, write a short plan in the PR draft: the adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
+2. Load the skills CLAUDE.md names. Test first; the adapters go through the tRPC router (lint enforces it).
+3. Keep the slice thin; the rest goes under "Noticed, not done".
 
 ## Done when
 
-- Tests prove each change: sender name and type on receive (also after the sender is renamed: the current name); a send without `contentType` stores `text/plain`; a receive of another ship of the type, waiting when a release returns a type delivery, gets it at once.
+- Integration, with the official MCP SDK client against a running server: register, send, receive, ack and deregister work; two conversations on one connection crew two different ships; a second register of an already crewed ship is refused with a readable error; a tool call without a valid crew token is refused.
+- REST: the same flow with curl-style requests; the OpenAPI spec lists every ship procedure.
+- A manual check Thomas can run: a Claude Code session configured with `/mcp` claims a ship from a starting prompt and exchanges messages with another. Put the one-line setup command in the PR description.
 - npm run typecheck, npm run lint, npm test green locally and in CI.
 - PR description: decisions the docs did not dictate, open questions, noticed not done.
 ```

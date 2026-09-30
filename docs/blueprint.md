@@ -124,7 +124,7 @@ flowchart LR
   idn --> db
 ```
 
-The operator and the agents use the same API. The only dependency between contexts is Messaging asking Registry who a selector resolves to, whether a ship is retired, and a sender's current name and type. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
+The operator and the agents use the same API. The only dependency between contexts is Messaging asking Registry who a selector resolves to, whether a ship is retired, a sender's current name and type, and holding a crew's lease during a receive. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
 
 ### Aggregates and invariants
 
