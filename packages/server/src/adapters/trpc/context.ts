@@ -39,6 +39,10 @@ export interface Context {
   useCases: UseCases;
   credentials: RequestCredentials;
   sessionCookie: SessionCookie;
+  /** The Origin header the request carried, if any. A browser sends one with every POST. */
+  origin: string | undefined;
+  /** The console's origin: the only one state-changing console calls may come from. */
+  consoleOrigin: string;
   /** Who is asking, for rate limits: the client address. */
   clientKey: string;
   /** Counts sign-in attempts per client; false when over the limit. */

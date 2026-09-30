@@ -17,7 +17,7 @@ Environment variables, validated at startup (see `.env.example`):
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | `false` | `true` behind a reverse proxy, so the sign-in rate limit counts per client address from `X-Forwarded-For` |
 | `COOKIE_DOMAIN` | unset | The domain the console session cookie is set for, such as `fleet.example.com`, so a console on another host under it receives the cookie. Every host under it does, so pick the narrowest domain the console and the server share. Unset: the server's host only |
-| `CONSOLE_ORIGIN` | unset | The origin of a console on another host, such as `https://console.fleet.example.com`: the one origin allowed to call with credentials (CORS). Unset: no cross-origin calls, as when the console reaches `/trpc` on its own origin |
+| `CONSOLE_ORIGIN` | `PUBLIC_URL`'s origin | The console's origin, such as `https://console.fleet.example.com`: the only origin a state-changing console call (sign-in, sign-out, a change made with the session cookie) is taken from, and the one origin allowed to call with credentials from another host (CORS). The default fits web and server behind one host. In development the console runs on `http://localhost:3000` (see `.env.example`) |
 
 The web app still calls `/trpc` on its own origin, so running it on another host than the server also needs a web change that is not built yet.
 
@@ -33,3 +33,7 @@ Run on the server, against the configured database, after `npm run db:migrate`:
 Both commands read their answers a line at a time from standard input, so a script can pipe them in.
 
 The operator signs in to the console with that email and password; the session crews `argo`, which has no secret. The password is stored as an Argon2id hash. The console keeps only a session cookie (httpOnly, Secure, SameSite=Strict), valid 30 days after its last use. A wrong email and a wrong password get the same answer.
+
+## Ships
+
+A session crews an agent ship with `ship.register`: the ship id and secret from its starting prompt, and where it runs (`DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description). It gets a crew token (`aeolus_ct_v1_...`) back once, and every later call carries it as `Authorization: Bearer <crew token>`; the secret works only for `register`. A second `register` fails while a session crews the ship. `register` is rate-limited per client address. `ship.whoami` answers the caller's ship: id, fleet, name and type.

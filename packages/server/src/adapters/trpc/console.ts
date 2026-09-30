@@ -1,16 +1,17 @@
 import { signInInputSchema } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { okOrThrow, publicProcedure, router } from './trpc.js';
+import { consoleProcedure, okOrThrow, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
  * the operator's email and password once and work with the session cookie,
- * which crews `argo`, from then on.
+ * which crews `argo`, from then on. Both change state, so both come only from
+ * the console's origin.
  */
 export const consoleRouter = router({
   /** Exchanges the email and password for a session cookie. A mutation, so the password travels in the body, never the URL. */
-  signIn: publicProcedure
+  signIn: consoleProcedure
     .use(({ ctx, next }) => {
       if (!ctx.takeSignInAttempt(ctx.clientKey)) {
         throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Too many sign-in attempts. Wait a minute.' });
@@ -24,7 +25,7 @@ export const consoleRouter = router({
     }),
 
   /** Ends the console session in the cookie and releases argo's lease. Always clears the cookie. */
-  signOut: publicProcedure.mutation(async ({ ctx }) => {
+  signOut: consoleProcedure.mutation(async ({ ctx }) => {
     const { sessionToken } = ctx.credentials;
     const use = sessionToken === undefined ? undefined : await ctx.useCases.authenticate.byConsoleSession(sessionToken);
     if (use) {

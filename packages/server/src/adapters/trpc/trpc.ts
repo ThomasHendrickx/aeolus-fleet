@@ -47,6 +47,25 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
 export const publicProcedure = t.procedure;
 
 /**
+ * Refuses a state-changing console call from anywhere but the console's
+ * origin. The session cookie is SameSite, but hosts under one domain are one
+ * site, so a page on a sibling host could make the browser post with it
+ * (cross-site request forgery). A browser sends Origin with every POST, so a
+ * call without it is refused too.
+ */
+function checkConsoleOrigin(ctx: Context): void {
+  if (ctx.origin !== ctx.consoleOrigin) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: "A console call that changes state must come from the console's origin" });
+  }
+}
+
+/** A console procedure, signing in or out: it changes state, so it comes only from the console's origin. */
+export const consoleProcedure = publicProcedure.use(({ ctx, next }) => {
+  checkConsoleOrigin(ctx);
+  return next();
+});
+
+/**
  * Resolves the caller from the crew token or the console session. A bearer
  * crew token wins over the cookie, and a wrong one fails rather than falling
  * back. The ship secret is no bearer: it works only for `register` (ADR 0015).
@@ -72,7 +91,14 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
  * a caller about itself. The caller comes from the server, never from the
  * request.
  */
-export const authenticatedProcedure = publicProcedure.use(async ({ ctx, next }) => {
+export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, next }) => {
+  // A mutation on the console session's cookie changes state: checked before
+  // the session is used, so a forged call does not even renew it. A crew token
+  // wins over the cookie, and no browser sends one by itself.
+  const { bearer, sessionToken } = ctx.credentials;
+  if (type === 'mutation' && bearer === undefined && sessionToken !== undefined) {
+    checkConsoleOrigin(ctx);
+  }
   const caller = await resolveCaller(ctx);
   if (!caller) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
