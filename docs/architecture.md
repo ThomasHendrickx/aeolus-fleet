@@ -52,8 +52,8 @@ flowchart LR
 
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
-| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, receive, send, acknowledge, deregister |
-| Fleet procedures | Ship secret or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
+| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, deregister |
+| Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
 
@@ -65,7 +65,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | --- | --- |
 | Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, retire ship, issue starting prompt, list fleet |
 | Messaging | Send message, receive deliveries, acknowledge delivery, resend or dismiss undeliverable, mark a message to `argo` read or done |
-| Identity | Verify ship secret (returns ship, fleet, kind and scopes; never `argo`), console sign in with email and password (takes `argo`'s lease over), sign out, reset operator password (server command), verify console session |
+| Identity | Verify crew token (returns ship, fleet, kind and scopes), console sign in with email and password (takes `argo`'s lease over), sign out, reset operator password (server command), verify console session |
 
 ### Outbound ports
 
@@ -75,7 +75,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | `UnitOfWork` | Run a use case in one database transaction | Prisma interactive transaction |
 | `EventLog` | Append domain events: timeline, audit, live updates | Postgres table, written in the same transaction |
 | `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
-| `SecretHasher`, `PasswordHasher` | Hash ship secrets and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
+| `SecretHasher`, `PasswordHasher` | Hash ship secrets, crew tokens and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
 The one cross-context call, Messaging asking Registry to resolve a selector and check that a ship is not retired, goes through a Registry port, never through Registry's tables.
@@ -138,7 +138,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Validation | Zod schemas in `common` | One schema per message shape for tRPC, REST, MCP and web forms |
 | Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
 | Operator auth | Email and password (Argon2id) for one operator account. Sign-in gives a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. The session crews `argo`; `argo` has no secret. No auth library | Decision 0012 |
-| Ship auth | Opaque bearer secret `aeolus_sk_v1_…`, stored as SHA-256 | Decided earlier |
+| Ship auth | Opaque secret `aeolus_sk_v1_…`, stored as SHA-256, used only to `register`; `register` returns a crew token `aeolus_ct_v1_…`, stored as SHA-256 with the lease, which every later call carries as a bearer token | Decisions 0002, 0015 |
 | Ids | Prefixed, time-ordered ids (`flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `ses_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
 | Logging | pino, structured JSON to stdout | Never logs secrets or payloads |
 | Tests | Vitest; integration tests on a real Postgres (Testcontainers); Playwright for the web app | The guarantee lives in SQL, so it is proven against a real Postgres |
@@ -200,16 +200,16 @@ Lint and CI enforce these rules (slice 1b).
 
 | Concern | Approach |
 | --- | --- |
-| Tenancy | Every record belongs to a fleet. A ship secret or a console session resolves to exactly one ship and fleet (the one lookup that is not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
+| Tenancy | Every record belongs to a fleet. A ship secret, a crew token or a console session resolves to exactly one ship and fleet (the lookups that are not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
 | Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message |
 | Migrations | Prisma Migrate, run at startup under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command |
 | First run | A server command initialises the fleet: it creates the fleet, `argo` and the operator account, asking for email and password. There is no setup page on the public web |
 | Forgotten password | A server command resets the operator password and ends every console session |
-| Console across hosts | The server sets the session cookie for a configured domain and allows a configured console origin (CORS with credentials), so web and server may run on different hosts under one domain |
+| Console across hosts | The server sets the session cookie for a configured domain and allows a configured console origin (CORS with credentials), so web and server may run on different hosts under one domain. Unset, the console origin is the public URL's |
 | Time | All timestamps stored as UTC; the web app shows local time |
 | Payloads | Text with a content type (JSON or plain text), at most 64 KB, never parsed by the core. Content travels by reference |
 | Live updates | tRPC subscriptions over WebSocket carry the event id; a reconnecting browser resumes from its last id and the server replays what it missed from the `events` table |
-| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check; rate-limited sign-in and failed `register` attempts; every call checked against the caller's scopes; secrets and payloads never logged |
+| Security baseline | Public HTTPS only; secure httpOnly SameSite cookies plus an origin check: sign-in, sign-out and every change made with the session cookie come only from the console origin, since hosts under one domain are one site; rate-limited sign-in and failed `register` attempts; every call checked against the caller's scopes; secrets, crew tokens and payloads never logged |
 | Observability | Structured logs to stdout, a `/health` endpoint, and the events table as the full history |
 | Testing | Unit tests on the core with in-memory adapters; integration tests on a real Postgres; the v1 acceptance test end to end (two ships exchange messages over MCP; one is released mid-delivery, the message is claimed again, nothing is lost); a Playwright smoke test for the console |
 | CI and release | GitHub Actions: lint, typecheck, tests on every push. Releases publish the three packages to npm with trusted publishing (the same OIDC setup as Tiphys) and tag the released commit `v<version>`, so a version on npm always matches a tag in git. Container images are your infra repo's concern, not the product's |
