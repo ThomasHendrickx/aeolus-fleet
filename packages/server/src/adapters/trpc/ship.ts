@@ -1,7 +1,13 @@
-import { registerInputSchema, registerOutputSchema, whoamiOutputSchema } from '@aeolus-fleet/common';
+import {
+  registerInputSchema,
+  registerOutputSchema,
+  sendInputSchema,
+  sendOutputSchema,
+  whoamiOutputSchema,
+} from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { authenticatedProcedure, okOrThrow, publicProcedure, router } from './trpc.js';
+import { authenticatedProcedure, okOrThrow, publicProcedure, router, scopedProcedure } from './trpc.js';
 
 /**
  * Ship procedures: the ship contract. `register` takes the ship's id and
@@ -37,4 +43,15 @@ export const shipRouter = router({
   whoami: authenticatedProcedure
     .output(whoamiOutputSchema)
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.whoami(ctx.caller))),
+
+  /**
+   * Sends a message from the calling ship, `argo` included, to a selector.
+   * Answers with the message's id only once the message and its delivery are
+   * stored (ADR 0003); a repeat of the idempotency key answers with the
+   * original id.
+   */
+  send: scopedProcedure('messages:send')
+    .input(sendInputSchema)
+    .output(sendOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.sendMessage(ctx.caller, input))),
 });
