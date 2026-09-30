@@ -1,6 +1,6 @@
 import type { FleetId, IdGenerator, OperatorId } from '@aeolus-fleet/common';
 
-import { endLease, type LeaseTx } from '../registry/public.js';
+import { endLease, findOperatorShip, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM } from '../shared/events.js';
@@ -10,7 +10,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { operatorPassword } from './operator-account.js';
 import type { ConsoleSessionRepository, OperatorAccountRepository } from './ports.js';
 
-export interface ResetOperatorPasswordTx extends LeaseTx {
+export interface ResetOperatorPasswordTx extends LeaseTx, ShipTx {
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
 }
@@ -23,7 +23,8 @@ export type ResetOperatorPassword = (input: {
 /**
  * Use case: a forgotten operator password is reset from the server (ADR 0012).
  * The old password stops working, and every console session ends, and with it
- * the lease on argo it held. A server command: the system is the actor.
+ * the lease on argo it held. A server command: the system is the actor, and
+ * the event concerns argo, so it shows on argo's timeline.
  *
  * Locks the account first, like sign-in, so a sign-in with the old password
  * either finishes before the reset, whose session then ends, or sees the new
@@ -48,6 +49,10 @@ export function createResetOperatorPassword(deps: {
       if (!account) {
         return refuse('FLEET_NOT_FOUND', `Fleet ${fleetId} does not exist`);
       }
+      const argo = await findOperatorShip(tx, fleetId);
+      if (!argo.isOk) {
+        return argo;
+      }
       const at = deps.clock.now();
 
       await tx.operatorAccounts.changePassword({ fleetId, operatorId: account.id, passwordHash });
@@ -56,6 +61,7 @@ export function createResetOperatorPassword(deps: {
         type: 'OperatorPasswordReset',
         occurredAt: at,
         actor: SYSTEM,
+        shipId: argo.value.id,
         details: { operatorId: account.id },
       });
 

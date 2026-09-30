@@ -45,6 +45,8 @@ describe('taking over the operator lease', () => {
         fleetId,
         shipId: argoId,
         location: { kind: 'OTHER', description: 'web console' },
+        // The console session holds the token; the lease holds none.
+        crewTokenHash: null,
         startedAt: core.clock.now(),
         endedAt: null,
       },

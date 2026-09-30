@@ -94,12 +94,16 @@ enum LocationKind {
 
 /// The exclusive right of one session to crew a ship, and where that session runs.
 /// Ids start with lse_.
+/// The hash of the crew token register gave the session, unique across all fleets:
+/// finding a ship by its crew token is a lookup not scoped by fleet (ADR 0007). A
+/// console session's lease on argo has none; the console session holds its token.
 model Lease {
   id                  String       @id
   fleetId             String       @map("fleet_id")
   shipId              String       @map("ship_id")
   location            LocationKind
   locationDescription String?      @map("location_description")
+  crewTokenHash       String?      @unique @map("crew_token_hash")
   startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
   endedAt             DateTime?    @map("ended_at") @db.Timestamptz(3)
 
@@ -114,8 +118,8 @@ model Lease {
 }
 
 /// A ship secret, stored only as its hash. Ids start with crd_.
-/// The hash is unique across all fleets: finding a ship by its secret is the one
-/// lookup not scoped by fleet (ADR 0007).
+/// The hash is unique across all fleets: finding a ship by its secret is one of the
+/// lookups not scoped by fleet (ADR 0007).
 model Credential {
   id            String    @id
   fleetId       String    @map("fleet_id")

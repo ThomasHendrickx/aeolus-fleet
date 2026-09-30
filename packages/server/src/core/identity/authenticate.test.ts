@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addAgentShip, identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, crewShip, identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 
@@ -18,26 +18,12 @@ beforeEach(async () => {
   ({ fleetId, operatorShipId: argoId } = await initialiseFleet(core));
 });
 
-describe('authenticating with a ship secret', () => {
-  it('never returns argo, even for a secret stored for it: argo has no secret', async () => {
-    const secret = 'aeolus_sk_v1_stored-for-argo';
-    core.state.credentials.push({
-      id: core.ids('credential'),
-      fleetId,
-      shipId: argoId,
-      secretHash: core.hasher.hash(secret),
-      issuedAt: core.clock.now(),
-      claimedAt: null,
-      invalidatedAt: null,
-    });
-
-    await expect(useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
-  });
-
-  it('returns an agent with only its own scopes', async () => {
+describe('authenticating with a crew token', () => {
+  it('returns the ship the token crews, with only its own scopes', async () => {
     const agent = addAgentShip(core, { fleetId });
+    const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
 
-    await expect(useCases.authenticate.bySecret(agent.secret)).resolves.toEqual({
+    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
       shipId: agent.shipId,
       fleetId,
       kind: 'agent',
@@ -45,18 +31,40 @@ describe('authenticating with a ship secret', () => {
     });
   });
 
-  it('knows no unknown secret', async () => {
-    await expect(useCases.authenticate.bySecret('aeolus_sk_v1_unknown')).resolves.toBeUndefined();
+  it('knows no unknown crew token', async () => {
+    crewShip(core, { fleetId, shipId: addAgentShip(core, { fleetId }).shipId });
+
+    await expect(useCases.authenticate.byCrewToken('aeolus_ct_v1_unknown')).resolves.toBeUndefined();
   });
 
-  it('knows no secret of a retired ship', async () => {
+  it('does not take the ship secret as a crew token: the secret works only for register', async () => {
     const agent = addAgentShip(core, { fleetId });
-    const ship = core.state.ships.find((candidate) => candidate.id === agent.shipId);
-    if (ship) {
-      ship.retiredAt = core.clock.now();
+    crewShip(core, { fleetId, shipId: agent.shipId });
+
+    await expect(useCases.authenticate.byCrewToken(agent.secret)).resolves.toBeUndefined();
+  });
+
+  it('knows no crew token once its lease has ended', async () => {
+    const agent = addAgentShip(core, { fleetId });
+    const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
+    for (const lease of core.state.leases) {
+      lease.endedAt = core.clock.now();
     }
 
-    await expect(useCases.authenticate.bySecret(agent.secret)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+  });
+
+  it('knows no crew token of a retired ship', async () => {
+    const agent = addAgentShip(core, { fleetId, retiredAt: core.clock.now() });
+    const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
+
+    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+  });
+
+  it('does not take the console session token as a crew token', async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+
+    await expect(useCases.authenticate.byCrewToken(token)).resolves.toBeUndefined();
   });
 });
 

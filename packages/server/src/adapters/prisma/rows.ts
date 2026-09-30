@@ -70,17 +70,19 @@ export function toShipFromSql(row: unknown): Ship {
 }
 
 const shipFactsSqlRow = z.object({
-  is_crewed: z.boolean(),
+  lease_location: locationKindSchema.nullable(),
+  lease_location_description: z.string().nullable(),
   secret_issued_at: z.date().nullable(),
   secret_claimed_at: z.date().nullable(),
 });
 
-/** A ship with whether it is crewed and its valid secret's dates, as the fleet listing reads it. */
+/** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
 export function toShipFacts(row: unknown): ShipFacts {
-  const { is_crewed, secret_issued_at, secret_claimed_at } = shipFactsSqlRow.parse(row);
+  const { lease_location, lease_location_description, secret_issued_at, secret_claimed_at } =
+    shipFactsSqlRow.parse(row);
   return {
     ship: toShipFromSql(row),
-    isCrewed: is_crewed,
+    openLease: lease_location && { location: { kind: lease_location, description: lease_location_description } },
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
   };
 }
@@ -92,6 +94,7 @@ const leaseSqlRow = z
     ship_id: idSchema('ship'),
     location: locationKindSchema,
     location_description: z.string().nullable(),
+    crew_token_hash: z.string().nullable(),
     started_at: z.date(),
     ended_at: z.date().nullable(),
   })
@@ -101,6 +104,7 @@ const leaseSqlRow = z
       fleetId: row.fleet_id,
       shipId: row.ship_id,
       location: { kind: row.location, description: row.location_description },
+      crewTokenHash: row.crew_token_hash,
       startedAt: row.started_at,
       endedAt: row.ended_at,
     }),

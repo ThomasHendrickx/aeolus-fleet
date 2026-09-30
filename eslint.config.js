@@ -106,7 +106,7 @@ function coreRules(context) {
       patterns: [...coreForbiddenImports, ...coreImpure.imports, ...otherContextsInternals(context)],
       syntax: coreImpure.syntax,
     }),
-    'no-restricted-properties': ['error', ...noModuleMocks, ...coreImpure.properties],
+    'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles, ...coreImpure.properties],
     'no-restricted-globals': ['error', ...coreImpure.globals],
   };
 }
@@ -168,6 +168,18 @@ const noModuleMocks = ['mock', 'doMock'].map((property) => ({
   object: 'vi',
   property,
   message: 'No module mocks: hand-write an in-memory fake of the port and assert outcomes (test-driven-development skill).',
+}));
+
+/**
+ * Core and common are tested with hand-written in-memory fakes, asserting
+ * outcomes and stored state, not calls. Adapters (CLI, I/O) may use them.
+ * @type {PropertyRestriction[]}
+ */
+const noTestDoubles = ['fn', 'spyOn'].map((property) => ({
+  object: 'vi',
+  property,
+  message:
+    'No vi.fn or vi.spyOn in core and common: hand-write an in-memory fake and assert outcomes and stored state, not calls (test-driven-development skill).',
 }));
 
 // esquery regex literals cannot contain a slash, so write it as \x2F.
@@ -278,6 +290,12 @@ export default defineConfig(
       '**/*.config.{js,ts}',
     ],
     rules: { 'no-restricted-exports': 'off' },
+  },
+
+  {
+    name: 'aeolus/common',
+    files: ['packages/common/**/*.ts'],
+    rules: { 'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles] },
   },
 
   {

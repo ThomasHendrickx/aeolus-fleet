@@ -1,7 +1,9 @@
 // Identity's published surface: what other contexts may use. Use cases are not
 // part of it; adapters import them from their own modules.
 export {
+  findValidShipSecret,
   issueShipSecret,
+  markShipSecretClaimed,
   revokeShipSecret,
   SHIP_SECRET_PREFIX,
   type Credential,

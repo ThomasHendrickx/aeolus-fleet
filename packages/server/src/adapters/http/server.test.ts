@@ -1,9 +1,11 @@
+import type { FleetId, Scope } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
   addAgentShip,
+  crewShip,
   identityUseCases,
   initialiseFleet,
   OPERATOR,
@@ -14,6 +16,8 @@ import type { RateLimit } from './rate-limiter.js';
 import { buildHttpServer } from './server.js';
 
 const DAY_S = 24 * 60 * 60;
+/** The console's origin in these tests: the fleet's own, as when no other one is configured. */
+const FLEET_ORIGIN = 'https://fleet.example.com';
 
 let core: InMemoryCore;
 let server: FastifyInstance;
@@ -25,6 +29,7 @@ function start(
   options: {
     checkDatabase?: () => Promise<void>;
     signInRateLimit?: RateLimit;
+    registerRateLimit?: RateLimit;
     cookieDomain?: string;
     consoleOrigin?: string;
   } = {},
@@ -39,8 +44,9 @@ function start(
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
+    registerRateLimit: options.registerRateLimit,
     cookieDomain: options.cookieDomain,
-    consoleOrigin: options.consoleOrigin,
+    consoleOrigin: options.consoleOrigin ?? FLEET_ORIGIN,
   });
 }
 
@@ -53,16 +59,22 @@ afterEach(async () => {
   await server.close();
 });
 
+/** From the console, unless the headers say another origin. */
 function signIn(body: Record<string, unknown>, headers: Record<string, string> = {}) {
-  return server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: body, headers });
+  return server.inject({
+    method: 'POST',
+    url: '/trpc/console.signIn',
+    payload: body,
+    headers: { origin: FLEET_ORIGIN, ...headers },
+  });
 }
 
-/** Like the tRPC client: a JSON content type and no body. */
-function signOut(cookie: string) {
+/** Like the tRPC client in the console: a JSON content type and no body. */
+function signOut(cookie: string, origin = FLEET_ORIGIN) {
   return server.inject({
     method: 'POST',
     url: '/trpc/console.signOut',
-    headers: { cookie, 'content-type': 'application/json' },
+    headers: { cookie, origin, 'content-type': 'application/json' },
   });
 }
 
@@ -77,6 +89,16 @@ function cookieOf(response: { headers: Record<string, unknown> }): string {
     throw new Error('expected one Set-Cookie header');
   }
   return header.split(';')[0] ?? '';
+}
+
+function fleetIdOf(inMemory: InMemoryCore): FleetId {
+  return inMemory.state.fleets[0]?.id ?? expect.unreachable();
+}
+
+/** An agent ship a session crews, straight into the state; returns its crew token. */
+function crewedAgent(scopes?: Scope[]): string {
+  const agent = addAgentShip(core, { fleetId: fleetIdOf(core), scopes });
+  return crewShip(core, { fleetId: fleetIdOf(core), shipId: agent.shipId });
 }
 
 const trpcErrorBody = z.object({ error: z.object({ data: z.object({ code: z.string() }) }) });
@@ -167,6 +189,7 @@ describe('console.signIn', () => {
       method: 'POST',
       url: '/trpc/console.signIn',
       payload: OPERATOR,
+      headers: { origin: FLEET_ORIGIN },
       remoteAddress: '203.0.113.7',
     });
 
@@ -174,41 +197,152 @@ describe('console.signIn', () => {
   });
 });
 
+describe('ship.register', () => {
+  /** Like the tRPC client: a JSON body, and no credentials but the secret in it. */
+  function register(input: { shipId: string; secret: string; location: Record<string, string> }, remoteAddress?: string) {
+    return server.inject({ method: 'POST', url: '/trpc/ship.register', payload: input, remoteAddress });
+  }
+
+  function aWrongClaim() {
+    return { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } };
+  }
+
+  it('returns the crew token for the secret, and whoami answers with that token', async () => {
+    start();
+    const agent = addAgentShip(core, { fleetId: fleetIdOf(core), name: 'scout' });
+
+    const registered = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } });
+    const { crewToken } = z
+      .object({ result: z.object({ data: z.object({ crewToken: z.string() }) }) })
+      .parse(registered.json()).result.data;
+    const whoami = await server.inject({
+      method: 'GET',
+      url: '/trpc/ship.whoami',
+      headers: { authorization: `Bearer ${crewToken}` },
+    });
+
+    expect(registered.statusCode).toBe(200);
+    expect(crewToken).toMatch(/^aeolus_ct_v1_./);
+    expect(whoami.json()).toEqual({
+      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer' } },
+    });
+  });
+
+  it('refuses a wrong ship id or secret with 401', async () => {
+    start();
+
+    const response = await register(aWrongClaim());
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json<{ error: { message: string } }>().error.message).toBe('Wrong ship id or secret');
+  });
+
+  it('refuses every attempt from a client after too many wrong ship ids or secrets, with 429', async () => {
+    start({ registerRateLimit: { limit: 3, windowMs: 60_000 } });
+    const agent = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect((await register(aWrongClaim())).statusCode).toBe(401);
+    }
+
+    const limited = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } });
+
+    expect(limited.statusCode).toBe(429);
+    expect(errorCode(limited)).toBe('TOO_MANY_REQUESTS');
+    expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
+    core.clock.advance(60_000);
+    expect(
+      (await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } })).statusCode,
+    ).toBe(200);
+  });
+
+  it('never limits successful claims: one address crews many ships', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 } });
+    const agents = [1, 2, 3].map(() => addAgentShip(core, { fleetId: fleetIdOf(core) }));
+
+    const statuses: number[] = [];
+    for (const agent of agents) {
+      statuses.push((await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } })).statusCode);
+    }
+
+    expect(statuses).toEqual([200, 200, 200]);
+  });
+
+  it('counts only a wrong ship id or secret: a crewed ship or a bad location leaves the limit alone', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 } });
+    const crewed = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    const other = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    const claimCrewed = () => register({ shipId: crewed.shipId, secret: crewed.secret, location: { kind: 'DEVICE' } });
+
+    const statuses = [
+      (await claimCrewed()).statusCode,
+      (await claimCrewed()).statusCode,
+      (await claimCrewed()).statusCode,
+      (await register({ shipId: other.shipId, secret: other.secret, location: { kind: 'OTHER' } })).statusCode,
+      (await register(aWrongClaim())).statusCode,
+      (await register(aWrongClaim())).statusCode,
+    ];
+
+    expect(statuses).toEqual([200, 409, 409, 400, 401, 429]);
+  });
+
+  it('counts failures per client address, apart from sign-in attempts', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 }, signInRateLimit: { limit: 1, windowMs: 60_000 } });
+
+    expect((await register(aWrongClaim())).statusCode).toBe(401);
+    expect((await register(aWrongClaim(), '203.0.113.7')).statusCode).toBe(401);
+    expect((await register(aWrongClaim())).statusCode).toBe(429);
+    expect((await signIn(OPERATOR)).statusCode).toBe(200);
+  });
+});
+
 describe('a procedure that needs a scope', () => {
-  it('refuses a call without a secret or a session with 401', async () => {
+  it('refuses a call without a crew token or a session with 401', async () => {
     start();
 
     const response = await ping();
 
     expect(response.statusCode).toBe(401);
     expect(errorCode(response)).toBe('UNAUTHORIZED');
+    expect(response.json<{ error: { message: string } }>().error.message).toBe(
+      'Sign in, or call with the crew token register gave you',
+    );
   });
 
   it('refuses a ship without the scope with 403', async () => {
     start();
-    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
+    const crewToken = crewedAgent();
 
-    const response = await ping({ authorization: `Bearer ${agent.secret}` });
+    const response = await ping({ authorization: `Bearer ${crewToken}` });
 
     expect(response.statusCode).toBe(403);
     expect(response.json<{ error: { message: string } }>().error.message).toBe('This call needs the fleet:read scope');
   });
 
-  it('serves a ship with the scope, by secret', async () => {
+  it('serves a ship with the scope, by its crew token', async () => {
     start();
-    const reader = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable(), scopes: ['fleet:read'] });
+    const crewToken = crewedAgent(['fleet:read']);
 
-    const response = await ping({ authorization: `Bearer ${reader.secret}` });
+    const response = await ping({ authorization: `Bearer ${crewToken}` });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ result: { data: { serverTime: '2026-09-29T12:00:00.000Z', fleetCount: 1 } } });
   });
 
-  it('refuses a wrong bearer secret even with a valid session cookie', async () => {
+  it('refuses the ship secret as the bearer: the secret works only for register', async () => {
+    start();
+    const reader = addAgentShip(core, { fleetId: fleetIdOf(core), scopes: ['fleet:read'] });
+    crewShip(core, { fleetId: fleetIdOf(core), shipId: reader.shipId });
+
+    const response = await ping({ authorization: `Bearer ${reader.secret}` });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('refuses a wrong bearer crew token even with a valid session cookie', async () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
 
-    const response = await ping({ authorization: 'Bearer aeolus_sk_v1_wrong', cookie });
+    const response = await ping({ authorization: 'Bearer aeolus_ct_v1_wrong', cookie });
 
     expect(response.statusCode).toBe(401);
   });
@@ -251,6 +385,7 @@ describe('a procedure that needs a scope', () => {
       checkDatabase: reachable,
       clock: core.clock,
       logger: false,
+      consoleOrigin: FLEET_ORIGIN,
     });
 
     const cookie = cookieOf(await signIn(OPERATOR));
@@ -355,12 +490,99 @@ describe('a console on another host under the configured domain', () => {
     expect(refusedPreflight.headers['access-control-allow-origin']).toBeUndefined();
   });
 
-  it('gives no origin permission without a configured console origin, and sets a host-only cookie', async () => {
+  it("gives another host no permission when the console runs on the fleet's own origin, and sets a host-only cookie", async () => {
     start();
 
-    const answer = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+    const fromAnotherHost = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+    const fromTheConsole = await signIn(OPERATOR);
 
-    expect(answer.headers['access-control-allow-origin']).toBeUndefined();
-    expect(answer.headers['set-cookie']).not.toContain('Domain=');
+    expect(fromAnotherHost.headers['access-control-allow-origin']).toBeUndefined();
+    expect(fromTheConsole.headers['set-cookie']).not.toContain('Domain=');
+  });
+});
+
+describe("state-changing console calls come from the console's origin", () => {
+  const ELSEWHERE = 'https://elsewhere.fleet.example.com';
+  const refusal = "A console call that changes state must come from the console's origin";
+
+  function commission(headers: Record<string, string>) {
+    return server.inject({
+      method: 'POST',
+      url: '/trpc/fleet.commission',
+      payload: { name: 'stowaway', type: 'reviewer' },
+      headers,
+    });
+  }
+
+  function stowaways() {
+    return core.state.ships.filter((ship) => ship.name === 'stowaway');
+  }
+
+  it('refuses a sign-in from another origin with 403, and sets no cookie', async () => {
+    start();
+
+    const response = await signIn(OPERATOR, { origin: ELSEWHERE });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ error: { message: string } }>().error.message).toBe(refusal);
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expect(core.state.consoleSessions).toEqual([]);
+  });
+
+  it('refuses a sign-in without an Origin header', async () => {
+    start();
+
+    const response = await server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: OPERATOR });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('refuses a sign-out from another origin: the session stays', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await signOut(cookie, ELSEWHERE);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expect((await ping({ cookie })).statusCode).toBe(200);
+  });
+
+  it('refuses a mutation with the session cookie from another origin, or without one, and changes nothing', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const fromElsewhere = await commission({ cookie, origin: ELSEWHERE });
+    const withoutOrigin = await commission({ cookie });
+
+    expect([fromElsewhere.statusCode, withoutOrigin.statusCode]).toEqual([403, 403]);
+    expect(stowaways()).toEqual([]);
+  });
+
+  it('serves a mutation with the session cookie from the console origin', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await commission({ cookie, origin: FLEET_ORIGIN });
+
+    expect(response.statusCode).toBe(200);
+    expect(stowaways()).toHaveLength(1);
+  });
+
+  it('serves a query with the session cookie from another origin: it changes nothing in the fleet, and CORS keeps the answer from that page', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    expect((await ping({ cookie, origin: ELSEWHERE })).statusCode).toBe(200);
+  });
+
+  it('does not check the Origin of a mutation called with a crew token: no browser sends one by itself', async () => {
+    start();
+    const crewToken = crewedAgent(['fleet:manage']);
+
+    const response = await commission({ authorization: `Bearer ${crewToken}` });
+
+    expect(response.statusCode).toBe(200);
+    expect(stowaways()).toHaveLength(1);
   });
 });

@@ -37,6 +37,10 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // one's lookup sees the ship it created.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${name}))`;
     },
+    find: async (fleetId, shipId) => {
+      const row = await db.ship.findFirst({ where: { fleetId, id: shipId } });
+      return row ? toShip(row) : undefined;
+    },
     findActiveByName: async (fleetId, name) => {
       const row = await db.ship.findFirst({ where: { fleetId, name, retiredAt: null } });
       return row ? toShip(row) : undefined;
@@ -59,7 +63,8 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     findOpenForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, started_at, ended_at
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+               started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
         FOR UPDATE`;
@@ -73,6 +78,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           shipId: lease.shipId,
           location: lease.location.kind,
           locationDescription: lease.location.description,
+          crewTokenHash: lease.crewTokenHash,
           startedAt: lease.startedAt,
           endedAt: lease.endedAt,
         },
@@ -82,7 +88,8 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE leases SET ended_at = ${endedAt}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, started_at, ended_at`;
+        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+                  started_at, ended_at`;
       return row ? toLease(row) : undefined;
     },
   };
@@ -107,7 +114,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       // valid per ship (partial unique indexes), so neither join multiplies rows.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               l.id IS NOT NULL AS is_crewed,
+               l.location::text AS lease_location, l.location_description AS lease_location_description,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL

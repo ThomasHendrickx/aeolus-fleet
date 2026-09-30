@@ -29,16 +29,26 @@ export interface RunningWeb {
 }
 
 /**
- * Starts the web app with `next dev`, forwarding /trpc to the given server, and
- * waits until the sign-in page answers (the first request compiles it). The
- * console bundles common's built package, as `npm run dev` does, so common is
- * built first.
+ * Where the web app will run: a free port on localhost. Known before the
+ * server starts, so the server can take it as the console's origin, the one
+ * state-changing console calls must come from.
  */
-export async function startWeb(serverUrl: string): Promise<RunningWeb> {
+export async function reserveWebUrl(): Promise<string> {
+  return `http://localhost:${String(await freePort())}`;
+}
+
+/**
+ * Starts the web app with `next dev` at the reserved URL, forwarding /trpc to
+ * the given server, and waits until the sign-in page answers (the first
+ * request compiles it). The console bundles common's built package, as
+ * `npm run dev` does, so common is built first.
+ */
+export async function startWeb(web: { url: string; serverUrl: string }): Promise<RunningWeb> {
+  const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
-  const port = await freePort();
+  const port = new URL(url).port;
   const nextBin = createRequire(`${webRoot}/package.json`).resolve('next/dist/bin/next');
-  const child = spawn(process.execPath, [nextBin, 'dev', '--port', String(port)], {
+  const child = spawn(process.execPath, [nextBin, 'dev', '--port', port], {
     cwd: webRoot,
     env: { ...process.env, AEOLUS_SERVER_URL: serverUrl, NEXT_TELEMETRY_DISABLED: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -47,7 +57,6 @@ export async function startWeb(serverUrl: string): Promise<RunningWeb> {
   child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
   child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
 
-  const url = `http://localhost:${String(port)}`;
   const stop = async () => {
     if (child.exitCode === null) {
       child.kill('SIGTERM');

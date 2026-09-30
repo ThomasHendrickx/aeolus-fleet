@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { shipStatusSchema } from '../fleet/index.js';
+import { locationKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
 /**
@@ -51,7 +51,8 @@ export type StartingPromptOutput = z.infer<typeof startingPromptOutputSchema>;
 /**
  * One ship in `fleet.list`. `startingPrompt` is the prompt holding the ship's
  * valid secret, when there is one: when it was issued and whether a session
- * has claimed the ship with it.
+ * has claimed the ship with it. `location` is where the session crewing the
+ * ship runs, as it reported on claim; null while no session crews it.
  */
 export const listedShipSchema = z.object({
   id: idSchema('ship'),
@@ -63,6 +64,13 @@ export const listedShipSchema = z.object({
       /** ISO 8601 in UTC. */
       issuedAt: z.iso.datetime(),
       isClaimed: z.boolean(),
+    })
+    .nullable(),
+  location: z
+    .object({
+      kind: locationKindSchema,
+      /** Set for OTHER only. */
+      description: z.string().nullable(),
     })
     .nullable(),
 });

@@ -10,6 +10,9 @@ import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } fro
 /** Ten sign-in attempts per client per minute. */
 export const DEFAULT_SIGN_IN_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
 
+/** Ten failed register attempts per client per minute; successful ones are never counted (ADR 0015). */
+export const DEFAULT_REGISTER_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
+
 export interface HttpServerOptions {
   useCases: UseCases;
   /** Throws when the database is unreachable. */
@@ -19,10 +22,15 @@ export interface HttpServerOptions {
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
   shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
+  /** Failed register attempts per client; successful ones are never counted. */
+  registerRateLimit?: RateLimit;
   /** The domain the session cookie is set for. Unset: the server's host only. */
   cookieDomain?: string;
-  /** The origin of a console on another host, allowed to call with credentials. Unset: none. */
-  consoleOrigin?: string;
+  /**
+   * The console's origin: state-changing console calls come only from it, and
+   * a console on another host may call from it with credentials (CORS).
+   */
+  consoleOrigin: string;
 }
 
 /** How long a browser may keep the answer to a preflight, in seconds. */
@@ -41,28 +49,28 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   });
 
   const signInLimiter = createRateLimiter(options.signInRateLimit ?? DEFAULT_SIGN_IN_RATE_LIMIT, options.clock);
+  const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
   const { consoleOrigin, cookieDomain } = options;
 
   // The console may run on another host under the cookie's domain (ADR 0012).
   // Its origin, and no other, may call with credentials and read the answer.
-  if (consoleOrigin !== undefined) {
-    server.addHook('onRequest', async (request, reply) => {
-      void reply.header('vary', 'Origin');
-      if (request.headers.origin !== consoleOrigin) {
-        return;
-      }
-      void reply.header('access-control-allow-origin', consoleOrigin);
-      void reply.header('access-control-allow-credentials', 'true');
-      if (request.method === 'OPTIONS') {
-        await reply
-          .code(204)
-          .header('access-control-allow-methods', 'GET, POST')
-          .header('access-control-allow-headers', 'content-type')
-          .header('access-control-max-age', String(PREFLIGHT_MAX_AGE_S))
-          .send();
-      }
-    });
-  }
+  // On the server's own origin the browser needs none of this, and ignores it.
+  server.addHook('onRequest', async (request, reply) => {
+    void reply.header('vary', 'Origin');
+    if (request.headers.origin !== consoleOrigin) {
+      return;
+    }
+    void reply.header('access-control-allow-origin', consoleOrigin);
+    void reply.header('access-control-allow-credentials', 'true');
+    if (request.method === 'OPTIONS') {
+      await reply
+        .code(204)
+        .header('access-control-allow-methods', 'GET, POST')
+        .header('access-control-allow-headers', 'content-type')
+        .header('access-control-max-age', String(PREFLIGHT_MAX_AGE_S))
+        .send();
+    }
+  });
 
   // Server up and database reachable. Nothing about fleets.
   server.get('/health', async (_request, reply) => {
@@ -93,8 +101,11 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             void res.header('set-cookie', clearedSessionCookie(cookieDomain));
           },
         },
+        origin: req.headers.origin,
+        consoleOrigin,
         clientKey: req.ip,
         takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
+        registerFailures,
       }),
       onError: ({ path, error }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {

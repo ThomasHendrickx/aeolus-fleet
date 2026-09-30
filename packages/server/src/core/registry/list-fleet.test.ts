@@ -45,7 +45,7 @@ function scout() {
 }
 
 describe('listing the fleet', () => {
-  it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, status and prompt state', async () => {
+  it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, status, prompt state and no location while awaiting crew', async () => {
     await expect(useCases.listFleet(argo)).resolves.toEqual([
       {
         id: argoId,
@@ -53,6 +53,7 @@ describe('listing the fleet', () => {
         type: 'operator',
         status: 'awaitingCrew',
         startingPrompt: null,
+        location: null,
       },
       {
         id: scoutId,
@@ -60,16 +61,17 @@ describe('listing the fleet', () => {
         type: 'reviewer',
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+        location: null,
       },
     ]);
   });
 
-  it('shows argo crewed once the operator signs in to the console', async () => {
+  it('shows argo crewed from the web console once the operator signs in', async () => {
     unwrap(await identityUseCases(core).signIn(OPERATOR));
 
     const [listedArgo] = await useCases.listFleet(argo);
 
-    expect(listedArgo).toMatchObject({ status: 'crewed' });
+    expect(listedArgo).toMatchObject({ status: 'crewed', location: { kind: 'OTHER', description: 'web console' } });
   });
 
   it('shows when the newest prompt was issued, unclaimed, after a new one replaced the first', async () => {
@@ -80,14 +82,20 @@ describe('listing the fleet', () => {
     });
   });
 
-  it('shows the prompt claimed once a session claimed the ship with it', async () => {
-    const credential = core.state.credentials.find((held) => held.shipId === scoutId);
-    if (credential) {
-      // Claiming arrives with slice 3.
-      credential.claimedAt = core.clock.now();
-    }
+  it('shows a claimed ship crewed where its session runs, and its prompt claimed', async () => {
+    unwrap(
+      await useCases.claimShip({
+        shipId: scoutId,
+        secret: scoutSecret,
+        location: { kind: 'OTHER', description: 'a ci runner' },
+      }),
+    );
 
-    await expect(listedScout()).resolves.toMatchObject({ startingPrompt: { isClaimed: true } });
+    await expect(listedScout()).resolves.toMatchObject({
+      status: 'crewed',
+      startingPrompt: { isClaimed: true },
+      location: { kind: 'OTHER', description: 'a ci runner' },
+    });
   });
 
   it('shows no prompt when the ship holds no valid secret', async () => {
@@ -101,7 +109,7 @@ describe('listing the fleet', () => {
   it('shows a ship crewed while a session holds its lease', async () => {
     crewShip(core, { fleetId, shipId: scoutId });
 
-    await expect(listedScout()).resolves.toMatchObject({ status: 'crewed' });
+    await expect(listedScout()).resolves.toMatchObject({ status: 'crewed', location: { kind: 'DEVICE', description: null } });
   });
 
   it('shows a retired ship as retired', async () => {

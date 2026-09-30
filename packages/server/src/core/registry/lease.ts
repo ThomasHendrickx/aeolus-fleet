@@ -1,4 +1,10 @@
-import type { FleetId, LeaseId, LocationKind, ShipId } from '@aeolus-fleet/common';
+import {
+  LOCATION_DESCRIPTION_MAX_LENGTH,
+  type FleetId,
+  type LeaseId,
+  type LocationKind,
+  type ShipId,
+} from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -12,8 +18,6 @@ export interface Location {
   kind: LocationKind;
   description: string | null;
 }
-
-export const LOCATION_DESCRIPTION_MAX_LENGTH = 100;
 
 export function location(kind: LocationKind, description?: string): Result<Location, DomainError<'INVALID_LOCATION'>> {
   if (kind !== 'OTHER') {
@@ -33,12 +37,21 @@ export function location(kind: LocationKind, description?: string): Result<Locat
   return ok({ kind, description: trimmed });
 }
 
+/** Versioned prefix of every crew token (ADR 0015). */
+export const CREW_TOKEN_PREFIX = 'aeolus_ct_v1_';
+
 /** The exclusive right of one session to crew a ship. Open until `endedAt` is set. */
 export interface Lease {
   id: LeaseId;
   fleetId: FleetId;
   shipId: ShipId;
   location: Location;
+  /**
+   * The hash of the crew token `register` gave the session: every later ship
+   * call carries the token (ADR 0015). Null for a console session's lease on
+   * argo, whose token lives with the console session.
+   */
+  crewTokenHash: string | null;
   startedAt: Date;
   endedAt: Date | null;
 }

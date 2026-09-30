@@ -11,8 +11,11 @@ export interface ConsoleSessionUse {
 }
 
 export interface Authenticate {
-  /** The agent ship holding this valid secret, or undefined. Never `argo`: it has no secret (ADR 0012). */
-  bySecret(secret: string): Promise<Caller | undefined>;
+  /**
+   * The ship this crew token crews, while its lease is open, or undefined. The
+   * ship secret is no crew token: it works only for `register` (ADR 0015).
+   */
+  byCrewToken(crewToken: string): Promise<Caller | undefined>;
   /**
    * The caller of this live console session, or undefined. Each use keeps the
    * session valid for another 30 days.
@@ -20,13 +23,10 @@ export interface Authenticate {
   byConsoleSession(token: string): Promise<ConsoleSessionUse | undefined>;
 }
 
-/** Use case: turns a bearer secret or a console session token into the caller. */
+/** Use case: turns a crew token or a console session token into the caller. */
 export function createAuthenticate(deps: { callers: CallerLookup; hasher: SecretHasher; clock: Clock }): Authenticate {
   return {
-    bySecret: async (secret) => {
-      const ship = await deps.callers.bySecretHash(deps.hasher.hash(secret));
-      return ship?.kind === 'agent' ? ship : undefined;
-    },
+    byCrewToken: (crewToken) => deps.callers.byCrewTokenHash(deps.hasher.hash(crewToken)),
     byConsoleSession: async (token) => {
       const now = deps.clock.now();
       const expiresAt = consoleSessionExpiry(now);

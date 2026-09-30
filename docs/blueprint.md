@@ -241,7 +241,7 @@ Every call after `register` carries the crew token, not the secret: in a header 
 | Backups | Hetzner server backups plus a nightly Postgres dump to a Storage Box |
 | Estimated cost | About €10.30 a month excl. VAT, about €12.50 incl. 21% VAT |
 | Scale path | Resize to CX33 in minutes; split the database to its own server when needed |
-| Access | HTTPS only; ship secrets travel as bearer tokens |
+| Access | HTTPS only; crew tokens travel as bearer tokens, ship secrets only to `register` |
 
 Wake-ups use Postgres `LISTEN/NOTIFY`, so a waiting `receive` returns as soon as a message lands, without polling the database in a loop.
 

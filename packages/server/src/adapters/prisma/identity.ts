@@ -16,8 +16,8 @@ import {
 
 // Lock order, as the CredentialRepository port states: the ship when a use case
 // locks it, then a credential or the operator account, then console sessions,
-// then leases. Sign-in, sign-out, starting prompts and resetting the password
-// all follow it, so they serialise instead of deadlocking.
+// then leases. Sign-in, sign-out, claims, starting prompts and resetting the
+// password all follow it, so they serialise instead of deadlocking.
 
 export function createPrismaCredentialRepository(db: Db): CredentialRepository {
   return {
@@ -27,15 +27,14 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
     findValidBySecretHashForUpdate: async (secretHash) => {
       // Not scoped by fleet: a secret carries no fleet (ADR 0007). Locking the
       // credential row makes a concurrent replacement either wait for this
-      // transaction or invalidate the row before this query sees it.
+      // transaction, or invalidate the row first: read committed then checks
+      // the row again once the lock is free, and finds it no longer valid.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT c.id, c.fleet_id, c.ship_id, c.secret_hash, c.issued_at, c.claimed_at, c.invalidated_at,
-               s.kind::text AS kind, s.scopes
-        FROM credentials c
-        JOIN ships s ON s.fleet_id = c.fleet_id AND s.id = c.ship_id
-        WHERE c.secret_hash = ${secretHash} AND c.invalidated_at IS NULL AND s.retired_at IS NULL
-        FOR UPDATE OF c`;
-      return row ? { credential: toCredential(row), ship: toAuthenticatedShip(row) } : undefined;
+        SELECT id, fleet_id, ship_id, secret_hash, issued_at, claimed_at, invalidated_at
+        FROM credentials
+        WHERE secret_hash = ${secretHash} AND invalidated_at IS NULL
+        FOR UPDATE`;
+      return row ? toCredential(row) : undefined;
     },
     findValidForShipForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
@@ -120,12 +119,12 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
 
 export function createPrismaCallerLookup(db: Db): CallerLookup {
   return {
-    bySecretHash: async (secretHash) => {
+    byCrewTokenHash: async (crewTokenHash) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
-        FROM credentials c
-        JOIN ships s ON s.fleet_id = c.fleet_id AND s.id = c.ship_id
-        WHERE c.secret_hash = ${secretHash} AND c.invalidated_at IS NULL AND s.retired_at IS NULL`;
+        FROM leases l
+        JOIN ships s ON s.fleet_id = l.fleet_id AND s.id = l.ship_id
+        WHERE l.crew_token_hash = ${crewTokenHash} AND l.ended_at IS NULL AND s.retired_at IS NULL`;
       return row ? toAuthenticatedShip(row) : undefined;
     },
     useConsoleSession: async ({ tokenHash, now, expiresAt }) => {

@@ -9,7 +9,7 @@ import { FLEET_URL, OPERATOR } from '../packages/server/test/support/core-fixtur
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { signIn } from './support/console.js';
-import { launchChromium, startWeb, type RunningWeb } from './support/web.js';
+import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Signing in to the console, end to end: fleet:init as the operator runs it,
 // then a browser, the web app, the server and Postgres. The server runs in
@@ -38,9 +38,10 @@ beforeAll(async () => {
     throw new Error(`fleet:init failed with ${String(init.code)}:\n${init.stderr}`);
   }
 
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
+  const webUrl = await reserveWebUrl();
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb(serverUrl);
+  web = await startWeb({ url: webUrl, serverUrl });
   browser = await launchChromium();
 });
 

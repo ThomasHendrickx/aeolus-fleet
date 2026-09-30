@@ -16,8 +16,14 @@ describe('loadConfig', () => {
       logLevel: 'info',
       shouldTrustProxy: false,
       cookieDomain: undefined,
-      consoleOrigin: undefined,
+      consoleOrigin: publicUrl,
     });
+  });
+
+  it("takes the public URL's origin as the console origin when none is configured: web and server behind one host", () => {
+    expect(loadConfig({ ...required, PUBLIC_URL: 'https://Fleet.example.com:443/aeolus/' }).consoleOrigin).toBe(
+      'https://fleet.example.com',
+    );
   });
 
   it('reads the cookie domain and the console origin, so the console can run on another host under one domain', () => {

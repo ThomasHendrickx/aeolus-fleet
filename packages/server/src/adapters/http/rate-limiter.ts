@@ -9,6 +9,10 @@ export interface RateLimit {
 export interface RateLimiter {
   /** Counts an attempt for the key. False when the key is over its limit in the current window. */
   take(key: string): boolean;
+  /** True while the key has counted fewer than its limit in the current window. Counts nothing. */
+  hasRoom(key: string): boolean;
+  /** Counts one for the key, for a limit on some outcomes only, such as failures. */
+  count(key: string): void;
 }
 
 /**
@@ -18,17 +22,29 @@ export interface RateLimiter {
 export function createRateLimiter(limit: RateLimit, clock: Clock): RateLimiter {
   const windows = new Map<string, { startedAt: number; count: number }>();
 
+  /** The key's count in the current window, after forgetting finished windows. */
+  const countIn = (key: string, now: number): number => {
+    const current = windows.get(key);
+    if (!current || now - current.startedAt >= limit.windowMs) {
+      forgetFinishedWindows(windows, { now, windowMs: limit.windowMs });
+      return 0;
+    }
+    return current.count;
+  };
+
+  const count = (key: string): number => {
+    const now = clock.now().getTime();
+    const counted = countIn(key, now) + 1;
+    const startedAt = counted === 1 ? now : (windows.get(key)?.startedAt ?? now);
+    windows.set(key, { startedAt, count: counted });
+    return counted;
+  };
+
   return {
-    take: (key) => {
-      const now = clock.now().getTime();
-      const current = windows.get(key);
-      if (!current || now - current.startedAt >= limit.windowMs) {
-        forgetFinishedWindows(windows, { now, windowMs: limit.windowMs });
-        windows.set(key, { startedAt: now, count: 1 });
-        return true;
-      }
-      current.count += 1;
-      return current.count <= limit.limit;
+    take: (key) => count(key) <= limit.limit,
+    hasRoom: (key) => countIn(key, clock.now().getTime()) < limit.limit,
+    count: (key) => {
+      count(key);
     },
   };
 }

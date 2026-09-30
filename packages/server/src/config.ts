@@ -44,8 +44,12 @@ export interface Config {
   shouldTrustProxy: boolean;
   /** The domain the session cookie is set for, so every host under it receives it. Unset: the server's host only. */
   cookieDomain: string | undefined;
-  /** The origin of a console on another host, allowed to call with credentials (CORS). Unset: none. */
-  consoleOrigin: string | undefined;
+  /**
+   * The console's origin: state-changing console calls come only from it, and
+   * a console on another host may call from it with credentials (CORS).
+   * Defaults to the public URL's origin: web and server behind one host.
+   */
+  consoleOrigin: string;
 }
 
 export class ConfigError extends Error {
@@ -73,6 +77,6 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     logLevel: LOG_LEVEL,
     shouldTrustProxy: TRUST_PROXY === 'true',
     cookieDomain: COOKIE_DOMAIN,
-    consoleOrigin: CONSOLE_ORIGIN,
+    consoleOrigin: CONSOLE_ORIGIN ?? new URL(PUBLIC_URL).origin,
   };
 }

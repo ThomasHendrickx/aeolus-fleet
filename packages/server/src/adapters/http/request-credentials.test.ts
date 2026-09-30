@@ -62,11 +62,11 @@ describe('clearedSessionCookie', () => {
 
 describe('readBearer', () => {
   it.each([
-    ['Bearer aeolus_sk_v1_abc', 'aeolus_sk_v1_abc'],
-    ['bearer aeolus_sk_v1_abc', 'aeolus_sk_v1_abc'],
-    ['Bearer   aeolus_sk_v1_abc  ', 'aeolus_sk_v1_abc'],
-  ])('reads %j', (header, secret) => {
-    expect(readBearer(header)).toBe(secret);
+    ['Bearer aeolus_ct_v1_abc', 'aeolus_ct_v1_abc'],
+    ['bearer aeolus_ct_v1_abc', 'aeolus_ct_v1_abc'],
+    ['Bearer   aeolus_ct_v1_abc  ', 'aeolus_ct_v1_abc'],
+  ])('reads %j', (header, crewToken) => {
+    expect(readBearer(header)).toBe(crewToken);
   });
 
   it.each([undefined, '', 'Basic abc', 'Bearer', 'Bearer a b'])('finds nothing in %j', (header) => {

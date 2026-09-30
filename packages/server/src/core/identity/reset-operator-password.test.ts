@@ -84,6 +84,14 @@ describe('resetting the operator password', () => {
     expect(core.state.leases.every((lease) => lease.endedAt !== null)).toBe(true);
   });
 
+  it("writes OperatorPasswordReset about argo, so it shows on argo's timeline", async () => {
+    core.state.events.length = 0;
+
+    unwrap(await resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));
+
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'OperatorPasswordReset', shipId: argoId })]);
+  });
+
   it('writes only OperatorPasswordReset when nobody is signed in', async () => {
     core.state.events.length = 0;
 

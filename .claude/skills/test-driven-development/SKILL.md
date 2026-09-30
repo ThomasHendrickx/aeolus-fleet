@@ -14,7 +14,7 @@ Loop per behaviour:
 Push green heads only. One tiny rule may batch several tests.
 
 Layers:
-- Unit (Vitest, beside the file): value objects, aggregates, use cases with hand-written in-memory fakes. No mocking libraries, no `vi.fn` or `vi.spyOn` in core and common; assert outcomes and stored state, not calls. Adapters (CLI, I/O) may use `vi.fn`.
+- Unit (Vitest, beside the file): value objects, aggregates, use cases with hand-written in-memory fakes. No mocking libraries; assert outcomes and stored state, not calls. Adapters (CLI, I/O) may use `vi.fn`.
 - Integration (`packages/server/test/*.integration.test.ts`, Testcontainers Postgres 16): adapters, raw SQL, procedures through the real composition.
 - Guarantees: concurrent receivers never share a delivery; a forced mid-transaction failure stores nothing and wakes nobody; a restart loses nothing.
 - End to end (Playwright, few): interact via `data-testid="{area}-{element}"`, assert via role or text.
@@ -26,4 +26,4 @@ Rules:
 - Every blueprint invariant has a test that fails if the rule is removed.
 - Done: `npm run typecheck`, `npm run lint`, `npm test`; confirm new tests appear by name in the output.
 
-Enforced by lint/CI (`eslint.config.js`, `scripts/`): the `(red)` commit with only tests before production code, a test beside every use case, every test in a Vitest project, no `vi.mock`.
+Enforced by lint/CI (`eslint.config.js`, `scripts/`): the `(red)` commit with only tests before production code (a `refactor(...)` commit may follow a green one; a change to comments alone needs neither), a test beside every use case, every test in a Vitest project, no `vi.mock`, no `vi.fn` or `vi.spyOn` in core and common.

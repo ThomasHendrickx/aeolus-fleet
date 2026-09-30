@@ -40,7 +40,7 @@ export async function takeOverOperatorLease(
   }
 
   const leaseId = ids('lease');
-  await tx.leases.open({ id: leaseId, fleetId, shipId, location, startedAt: at, endedAt: null });
+  await tx.leases.open({ id: leaseId, fleetId, shipId, location, crewTokenHash: null, startedAt: at, endedAt: null });
   await recordEvent({ events: tx.events, ids }, {
     fleetId,
     type: 'ShipClaimed',

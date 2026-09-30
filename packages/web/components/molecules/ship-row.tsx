@@ -3,6 +3,7 @@
 import type { ListedShip, ShipStatus } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { locationText } from '../../lib/location';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 
 const STATUS_LABELS: Record<ShipStatus, string> = {
@@ -58,6 +59,7 @@ export function ShipRow({
       <th scope="row">{ship.name}</th>
       <td>{ship.type}</td>
       <td>{STATUS_LABELS[ship.status]}</td>
+      <td data-testid="fleet-ship-location">{locationText(ship)}</td>
       <td>
         <PromptState ship={ship} />
       </td>

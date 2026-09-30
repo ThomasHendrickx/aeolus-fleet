@@ -1,13 +1,15 @@
-import { SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
+import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
+import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller } from '../../src/core/shared/caller.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
@@ -34,7 +36,7 @@ export function identityUseCases(core: InMemoryCore) {
 /** The fleet URL starting prompts carry in tests. */
 export const FLEET_URL = 'https://fleet.example.com';
 
-/** The registry use cases the operator calls, wired to the in-memory core. */
+/** The registry use cases, wired to the in-memory core: the operator's, and the claim a session makes. */
 export function registryUseCases(core: InMemoryCore) {
   const deps = {
     uow: core.uow,
@@ -46,7 +48,9 @@ export function registryUseCases(core: InMemoryCore) {
   return {
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
+    claimShip: createClaimShip(deps),
     listFleet: createListFleet({ listing: core.listing }),
+    whoami: createWhoami({ ships: core.ships }),
   };
 }
 
@@ -62,6 +66,16 @@ export function secretIn(prompt: string): string {
     throw new Error(`No ship secret in the starting prompt:\n${prompt}`);
   }
   return secret;
+}
+
+/** The ship id a starting prompt holds. */
+export function shipIdIn(prompt: string): ShipId {
+  const shipId = /^Ship id: (\S+)$/m.exec(prompt)?.[1];
+  const parsed = idSchema('ship').safeParse(shipId);
+  if (!parsed.success) {
+    throw new Error(`No ship id in the starting prompt:\n${prompt}`);
+  }
+  return parsed.data;
 }
 
 /** The operator's login in tests: what fleet init asks for, and sign-in takes. */
@@ -114,13 +128,19 @@ export function addAgentShip(
   return { shipId, secret };
 }
 
-/** A session crewing the ship, straight into the state: claiming arrives with slice 3. */
-export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): void {
+/**
+ * A session crewing the ship, straight into the state, without its secret:
+ * for a ship whose secret the test does not hold. Returns the crew token.
+ */
+export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): string {
+  const crewToken = `aeolus_ct_v1_crew-${ship.shipId}`;
   core.state.leases.push({
     id: core.ids('lease'),
     ...ship,
     location: { kind: 'DEVICE', description: null },
+    crewTokenHash: core.hasher.hash(crewToken),
     startedAt: core.clock.now(),
     endedAt: null,
   });
+  return crewToken;
 }

@@ -4,13 +4,16 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 
 // Rules for every package: no type assertions, exhaustive switches, at most
 // two parameters, named exports, kebab-case file names, boolean names and no
-// module mocks (typescript and test-driven-development skills).
+// module mocks; no vi.fn or vi.spyOn in core and common (typescript and
+// test-driven-development skills).
 
 const probes = {
   core: 'packages/server/src/core/registry/rules-probe.ts',
   adapter: 'packages/server/src/adapters/http/rules-probe.ts',
   common: 'packages/common/src/rules-probe.ts',
   test: 'packages/server/src/core/registry/rules-probe.test.ts',
+  commonTest: 'packages/common/src/rules-probe.test.ts',
+  adapterTest: 'packages/server/src/adapters/cli/rules-probe.test.ts',
   script: 'scripts/rules-probe.ts',
   page: 'packages/web/app/probe/page.tsx',
   layout: 'packages/web/app/probe/layout.tsx',
@@ -164,9 +167,28 @@ describe('module mocks', () => {
     ]);
   });
 
-  it('allows vi.fn', async () => {
+  it('allows vi.fn in an adapter test', async () => {
     const code = "import { vi } from 'vitest';\nexport const spy = vi.fn();";
 
-    expect(reportsOf(await lint(code, probes.test), 'no-restricted-properties')).toEqual([]);
+    expect(reportsOf(await lint(code, probes.adapterTest), 'no-restricted-properties')).toEqual([]);
+  });
+});
+
+describe('test doubles in core and common', () => {
+  const doubles = [
+    { label: 'vi.fn', code: "import { vi } from 'vitest';\nexport const spy = vi.fn();" },
+    { label: 'vi.spyOn', code: "import { vi } from 'vitest';\nexport const spy = vi.spyOn(console, 'log');" },
+  ];
+
+  it.each(doubles)('refuses $label in core and common, tests and code alike', async ({ code }) => {
+    for (const path of [probes.test, probes.core, probes.commonTest, probes.common]) {
+      expect(reportsOf(await lint(code, path), 'no-restricted-properties')).toEqual([
+        expect.stringContaining('No vi.fn or vi.spyOn in core and common'),
+      ]);
+    }
+  });
+
+  it.each(doubles)('allows $label in an adapter test', async ({ code }) => {
+    expect(reportsOf(await lint(code, probes.adapterTest), 'no-restricted-properties')).toEqual([]);
   });
 });

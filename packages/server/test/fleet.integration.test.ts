@@ -2,13 +2,12 @@ import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/comm
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
-import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
-import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
 // The fleet use cases on a real Postgres through the Prisma adapters: what a
@@ -16,9 +15,6 @@ import { unwrap } from './support/result.js';
 // and rollback.
 
 const newId = createIdGenerator();
-/** How long a racing transaction waits for the others before it goes on alone. */
-const RACE_WAIT_MS = 250;
-const TABLES = ['fleets', 'ships', 'leases', 'credentials', 'messages', 'deliveries', 'events', 'console_sessions'];
 
 let core: PostgresCore;
 let fleetId: FleetId;
@@ -42,43 +38,16 @@ async function eventsAbout(shipId: ShipId) {
   return events.map((event) => [event.type, event.actorShipId, event.details]);
 }
 
+/** The ship a secret is valid for, the one it claims; undefined once the secret is invalid. */
+async function shipOfValidSecret(secret: string): Promise<string | undefined> {
+  const credential = await core.prisma.credential.findFirst({
+    where: { secretHash: sha256Hasher.hash(secret), invalidatedAt: null },
+  });
+  return credential?.shipId;
+}
+
 async function shipsNamed(name: string) {
   return core.prisma.ship.findMany({ where: { fleetId, name }, orderBy: { id: 'asc' } });
-}
-
-/**
- * The Prisma unit of work, with every transaction held at one step until all
- * of them get there (or a moment passes). Without that the transactions finish
- * one after the other and never race; a lock taken before that step keeps them
- * apart anyway. `holdAt` returns the ports with the step wrapped.
- */
-function racingUnitOfWork(
-  transactions: number,
-  holdAt: (tx: PrismaTx, allArrived: () => Promise<void>) => PrismaTx,
-): UnitOfWork<PrismaTx> {
-  const uow = createPrismaUnitOfWork(core.prisma);
-  let arrived: (() => void)[] = [];
-  const allArrived = () =>
-    new Promise<void>((resolve) => {
-      arrived.push(resolve);
-      if (arrived.length === transactions) {
-        arrived.forEach((release) => {
-          release();
-        });
-        arrived = [];
-      }
-      setTimeout(resolve, RACE_WAIT_MS);
-    });
-  return { run: (work) => uow.run((tx) => work(holdAt(tx, allArrived))) };
-}
-
-/** Every row of every table as JSON text, to search for what must never be stored. */
-async function everyRow(): Promise<string> {
-  const tables = await Promise.all(
-    // The table names are the constant list above, never outside input.
-    TABLES.map((table) => core.prisma.$queryRawUnsafe<unknown[]>(`SELECT row_to_json(t) AS row FROM ${table} t`)),
-  );
-  return JSON.stringify(tables);
 }
 
 describe('commissioning a ship on Postgres', () => {
@@ -122,7 +91,7 @@ describe('commissioning a ship on Postgres', () => {
   it('keeps the secret out of every table', async () => {
     const { prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
 
-    const rows = await everyRow();
+    const rows = await everyRow(core.prisma);
 
     expect(rows).toContain(sha256Hasher.hash(secretIn(prompt)));
     expect(rows).not.toContain(secretIn(prompt));
@@ -160,7 +129,7 @@ describe('commissioning a ship on Postgres', () => {
 
   it('serialises concurrent commissions of one name: one ship, every other one refused', async () => {
     const commissionShip = createCommissionShip({
-      uow: racingUnitOfWork(5, (tx, allArrived) => ({
+      uow: racingUnitOfWork({ prisma: core.prisma, transactions: 5 }, (tx, allArrived) => ({
         ...tx,
         ships: {
           ...tx.ships,
@@ -202,7 +171,7 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('leaves no ship, secret or event behind when a write fails halfway', async () => {
-    const before = await everyRow();
+    const before = await everyRow(core.prisma);
     const uow = createPrismaUnitOfWork(core.prisma);
     const commissionShip = createCommissionShip({
       uow: {
@@ -219,7 +188,7 @@ describe('commissioning a ship on Postgres', () => {
 
     await expect(commissionShip(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
 
-    await expect(everyRow()).resolves.toBe(before);
+    await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
 });
 
@@ -241,13 +210,8 @@ describe('getting a starting prompt on Postgres', () => {
   it('replaces the secret: the previous one fails on the very next call, the new one works', async () => {
     const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.bySecret(secretIn(prompt))).resolves.toEqual({
-      shipId: scoutId,
-      fleetId,
-      kind: 'agent',
-      scopes: ['messages:send', 'messages:receive'],
-    });
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBeUndefined();
+    await expect(shipOfValidSecret(secretIn(prompt))).resolves.toBe(scoutId);
     await expect(validSecretsOfScout()).resolves.toEqual([
       expect.objectContaining({ secretHash: sha256Hasher.hash(secretIn(prompt)), issuedAt: core.clock.now() }),
     ]);
@@ -270,44 +234,17 @@ describe('getting a starting prompt on Postgres', () => {
   it('keeps the new secret out of every table', async () => {
     const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
-    await expect(everyRow()).resolves.not.toContain(secretIn(prompt));
+    await expect(everyRow(core.prisma)).resolves.not.toContain(secretIn(prompt));
   });
 
   it('is refused while a session crews the ship', async () => {
-    // Claiming arrives with slice 3.
-    await core.prisma.lease.create({
-      data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },
-    });
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' } }));
 
     await expect(core.useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'SHIP_NOT_AWAITING_CREW' },
     });
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
-  });
-
-  it('is refused when a session claims the ship while the prompt waits for its secret', async () => {
-    // A claim as slice 3 makes it: lock the valid secret, then open a lease and mark the secret claimed.
-    const hasLocked = Promise.withResolvers<undefined>();
-    const claim = core.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM credentials WHERE ship_id = ${scoutId} AND invalidated_at IS NULL FOR UPDATE`;
-      hasLocked.resolve(undefined);
-      await new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS));
-      await tx.lease.create({
-        data: { id: newId('lease'), fleetId, shipId: scoutId, location: 'DEVICE', startedAt: core.clock.now() },
-      });
-      await tx.credential.updateMany({
-        where: { shipId: scoutId, invalidatedAt: null },
-        data: { claimedAt: core.clock.now() },
-      });
-    });
-    await hasLocked.promise;
-
-    const prompt = core.useCases.getStartingPrompt(argo, { shipId: scoutId });
-    await claim;
-
-    await expect(prompt).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_AWAITING_CREW' } });
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBe(scoutId);
   });
 
   it('is refused for argo', async () => {
@@ -319,7 +256,7 @@ describe('getting a starting prompt on Postgres', () => {
 
   it('keeps exactly one valid secret under concurrent prompts, the last one issued', async () => {
     const getStartingPrompt = createGetStartingPrompt({
-      uow: racingUnitOfWork(5, (tx, allArrived) => ({
+      uow: racingUnitOfWork({ prisma: core.prisma, transactions: 5 }, (tx, allArrived) => ({
         ...tx,
         credentials: {
           ...tx.credentials,
@@ -343,14 +280,12 @@ describe('getting a starting prompt on Postgres', () => {
     const valid = await validSecretsOfScout();
     expect(valid).toHaveLength(1);
     const prompts = results.flatMap((result) => (result.isOk ? [result.value.prompt] : []));
-    const working = await Promise.all(
-      prompts.map((prompt) => core.useCases.authenticate.bySecret(secretIn(prompt))),
-    );
-    expect(working.filter((caller) => caller !== undefined)).toHaveLength(1);
+    const working = await Promise.all(prompts.map((prompt) => shipOfValidSecret(secretIn(prompt))));
+    expect(working.filter((shipId) => shipId !== undefined)).toHaveLength(1);
   });
 
   it('leaves the previous secret valid when a write fails halfway', async () => {
-    const before = await everyRow();
+    const before = await everyRow(core.prisma);
     const uow = createPrismaUnitOfWork(core.prisma);
     const getStartingPrompt = createGetStartingPrompt({
       uow: {
@@ -365,8 +300,8 @@ describe('getting a starting prompt on Postgres', () => {
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('disk full');
 
-    await expect(everyRow()).resolves.toBe(before);
-    await expect(core.useCases.authenticate.bySecret(firstSecret)).resolves.toMatchObject({ shipId: scoutId });
+    await expect(everyRow(core.prisma)).resolves.toBe(before);
+    await expect(shipOfValidSecret(firstSecret)).resolves.toBe(scoutId);
   });
 });
 
@@ -384,6 +319,7 @@ describe('listing the fleet on Postgres', () => {
         type: 'operator',
         status: 'crewed',
         startingPrompt: null,
+        location: { kind: 'OTHER', description: 'web console' },
       },
       {
         id: shipId,
@@ -391,6 +327,7 @@ describe('listing the fleet on Postgres', () => {
         type: 'reviewer',
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+        location: null,
       },
     ]);
   });
@@ -411,10 +348,10 @@ describe('listing the fleet on Postgres', () => {
   it('shows a crewed ship and a retired one, the retired one without a prompt once its secret is gone', async () => {
     const crewed = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     const retired = unwrap(await core.useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
-    // Claiming and retiring arrive with later slices.
-    await core.prisma.lease.create({
-      data: { id: newId('lease'), fleetId, shipId: crewed.shipId, location: 'SERVER', startedAt: core.clock.now() },
-    });
+    unwrap(
+      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' } }),
+    );
+    // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });
     await core.prisma.credential.updateMany({
       where: { shipId: retired.shipId },
@@ -423,10 +360,10 @@ describe('listing the fleet on Postgres', () => {
 
     const listed = await core.useCases.listFleet(argo);
 
-    expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt === null])).toEqual([
-      ['argo', 'awaitingCrew', true],
-      ['scout', 'crewed', false],
-      ['lookout', 'retired', true],
+    expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([
+      ['argo', 'awaitingCrew', null, null],
+      ['scout', 'crewed', true, { kind: 'SERVER', description: null }],
+      ['lookout', 'retired', null, null],
     ]);
   });
 
