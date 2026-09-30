@@ -40,3 +40,35 @@ describe('rate limiter', () => {
     expect(limiter.take('one')).toBe(false);
   });
 });
+
+describe('rate limiter, counting only what its user counts', () => {
+  it('has room until the limit is counted, and asking counts nothing', () => {
+    const limiter = createRateLimiter({ limit: 2, windowMs: 60_000 }, clockAt(0));
+
+    expect([limiter.hasRoom('client'), limiter.hasRoom('client'), limiter.hasRoom('client')]).toEqual([true, true, true]);
+    limiter.count('client');
+    expect(limiter.hasRoom('client')).toBe(true);
+    limiter.count('client');
+    expect(limiter.hasRoom('client')).toBe(false);
+  });
+
+  it('has room again once the window has passed', () => {
+    const clock = clockAt(0);
+    const limiter = createRateLimiter({ limit: 1, windowMs: 60_000 }, clock);
+    limiter.count('client');
+    clock.advance(59_999);
+    expect(limiter.hasRoom('client')).toBe(false);
+
+    clock.advance(1);
+
+    expect(limiter.hasRoom('client')).toBe(true);
+  });
+
+  it('counts each key on its own', () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 60_000 }, clockAt(0));
+
+    limiter.count('one');
+
+    expect([limiter.hasRoom('one'), limiter.hasRoom('two')]).toEqual([false, true]);
+  });
+});

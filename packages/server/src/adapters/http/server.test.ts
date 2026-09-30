@@ -237,7 +237,7 @@ describe('ship.register', () => {
     expect(response.json<{ error: { message: string } }>().error.message).toBe('Wrong ship id or secret');
   });
 
-  it('refuses further attempts from a client over the rate limit with 429', async () => {
+  it('refuses every attempt from a client after too many wrong ship ids or secrets, with 429', async () => {
     start({ registerRateLimit: { limit: 3, windowMs: 60_000 } });
     const agent = addAgentShip(core, { fleetId: fleetIdOf(core) });
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -255,7 +255,37 @@ describe('ship.register', () => {
     ).toBe(200);
   });
 
-  it('counts attempts per client address, apart from sign-in attempts', async () => {
+  it('never limits successful claims: one address crews many ships', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 } });
+    const agents = [1, 2, 3].map(() => addAgentShip(core, { fleetId: fleetIdOf(core) }));
+
+    const statuses: number[] = [];
+    for (const agent of agents) {
+      statuses.push((await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } })).statusCode);
+    }
+
+    expect(statuses).toEqual([200, 200, 200]);
+  });
+
+  it('counts only a wrong ship id or secret: a crewed ship or a bad location leaves the limit alone', async () => {
+    start({ registerRateLimit: { limit: 1, windowMs: 60_000 } });
+    const crewed = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    const other = addAgentShip(core, { fleetId: fleetIdOf(core) });
+    const claimCrewed = () => register({ shipId: crewed.shipId, secret: crewed.secret, location: { kind: 'DEVICE' } });
+
+    const statuses = [
+      (await claimCrewed()).statusCode,
+      (await claimCrewed()).statusCode,
+      (await claimCrewed()).statusCode,
+      (await register({ shipId: other.shipId, secret: other.secret, location: { kind: 'OTHER' } })).statusCode,
+      (await register(aWrongClaim())).statusCode,
+      (await register(aWrongClaim())).statusCode,
+    ];
+
+    expect(statuses).toEqual([200, 409, 409, 400, 401, 429]);
+  });
+
+  it('counts failures per client address, apart from sign-in attempts', async () => {
     start({ registerRateLimit: { limit: 1, windowMs: 60_000 }, signInRateLimit: { limit: 1, windowMs: 60_000 } });
 
     expect((await register(aWrongClaim())).statusCode).toBe(401);
