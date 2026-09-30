@@ -5,6 +5,8 @@ import {
   commissionShipInputSchema,
   fleetListOutputSchema,
   getStartingPromptInputSchema,
+  releaseShipInputSchema,
+  releaseShipOutputSchema,
   shipHandleSchema,
   startingPromptOutputSchema,
 } from './fleet.js';
@@ -94,11 +96,33 @@ describe('startingPromptOutputSchema', () => {
   });
 });
 
+describe('releaseShipInputSchema', () => {
+  it('accepts a ship id', () => {
+    const shipId = newId('ship');
+
+    expect(releaseShipInputSchema.parse({ shipId })).toEqual({ shipId });
+  });
+
+  it.each([
+    ['an id of another kind', { shipId: newId('lease') }],
+    ['a missing ship id', {}],
+  ])('rejects %s', (_label, input) => {
+    expect(releaseShipInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('releaseShipOutputSchema', () => {
+  it('is empty: the OK is the answer', () => {
+    expect(releaseShipOutputSchema.parse({})).toEqual({});
+  });
+});
+
 describe('fleetListOutputSchema', () => {
   const ship = {
     id: newId('ship'),
     name: 'scout',
     type: 'reviewer',
+    kind: 'agent',
     status: 'awaitingCrew',
     startingPrompt: { issuedAt: '2026-09-29T12:00:00.000Z', isClaimed: false },
     location: null,
@@ -123,10 +147,18 @@ describe('fleetListOutputSchema', () => {
     expect(fleetListOutputSchema.safeParse([{ ...ship, startingPrompt: null }]).success).toBe(true);
   });
 
+  it('accepts the operator ship by its kind', () => {
+    const argo = { ...ship, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null };
+
+    expect(fleetListOutputSchema.parse([argo])).toEqual([argo]);
+  });
+
   it.each([
     ['an unknown status', { ...ship, status: 'sailing' }],
     ['a prompt date that is not ISO 8601', { ...ship, startingPrompt: { issuedAt: 'today', isClaimed: false } }],
     ['a ship id of another kind', { ...ship, id: newId('fleet') }],
+    ['a missing kind', { ...ship, kind: undefined }],
+    ['an unknown kind', { ...ship, kind: 'commander' }],
     ['a missing location', { ...ship, location: undefined }],
     ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
   ])('rejects %s', (_label, listed) => {

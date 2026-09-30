@@ -288,6 +288,7 @@ describe('the fleet procedures at the API', () => {
       id: shipId,
       name: 'scout',
       type: 'reviewer',
+      kind: 'agent',
       status: 'awaitingCrew',
       startingPrompt: { issuedAt: clock.now().toISOString(), isClaimed: false },
       location: null,

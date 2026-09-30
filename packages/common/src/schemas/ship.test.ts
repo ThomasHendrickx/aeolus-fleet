@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import { locationSchema, registerInputSchema, registerOutputSchema, whoamiOutputSchema } from './ship.js';
+import {
+  deregisterOutputSchema,
+  locationSchema,
+  registerInputSchema,
+  registerOutputSchema,
+  whoamiOutputSchema,
+} from './ship.js';
 
 const newId = createIdGenerator();
 
@@ -65,5 +71,11 @@ describe('whoamiOutputSchema', () => {
 
   it('rejects a fleet id of another kind', () => {
     expect(whoamiOutputSchema.safeParse({ ...output, fleetId: newId('ship') }).success).toBe(false);
+  });
+});
+
+describe('deregisterOutputSchema', () => {
+  it('is empty: the OK is the answer', () => {
+    expect(deregisterOutputSchema.parse({})).toEqual({});
   });
 });

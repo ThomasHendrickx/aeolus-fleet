@@ -45,12 +45,13 @@ function scout() {
 }
 
 describe('listing the fleet', () => {
-  it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, status, prompt state and no location while awaiting crew', async () => {
+  it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, kind, status, prompt state and no location while awaiting crew', async () => {
     await expect(useCases.listFleet(argo)).resolves.toEqual([
       {
         id: argoId,
         name: 'argo',
         type: 'operator',
+        kind: 'operator',
         status: 'awaitingCrew',
         startingPrompt: null,
         location: null,
@@ -59,6 +60,7 @@ describe('listing the fleet', () => {
         id: scoutId,
         name: 'scout',
         type: 'reviewer',
+        kind: 'agent',
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,

@@ -50,6 +50,7 @@ describe('eventTypeSchema', () => {
       'DeliveryClaimed',
       'DeliveryAcknowledged',
       'DeliveryUndeliverable',
+      'DeliveryReturned',
     ]);
   });
 });
