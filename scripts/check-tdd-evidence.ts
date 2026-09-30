@@ -8,6 +8,11 @@
  * made a (red) commit pass. A refactor does not change behaviour, so it needs
  * no new failing test (test-driven-development skill).
  *
+ * A change to comments alone is not a change to production code: a modified
+ * TypeScript, JavaScript or Prisma file whose code, printed without comments,
+ * stays the same (layout the printer evens out included). A new, deleted or
+ * renamed file, and a change to any other kind of file, always counts.
+ *
  * Production code is every file under those folders except tests and
  * Markdown. A test file is a *.test.ts(x) file, or any file in a test/ or e2e/
  * folder. Merge commits are not judged. Commits up to the one slice 1b started
@@ -15,6 +20,7 @@
  *
  * Usage: node scripts/check-tdd-evidence.ts <base commit> <head commit>
  */
+import { codeWithoutComments } from './support/comments.ts';
 import { git, repositoryRoot, type PullRequestRange } from './support/git.ts';
 import { runPullRequestCheck } from './support/report.ts';
 
@@ -33,6 +39,8 @@ export interface ChangedFile {
   path: string;
   /** The path before a rename. */
   previousPath?: string;
+  /** Set when a modified file changed only in its comments: its code stayed the same. */
+  isCommentOnly?: true;
 }
 
 export interface Commit {
@@ -52,7 +60,9 @@ export function isProductionFile(path: string): boolean {
 
 function touchesProduction(commit: Commit): boolean {
   return commit.files.some(
-    (file) => isProductionFile(file.path) || (file.previousPath !== undefined && isProductionFile(file.previousPath)),
+    (file) =>
+      file.isCommentOnly === undefined &&
+      (isProductionFile(file.path) || (file.previousPath !== undefined && isProductionFile(file.previousPath))),
   );
 }
 
@@ -91,6 +101,7 @@ export function tddViolations(commits: readonly Commit[]): string[] {
         return [];
       }
       const production = commit.files
+        .filter((file) => file.isCommentOnly === undefined)
         .map((file) => file.path)
         .filter(isProductionFile)
         .join(', ');
@@ -129,13 +140,37 @@ export function readCommits(
     .map((record) => {
       const [header = '', ...lines] = record.split('\n');
       const [hash = '', parents = '', subject = ''] = header.split(UNIT_SEPARATOR);
+      const parentList = parents.split(' ').filter(Boolean);
+      const files = lines.filter((line) => line.trim() !== '').map(changedFile);
       return {
         hash,
-        parents: parents.split(' ').filter(Boolean),
+        parents: parentList,
         subject,
-        files: lines.filter((line) => line.trim() !== '').map(changedFile),
+        files: files.map((file) =>
+          isCommentOnlyChange(repository, { file, commit: hash, parent: parentList[0] })
+            ? { ...file, isCommentOnly: true }
+            : file,
+        ),
       };
     });
+}
+
+/**
+ * True when a modified production file's code, printed without comments, is
+ * the same before and after the commit. Only modified files are compared: a
+ * new, deleted or renamed file is always a change to code.
+ */
+function isCommentOnlyChange(
+  repository: string,
+  change: { file: ChangedFile; commit: string; parent: string | undefined },
+): boolean {
+  const { file, commit, parent } = change;
+  if (file.status !== 'M' || parent === undefined || !isProductionFile(file.path)) {
+    return false;
+  }
+  const before = codeWithoutComments(file.path, git(repository, ['show', `${parent}:${file.path}`]));
+  const after = codeWithoutComments(file.path, git(repository, ['show', `${commit}:${file.path}`]));
+  return before !== undefined && before === after;
 }
 
 function changedFile(line: string): ChangedFile {
