@@ -23,26 +23,44 @@ export function createPrismaNotifier(db: Db): Notifier {
 }
 
 export interface DeliveryListener {
+  /** Settles once the listener first listens: notices of later commits reach it. */
+  listening: Promise<void>;
   close(): Promise<void>;
 }
 
 /**
  * Listens for pending deliveries on a connection of its own: LISTEN needs one
  * that no pool hands to another query, and it must be direct, not through a
- * transaction pooler. A long-poll receive waits on it (slice 5).
+ * transaction pooler. Waiting receives are woken through it. Returns at once;
+ * `onListening` runs each time it starts listening.
  */
-export async function listenForPendingDeliveries(options: {
+export function listenForPendingDeliveries(options: {
   databaseUrl: string;
   onNotice: (notice: DeliveryNotice) => void;
-}): Promise<DeliveryListener> {
+  onListening?: () => void;
+}): DeliveryListener {
+  const listening = Promise.withResolvers<undefined>();
   const client = new pg.Client({ connectionString: options.databaseUrl });
-  await client.connect();
   client.on('notification', ({ channel, payload }) => {
     if (channel === DELIVERY_PENDING_CHANNEL && payload !== undefined) {
       options.onNotice(toDeliveryNotice(JSON.parse(payload)));
     }
   });
-  // The channel is the constant above, never outside input.
-  await client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}`);
-  return { close: () => client.end() };
+  const started = (async () => {
+    await client.connect();
+    // The channel is the constant above, never outside input.
+    await client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}`);
+    listening.resolve(undefined);
+    options.onListening?.();
+  })();
+  started.catch((error: unknown) => {
+    listening.reject(error);
+  });
+  return {
+    listening: listening.promise,
+    close: async () => {
+      await started.catch(() => undefined);
+      await client.end();
+    },
+  };
 }

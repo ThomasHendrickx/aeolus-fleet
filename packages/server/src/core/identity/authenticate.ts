@@ -1,4 +1,4 @@
-import type { Caller } from '../shared/caller.js';
+import type { Caller, Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { SecretHasher } from '../shared/secrets.js';
 import { consoleSessionExpiry } from './console-session.js';
@@ -12,10 +12,11 @@ export interface ConsoleSessionUse {
 
 export interface Authenticate {
   /**
-   * The ship this crew token crews, while its lease is open, or undefined. The
-   * ship secret is no crew token: it works only for `register` (ADR 0015).
+   * The crew this token belongs to, while its lease is open: the ship and the
+   * lease. Undefined otherwise. The ship secret is no crew token: it works
+   * only for `register` (ADR 0015).
    */
-  byCrewToken(crewToken: string): Promise<Caller | undefined>;
+  byCrewToken(crewToken: string): Promise<Crew | undefined>;
   /**
    * The caller of this live console session, or undefined. Each use keeps the
    * session valid for another 30 days.

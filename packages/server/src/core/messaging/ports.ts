@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
 import type { Delivery, Message } from './message.js';
@@ -34,9 +34,40 @@ export interface RequestHasher {
   hash(request: string): string;
 }
 
+/** Which deliveries a crew may claim, and at most how many. */
+export interface ClaimableDeliveries {
+  fleetId: FleetId;
+  /** The crew's ship, and its type: deliveries pending for either are the crew's to claim. */
+  shipId: ShipId;
+  type: string;
+  /** The crew's lease: deliveries in flight with it are returned again. */
+  leaseId: LeaseId;
+  limit: number;
+  /** Deliveries this receive has already claimed, left out. */
+  excluding: readonly DeliveryId[];
+}
+
+/** A delivery a crew may claim, with the message it carries. */
+export interface ClaimableDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
   create(delivery: Delivery): Promise<void>;
+  /**
+   * Up to `limit` deliveries the crew may claim, each with its message: first
+   * those in flight with the crew's lease, then those pending for its ship or
+   * its type, oldest first within each. Each is locked until the unit of work
+   * ends, and one that another unit of work holds is skipped, never waited
+   * for: two receivers never get the same delivery (ADR 0003).
+   */
+  findClaimableForUpdate(query: ClaimableDeliveries): Promise<ClaimableDelivery[]>;
+  /** The delivery, locked until the unit of work ends. */
+  findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
+  /** Stores the delivery's state, its claim and its attempts. */
+  update(delivery: Delivery): Promise<void>;
 }
 
 /** Which delivery is pending, and for whom: never its payload. */
@@ -53,4 +84,28 @@ export interface DeliveryNotice {
  */
 export interface Notifier {
   deliveryPending(notice: DeliveryNotice): Promise<void>;
+}
+
+/** Where a waiting receive listens: its ship, and the queue of its type, in its fleet. */
+export interface ReceiverAddress {
+  fleetId: FleetId;
+  shipId: ShipId;
+  type: string;
+}
+
+/**
+ * Outbound port: wakes a waiting receive when a delivery may be pending for its
+ * ship or its type. A wake-up is a hint to look again, never a delivery: the
+ * receive finds out in the database whether one is there for it.
+ */
+export interface ReceiverWakeups {
+  /** Starts watching. A wake-up that comes before the next wait is kept for it. */
+  watch(address: ReceiverAddress): ReceiverWatch;
+}
+
+export interface ReceiverWatch {
+  /** Settles when the receive is woken, or once `waitMs` has passed. */
+  next(waitMs: number): Promise<'woken' | 'timedOut'>;
+  /** Stops watching. */
+  stop(): void;
 }

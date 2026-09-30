@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, CredentialId, FleetId, OperatorId, ShipId } from '@aeolus-fleet/common';
+import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { ConsoleSession } from './console-session.js';
@@ -7,6 +7,9 @@ import type { OperatorAccount } from './operator-account.js';
 
 /** The ship a crew token or a console session token belongs to, as the caller it makes. */
 export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
+
+/** The ship a crew token crews, and the open lease the token belongs to. */
+export type AuthenticatedCrew = AuthenticatedShip & { leaseId: LeaseId };
 
 /**
  * Outbound port: ship secrets.
@@ -67,8 +70,8 @@ export interface ConsoleSessionRepository {
  * token carries no fleet (ADR 0007).
  */
 export interface CallerLookup {
-  /** The ship whose open lease holds this crew token hash. A retired ship has none. */
-  byCrewTokenHash(crewTokenHash: string): Promise<AuthenticatedShip | undefined>;
+  /** The ship whose open lease holds this crew token hash, with that lease. A retired ship has none. */
+  byCrewTokenHash(crewTokenHash: string): Promise<AuthenticatedCrew | undefined>;
   /**
    * The caller of the console session with this token hash, when the session
    * has not ended and expires after `now`. Using it moves its last use to `now`

@@ -1,6 +1,6 @@
 import type { DeliveryRepository, MessageRepository } from '../../core/messaging/ports.js';
 import type { Db } from './client.js';
-import { toMessage } from './rows.js';
+import { toDeliveryFromSql, toMessage } from './rows.js';
 
 export function createPrismaMessageRepository(db: Db): MessageRepository {
   return {
@@ -54,8 +54,72 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           recipientType: recipient.kind === 'type' ? recipient.type : null,
           state: delivery.state,
           claimedByShipId: delivery.claimedByShipId,
+          claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
           createdAt: delivery.createdAt,
+        },
+      });
+    },
+    findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding }) => {
+      // SKIP LOCKED: a delivery another receive holds is passed over, never
+      // waited for, so two receivers never get the same one (ADR 0003). The
+      // limit counts the rows locked, not the rows scanned. Read committed: a
+      // row another receive claimed and committed meanwhile is checked again
+      // and no longer matches.
+      const inFlight = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+               claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+        FROM deliveries
+        WHERE fleet_id = ${fleetId} AND state = 'delivered' AND claimed_by_lease_id = ${leaseId}
+          AND id <> ALL(${[...excluding]}::text[])
+        ORDER BY created_at, id
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED`;
+      const room = limit - inFlight.length;
+      const pending =
+        room > 0
+          ? await db.$queryRaw<unknown[]>`
+              SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+                     claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+              FROM deliveries
+              WHERE fleet_id = ${fleetId} AND state = 'pending'
+                AND (recipient_ship_id = ${shipId} OR recipient_type = ${type})
+              ORDER BY created_at, id
+              LIMIT ${room}
+              FOR UPDATE SKIP LOCKED`
+          : [];
+      const deliveries = [...inFlight, ...pending].map(toDeliveryFromSql);
+
+      const messages = await db.message.findMany({
+        where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } },
+      });
+      const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
+      return deliveries.map((delivery) => {
+        const message = byId.get(delivery.messageId);
+        if (!message) {
+          // The foreign key keeps every delivery's message in its fleet.
+          throw new Error(`Delivery ${delivery.id} has no message ${delivery.messageId}`);
+        }
+        return { delivery, message };
+      });
+    },
+    findForUpdate: async (fleetId, deliveryId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+               claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+        FROM deliveries
+        WHERE fleet_id = ${fleetId} AND id = ${deliveryId}
+        FOR UPDATE`;
+      return row ? toDeliveryFromSql(row) : undefined;
+    },
+    update: async (delivery) => {
+      await db.delivery.updateMany({
+        where: { fleetId: delivery.fleetId, id: delivery.id },
+        data: {
+          state: delivery.state,
+          claimedByShipId: delivery.claimedByShipId,
+          claimedByLeaseId: delivery.claimedByLeaseId,
+          attempts: delivery.attempts,
         },
       });
     },

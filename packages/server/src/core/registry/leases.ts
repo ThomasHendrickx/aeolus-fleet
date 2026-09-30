@@ -4,7 +4,8 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { LeaseEndReason, Location } from './lease.js';
-import type { InFlightDeliveries, LeaseRepository } from './ports.js';
+import type { InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
+import type { Ship } from './ship.js';
 
 /** The ports the lease operations need, inside the caller's unit of work. */
 export interface LeaseTx {
@@ -79,4 +80,28 @@ export async function endLease(
     details: { leaseId, reason, returnedDeliveries },
   });
   return true;
+}
+
+/** The ports holding a crew's lease reads, inside the caller's unit of work. */
+export interface HoldLeaseTx {
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare'>;
+  ships: Pick<ShipRepository, 'find'>;
+}
+
+export type LeaseEnded = DomainError<'LEASE_ENDED'>;
+
+/**
+ * Holds a crew's lease open until the unit of work ends and returns the ship
+ * it crews: Messaging's question when a crew receives. A release or a takeover
+ * ending the lease meanwhile waits, then returns to pending whatever the unit
+ * of work claimed, so nothing stays claimed by an ended lease. Refused when
+ * the lease has already ended.
+ */
+export async function holdLease(
+  tx: HoldLeaseTx,
+  crew: { fleetId: FleetId; leaseId: LeaseId },
+): Promise<Result<Ship, LeaseEnded>> {
+  const lease = await tx.leases.findOpenByIdForShare(crew.fleetId, crew.leaseId);
+  const ship = lease && (await tx.ships.find(crew.fleetId, lease.shipId));
+  return ship ? ok(ship) : refuse('LEASE_ENDED', 'The lease of this crew token has ended: the ship needs a new crew');
 }

@@ -1,11 +1,11 @@
-import { idSchema, locationKindSchema, scopeSchema, shipKindSchema } from '@aeolus-fleet/common';
+import { deliveryStateSchema, idSchema, locationKindSchema, scopeSchema, shipKindSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { ConsoleSession } from '../../core/identity/console-session.js';
-import type { AuthenticatedShip } from '../../core/identity/ports.js';
+import type { AuthenticatedCrew, AuthenticatedShip } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
-import type { Message } from '../../core/messaging/message.js';
+import type { Delivery, Message } from '../../core/messaging/message.js';
 import type { DeliveryNotice } from '../../core/messaging/ports.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
@@ -208,6 +208,14 @@ export function toAuthenticatedShip(row: unknown): AuthenticatedShip {
   return { shipId: ship_id, fleetId: fleet_id, kind, scopes };
 }
 
+const crewSqlRow = z.object({ lease_id: idSchema('lease') });
+
+/** The crew of a crew token: its ship, and the lease the token belongs to. */
+export function toAuthenticatedCrew(row: unknown): AuthenticatedCrew {
+  const { lease_id } = crewSqlRow.parse(row);
+  return { ...toAuthenticatedShip(row), leaseId: lease_id };
+}
+
 const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession') });
 
 /** The caller of a console session: its ship, and the session it came through. */
@@ -256,4 +264,41 @@ const deliveryNoticeSchema = z.object({
 /** A pending delivery's notice, as the payload of its NOTIFY carries it. */
 export function toDeliveryNotice(payload: unknown): DeliveryNotice {
   return deliveryNoticeSchema.parse(payload);
+}
+
+/** A delivery's recipient columns: a ship's id, or a type. */
+const recipientSqlColumns = z.union([
+  z
+    .object({ recipient_ship_id: idSchema('ship'), recipient_type: z.null() })
+    .transform((row): Recipient => ({ kind: 'ship', shipId: row.recipient_ship_id })),
+  z
+    .object({ recipient_ship_id: z.null(), recipient_type: z.string() })
+    .transform((row): Recipient => ({ kind: 'type', type: row.recipient_type })),
+]);
+
+const deliverySqlRow = z.object({
+  id: idSchema('delivery'),
+  fleet_id: idSchema('fleet'),
+  message_id: idSchema('message'),
+  state: deliveryStateSchema,
+  claimed_by_ship_id: idSchema('ship').nullable(),
+  claimed_by_lease_id: idSchema('lease').nullable(),
+  attempts: z.int().nonnegative(),
+  created_at: z.date(),
+});
+
+/** A delivery as raw SQL returns it, in snake_case. */
+export function toDeliveryFromSql(row: unknown): Delivery {
+  const delivery = deliverySqlRow.parse(row);
+  return {
+    id: delivery.id,
+    fleetId: delivery.fleet_id,
+    messageId: delivery.message_id,
+    recipient: recipientSqlColumns.parse(row),
+    state: delivery.state,
+    claimedByShipId: delivery.claimed_by_ship_id,
+    claimedByLeaseId: delivery.claimed_by_lease_id,
+    attempts: delivery.attempts,
+    createdAt: delivery.created_at,
+  };
 }

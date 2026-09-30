@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, FleetId, Scope, ShipId, ShipKind } from '@aeolus-fleet/common';
+import type { ConsoleSessionId, FleetId, LeaseId, Scope, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 /**
  * Who is calling. Every caller is a ship (ADR 0012), resolved from its crew
@@ -12,6 +12,15 @@ export interface Caller {
   scopes: readonly Scope[];
   /** Set when the caller signed in through the console rather than calling with a crew token. */
   consoleSessionId?: ConsoleSessionId;
+}
+
+/**
+ * A caller that came with the crew token `register` gave it: one session
+ * crewing one ship under one lease (ADR 0015). A receive claims deliveries
+ * for that lease, so they are the crew's, not merely the ship's.
+ */
+export interface Crew extends Caller {
+  leaseId: LeaseId;
 }
 
 export function hasScope(caller: Caller, scope: Scope): boolean {

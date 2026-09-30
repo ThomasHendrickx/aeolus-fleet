@@ -2,6 +2,9 @@ import { err, type Err } from './result.js';
 
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
+  | 'DELIVERY_HELD_BY_ANOTHER_SHIP'
+  | 'DELIVERY_NOT_FOUND'
+  | 'DELIVERY_NOT_IN_FLIGHT'
   | 'FLEET_ALREADY_EXISTS'
   | 'FLEET_NOT_FOUND'
   | 'IDEMPOTENCY_KEY_REUSED'
@@ -12,9 +15,11 @@ export type DomainErrorKind =
   | 'INVALID_IDEMPOTENCY_KEY'
   | 'INVALID_LOCATION'
   | 'INVALID_PASSWORD'
+  | 'INVALID_RECEIVE_MAX'
   | 'INVALID_SHIP_NAME'
   | 'INVALID_SHIP_NOTE'
   | 'INVALID_SHIP_TYPE'
+  | 'LEASE_ENDED'
   | 'NOT_THE_OPERATOR_SHIP'
   | 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT'
   | 'OPERATOR_SHIP_HAS_NO_SECRET'
