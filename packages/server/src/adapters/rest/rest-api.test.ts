@@ -229,6 +229,15 @@ describe('the API docs at /api/v1/docs', () => {
     return [...page.matchAll(/\s(?:src|href)="([^"]+)"/g)].map(([, url]) => new URL(url ?? '', `${FLEET_URL}${DOCS_PAGE}`));
   }
 
+  /** What the page hands the viewer: the configuration in its call to Scalar.createApiReference. */
+  function viewerConfiguration(page: string): Record<string, unknown> {
+    const configuration = /Scalar\.createApiReference\('#app', (\{[\s\S]*?\})\)\s*<\/script>/.exec(page)?.[1];
+    if (configuration === undefined) {
+      throw new Error('The page never starts the viewer');
+    }
+    return z.record(z.string(), z.unknown()).parse(JSON.parse(configuration));
+  }
+
   it('sends /api/v1/docs on to the page at /api/v1/docs/', async () => {
     start();
 
@@ -243,21 +252,34 @@ describe('the API docs at /api/v1/docs', () => {
 
     const page = await docsPage();
 
-    expect(page).toContain('Scalar.createApiReference(');
-    expect(page).toMatch(/"url":\s*"\/api\/v1\/openapi\.json"/);
+    expect(viewerConfiguration(page)).toMatchObject({ url: '/api/v1/openapi.json' });
   });
 
-  it("serves the viewer's script itself: the page loads nothing from another host", async () => {
+  it('titles the page as the spec is titled: Aeolus ship API', async () => {
     start();
 
-    const loaded = loadedBy(await docsPage());
+    const page = await docsPage();
+
+    expect(/<title>([^<]*)<\/title>/.exec(page)?.[1]).toBe('Aeolus ship API');
+    expect((await spec()).info.title).toBe('Aeolus ship API');
+  });
+
+  it("talks only to the fleet's own server: it serves the viewer's script itself, with Scalar's agent, developer tools, telemetry and request proxy off", async () => {
+    start();
+
+    const page = await docsPage();
+    const loaded = loadedBy(page);
     const answers = await Promise.all(
       loaded.map((url) => server.inject({ method: 'GET', url: `${url.pathname}${url.search}` })),
     );
+    const configuration = viewerConfiguration(page);
 
     expect(loaded).not.toEqual([]);
     expect(loaded.map((url) => url.origin)).toEqual(loaded.map(() => FLEET_URL));
     expect(answers.map((answer) => answer.statusCode)).toEqual(loaded.map(() => 200));
+    expect(configuration).toMatchObject({ agent: { disabled: true }, showDeveloperTools: 'never', telemetry: false });
+    // Without a proxy, "Try it" calls the fleet itself, at the spec's relative server /api/v1.
+    expect(configuration).not.toHaveProperty('proxyUrl');
   });
 
   it("keeps the viewer off Scalar's font CDN: it uses the browser's own fonts", async () => {
@@ -265,7 +287,7 @@ describe('the API docs at /api/v1/docs', () => {
 
     const page = await docsPage();
 
-    expect(page).toMatch(/"withDefaultFonts":\s*false/);
+    expect(viewerConfiguration(page)).toMatchObject({ withDefaultFonts: false });
   });
 });
 
