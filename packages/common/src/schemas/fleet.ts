@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { locationKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { locationKindSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
 /**
  * Inputs and outputs of the fleet procedures: commission a ship, get its
- * starting prompt, list the fleet.
+ * starting prompt, release it, list the fleet.
  */
 
 /** A ship's name and its type are handles (docs/blueprint.md, "Ship"). */
@@ -48,6 +48,14 @@ export const startingPromptOutputSchema = z.object({
 
 export type StartingPromptOutput = z.infer<typeof startingPromptOutputSchema>;
 
+/** Input of `fleet.release`: the crewed ship whose session loses it. */
+export const releaseShipInputSchema = z.object({ shipId: idSchema('ship') });
+
+export type ReleaseShipInput = z.infer<typeof releaseShipInputSchema>;
+
+/** Output of `fleet.release`: nothing; the OK is the answer. */
+export const releaseShipOutputSchema = z.strictObject({});
+
 /**
  * One ship in `fleet.list`. `startingPrompt` is the prompt holding the ship's
  * valid secret, when there is one: when it was issued and whether a session
@@ -58,6 +66,8 @@ export const listedShipSchema = z.object({
   id: idSchema('ship'),
   name: z.string(),
   type: z.string(),
+  /** `operator` for `argo`, `agent` for every other ship. */
+  kind: shipKindSchema,
   status: shipStatusSchema,
   startingPrompt: z
     .object({

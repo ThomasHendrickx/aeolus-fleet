@@ -1,4 +1,4 @@
-import type { ShipId, ShipStatus } from '@aeolus-fleet/common';
+import type { ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
@@ -10,6 +10,8 @@ export interface ListedShip {
   id: ShipId;
   name: string;
   type: string;
+  /** `operator` for `argo`, which is never released, renamed or retired; `agent` for every other ship. */
+  kind: ShipKind;
   status: ShipStatus;
   /**
    * The starting prompt holding the ship's valid secret: when it was issued
@@ -34,6 +36,7 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
       id: ship.id,
       name: ship.name,
       type: ship.type,
+      kind: ship.kind,
       status: shipStatus(ship, { isCrewed: openLease !== null }),
       startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
       location: openLease?.location ?? null,
