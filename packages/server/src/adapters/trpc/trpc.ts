@@ -6,7 +6,9 @@ import type { DomainError, DomainErrorKind } from '../../core/shared/errors.js';
 import type { Result } from '../../core/shared/result.js';
 import type { Context } from './context.js';
 
-const t = initTRPC.context<Context>().create();
+// Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
+// trace into every error it answers. The server logs failures instead.
+const t = initTRPC.context<Context>().create({ isDev: false });
 
 export const router = t.router;
 

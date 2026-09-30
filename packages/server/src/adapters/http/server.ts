@@ -107,9 +107,10 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
         registerFailures,
       }),
+      // A failure's stack trace goes to the log only, never into the answer.
       onError: ({ path, error }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {
-          server.log.error({ path, reason: error.message }, 'procedure failed');
+          server.log.error({ path, reason: error.message, stack: error.stack }, 'procedure failed');
         }
       },
     },
