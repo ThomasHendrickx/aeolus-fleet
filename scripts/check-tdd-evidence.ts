@@ -3,6 +3,10 @@
  * In a pull request, every commit that changes production code in
  * packages/server/src or packages/common/src comes right after a (red) commit:
  * one whose subject ends in "(red)" and that only adds or changes test files.
+ * The one exception is a refactor: a commit whose subject starts with
+ * "refactor(...)" directly after a green commit, the production commit that
+ * made a (red) commit pass. A refactor does not change behaviour, so it needs
+ * no new failing test (test-driven-development skill).
  *
  * Production code is every file under those folders except tests and
  * Markdown. A test file is a *.test.ts(x) file, or any file in a test/ or e2e/
@@ -19,6 +23,7 @@ export const EXEMPT_UP_TO = '18905388af14b21cc57daf1935203bbb84e0f2b7';
 
 const PRODUCTION_FOLDERS = ['packages/server/src/', 'packages/common/src/'];
 const TEST_FILE = /\.test\.tsx?$|(^|\/)(test|e2e)\//;
+const REFACTOR_SUBJECT = /^refactor\([^)]+\): /;
 const RECORD_SEPARATOR = '\u001e';
 const UNIT_SEPARATOR = '\u001f';
 
@@ -71,12 +76,18 @@ export function isRedCommit(commit: Commit): boolean {
 /** Judges a pull request's commits, oldest first. */
 export function tddViolations(commits: readonly Commit[]): string[] {
   const byHash = new Map(commits.map((commit) => [commit.hash, commit]));
+  const parentOf = (commit: Commit) => byHash.get(commit.parents[0] ?? '');
+  /** Production code right after a (red) commit: the code that made the failing test pass. */
+  const isGreenCommit = (commit: Commit) => {
+    const parent = parentOf(commit);
+    return commit.parents.length === 1 && touchesProduction(commit) && parent !== undefined && isRedCommit(parent);
+  };
 
   return commits
     .filter((commit) => commit.parents.length === 1 && touchesProduction(commit))
     .flatMap((commit) => {
-      const parent = byHash.get(commit.parents[0] ?? '');
-      if (parent && isRedCommit(parent)) {
+      const parent = parentOf(commit);
+      if (parent && (isRedCommit(parent) || (REFACTOR_SUBJECT.test(commit.subject) && isGreenCommit(parent)))) {
         return [];
       }
       const production = commit.files
