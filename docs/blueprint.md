@@ -149,6 +149,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `ShipRetired` | Registry | Unprocessed deliveries marked abandoned by operator, id blocked forever |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken |
+| `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |

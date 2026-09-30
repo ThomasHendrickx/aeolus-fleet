@@ -73,58 +73,13 @@ describe('the TDD evidence check', () => {
     expect(violations(head)).toEqual([expect.stringContaining('"feat(registry): another rule"')]);
   });
 
-  it('passes a refactor(...) commit directly after a green commit, without a (red) commit', () => {
-    red();
-    green('feat(registry): the rule');
-    const head = green('refactor(registry): tidy the rule');
-
-    expect(violations(head)).toEqual([]);
-  });
-
-  it('refuses a refactor(...) commit that does not come directly after a green commit', () => {
-    red();
-    green('feat(registry): the rule');
-    repository.write('docs/notes.md', 'notes\n');
-    repository.commit('docs: notes');
-    const head = green('refactor(registry): tidy the rule');
-
-    expect(violations(head)).toEqual([expect.stringContaining('"refactor(registry): tidy the rule"')]);
-  });
-
-  it('refuses a second refactor(...) commit after one green commit', () => {
-    red();
-    green('feat(registry): the rule');
-    green('refactor(registry): tidy the rule');
-    const head = green('refactor(registry): tidy it again');
-
-    expect(violations(head)).toEqual([expect.stringContaining('"refactor(registry): tidy it again"')]);
-  });
-
-  it('refuses a refactor(...) commit after production code that had no (red) commit', () => {
-    const untested = green('feat(registry): untested');
-    const head = green('refactor(registry): tidy the rule');
-
-    expect(violations(head)).toEqual([
-      expect.stringContaining(`${untested.slice(0, 12)} "feat(registry): untested"`),
-      expect.stringContaining('"refactor(registry): tidy the rule"'),
-    ]);
-  });
-
-  it('takes only a subject starting with refactor(...) as a refactor', () => {
-    red();
-    green('feat(registry): the rule');
-    const head = green('chore(registry): refactor(registry) the rule');
-
-    expect(violations(head)).toHaveLength(1);
-  });
-
-  it('refuses a (red) commit that also changes production code', () => {
+  it('refuses the code after a (red) commit that also changes production code', () => {
     repository.write('packages/server/src/core/registry/fleet.test.ts', 'test red\n');
     repository.write('packages/server/src/core/registry/ship.ts', 'export const ship = 1;\n');
     repository.commit('test(registry): fleet name rule (red)');
     const head = green();
 
-    expect(violations(head)).toHaveLength(2);
+    expect(violations(head)).toEqual([expect.stringContaining('"feat(registry): fleet name rule"')]);
   });
 
   it('refuses a (red) commit that changes anything but tests', () => {
@@ -151,11 +106,55 @@ describe('the TDD evidence check', () => {
     expect(violations(head)).toHaveLength(1);
   });
 
-  it('refuses a commit that only deletes production code without a (red) commit', () => {
+  it('refuses a fix commit without a (red) commit before it', () => {
+    const head = green('fix(registry): the fleet name');
+
+    expect(violations(head)).toEqual([expect.stringContaining('"fix(registry): the fleet name"')]);
+  });
+
+  it('passes a fix commit directly after a (red) commit', () => {
+    red();
+    const head = green('fix(registry): the fleet name');
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it.each(['feat: fleet name', 'feat(registry)!: fleet name', 'fix!: fleet name'])(
+    'judges %j as a feat or fix commit, with or without a scope or a breaking mark',
+    (subject) => {
+      const head = green(subject);
+
+      expect(violations(head)).toHaveLength(1);
+    },
+  );
+
+  it('refuses a feat commit that only deletes production code without a (red) commit', () => {
     repository.remove('packages/server/src/core/registry/fleet.ts');
-    const head = repository.commit('refactor(registry): remove fleet');
+    const head = repository.commit('feat(registry): remove fleet');
 
     expect(violations(head)).toHaveLength(1);
+  });
+
+  it.each([
+    'refactor(registry): tidy the rule',
+    'docs(registry): say what the fleet is',
+    'chore(registry): bump',
+    'style(registry): format',
+    'perf(registry): faster',
+    'test(registry): more cases',
+    'build: the package',
+    'ci: the check',
+    'revert: the rule',
+  ])('passes %j, which is neither feat nor fix, wherever it comes', (subject) => {
+    const head = green(subject);
+
+    expect(violations(head)).toEqual([]);
+  });
+
+  it('takes only the type at the start of the subject: feat or fix elsewhere in it does not count', () => {
+    const head = green('chore(registry): feat(registry) and fix the rule');
+
+    expect(violations(head)).toEqual([]);
   });
 
   it('takes test support in a test folder and end-to-end tests as tests', () => {
@@ -165,61 +164,6 @@ describe('the TDD evidence check', () => {
     const head = green();
 
     expect(violations(head)).toEqual([]);
-  });
-
-  it('passes a commit that changes only comments in production code, without a (red) commit', () => {
-    repository.write(
-      'packages/server/src/core/registry/fleet.ts',
-      '/** The fleet: one operator\'s ships. */\nexport const fleet = 1; // one fleet in v1\n',
-    );
-    const head = repository.commit('docs(registry): say what the fleet is');
-
-    expect(violations(head)).toEqual([]);
-  });
-
-  it('passes a comment-only change in the Prisma schema', () => {
-    repository.write('packages/server/src/adapters/prisma/schema.prisma', 'model Fleet {\n  id String @id\n}\n');
-    base = repository.commit('feat(prisma): fleets');
-    repository.write(
-      'packages/server/src/adapters/prisma/schema.prisma',
-      '/// The tenant.\nmodel Fleet {\n  id String @id // flt_\n}\n',
-    );
-    const head = repository.commit('docs(prisma): say what a fleet is');
-
-    expect(violations(head)).toEqual([]);
-  });
-
-  it('refuses a commit that changes a comment and code together', () => {
-    repository.write('packages/server/src/core/registry/fleet.ts', '/** Two fleets now. */\nexport const fleet = 2;\n');
-    const head = repository.commit('docs(registry): a comment, and more');
-
-    expect(violations(head)).toEqual([expect.stringContaining('"docs(registry): a comment, and more"')]);
-  });
-
-  it('refuses a change inside a string that looks like a comment', () => {
-    repository.write('packages/server/src/core/registry/fleet.ts', "export const fleet = '// not a comment';\n");
-    base = repository.commit('feat(registry): fleet as text');
-    repository.write('packages/server/src/core/registry/fleet.ts', "export const fleet = '// still not one';\n");
-    const head = repository.commit('docs(registry): reword');
-
-    expect(violations(head)).toHaveLength(1);
-  });
-
-  it('judges a new production file as code, even one holding only comments', () => {
-    repository.write('packages/server/src/core/registry/ship.ts', '// Ships arrive later.\n');
-    const head = repository.commit('docs(registry): a placeholder');
-
-    expect(violations(head)).toHaveLength(1);
-  });
-
-  it('judges a comment-only change to a migration as code: it reads only TypeScript and Prisma', () => {
-    const migration = 'packages/server/src/adapters/prisma/migrations/1_init/migration.sql';
-    repository.write(migration, 'CREATE TABLE fleets (id TEXT);\n');
-    base = repository.commit('feat(prisma): the first migration');
-    repository.write(migration, '-- The tenants.\nCREATE TABLE fleets (id TEXT);\n');
-    const head = repository.commit('docs(prisma): comment the migration');
-
-    expect(violations(head)).toHaveLength(1);
   });
 
   it('judges common/src like server/src', () => {

@@ -61,11 +61,11 @@ describe('taking over the operator lease', () => {
     ]);
   });
 
-  it('ends the lease held before, returns its deliveries in flight and writes LeaseRevoked first', async () => {
+  it('ends the lease held before, returns its deliveries in flight, clearing their claim, and writes LeaseRevoked first', async () => {
     const first = await takeOver();
     core.state.deliveries.push(
-      { id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId },
-      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId },
+      { id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId, claimedByLeaseId: first },
+      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId, claimedByLeaseId: first },
     );
     core.state.events.length = 0;
     core.clock.advance(60_000);
@@ -77,8 +77,8 @@ describe('taking over the operator lease', () => {
       [second, null],
     ]);
     expect(core.state.deliveries).toEqual([
-      { id: 'dlv_in_flight', fleetId, state: 'pending', claimedByShipId: null },
-      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId },
+      { id: 'dlv_in_flight', fleetId, state: 'pending', claimedByShipId: null, claimedByLeaseId: null },
+      { id: 'dlv_done', fleetId, state: 'acknowledged', claimedByShipId: argoId, claimedByLeaseId: first },
     ]);
     expect(core.state.events.map((event) => [event.type, event.details])).toEqual([
       ['LeaseRevoked', { leaseId: first, reason: 'takenOver', returnedDeliveries: 1 }],

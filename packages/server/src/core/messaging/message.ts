@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -40,7 +40,13 @@ export interface Delivery {
   messageId: MessageId;
   recipient: Recipient;
   state: DeliveryState;
+  /**
+   * The ship and the lease of the crew whose receive claimed it: set while it
+   * is in flight, kept once acknowledged, none while it is pending.
+   */
   claimedByShipId: ShipId | null;
+  claimedByLeaseId: LeaseId | null;
+  /** How many times a receive claimed it. */
   attempts: number;
   createdAt: Date;
 }
@@ -112,6 +118,7 @@ export function acceptMessage(
     recipient,
     state: 'pending',
     claimedByShipId: null,
+    claimedByLeaseId: null,
     attempts: 0,
     createdAt: at,
   };

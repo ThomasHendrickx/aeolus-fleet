@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,6 +20,8 @@ import { createTestClock } from './support/postgres-core.js';
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
+/** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
+const RECEIVE_WAIT_MS = 500;
 /** Where the console runs: the fleet's own origin, as no other console origin is configured. */
 const CONSOLE = new URL(FLEET_URL).origin;
 
@@ -43,6 +45,7 @@ beforeAll(async () => {
     clock,
     logger: false,
     signInRateLimit: SIGN_IN_RATE_LIMIT,
+    receiveWaitMs: RECEIVE_WAIT_MS,
   });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
@@ -152,6 +155,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_operator_login$/),
       expect.stringMatching(/^\d{14}_crew_token$/),
       expect.stringMatching(/^\d{14}_send$/),
+      expect.stringMatching(/^\d{14}_receive$/),
     ]);
   });
 });
@@ -692,6 +696,120 @@ describe('ship.send at the API', () => {
     expect(body).toContain('No active ship is named nobody');
     expect(body).not.toContain('"stack"');
     expect(body).not.toMatch(/\s{2,}at \S/);
+  });
+});
+
+describe('ship.receive and ship.ack at the API', () => {
+  /** A ship commissioned by argo and claimed through register: its id and a client calling with its crew token. */
+  async function crewed(name: string): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'lookout' });
+    const { crewToken } = await client().ship.register.mutate({
+      shipId,
+      secret: secretIn(prompt),
+      location: { kind: 'SERVER' },
+    });
+    return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  /** A plain-text message from one ship to another by name, with a key of its own. */
+  function toShipNamed(name: string): SendInput {
+    return {
+      selector: { kind: 'ship', name },
+      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+    };
+  }
+
+  it('sends from one ship, receives and acknowledges on another, with crew tokens', async () => {
+    const sender = await crewed('tender');
+    const receiver = await crewed('skiff');
+    const { messageId } = await sender.asShip.ship.send.mutate(toShipNamed('skiff'));
+
+    const { deliveries } = await receiver.asShip.ship.receive.mutate({ max: 5 });
+
+    const deliveryId = idSchema('delivery').parse(deliveries[0]?.deliveryId);
+    expect(deliveries).toEqual([
+      {
+        deliveryId,
+        messageId,
+        senderShipId: sender.shipId,
+        recipient: { kind: 'ship', shipId: receiver.shipId },
+        payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
+        contentType: 'text/plain',
+        inReplyTo: null,
+        sentAt: clock.now().toISOString(),
+        attempts: 1,
+      },
+    ]);
+    await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});
+    await expect(database.delivery.findUniqueOrThrow({ where: { id: deliveryId } })).resolves.toMatchObject({
+      state: 'acknowledged',
+      claimedByShipId: receiver.shipId,
+    });
+    await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});
+  });
+
+  it('receives one delivery when the ship does not say how many', async () => {
+    const sender = await crewed('dinghy');
+    const receiver = await crewed('cutter');
+    await sender.asShip.ship.send.mutate(toShipNamed('cutter'));
+    await sender.asShip.ship.send.mutate(toShipNamed('cutter'));
+
+    await expect(receiver.asShip.ship.receive.mutate()).resolves.toMatchObject({ deliveries: [{ attempts: 1 }] });
+  });
+
+  it('answers an empty inbox with no deliveries once the wait ends', async () => {
+    const { asShip } = await crewed('ketch');
+
+    await expect(asShip.ship.receive.mutate({})).resolves.toEqual({ deliveries: [] });
+  });
+
+  it('refuses a max out of bounds with BAD_REQUEST', async () => {
+    const { asShip } = await crewed('sloop');
+
+    await expect(codeOf(asShip.ship.receive.mutate({ max: 11 }))).resolves.toBe('BAD_REQUEST');
+    await expect(codeOf(asShip.ship.receive.mutate({ max: 0 }))).resolves.toBe('BAD_REQUEST');
+  });
+
+  it('refuses receive and ack without a caller', async () => {
+    await expect(codeOf(client().ship.receive.mutate({}))).resolves.toBe('UNAUTHORIZED');
+    await expect(codeOf(client().ship.ack.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it("refuses receive and ack with the console session: they take a crew token, and argo's inbox comes later", async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(refusalOf(asArgo.ship.receive.mutate({}))).resolves.toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'Call with the crew token register gave you',
+    });
+    await expect(codeOf(asArgo.ship.ack.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('UNAUTHORIZED');
+  });
+
+  it('refuses a ship without messages:receive', async () => {
+    const sender = client({ authorization: `Bearer ${await crewedShip(['messages:send'])}` });
+
+    await expect(refusalOf(sender.ship.receive.mutate({}))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the messages:receive scope',
+    });
+    await expect(codeOf(sender.ship.ack.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('refuses an ack of an unknown delivery, of one not in flight and of one another ship holds', async () => {
+    const sender = await crewed('yawl');
+    const receiver = await crewed('schooner');
+    const other = await crewed('brig');
+    await sender.asShip.ship.send.mutate(toShipNamed('schooner'));
+    const { deliveries } = await receiver.asShip.ship.receive.mutate({});
+    const held = idSchema('delivery').parse(deliveries[0]?.deliveryId);
+    const { messageId } = await sender.asShip.ship.send.mutate(toShipNamed('schooner'));
+    const pending = idSchema('delivery').parse((await database.delivery.findFirstOrThrow({ where: { messageId } })).id);
+
+    await expect(codeOf(receiver.asShip.ship.ack.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(receiver.asShip.ship.ack.mutate({ deliveryId: pending }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(other.asShip.ship.ack.mutate({ deliveryId: held }))).resolves.toBe('FORBIDDEN');
   });
 });
 

@@ -53,6 +53,9 @@ export const EVENT_TYPES = [
   'StartingPromptIssued',
   'OperatorPasswordReset',
   'MessageAccepted',
+  'DeliveryClaimed',
+  'DeliveryAcknowledged',
+  'DeliveryUndeliverable',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

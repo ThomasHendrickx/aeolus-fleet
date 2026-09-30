@@ -23,6 +23,9 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 
 const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
+  DELIVERY_HELD_BY_ANOTHER_SHIP: 'FORBIDDEN',
+  DELIVERY_NOT_FOUND: 'NOT_FOUND',
+  DELIVERY_NOT_IN_FLIGHT: 'CONFLICT',
   FLEET_ALREADY_EXISTS: 'CONFLICT',
   FLEET_NOT_FOUND: 'NOT_FOUND',
   IDEMPOTENCY_KEY_REUSED: 'CONFLICT',
@@ -33,9 +36,12 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_IDEMPOTENCY_KEY: 'BAD_REQUEST',
   INVALID_LOCATION: 'BAD_REQUEST',
   INVALID_PASSWORD: 'BAD_REQUEST',
+  INVALID_RECEIVE_MAX: 'BAD_REQUEST',
   INVALID_SHIP_NAME: 'BAD_REQUEST',
   INVALID_SHIP_NOTE: 'BAD_REQUEST',
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
+  // The crew token belonged to that lease: it no longer authenticates anyone.
+  LEASE_ENDED: 'UNAUTHORIZED',
   NOT_THE_OPERATOR_SHIP: 'FORBIDDEN',
   OPERATOR_SHIP_GETS_NO_STARTING_PROMPT: 'FORBIDDEN',
   OPERATOR_SHIP_HAS_NO_SECRET: 'FORBIDDEN',
@@ -174,6 +180,26 @@ export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, ne
   }
   return next({ ctx: { caller } });
 });
+
+/**
+ * A procedure only a crew calls, with the crew token `register` gave it, and
+ * that needs the given scope: receiving and acknowledging deliveries, which a
+ * crew claims under its lease. The console session is no crew token, so it is
+ * refused here; argo's inbox comes with its own procedures.
+ */
+export function crewProcedure(scope: Scope) {
+  return publicProcedure.use(async ({ ctx, next }) => {
+    const { bearer } = ctx.credentials;
+    const crew = bearer === undefined ? undefined : await ctx.useCases.authenticate.byCrewToken(bearer);
+    if (!crew) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
+    }
+    if (!hasScope(crew, scope)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
+    }
+    return next({ ctx: { caller: crew, crew } });
+  });
+}
 
 /**
  * A procedure that needs the given scope. The caller and its scopes come from

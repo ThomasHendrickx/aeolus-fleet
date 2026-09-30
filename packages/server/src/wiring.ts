@@ -10,11 +10,15 @@ import {
   createPrismaShipRepository,
 } from './adapters/prisma/registry.js';
 import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
+import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
+import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './core/messaging/acknowledge-delivery.js';
+import type { ReceiverWakeups } from './core/messaging/ports.js';
+import { createReceiveDeliveries, type ReceiveDeliveries } from './core/messaging/receive-deliveries.js';
 import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
 import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
@@ -36,6 +40,8 @@ export interface UseCases {
   claimShip: ClaimShip;
   whoami: Whoami;
   sendMessage: SendMessage;
+  receiveDeliveries: ReceiveDeliveries;
+  acknowledgeDelivery: AcknowledgeDelivery;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -48,12 +54,19 @@ export const systemClock: Clock = { now: () => new Date() };
  * Wires every use case to Postgres through Prisma. The HTTP app and the server
  * commands share it. `fleetUrl` is where ships reach the fleet: the URL every
  * starting prompt carries.
+ *
+ * `wakeups` wake a waiting receive; the HTTP app feeds them from the delivery
+ * listener. Without them, nothing wakes a receive and it ends only at its
+ * wait: enough for the server commands, which never receive.
  */
 export function createUseCases(options: {
   prisma: PrismaClient;
   fleetUrl: string;
   clock?: Clock;
   ids?: IdGenerator;
+  wakeups?: ReceiverWakeups;
+  /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
+  receiveWaitMs?: number;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -71,6 +84,14 @@ export function createUseCases(options: {
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    receiveDeliveries: createReceiveDeliveries({
+      uow,
+      clock,
+      ids,
+      wakeups: options.wakeups ?? createReceiverWakeups(),
+      waitMs: options.receiveWaitMs,
+    }),
+    acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

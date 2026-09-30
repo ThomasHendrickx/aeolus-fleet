@@ -1,9 +1,11 @@
-import { idSchema, SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, SCOPES, type DeliveryId, type FleetId, type MessageId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
+import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
+import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
@@ -11,7 +13,7 @@ import { createGetStartingPrompt } from '../../src/core/registry/get-starting-pr
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
-import type { Caller } from '../../src/core/shared/caller.js';
+import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
 
@@ -55,9 +57,14 @@ export function registryUseCases(core: InMemoryCore) {
   };
 }
 
-/** The messaging use cases, wired to the in-memory core. */
+/** The messaging use cases, wired to the in-memory core; a receive waits on its scripted wake-ups. */
 export function messagingUseCases(core: InMemoryCore) {
-  return { sendMessage: createSendMessage({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher }) };
+  const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
+  return {
+    sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
+    receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    acknowledgeDelivery: createAcknowledgeDelivery(deps),
+  };
 }
 
 /** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */
@@ -68,6 +75,15 @@ export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller 
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
 export function operatorCaller(fleet: FleetInitialised): Caller {
   return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
+}
+
+/** The id of the delivery a send stored for the message. */
+export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): DeliveryId {
+  const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
+  if (!delivery) {
+    throw new Error(`The send of ${messageId} stored no delivery`);
+  }
+  return delivery.id;
 }
 
 /** The ship secret a starting prompt holds. */
@@ -137,6 +153,23 @@ export function addAgentShip(
     invalidatedAt: null,
   });
   return { shipId, secret };
+}
+
+/**
+ * A new session crewing the ship, straight into the state, as its crew token
+ * makes it the caller: the ship's agent scopes and the lease it holds.
+ */
+export function crewAboard(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): Crew {
+  const leaseId = core.ids('lease');
+  core.state.leases.push({
+    id: leaseId,
+    ...ship,
+    location: { kind: 'DEVICE', description: null },
+    crewTokenHash: core.hasher.hash(`aeolus_ct_v1_crew-${leaseId}`),
+    startedAt: core.clock.now(),
+    endedAt: null,
+  });
+  return { ...agentCaller(ship), leaseId };
 }
 
 /**

@@ -47,6 +47,9 @@ describe('eventTypeSchema', () => {
       'StartingPromptIssued',
       'OperatorPasswordReset',
       'MessageAccepted',
+      'DeliveryClaimed',
+      'DeliveryAcknowledged',
+      'DeliveryUndeliverable',
     ]);
   });
 });

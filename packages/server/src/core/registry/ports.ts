@@ -56,6 +56,13 @@ export interface ShipRepository {
 export interface LeaseRepository {
   /** The ship's open lease, locked until the unit of work ends. */
   findOpenForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Lease | undefined>;
+  /**
+   * The lease if it is still open, held until the unit of work ends against a
+   * use case that ends it, such as a release or a takeover: that one waits for
+   * this unit of work, then finds what it wrote. Many units of work hold one
+   * lease at once.
+   */
+  findOpenByIdForShare(fleetId: FleetId, leaseId: LeaseId): Promise<Lease | undefined>;
   open(lease: Lease): Promise<void>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
@@ -66,7 +73,7 @@ export interface LeaseRepository {
  * own words, so it never reaches into Messaging.
  */
 export interface InFlightDeliveries {
-  /** Returns every delivery the ship holds in flight to pending, and says how many. */
+  /** Returns every delivery the ship holds in flight to pending, clearing its claim, and says how many. */
   returnToPending(fleetId: FleetId, shipId: ShipId): Promise<number>;
 }
 

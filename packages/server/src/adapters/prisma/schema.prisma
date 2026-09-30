@@ -109,9 +109,10 @@ model Lease {
   startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
   endedAt             DateTime?    @map("ended_at") @db.Timestamptz(3)
 
-  fleet           Fleet            @relation(fields: [fleetId], references: [id])
-  ship            Ship             @relation(fields: [fleetId, shipId], references: [fleetId, id])
-  consoleSessions ConsoleSession[]
+  fleet             Fleet            @relation(fields: [fleetId], references: [id])
+  ship              Ship             @relation(fields: [fleetId, shipId], references: [fleetId, id])
+  consoleSessions   ConsoleSession[]
+  claimedDeliveries Delivery[]
 
   @@unique([fleetId, id])
   /// At most one open lease per ship.
@@ -195,24 +196,29 @@ enum DeliveryState {
 }
 
 /// One message to one resolved recipient: a ship or a type. Ids start with dlv_.
+/// A receive claims it for the ship and the lease of the crew receiving: set while it
+/// is in flight, kept once acknowledged, none while it is pending. Attempts count the
+/// claims; the fifth makes it undeliverable.
 /// The read date is set when the operator opens a message to argo.
 model Delivery {
-  id              String        @id
-  fleetId         String        @map("fleet_id")
-  messageId       String        @map("message_id")
-  recipientShipId String?       @map("recipient_ship_id")
-  recipientType   String?       @map("recipient_type")
-  state           DeliveryState @default(pending)
-  claimedByShipId String?       @map("claimed_by_ship_id")
-  attempts        Int           @default(0)
-  readAt          DateTime?     @map("read_at") @db.Timestamptz(3)
-  createdAt       DateTime      @map("created_at") @db.Timestamptz(3)
+  id               String        @id
+  fleetId          String        @map("fleet_id")
+  messageId        String        @map("message_id")
+  recipientShipId  String?       @map("recipient_ship_id")
+  recipientType    String?       @map("recipient_type")
+  state            DeliveryState @default(pending)
+  claimedByShipId  String?       @map("claimed_by_ship_id")
+  claimedByLeaseId String?       @map("claimed_by_lease_id")
+  attempts         Int           @default(0)
+  readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
+  createdAt        DateTime      @map("created_at") @db.Timestamptz(3)
 
-  fleet         Fleet   @relation(fields: [fleetId], references: [id])
-  message       Message @relation(fields: [fleetId, messageId], references: [fleetId, id])
-  recipientShip Ship?   @relation("DeliveryRecipientShip", fields: [fleetId, recipientShipId], references: [fleetId, id], onDelete: Restrict)
-  claimedByShip Ship?   @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
-  events        Event[]
+  fleet          Fleet   @relation(fields: [fleetId], references: [id])
+  message        Message @relation(fields: [fleetId, messageId], references: [fleetId, id])
+  recipientShip  Ship?   @relation("DeliveryRecipientShip", fields: [fleetId, recipientShipId], references: [fleetId, id], onDelete: Restrict)
+  claimedByShip  Ship?   @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
+  claimedByLease Lease?  @relation(fields: [fleetId, claimedByLeaseId], references: [fleetId, id], onDelete: Restrict)
+  events         Event[]
 
   @@unique([fleetId, id])
   /// One row per recipient.
@@ -220,6 +226,8 @@ model Delivery {
   @@unique([messageId, recipientType])
   @@index([fleetId, recipientShipId, state])
   @@index([fleetId, recipientType, state])
+  /// A crew's own deliveries in flight, which its next receive returns first.
+  @@index([fleetId, claimedByLeaseId, state])
   @@map("deliveries")
 }
 

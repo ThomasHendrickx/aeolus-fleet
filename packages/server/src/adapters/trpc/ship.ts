@@ -1,4 +1,8 @@
 import {
+  ackInputSchema,
+  ackOutputSchema,
+  receiveInputSchema,
+  receiveOutputSchema,
   registerInputSchema,
   registerOutputSchema,
   sendInputSchema,
@@ -7,7 +11,7 @@ import {
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { authenticatedProcedure, okOrThrow, publicProcedure, router, scopedProcedure } from './trpc.js';
+import { authenticatedProcedure, crewProcedure, okOrThrow, publicProcedure, router, scopedProcedure } from './trpc.js';
 
 /**
  * Ship procedures: the ship contract. `register` takes the ship's id and
@@ -54,4 +58,27 @@ export const shipRouter = router({
     .input(sendInputSchema)
     .output(sendOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.sendMessage(ctx.caller, input))),
+
+  /**
+   * Hands the crew up to `max` deliveries, 1 to 10, one by default: its own
+   * in flight first, then the oldest pending for its ship or its type. Waits
+   * about 25 seconds when none is there, then answers with none. A mutation:
+   * every delivery it returns is claimed.
+   */
+  receive: crewProcedure('messages:receive')
+    .input(receiveInputSchema)
+    .output(receiveOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { deliveries } = okOrThrow(await ctx.useCases.receiveDeliveries(ctx.crew, { max: input?.max }));
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+    }),
+
+  /** Acknowledges a delivery the ship received: it is done. Acknowledging it again is OK. */
+  ack: crewProcedure('messages:receive')
+    .input(ackInputSchema)
+    .output(ackOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.acknowledgeDelivery(ctx.crew, input));
+      return {};
+    }),
 });
