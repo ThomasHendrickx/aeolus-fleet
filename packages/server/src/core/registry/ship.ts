@@ -11,6 +11,7 @@ import {
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
+import type { Recipient } from '../shared/selector.js';
 import type { Lease, Location } from './lease.js';
 import { shipName, shipType } from './ship-handle.js';
 import { shipNote } from './ship-note.js';
@@ -201,6 +202,17 @@ export function claimShip(
       },
     ],
   });
+}
+
+/**
+ * A message can be addressed to any ship of the fleet, `argo` included, as long
+ * as it is not retired: a retired ship's id can never be addressed again, so a
+ * message to it could never be delivered.
+ */
+export function addressShip(ship: Ship): Result<Recipient, DomainError<'UNRESOLVABLE_SELECTOR'>> {
+  return ship.retiredAt === null
+    ? ok({ kind: 'ship', shipId: ship.id })
+    : refuse('UNRESOLVABLE_SELECTOR', `${ship.name} is retired: a retired ship is never addressed again`);
 }
 
 export function isReservedShipName(name: string): boolean {

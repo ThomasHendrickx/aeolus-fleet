@@ -56,6 +56,31 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR NO KEY UPDATE`;
       return row ? toShipFromSql(row) : undefined;
     },
+    findForShare: async (fleetId, shipId) => {
+      // FOR SHARE, not FOR KEY SHARE: it makes a use case that locks the ship
+      // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
+      // while other sends to the ship share the lock.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND id = ${shipId}
+        FOR SHARE`;
+      return row ? toShipFromSql(row) : undefined;
+    },
+    findActiveByNameForShare: async (fleetId, name) => {
+      // Read committed: a send that waited for a retire checks the ship again
+      // once it is free, and no longer finds it by its name.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND name = ${name} AND retired_at IS NULL
+        FOR SHARE`;
+      return row ? toShipFromSql(row) : undefined;
+    },
+    hasActiveShipOfType: async (fleetId, type) => {
+      const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null }, select: { id: true } });
+      return row !== null;
+    },
   };
 }
 

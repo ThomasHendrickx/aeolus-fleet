@@ -4,6 +4,7 @@ import type {
   CredentialRepository,
   OperatorAccountRepository,
 } from '../../core/identity/ports.js';
+import type { DeliveryRepository, MessageRepository, Notifier } from '../../core/messaging/ports.js';
 import type {
   FleetRepository,
   InFlightDeliveries,
@@ -14,6 +15,7 @@ import type { EventLog } from '../../core/shared/events.js';
 import type { Result } from '../../core/shared/result.js';
 import type { UnitOfWork } from '../../core/shared/unit-of-work.js';
 import type { Db, PrismaClient } from './client.js';
+import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog } from './event-log.js';
 import {
   createPrismaCallerLookup,
@@ -21,6 +23,7 @@ import {
   createPrismaCredentialRepository,
   createPrismaOperatorAccountRepository,
 } from './identity.js';
+import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
 import {
   createPrismaFleetRepository,
   createPrismaInFlightDeliveries,
@@ -37,7 +40,10 @@ export interface PrismaTx {
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
+  messages: MessageRepository;
+  deliveries: DeliveryRepository;
   events: EventLog;
+  notifier: Notifier;
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
@@ -49,7 +55,10 @@ export function createPrismaTx(db: Db): PrismaTx {
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),
     consoleSessions: createPrismaConsoleSessionRepository(db),
+    messages: createPrismaMessageRepository(db),
+    deliveries: createPrismaDeliveryRepository(db),
     events: createPrismaEventLog(db),
+    notifier: createPrismaNotifier(db),
   };
 }
 

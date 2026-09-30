@@ -38,6 +38,18 @@ export interface ShipRepository {
    * ship waits for, so locking the ship there would deadlock.
    */
   findForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
+  /**
+   * The ship a message is addressed to, held until the unit of work ends
+   * against a use case that locks it to change it, such as a retire: that use
+   * case waits for the send and then sees its delivery, or the send waits for
+   * it and then reads the ship as it left it. Many sends to one ship hold it
+   * at once.
+   */
+  findForShare(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
+  /** The ship of the fleet that is not retired and has this name, held as {@link findForShare} holds it. */
+  findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
+  /** Whether at least one ship of the fleet with this type is not retired. */
+  hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
 }
 
 /** Outbound port: leases, always within one fleet. */

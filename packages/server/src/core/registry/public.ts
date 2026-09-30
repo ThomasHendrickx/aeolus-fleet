@@ -3,5 +3,6 @@
 export { location, type Lease, type LeaseEndReason, type Location } from './lease.js';
 export { endLease, takeOverOperatorLease, type LeaseTx } from './leases.js';
 export type { InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
+export { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from './resolve-selector.js';
 export { findOperatorShip, type ShipTx } from './ships.js';
 export { OPERATOR_SHIP_NAME, type Ship } from './ship.js';

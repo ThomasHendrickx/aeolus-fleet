@@ -68,6 +68,8 @@ model Ship {
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
   leases            Lease[]
   credentials       Credential[]
+  sentMessages      Message[]        @relation("MessageSender")
+  addressedMessages Message[]        @relation("MessageSelectorShip")
   deliveries        Delivery[]       @relation("DeliveryRecipientShip")
   claimedDeliveries Delivery[]       @relation("DeliveryClaimedByShip")
   consoleSessions   ConsoleSession[]
@@ -137,29 +139,45 @@ model Credential {
   @@map("credentials")
 }
 
-/// An immutable envelope plus an opaque payload of at most 64 KB. Ids start with msg_.
-/// It can name the message it replies to, and a resend names the message it resends.
-/// Sender and selector arrive with slice 4 (send), together with the unique rule
-/// on sender plus idempotency key.
-model Message {
-  id                 String   @id
-  fleetId            String   @map("fleet_id")
-  payload            String
-  contentType        String   @map("content_type")
-  idempotencyKey     String   @map("idempotency_key")
-  inReplyToMessageId String?  @map("in_reply_to_message_id")
-  resendOfMessageId  String?  @map("resend_of_message_id")
-  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+/// Who a message is for: one ship or any ship of a type. Group and fleet come later.
+enum SelectorKind {
+  ship
+  type
 
-  fleet      Fleet      @relation(fields: [fleetId], references: [id])
-  inReplyTo  Message?   @relation("MessageInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
-  replies    Message[]  @relation("MessageInReplyTo")
-  resendOf   Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
-  resends    Message[]  @relation("MessageResendOf")
-  deliveries Delivery[]
-  events     Event[]
+  @@map("selector_kind")
+}
+
+/// An immutable envelope plus an opaque payload of at most 64 KB, sent by one ship.
+/// Ids start with msg_. The selector is stored as resolved at send time: a ship's
+/// id, never its name, or a type. It can name the message it replies to, and a
+/// resend names the message it resends (nothing sets that yet).
+model Message {
+  id                 String       @id
+  fleetId            String       @map("fleet_id")
+  senderShipId       String       @map("sender_ship_id")
+  selectorKind       SelectorKind @map("selector_kind")
+  selectorShipId     String?      @map("selector_ship_id")
+  selectorType       String?      @map("selector_type")
+  payload            String
+  contentType        String       @map("content_type")
+  idempotencyKey     String       @map("idempotency_key")
+  inReplyToMessageId String?      @map("in_reply_to_message_id")
+  resendOfMessageId  String?      @map("resend_of_message_id")
+  createdAt          DateTime     @map("created_at") @db.Timestamptz(3)
+
+  fleet        Fleet      @relation(fields: [fleetId], references: [id])
+  senderShip   Ship       @relation("MessageSender", fields: [fleetId, senderShipId], references: [fleetId, id], onDelete: Restrict)
+  selectorShip Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
+  inReplyTo    Message?   @relation("MessageInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
+  replies      Message[]  @relation("MessageInReplyTo")
+  resendOf     Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
+  resends      Message[]  @relation("MessageResendOf")
+  deliveries   Delivery[]
+  events       Event[]
 
   @@unique([fleetId, id])
+  /// A sender uses an idempotency key once: a repeat returns the original message.
+  @@unique([fleetId, senderShipId, idempotencyKey])
   @@map("messages")
 }
 
