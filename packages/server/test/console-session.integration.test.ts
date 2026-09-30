@@ -299,14 +299,16 @@ describe('the caller lookups', () => {
     return { shipId, secret, crewToken };
   }
 
-  it('find the ship, fleet, kind and scopes by crew token hash alone', async () => {
+  it("find the ship, fleet, kind and scopes, and the crew's lease, by crew token hash alone", async () => {
     const { shipId, crewToken } = await claimedScout();
+    const lease = await core.prisma.lease.findFirstOrThrow({ where: { shipId, endedAt: null } });
 
     await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
       shipId,
       fleetId,
       kind: 'agent',
       scopes: ['messages:send', 'messages:receive'],
+      leaseId: lease.id,
     });
   });
 
