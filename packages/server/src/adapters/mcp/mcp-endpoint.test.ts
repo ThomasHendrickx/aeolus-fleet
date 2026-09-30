@@ -226,12 +226,12 @@ describe('the ship tools at /mcp', () => {
   it.each([
     ['register once, at the start', /\bonce, at the start\b|\bcall it first\b/i],
     ['keep the crew token', /\bkeep (it|the crew token)\b/i],
-    ['ack each delivery at once, before acting on it', /\b(at once|right away)\b/i],
+    ['ack each delivery, wait for its answer, and act only if it succeeded', /\bact only if the ack succeeded\b/i],
     ['answer by senderName with inReplyTo', /\bsend to (its )?senderName\b/i],
     ['keep receiving while waiting for an answer', /\bkeep calling\b|\bcall (it|receive) again\b/i],
     ['deregister only when the session ends for good', /\bfor good\b/i],
     ['end the turn when the work is done', /\bend your turn\b/i],
-    ['stop after a release', /\bstop calling\b/i],
+    ['stop after a release, told by LEASE_ENDED', /\banswers LEASE_ENDED\b.*\bstop calling\b/i],
   ])('state the protocol rule "%s" once: in the instructions, and in no tool description', async (_rule, wording) => {
     await start();
     const client = await connect();
