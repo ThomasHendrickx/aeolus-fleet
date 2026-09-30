@@ -224,6 +224,14 @@ describe('signing out on Postgres', () => {
 describe('resetting the operator password on Postgres', () => {
   const NEW_PASSWORD = 'staple battery horse correct';
 
+  it("writes OperatorPasswordReset on argo's timeline", async () => {
+    unwrap(await core.useCases.resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));
+
+    await expect(core.prisma.event.findMany({ where: { type: 'OperatorPasswordReset' } })).resolves.toEqual([
+      expect.objectContaining({ shipId: argoId, actorShipId: null }),
+    ]);
+  });
+
   it('makes the old password fail and the new one sign in, ends every session and the lease', async () => {
     const { token } = unwrap(await core.useCases.signIn(OPERATOR));
 
