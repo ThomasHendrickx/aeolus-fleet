@@ -186,11 +186,9 @@ describe('the ship calls at /api/v1', () => {
     const sending = { selector: { kind: 'ship', name: scout.name }, payload: 'Anyone aboard?', idempotencyKey: freshKey() };
     const messagesBefore = await database.message.count();
 
-    await expect(request('send', { body: sending })).resolves.toMatchObject({ status: 401, body: { code: 'UNAUTHORIZED' } });
-    await expect(request('send', { crewToken: 'aeolus_ct_v1_not-a-crew', body: sending })).resolves.toMatchObject({
-      status: 401,
-      body: { code: 'UNAUTHORIZED' },
-    });
+    const refused = { status: 401, body: { code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' } };
+    await expect(request('send', { body: sending })).resolves.toEqual(refused);
+    await expect(request('send', { crewToken: 'aeolus_ct_v1_not-a-crew', body: sending })).resolves.toEqual(refused);
     await expect(request('receive', { crewToken: scout.secret })).resolves.toMatchObject({ status: 401 });
     await expect(database.message.count()).resolves.toBe(messagesBefore);
     await expect(request('whoami', { crewToken: scoutToken, method: 'GET' })).resolves.toMatchObject({ status: 200 });

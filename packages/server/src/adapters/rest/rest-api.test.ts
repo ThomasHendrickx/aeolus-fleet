@@ -265,10 +265,32 @@ describe('a ship call at /api/v1', () => {
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.json()).toEqual({
-      code: 'UNAUTHORIZED',
-      message: 'Sign in, or call with the crew token register gave you',
+    expect(response.json()).toEqual({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
+  });
+
+  it.each([
+    { method: 'GET', call: 'whoami', payload: undefined },
+    {
+      method: 'POST',
+      call: 'send',
+      payload: { selector: { kind: 'ship', name: 'scout' }, payload: 'Anyone aboard?', idempotencyKey: 'key-1' },
+    },
+    { method: 'POST', call: 'receive', payload: undefined },
+  ] as const)('refuses $method $call without a crew token or with a wrong one, naming only the crew token: a ship has no console to sign in to', async ({ method, call, payload }) => {
+    start();
+
+    const without = await server.inject({ method, url: `/api/v1/ship/${call}`, payload });
+    const wrong = await server.inject({
+      method,
+      url: `/api/v1/ship/${call}`,
+      payload,
+      headers: { authorization: 'Bearer aeolus_ct_v1_wrong' },
     });
+
+    for (const response of [without, wrong]) {
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' });
+    }
   });
 
   it('refuses input that does not parse with 400, naming the field and what it must be', async () => {

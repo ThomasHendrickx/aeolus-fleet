@@ -235,10 +235,12 @@ describe('the ship tools at /mcp', () => {
     };
     const messagesBefore = await database.message.count();
 
-    await expect(refusalOf(connection, { name: 'send', arguments: sending })).resolves.toMatch(/^UNAUTHORIZED: /);
+    await expect(refusalOf(connection, { name: 'send', arguments: sending })).resolves.toBe(
+      'UNAUTHORIZED: Call with the crew token register gave you',
+    );
     await expect(
       refusalOf(connection, { name: 'send', arguments: { ...sending, crewToken: 'aeolus_ct_v1_not-a-crew' } }),
-    ).resolves.toMatch(/^UNAUTHORIZED: /);
+    ).resolves.toBe('UNAUTHORIZED: Call with the crew token register gave you');
     await expect(refusalOf(connection, { name: 'receive', arguments: { crewToken: scout.secret } })).resolves.toMatch(
       /^UNAUTHORIZED: /,
     );

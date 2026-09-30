@@ -237,16 +237,25 @@ describe('a ship tool call', () => {
     const crewToken = crewedShip();
     const client = await connect({ authorization: `Bearer ${crewToken}` });
 
-    await expect(refusalText(client, { name: 'whoami', arguments: {} })).resolves.toMatch(/^UNAUTHORIZED: /);
+    await expect(refusalText(client, { name: 'whoami', arguments: {} })).resolves.toBe(
+      'UNAUTHORIZED: Call with the crew token register gave you',
+    );
   });
 
-  it('refuses a wrong crew token with readable text naming its code', async () => {
+  it.each([
+    ['whoami', {}],
+    ['send', { selector: { kind: 'ship', name: 'scout' }, payload: 'Anyone aboard?', idempotencyKey: 'key-1' }],
+    ['receive', {}],
+  ])('refuses %s without a crew token or with a wrong one, naming only the crew token: a ship has no console to sign in to', async (name, args) => {
     await start();
     const client = await connect();
 
-    await expect(
-      refusalText(client, { name: 'whoami', arguments: { crewToken: 'aeolus_ct_v1_wrong' } }),
-    ).resolves.toBe('UNAUTHORIZED: Sign in, or call with the crew token register gave you');
+    await expect(refusalText(client, { name, arguments: args })).resolves.toBe(
+      'UNAUTHORIZED: Call with the crew token register gave you',
+    );
+    await expect(refusalText(client, { name, arguments: { ...args, crewToken: 'aeolus_ct_v1_wrong' } })).resolves.toBe(
+      'UNAUTHORIZED: Call with the crew token register gave you',
+    );
   });
 
   it('refuses input that does not parse as a bad request, naming the field and what it must be', async () => {
