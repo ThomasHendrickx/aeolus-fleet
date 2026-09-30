@@ -153,7 +153,7 @@ describe('deregistering', () => {
   it("is refused once the crew's lease has ended", () => {
     expect(checkCanDeregister(scout, { leaseId: newId('lease'), heldLease: undefined })).toEqual({
       isOk: false,
-      error: { kind: 'LEASE_ENDED', message: 'The lease of this crew token has ended: the ship needs a new crew' },
+      error: { kind: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
     });
   });
 

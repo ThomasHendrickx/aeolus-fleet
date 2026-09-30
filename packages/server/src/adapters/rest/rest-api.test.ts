@@ -381,6 +381,28 @@ describe('a ship call at /api/v1', () => {
     }
   });
 
+  it.each([
+    { method: 'GET', call: 'whoami', payload: undefined },
+    {
+      method: 'POST',
+      call: 'send',
+      payload: { selector: { kind: 'ship', name: 'scout' }, payload: 'Anyone aboard?', idempotencyKey: 'key-1' },
+    },
+    { method: 'POST', call: 'receive', payload: undefined },
+    { method: 'POST', call: 'deregister', payload: undefined },
+  ] as const)('refuses $method $call with a crew token whose lease has ended with 401 and LEASE_ENDED: the ship was released', async ({ method, call, payload }) => {
+    start();
+    const crewToken = crewedShip('scout');
+    const authorization = `Bearer ${crewToken}`;
+    const deregistered = await server.inject({ method: 'POST', url: '/api/v1/ship/deregister', headers: { authorization } });
+
+    const response = await server.inject({ method, url: `/api/v1/ship/${call}`, payload, headers: { authorization } });
+
+    expect(deregistered.statusCode).toBe(200);
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' });
+  });
+
   it('refuses input that does not parse with 400, naming the field and what it must be', async () => {
     start();
     const crewToken = crewedShip();

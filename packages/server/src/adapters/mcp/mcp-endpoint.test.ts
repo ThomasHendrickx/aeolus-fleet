@@ -297,6 +297,22 @@ describe('a ship tool call', () => {
     );
   });
 
+  it.each([
+    ['whoami', {}],
+    ['send', { selector: { kind: 'ship', name: 'scout' }, payload: 'Anyone aboard?', idempotencyKey: 'key-1' }],
+    ['receive', {}],
+    ['deregister', {}],
+  ])('refuses %s with a crew token whose lease has ended as LEASE_ENDED: the ship was released', async (name, args) => {
+    await start();
+    const crewToken = crewedShip('scout');
+    const client = await connect();
+    await callTool(client, { name: 'deregister', arguments: { crewToken } });
+
+    await expect(refusalText(client, { name, arguments: { ...args, crewToken } })).resolves.toBe(
+      'LEASE_ENDED: This ship was released; this session no longer crews it.',
+    );
+  });
+
   it('refuses input that does not parse as a bad request, naming the field and what it must be', async () => {
     await start();
     const crewToken = crewedShip();

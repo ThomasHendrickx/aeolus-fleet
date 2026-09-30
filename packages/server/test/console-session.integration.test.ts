@@ -291,6 +291,8 @@ describe('resetting the operator password on Postgres', () => {
 });
 
 describe('the caller lookups', () => {
+  const UNKNOWN_CREW_TOKEN = { isOk: false, error: { kind: 'UNKNOWN_CREW_TOKEN' } };
+
   async function claimedScout(): Promise<{ shipId: ShipId; secret: string; crewToken: string }> {
     const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
     const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
@@ -303,7 +305,7 @@ describe('the caller lookups', () => {
     const { shipId, crewToken } = await claimedScout();
     const lease = await core.prisma.lease.findFirstOrThrow({ where: { shipId, endedAt: null } });
 
-    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
+    expect(unwrap(await core.useCases.authenticate.byCrewToken(crewToken))).toEqual({
       shipId,
       fleetId,
       kind: 'agent',
@@ -315,17 +317,19 @@ describe('the caller lookups', () => {
   it('know no crew token of another length or content, and take neither the secret nor a crew token for the other', async () => {
     const { secret, crewToken } = await claimedScout();
 
-    await expect(core.useCases.authenticate.byCrewToken(`${crewToken}x`)).resolves.toBeUndefined();
-    await expect(core.useCases.authenticate.byCrewToken(secret)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(`${crewToken}x`)).resolves.toMatchObject(UNKNOWN_CREW_TOKEN);
+    await expect(core.useCases.authenticate.byCrewToken(secret)).resolves.toMatchObject(UNKNOWN_CREW_TOKEN);
     await expect(core.useCases.authenticate.byConsoleSession(crewToken)).resolves.toBeUndefined();
   });
 
-  it('know no crew token once its lease has ended', async () => {
+  it('refuse a crew token whose lease has ended as LEASE_ENDED', async () => {
     const { shipId, crewToken } = await claimedScout();
-    // Release and deregister arrive with a later slice.
     await core.prisma.lease.updateMany({ where: { shipId }, data: { endedAt: core.clock.now() } });
 
-    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'LEASE_ENDED' },
+    });
   });
 
   it('know no crew token of a retired ship', async () => {
@@ -333,6 +337,6 @@ describe('the caller lookups', () => {
     // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: shipId }, data: { retiredAt: core.clock.now() } });
 
-    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject(UNKNOWN_CREW_TOKEN);
   });
 });

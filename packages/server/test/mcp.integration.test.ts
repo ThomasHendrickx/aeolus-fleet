@@ -176,7 +176,7 @@ describe('the ship tools at /mcp', () => {
     });
     await expect(
       refusalOf(mooringSession, { name: 'whoami', arguments: { crewToken: mooringToken } }),
-    ).resolves.toMatch(/^UNAUTHORIZED: /);
+    ).resolves.toBe('LEASE_ENDED: This ship was released; this session no longer crews it.');
   });
 
   it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {

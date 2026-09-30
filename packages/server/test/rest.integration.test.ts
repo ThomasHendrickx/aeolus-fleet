@@ -162,7 +162,7 @@ describe('the ship calls at /api/v1', () => {
     await expect(ok(request('receive', { crewToken: harbourToken }), deliveriesSchema)).resolves.toEqual({ deliveries: [] });
     await expect(request('whoami', { crewToken: mooringToken, method: 'GET' })).resolves.toMatchObject({
       status: 401,
-      body: { code: 'UNAUTHORIZED' },
+      body: { code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
     });
   });
 

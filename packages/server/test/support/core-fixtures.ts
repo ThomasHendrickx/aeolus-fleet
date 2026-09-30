@@ -218,10 +218,10 @@ export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: S
 /** The crew a crew token makes the caller, as the API resolves it. */
 export async function crewOfToken(core: InMemoryCore, crewToken: string): Promise<Crew> {
   const crew = await identityUseCases(core).authenticate.byCrewToken(crewToken);
-  if (!crew) {
-    throw new Error('The crew token crews no ship');
+  if (!crew.isOk) {
+    throw new Error(`The crew token crews no ship: ${crew.error.message}`);
   }
-  return crew;
+  return crew.value;
 }
 
 /** The id of the ship's open lease. */

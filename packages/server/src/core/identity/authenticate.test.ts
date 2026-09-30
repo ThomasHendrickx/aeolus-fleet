@@ -24,7 +24,7 @@ describe('authenticating with a crew token', () => {
     const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
     const [lease] = core.state.leases;
 
-    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
+    expect(unwrap(await useCases.authenticate.byCrewToken(crewToken))).toEqual({
       shipId: agent.shipId,
       fleetId,
       kind: 'agent',
@@ -33,40 +33,55 @@ describe('authenticating with a crew token', () => {
     });
   });
 
-  it('knows no unknown crew token', async () => {
+  it('knows no unknown crew token, and says to call with the one register gave', async () => {
     crewShip(core, { fleetId, shipId: addAgentShip(core, { fleetId }).shipId });
 
-    await expect(useCases.authenticate.byCrewToken('aeolus_ct_v1_unknown')).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken('aeolus_ct_v1_unknown')).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'UNKNOWN_CREW_TOKEN', message: 'Call with the crew token register gave you' },
+    });
   });
 
   it('does not take the ship secret as a crew token: the secret works only for register', async () => {
     const agent = addAgentShip(core, { fleetId });
     crewShip(core, { fleetId, shipId: agent.shipId });
 
-    await expect(useCases.authenticate.byCrewToken(agent.secret)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(agent.secret)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'UNKNOWN_CREW_TOKEN' },
+    });
   });
 
-  it('knows no crew token once its lease has ended', async () => {
+  it('refuses a crew token whose lease has ended as LEASE_ENDED: the ship was released, and this session no longer crews it', async () => {
     const agent = addAgentShip(core, { fleetId });
     const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
     for (const lease of core.state.leases) {
       lease.endedAt = core.clock.now();
     }
 
-    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
+    });
   });
 
   it('knows no crew token of a retired ship', async () => {
     const agent = addAgentShip(core, { fleetId, retiredAt: core.clock.now() });
     const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
 
-    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'UNKNOWN_CREW_TOKEN' },
+    });
   });
 
   it('does not take the console session token as a crew token', async () => {
     const { token } = unwrap(await useCases.signIn(OPERATOR));
 
-    await expect(useCases.authenticate.byCrewToken(token)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(token)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'UNKNOWN_CREW_TOKEN' },
+    });
   });
 });
 

@@ -96,10 +96,7 @@ afterEach(async () => {
 async function register(shipId: Crew['shipId'], prompt: string): Promise<Crewed> {
   const secret = secretIn(prompt);
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'CLOUD' } }));
-  const crew = await useCases.authenticate.byCrewToken(crewToken);
-  if (!crew) {
-    throw new Error(`The crew token of ${shipId} authenticates no crew`);
-  }
+  const crew = unwrap(await useCases.authenticate.byCrewToken(crewToken));
   return { crew, crewToken, secret };
 }
 
@@ -199,7 +196,10 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
 
     const lease = await prisma.lease.findUniqueOrThrow({ where: { id: scout.crew.leaseId } });
     expect(lease.endedAt).not.toBeNull();
-    await expect(useCases.authenticate.byCrewToken(scout.crewToken)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byCrewToken(scout.crewToken)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'LEASE_ENDED' },
+    });
     await expect(
       useCases.claimShip({ shipId: scout.crew.shipId, secret: scout.secret, location: { kind: 'CLOUD' } }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
@@ -318,7 +318,8 @@ describe('a release that fails', () => {
 
     await expect(everyRow(prisma)).resolves.toBe(before);
     await expect(useCases.authenticate.byCrewToken(scout.crewToken)).resolves.toMatchObject({
-      leaseId: scout.crew.leaseId,
+      isOk: true,
+      value: { leaseId: scout.crew.leaseId },
     });
   });
 

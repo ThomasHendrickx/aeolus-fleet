@@ -64,11 +64,7 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }));
-  const crew = await useCases.authenticate.byCrewToken(crewToken);
-  if (!crew) {
-    throw new Error('The crew token of scout authenticates no crew');
-  }
-  scout = crew;
+  scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });
 
 afterEach(async () => {

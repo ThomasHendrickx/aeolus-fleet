@@ -268,7 +268,7 @@ describe('the v1 acceptance test, over MCP', () => {
     unwrap(await operator.releaseShip(argo, { shipId: lookoutId }));
     await expect(
       refusalOf(lookout.client, { name: 'receive', arguments: { crewToken: lookout.crewToken } }),
-    ).resolves.toMatch(/^UNAUTHORIZED: /);
+    ).resolves.toBe('LEASE_ENDED: This ship was released; this session no longer crews it.');
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('CredentialRevoked', { actorShipId: argoId, shipId: lookoutId }),
       logged('LeaseRevoked', { actorShipId: argoId, shipId: lookoutId }),
