@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@aeolus-fleet/common": "0.0.0",
+    "@modelcontextprotocol/server": "^2.2.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@trpc/server": "^11.19.0",
@@ -44,6 +45,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.2.0",
     "@testcontainers/postgresql": "^12.2.0",
     "@trpc/client": "^11.19.0",
     "@types/pg": "^8.23.1",
