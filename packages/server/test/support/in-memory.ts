@@ -41,12 +41,6 @@ import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
  * throws, so tests can prove a use case leaves nothing behind.
  */
 
-/**
- * A delivery as a send stores it, or just enough of one to prove what the
- * lease operations do with deliveries in flight.
- */
-export type InMemoryDelivery = Pick<Delivery, 'id' | 'fleetId' | 'state' | 'claimedByShipId'> & Partial<Delivery>;
-
 export interface InMemoryState {
   fleets: Fleet[];
   ships: Ship[];
@@ -55,7 +49,7 @@ export interface InMemoryState {
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
   messages: Message[];
-  deliveries: InMemoryDelivery[];
+  deliveries: Delivery[];
   events: FleetEvent[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
@@ -106,17 +100,6 @@ export interface InMemoryCore {
   passwords: PasswordHasher;
   random: RandomTokens;
   wakeups: InMemoryWakeups;
-}
-
-/** Whether the delivery has every field a send stores, so a receive can claim it. */
-function isWhole(delivery: InMemoryDelivery): delivery is Delivery {
-  return (
-    delivery.messageId !== undefined &&
-    delivery.recipient !== undefined &&
-    delivery.claimedByLeaseId !== undefined &&
-    delivery.attempts !== undefined &&
-    delivery.createdAt !== undefined
-  );
 }
 
 /** Oldest first, as Postgres orders them: by creation, then by id. */
@@ -249,17 +232,21 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     inFlightDeliveries: {
-      returnToPending: (fleetId, shipId) => {
-        const inFlight = state.deliveries.filter(
-          (delivery) =>
-            delivery.fleetId === fleetId && delivery.state === 'delivered' && delivery.claimedByShipId === shipId,
-        );
+      returnToPending: (fleetId, leaseId) => {
+        const inFlight = state.deliveries
+          .filter(
+            (delivery) =>
+              delivery.fleetId === fleetId && delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId,
+          )
+          .sort(byAge);
         for (const delivery of inFlight) {
           delivery.state = 'pending';
           delivery.claimedByShipId = null;
           delivery.claimedByLeaseId = null;
         }
-        return Promise.resolve(inFlight.length);
+        return Promise.resolve(
+          inFlight.map(({ id, messageId, attempts }) => ({ deliveryId: id, messageId, attempts })),
+        );
       },
     },
     credentials: {
@@ -379,14 +366,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
       findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding }) => {
-        const whole = state.deliveries.filter(isWhole).filter((delivery) => delivery.fleetId === fleetId);
-        const inFlight = whole
+        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
+        const inFlight = ofFleet
           .filter(
             (delivery) =>
               delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
           )
           .sort(byAge);
-        const pending = whole
+        const pending = ofFleet
           .filter(
             ({ state: deliveryState, recipient }) =>
               deliveryState === 'pending' &&
@@ -401,7 +388,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(claimable);
       },
       findForUpdate: (fleetId, deliveryId) => {
-        const found = state.deliveries.filter(isWhole).find((held) => held.fleetId === fleetId && held.id === deliveryId);
+        const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
       },
       update: (delivery) => {

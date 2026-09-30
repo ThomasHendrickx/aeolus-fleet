@@ -1,7 +1,14 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet, OPERATOR, operatorCaller } from '../../../test/support/core-fixtures.js';
+import {
+  deliveryInFlight,
+  identityUseCases,
+  initialiseFleet,
+  OPERATOR,
+  openLeaseOf,
+  operatorCaller,
+} from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 
@@ -21,7 +28,7 @@ beforeEach(async () => {
 describe('signing out', () => {
   it("ends the session and releases argo's lease", async () => {
     const { token, caller } = unwrap(await useCases.signIn(OPERATOR));
-    core.state.deliveries.push({ id: 'dlv_in_flight', fleetId, state: 'delivered', claimedByShipId: argoId });
+    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: argoId, leaseId: openLeaseOf(core, argoId) });
     core.state.events.length = 0;
     core.clock.advance(60_000);
 
@@ -31,13 +38,15 @@ describe('signing out', () => {
     expect(core.state.consoleSessions[0]?.endedAt).toEqual(core.clock.now());
     expect(core.state.leases[0]?.endedAt).toEqual(core.clock.now());
     expect(core.state.deliveries[0]).toMatchObject({ state: 'pending', claimedByShipId: null });
-    expect(core.state.events).toHaveLength(1);
-    expect(core.state.events[0]).toMatchObject({
-      type: 'LeaseRevoked',
-      actor: { kind: 'ship', shipId: argoId },
-      shipId: argoId,
-      details: { reason: 'signedOut', returnedDeliveries: 1 },
-    });
+    expect(core.state.events).toEqual([
+      expect.objectContaining({
+        type: 'LeaseRevoked',
+        actor: { kind: 'ship', shipId: argoId },
+        shipId: argoId,
+        details: expect.objectContaining({ reason: 'signedOut', returnedDeliveries: 1 }),
+      }),
+      expect.objectContaining({ type: 'DeliveryReturned', actor: { kind: 'ship', shipId: argoId }, deliveryId }),
+    ]);
   });
 
   it('changes nothing the second time', async () => {

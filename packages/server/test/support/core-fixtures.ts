@@ -1,4 +1,13 @@
-import { idSchema, SCOPES, type DeliveryId, type FleetId, type MessageId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import {
+  idSchema,
+  SCOPES,
+  type DeliveryId,
+  type FleetId,
+  type LeaseId,
+  type MessageId,
+  type Scope,
+  type ShipId,
+} from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
@@ -14,6 +23,7 @@ import { createInitialiseFleet, type FleetInitialised } from '../../src/core/reg
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
+import type { Recipient } from '../../src/core/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
 
@@ -187,4 +197,62 @@ export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: S
     endedAt: null,
   });
   return crewToken;
+}
+
+/** The crew a crew token makes the caller, as the API resolves it. */
+export async function crewOfToken(core: InMemoryCore, crewToken: string): Promise<Crew> {
+  const crew = await identityUseCases(core).authenticate.byCrewToken(crewToken);
+  if (!crew) {
+    throw new Error('The crew token crews no ship');
+  }
+  return crew;
+}
+
+/** The id of the ship's open lease. */
+export function openLeaseOf(core: InMemoryCore, shipId: ShipId): LeaseId {
+  const lease = core.state.leases.find((held) => held.shipId === shipId && held.endedAt === null);
+  if (!lease) {
+    throw new Error(`Ship ${shipId} holds no open lease`);
+  }
+  return lease.id;
+}
+
+/**
+ * A message and its delivery in flight with the given ship and lease, straight
+ * into the state: for a lease whose crew never received through the use case,
+ * such as argo's console session. The message is the ship's own, to its ship
+ * unless a recipient is given.
+ */
+export function deliveryInFlight(
+  core: InMemoryCore,
+  held: { fleetId: FleetId; shipId: ShipId; leaseId: LeaseId; recipient?: Recipient; attempts?: number },
+): { deliveryId: DeliveryId; messageId: MessageId } {
+  const { fleetId, shipId, leaseId, recipient = { kind: 'ship', shipId }, attempts = 1 } = held;
+  const at = core.clock.now();
+  const messageId = core.ids('message');
+  const deliveryId = core.ids('delivery');
+  core.state.messages.push({
+    id: messageId,
+    fleetId,
+    senderShipId: shipId,
+    selector: recipient,
+    payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28',
+    contentType: 'text/plain',
+    idempotencyKey: `in-flight-${messageId}`,
+    requestHash: `sha256(in-flight-${messageId})`,
+    inReplyToMessageId: null,
+    createdAt: at,
+  });
+  core.state.deliveries.push({
+    id: deliveryId,
+    fleetId,
+    messageId,
+    recipient,
+    state: 'delivered',
+    claimedByShipId: shipId,
+    claimedByLeaseId: leaseId,
+    attempts,
+    createdAt: at,
+  });
+  return { deliveryId, messageId };
 }
