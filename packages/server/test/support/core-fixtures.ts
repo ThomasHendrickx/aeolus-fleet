@@ -57,7 +57,7 @@ export function registryUseCases(core: InMemoryCore) {
 
 /** The messaging use cases, wired to the in-memory core. */
 export function messagingUseCases(core: InMemoryCore) {
-  return { sendMessage: createSendMessage({ uow: core.uow, clock: core.clock, ids: core.ids }) };
+  return { sendMessage: createSendMessage({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher }) };
 }
 
 /** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */

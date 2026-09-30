@@ -25,6 +25,15 @@ export interface MessageRepository {
   find(fleetId: FleetId, messageId: MessageId): Promise<Message | undefined>;
 }
 
+/**
+ * Outbound port: hashes a send's request text (SHA-256). The message keeps the
+ * hash, so a repeat of its key is told from a reuse without storing the
+ * request twice.
+ */
+export interface RequestHasher {
+  hash(request: string): string;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
   create(delivery: Delivery): Promise<void>;

@@ -5,7 +5,8 @@
 CREATE TYPE "selector_kind" AS ENUM ('ship', 'type');
 
 -- AlterTable
-ALTER TABLE "messages" ADD COLUMN     "selector_kind" "selector_kind" NOT NULL,
+ALTER TABLE "messages" ADD COLUMN     "request_hash" TEXT NOT NULL,
+ADD COLUMN     "selector_kind" "selector_kind" NOT NULL,
 ADD COLUMN     "selector_ship_id" TEXT,
 ADD COLUMN     "selector_type" TEXT,
 ADD COLUMN     "sender_ship_id" TEXT NOT NULL;

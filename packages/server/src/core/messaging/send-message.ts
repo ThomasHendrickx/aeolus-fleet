@@ -10,9 +10,10 @@ import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
 import { idempotencyKey } from './idempotency-key.js';
-import { acceptMessage, type AcceptRefusal } from './message.js';
+import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MessageRepository, Notifier } from './ports.js';
+import type { DeliveryRepository, MessageRepository, Notifier, RequestHasher } from './ports.js';
+import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends ResolveSelectorTx {
   messages: MessageRepository;
@@ -38,6 +39,7 @@ export interface MessageSent {
 
 export type SendMessageRefusal =
   | DomainError<'INVALID_PAYLOAD' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY'>
+  | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal;
 
@@ -52,14 +54,20 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * is no media type or a bad key is refused before the unit of work starts, so
  * nothing is stored.
  *
- * A repeat, the same sender with the same idempotency key, returns the
- * original message's id and stores nothing, whatever else it says: the key is
- * checked before the selector, so a retry still gets its OK after the
- * recipient was retired. Locks, in this order: the sender's key, so two sends
- * with one key take turns and the second finds the first one's message; then
- * the ship the message is addressed to, held against a retire.
+ * A repeat, the same sender with the same idempotency key and the same
+ * request, returns the original message's id and stores nothing; the same key
+ * with another request is refused. The key is checked before the selector, so
+ * a retry still gets its OK after the recipient was retired. Locks, in this
+ * order: the sender's key, so two sends with one key take turns and the second
+ * finds the first one's message; then the ship the message is addressed to,
+ * held against a retire.
  */
-export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock: Clock; ids: IdGenerator }): SendMessage {
+export function createSendMessage(deps: {
+  uow: UnitOfWork<SendMessageTx>;
+  clock: Clock;
+  ids: IdGenerator;
+  hasher: RequestHasher;
+}): SendMessage {
   return async (caller, input) => {
     const text = payload(input.payload);
     if (!text.isOk) {
@@ -73,6 +81,10 @@ export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock:
     if (!key.isOk) {
       return key;
     }
+    const { inReplyTo } = input;
+    const requestHash = deps.hasher.hash(
+      sendRequestText({ selector: input.selector, payload: text.value, contentType: mediaType.value, inReplyTo }),
+    );
 
     return deps.uow.run(async (tx): Promise<Result<MessageSent, SendMessageRefusal>> => {
       const { fleetId, shipId: senderShipId } = caller;
@@ -80,14 +92,14 @@ export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock:
       await tx.messages.lockIdempotencyKey(senderKey);
       const original = await tx.messages.findByIdempotencyKey(senderKey);
       if (original) {
-        return ok({ messageId: original.id });
+        const repeat = repeatOf(original, requestHash);
+        return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
       }
 
       const recipient = await resolveSelector(tx, { fleetId, selector: input.selector });
       if (!recipient.isOk) {
         return recipient;
       }
-      const { inReplyTo } = input;
       const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
       const accepted = acceptMessage(
         { recipient: recipient.value, repliedTo },
@@ -99,6 +111,7 @@ export function createSendMessage(deps: { uow: UnitOfWork<SendMessageTx>; clock:
           payload: text.value,
           contentType: mediaType.value,
           idempotencyKey: key.value,
+          requestHash,
           inReplyTo,
           at: deps.clock.now(),
         },

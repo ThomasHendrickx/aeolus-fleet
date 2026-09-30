@@ -70,7 +70,7 @@ export function createUseCases(options: {
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
-    sendMessage: createSendMessage({ uow, clock, ids }),
+    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

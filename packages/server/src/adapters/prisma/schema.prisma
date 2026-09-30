@@ -161,6 +161,7 @@ model Message {
   payload            String
   contentType        String       @map("content_type")
   idempotencyKey     String       @map("idempotency_key")
+  requestHash        String       @map("request_hash")
   inReplyToMessageId String?      @map("in_reply_to_message_id")
   resendOfMessageId  String?      @map("resend_of_message_id")
   createdAt          DateTime     @map("created_at") @db.Timestamptz(3)
@@ -176,7 +177,8 @@ model Message {
   events       Event[]
 
   @@unique([fleetId, id])
-  /// A sender uses an idempotency key once: a repeat returns the original message.
+  /// A sender uses an idempotency key once: a repeat of the same request, told by its
+  /// request hash, returns the original message; another request with the key is refused.
   @@unique([fleetId, senderShipId, idempotencyKey])
   @@map("messages")
 }

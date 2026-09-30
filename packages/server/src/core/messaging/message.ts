@@ -20,8 +20,10 @@ export interface Message {
   payload: string;
   /** A media type, exactly as the sender gave it. */
   contentType: string;
-  /** Unique per sender: a repeat returns this message instead of storing a new one. */
+  /** Unique per sender: a repeat of the same request returns this message instead of storing a new one. */
   idempotencyKey: string;
+  /** The hash of the request the message was sent with: what a repeat of its key must match. */
+  requestHash: string;
   /** The message of the same fleet this one replies to. */
   inReplyToMessageId: MessageId | null;
   createdAt: Date;
@@ -52,8 +54,25 @@ export interface MessageToAccept {
   payload: string;
   contentType: string;
   idempotencyKey: string;
+  requestHash: string;
   inReplyTo: MessageId | undefined;
   at: Date;
+}
+
+export type RepeatRefusal = DomainError<'IDEMPOTENCY_KEY_REUSED'>;
+
+/**
+ * A send with a key its sender used before. The same request is a repeat, a
+ * retry, and gets the original message's id; another request with that key is
+ * refused, so one key never stands for two messages.
+ */
+export function repeatOf(original: Message, requestHash: string): Result<MessageId, RepeatRefusal> {
+  return original.requestHash === requestHash
+    ? ok(original.id)
+    : refuse(
+        'IDEMPOTENCY_KEY_REUSED',
+        'This idempotency key was already used for another message: send a new message with a new key',
+      );
 }
 
 export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND'>;
@@ -82,6 +101,7 @@ export function acceptMessage(
     payload: send.payload,
     contentType: send.contentType,
     idempotencyKey: send.idempotencyKey,
+    requestHash: send.requestHash,
     inReplyToMessageId: inReplyTo ?? null,
     createdAt: at,
   };

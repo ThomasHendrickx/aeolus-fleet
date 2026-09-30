@@ -1,6 +1,7 @@
 import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { DeliveryNotice } from '../src/core/messaging/ports.js';
@@ -63,7 +64,7 @@ function aReview(overrides: Partial<MessageToSend> = {}): MessageToSend {
 }
 
 function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
-  return createSendMessage({ uow, clock: core.clock, ids: newId });
+  return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
 }
 
 /**

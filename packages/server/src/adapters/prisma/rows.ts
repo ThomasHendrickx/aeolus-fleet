@@ -223,6 +223,7 @@ const messageRow = z.object({
   payload: z.string(),
   contentType: z.string(),
   idempotencyKey: z.string(),
+  requestHash: z.string(),
   inReplyToMessageId: idSchema('message').nullable(),
   createdAt: z.date(),
 });
