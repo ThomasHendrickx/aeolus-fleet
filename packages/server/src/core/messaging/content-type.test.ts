@@ -17,6 +17,13 @@ describe('a content type', () => {
     expect(contentType(raw)).toEqual({ isOk: true, value: raw });
   });
 
+  it('refuses the character U+0000, and says so', () => {
+    expect(contentType('text/plain\u0000')).toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_CONTENT_TYPE', message: 'A content type cannot hold the character U+0000 (NUL)' },
+    });
+  });
+
   it.each([
     { label: 'no subtype', raw: 'json' },
     { label: 'a space inside', raw: 'text/pl ain' },

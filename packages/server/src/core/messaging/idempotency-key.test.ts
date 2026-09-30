@@ -11,6 +11,13 @@ describe('an idempotency key', () => {
     expect(idempotencyKey(key)).toEqual({ isOk: true, value: key });
   });
 
+  it('refuses the character U+0000', () => {
+    expect(idempotencyKey('review\u000022')).toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_IDEMPOTENCY_KEY', message: 'An idempotency key cannot hold the character U+0000 (NUL)' },
+    });
+  });
+
   it.each([
     { label: 'an empty key', key: '' },
     { label: 'a key over 256 characters', key: 'k'.repeat(257) },

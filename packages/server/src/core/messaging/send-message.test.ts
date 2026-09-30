@@ -389,6 +389,14 @@ describe('a send refused', () => {
     await expectRefused(aReview({ inReplyTo }), { kind: 'IN_REPLY_TO_NOT_FOUND' });
   });
 
+  it.each([
+    { label: 'payload', input: { payload: 'review\u0000' }, kind: 'INVALID_PAYLOAD' },
+    { label: 'idempotency key', input: { idempotencyKey: 'review\u0000' }, kind: 'INVALID_IDEMPOTENCY_KEY' },
+    { label: 'content type', input: { contentType: 'text/plain\u0000' }, kind: 'INVALID_CONTENT_TYPE' },
+  ])('refuses the character U+0000 in the $label', async ({ input, kind }) => {
+    await expectRefused(aReview(input), { kind });
+  });
+
   it('refuses a content type that is not a media type', async () => {
     await expectRefused(aReview({ contentType: 'json' }), { kind: 'INVALID_CONTENT_TYPE' });
   });

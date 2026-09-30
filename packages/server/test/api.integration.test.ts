@@ -595,6 +595,23 @@ describe('ship.send at the API', () => {
     await expect(codeOf(asShip.ship.send.mutate(toArgo({ contentType: 'markdown' })))).resolves.toBe('BAD_REQUEST');
   });
 
+  it.each([
+    { field: 'payload', value: 'review\u0000', message: 'A payload cannot hold the character U+0000 (NUL)' },
+    { field: 'idempotencyKey', value: 'key\u0000', message: 'An idempotency key cannot hold the character U+0000 (NUL)' },
+    { field: 'contentType', value: 'text/plain\u0000', message: 'A content type cannot hold the character U+0000 (NUL)' },
+  ])('refuses the character U+0000 in $field with BAD_REQUEST and a clear message, never a server failure', async ({
+    field,
+    value,
+    message,
+  }) => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    const refusal = await refusalOf(asShip.ship.send.mutate({ ...toArgo(), [field]: value }));
+
+    expect(refusal?.code).toBe('BAD_REQUEST');
+    expect(refusal?.message).toContain(message);
+  });
+
   it('refuses a ship without messages:send, and stores nothing', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
     const input = toArgo();
