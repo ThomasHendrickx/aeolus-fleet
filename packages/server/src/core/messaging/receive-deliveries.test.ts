@@ -127,7 +127,7 @@ describe('how many deliveries a receive returns', () => {
 });
 
 describe('claiming a delivery', () => {
-  it("marks it in flight, claimed by the ship and its crew's lease, with one attempt, and hands over its message", async () => {
+  it("marks it in flight, claimed by the ship and its crew's lease, with one attempt, and hands over its message and its sender's id, name and type", async () => {
     const deliveryId = await sendTo(toScout());
     const [message] = core.state.messages;
 
@@ -139,6 +139,8 @@ describe('claiming a delivery', () => {
           deliveryId,
           messageId: message?.id,
           senderShipId: argo.shipId,
+          senderName: 'argo',
+          senderType: 'operator',
           recipient: { kind: 'ship', shipId: scoutId },
           payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
           contentType: 'text/plain',
@@ -200,6 +202,28 @@ describe('claiming a delivery', () => {
 
     expect(await receive(scout)).toEqual([]);
     expect(stored(deliveryId)).toMatchObject({ claimedByShipId: lookoutId, attempts: 1 });
+  });
+});
+
+describe('the sender of a delivery', () => {
+  it('goes by the name it has now: renamed after the send, it is handed over with its new name and its type', async () => {
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, {
+        selector: toScout(),
+        payload: 'Can you take https://github.com/ThomasHendrickx/aeolus-fleet/pull/25?',
+        idempotencyKey: 'ask-scout',
+      }),
+    );
+    const sender = core.state.ships.find((ship) => ship.id === lookoutId);
+    if (sender) {
+      sender.name = 'watch';
+    }
+
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({ messageId, senderShipId: lookoutId, senderName: 'watch', senderType: 'reviewer' }),
+    ]);
   });
 });
 
