@@ -118,6 +118,15 @@ describe('releasing a crewed ship', () => {
     expect(deliveries).toEqual([expect.objectContaining({ deliveryId, attempts: 2 })]);
   });
 
+  it('wakes the receivers of the type a returned type delivery is for, as a send does', async () => {
+    const deliveryId = await inFlightWith(scout, { kind: 'type', type: 'reviewer' });
+    core.state.notices.length = 0;
+
+    unwrap(await releaseShip(argo, { shipId: scoutId }));
+
+    expect(core.state.notices).toEqual([{ fleetId, deliveryId, recipient: { kind: 'type', type: 'reviewer' } }]);
+  });
+
   it('returns a type delivery in flight to the queue of its type, and another ship of that type receives it', async () => {
     const deliveryId = await inFlightWith(scout, { kind: 'type', type: 'reviewer' });
 

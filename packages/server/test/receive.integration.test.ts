@@ -134,6 +134,8 @@ describe('receiving on Postgres', () => {
           deliveryId,
           messageId: message.id,
           senderShipId: argo.shipId,
+          senderName: 'argo',
+          senderType: 'operator',
           recipient: { kind: 'ship', shipId: scout.shipId },
           payload: message.payload,
           contentType: 'text/plain',
@@ -158,6 +160,23 @@ describe('receiving on Postgres', () => {
         deliveryId,
         details: { leaseId: scout.leaseId, attempts: 1 },
       }),
+    ]);
+  });
+
+  it("hands over the sender's name as it is now: renamed after the send, by its new name, with its type", async () => {
+    const { messageId } = unwrap(
+      await useCases.sendMessage(lookout, {
+        selector: toShip(scout),
+        payload: 'Can you take https://github.com/ThomasHendrickx/aeolus-fleet/pull/25?',
+        idempotencyKey: 'ask-scout',
+      }),
+    );
+    await prisma.ship.update({ where: { id: lookout.shipId }, data: { name: 'watch' } });
+
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({ messageId, senderShipId: lookout.shipId, senderName: 'watch', senderType: 'reviewer' }),
     ]);
   });
 

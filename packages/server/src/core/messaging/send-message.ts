@@ -5,6 +5,7 @@ import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
+import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -12,7 +13,7 @@ import { contentType } from './content-type.js';
 import { idempotencyKey } from './idempotency-key.js';
 import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MessageRepository, Notifier, RequestHasher } from './ports.js';
+import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends ResolveSelectorTx {
@@ -25,8 +26,8 @@ export interface SendMessageTx extends ResolveSelectorTx {
 export interface MessageToSend {
   selector: Selector;
   payload: string;
-  /** Any well-formed media type, passed on untouched. */
-  contentType: string;
+  /** Any well-formed media type, passed on untouched; text/plain when the sender gives none. */
+  contentType?: string;
   idempotencyKey: string;
   /** The id of the message, in the same fleet, this one replies to. */
   inReplyTo?: MessageId;
@@ -52,7 +53,8 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * wakes its receivers are one unit of work: the sender gets its id only once
  * all of it is committed (ADR 0003). A payload over 64 KB, a content type that
  * is no media type or a bad key is refused before the unit of work starts, so
- * nothing is stored.
+ * nothing is stored. Without a content type the message is text/plain: the
+ * same request as one that names text/plain.
  *
  * A repeat, the same sender with the same idempotency key and the same
  * request, returns the original message's id and stores nothing; the same key

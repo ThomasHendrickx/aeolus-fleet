@@ -1,5 +1,5 @@
 import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
@@ -10,6 +10,7 @@ import { createDeregister } from '../src/core/registry/deregister.js';
 import { createReleaseShip } from '../src/core/registry/release-ship.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { DomainError } from '../src/core/shared/errors.js';
+import type { DeliveryNotice } from '../src/core/shared/notifier.js';
 import type { Result } from '../src/core/shared/result.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
@@ -22,9 +23,10 @@ import { unwrap } from './support/result.js';
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
 // together; what the lease held in flight goes back to its ship or its type,
-// attempts kept, and the next crew receives it; a release racing a receive
-// never leaves a delivery claimed by an ended lease; a waiting receive never
-// holds a release up; a failed release stores nothing.
+// attempts kept, and the next crew receives it, and a receive of another ship
+// of the type that waits gets it at once; a release racing a receive never
+// leaves a delivery claimed by an ended lease; a waiting receive never holds a
+// release up; a failed release stores nothing and wakes nobody.
 
 const newId = createIdGenerator();
 /** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
@@ -33,11 +35,15 @@ const WAIT_MS = 2_000;
 const SETTLE_MS = 300;
 /** A release that finishes within this while a receive waits was not held up by it. */
 const PROMPTLY_MS = 1_000;
+/** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
+const LONG_WAIT_MS = 15_000;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
 let wakeups: ReceiverWakeupHub;
 let listener: DeliveryListener;
+/** Every notice the listener heard, in commit order. */
+let notices: DeliveryNotice[];
 let useCases: UseCases;
 let fleetId: FleetId;
 let argo: Caller;
@@ -55,9 +61,11 @@ beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
   wakeups = createReceiverWakeups();
+  notices = [];
   listener = listenForPendingDeliveries({
     databaseUrl,
     onNotice: (notice) => {
+      notices.push(notice);
       wakeups.deliveryPending(notice);
     },
     onListening: () => {
@@ -131,6 +139,45 @@ function stored(deliveryId: DeliveryId) {
 
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** A receive by the crew that waits up to the given time on an empty inbox. */
+function receiveWaiting(crewed: Crewed, waitMs: number) {
+  return createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups, waitMs })(
+    crewed.crew,
+    {},
+  );
+}
+
+/**
+ * Sends a message from argo to argo that commits, and waits for its notice.
+ * Postgres hands one listener its notices in commit order, so once this one
+ * arrives, every notice of a transaction that committed before it has too.
+ */
+async function probe(): Promise<void> {
+  const deliveryId = await sendTo({ kind: 'ship', shipId: argo.shipId });
+  await vi.waitFor(() => {
+    expect(notices.map((notice) => notice.deliveryId)).toContain(deliveryId);
+  });
+}
+
+/** The Prisma unit of work, failing right after the use case queued its first notice. */
+function failingAfterItsNotice(): UnitOfWork<PrismaTx> {
+  const uow = createPrismaUnitOfWork(prisma);
+  return {
+    run: (work) =>
+      uow.run((tx) =>
+        work({
+          ...tx,
+          notifier: {
+            deliveryPending: async (notice) => {
+              await tx.notifier.deliveryPending(notice);
+              throw new Error('disk full');
+            },
+          },
+        }),
+      ),
+  };
 }
 
 /** A way a lease ends cleanly, and the reason its LeaseRevoked records. */
@@ -225,6 +272,19 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
     ]);
   });
 
+  it('wakes a receive of another ship of the type waiting on an empty inbox: it gets the returned type delivery at once', async () => {
+    const deliveryId = await sendTo(toReviewers);
+    expect(await receive(scout)).toEqual([deliveryId]);
+    const startedAt = performance.now();
+    const receiving = receiveWaiting(lookout, LONG_WAIT_MS);
+    await pause(SETTLE_MS);
+
+    unwrap(await end(scout));
+
+    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
+  });
+
   it('completes promptly while a receive of the crew waits, and the receive answers without deliveries', async () => {
     const receiving = useCases.receiveDeliveries(scout.crew, {});
     await pause(SETTLE_MS);
@@ -261,6 +321,21 @@ describe('a release that fails', () => {
       leaseId: scout.crew.leaseId,
     });
   });
+
+  it('after it queued the notice of a returned delivery, stores nothing and wakes nobody', async () => {
+    const deliveryId = await sendTo(toReviewers);
+    expect(await receive(scout)).toEqual([deliveryId]);
+    await probe();
+    notices.length = 0;
+    const before = await everyRow(prisma);
+    const failingRelease = createReleaseShip({ uow: failingAfterItsNotice(), clock: systemClock, ids: newId });
+
+    await expect(failingRelease(argo, { shipId: scout.crew.shipId })).rejects.toThrow('disk full');
+
+    await expect(everyRow(prisma)).resolves.toBe(before);
+    await probe();
+    expect(notices.map((notice) => notice.recipient)).toEqual([{ kind: 'ship', shipId: argo.shipId }]);
+  });
 });
 
 describe('a deregister that fails', () => {
@@ -282,6 +357,21 @@ describe('a deregister that fails', () => {
     await expect(failingDeregister(scout.crew)).rejects.toThrow('disk full');
 
     await expect(everyRow(prisma)).resolves.toBe(before);
+  });
+
+  it('after it queued the notice of a returned delivery, stores nothing and wakes nobody', async () => {
+    const deliveryId = await sendTo(toReviewers);
+    expect(await receive(scout)).toEqual([deliveryId]);
+    await probe();
+    notices.length = 0;
+    const before = await everyRow(prisma);
+    const failingDeregister = createDeregister({ uow: failingAfterItsNotice(), clock: systemClock, ids: newId });
+
+    await expect(failingDeregister(scout.crew)).rejects.toThrow('disk full');
+
+    await expect(everyRow(prisma)).resolves.toBe(before);
+    await probe();
+    expect(notices.map((notice) => notice.recipient)).toEqual([{ kind: 'ship', shipId: argo.shipId }]);
   });
 });
 

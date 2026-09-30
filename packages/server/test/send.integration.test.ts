@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
-import type { DeliveryNotice } from '../src/core/messaging/ports.js';
+import type { DeliveryNotice } from '../src/core/shared/notifier.js';
 import { createSendMessage, type MessageToSend } from '../src/core/messaging/send-message.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';

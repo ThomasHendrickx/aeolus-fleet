@@ -42,6 +42,9 @@ export const receivedDeliverySchema = z.object({
   deliveryId: idSchema('delivery'),
   messageId: idSchema('message'),
   senderShipId: idSchema('ship'),
+  /** The sender's name and type as they are when the delivery is received: a renamed sender goes by its new name. */
+  senderName: z.string(),
+  senderType: z.string(),
   recipient: recipientSchema,
   payload: z.string(),
   contentType: z.string(),

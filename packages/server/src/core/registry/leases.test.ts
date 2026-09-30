@@ -179,6 +179,25 @@ describe('ending a lease', () => {
     expect(stored(lookouts.deliveryId)).toMatchObject({ state: 'delivered', claimedByLeaseId: lookout.leaseId });
   });
 
+  it('wakes whoever waits for each returned delivery, as a send does: a notice for its ship or its type, oldest first', async () => {
+    const direct = deliveryInFlight(core, { fleetId, shipId: scoutId, leaseId: scout.leaseId });
+    core.clock.advance(1_000);
+    const forType = deliveryInFlight(core, {
+      fleetId,
+      shipId: scoutId,
+      leaseId: scout.leaseId,
+      recipient: { kind: 'type', type: 'reviewer' },
+    });
+    deliveryInFlight(core, { fleetId, shipId: lookout.shipId, leaseId: lookout.leaseId });
+
+    await endScoutLease();
+
+    expect(core.state.notices).toEqual([
+      { fleetId, deliveryId: direct.deliveryId, recipient: { kind: 'ship', shipId: scoutId } },
+      { fleetId, deliveryId: forType.deliveryId, recipient: { kind: 'type', type: 'reviewer' } },
+    ]);
+  });
+
   it('writes LeaseRevoked, then one DeliveryReturned per returned delivery, oldest first, caused by whoever ended the lease', async () => {
     const older = deliveryInFlight(core, { fleetId, shipId: scoutId, leaseId: scout.leaseId, attempts: 1 });
     core.clock.advance(1_000);

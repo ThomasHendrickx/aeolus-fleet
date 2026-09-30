@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -16,4 +16,22 @@ export async function findOperatorShip(
 ): Promise<Result<Ship, DomainError<'FLEET_NOT_FOUND'>>> {
   const ship = await tx.ships.findOperatorShip(fleetId);
   return ship ? ok(ship) : refuse('FLEET_NOT_FOUND', `Fleet ${fleetId} does not exist`);
+}
+
+/** The ports finding a ship reads, inside the caller's unit of work. */
+export interface FindShipTx {
+  ships: Pick<ShipRepository, 'find'>;
+}
+
+/**
+ * A ship of the fleet as it is now, retired or not: its current name and
+ * type. Messaging's question when it hands a crew a delivery, so the crew can
+ * answer the sender by name. Read without a lock.
+ */
+export async function findShip(
+  tx: FindShipTx,
+  input: { fleetId: FleetId; shipId: ShipId },
+): Promise<Result<Ship, DomainError<'SHIP_NOT_FOUND'>>> {
+  const ship = await tx.ships.find(input.fleetId, input.shipId);
+  return ship ? ok(ship) : refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
 }

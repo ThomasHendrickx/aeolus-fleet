@@ -28,6 +28,9 @@ export function payloadBytes(payload: string): number {
 /** The longest content type a sender may give, parameters included. */
 export const CONTENT_TYPE_MAX_LENGTH = 256;
 
+/** A payload's content type when its sender does not say. */
+export const CONTENT_TYPE_DEFAULT = 'text/plain';
+
 // A media type as RFC 9110 defines it ("Media Type"): type "/" subtype, then
 // parameters, each `;` name `=` a token or a quoted string, with optional
 // spaces or tabs around the `;`. Empty parameters are allowed, as there.
@@ -77,7 +80,8 @@ export const sendInputSchema = z.object({
       (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
       `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
     ),
-  contentType: contentTypeSchema,
+  /** Without it, the payload is text/plain. */
+  contentType: contentTypeSchema.optional(),
   idempotencyKey: z.string().min(1).max(IDEMPOTENCY_KEY_MAX_LENGTH),
   /** The id of the message, in the same fleet, that this one replies to. */
   inReplyTo: idSchema('message').optional(),

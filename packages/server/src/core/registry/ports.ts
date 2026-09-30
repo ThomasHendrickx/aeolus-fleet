@@ -1,5 +1,6 @@
 import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
+import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
@@ -68,10 +69,12 @@ export interface LeaseRepository {
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }
 
-/** A delivery a lease held in flight, pending again: which one, the message it carries and its claims so far. */
+/** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */
 export interface ReturnedDelivery {
   deliveryId: DeliveryId;
   messageId: MessageId;
+  /** The ship or the type it is pending for again. */
+  recipient: Recipient;
   attempts: number;
 }
 

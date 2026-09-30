@@ -2,6 +2,7 @@ import type { FleetId, IdGenerator, LeaseId, ShipId, ShipKind } from '@aeolus-fl
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
+import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import { refuseEndedLease, type LeaseEnded, type LeaseEndReason, type Location } from './lease.js';
 import type { InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
@@ -12,6 +13,7 @@ export interface LeaseTx {
   leases: LeaseRepository;
   inFlightDeliveries: InFlightDeliveries;
   events: EventLog;
+  notifier: Notifier;
 }
 
 /** What the lease operations work with: the caller's unit of work and its id generator. */
@@ -58,8 +60,10 @@ export async function takeOverOperatorLease(
  * ship awaits a new crew, and the deliveries the lease held in flight return
  * to pending, to the ship's inbox or its type's queue, their attempts kept.
  * Writes LeaseRevoked, then DeliveryReturned for each returned delivery, all
- * caused by whoever ended the lease. Returns false when the lease had already
- * ended.
+ * caused by whoever ended the lease, and wakes whoever waits for each, as a
+ * send does: another ship of the type takes a returned type delivery at once.
+ * The wake-up reaches them only once the unit of work commits. Returns false
+ * when the lease had already ended.
  */
 export async function endLease(
   deps: LeaseDeps,
@@ -80,7 +84,7 @@ export async function endLease(
     type: 'LeaseRevoked',
     details: { leaseId, reason, returnedDeliveries: returned.length },
   });
-  for (const { deliveryId, messageId, attempts } of returned) {
+  for (const { deliveryId, messageId, recipient, attempts } of returned) {
     await recordEvent({ events: tx.events, ids }, {
       ...concerns,
       type: 'DeliveryReturned',
@@ -88,6 +92,7 @@ export async function endLease(
       deliveryId,
       details: { leaseId, attempts },
     });
+    await tx.notifier.deliveryPending({ fleetId, deliveryId, recipient });
   }
   return true;
 }
