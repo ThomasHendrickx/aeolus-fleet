@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
-import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 
 import type { Clock } from '../../core/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
 import { registerRestApi } from '../rest/rest-api.js';
 import type { Context, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
+import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
 import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
 
@@ -37,6 +38,27 @@ export interface HttpServerOptions {
   consoleOrigin: string;
 }
 
+/**
+ * Refusals Fastify raises itself, before any route runs, by its error code:
+ * our code and words, never Fastify's, whose messages may echo the request.
+ */
+const FASTIFY_REFUSALS: Readonly<Record<string, { httpStatus: number; code: string; message: string }>> = {
+  FST_ERR_CTP_INVALID_JSON_BODY: { httpStatus: 400, code: 'BAD_REQUEST', message: 'The request body is not valid JSON' },
+  FST_ERR_CTP_EMPTY_JSON_BODY: { httpStatus: 400, code: 'BAD_REQUEST', message: 'The request body is not valid JSON' },
+  FST_ERR_CTP_BODY_TOO_LARGE: { httpStatus: 413, code: 'PAYLOAD_TOO_LARGE', message: 'The request body is over 1 MiB' },
+  FST_ERR_CTP_INVALID_MEDIA_TYPE: {
+    httpStatus: 415,
+    code: 'UNSUPPORTED_MEDIA_TYPE',
+    message: 'The request body must be JSON',
+  },
+};
+
+/** Any other request Fastify cannot read. */
+const UNREADABLE_REQUEST = { httpStatus: 400, code: 'BAD_REQUEST', message: 'The request cannot be read' };
+
+/** Fastify's own limit on a request body, which its refusal above names: 1 MiB. */
+const BODY_LIMIT_BYTES = 1024 * 1024;
+
 /** How long a browser may keep the answer to a preflight, in seconds. */
 const PREFLIGHT_MAX_AGE_S = 600;
 
@@ -60,7 +82,25 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     genReqId: () => randomUUID(),
     // tRPC batches several procedure paths into one URL segment.
     routerOptions: { maxParamLength: 5000 },
+    bodyLimit: BODY_LIMIT_BYTES,
   });
+
+  // Set first, so every door inherits it. A route's own failures are its own
+  // to answer; what reaches this is an error Fastify raised itself.
+  // eslint-disable-next-line @typescript-eslint/max-params -- Fastify calls its error handler with three arguments.
+  server.setErrorHandler(async (error: FastifyError, request, reply) => {
+    const isRefusal = error.statusCode !== undefined && error.statusCode < 500;
+    const refusal = FASTIFY_REFUSALS[error.code] ?? (isRefusal ? UNREADABLE_REQUEST : undefined);
+    if (refusal !== undefined) {
+      return reply.code(refusal.httpStatus).send({ code: refusal.code, message: refusal.message });
+    }
+    const failure = unexpectedFailure(error, { log: request.log, requestId: request.id });
+    return reply.code(failure.httpStatus).send(refusalBody(failure));
+  });
+
+  server.setNotFoundHandler(async (_request, reply) =>
+    reply.code(404).send({ code: 'NOT_FOUND', message: 'Nothing is served at this path' }),
+  );
 
   const signInLimiter = createRateLimiter(options.signInRateLimit ?? DEFAULT_SIGN_IN_RATE_LIMIT, options.clock);
   const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
