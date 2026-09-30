@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  CONTENT_TYPE_DEFAULT,
   CONTENT_TYPE_MAX_LENGTH,
   contentTypeSchema,
   isMediaType,
@@ -66,6 +67,12 @@ describe('isMediaType', () => {
   });
 });
 
+describe('the content type', () => {
+  it('is text/plain unless the sender says otherwise', () => {
+    expect(CONTENT_TYPE_DEFAULT).toBe('text/plain');
+  });
+});
+
 describe('contentTypeSchema', () => {
   it('keeps the content type exactly as sent: case and parameters stay', () => {
     expect(contentTypeSchema.parse('Text/Markdown;  charset="UTF-8"')).toBe('Text/Markdown;  charset="UTF-8"');
@@ -124,6 +131,12 @@ describe('sendInputSchema', () => {
     expect(sendInputSchema.parse({ ...input, contentType }).contentType).toBe(contentType);
   });
 
+  it('accepts a send without a content type: the sender leaves it to the default', () => {
+    const withoutContentType = { selector: input.selector, payload: input.payload, idempotencyKey: input.idempotencyKey };
+
+    expect(sendInputSchema.parse(withoutContentType)).toEqual(withoutContentType);
+  });
+
   it('accepts the message it replies to', () => {
     const inReplyTo = newId('message');
 
@@ -159,7 +172,6 @@ describe('sendInputSchema', () => {
     ['an idempotency key over 256 characters', { ...input, idempotencyKey: 'k'.repeat(257) }],
     ['no idempotency key', { selector: input.selector, payload: input.payload, contentType: input.contentType }],
     ['a payload that is not text', { ...input, payload: { review: 22 } }],
-    ['no content type', { selector: input.selector, payload: input.payload, idempotencyKey: input.idempotencyKey }],
     ['a content type that is not a media type', { ...input, contentType: 'json' }],
     ['an unknown selector', { ...input, selector: { kind: 'fleet' } }],
     ['a reply to an id of another kind', { ...input, inReplyTo: newId('delivery') }],
