@@ -124,7 +124,7 @@ flowchart LR
   idn --> db
 ```
 
-The operator and the agents use the same API. The only dependency between contexts is Messaging asking Registry who a selector resolves to and whether a ship is retired. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
+The operator and the agents use the same API. The only dependency between contexts is Messaging asking Registry who a selector resolves to, whether a ship is retired, and a sender's current name and type. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
 
 ### Aggregates and invariants
 
@@ -152,7 +152,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
-| `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept. One per returned delivery, written with `LeaseRevoked` |
+| `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 
@@ -227,8 +227,8 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | --- | --- | --- |
 | `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
-| `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
-| `send` | Sends a payload to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
+| `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), each with its message and its sender's id, name and type (the name the sender has now, so a crew answers it by name), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
+| `send` | Sends a payload with its content type (`text/plain` unless the sender says otherwise) to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
 
