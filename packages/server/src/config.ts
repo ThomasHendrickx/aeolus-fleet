@@ -33,6 +33,9 @@ const environmentSchema = z.object({
     .optional(),
 });
 
+/** What `aeolus-server migrate` reads: the database alone. */
+const databaseEnvironmentSchema = environmentSchema.pick({ DATABASE_URL: true });
+
 export interface Config {
   databaseUrl: string;
   /** Where ships reach the fleet: every starting prompt carries the fleet MCP URL under it. */
@@ -56,6 +59,21 @@ export class ConfigError extends Error {
   override name = 'ConfigError';
 }
 
+/** Every invalid variable, one line each, never its value. */
+function configErrorOf(error: z.ZodError): ConfigError {
+  const problems = error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
+  return new ConfigError(`Invalid configuration:\n${problems.join('\n')}`);
+}
+
+/** Reads DATABASE_URL alone, for a command that needs nothing else. Throws a ConfigError when it is invalid. */
+export function loadDatabaseUrl(environment: Record<string, string | undefined>): string {
+  const result = databaseEnvironmentSchema.safeParse(environment);
+  if (!result.success) {
+    throw configErrorOf(result.error);
+  }
+  return result.data.DATABASE_URL;
+}
+
 /**
  * Reads the server configuration from environment variables. Throws a
  * ConfigError naming every invalid variable. Values are never echoed, because
@@ -64,8 +82,7 @@ export class ConfigError extends Error {
 export function loadConfig(environment: Record<string, string | undefined>): Config {
   const result = environmentSchema.safeParse(environment);
   if (!result.success) {
-    const problems = result.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
-    throw new ConfigError(`Invalid configuration:\n${problems.join('\n')}`);
+    throw configErrorOf(result.error);
   }
 
   const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN } = result.data;

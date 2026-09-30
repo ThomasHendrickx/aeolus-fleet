@@ -4,6 +4,7 @@ import type { RateLimit } from './adapters/http/rate-limiter.js';
 import { buildHttpServer } from './adapters/http/server.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
+import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './core/shared/clock.js';
 import { createUseCases, systemClock } from './wiring.js';
@@ -59,8 +60,25 @@ export function createApp(options: AppOptions): FastifyInstance {
       wakeups.wakeAll();
     },
     onError: (error) => {
-      server.log.warn({ reason: error.message }, 'delivery listener lost its connection: listening again shortly');
+      server.log.warn(failureForLog(error), 'delivery listener lost its connection: listening again shortly');
     },
+  });
+
+  // Before the server stops taking requests and waits for the ones it holds:
+  // a waiting receive answers no deliveries at once instead of holding it up.
+  // Connections idle at that moment close at once (Fastify's default); one
+  // whose request ends later is told to close with its answer, or it would
+  // stay open, idle, until its keep-alive timeout.
+  let isStopping = false;
+  server.addHook('preClose', (done) => {
+    isStopping = true;
+    wakeups.endAll();
+    done();
+  });
+  server.addHook('onSend', async (_request, reply) => {
+    if (isStopping) {
+      void reply.header('connection', 'close');
+    }
   });
 
   server.addHook('onClose', async () => {

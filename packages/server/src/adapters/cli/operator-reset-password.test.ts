@@ -140,4 +140,16 @@ describe('operator:reset-password', () => {
       }),
     ).resolves.toBe(2);
   });
+
+  it('refuses a new password holding U+0000, as the API does, and changes nothing', async () => {
+    const io = scriptedIo(['staple\u0000battery', 'staple\u0000battery']);
+    const resetOperatorPassword = vi.fn(reset);
+
+    await expect(
+      operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword, io }),
+    ).resolves.toBe(1);
+
+    expect(resetOperatorPassword).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was changed.']);
+  });
 });

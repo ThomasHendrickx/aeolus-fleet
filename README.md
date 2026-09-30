@@ -62,6 +62,8 @@ npm run dev --workspace @aeolus-fleet/server            # API on http://127.0.0.
 npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000, sign in with that email and password
 ```
 
+Installed from npm, the same runs as `aeolus-server migrate`, `aeolus-server fleet:init`, `aeolus-server start` and `aeolus-web start`, with every setting from environment variables: see the [server](packages/server/README.md) and [web](packages/web/README.md) READMEs.
+
 Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
 
 ## Contributing

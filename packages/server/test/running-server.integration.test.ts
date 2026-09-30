@@ -1,3 +1,6 @@
+import { Agent, get } from 'node:http';
+
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { createIdGenerator, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
@@ -19,6 +22,8 @@ import { unwrap } from './support/result.js';
 const newId = createIdGenerator();
 /** A receive that must end early: it proves a wake-up, not a timeout. */
 const LONG_WAIT_MS = 15_000;
+/** A stop that ends waits and connections at once, well before any receive wait or keep-alive timeout would. */
+const STOPS_AT_ONCE_MS = 2_000;
 /** Time for a receive to start waiting. */
 const SETTLE_MS = 300;
 
@@ -41,9 +46,13 @@ afterEach(async () => {
   await database.$disconnect();
 });
 
-/** Starts the server on the test database and returns its address. */
-async function start(receiveWaitMs = LONG_WAIT_MS): Promise<{ server: FastifyInstance; address: string }> {
-  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs });
+/** Starts the server on the test database and returns its address. Its log lines go to `logLines` when given. */
+async function start(
+  receiveWaitMs = LONG_WAIT_MS,
+  logLines?: string[],
+): Promise<{ server: FastifyInstance; address: string }> {
+  const logger = logLines && { level: 'info', stream: { write: (line: string) => void logLines.push(line) } };
+  const server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: logger ?? false, receiveWaitMs });
   running.push(server);
   return { server, address: await server.listen({ host: '127.0.0.1', port: 0 }) };
 }
@@ -128,4 +137,61 @@ describe('the running server', () => {
     });
   });
 
+  it('ends a waiting receive at once when it stops: the receive answers no deliveries', async () => {
+    const logLines: string[] = [];
+    const { server, address } = await start(LONG_WAIT_MS, logLines);
+    const receiver = await crewed(address, 'mooring');
+    const receiving = client(address, receiver.crewToken).ship.receive.mutate({});
+    // Stopped only once the receive reached the server: a request still on its way would meet a closing socket.
+    await expect.poll(() => logLines.some((line) => line.includes('ship.receive'))).toBe(true);
+    await pause(SETTLE_MS);
+    const stoppingAt = performance.now();
+
+    await stop(server);
+
+    expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
+    await expect(receiving).resolves.toEqual({ deliveries: [] });
+  });
+
+  it('closes an idle keep-alive connection at once when it stops', async () => {
+    const { server, address } = await start();
+    const agent = new Agent({ keepAlive: true });
+    const { port } = new URL(address);
+    const closed = new Promise<void>((resolve, reject) => {
+      const request = get({ host: '127.0.0.1', port, path: '/health', agent }, (response) => {
+        response.resume();
+        response.on('end', () => {
+          // The connection stays open, idle, for the next request.
+          request.socket?.once('close', () => {
+            resolve();
+          });
+        });
+      });
+      request.on('error', reject);
+    });
+    await pause(SETTLE_MS);
+    const stoppingAt = performance.now();
+
+    await stop(server);
+    await closed;
+
+    expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
+    agent.destroy();
+  });
+
+  it('stops at once while an MCP session stays connected', async () => {
+    const { server, address } = await start();
+    const session = new Client({ name: 'ship-session', version: '1.0.0' });
+    await session.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`)));
+    await pause(SETTLE_MS);
+    const stoppingAt = performance.now();
+
+    try {
+      await stop(server);
+    } finally {
+      await session.close();
+    }
+
+    expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
+  });
 });

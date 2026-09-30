@@ -783,3 +783,82 @@ describe('text input holding the character U+0000', () => {
     expect(core.state.messages).toEqual([]);
   });
 });
+
+describe('errors Fastify raises itself', () => {
+  // Before any route runs, Fastify refuses a request it cannot read. Those
+  // refusals have the shape of every other: a code and a message.
+
+  it('refuse a body that is not JSON with 400 BAD_REQUEST', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/send',
+      headers: { 'content-type': 'application/json' },
+      payload: '{ not json',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ code: 'BAD_REQUEST', message: 'The request body is not valid JSON' });
+  });
+
+  it('refuse an empty JSON body with 400 BAD_REQUEST', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/send',
+      headers: { 'content-type': 'application/json' },
+      payload: '',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ code: 'BAD_REQUEST', message: 'The request body is not valid JSON' });
+  });
+
+  it('refuse a body over 1 MiB with 413 PAYLOAD_TOO_LARGE', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/send',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ payload: 'x'.repeat(1024 * 1024) }),
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json()).toEqual({ code: 'PAYLOAD_TOO_LARGE', message: 'The request body is over 1 MiB' });
+  });
+
+  it('refuse a body that is not JSON by its content type with 415 UNSUPPORTED_MEDIA_TYPE', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/send',
+      headers: { 'content-type': 'application/xml' },
+      payload: '<send/>',
+    });
+
+    expect(response.statusCode).toBe(415);
+    expect(response.json()).toEqual({ code: 'UNSUPPORTED_MEDIA_TYPE', message: 'The request body must be JSON' });
+  });
+
+  it('answer an unknown route with 404 NOT_FOUND, without echoing the path', async () => {
+    start();
+
+    const response = await server.inject({ method: 'GET', url: '/nowhere/aeolus_sk_v1_secret' });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ code: 'NOT_FOUND', message: 'Nothing is served at this path' });
+  });
+
+  it('answer a known path with the wrong method as 404 NOT_FOUND too', async () => {
+    start();
+
+    const response = await server.inject({ method: 'DELETE', url: '/api/v1/ship/send' });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ code: 'NOT_FOUND', message: 'Nothing is served at this path' });
+  });
+});

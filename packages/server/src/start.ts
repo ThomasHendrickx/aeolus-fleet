@@ -1,8 +1,15 @@
+import { migrateDatabase } from './adapters/prisma/migrate.js';
 import { createApp } from './app.js';
-import { ConfigError, loadConfig } from './config.js';
+import { loadConfig } from './config.js';
 
-async function start(): Promise<void> {
+/**
+ * `aeolus-server start`: migrates the database, then serves the fleet until
+ * SIGINT or SIGTERM. A stop ends waiting receives and closes idle
+ * connections at once (see app.ts).
+ */
+export async function start(): Promise<void> {
   const config = loadConfig(process.env);
+  await migrateDatabase(config.databaseUrl);
   const server = createApp({
     databaseUrl: config.databaseUrl,
     publicUrl: config.publicUrl,
@@ -20,11 +27,4 @@ async function start(): Promise<void> {
   }
 
   await server.listen({ host: config.host, port: config.port });
-}
-
-try {
-  await start();
-} catch (error) {
-  console.error(error instanceof ConfigError ? error.message : error);
-  process.exit(1);
 }

@@ -11,6 +11,7 @@ import { callTRPCProcedure, getTRPCErrorFromUnknown, type TRPC_ERROR_CODE_KEY, t
 import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 import { z } from 'zod';
 
+import { failureForLog, type LoggedFailure } from '../prisma/failure-log.js';
 import type { Context } from './context.js';
 import { appRouter } from './router.js';
 import { INTERNAL_ERROR_MESSAGE, ShipRefusalCode, type ProcedureMeta } from './trpc.js';
@@ -107,7 +108,7 @@ export type ShipCallResult = { isOk: true; output: unknown } | { isOk: false; re
 
 /** Where a failure is logged whole: the request's own logger, which labels it with the request's id. */
 export interface FailureLog {
-  error(details: { path?: string; reason: string; stack: string | undefined }, message: string): void;
+  error(details: { path?: string } & LoggedFailure, message: string): void;
 }
 
 /** A refusal as a JSON body: its code and message, and for a server failure the request's id. */
@@ -123,7 +124,7 @@ export function refusalBody(refusal: ShipCallRefusal): { code: string; message: 
  */
 export function unexpectedFailure(thrown: unknown, request: { log: FailureLog; requestId: string }): ShipCallRefusal {
   const error = getTRPCErrorFromUnknown(thrown);
-  request.log.error({ reason: error.message, stack: error.stack }, 'request failed');
+  request.log.error(failureForLog(error), 'request failed');
   return { code: 'INTERNAL_SERVER_ERROR', httpStatus: 500, message: INTERNAL_ERROR_MESSAGE, requestId: request.requestId };
 }
 
@@ -168,7 +169,7 @@ export async function callShip(
   } catch (thrown) {
     const error = getTRPCErrorFromUnknown(thrown);
     if (error.code === 'INTERNAL_SERVER_ERROR') {
-      log.error({ path: call.path, reason: error.message, stack: error.stack }, 'procedure failed');
+      log.error({ path: call.path, ...failureForLog(error) }, 'procedure failed');
     }
     return { isOk: false, refusal: refusalOf(error, ctx.requestId) };
   }

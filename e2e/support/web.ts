@@ -38,19 +38,25 @@ export async function reserveWebUrl(): Promise<string> {
 }
 
 /**
- * Starts the web app with `next dev` at the reserved URL, forwarding /trpc to
- * the given server, and waits until the sign-in page answers (the first
- * request compiles it). The console bundles common's built package, as
- * `npm run dev` does, so common is built first.
+ * Starts the web app with `next dev` at the reserved URL, with the given
+ * server as its AEOLUS_SERVER_URL, and waits until the sign-in page answers
+ * (the first request compiles it). The console bundles common's built
+ * package, as `npm run dev` does, so common is built first.
+ *
+ * The browser calls the server itself, so the server goes by `localhost`
+ * like the console: one site, or the SameSite=Strict session cookie would
+ * stay behind.
  */
 export async function startWeb(web: { url: string; serverUrl: string }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = new URL(url).port;
+  const sameSiteServer = new URL(serverUrl);
+  sameSiteServer.hostname = 'localhost';
   const nextBin = createRequire(`${webRoot}/package.json`).resolve('next/dist/bin/next');
   const child = spawn(process.execPath, [nextBin, 'dev', '--port', port], {
     cwd: webRoot,
-    env: { ...process.env, AEOLUS_SERVER_URL: serverUrl, NEXT_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, AEOLUS_SERVER_URL: sameSiteServer.origin, NEXT_TELEMETRY_DISABLED: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';

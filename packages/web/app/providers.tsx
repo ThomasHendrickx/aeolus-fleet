@@ -14,9 +14,20 @@ function retry(failureCount: number, error: unknown): boolean {
   return code !== 'UNAUTHORIZED' && code !== 'FORBIDDEN' && failureCount < 3;
 }
 
-export function Providers({ children }: { children: ReactNode }) {
+/**
+ * The browser calls the server itself, at the address the web app runs with.
+ * With credentials, so the session cookie goes along when the server is on
+ * another host under the cookie's domain.
+ */
+function withCredentials(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, { ...init, credentials: 'include' });
+}
+
+export function Providers({ serverUrl, children }: { serverUrl: string; children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
-  const [trpcClient] = useState(() => createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: '/trpc' })] }));
+  const [trpcClient] = useState(() =>
+    createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc`, fetch: withCredentials })] }),
+  );
 
   return (
     <QueryClientProvider client={queryClient}>

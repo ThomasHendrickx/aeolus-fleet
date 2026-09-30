@@ -12,7 +12,11 @@
   "engines": {
     "node": ">=26"
   },
+  "bin": {
+    "aeolus-web": "bin/aeolus-web.js"
+  },
   "files": [
+    "bin",
     ".next",
     "!.next/cache",
     "!.next/dev",
@@ -26,7 +30,7 @@
     "predev": "npm run build --workspace @aeolus-fleet/common",
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "next start --port 3000",
+    "start": "node bin/aeolus-web.js start",
     "typecheck": "next typegen && tsc --project tsconfig.json"
   },
   "dependencies": {

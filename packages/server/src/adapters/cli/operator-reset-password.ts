@@ -2,9 +2,9 @@ import { parseArgs } from 'node:util';
 
 import type { ResetOperatorPassword } from '../../core/identity/reset-operator-password.js';
 import type { ListFleets } from '../../core/registry/list-fleets.js';
-import { askNewPassword, type CommandIo, type ExitCode } from './io.js';
+import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
 
-const USAGE = 'Usage: npm run operator:reset-password -w @aeolus-fleet/server';
+const USAGE = 'Usage: aeolus-server operator:reset-password';
 
 /**
  * `operator:reset-password`: asks for a new operator password, sets it, and
@@ -41,6 +41,11 @@ export async function operatorResetPassword(
   }
   if (password.kind === 'differ') {
     io.err('The two passwords differ. Nothing was changed.');
+    return 1;
+  }
+  const refusal = nulRefusal([{ name: 'operator password', text: password.password }], 'Nothing was changed.');
+  if (refusal !== undefined) {
+    io.err(refusal);
     return 1;
   }
 

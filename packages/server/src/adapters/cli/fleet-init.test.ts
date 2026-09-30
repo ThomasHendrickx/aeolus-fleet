@@ -123,4 +123,36 @@ describe('fleet:init', () => {
     expect(io.stderr).toEqual(['A fleet already exists: a fleet is initialised only once']);
     expect(io.stdout).toEqual([]);
   });
+
+  // Postgres text can never store U+0000: the command refuses it as the API does, naming what holds it.
+  it('refuses a name holding U+0000 before asking anything, and creates nothing', async () => {
+    const io = scriptedIo(answers);
+    const initialiseFleet = vi.fn(initialised);
+
+    await expect(fleetInit(['--name', 'home\u0000fleet'], { initialiseFleet, io })).resolves.toBe(1);
+
+    expect(initialiseFleet).not.toHaveBeenCalled();
+    expect(io.questions).toEqual([]);
+    expect(io.stderr).toEqual(['The fleet name cannot hold the character U+0000 (NUL). Nothing was created.']);
+  });
+
+  it('refuses an email holding U+0000, and creates nothing', async () => {
+    const io = scriptedIo(['thomas\u0000@example.com', 'correct horse', 'correct horse']);
+    const initialiseFleet = vi.fn(initialised);
+
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(1);
+
+    expect(initialiseFleet).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['The operator email cannot hold the character U+0000 (NUL). Nothing was created.']);
+  });
+
+  it('refuses a password holding U+0000, and creates nothing', async () => {
+    const io = scriptedIo(['thomas@example.com', 'correct\u0000horse', 'correct\u0000horse']);
+    const initialiseFleet = vi.fn(initialised);
+
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(1);
+
+    expect(initialiseFleet).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was created.']);
+  });
 });
