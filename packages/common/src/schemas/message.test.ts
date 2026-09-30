@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  CONTENT_TYPE_MAX_LENGTH,
   contentTypeSchema,
+  isMediaType,
   PAYLOAD_MAX_BYTES,
   payloadBytes,
   selectorSchema,
@@ -30,13 +32,54 @@ describe('PAYLOAD_MAX_BYTES', () => {
   });
 });
 
-describe('contentTypeSchema', () => {
-  it('knows JSON and plain text, nothing else', () => {
-    expect(contentTypeSchema.options).toEqual(['application/json', 'text/plain']);
+describe('isMediaType', () => {
+  it.each([
+    'text/plain',
+    'application/json',
+    'text/html',
+    'application/vnd.aeolus.review+json',
+    'APPLICATION/JSON',
+    'text/markdown; charset=utf-8',
+    'text/plain;charset=UTF-8',
+    'text/plain; charset="utf-8"; format=flowed',
+    'multipart/form-data; boundary="a \\"quoted\\" boundary"',
+    'text/plain;',
+  ])('takes %j: type/subtype with optional parameters (RFC 9110)', (contentType) => {
+    expect(isMediaType(contentType)).toBe(true);
   });
 
-  it.each(['text/html', 'application/json; charset=utf-8', 'APPLICATION/JSON', ''])('rejects %j', (contentType) => {
-    expect(contentTypeSchema.safeParse(contentType).success).toBe(false);
+  it.each([
+    '',
+    'text',
+    'text/',
+    '/plain',
+    'text/plain/extra',
+    'text/pl ain',
+    ' text/plain',
+    'text/plain ',
+    'text/plain; charset',
+    'text/plain; =utf-8',
+    'text/plain; charset="unterminated',
+    'tëxt/plain',
+  ])('refuses %j', (contentType) => {
+    expect(isMediaType(contentType)).toBe(false);
+  });
+});
+
+describe('contentTypeSchema', () => {
+  it('keeps the content type exactly as sent: case and parameters stay', () => {
+    expect(contentTypeSchema.parse('Text/Markdown;  charset="UTF-8"')).toBe('Text/Markdown;  charset="UTF-8"');
+  });
+
+  it(`accepts ${CONTENT_TYPE_MAX_LENGTH} characters and refuses one more`, () => {
+    const atTheLimit = `application/${'x'.repeat(CONTENT_TYPE_MAX_LENGTH - 'application/'.length)}`;
+
+    expect(contentTypeSchema.safeParse(atTheLimit).success).toBe(true);
+    expect(contentTypeSchema.safeParse(`${atTheLimit}x`).success).toBe(false);
+  });
+
+  it('refuses what is not a media type', () => {
+    expect(contentTypeSchema.safeParse('plain text').success).toBe(false);
   });
 });
 
@@ -75,6 +118,12 @@ describe('sendInputSchema', () => {
     expect(sendInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts any media type as the content type, as sent', () => {
+    const contentType = 'application/vnd.aeolus.review+json; version=2';
+
+    expect(sendInputSchema.parse({ ...input, contentType }).contentType).toBe(contentType);
+  });
+
   it('accepts the message it replies to', () => {
     const inReplyTo = newId('message');
 
@@ -111,7 +160,7 @@ describe('sendInputSchema', () => {
     ['no idempotency key', { selector: input.selector, payload: input.payload, contentType: input.contentType }],
     ['a payload that is not text', { ...input, payload: { review: 22 } }],
     ['no content type', { selector: input.selector, payload: input.payload, idempotencyKey: input.idempotencyKey }],
-    ['an unknown content type', { ...input, contentType: 'text/html' }],
+    ['a content type that is not a media type', { ...input, contentType: 'json' }],
     ['an unknown selector', { ...input, selector: { kind: 'fleet' } }],
     ['a reply to an id of another kind', { ...input, inReplyTo: newId('delivery') }],
   ])('rejects %s', (_label, candidate) => {

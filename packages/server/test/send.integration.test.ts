@@ -147,6 +147,16 @@ describe('sending a message on Postgres', () => {
     });
   });
 
+  it('stores the content type exactly as sent', async () => {
+    const contentType = 'application/vnd.aeolus.review+json; charset="UTF-8"';
+
+    const { messageId } = unwrap(await core.useCases.sendMessage(argo, aReview({ contentType })));
+
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      contentType,
+    });
+  });
+
   it("resolves a name to the ship's id, and a type to its queue", async () => {
     unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' } })));
     unwrap(await core.useCases.sendMessage(argo, aReview({ selector: { kind: 'type', type: 'reviewer' } })));

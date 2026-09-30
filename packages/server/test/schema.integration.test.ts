@@ -405,7 +405,7 @@ describe('messages', () => {
   /** A message from the sender, to the type queue `reviewer` unless given other selector columns. */
   function message(
     fleetId: FleetId,
-    sent: { senderShipId: ShipId; idempotencyKey?: string; contentType?: string; selector?: SelectorColumns },
+    sent: { senderShipId: ShipId; idempotencyKey?: string; selector?: SelectorColumns },
   ) {
     const { selector = { selectorKind: 'type', selectorType: 'reviewer' }, ...columns } = sent;
     return database.message.create({
@@ -466,18 +466,6 @@ describe('messages', () => {
     await expect(
       message(fleetId, { senderShipId: sender, selector: { selectorKind: 'ship', selectorShipId: shipOfAnotherFleet } }),
     ).rejects.toThrow(/Foreign key constraint/);
-  });
-
-  it('take JSON or plain text as the content type, nothing else', async () => {
-    const fleetId = await createFleet();
-    const sender = await createShip(fleetId);
-
-    await expect(message(fleetId, { senderShipId: sender, contentType: 'text/plain' })).resolves.toMatchObject({
-      contentType: 'text/plain',
-    });
-    await expect(message(fleetId, { senderShipId: sender, contentType: 'text/html' })).rejects.toThrow(
-      /messages_content_type_known/,
-    );
   });
 });
 

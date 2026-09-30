@@ -130,6 +130,14 @@ describe('sending a message to a ship', () => {
     ]);
   });
 
+  it('stores the content type exactly as sent, whatever media type it names', async () => {
+    const contentType = 'Application/Vnd.Aeolus.Review+JSON; version="2"';
+
+    await sent(argo, aReview({ contentType }));
+
+    expect(core.state.messages.map((message) => message.contentType)).toEqual([contentType]);
+  });
+
   it.each([
     { label: 'one-byte characters', payload: 'a'.repeat(65_536) },
     { label: 'two-byte characters', payload: 'é'.repeat(32_768) },
@@ -379,6 +387,10 @@ describe('a send refused', () => {
     });
 
     await expectRefused(aReview({ inReplyTo }), { kind: 'IN_REPLY_TO_NOT_FOUND' });
+  });
+
+  it('refuses a content type that is not a media type', async () => {
+    await expectRefused(aReview({ contentType: 'json' }), { kind: 'INVALID_CONTENT_TYPE' });
   });
 
   it.each([

@@ -584,6 +584,17 @@ describe('ship.send at the API', () => {
     await expect(database.message.count({ where: { idempotencyKey: input.idempotencyKey } })).resolves.toBe(1);
   });
 
+  it('takes any media type as the content type, and refuses what is not one with BAD_REQUEST', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    const { messageId } = await asShip.ship.send.mutate(toArgo({ contentType: 'text/markdown; charset=utf-8' }));
+
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      contentType: 'text/markdown; charset=utf-8',
+    });
+    await expect(codeOf(asShip.ship.send.mutate(toArgo({ contentType: 'markdown' })))).resolves.toBe('BAD_REQUEST');
+  });
+
   it('refuses a ship without messages:send, and stores nothing', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
     const input = toArgo();
