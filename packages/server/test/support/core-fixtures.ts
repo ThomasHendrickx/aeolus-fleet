@@ -48,8 +48,11 @@ export function identityUseCases(core: InMemoryCore) {
   };
 }
 
-/** The fleet URL starting prompts carry in tests. */
+/** The fleet's public URL in tests: where ships reach it. */
 export const FLEET_URL = 'https://fleet.example.com';
+
+/** The fleet's MCP URL, which starting prompts carry in tests: /mcp under the public URL. */
+export const FLEET_MCP_URL = `${FLEET_URL}/mcp`;
 
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
@@ -58,7 +61,7 @@ export function registryUseCases(core: InMemoryCore) {
     clock: core.clock,
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
-    fleetUrl: FLEET_URL,
+    mcpUrl: FLEET_MCP_URL,
   };
   return {
     commissionShip: createCommissionShip(deps),
