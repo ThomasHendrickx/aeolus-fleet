@@ -462,16 +462,61 @@ describe('error responses', () => {
     expectNoStackTrace(response);
   });
 
-  it('leave the failure in the server log, with its path, its reason and its stack', async () => {
+  const failureBody = z.object({
+    error: z.object({ message: z.string(), data: z.object({ code: z.string(), requestId: z.string().min(1) }) }),
+  });
+
+  it("answer a failure with a generic message and the request's id, never the error's own words", async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await ping({ cookie });
+
+    const { error } = failureBody.parse(response.json());
+    expect(error.message).toBe('Internal error');
+    expect(error.data.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(response.body).not.toContain('database unreachable');
+  });
+
+  it('give every request its own id', async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const first = failureBody.parse((await ping({ cookie })).json());
+    const second = failureBody.parse((await ping({ cookie })).json());
+
+    expect(first.error.data.requestId).not.toBe(second.error.data.requestId);
+  });
+
+  it("keep a refusal's own code and message, with no request id", async () => {
+    start();
+
+    const response = await ping();
+
+    expect(response.json()).toEqual({
+      error: {
+        message: 'Sign in, or call with the crew token register gave you',
+        code: -32001,
+        data: { code: 'UNAUTHORIZED', httpStatus: 401, path: 'system.ping' },
+      },
+    });
+  });
+
+  it("leave the whole failure in the server log under the request's id: its path, its reason and its stack", async () => {
     const lines: string[] = [];
     startWithFailingPing(lines);
     const cookie = cookieOf(await signIn(OPERATOR));
 
-    await ping({ cookie });
+    const { error } = failureBody.parse((await ping({ cookie })).json());
 
     const [logged, ...more] = lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
     expect(more).toEqual([]);
-    expect(logged).toMatchObject({ msg: 'procedure failed', path: 'system.ping', reason: 'database unreachable' });
+    expect(logged).toMatchObject({
+      msg: 'procedure failed',
+      reqId: error.data.requestId,
+      path: 'system.ping',
+      reason: 'database unreachable',
+    });
     expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
   });
 });
