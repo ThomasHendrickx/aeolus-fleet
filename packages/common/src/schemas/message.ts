@@ -25,15 +25,6 @@ export function payloadBytes(payload: string): number {
   return utf8.encode(payload).byteLength;
 }
 
-/**
- * Whether the text holds the character U+0000 (NUL). Postgres text can never
- * store it, so a payload, key or content type holding it is refused as a bad
- * request instead of failing in the database.
- */
-export function hasNulCharacter(value: string): boolean {
-  return value.includes('\u0000');
-}
-
 /** The longest content type a sender may give, parameters included. */
 export const CONTENT_TYPE_MAX_LENGTH = 256;
 
@@ -59,10 +50,6 @@ const CONTENT_TYPE_MESSAGE = `A content type is a media type such as text/plain 
  */
 export const contentTypeSchema = z
   .string()
-  .refine((contentType) => !hasNulCharacter(contentType), {
-    error: 'A content type cannot hold the character U+0000 (NUL)',
-    abort: true,
-  })
   .max(CONTENT_TYPE_MAX_LENGTH, CONTENT_TYPE_MESSAGE)
   .refine(isMediaType, CONTENT_TYPE_MESSAGE);
 
@@ -86,20 +73,12 @@ export const sendInputSchema = z.object({
   selector: selectorSchema,
   payload: z
     .string()
-    .refine((payload) => !hasNulCharacter(payload), {
-      error: 'A payload cannot hold the character U+0000 (NUL)',
-      abort: true,
-    })
     .refine(
       (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
       `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
     ),
   contentType: contentTypeSchema,
-  idempotencyKey: z
-    .string()
-    .min(1)
-    .max(IDEMPOTENCY_KEY_MAX_LENGTH)
-    .refine((key) => !hasNulCharacter(key), 'An idempotency key cannot hold the character U+0000 (NUL)'),
+  idempotencyKey: z.string().min(1).max(IDEMPOTENCY_KEY_MAX_LENGTH),
   /** The id of the message, in the same fleet, that this one replies to. */
   inReplyTo: idSchema('message').optional(),
 });

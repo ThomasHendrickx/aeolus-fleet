@@ -38,7 +38,7 @@ export interface MessageSent {
 }
 
 export type SendMessageRefusal =
-  | DomainError<'INVALID_PAYLOAD' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY'>
+  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY'>
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal;

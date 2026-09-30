@@ -33,7 +33,6 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_IDEMPOTENCY_KEY: 'BAD_REQUEST',
   INVALID_LOCATION: 'BAD_REQUEST',
   INVALID_PASSWORD: 'BAD_REQUEST',
-  INVALID_PAYLOAD: 'BAD_REQUEST',
   INVALID_SHIP_NAME: 'BAD_REQUEST',
   INVALID_SHIP_NOTE: 'BAD_REQUEST',
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
@@ -63,8 +62,58 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
   return result.value;
 }
 
-/** A procedure that needs no caller: the base of the console procedures, and `register`, which takes the ship secret. */
-export const publicProcedure = t.procedure;
+type InputPath = readonly (string | number)[];
+
+/** Where in the input the first text holding U+0000 is; undefined when no text does. */
+function pathToNul(value: unknown, path: InputPath): InputPath | undefined {
+  if (typeof value === 'string') {
+    return value.includes('\u0000') ? path : undefined;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = pathToNul(item, [...path, index]);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+  if (typeof value === 'object' && value !== null) {
+    for (const [key, item] of Object.entries(value)) {
+      const found = pathToNul(item, [...path, key]);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** A field's path as a caller writes it: `location.description`, `items[2].note`. */
+function fieldName(path: InputPath): string {
+  return path.map((part, index) => (typeof part === 'number' ? `[${part}]` : index === 0 ? part : `.${part}`)).join('');
+}
+
+/**
+ * A procedure that needs no caller: the base of every procedure, of the
+ * console procedures, and of `register`, which takes the ship secret.
+ *
+ * Postgres text can never store the character U+0000, so this one check at
+ * the door refuses it in any text input, as a bad request naming the field,
+ * before anything else reads the input.
+ */
+export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => {
+  // Input that does not parse is left to the procedure: one without input,
+  // such as sign-out with an empty body, never reads it; one with input
+  // refuses it as before.
+  const input: unknown = await getRawInput().catch(() => undefined);
+  const path = pathToNul(input, []);
+  if (path) {
+    const where = path.length === 0 ? 'The input' : `The input field ${fieldName(path)}`;
+    throw new TRPCError({ code: 'BAD_REQUEST', message: `${where} cannot hold the character U+0000 (NUL)` });
+  }
+  return next();
+});
 
 /**
  * Refuses a state-changing console call from anywhere but the console's
