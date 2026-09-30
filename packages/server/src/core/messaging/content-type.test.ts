@@ -11,6 +11,10 @@ describe('a content type', () => {
     expect(contentType(raw)).toEqual({ isOk: true, value: raw });
   });
 
+  it('is text/plain when the sender gives none', () => {
+    expect(contentType(undefined)).toEqual({ isOk: true, value: 'text/plain' });
+  });
+
   it('takes 256 characters', () => {
     const raw = `application/${'x'.repeat(256 - 'application/'.length)}`;
 

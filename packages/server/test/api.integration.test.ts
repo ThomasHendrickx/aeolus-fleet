@@ -600,6 +600,17 @@ describe('ship.send at the API', () => {
     await expect(codeOf(asShip.ship.send.mutate(toArgo({ contentType: 'markdown' })))).resolves.toBe('BAD_REQUEST');
   });
 
+  it('stores text/plain when the ship leaves the content type out', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { selector, payload, idempotencyKey } = toArgo();
+
+    const { messageId } = await asShip.ship.send.mutate({ selector, payload, idempotencyKey });
+
+    await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      contentType: 'text/plain',
+    });
+  });
+
   it.each([
     { field: 'payload', value: 'review\u0000' },
     { field: 'idempotencyKey', value: 'key\u0000' },

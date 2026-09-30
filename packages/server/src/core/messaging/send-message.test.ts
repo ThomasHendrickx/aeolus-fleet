@@ -134,6 +134,12 @@ describe('sending a message to a ship', () => {
     ]);
   });
 
+  it('stores text/plain when the sender gives no content type', async () => {
+    await sent(argo, aReview({ contentType: undefined }));
+
+    expect(core.state.messages.map((message) => message.contentType)).toEqual(['text/plain']);
+  });
+
   it('stores the content type exactly as sent, whatever media type it names', async () => {
     const contentType = 'Application/Vnd.Aeolus.Review+JSON; version="2"';
 
@@ -248,6 +254,15 @@ describe('an idempotent repeat', () => {
     const messageId = await sent(argo, original);
 
     const repeated = await sendMessage(argo, { ...original, selector: { shipId: scoutId, kind: 'ship' } });
+
+    expect(repeated).toEqual({ isOk: true, value: { messageId } });
+  });
+
+  it('is the same request without a content type and with text/plain', async () => {
+    const original = aReview({ contentType: undefined });
+    const messageId = await sent(argo, original);
+
+    const repeated = await sendMessage(argo, { ...original, contentType: 'text/plain' });
 
     expect(repeated).toEqual({ isOk: true, value: { messageId } });
   });
