@@ -394,6 +394,84 @@ describe('a procedure that needs a scope', () => {
   });
 });
 
+describe('error responses', () => {
+  // Vitest sets NODE_ENV to test, which tRPC treats as development: unless
+  // told otherwise, it puts the stack trace into every error it answers.
+
+  /** Neither a stack property nor a stack frame line anywhere in the body. */
+  function expectNoStackTrace(response: { body: string }): void {
+    expect(response.body).not.toContain('"stack"');
+    expect(response.body).not.toMatch(/\s{2,}at \S/);
+  }
+
+  /** A server whose ping fails as a lost database would, logging to `lines`. */
+  function startWithFailingPing(lines: string[] = []): void {
+    server = buildHttpServer({
+      useCases: {
+        ...identityUseCases(core),
+        ...registryUseCases(core),
+        ping: () => Promise.reject(new Error('database unreachable')),
+      },
+      checkDatabase: reachable,
+      clock: core.clock,
+      logger: {
+        level: 'error',
+        stream: {
+          write: (line: string) => {
+            lines.push(line);
+          },
+        },
+      },
+      consoleOrigin: FLEET_ORIGIN,
+    });
+  }
+
+  it('carry no stack trace for a refusal', async () => {
+    start();
+
+    const response = await ping();
+
+    expect(response.statusCode).toBe(401);
+    expectNoStackTrace(response);
+  });
+
+  it('carry no stack trace for input that does not parse', async () => {
+    start();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/trpc/ship.register',
+      payload: { shipId: 'not a ship id', secret: '', location: { kind: 'MOON' } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expectNoStackTrace(response);
+  });
+
+  it('carry no stack trace for a failure', async () => {
+    startWithFailingPing();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await ping({ cookie });
+
+    expect(response.statusCode).toBe(500);
+    expectNoStackTrace(response);
+  });
+
+  it('leave the failure in the server log, with its path, its reason and its stack', async () => {
+    const lines: string[] = [];
+    startWithFailingPing(lines);
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    await ping({ cookie });
+
+    const [logged, ...more] = lines.map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
+    expect(more).toEqual([]);
+    expect(logged).toMatchObject({ msg: 'procedure failed', path: 'system.ping', reason: 'database unreachable' });
+    expect(logged?.stack).toMatch(/^Error: database unreachable\n\s+at \S/);
+  });
+});
+
 describe('console.signOut', () => {
   it('ends the session and clears the cookie', async () => {
     start();
