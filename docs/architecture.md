@@ -80,6 +80,7 @@ flowchart LR
 | `/` | web | Operator | The Next.js console |
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
 | `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec |
+| `/api/v1/docs` | server | People | The ship REST API as a readable page (Scalar), rendered from the OpenAPI spec at `/api/v1/openapi.json`. Its assets are served by the server, not a CDN |
 | `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP). The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
 | `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
