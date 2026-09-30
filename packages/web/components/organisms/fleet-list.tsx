@@ -5,8 +5,9 @@ import { ShipRow } from '../molecules/ship-row';
 import { StartingPromptBlock } from '../molecules/starting-prompt-block';
 
 /**
- * The fleet snapshot: every ship with its type, status and prompt state, and
- * a new starting prompt for a ship awaiting crew, shown once.
+ * The fleet snapshot: every ship with its type, status, where the session
+ * crewing it runs and its prompt state, and a new starting prompt for a ship
+ * awaiting crew, shown once.
  */
 export function FleetList() {
   const fleet = useFleetSnapshot();
@@ -31,6 +32,7 @@ export function FleetList() {
             <th scope="col">Name</th>
             <th scope="col">Type</th>
             <th scope="col">Status</th>
+            <th scope="col">Location</th>
             <th scope="col">Starting prompt</th>
             <th scope="col">Actions</th>
           </tr>

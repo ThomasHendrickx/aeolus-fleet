@@ -1,4 +1,4 @@
-import { SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
@@ -66,6 +66,16 @@ export function secretIn(prompt: string): string {
     throw new Error(`No ship secret in the starting prompt:\n${prompt}`);
   }
   return secret;
+}
+
+/** The ship id a starting prompt holds. */
+export function shipIdIn(prompt: string): ShipId {
+  const shipId = /^Ship id: (\S+)$/m.exec(prompt)?.[1];
+  const parsed = idSchema('ship').safeParse(shipId);
+  if (!parsed.success) {
+    throw new Error(`No ship id in the starting prompt:\n${prompt}`);
+  }
+  return parsed.data;
 }
 
 /** The operator's login in tests: what fleet init asks for, and sign-in takes. */

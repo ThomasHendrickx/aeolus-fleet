@@ -1,3 +1,4 @@
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -5,8 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sha256Hasher } from '../packages/server/src/adapters/crypto/secrets.js';
 import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
 import { createApp } from '../packages/server/src/app.js';
+import type { AppRouter } from '../packages/server/src/index.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, OPERATOR, secretIn } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, secretIn, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -21,6 +23,7 @@ const clock = createTestClock('2026-09-29T12:00:00.000Z');
 let database: PrismaClient;
 let useCases: UseCases;
 let server: FastifyInstance;
+let serverUrl: string;
 let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
@@ -33,7 +36,7 @@ beforeAll(async () => {
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
-  const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
+  serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl });
   browser = await launchChromium();
 });
@@ -73,8 +76,12 @@ function promptBlock(page: Page, shipName: string) {
   return page.getByRole('region', { name: `Starting prompt for ${shipName}` });
 }
 
+async function promptTextIn(page: Page, shipName: string): Promise<string> {
+  return (await promptBlock(page, shipName).getByTestId('starting-prompt-text').textContent()) ?? '';
+}
+
 async function promptSecretIn(page: Page, shipName: string): Promise<string> {
-  return secretIn((await promptBlock(page, shipName).getByTestId('starting-prompt-text').textContent()) ?? '');
+  return secretIn(await promptTextIn(page, shipName));
 }
 
 /** Whether the secret is still valid: the one a session can claim its ship with. */
@@ -154,5 +161,33 @@ describe('commissioning a ship in the console', () => {
     await commission(page, { name: 'dock', type: 'lookout' });
     await page.getByRole('alert').filter({ hasText: 'An active ship is already named dock' }).waitFor();
     await expect(form.getByLabel('Type').inputValue()).resolves.toBe('lookout');
+  });
+});
+
+describe('claiming a commissioned ship', () => {
+  it('lists the ship as crewed where its session runs, its prompt claimed, once a session claims it through the API', async () => {
+    const page = await signedInPage();
+    await commission(page, { name: 'navigator', type: 'reviewer' });
+    const prompt = await promptTextIn(page, 'navigator');
+    await promptBlock(page, 'navigator').getByRole('button', { name: 'Done' }).click();
+    const row = shipRow(page, 'navigator');
+    await row.getByText('Awaiting crew').waitFor();
+
+    // A session claims the ship as the prompt tells it: register on the server, not through the console.
+    const session = createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc` })] });
+    await session.ship.register.mutate({
+      shipId: shipIdIn(prompt),
+      secret: secretIn(prompt),
+      location: { kind: 'OTHER', description: 'a ci runner' },
+    });
+    await page.reload();
+
+    await row.getByText('Crewed').waitFor();
+    await expect(row.getByTestId('fleet-ship-location').textContent()).resolves.toBe('Other · a ci runner');
+    await row.getByText(/^Claimed, issued/).waitFor();
+    await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
+    await expect(shipRow(page, 'argo').getByTestId('fleet-ship-location').textContent()).resolves.toBe(
+      'Other · web console',
+    );
   });
 });
