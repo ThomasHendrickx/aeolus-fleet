@@ -11,7 +11,7 @@ import { createMigratedDatabase } from '../packages/server/test/support/database
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
-import { launchChromium, startWeb, type RunningWeb } from './support/web.js';
+import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Commissioning a ship and handing out its starting prompt, end to end: a
 // browser signed in as argo, the web app, the server and Postgres.
@@ -31,9 +31,10 @@ beforeAll(async () => {
   useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
   unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
 
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
+  const webUrl = await reserveWebUrl();
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  web = await startWeb(serverUrl);
+  web = await startWeb({ url: webUrl, serverUrl });
   browser = await launchChromium();
 });
 

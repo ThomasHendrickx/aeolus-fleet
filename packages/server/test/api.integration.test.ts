@@ -20,6 +20,8 @@ import { createTestClock } from './support/postgres-core.js';
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
 const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
+/** Where the console runs: the fleet's own origin, as no other console origin is configured. */
+const CONSOLE = new URL(FLEET_URL).origin;
 
 let databaseUrl: string;
 let database: PrismaClient;
@@ -113,10 +115,11 @@ async function crewedShip(scopes?: Scope[]): Promise<string> {
   return crewToken;
 }
 
-async function signIn(login: { email: string; password: string } = OPERATOR): Promise<Response> {
+/** Signs in from the console, unless told another origin. */
+async function signIn(login: { email: string; password: string } = OPERATOR, origin = CONSOLE): Promise<Response> {
   return fetch(`${address}/trpc/console.signIn`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { origin, 'content-type': 'application/json' },
     body: JSON.stringify(login),
   });
 }
@@ -133,7 +136,7 @@ function sessionCookieOf(response: Response): string {
  */
 async function signedInArgo(): Promise<TRPCClient<AppRouter>> {
   clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
-  return client({ cookie: sessionCookieOf(await signIn()) });
+  return client({ cookie: sessionCookieOf(await signIn()), origin: CONSOLE });
 }
 
 describe('the migrations', () => {
@@ -204,7 +207,7 @@ describe('the console session over HTTP', () => {
   it('signs out through the tRPC client: the cookie stops working', async () => {
     const cookie = sessionCookieOf(await signIn());
 
-    await client({ cookie }).console.signOut.mutate();
+    await client({ cookie, origin: CONSOLE }).console.signOut.mutate();
 
     await expect(codeOf(client({ cookie }).system.ping.query())).resolves.toBe('UNAUTHORIZED');
   });
@@ -345,7 +348,10 @@ describe('the fleet procedures at the API', () => {
   it('never carry a secret or its hash in a list response', async () => {
     clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
     const cookie = sessionCookieOf(await signIn());
-    const { prompt } = await client({ cookie }).fleet.commission.mutate({ name: 'harbour', type: 'reviewer' });
+    const { prompt } = await client({ cookie, origin: CONSOLE }).fleet.commission.mutate({
+      name: 'harbour',
+      type: 'reviewer',
+    });
 
     const response = await fetch(`${address}/trpc/fleet.list`, { headers: { cookie } });
     const body = await response.text();
@@ -376,11 +382,13 @@ describe('the fleet procedures at the API', () => {
       const url = await logged.listen({ host: '127.0.0.1', port: 0 });
       const signedIn = await fetch(`${url}/trpc/console.signIn`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { origin: CONSOLE, 'content-type': 'application/json' },
         body: JSON.stringify(OPERATOR),
       });
       const asArgoThere = createTRPCClient<AppRouter>({
-        links: [httpBatchLink({ url: `${url}/trpc`, headers: { cookie: sessionCookieOf(signedIn) } })],
+        links: [
+          httpBatchLink({ url: `${url}/trpc`, headers: { cookie: sessionCookieOf(signedIn), origin: CONSOLE } }),
+        ],
       });
 
       const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' });
@@ -500,6 +508,47 @@ describe('the ship procedures at the API', () => {
     await expect(
       codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' } })),
     ).resolves.toBe('BAD_REQUEST');
+  });
+});
+
+describe('state-changing console calls from a foreign origin', () => {
+  const FOREIGN = 'https://sibling.fleet.example.com';
+
+  it('refuse a commission with the session cookie from a foreign origin, and commission nothing', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    await expect(
+      refusalOf(client({ cookie, origin: FOREIGN }).fleet.commission.mutate({ name: 'forged', type: 'reviewer' })),
+    ).resolves.toEqual({ code: 'FORBIDDEN', message: "A console call that changes state must come from the console's origin" });
+    await expect(database.ship.count({ where: { name: 'forged' } })).resolves.toBe(0);
+  });
+
+  it('refuse a commission with the session cookie and no Origin', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    await expect(codeOf(client({ cookie }).fleet.commission.mutate({ name: 'forged', type: 'reviewer' }))).resolves.toBe(
+      'FORBIDDEN',
+    );
+  });
+
+  it('refuse a sign-in from a foreign origin, with no cookie', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+
+    const response = await signIn(OPERATOR, FOREIGN);
+
+    expect(response.status).toBe(403);
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it('refuse a sign-out from a foreign origin: the session stays', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    await expect(codeOf(client({ cookie, origin: FOREIGN }).console.signOut.mutate())).resolves.toBe('FORBIDDEN');
+    const listed = await client({ cookie }).fleet.list.query();
+    expect(listed.map((ship) => ship.id)).toContain(argoId);
   });
 });
 

@@ -16,6 +16,8 @@ import type { RateLimit } from './rate-limiter.js';
 import { buildHttpServer } from './server.js';
 
 const DAY_S = 24 * 60 * 60;
+/** The console's origin in these tests: the fleet's own, as when no other one is configured. */
+const FLEET_ORIGIN = 'https://fleet.example.com';
 
 let core: InMemoryCore;
 let server: FastifyInstance;
@@ -44,7 +46,7 @@ function start(
     signInRateLimit: options.signInRateLimit,
     registerRateLimit: options.registerRateLimit,
     cookieDomain: options.cookieDomain,
-    consoleOrigin: options.consoleOrigin,
+    consoleOrigin: options.consoleOrigin ?? FLEET_ORIGIN,
   });
 }
 
@@ -57,16 +59,22 @@ afterEach(async () => {
   await server.close();
 });
 
+/** From the console, unless the headers say another origin. */
 function signIn(body: Record<string, unknown>, headers: Record<string, string> = {}) {
-  return server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: body, headers });
+  return server.inject({
+    method: 'POST',
+    url: '/trpc/console.signIn',
+    payload: body,
+    headers: { origin: FLEET_ORIGIN, ...headers },
+  });
 }
 
-/** Like the tRPC client: a JSON content type and no body. */
-function signOut(cookie: string) {
+/** Like the tRPC client in the console: a JSON content type and no body. */
+function signOut(cookie: string, origin = FLEET_ORIGIN) {
   return server.inject({
     method: 'POST',
     url: '/trpc/console.signOut',
-    headers: { cookie, 'content-type': 'application/json' },
+    headers: { cookie, origin, 'content-type': 'application/json' },
   });
 }
 
@@ -181,6 +189,7 @@ describe('console.signIn', () => {
       method: 'POST',
       url: '/trpc/console.signIn',
       payload: OPERATOR,
+      headers: { origin: FLEET_ORIGIN },
       remoteAddress: '203.0.113.7',
     });
 
@@ -346,6 +355,7 @@ describe('a procedure that needs a scope', () => {
       checkDatabase: reachable,
       clock: core.clock,
       logger: false,
+      consoleOrigin: FLEET_ORIGIN,
     });
 
     const cookie = cookieOf(await signIn(OPERATOR));
@@ -450,12 +460,99 @@ describe('a console on another host under the configured domain', () => {
     expect(refusedPreflight.headers['access-control-allow-origin']).toBeUndefined();
   });
 
-  it('gives no origin permission without a configured console origin, and sets a host-only cookie', async () => {
+  it("gives another host no permission when the console runs on the fleet's own origin, and sets a host-only cookie", async () => {
     start();
 
-    const answer = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+    const fromAnotherHost = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+    const fromTheConsole = await signIn(OPERATOR);
 
-    expect(answer.headers['access-control-allow-origin']).toBeUndefined();
-    expect(answer.headers['set-cookie']).not.toContain('Domain=');
+    expect(fromAnotherHost.headers['access-control-allow-origin']).toBeUndefined();
+    expect(fromTheConsole.headers['set-cookie']).not.toContain('Domain=');
+  });
+});
+
+describe("state-changing console calls come from the console's origin", () => {
+  const ELSEWHERE = 'https://elsewhere.fleet.example.com';
+  const refusal = "A console call that changes state must come from the console's origin";
+
+  function commission(headers: Record<string, string>) {
+    return server.inject({
+      method: 'POST',
+      url: '/trpc/fleet.commission',
+      payload: { name: 'stowaway', type: 'reviewer' },
+      headers,
+    });
+  }
+
+  function stowaways() {
+    return core.state.ships.filter((ship) => ship.name === 'stowaway');
+  }
+
+  it('refuses a sign-in from another origin with 403, and sets no cookie', async () => {
+    start();
+
+    const response = await signIn(OPERATOR, { origin: ELSEWHERE });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ error: { message: string } }>().error.message).toBe(refusal);
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expect(core.state.consoleSessions).toEqual([]);
+  });
+
+  it('refuses a sign-in without an Origin header', async () => {
+    start();
+
+    const response = await server.inject({ method: 'POST', url: '/trpc/console.signIn', payload: OPERATOR });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('refuses a sign-out from another origin: the session stays', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await signOut(cookie, ELSEWHERE);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expect((await ping({ cookie })).statusCode).toBe(200);
+  });
+
+  it('refuses a mutation with the session cookie from another origin, or without one, and changes nothing', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const fromElsewhere = await commission({ cookie, origin: ELSEWHERE });
+    const withoutOrigin = await commission({ cookie });
+
+    expect([fromElsewhere.statusCode, withoutOrigin.statusCode]).toEqual([403, 403]);
+    expect(stowaways()).toEqual([]);
+  });
+
+  it('serves a mutation with the session cookie from the console origin', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await commission({ cookie, origin: FLEET_ORIGIN });
+
+    expect(response.statusCode).toBe(200);
+    expect(stowaways()).toHaveLength(1);
+  });
+
+  it('serves a query with the session cookie from any origin: reading changes nothing', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    expect((await ping({ cookie, origin: ELSEWHERE })).statusCode).toBe(200);
+  });
+
+  it('does not check the Origin of a mutation called with a crew token: no browser sends one by itself', async () => {
+    start();
+    const crewToken = crewedAgent(['fleet:manage']);
+
+    const response = await commission({ authorization: `Bearer ${crewToken}` });
+
+    expect(response.statusCode).toBe(200);
+    expect(stowaways()).toHaveLength(1);
   });
 });
