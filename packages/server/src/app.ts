@@ -4,6 +4,7 @@ import type { RateLimit } from './adapters/http/rate-limiter.js';
 import { buildHttpServer } from './adapters/http/server.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
+import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './core/shared/clock.js';
 import { createUseCases, systemClock } from './wiring.js';
@@ -59,7 +60,7 @@ export function createApp(options: AppOptions): FastifyInstance {
       wakeups.wakeAll();
     },
     onError: (error) => {
-      server.log.warn({ reason: error.message }, 'delivery listener lost its connection: listening again shortly');
+      server.log.warn(failureForLog(error), 'delivery listener lost its connection: listening again shortly');
     },
   });
 

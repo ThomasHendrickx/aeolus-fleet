@@ -5,6 +5,7 @@ import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest, 
 
 import type { Clock } from '../../core/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
+import { failureForLog } from '../prisma/failure-log.js';
 import { registerRestApi } from '../rest/rest-api.js';
 import type { Context, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
@@ -132,7 +133,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
       await options.checkDatabase();
       return { server: 'up', database: 'up' };
     } catch (error) {
-      server.log.error({ reason: error instanceof Error ? error.message : 'unknown' }, 'health check failed');
+      server.log.error(failureForLog(error), 'health check failed');
       return reply.code(503).send({ server: 'up', database: 'down' });
     }
   });
@@ -179,7 +180,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
       // label Fastify's own request lines use); the answer carries that id.
       onError: ({ path, error, ctx }) => {
         if (error.code === 'INTERNAL_SERVER_ERROR') {
-          server.log.error({ reqId: ctx?.requestId, path, reason: error.message, stack: error.stack }, 'procedure failed');
+          server.log.error({ reqId: ctx?.requestId, path, ...failureForLog(error) }, 'procedure failed');
         }
       },
     },
