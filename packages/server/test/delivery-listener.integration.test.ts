@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
+import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -35,7 +35,6 @@ let wakeups: ReceiverWakeupHub;
 let listener: DeliveryListener;
 let listens: number;
 let errors: Error[];
-let fleetId: FleetId;
 let argo: Caller;
 let scout: Crew;
 
@@ -62,7 +61,6 @@ beforeEach(async () => {
   await listener.listening;
   const useCases = wired(SHORT_WAIT_MS);
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
-  ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }));
@@ -85,11 +83,14 @@ function wired(receiveWaitMs: number): UseCases {
 
 /** Ends the listener's database connection from the server side, as a restart of Postgres or a network cut would. */
 async function killListenerConnection(): Promise<void> {
-  const killed = await prisma.$queryRaw<{ pid: number }[]>`
+  // Found first, then ended: Postgres may evaluate the conditions of one WHERE in any order.
+  const listeners = await prisma.$queryRaw<{ pid: number }[]>`
     SELECT pid FROM pg_stat_activity
-    WHERE application_name = ${LISTENER_APPLICATION_NAME} AND datname = current_database()
-      AND pg_terminate_backend(pid)`;
-  expect(killed).toHaveLength(1);
+    WHERE application_name = ${LISTENER_APPLICATION_NAME} AND datname = current_database()`;
+  expect(listeners).toHaveLength(1);
+  for (const { pid } of listeners) {
+    await prisma.$queryRaw`SELECT pg_terminate_backend(${pid})`;
+  }
 }
 
 async function sendToScout(): Promise<string> {
