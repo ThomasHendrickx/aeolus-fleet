@@ -31,14 +31,14 @@ One session per row, one PR per session, merged before the next starts. Slices 1
 | 1b | Guardrails | Lint rules and CI checks that enforce the skills mechanically, then the skills trimmed of what is enforced. Must merge before slice 2 | See the slice 1b prompt below |
 | 1c | Operator login | Replace sign-in with `argo`'s secret by email and password; `argo` loses its secret. Runs before or after slice 2, must merge before slice 3 | See the slice 1c prompt below |
 | 2 | Commission a ship | Commission use case (requires `fleet:manage`): name handle rules (`argo` reserved), type, kind `agent` with scopes `messages:send` and `messages:receive`, ship in Awaiting crew; Get starting prompt: new `aeolus_sk_v1_` secret, stored as SHA-256, at most one valid; placeholder prompt (server URL, ship id, secret); a bare unstyled commission page | Invariants tested: unique name among active ships, one valid secret, prompt only while Awaiting crew; events written |
-| 3 | Claim | Ship authenticates with its secret and claims the lease, reporting its location (`DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description); ship becomes Crewed; lease held indefinitely | Claim with a revoked or unknown secret fails; a claim while another session holds the lease fails; claiming a retired ship fails; events written |
+| 3 | Claim | Claim with the secret (location, crew token, lock order), `whoami`, Origin check on console calls, plus three small follow-ups | See the slice 3 prompt below |
 | 4 | Send | Send direct (by id or by name, resolved at send, `argo` included) and by type; the sender is always a ship; optional in-reply-to; message plus deliveries in one transaction; 64 KB limit; NOTIFY on commit | A failed transaction leaves no message and no delivery; name resolution and limit tested |
 | 5 | Receive and acknowledge | Long-poll receive (about 25 s) with `FOR UPDATE SKIP LOCKED`, woken by LISTEN; acknowledge on receipt; claim count, undeliverable after 5 claims without ack | Two concurrent receivers never get the same delivery; a delivery is never lost across a server restart |
 | 6 | Release and deregister | Operator release ends the lease and invalidates the secret; ship `deregister` ends the session cleanly and releases the lease; direct deliveries back to the inbox, type deliveries back to the type queue with claim history | In-flight deliveries return and are received by the next crew; after a release the old secret fails |
 | 7 | MCP and REST | MCP (official SDK, streamable HTTP) and REST with generated OpenAPI, both mapped onto the ship procedures. Ship identity per conversation (decision 0015): the MCP connection carries no ship credential; the `register` tool takes ship id and secret and returns a crew token; every other tool takes the crew token as an argument. Two conversations on one MCP connection crew two different ships, and a second conversation registering an already crewed ship is refused. If slice 3 built `register` without a crew token, add it here for all three doors | A Claude Code session configured with the MCP endpoint can claim, send, receive and ack |
 | 8 | Acceptance | Draft the real starting prompt (deferred until now); run two real Claude sessions as two ships | Thomas watches two ships exchange messages back and forth; the event log shows every step |
 
-After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy.
+After the acceptance test, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm, Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`), then the private `aeolus-fleet-infra` repo and the Hetzner deploy (the web server reads the Aeolus server address at start-up and passes it to the browser, never a build-time setting, so a published web package works on any host).
 
 A second claim while a lease is held is rejected (blueprint, ship contract: `register` fails if another session holds a live lease). The operator frees the ship with Release.
 
@@ -172,6 +172,51 @@ Decision 0012 changed: the operator signs in with email and password; argo has n
 - Playwright: init, sign in, see the signed-in page, sign in again elsewhere and the first session stops working.
 - A console on another origin under the configured domain can sign in (integration test on the CORS and cookie settings).
 - npm run typecheck, npm run lint and npm test pass locally and in CI, guardrails included.
+- Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
+```
+
+## Kickoff prompt: slice 3 (claim)
+
+```markdown
+# Slice 3: claim
+
+Start from the latest main. Read CLAUDE.md, docs/decisions/README.md (full files: 0010, 0012, 0015), docs/blueprint.md and docs/architecture.md, then the code that already exists for the parts this slice touches. Other slices in docs/build-plan.md are context only.
+
+## Goal
+
+A session claims an agent ship with its secret and becomes its crew.
+
+## Build
+
+- `register(shipId, secret, location)`: location is DEVICE, CLOUD, SERVER, or OTHER with a required description. Stored on the lease, never interpreted.
+- Refused: unknown or invalidated secret, retired ship, `argo`, a ship whose lease is already held. Unknown and invalidated secrets give one shared error.
+- Lock order: lock the credential row first, then open the lease; never lock the ship `FOR UPDATE` (slice 2 work history), so a claim and a new starting prompt serialise correctly.
+- On success: the ship becomes Crewed, the credential is marked claimed, and `register` returns a crew token `aeolus_ct_v1_<random>`, stored only as a hash with the lease (decision 0015).
+- Every later ship call authenticates with the crew token in a header; the secret works only for `register`. Add one authenticated ship procedure to prove it (`whoami`: ship name, type, fleet).
+- Events: ship claimed, with location.
+- The fleet list shows the location of crewed ships and "claimed" for their prompt.
+- Security: reject state-changing console calls whose Origin is not the allowed console origin (cross-site request forgery from sibling hosts under one domain).
+
+Small follow-ups decided by Thomas (own commits):
+- The TDD evidence check accepts a `refactor(...)` commit directly after a green commit without a `(red)` commit.
+- Lint bans `vi.fn` and `vi.spyOn` in `packages/server/src/core` and `packages/common`; adapters may use them. Prove the rule with a test like the other lint rules.
+- The operator password reset event concerns `argo`, so it shows on argo's timeline.
+
+## How to work
+
+1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
+2. Load the skills CLAUDE.md names. Test first (red, green, refactor); build inside out: core, Prisma adapter with Testcontainers, tRPC procedure, web.
+3. Every state change writes its event in the same transaction.
+4. Keep the slice thin; the rest goes under "Noticed, not done".
+
+## Done when
+
+- Core tests: every refusal above; a second claim while a lease is held fails.
+- Integration: two concurrent claims with the same secret yield exactly one lease; a claim racing a new starting prompt either claims the old secret or fails, never both succeed; the crew token is stored only hashed; `whoami` works with the crew token and not with the secret.
+- API: a state-changing console call from a foreign Origin is refused.
+- Playwright: commission a ship, claim it through the API, see it listed as Crewed with its location.
+- The three follow-ups are each proven by a test.
+- npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
 - Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
 ```
 

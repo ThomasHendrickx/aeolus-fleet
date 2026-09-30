@@ -178,7 +178,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 1. The operator creates a ship in the web app: name, type, optional note.
 2. Aeolus generates the ship id and secret, and shows the starting prompt once: fleet URL, ship identity, secret and how to use the contract. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
 3. The operator pastes that prompt into a new session on any machine.
-4. The session calls `register`, gets the lease, and the ship shows as sailing in the snapshot.
+4. The session calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.
 
 ### Send, receive, acknowledge

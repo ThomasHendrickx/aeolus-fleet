@@ -10,11 +10,11 @@ Server and common: no production code without a failing test that demands it. We
 Loop per behaviour:
 1. Red: one test, run it, see it fail for the right reason. Commit `test(<context>): <rule> (red)`.
 2. Green: least code to pass, run it by name. Commit `feat(<context>): <rule>`.
-3. Refactor with tests green.
+3. Refactor with tests green, in the green commit or as its own `refactor(<context>): ...` commit right after it (no `(red)` needed; behaviour does not change).
 Push green heads only. One tiny rule may batch several tests.
 
 Layers:
-- Unit (Vitest, beside the file): value objects, aggregates, use cases with hand-written in-memory fakes. No mocking libraries; assert outcomes and stored state, not calls.
+- Unit (Vitest, beside the file): value objects, aggregates, use cases with hand-written in-memory fakes. No mocking libraries, no `vi.fn` or `vi.spyOn` in core and common; assert outcomes and stored state, not calls. Adapters (CLI, I/O) may use `vi.fn`.
 - Integration (`packages/server/test/*.integration.test.ts`, Testcontainers Postgres 16): adapters, raw SQL, procedures through the real composition.
 - Guarantees: concurrent receivers never share a delivery; a forced mid-transaction failure stores nothing and wakes nobody; a restart loses nothing.
 - End to end (Playwright, few): interact via `data-testid="{area}-{element}"`, assert via role or text.
