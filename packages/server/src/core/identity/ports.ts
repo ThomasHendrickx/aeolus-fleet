@@ -11,6 +11,9 @@ export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
 /** The ship a crew token crews, and the open lease the token belongs to. */
 export type AuthenticatedCrew = AuthenticatedShip & { leaseId: LeaseId };
 
+/** The lease a crew token belongs to, as the lookup finds it: open, with the crew it makes the caller, or ended. */
+export type CrewTokenLease = { isOpen: true; crew: AuthenticatedCrew } | { isOpen: false };
+
 /**
  * Outbound port: ship secrets.
  *
@@ -70,8 +73,11 @@ export interface ConsoleSessionRepository {
  * token carries no fleet (ADR 0007).
  */
 export interface CallerLookup {
-  /** The ship whose open lease holds this crew token hash, with that lease. A retired ship has none. */
-  byCrewTokenHash(crewTokenHash: string): Promise<AuthenticatedCrew | undefined>;
+  /**
+   * The lease that holds this crew token hash, open or ended; undefined when
+   * no lease of a ship that is not retired ever held it.
+   */
+  byCrewTokenHash(crewTokenHash: string): Promise<CrewTokenLease | undefined>;
   /**
    * The caller of the console session with this token hash, when the session
    * has not ended and expires after `now`. Using it moves its last use to `now`

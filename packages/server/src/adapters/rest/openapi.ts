@@ -16,7 +16,10 @@ const JSON_MEDIA_TYPE = 'application/json';
 const ERROR_SCHEMA = {
   type: 'object',
   properties: {
-    code: { type: 'string', description: "The refusal's code, such as UNAUTHORIZED, FORBIDDEN, NOT_FOUND or CONFLICT." },
+    code: {
+      type: 'string',
+      description: "The refusal's code, such as UNAUTHORIZED, LEASE_ENDED, FORBIDDEN, NOT_FOUND or CONFLICT.",
+    },
     message: { type: 'string', description: 'What was refused, or what the input must be, for the caller to read.' },
     requestId: {
       type: 'string',

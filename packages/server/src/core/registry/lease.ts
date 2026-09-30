@@ -65,7 +65,10 @@ export type LeaseEndReason = 'released' | 'deregistered' | 'takenOver' | 'signed
 
 export type LeaseEnded = DomainError<'LEASE_ENDED'>;
 
-/** The refusal for a crew whose lease has ended: its crew token no longer crews the ship. */
+/**
+ * The refusal for a crew whose lease has ended: its crew token no longer
+ * crews the ship, which needs a new crew with a new starting prompt.
+ */
 export function refuseEndedLease(): Err<LeaseEnded> {
-  return refuse('LEASE_ENDED', 'The lease of this crew token has ended: the ship needs a new crew');
+  return refuse('LEASE_ENDED', 'This ship was released; this session no longer crews it.');
 }

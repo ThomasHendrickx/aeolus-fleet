@@ -442,10 +442,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   const callers: CallerLookup = {
     byCrewTokenHash: (crewTokenHash) => {
-      const lease = state.leases.find((held) => held.crewTokenHash === crewTokenHash && held.endedAt === null);
+      const lease = state.leases.find((held) => held.crewTokenHash === crewTokenHash);
       const owner = lease && ship(lease.fleetId, lease.shipId);
+      if (!lease || owner?.retiredAt !== null) {
+        return Promise.resolve(undefined);
+      }
       return Promise.resolve(
-        lease && owner?.retiredAt === null ? { ...authenticated(owner), leaseId: lease.id } : undefined,
+        lease.endedAt === null
+          ? { isOpen: true, crew: { ...authenticated(owner), leaseId: lease.id } }
+          : { isOpen: false },
       );
     },
     useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
