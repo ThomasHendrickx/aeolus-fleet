@@ -10,12 +10,25 @@
  * connection is ever read as a credential. The endpoint is stateless: a fresh
  * server answers each HTTP request, and nothing is kept between them.
  */
-import { createMcpHandler, McpServer, type CallToolResult, type Tool } from '@modelcontextprotocol/server';
+import {
+  createMcpHandler,
+  McpServer,
+  type CallToolRequestParams,
+  type CallToolResult,
+  type Tool,
+} from '@modelcontextprotocol/server';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import type { Context, RequestCredentials } from '../trpc/context.js';
-import { callShip, SHIP_CALLS, type ShipCall, type ShipCallRefusal } from '../trpc/ship-contract.js';
+import {
+  callShip,
+  refusalBody,
+  SHIP_CALLS,
+  unexpectedFailure,
+  type ShipCall,
+  type ShipCallRefusal,
+} from '../trpc/ship-contract.js';
 
 /** How the server names itself to MCP clients. Its version is the ship contract's, as in `/api/v1`. */
 const SERVER_INFO = { name: 'aeolus-fleet', version: '1' };
@@ -56,6 +69,37 @@ export interface McpEndpointOptions {
   contextFor: (request: FastifyRequest, credentials: RequestCredentials) => Context;
 }
 
+/** One tool call, as a call through the router with the crew token its arguments carry. */
+async function callTool(
+  params: CallToolRequestParams,
+  at: { request: FastifyRequest; options: McpEndpointOptions },
+): Promise<CallToolResult> {
+  const { request, options } = at;
+  const call = SHIP_CALLS.find((candidate) => candidate.name === params.name);
+  if (!call) {
+    const names = SHIP_CALLS.map((known) => known.name).join(', ');
+    return refusalResult({
+      code: 'NOT_FOUND',
+      message: `There is no tool named ${params.name}. The ship tools are ${names}.`,
+    });
+  }
+
+  const args = params.arguments ?? {};
+  const { crewToken, ...input } = args;
+  const result = await callShip(
+    call,
+    call.credential === 'crewToken'
+      ? { ctx: options.contextFor(request, { bearer: crewTokenArgument.safeParse(crewToken).data }), input, log: request.log }
+      : { ctx: options.contextFor(request, {}), input: args, log: request.log },
+  );
+
+  if (!result.isOk) {
+    return refusalResult(result.refusal);
+  }
+  const structuredContent = z.record(z.string(), z.unknown()).parse(result.output);
+  return { content: [{ type: 'text', text: JSON.stringify(structuredContent) }], structuredContent };
+}
+
 /**
  * The MCP server answering one HTTP request: the ship tools, each a call
  * through the router. It answers `tools/list` and `tools/call` itself, at the
@@ -68,30 +112,13 @@ function shipToolServer(request: FastifyRequest, options: McpEndpointOptions): M
 
   mcp.server.setRequestHandler('tools/list', () => ({ tools: TOOLS }));
 
+  // A failure here would otherwise reach the client as a protocol error in its own words.
   mcp.server.setRequestHandler('tools/call', async ({ params }) => {
-    const call = SHIP_CALLS.find((candidate) => candidate.name === params.name);
-    if (!call) {
-      const names = SHIP_CALLS.map((known) => known.name).join(', ');
-      return refusalResult({
-        code: 'NOT_FOUND',
-        message: `There is no tool named ${params.name}. The ship tools are ${names}.`,
-      });
+    try {
+      return await callTool(params, { request, options });
+    } catch (thrown) {
+      return refusalResult(unexpectedFailure(thrown, { log: request.log, requestId: request.id }));
     }
-
-    const args = params.arguments ?? {};
-    const { crewToken, ...input } = args;
-    const result = await callShip(
-      call,
-      call.credential === 'crewToken'
-        ? { ctx: options.contextFor(request, { bearer: crewTokenArgument.safeParse(crewToken).data }), input, log: request.log }
-        : { ctx: options.contextFor(request, {}), input: args, log: request.log },
-    );
-
-    if (!result.isOk) {
-      return refusalResult(result.refusal);
-    }
-    const structuredContent = z.record(z.string(), z.unknown()).parse(result.output);
-    return { content: [{ type: 'text', text: JSON.stringify(structuredContent) }], structuredContent };
   });
 
   return mcp;
@@ -112,10 +139,15 @@ function webRequestOf(request: FastifyRequest): Request {
 
 /** Mounts `/mcp` on the HTTP server. */
 export function registerMcpEndpoint(server: FastifyInstance, options: McpEndpointOptions): void {
-  server.all('/mcp', async (request) => {
-    // A handler per request, so each tool call knows the request it came
-    // with: its client address for the register limit, its id for the log.
-    const handler = createMcpHandler(() => shipToolServer(request, options));
-    return handler.fetch(webRequestOf(request), { parsedBody: request.body });
+  server.all('/mcp', async (request, reply) => {
+    try {
+      // A handler per request, so each tool call knows the request it came
+      // with: its client address for the register limit, its id for the log.
+      const handler = createMcpHandler(() => shipToolServer(request, options));
+      return await handler.fetch(webRequestOf(request), { parsedBody: request.body });
+    } catch (thrown) {
+      const refusal = unexpectedFailure(thrown, { log: request.log, requestId: request.id });
+      return await reply.code(refusal.httpStatus).send(refusalBody(refusal));
+    }
   });
 }

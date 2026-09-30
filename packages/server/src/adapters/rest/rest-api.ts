@@ -12,7 +12,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { readBearer } from '../http/request-credentials.js';
 import type { Context, RequestCredentials } from '../trpc/context.js';
-import { callShip, SHIP_CALLS } from '../trpc/ship-contract.js';
+import { callShip, refusalBody, SHIP_CALLS, unexpectedFailure } from '../trpc/ship-contract.js';
 import { openApiDocument } from './openapi.js';
 
 const PREFIX = '/api/v1';
@@ -33,16 +33,20 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
       method: call.type === 'query' ? 'GET' : 'POST',
       url: `${PREFIX}/ship/${call.name}`,
       handler: async (request, reply) => {
-        const result = await callShip(call, {
-          ctx: options.contextFor(request, { bearer: readBearer(request.headers.authorization) }),
-          input: request.body,
-          log: request.log,
-        });
-        if (result.isOk) {
-          return result.output;
+        try {
+          const result = await callShip(call, {
+            ctx: options.contextFor(request, { bearer: readBearer(request.headers.authorization) }),
+            input: request.body,
+            log: request.log,
+          });
+          if (result.isOk) {
+            return result.output;
+          }
+          return await reply.code(result.refusal.httpStatus).send(refusalBody(result.refusal));
+        } catch (thrown) {
+          const refusal = unexpectedFailure(thrown, { log: request.log, requestId: request.id });
+          return await reply.code(refusal.httpStatus).send(refusalBody(refusal));
         }
-        const { httpStatus, code, message, requestId } = result.refusal;
-        return reply.code(httpStatus).send(requestId === undefined ? { code, message } : { code, message, requestId });
       },
     });
   }

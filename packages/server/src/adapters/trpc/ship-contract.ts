@@ -101,9 +101,26 @@ export interface ShipCallRefusal {
 
 export type ShipCallResult = { isOk: true; output: unknown } | { isOk: false; refusal: ShipCallRefusal };
 
-/** Where a server failure is logged whole: the request's own logger, which labels it with the request's id. */
+/** Where a failure is logged whole: the request's own logger, which labels it with the request's id. */
 export interface FailureLog {
-  error(details: { path: string; reason: string; stack: string | undefined }, message: string): void;
+  error(details: { path?: string; reason: string; stack: string | undefined }, message: string): void;
+}
+
+/** A refusal as a JSON body: its code and message, and for a server failure the request's id. */
+export function refusalBody(refusal: ShipCallRefusal): { code: string; message: string; requestId?: string } {
+  const { code, message, requestId } = refusal;
+  return requestId === undefined ? { code, message } : { code, message, requestId };
+}
+
+/**
+ * A failure in a door itself, outside any procedure: the log holds it whole,
+ * under the request's id, and the caller learns only that it failed, as for
+ * a procedure's server failure.
+ */
+export function unexpectedFailure(thrown: unknown, request: { log: FailureLog; requestId: string }): ShipCallRefusal {
+  const error = getTRPCErrorFromUnknown(thrown);
+  request.log.error({ reason: error.message, stack: error.stack }, 'request failed');
+  return { code: 'INTERNAL_SERVER_ERROR', httpStatus: 500, message: INTERNAL_ERROR_MESSAGE, requestId: request.requestId };
 }
 
 /**
