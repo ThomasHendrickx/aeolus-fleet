@@ -242,6 +242,8 @@ A ship sends a message, and gets OK only once the message and its deliveries are
 - `resend-of` exists in the schema but nothing sets it yet (Needs attention comes after the acceptance test).
 - No console page: sending from the console comes with the console work.
 
+Small follow-up decided by Thomas (own commits): no error response ever carries a stack trace, whatever `NODE_ENV` is; errors are still logged on the server. Prove it with a test.
+
 ## How to work
 
 1. Before coding, write a short plan in the PR draft: the use cases, ports and adapters you will add, the tests you will write, and any question the docs do not answer. If there are questions, stop and ask them.
@@ -253,6 +255,7 @@ A ship sends a message, and gets OK only once the message and its deliveries are
 
 - Core tests: every rejection above; name resolved to id at send; idempotent repeat returns the original.
 - Integration: a transaction that fails after the message insert leaves no message, no delivery and no event; a `LISTEN`er receives the notification only after commit, never for a rolled-back send; two concurrent sends with the same key yield one message; a payload exactly at the limit is accepted, one byte over is rejected.
+- API: an error response carries no stack trace.
 - API: send works with a crew token and as `argo` from the console session; a ship without `messages:send` is refused.
 - npm run typecheck, npm run lint, npm test green locally and in CI, guardrails included.
 - Work-history entry; PR description lists every file, every decision the docs did not dictate, every open question.
