@@ -22,10 +22,12 @@ import { createReceiveDeliveries, type ReceiveDeliveries } from './core/messagin
 import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
 import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
+import { createDeregister, type Deregister } from './core/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './core/registry/list-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
+import { createReleaseShip, type ReleaseShip } from './core/registry/release-ship.js';
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
@@ -36,9 +38,11 @@ export interface UseCases {
   listFleets: ListFleets;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
+  releaseShip: ReleaseShip;
   listFleet: ListFleet;
   claimShip: ClaimShip;
   whoami: Whoami;
+  deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
@@ -80,9 +84,11 @@ export function createUseCases(options: {
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
+    releaseShip: createReleaseShip({ uow, clock, ids }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
+    deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({
       uow,

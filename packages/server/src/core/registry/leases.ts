@@ -3,7 +3,7 @@ import type { FleetId, IdGenerator, LeaseId, ShipId, ShipKind } from '@aeolus-fl
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
-import type { LeaseEndReason, Location } from './lease.js';
+import { refuseEndedLease, type LeaseEnded, type LeaseEndReason, type Location } from './lease.js';
 import type { InFlightDeliveries, LeaseRepository, ShipRepository } from './ports.js';
 import type { Ship } from './ship.js';
 
@@ -54,9 +54,12 @@ export async function takeOverOperatorLease(
 }
 
 /**
- * Ends a lease if it is still open: the ship awaits a new crew and its
- * deliveries in flight return to pending. Writes LeaseRevoked. Returns false
- * when the lease had already ended.
+ * Ends a lease if it is still open, and with it the crew token it holds: the
+ * ship awaits a new crew, and the deliveries the lease held in flight return
+ * to pending, to the ship's inbox or its type's queue, their attempts kept.
+ * Writes LeaseRevoked, then DeliveryReturned for each returned delivery, all
+ * caused by whoever ended the lease. Returns false when the lease had already
+ * ended.
  */
 export async function endLease(
   deps: LeaseDeps,
@@ -70,15 +73,22 @@ export async function endLease(
     return false;
   }
 
-  const returnedDeliveries = await tx.inFlightDeliveries.returnToPending(fleetId, ended.shipId);
+  const returned = await tx.inFlightDeliveries.returnToPending(fleetId, leaseId);
+  const concerns = { fleetId, occurredAt: at, actor, shipId: ended.shipId };
   await recordEvent({ events: tx.events, ids }, {
-    fleetId,
+    ...concerns,
     type: 'LeaseRevoked',
-    occurredAt: at,
-    actor,
-    shipId: ended.shipId,
-    details: { leaseId, reason, returnedDeliveries },
+    details: { leaseId, reason, returnedDeliveries: returned.length },
   });
+  for (const { deliveryId, messageId, attempts } of returned) {
+    await recordEvent({ events: tx.events, ids }, {
+      ...concerns,
+      type: 'DeliveryReturned',
+      messageId,
+      deliveryId,
+      details: { leaseId, attempts },
+    });
+  }
   return true;
 }
 
@@ -87,8 +97,6 @@ export interface HoldLeaseTx {
   leases: Pick<LeaseRepository, 'findOpenByIdForShare'>;
   ships: Pick<ShipRepository, 'find'>;
 }
-
-export type LeaseEnded = DomainError<'LEASE_ENDED'>;
 
 /**
  * Holds a crew's lease open until the unit of work ends and returns the ship
@@ -103,5 +111,5 @@ export async function holdLease(
 ): Promise<Result<Ship, LeaseEnded>> {
   const lease = await tx.leases.findOpenByIdForShare(crew.fleetId, crew.leaseId);
   const ship = lease && (await tx.ships.find(crew.fleetId, lease.shipId));
-  return ship ? ok(ship) : refuse('LEASE_ENDED', 'The lease of this crew token has ended: the ship needs a new crew');
+  return ship ? ok(ship) : refuseEndedLease();
 }

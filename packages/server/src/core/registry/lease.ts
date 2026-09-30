@@ -7,7 +7,7 @@ import {
 } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { ok, type Result } from '../shared/result.js';
+import { ok, type Err, type Result } from '../shared/result.js';
 
 /**
  * Where the session crewing a ship runs, reported when it claims the ship.
@@ -56,5 +56,16 @@ export interface Lease {
   endedAt: Date | null;
 }
 
-/** Why a lease ended; recorded on its LeaseRevoked event. */
-export type LeaseEndReason = 'takenOver' | 'signedOut' | 'passwordReset';
+/**
+ * Why a lease ended; recorded on its LeaseRevoked event. The operator released
+ * the ship, its crew deregistered, or, for argo, a sign-in took it over, the
+ * operator signed out or the password was reset.
+ */
+export type LeaseEndReason = 'released' | 'deregistered' | 'takenOver' | 'signedOut' | 'passwordReset';
+
+export type LeaseEnded = DomainError<'LEASE_ENDED'>;
+
+/** The refusal for a crew whose lease has ended: its crew token no longer crews the ship. */
+export function refuseEndedLease(): Err<LeaseEnded> {
+  return refuse('LEASE_ENDED', 'The lease of this crew token has ended: the ship needs a new crew');
+}
