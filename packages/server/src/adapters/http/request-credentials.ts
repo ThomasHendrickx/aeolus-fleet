@@ -1,6 +1,6 @@
 /**
- * How a request says who it is: a ship secret as a bearer token, or the console
- * session cookie.
+ * How a request says who it is: a crew token as a bearer token, or the console
+ * session cookie. The ship secret travels only in the body of `register`.
  *
  * The console session cookie holds the random session token, never the ship secret.
  * httpOnly so scripts cannot read it, Secure so it only travels over HTTPS
@@ -43,7 +43,7 @@ export function clearedSessionCookie(domain?: string): string {
   return `${SESSION_COOKIE_NAME}=; Max-Age=0; ${scope(domain)}`;
 }
 
-/** The secret from an `Authorization: Bearer <secret>` header, if there is one. */
+/** The token from an `Authorization: Bearer <token>` header, if there is one. */
 export function readBearer(authorizationHeader: string | undefined): string | undefined {
   const match = /^Bearer\s+(\S+)\s*$/i.exec(authorizationHeader ?? '');
   return match?.[1];

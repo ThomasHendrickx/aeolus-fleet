@@ -119,12 +119,12 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
 
 export function createPrismaCallerLookup(db: Db): CallerLookup {
   return {
-    bySecretHash: async (secretHash) => {
+    byCrewTokenHash: async (crewTokenHash) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
-        FROM credentials c
-        JOIN ships s ON s.fleet_id = c.fleet_id AND s.id = c.ship_id
-        WHERE c.secret_hash = ${secretHash} AND c.invalidated_at IS NULL AND s.retired_at IS NULL`;
+        FROM leases l
+        JOIN ships s ON s.fleet_id = l.fleet_id AND s.id = l.ship_id
+        WHERE l.crew_token_hash = ${crewTokenHash} AND l.ended_at IS NULL AND s.retired_at IS NULL`;
       return row ? toAuthenticatedShip(row) : undefined;
     },
     useConsoleSession: async ({ tokenHash, now, expiresAt }) => {

@@ -19,7 +19,7 @@ export interface UseCases {
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */
 export interface RequestCredentials {
-  /** A ship secret from `Authorization: Bearer`. */
+  /** A crew token from `Authorization: Bearer`. */
   bearer?: string;
   /** A console session token from the session cookie. */
   sessionToken?: string;

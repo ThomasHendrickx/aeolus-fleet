@@ -47,14 +47,15 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
 export const publicProcedure = t.procedure;
 
 /**
- * Resolves the caller from the ship secret or the console session. A bearer
- * secret wins over the cookie, and a wrong one fails rather than falling back.
+ * Resolves the caller from the crew token or the console session. A bearer
+ * crew token wins over the cookie, and a wrong one fails rather than falling
+ * back. The ship secret is no bearer: it works only for `register` (ADR 0015).
  * Using a console session keeps it, and its cookie, valid for another 30 days.
  */
 async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   const { bearer, sessionToken } = ctx.credentials;
   if (bearer !== undefined) {
-    return ctx.useCases.authenticate.bySecret(bearer);
+    return ctx.useCases.authenticate.byCrewToken(bearer);
   }
   if (sessionToken !== undefined) {
     const use = await ctx.useCases.authenticate.byConsoleSession(sessionToken);
@@ -74,7 +75,7 @@ export function scopedProcedure(scope: Scope) {
   return publicProcedure.use(async ({ ctx, next }) => {
     const caller = await resolveCaller(ctx);
     if (!caller) {
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with a valid ship secret' });
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
     }
     if (!hasScope(caller, scope)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });

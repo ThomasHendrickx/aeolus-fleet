@@ -5,7 +5,7 @@ import type { ConsoleSession } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { OperatorAccount } from './operator-account.js';
 
-/** The ship a secret or a session token belongs to, as the caller it makes. */
+/** The ship a crew token or a console session token belongs to, as the caller it makes. */
 export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
 
 /**
@@ -64,11 +64,11 @@ export interface ConsoleSessionRepository {
 /**
  * Outbound port: who is calling. Each lookup is one query that returns the
  * ship, its fleet, kind and scopes, and is not scoped by fleet, because a
- * secret or a token carries no fleet (ADR 0007).
+ * token carries no fleet (ADR 0007).
  */
 export interface CallerLookup {
-  /** The ship whose valid secret has this hash. A retired ship has none. */
-  bySecretHash(secretHash: string): Promise<AuthenticatedShip | undefined>;
+  /** The ship whose open lease holds this crew token hash. A retired ship has none. */
+  byCrewTokenHash(crewTokenHash: string): Promise<AuthenticatedShip | undefined>;
   /**
    * The caller of the console session with this token hash, when the session
    * has not ended and expires after `now`. Using it moves its last use to `now`
