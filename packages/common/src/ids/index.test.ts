@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { createIdGenerator, ID_KINDS, ID_PREFIXES, idSchema, isId, parseId } from './index.js';
 
@@ -190,5 +191,21 @@ describe('idSchema', () => {
 
   it('names the kind it expected', () => {
     expect(idSchema('ship').safeParse('flt_x').error?.issues[0]?.message).toBe('must be a ship id (shp_...)');
+  });
+
+  it('describes itself in JSON Schema: a string of its prefix and a lowercase ULID, named by its kind', () => {
+    expect(z.toJSONSchema(idSchema('delivery'))).toMatchObject({
+      type: 'string',
+      pattern: '^dlv_[0-7][0-9a-hjkmnp-tv-z]{25}$',
+      description: 'A delivery id (dlv_...)',
+    });
+  });
+
+  it.each(ID_KINDS)('gives %s ids a JSON Schema pattern that they match and no other kind does', (kind) => {
+    const { pattern } = z.object({ pattern: z.string() }).parse(z.toJSONSchema(idSchema(kind)));
+    const other = ID_KINDS.find((candidate) => candidate !== kind) ?? kind;
+
+    expect(new RegExp(pattern).test(createIdGenerator()(kind))).toBe(true);
+    expect(new RegExp(pattern).test(createIdGenerator()(other))).toBe(false);
   });
 });
