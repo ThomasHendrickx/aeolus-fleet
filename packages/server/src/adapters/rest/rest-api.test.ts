@@ -17,6 +17,7 @@ import type { RateLimit } from '../http/rate-limiter.js';
 import { buildHttpServer } from '../http/server.js';
 import type { UseCases } from '../trpc/context.js';
 import { SHIP_CALLS } from '../trpc/ship-contract.js';
+import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 import { registerRestApi } from './rest-api.js';
 
 // The ship contract as REST at /api/v1, through the HTTP host on the
@@ -130,6 +131,14 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(document.openapi).toMatch(/^3\.1\.\d+$/);
     expect(document.servers).toEqual([{ url: '/api/v1' }]);
     expect(document.info.description).toMatch(/Authorization: Bearer/);
+  });
+
+  it('states the ship protocol in its description, as the MCP server instructions do', async () => {
+    start();
+
+    const document = await spec();
+
+    expect(document.info.description.startsWith(`${SHIP_PROTOCOL}\n\n`)).toBe(true);
   });
 
   it('lists every ship procedure: whoami to GET, the others to POST', async () => {

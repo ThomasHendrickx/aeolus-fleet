@@ -16,6 +16,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import type { UseCases } from '../trpc/context.js';
 import type { RateLimit } from '../http/rate-limiter.js';
 import { buildHttpServer } from '../http/server.js';
+import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 import { registerMcpEndpoint } from './mcp-endpoint.js';
 
 // The ship contract as MCP tools at /mcp, through the HTTP host on the
@@ -76,9 +77,17 @@ async function start(
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 }
 
+/** The protocol revisions the SDK client speaks: the 2025-era handshake by default, 2026-07-28 when it negotiates. */
+const ERAS = ['2025 handshake', '2026-07-28 negotiation'] as const;
+type Era = (typeof ERAS)[number];
+
 /** A conversation's MCP client on its own connection. Headers, if any, travel with every request of it. */
-async function connect(headers: Record<string, string> = {}): Promise<Client> {
-  const client = new Client({ name: 'ship-session', version: '1.0.0' });
+async function connect(options: { headers?: Record<string, string>; era?: Era } = {}): Promise<Client> {
+  const { headers = {}, era = '2025 handshake' } = options;
+  const client = new Client(
+    { name: 'ship-session', version: '1.0.0' },
+    era === '2026-07-28 negotiation' ? { versionNegotiation: { mode: 'auto' } } : {},
+  );
   await client.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`), { requestInit: { headers } }));
   clients.push(client);
   return client;
@@ -192,10 +201,10 @@ describe('the ship tools at /mcp', () => {
   });
 
   it.each([
-    ['register', [/crew token/i, /only (this )?once/i, /keep it/i]],
-    ['receive', [/about 25 seconds/i, /call (it|receive) again at once/i, /ack .*right away/i, /senderName/]],
-    ['send', [/senderName/, /inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
-    ['ack', [/right away/i, /deliveryId/]],
+    ['register', [/crew token/i, /only (this )?once/i, /secret works only here/i, /CONFLICT/]],
+    ['receive', [/about 25 seconds/i, /senderName/, /stays yours/i, /undeliverable/i, /key of the work/i]],
+    ['send', [/inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
+    ['ack', [/deliveryId/, /not its messageId/i, /again is fine/i]],
   ])('state the rules of %s in its description', async (name, rules) => {
     await start();
 
@@ -203,6 +212,35 @@ describe('the ship tools at /mcp', () => {
 
     for (const rule of rules) {
       expect(description).toMatch(rule);
+    }
+  });
+
+  it.each(ERAS)('come with the ship protocol as the server instructions, read when a client connects (%s)', async (era) => {
+    await start();
+
+    const client = await connect({ era });
+
+    expect(client.getInstructions()).toBe(SHIP_PROTOCOL);
+  });
+
+  it.each([
+    ['register once, at the start', /\bonce, at the start\b|\bcall it first\b/i],
+    ['keep the crew token', /\bkeep (it|the crew token)\b/i],
+    ['ack each delivery at once, before acting on it', /\b(at once|right away)\b/i],
+    ['answer by senderName with inReplyTo', /\bsend to (its )?senderName\b/i],
+    ['keep receiving while waiting for an answer', /\bkeep calling\b|\bcall (it|receive) again\b/i],
+    ['deregister only when the session ends for good', /\bfor good\b/i],
+    ['end the turn when the work is done', /\bend your turn\b/i],
+    ['stop after a release', /\bstop calling\b/i],
+  ])('state the protocol rule "%s" once: in the instructions, and in no tool description', async (_rule, wording) => {
+    await start();
+    const client = await connect();
+
+    const tools = await listedTools();
+
+    expect(client.getInstructions()).toMatch(wording);
+    for (const listed of tools) {
+      expect(listed.description, listed.name).not.toMatch(wording);
     }
   });
 
@@ -236,7 +274,7 @@ describe('a ship tool call', () => {
   it('takes the crew token from its argument only: a bearer header on the connection is no crew token', async () => {
     await start();
     const crewToken = crewedShip();
-    const client = await connect({ authorization: `Bearer ${crewToken}` });
+    const client = await connect({ headers: { authorization: `Bearer ${crewToken}` } });
 
     await expect(refusalText(client, { name: 'whoami', arguments: {} })).resolves.toBe(
       'UNAUTHORIZED: Call with the crew token register gave you',
