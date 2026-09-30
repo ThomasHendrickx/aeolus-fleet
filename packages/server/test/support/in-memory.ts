@@ -152,6 +152,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships.find((found) => found.fleetId === fleetId && found.name === name && found.retiredAt === null),
         ),
+      find: (fleetId, shipId) => {
+        const found = ship(fleetId, shipId);
+        return Promise.resolve(found && { ...found });
+      },
       findForUpdate: (fleetId, shipId) => Promise.resolve(ship(fleetId, shipId)),
     },
     leases: {
@@ -200,11 +204,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const credential = state.credentials.find(
           (held) => held.secretHash === secretHash && held.invalidatedAt === null,
         );
-        const owner = credential && ship(credential.fleetId, credential.shipId);
-        if (!credential || owner?.retiredAt !== null) {
-          return Promise.resolve(undefined);
-        }
-        return Promise.resolve({ credential: { ...credential }, ship: authenticated(owner) });
+        return Promise.resolve(credential && { ...credential });
       },
       findValidForShipForUpdate: (fleetId, shipId) =>
         Promise.resolve(
@@ -306,7 +306,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const callers: CallerLookup = {
-    bySecretHash: async (secretHash) => (await tx.credentials.findValidBySecretHashForUpdate(secretHash))?.ship,
+    bySecretHash: async (secretHash) => {
+      const credential = await tx.credentials.findValidBySecretHashForUpdate(secretHash);
+      const owner = credential && ship(credential.fleetId, credential.shipId);
+      return owner?.retiredAt === null ? authenticated(owner) : undefined;
+    },
     useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
       const session = state.consoleSessions.find(
         (held) => held.tokenHash === tokenHash && held.endedAt === null && held.expiresAt > at,

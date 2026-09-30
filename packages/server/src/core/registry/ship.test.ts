@@ -1,9 +1,11 @@
 import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
+import { ok } from '../shared/result.js';
+import type { Lease } from './lease.js';
 import {
-  checkCanClaimWithSecret,
   checkCanRelease,
+  claimShip,
   checkCanRename,
   checkCanRetire,
   checkNameIsNotReserved,
@@ -31,6 +33,30 @@ const scout: Ship = {
 };
 
 const allowed = { isOk: true, value: undefined };
+
+const claimedAt = new Date('2026-09-30T08:00:00.000Z');
+
+/** A session's claim: a new lease id, where it runs, and the hash of its crew token. */
+function aClaim() {
+  return {
+    leaseId: newId('lease'),
+    location: { kind: 'CLOUD' as const, description: null },
+    crewTokenHash: 'sha256(aeolus_ct_v1_crew)',
+    at: claimedAt,
+  };
+}
+
+function aLeaseOn(ship: Ship): Lease {
+  return {
+    id: newId('lease'),
+    fleetId,
+    shipId: ship.id,
+    location: { kind: 'DEVICE', description: null },
+    crewTokenHash: 'sha256(aeolus_ct_v1_first)',
+    startedAt: createdAt,
+    endedAt: null,
+  };
+}
 
 describe('the operator ship', () => {
   it('is argo, of kind operator and type operator, holding every scope', () => {
@@ -65,7 +91,7 @@ describe('the operator ship', () => {
   });
 
   it("refuses a secret claim: it has no secret, and only the operator's sign-in crews it", () => {
-    expect(checkCanClaimWithSecret(argo)).toEqual({
+    expect(claimShip({ ship: argo, heldLease: undefined }, aClaim())).toEqual({
       isOk: false,
       error: {
         kind: 'OPERATOR_SHIP_HAS_NO_SECRET',
@@ -83,7 +109,7 @@ describe('an agent ship', () => {
   });
 
   it('can be claimed with its secret', () => {
-    expect(checkCanClaimWithSecret(scout)).toEqual(allowed);
+    expect(claimShip({ ship: scout, heldLease: undefined }, aClaim())).toMatchObject({ isOk: true });
   });
 
   it('can never be renamed to argo', () => {
@@ -120,5 +146,66 @@ describe('the status of a ship', () => {
 
     expect(shipStatus(retired, { isCrewed: false })).toBe('retired');
     expect(shipStatus(retired, { isCrewed: true })).toBe('retired');
+  });
+});
+
+describe('claiming a ship with its secret', () => {
+  it('opens a lease at the reported location, holding the hash of the crew token, and raises ShipClaimed', () => {
+    const claim = aClaim();
+
+    expect(claimShip({ ship: scout, heldLease: undefined }, claim)).toEqual(
+      ok({
+        lease: {
+          id: claim.leaseId,
+          fleetId,
+          shipId: scout.id,
+          location: { kind: 'CLOUD', description: null },
+          crewTokenHash: 'sha256(aeolus_ct_v1_crew)',
+          startedAt: claimedAt,
+          endedAt: null,
+        },
+        events: [
+          {
+            fleetId,
+            type: 'ShipClaimed',
+            occurredAt: claimedAt,
+            actor: { kind: 'ship', shipId: scout.id },
+            shipId: scout.id,
+            details: { leaseId: claim.leaseId, location: 'CLOUD', locationDescription: null },
+          },
+        ],
+      }),
+    );
+  });
+
+  it('carries the description of an OTHER location on ShipClaimed', () => {
+    const claim = { ...aClaim(), location: { kind: 'OTHER' as const, description: 'a ci runner' } };
+
+    expect(claimShip({ ship: scout, heldLease: undefined }, claim)).toMatchObject({
+      isOk: true,
+      value: { events: [{ details: { location: 'OTHER', locationDescription: 'a ci runner' } }] },
+    });
+  });
+
+  it('refuses a second claim while a lease is held', () => {
+    expect(claimShip({ ship: scout, heldLease: aLeaseOn(scout) }, aClaim())).toEqual({
+      isOk: false,
+      error: {
+        kind: 'SHIP_NOT_AWAITING_CREW',
+        message: 'scout is crewed: a session claims a ship only while it awaits crew',
+      },
+    });
+  });
+
+  it('refuses a retired ship', () => {
+    const retired = { ...scout, retiredAt: createdAt };
+
+    expect(claimShip({ ship: retired, heldLease: undefined }, aClaim())).toEqual({
+      isOk: false,
+      error: {
+        kind: 'SHIP_NOT_AWAITING_CREW',
+        message: 'scout is retired: a session claims a ship only while it awaits crew',
+      },
+    });
   });
 });
