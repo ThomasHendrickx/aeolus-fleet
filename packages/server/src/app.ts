@@ -14,6 +14,7 @@ export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
   shouldTrustProxy?: boolean;
   signInRateLimit?: RateLimit;
+  registerRateLimit?: RateLimit;
   /** The domain the session cookie is set for. Unset: the server's host only. */
   cookieDomain?: string;
   /** The origin of a console on another host, allowed to call with credentials. Unset: none. */
@@ -35,6 +36,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     logger: options.logger,
     shouldTrustProxy: options.shouldTrustProxy,
     signInRateLimit: options.signInRateLimit,
+    registerRateLimit: options.registerRateLimit,
     cookieDomain: options.cookieDomain,
     consoleOrigin: options.consoleOrigin,
   });

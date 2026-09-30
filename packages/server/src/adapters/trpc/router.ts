@@ -1,5 +1,6 @@
 import { consoleRouter } from './console.js';
 import { fleetRouter } from './fleet.js';
+import { shipRouter } from './ship.js';
 import { systemRouter } from './system.js';
 import { router } from './trpc.js';
 
@@ -7,6 +8,7 @@ import { router } from './trpc.js';
 export const appRouter = router({
   console: consoleRouter,
   fleet: fleetRouter,
+  ship: shipRouter,
   system: systemRouter,
 });
 

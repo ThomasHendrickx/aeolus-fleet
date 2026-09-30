@@ -1,9 +1,11 @@
 import type { Authenticate } from '../../core/identity/authenticate.js';
 import type { SignIn } from '../../core/identity/sign-in.js';
 import type { SignOut } from '../../core/identity/sign-out.js';
+import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../core/registry/list-fleet.js';
+import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 
 /** The use cases procedures can call. Wired once at startup. */
@@ -15,6 +17,8 @@ export interface UseCases {
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   listFleet: ListFleet;
+  claimShip: ClaimShip;
+  whoami: Whoami;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */
@@ -39,4 +43,6 @@ export interface Context {
   clientKey: string;
   /** Counts sign-in attempts per client; false when over the limit. */
   takeSignInAttempt: (clientKey: string) => boolean;
+  /** Counts register attempts per client, apart from sign-in attempts; false when over the limit. */
+  takeRegisterAttempt: (clientKey: string) => boolean;
 }

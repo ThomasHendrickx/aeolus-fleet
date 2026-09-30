@@ -43,7 +43,7 @@ export function okOrThrow<T>(result: Result<T, DomainError>): T {
   return result.value;
 }
 
-/** A procedure that needs no caller: only signing in and out. */
+/** A procedure that needs no caller: signing in and out, and `register`, which takes the ship secret. */
 export const publicProcedure = t.procedure;
 
 /**
@@ -68,18 +68,27 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
 }
 
 /**
+ * A procedure for any caller, whatever its scopes: only `whoami`, which tells
+ * a caller about itself. The caller comes from the server, never from the
+ * request.
+ */
+export const authenticatedProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  const caller = await resolveCaller(ctx);
+  if (!caller) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
+  }
+  return next({ ctx: { caller } });
+});
+
+/**
  * A procedure that needs the given scope. The caller and its scopes come from
  * the server, never from the request, and are checked before any use case runs.
  */
 export function scopedProcedure(scope: Scope) {
-  return publicProcedure.use(async ({ ctx, next }) => {
-    const caller = await resolveCaller(ctx);
-    if (!caller) {
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
-    }
-    if (!hasScope(caller, scope)) {
+  return authenticatedProcedure.use(({ ctx, next }) => {
+    if (!hasScope(ctx.caller, scope)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
     }
-    return next({ ctx: { caller } });
+    return next();
   });
 }
