@@ -114,7 +114,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       // valid per ship (partial unique indexes), so neither join multiplies rows.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               l.id IS NOT NULL AS is_crewed,
+               l.location::text AS lease_location, l.location_description AS lease_location_description,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL

@@ -1,6 +1,7 @@
 import type { ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
+import type { Location } from './lease.js';
 import type { FleetListing } from './ports.js';
 import { shipStatus } from './ship.js';
 
@@ -16,22 +17,25 @@ export interface ListedShip {
    * valid. An unclaimed one is outstanding: a new prompt would stop it working.
    */
   startingPrompt: { issuedAt: Date; isClaimed: boolean } | null;
+  /** Where the session crewing the ship runs, as it reported on claim; null while no session crews it. */
+  location: Location | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
 
 /**
  * Use case: every ship of the caller's fleet, `argo` included, oldest first.
- * Never a secret or its hash. The caller's scope (fleet:read) is checked
- * before this runs.
+ * Never a secret, a crew token or their hashes. The caller's scope
+ * (fleet:read) is checked before this runs.
  */
 export function createListFleet(deps: { listing: FleetListing }): ListFleet {
   return async (caller) =>
-    (await deps.listing.ships(caller.fleetId)).map(({ ship, isCrewed, validSecret }) => ({
+    (await deps.listing.ships(caller.fleetId)).map(({ ship, openLease, validSecret }) => ({
       id: ship.id,
       name: ship.name,
       type: ship.type,
-      status: shipStatus(ship, { isCrewed }),
+      status: shipStatus(ship, { isCrewed: openLease !== null }),
       startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
+      location: openLease?.location ?? null,
     }));
 }

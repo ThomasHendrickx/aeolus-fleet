@@ -1,7 +1,7 @@
 import type { FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
 
 import type { Fleet } from './fleet.js';
-import type { Lease } from './lease.js';
+import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
 
 /** Outbound port: fleets. The only repository whose reads are not scoped to one fleet. */
@@ -56,10 +56,11 @@ export interface InFlightDeliveries {
   returnToPending(fleetId: FleetId, shipId: ShipId): Promise<number>;
 }
 
-/** What the fleet listing reads about one ship: the ship, whether a session crews it, and its valid secret. */
+/** What the fleet listing reads about one ship: the ship, the lease of the session crewing it, and its valid secret. */
 export interface ShipFacts {
   ship: Ship;
-  isCrewed: boolean;
+  /** Where the session holding the ship's open lease runs; null while no session crews it. */
+  openLease: { location: Location } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
 }
