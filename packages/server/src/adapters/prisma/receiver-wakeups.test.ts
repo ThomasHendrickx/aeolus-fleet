@@ -103,4 +103,23 @@ describe('the wake-ups of waiting receives', () => {
     await expect(waiting).resolves.toBe('timedOut');
   });
 
+
+  it('end every waiting receive at once when the server stops, as if its time had passed', async () => {
+    const waiting = hub.watch(scout).next(25_000);
+    const waitingOfType = hub.watch({ fleetId, shipId: newId('ship'), type: 'builder' }).next(25_000);
+
+    hub.endAll();
+
+    await expect(waiting).resolves.toBe('timedOut');
+    await expect(waitingOfType).resolves.toBe('timedOut');
+  });
+
+  it('end at once a wait that starts after the server began to stop', async () => {
+    const watch = hub.watch(scout);
+
+    hub.endAll();
+
+    await expect(watch.next(25_000)).resolves.toBe('timedOut');
+    await expect(hub.watch(scout).next(25_000)).resolves.toBe('timedOut');
+  });
 });
