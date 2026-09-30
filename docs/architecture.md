@@ -78,7 +78,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | `SecretHasher`, `PasswordHasher` | Hash ship secrets, crew tokens and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
-The cross-context calls, Messaging asking Registry to resolve a selector, check that a ship is not retired and name a delivery's sender, go through a Registry port, never through Registry's tables.
+The cross-context calls, Messaging asking Registry to resolve a selector, check that a ship is not retired, name a delivery's sender and hold a crew's lease during a receive, go through a Registry port, never through Registry's tables.
 
 ## Deployment
 
