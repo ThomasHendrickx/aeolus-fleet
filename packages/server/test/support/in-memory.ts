@@ -12,7 +12,14 @@ import type {
   OperatorAccountRepository,
 } from '../../src/core/identity/ports.js';
 import type { Delivery, Message } from '../../src/core/messaging/message.js';
-import type { DeliveryNotice, DeliveryRepository, MessageRepository, Notifier } from '../../src/core/messaging/ports.js';
+import type {
+  DeliveryNotice,
+  DeliveryRepository,
+  MessageRepository,
+  Notifier,
+  ReceiverAddress,
+  ReceiverWakeups,
+} from '../../src/core/messaging/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
@@ -68,6 +75,23 @@ export interface InMemoryTx {
   notifier: Notifier;
 }
 
+/**
+ * Wake-ups for a waiting receive, played by the test. A wait takes the next
+ * scripted step, which may send a message or move the clock and says whether
+ * it woke the receive; without one, the whole wait passes on the clock and
+ * times out.
+ */
+export interface InMemoryWakeups extends ReceiverWakeups {
+  /** Every ship and type a receive watched, in order. */
+  watched: ReceiverAddress[];
+  /** Every wait a receive began, in milliseconds. */
+  waits: number[];
+  /** What the next waits do, first one first. */
+  nextWaits: (() => Promise<'woken' | 'timedOut'>)[];
+  /** How many watches have not stopped. */
+  watching(): number;
+}
+
 export interface InMemoryCore {
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
@@ -81,6 +105,23 @@ export interface InMemoryCore {
   hasher: SecretHasher;
   passwords: PasswordHasher;
   random: RandomTokens;
+  wakeups: InMemoryWakeups;
+}
+
+/** Whether the delivery has every field a send stores, so a receive can claim it. */
+function isWhole(delivery: InMemoryDelivery): delivery is Delivery {
+  return (
+    delivery.messageId !== undefined &&
+    delivery.recipient !== undefined &&
+    delivery.claimedByLeaseId !== undefined &&
+    delivery.attempts !== undefined &&
+    delivery.createdAt !== undefined
+  );
+}
+
+/** Oldest first, as Postgres orders them: by creation, then by id. */
+function byAge(first: Delivery, second: Delivery): number {
+  return first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id);
 }
 
 export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemoryCore {
@@ -192,6 +233,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.leases.push({ ...lease });
         return Promise.resolve();
       },
+      findOpenByIdForShare: (fleetId, leaseId) => {
+        const lease = state.leases.find(
+          (held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null,
+        );
+        return Promise.resolve(lease && { ...lease });
+      },
       end: ({ fleetId, leaseId, endedAt }) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === leaseId);
         if (lease?.endedAt !== null) {
@@ -210,6 +257,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         for (const delivery of inFlight) {
           delivery.state = 'pending';
           delivery.claimedByShipId = null;
+          delivery.claimedByLeaseId = null;
         }
         return Promise.resolve(inFlight.length);
       },
@@ -330,6 +378,40 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.deliveries.push(structuredClone(delivery));
         return Promise.resolve();
       },
+      findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding }) => {
+        const whole = state.deliveries.filter(isWhole).filter((delivery) => delivery.fleetId === fleetId);
+        const inFlight = whole
+          .filter(
+            (delivery) =>
+              delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
+          )
+          .sort(byAge);
+        const pending = whole
+          .filter(
+            ({ state: deliveryState, recipient }) =>
+              deliveryState === 'pending' &&
+              ((recipient.kind === 'ship' && recipient.shipId === shipId) ||
+                (recipient.kind === 'type' && recipient.type === type)),
+          )
+          .sort(byAge);
+        const claimable = [...inFlight, ...pending].slice(0, limit).flatMap((delivery) => {
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+          return message ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+        });
+        return Promise.resolve(claimable);
+      },
+      findForUpdate: (fleetId, deliveryId) => {
+        const found = state.deliveries.filter(isWhole).find((held) => held.fleetId === fleetId && held.id === deliveryId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      update: (delivery) => {
+        const index = state.deliveries.findIndex((held) => held.fleetId === delivery.fleetId && held.id === delivery.id);
+        if (index === -1) {
+          return Promise.reject(new Error(`no delivery ${delivery.id} to update`));
+        }
+        state.deliveries[index] = structuredClone(delivery);
+        return Promise.resolve();
+      },
     },
     events: {
       append: (event) => {
@@ -371,7 +453,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     byCrewTokenHash: (crewTokenHash) => {
       const lease = state.leases.find((held) => held.crewTokenHash === crewTokenHash && held.endedAt === null);
       const owner = lease && ship(lease.fleetId, lease.shipId);
-      return Promise.resolve(owner?.retiredAt === null ? authenticated(owner) : undefined);
+      return Promise.resolve(
+        lease && owner?.retiredAt === null ? { ...authenticated(owner), leaseId: lease.id } : undefined,
+      );
     },
     useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
       const session = state.consoleSessions.find(
@@ -414,7 +498,37 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ),
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, clock, ids, hasher, passwords, random };
+  let watches = 0;
+  const wakeups: InMemoryWakeups = {
+    watched: [],
+    waits: [],
+    nextWaits: [],
+    watching: () => watches,
+    watch: (address) => {
+      wakeups.watched.push({ ...address });
+      watches += 1;
+      let isStopped = false;
+      return {
+        next: (waitMs) => {
+          wakeups.waits.push(waitMs);
+          const step = wakeups.nextWaits.shift();
+          if (step) {
+            return step();
+          }
+          clock.advance(waitMs);
+          return Promise.resolve('timedOut');
+        },
+        stop: () => {
+          if (!isStopped) {
+            isStopped = true;
+            watches -= 1;
+          }
+        },
+      };
+    },
+  };
+
+  return { state, uow, ships: tx.ships, callers, accounts, listing, clock, ids, hasher, passwords, random, wakeups };
 }
 
 const TABLES = [

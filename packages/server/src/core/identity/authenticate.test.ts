@@ -19,15 +19,17 @@ beforeEach(async () => {
 });
 
 describe('authenticating with a crew token', () => {
-  it('returns the ship the token crews, with only its own scopes', async () => {
+  it('returns the ship the token crews, with only its own scopes, and the lease the token belongs to', async () => {
     const agent = addAgentShip(core, { fleetId });
     const crewToken = crewShip(core, { fleetId, shipId: agent.shipId });
+    const [lease] = core.state.leases;
 
     await expect(useCases.authenticate.byCrewToken(crewToken)).resolves.toEqual({
       shipId: agent.shipId,
       fleetId,
       kind: 'agent',
       scopes: ['messages:send', 'messages:receive'],
+      leaseId: lease?.id,
     });
   });
 

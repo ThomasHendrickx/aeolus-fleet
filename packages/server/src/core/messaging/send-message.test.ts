@@ -84,6 +84,7 @@ describe('sending a message to a ship', () => {
         recipient: { kind: 'ship', shipId: scoutId },
         state: 'pending',
         claimedByShipId: null,
+        claimedByLeaseId: null,
         attempts: 0,
         createdAt: core.clock.now(),
       },
@@ -190,6 +191,7 @@ describe('sending a message to a type', () => {
         recipient: { kind: 'type', type: 'reviewer' },
         state: 'pending',
         claimedByShipId: null,
+        claimedByLeaseId: null,
       }),
     ]);
     expect(core.state.notices).toEqual([
