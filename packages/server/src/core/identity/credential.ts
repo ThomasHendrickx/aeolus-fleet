@@ -1,6 +1,8 @@
 import type { CredentialId, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
+import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
+import { ok, type Result } from '../shared/result.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { CredentialRepository } from './ports.js';
 
@@ -80,4 +82,27 @@ export async function revokeShipSecret(
     shipId,
     details: { credentialId: valid.id },
   });
+}
+
+/**
+ * The given ship's valid secret, locked until the unit of work ends: a claim
+ * locks it before it opens the lease, so it serialises with a new starting
+ * prompt, which locks the same row before it replaces the secret. One refusal
+ * for an unknown secret, an invalidated one, another ship's and an unknown
+ * ship id, so the answer says nothing about which ids or secrets exist.
+ */
+export async function findValidShipSecret(
+  deps: { tx: CredentialTx; hasher: SecretHasher },
+  input: { shipId: ShipId; secret: string },
+): Promise<Result<Credential, DomainError<'WRONG_SHIP_ID_OR_SECRET'>>> {
+  const credential = await deps.tx.credentials.findValidBySecretHashForUpdate(deps.hasher.hash(input.secret));
+  return credential?.shipId === input.shipId
+    ? ok(credential)
+    : refuse('WRONG_SHIP_ID_OR_SECRET', 'Wrong ship id or secret');
+}
+
+/** Marks the secret claimed: a session crews the ship with it. The first claim's date stays. */
+export async function markShipSecretClaimed(tx: CredentialTx, claim: { credential: Credential; at: Date }): Promise<void> {
+  const { credential, at } = claim;
+  await tx.credentials.markClaimed({ fleetId: credential.fleetId, credentialId: credential.id, at });
 }

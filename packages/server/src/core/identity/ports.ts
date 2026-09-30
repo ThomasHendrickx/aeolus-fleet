@@ -11,20 +11,18 @@ export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
 /**
  * Outbound port: ship secrets.
  *
- * Lock order, so concurrent sign-ins, sign-outs, starting prompts and password
- * resets never deadlock: the ship when the use case locks it, then a
+ * Lock order, so concurrent sign-ins, sign-outs, claims, starting prompts and
+ * password resets never deadlock: the ship when the use case locks it, then a
  * credential or the operator account, then console sessions, then leases.
  */
 export interface CredentialRepository {
   create(credential: Credential): Promise<void>;
   /**
-   * The valid credential with this hash and the ship it belongs to, locked until
-   * the unit of work ends. Not scoped by fleet: a secret carries no fleet, and
-   * its hash is unique across all fleets (ADR 0007).
+   * The valid credential with this hash, locked until the unit of work ends.
+   * Not scoped by fleet: a secret carries no fleet, and its hash is unique
+   * across all fleets (ADR 0007).
    */
-  findValidBySecretHashForUpdate(
-    secretHash: string,
-  ): Promise<{ credential: Credential; ship: AuthenticatedShip } | undefined>;
+  findValidBySecretHashForUpdate(secretHash: string): Promise<Credential | undefined>;
   /** The ship's valid credential, locked until the unit of work ends. */
   findValidForShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Credential | undefined>;
   markClaimed(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;

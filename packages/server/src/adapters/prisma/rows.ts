@@ -92,6 +92,7 @@ const leaseSqlRow = z
     ship_id: idSchema('ship'),
     location: locationKindSchema,
     location_description: z.string().nullable(),
+    crew_token_hash: z.string().nullable(),
     started_at: z.date(),
     ended_at: z.date().nullable(),
   })
@@ -101,6 +102,7 @@ const leaseSqlRow = z
       fleetId: row.fleet_id,
       shipId: row.ship_id,
       location: { kind: row.location, description: row.location_description },
+      crewTokenHash: row.crew_token_hash,
       startedAt: row.started_at,
       endedAt: row.ended_at,
     }),

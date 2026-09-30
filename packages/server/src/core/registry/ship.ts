@@ -1,8 +1,17 @@
-import { SCOPES, type FleetId, type Scope, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
+import {
+  SCOPES,
+  type FleetId,
+  type LeaseId,
+  type Scope,
+  type ShipId,
+  type ShipKind,
+  type ShipStatus,
+} from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import type { Actor, NewEvent } from '../shared/events.js';
+import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
+import type { Lease, Location } from './lease.js';
 import { shipName, shipType } from './ship-handle.js';
 import { shipNote } from './ship-note.js';
 
@@ -142,15 +151,56 @@ export function checkCanIssueStartingPrompt(
       );
 }
 
+export type ClaimRefusal = DomainError<'OPERATOR_SHIP_HAS_NO_SECRET' | 'SHIP_NOT_AWAITING_CREW'>;
+
 /**
- * A session claims a ship with the ship's secret (`register`). Never `argo`:
- * it has no secret, and only the operator's console sign-in crews it
+ * A session claims the ship with its secret (`register`): a new lease at the
+ * location the session reports, holding the hash of its crew token, and
+ * ShipClaimed, caused by the ship itself. Only while the ship awaits crew: a
+ * second claim fails while a lease is held, and the operator frees the ship
+ * with Release (ADR 0010); a retired ship is never claimed again. Never
+ * `argo`: it has no secret, and only the operator's console sign-in crews it
  * (ADR 0012).
  */
-export function checkCanClaimWithSecret(ship: Ship): Result<void, DomainError<'OPERATOR_SHIP_HAS_NO_SECRET'>> {
-  return ship.kind === 'operator'
-    ? refuse('OPERATOR_SHIP_HAS_NO_SECRET', `${ship.name} has no secret: only the operator's console sign-in crews it`)
-    : ok(undefined);
+export function claimShip(
+  crew: { ship: Ship; heldLease: Lease | undefined },
+  claim: { leaseId: LeaseId; location: Location; crewTokenHash: string; at: Date },
+): Result<{ lease: Lease; events: NewEvent[] }, ClaimRefusal> {
+  const { ship, heldLease } = crew;
+  if (ship.kind === 'operator') {
+    return refuse('OPERATOR_SHIP_HAS_NO_SECRET', `${ship.name} has no secret: only the operator's console sign-in crews it`);
+  }
+  const status = shipStatus(ship, { isCrewed: heldLease !== undefined });
+  if (status !== 'awaitingCrew') {
+    return refuse(
+      'SHIP_NOT_AWAITING_CREW',
+      `${ship.name} is ${STATUS_WORDS[status]}: a session claims a ship only while it awaits crew`,
+    );
+  }
+
+  const { leaseId, location, crewTokenHash, at } = claim;
+  const lease: Lease = {
+    id: leaseId,
+    fleetId: ship.fleetId,
+    shipId: ship.id,
+    location,
+    crewTokenHash,
+    startedAt: at,
+    endedAt: null,
+  };
+  return ok({
+    lease,
+    events: [
+      {
+        fleetId: ship.fleetId,
+        type: 'ShipClaimed',
+        occurredAt: at,
+        actor: shipActor(ship.id),
+        shipId: ship.id,
+        details: { leaseId, location: location.kind, locationDescription: location.description },
+      },
+    ],
+  });
 }
 
 export function isReservedShipName(name: string): boolean {

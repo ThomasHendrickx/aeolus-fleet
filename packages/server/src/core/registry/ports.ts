@@ -25,6 +25,8 @@ export interface ShipRepository {
    * two commissions of one name never both find it free.
    */
   lockName(fleetId: FleetId, name: string): Promise<void>;
+  /** The ship, read without a lock. */
+  find(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**
