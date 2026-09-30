@@ -1,4 +1,4 @@
-import { CONTENT_TYPE_MAX_LENGTH, isMediaType } from '@aeolus-fleet/common';
+import { CONTENT_TYPE_MAX_LENGTH, hasNulCharacter, isMediaType } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -10,6 +10,9 @@ import { ok, type Result } from '../shared/result.js';
  * with the common schema.
  */
 export function contentType(raw: string): Result<string, DomainError<'INVALID_CONTENT_TYPE'>> {
+  if (hasNulCharacter(raw)) {
+    return refuse('INVALID_CONTENT_TYPE', 'A content type cannot hold the character U+0000 (NUL)');
+  }
   return raw.length <= CONTENT_TYPE_MAX_LENGTH && isMediaType(raw)
     ? ok(raw)
     : refuse(

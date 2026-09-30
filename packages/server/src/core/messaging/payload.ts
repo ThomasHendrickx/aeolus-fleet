@@ -1,4 +1,4 @@
-import { PAYLOAD_MAX_BYTES, payloadBytes } from '@aeolus-fleet/common';
+import { hasNulCharacter, PAYLOAD_MAX_BYTES, payloadBytes } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -6,10 +6,14 @@ import { ok, type Result } from '../shared/result.js';
 /**
  * A message's payload: text, opaque to the fleet, which never reads, parses or
  * changes it. At most 64 KB serialized, counted in UTF-8 bytes (ADR 0006): a
- * message carries a reference and an instruction, not the content itself. The
- * rule is shared with the common schema, so the door checks the same thing.
+ * message carries a reference and an instruction, not the content itself.
+ * Never the character U+0000, which Postgres text cannot store. The rules are
+ * shared with the common schema, so the door checks the same thing.
  */
-export function payload(text: string): Result<string, DomainError<'PAYLOAD_TOO_LARGE'>> {
+export function payload(text: string): Result<string, DomainError<'INVALID_PAYLOAD' | 'PAYLOAD_TOO_LARGE'>> {
+  if (hasNulCharacter(text)) {
+    return refuse('INVALID_PAYLOAD', 'A payload cannot hold the character U+0000 (NUL)');
+  }
   const bytes = payloadBytes(text);
   return bytes <= PAYLOAD_MAX_BYTES
     ? ok(text)
