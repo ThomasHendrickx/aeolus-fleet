@@ -29,7 +29,8 @@ export function createCommissionShip(deps: {
   clock: Clock;
   ids: IdGenerator;
   secrets: Omit<SecretTools, 'ids'>;
-  fleetUrl: string;
+  /** Where a session reaches the fleet over MCP: the URL the starting prompt carries. */
+  mcpUrl: string;
 }): CommissionShip {
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, CommissionRefusal>> => {
@@ -52,7 +53,7 @@ export function createCommissionShip(deps: {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
       const prompt = await issueStartingPrompt(
-        { tx, secrets: { ...deps.secrets, ids: deps.ids }, fleetUrl: deps.fleetUrl },
+        { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl },
         { fleetId, shipId: ship.id, actor, at },
       );
       return ok({ shipId: ship.id, prompt });

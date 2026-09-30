@@ -9,16 +9,32 @@ import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
  * it is shown once and never stored.
  */
 
-/** A placeholder until the real text, with how to use the ship contract, is drafted (build plan, slice 8). */
-export function startingPromptText(input: { fleetUrl: string; shipId: ShipId; secret: string }): string {
+/**
+ * The starting prompt's text: identity only. Where the fleet's MCP server is
+ * and how to add it, the ship's id and secret, how to pick the location, and
+ * to call register. The protocol comes from the fleet when the session
+ * connects, and each call's rules from its description; what the ship works
+ * on, the operator adds.
+ */
+export function startingPromptText(input: { mcpUrl: string; shipId: ShipId; secret: string }): string {
+  const { mcpUrl, shipId, secret } = input;
   return [
     'You crew a ship in an Aeolus fleet.',
     '',
-    `Fleet URL: ${input.fleetUrl}`,
-    `Ship id: ${input.shipId}`,
-    `Ship secret: ${input.secret}`,
+    `Fleet MCP URL: ${mcpUrl}`,
+    `Ship id: ${shipId}`,
+    `Ship secret: ${secret}`,
     '',
-    'This is a placeholder starting prompt: how to use the ship contract comes later.',
+    "Its tools come from the fleet's MCP server at that URL. If this session has none of them, add the server with this command, then start the session again with this prompt:",
+    `claude mcp add --transport http --scope user aeolus ${mcpUrl}`,
+    '',
+    'Your location is where this session runs:',
+    "- DEVICE: a personal computer, such as the operator's laptop",
+    '- CLOUD: a hosted agent service, such as Claude Code on the web',
+    '- SERVER: a server the operator runs, such as a VPS',
+    '- OTHER: none of these, with a few words on where you run',
+    '',
+    'Call register.',
   ].join('\n');
 }
 
@@ -33,11 +49,11 @@ export interface StartingPromptTx extends CredentialTx {
   events: EventLog;
 }
 
-/** What issuing a starting prompt works with: the caller's unit of work, the secret tools and where ships reach the fleet. */
+/** What issuing a starting prompt works with: the caller's unit of work, the secret tools and the fleet's MCP URL. */
 export interface StartingPromptDeps {
   tx: StartingPromptTx;
   secrets: SecretTools;
-  fleetUrl: string;
+  mcpUrl: string;
 }
 
 /**
@@ -49,7 +65,7 @@ export async function issueStartingPrompt(
   deps: StartingPromptDeps,
   input: { fleetId: FleetId; shipId: ShipId; actor: Actor; at: Date },
 ): Promise<string> {
-  const { tx, secrets, fleetUrl } = deps;
+  const { tx, secrets, mcpUrl } = deps;
   const { fleetId, shipId, actor, at } = input;
 
   const { secret, credentialId } = await issueShipSecret({ tx, ...secrets }, { fleetId, shipId, at });
@@ -61,5 +77,5 @@ export async function issueStartingPrompt(
     shipId,
     details: { credentialId },
   });
-  return startingPromptText({ fleetUrl, shipId, secret });
+  return startingPromptText({ mcpUrl, shipId, secret });
 }

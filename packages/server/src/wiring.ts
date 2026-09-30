@@ -1,6 +1,7 @@
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
 import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
+import { mcpUrlOf } from './adapters/mcp/mcp-url.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
@@ -56,8 +57,8 @@ export const systemClock: Clock = { now: () => new Date() };
 
 /**
  * Wires every use case to Postgres through Prisma. The HTTP app and the server
- * commands share it. `fleetUrl` is where ships reach the fleet: the URL every
- * starting prompt carries.
+ * commands share it. `fleetUrl` is where ships reach the fleet, the public
+ * URL: every starting prompt carries the fleet's MCP URL under it.
  *
  * `wakeups` wake a waiting receive; the HTTP app feeds them from the delivery
  * listener. Without them, nothing wakes a receive and it ends only at its
@@ -77,13 +78,14 @@ export function createUseCases(options: {
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
+  const mcpUrl = mcpUrlOf(options.fleetUrl);
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
-    commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
-    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
+    commissionShip: createCommissionShip({ uow, clock, ids, secrets, mcpUrl }),
+    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),

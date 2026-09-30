@@ -7,7 +7,7 @@ import { createClaimShip } from '../src/core/registry/claim-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_MCP_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import {
   createPostgresCore,
   everyRow,
@@ -61,7 +61,7 @@ function getStartingPromptWith(uow: UnitOfWork<PrismaTx>) {
     clock: core.clock,
     ids: newId,
     secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
-    fleetUrl: FLEET_URL,
+    mcpUrl: FLEET_MCP_URL,
   });
 }
 

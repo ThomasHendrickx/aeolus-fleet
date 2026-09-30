@@ -29,6 +29,7 @@ import {
   type ShipCall,
   type ShipCallRefusal,
 } from '../trpc/ship-contract.js';
+import { MCP_PATH } from './mcp-url.js';
 
 /** How the server names itself to MCP clients. Its version is the ship contract's, as in `/api/v1`. */
 const SERVER_INFO = { name: 'aeolus-fleet', version: '1' };
@@ -139,7 +140,7 @@ function webRequestOf(request: FastifyRequest): Request {
 
 /** Mounts `/mcp` on the HTTP server. */
 export function registerMcpEndpoint(server: FastifyInstance, options: McpEndpointOptions): void {
-  server.all('/mcp', async (request, reply) => {
+  server.all(MCP_PATH, async (request, reply) => {
     try {
       // A handler per request, so each tool call knows the request it came
       // with: its client address for the register limit, its id for the log.
