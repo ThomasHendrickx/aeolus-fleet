@@ -65,7 +65,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  wakeups.close();
   await listener.close();
   await prisma.$disconnect();
 });

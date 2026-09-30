@@ -16,7 +16,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  hub.close();
   vi.useRealTimers();
 });
 
@@ -104,12 +103,4 @@ describe('the wake-ups of waiting receives', () => {
     await expect(waiting).resolves.toBe('timedOut');
   });
 
-  it('end every wait at once when the server stops, and every later one too', async () => {
-    const waiting = hub.watch(scout).next(25_000);
-
-    hub.close();
-
-    await expect(waiting).resolves.toBe('timedOut');
-    await expect(hub.watch(scout).next(25_000)).resolves.toBe('timedOut');
-  });
 });

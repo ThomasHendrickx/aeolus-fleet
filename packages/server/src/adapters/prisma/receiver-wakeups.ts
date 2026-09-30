@@ -16,8 +16,6 @@ export interface ReceiverWakeupHub extends ReceiverWakeups {
    * starts listening again: notices sent while it did not listen are gone.
    */
   wakeAll: () => void;
-  /** Ends every wait at once, empty, and every later one: the server is stopping. */
-  close: () => void;
 }
 
 type Outcome = 'woken' | 'timedOut';
@@ -39,7 +37,6 @@ function typeKey(fleetId: string, type: string): string {
 
 export function createReceiverWakeups(): ReceiverWakeupHub {
   const watchers = new Map<string, Set<Watcher>>();
-  let isClosed = false;
 
   const wake = (watcher: Watcher) => {
     if (watcher.settle) {
@@ -63,9 +60,6 @@ export function createReceiverWakeups(): ReceiverWakeupHub {
 
       return {
         next: (waitMs) => {
-          if (isClosed) {
-            return Promise.resolve('timedOut');
-          }
           if (watcher.isWoken) {
             watcher.isWoken = false;
             return Promise.resolve('woken');
@@ -102,12 +96,6 @@ export function createReceiverWakeups(): ReceiverWakeupHub {
     wakeAll: () => {
       for (const watcher of every()) {
         wake(watcher);
-      }
-    },
-    close: () => {
-      isClosed = true;
-      for (const watcher of every()) {
-        watcher.settle?.('timedOut');
       }
     },
   };
