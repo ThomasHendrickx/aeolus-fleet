@@ -58,6 +58,8 @@ describe('sending a message to a ship', () => {
     const messageId = await sent(argo, input);
 
     expect(messageId).toMatch(/^msg_/);
+    const [message] = core.state.messages;
+    expect(message?.requestHash).toMatch(/^sha256\(/);
     expect(core.state.messages).toEqual([
       {
         id: messageId,
@@ -67,6 +69,7 @@ describe('sending a message to a ship', () => {
         payload: input.payload,
         contentType: 'application/json',
         idempotencyKey: input.idempotencyKey,
+        requestHash: message?.requestHash,
         inReplyToMessageId: null,
         createdAt: core.clock.now(),
       },
@@ -226,19 +229,47 @@ describe('a reply', () => {
 });
 
 describe('an idempotent repeat', () => {
-  it('returns the original message id and stores nothing new, whatever else it says', async () => {
+  it('returns the original message id for the same request, and stores nothing new', async () => {
     const original = aReview();
     const messageId = await sent(argo, original);
     const before = structuredClone(core.state);
     core.clock.advance(60_000);
 
-    const repeated = await sendMessage(argo, {
-      ...original,
-      selector: { kind: 'type', type: 'reviewer' },
-      payload: 'something else',
-    });
+    const repeated = await sendMessage(argo, { ...original });
 
     expect(repeated).toEqual({ isOk: true, value: { messageId } });
+    expect(core.state).toEqual(before);
+  });
+
+  it('is the same request whatever order the fields of its selector came in', async () => {
+    const original = aReview({ selector: { kind: 'ship', shipId: scoutId } });
+    const messageId = await sent(argo, original);
+
+    const repeated = await sendMessage(argo, { ...original, selector: { shipId: scoutId, kind: 'ship' } });
+
+    expect(repeated).toEqual({ isOk: true, value: { messageId } });
+  });
+
+  it.each([
+    { label: 'selector', change: () => ({ selector: { kind: 'type', type: 'reviewer' } as const }) },
+    { label: 'way to name the same ship', change: () => ({ selector: { kind: 'ship', name: 'scout' } as const }) },
+    { label: 'payload', change: () => ({ payload: 'something else' }) },
+    { label: 'content type', change: () => ({ contentType: 'application/json; charset=utf-8' }) },
+    { label: 'message it replies to', change: () => ({ inReplyTo: core.state.messages[0]?.id }) },
+  ])('refuses the same key with another $label, and stores nothing', async ({ change }) => {
+    const original = aReview();
+    await sent(argo, original);
+    const before = structuredClone(core.state);
+
+    const reused = await sendMessage(argo, { ...original, ...change() });
+
+    expect(reused).toEqual({
+      isOk: false,
+      error: {
+        kind: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'This idempotency key was already used for another message: send a new message with a new key',
+      },
+    });
     expect(core.state).toEqual(before);
   });
 
@@ -382,6 +413,7 @@ describe('a send refused', () => {
       payload: 'elsewhere',
       contentType: 'text/plain',
       idempotencyKey: 'elsewhere',
+      requestHash: 'elsewhere',
       inReplyToMessageId: null,
       createdAt: core.clock.now(),
     });

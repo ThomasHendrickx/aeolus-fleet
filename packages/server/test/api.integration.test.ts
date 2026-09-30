@@ -612,6 +612,17 @@ describe('ship.send at the API', () => {
     expect(refusal?.message).toContain(message);
   });
 
+  it('refuses the same key with another request with CONFLICT', async () => {
+    const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
+    const input = toArgo();
+    await asShip.ship.send.mutate(input);
+
+    await expect(refusalOf(asShip.ship.send.mutate({ ...input, payload: 'something else' }))).resolves.toEqual({
+      code: 'CONFLICT',
+      message: 'This idempotency key was already used for another message: send a new message with a new key',
+    });
+  });
+
   it('refuses a ship without messages:send, and stores nothing', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
     const input = toArgo();

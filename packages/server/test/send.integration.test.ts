@@ -18,6 +18,7 @@ import { unwrap } from './support/result.js';
 // ship it addresses never pass each other.
 
 const newId = createIdGenerator();
+const KEY_REUSED = 'This idempotency key was already used for another message: send a new message with a new key';
 
 let core: PostgresCore;
 let fleetId: FleetId;
@@ -101,6 +102,8 @@ describe('sending a message on Postgres', () => {
 
     const { messageId } = unwrap(await core.useCases.sendMessage(argo, input));
 
+    const [stored] = await core.prisma.message.findMany();
+    expect(stored?.requestHash).toMatch(/^[0-9a-f]{64}$/);
     await expect(core.prisma.message.findMany()).resolves.toEqual([
       {
         id: messageId,
@@ -112,6 +115,7 @@ describe('sending a message on Postgres', () => {
         payload: input.payload,
         contentType: 'application/json',
         idempotencyKey: input.idempotencyKey,
+        requestHash: stored?.requestHash,
         inReplyToMessageId: null,
         resendOfMessageId: null,
         createdAt: core.clock.now(),
@@ -213,6 +217,7 @@ describe('sending a message on Postgres', () => {
         payload: 'elsewhere',
         contentType: 'text/plain',
         idempotencyKey: 'elsewhere',
+        requestHash: 'elsewhere',
         createdAt: core.clock.now(),
       },
     });
@@ -228,13 +233,21 @@ describe('sending a message on Postgres', () => {
     });
   });
 
-  it('returns the original message id for a repeat, and stores nothing new', async () => {
+  it('returns the original message id for a repeat of the same request, and stores nothing new', async () => {
     const input = aReview();
     const { messageId } = unwrap(await core.useCases.sendMessage(argo, input));
 
-    await expect(core.useCases.sendMessage(argo, { ...input, payload: 'something else' })).resolves.toEqual({
-      isOk: true,
-      value: { messageId },
+    await expect(core.useCases.sendMessage(argo, { ...input })).resolves.toEqual({ isOk: true, value: { messageId } });
+    await expect(storedCounts()).resolves.toEqual({ messages: 1, deliveries: 1, accepted: 1 });
+  });
+
+  it('refuses the same key with another request, and stores nothing new', async () => {
+    const input = aReview();
+    unwrap(await core.useCases.sendMessage(argo, input));
+
+    await expect(core.useCases.sendMessage(argo, { ...input, payload: 'something else' })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'IDEMPOTENCY_KEY_REUSED' },
     });
     await expect(storedCounts()).resolves.toEqual({ messages: 1, deliveries: 1, accepted: 1 });
   });
@@ -327,6 +340,37 @@ describe('concurrent sends with one idempotency key', () => {
 
     const [message] = await core.prisma.message.findMany();
     expect(results).toEqual(Array.from({ length: 5 }, () => ({ isOk: true, value: { messageId: message?.id } })));
+    await expect(storedCounts()).resolves.toEqual({ messages: 1, deliveries: 1, accepted: 1 });
+  });
+});
+
+describe('concurrent sends of two requests with one idempotency key', () => {
+  it('store one message: the sends of its request get its id, the others are refused', async () => {
+    const sendMessage = sendMessageWith(
+      racingUnitOfWork({ prisma: core.prisma, transactions: 4 }, (tx, allArrived) => ({
+        ...tx,
+        messages: {
+          ...tx.messages,
+          findByIdempotencyKey: async (key) => {
+            await allArrived();
+            return tx.messages.findByIdempotencyKey(key);
+          },
+        },
+      })),
+    );
+    const one = aReview({ payload: 'one' });
+    const inputs = [one, { ...one, payload: 'other' }, one, { ...one, payload: 'other' }];
+
+    const results = await Promise.all(inputs.map((input) => sendMessage(argo, input)));
+
+    const [message] = await core.prisma.message.findMany();
+    expect(results).toEqual(
+      inputs.map((input) =>
+        input.payload === message?.payload
+          ? { isOk: true, value: { messageId: message.id } }
+          : { isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED', message: KEY_REUSED } },
+      ),
+    );
     await expect(storedCounts()).resolves.toEqual({ messages: 1, deliveries: 1, accepted: 1 });
   });
 });

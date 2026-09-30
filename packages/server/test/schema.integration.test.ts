@@ -62,6 +62,7 @@ async function createMessage(fleetId: FleetId, payload = '{}'): Promise<MessageI
       payload,
       contentType: 'application/json',
       idempotencyKey: id,
+      requestHash: id,
       createdAt: now,
     },
   });
@@ -415,6 +416,7 @@ describe('messages', () => {
         payload: '{}',
         contentType: 'application/json',
         idempotencyKey: newId('message'),
+        requestHash: 'request',
         createdAt: now,
         ...selector,
         ...columns,

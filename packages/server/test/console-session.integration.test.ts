@@ -58,6 +58,7 @@ async function deliveryInFlightToArgo(): Promise<string> {
       payload: '{}',
       contentType: 'application/json',
       idempotencyKey: messageId,
+      requestHash: messageId,
       createdAt: core.clock.now(),
     },
   });
