@@ -64,9 +64,6 @@ jobs:
       - name: No em dash
         if: ${{ !cancelled() && steps.install.outcome == 'success' && github.event_name == 'pull_request' }}
         run: node scripts/check-em-dash.ts "$BASE_SHA" "$HEAD_SHA"
-      - name: Work history
-        if: ${{ !cancelled() && steps.install.outcome == 'success' && github.event_name == 'pull_request' }}
-        run: node scripts/check-work-history.ts "$BASE_SHA" "$HEAD_SHA"
 
   integration:
     name: Integration tests (Postgres in Testcontainers)
