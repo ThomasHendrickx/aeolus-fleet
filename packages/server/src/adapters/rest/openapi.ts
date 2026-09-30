@@ -7,6 +7,9 @@
  */
 import type { ShipCall } from '../trpc/ship-contract.js';
 
+/** The API's title, in the spec and on its page at `/api/v1/docs`. */
+export const API_TITLE = 'Aeolus ship API';
+
 const JSON_MEDIA_TYPE = 'application/json';
 
 const ERROR_SCHEMA = {
@@ -48,7 +51,7 @@ function operationOf(call: ShipCall): Record<string, unknown> {
 export function openApiDocument(calls: readonly ShipCall[]): Record<string, unknown> {
   return {
     openapi: '3.1.1',
-    info: { title: 'Aeolus ship API', version: '1', description: API_DESCRIPTION },
+    info: { title: API_TITLE, version: '1', description: API_DESCRIPTION },
     servers: [{ url: '/api/v1' }],
     paths: Object.fromEntries(
       calls.map((call) => [`/ship/${call.name}`, { [call.type === 'query' ? 'get' : 'post']: operationOf(call) }]),
