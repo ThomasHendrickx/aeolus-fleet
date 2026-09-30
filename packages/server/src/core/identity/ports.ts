@@ -1,8 +1,9 @@
-import type { ConsoleSessionId, CredentialId, FleetId, ShipId } from '@aeolus-fleet/common';
+import type { ConsoleSessionId, CredentialId, FleetId, OperatorId, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { ConsoleSession } from './console-session.js';
 import type { Credential } from './credential.js';
+import type { OperatorAccount } from './operator-account.js';
 
 /** The ship a secret or a session token belongs to, as the caller it makes. */
 export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
@@ -10,9 +11,9 @@ export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
 /**
  * Outbound port: ship secrets.
  *
- * Lock order, so concurrent sign-ins, sign-outs, starting prompts and secret
- * replacements never deadlock: the ship when the use case locks it, then a
- * credential, then console sessions, then leases.
+ * Lock order, so concurrent sign-ins, sign-outs, starting prompts and password
+ * resets never deadlock: the ship when the use case locks it, then a
+ * credential or the operator account, then console sessions, then leases.
  */
 export interface CredentialRepository {
   create(credential: Credential): Promise<void>;
@@ -28,6 +29,29 @@ export interface CredentialRepository {
   findValidForShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Credential | undefined>;
   markClaimed(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;
   invalidate(change: { fleetId: FleetId; credentialId: CredentialId; at: Date }): Promise<void>;
+}
+
+/**
+ * Outbound port: finds the operator account by its normalised email outside
+ * any unit of work, so checking a password holds no row and no connection.
+ * One query, not scoped by fleet: signing in names no fleet (ADR 0007).
+ */
+export interface OperatorAccountLookup {
+  byEmail(email: string): Promise<OperatorAccount | undefined>;
+}
+
+/** Outbound port: the operator account. */
+export interface OperatorAccountRepository {
+  create(account: OperatorAccount): Promise<void>;
+  /**
+   * The account with this normalised email, locked until the unit of work
+   * ends. Not scoped by fleet: signing in names no fleet, and the email is
+   * unique across all fleets (ADR 0007).
+   */
+  findByEmailForUpdate(email: string): Promise<OperatorAccount | undefined>;
+  /** The fleet's operator account, locked until the unit of work ends. */
+  findForFleetForUpdate(fleetId: FleetId): Promise<OperatorAccount | undefined>;
+  changePassword(change: { fleetId: FleetId; operatorId: OperatorId; passwordHash: string }): Promise<void>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */

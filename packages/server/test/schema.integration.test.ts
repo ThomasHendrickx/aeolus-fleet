@@ -1,8 +1,11 @@
 import { createIdGenerator, idSchema, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createMigratedDatabase, prisma } from './support/database.js';
+import { createEmptyDatabase, createMigratedDatabase, prisma } from './support/database.js';
 
 // The key constraints of docs/architecture.md ("Core tables"), proven against
 // the committed migration on a real Postgres.
@@ -88,9 +91,56 @@ describe('migrations', () => {
       'fleets',
       'leases',
       'messages',
+      'operators',
       'ships',
     ]);
     expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets']);
+  });
+});
+
+describe('the operator login migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const operatorLogin = names.findIndex((name) => name.endsWith('_operator_login'));
+
+  async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
+    for (const name of migrations) {
+      await prisma(databaseUrl, 'db', 'execute', '--file', `${MIGRATIONS}/${name}/migration.sql`);
+    }
+  }
+
+  it("removes argo's secret and keeps every agent ship's secret", async () => {
+    const url = await createEmptyDatabase();
+    await apply(url, names.slice(0, operatorLogin));
+    const before = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const scoutId = newId('ship');
+    const credential = (shipId: ShipId) => ({ id: newId('credential'), fleetId, shipId, secretHash: newId('credential'), issuedAt: now });
+    try {
+      await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await before.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: [], createdAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now },
+        ],
+      });
+      await before.credential.createMany({ data: [credential(argoId), credential(scoutId)] });
+    } finally {
+      await before.$disconnect();
+    }
+
+    await apply(url, [names[operatorLogin] ?? '']);
+
+    const after = createPrismaClient(url);
+    try {
+      await expect(after.credential.findMany()).resolves.toEqual([expect.objectContaining({ shipId: scoutId })]);
+    } finally {
+      await after.$disconnect();
+    }
   });
 });
 
@@ -134,6 +184,27 @@ describe('the operator ship', () => {
     await expect(database.ship.update({ where: { id: argo.id }, data: { retiredAt: now } })).rejects.toThrow(
       /ships_operator_never_retired/,
     );
+  });
+});
+
+describe('operator accounts', () => {
+  function account(fleetId: FleetId, email = `${newId('operator')}@example.com`) {
+    return database.operator.create({
+      data: { id: newId('operator'), fleetId, email, passwordHash: 'hash', createdAt: now },
+    });
+  }
+
+  it('hold an email unique across all fleets', async () => {
+    await account(await createFleet(), 'thomas@example.com');
+
+    await expect(account(await createFleet(), 'thomas@example.com')).rejects.toThrow(/Unique constraint/);
+  });
+
+  it('are one per fleet', async () => {
+    const fleetId = await createFleet();
+    await account(fleetId);
+
+    await expect(account(fleetId)).rejects.toThrow(/Unique constraint/);
   });
 });
 

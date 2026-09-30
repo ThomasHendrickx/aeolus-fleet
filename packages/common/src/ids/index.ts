@@ -18,6 +18,7 @@ export const ID_PREFIXES = {
   event: 'evt',
   lease: 'lse',
   credential: 'crd',
+  operator: 'opr',
   consoleSession: 'ses',
 } as const;
 
@@ -39,6 +40,7 @@ export type DeliveryId = Id<'delivery'>;
 export type EventId = Id<'event'>;
 export type LeaseId = Id<'lease'>;
 export type CredentialId = Id<'credential'>;
+export type OperatorId = Id<'operator'>;
 export type ConsoleSessionId = Id<'consoleSession'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */

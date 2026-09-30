@@ -44,4 +44,4 @@ export interface Lease {
 }
 
 /** Why a lease ended; recorded on its LeaseRevoked event. */
-export type LeaseEndReason = 'takenOver' | 'signedOut' | 'secretReplaced';
+export type LeaseEndReason = 'takenOver' | 'signedOut' | 'passwordReset';

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
+import { OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -12,11 +13,11 @@ afterEach(async () => {
 });
 
 describe('initialising the fleet on Postgres', () => {
-  it('stores the fleet, argo, the hash of its secret and both events', async () => {
+  it('stores the fleet, argo without a secret, and both events', async () => {
     core = await createPostgresCore();
 
-    const { fleetId, operatorShipId, secret } = unwrap(
-      await core.useCases.initialiseFleet({ name: 'home fleet' }),
+    const { fleetId, operatorShipId, operatorId } = unwrap(
+      await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }),
     );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
@@ -33,21 +34,33 @@ describe('initialising the fleet on Postgres', () => {
         retiredAt: null,
       }),
     ]);
-    await expect(core.prisma.credential.findMany()).resolves.toEqual([
-      expect.objectContaining({ shipId: operatorShipId, secretHash: sha256Hasher.hash(secret), invalidatedAt: null }),
-    ]);
+    await expect(core.prisma.credential.count()).resolves.toBe(0);
     const events = await core.prisma.event.findMany({ orderBy: { id: 'asc' } });
     expect(events.map((event) => [event.type, event.actorShipId, event.shipId, event.details])).toEqual([
-      ['FleetInitialised', null, null, { name: 'home fleet' }],
+      ['FleetInitialised', null, null, { name: 'home fleet', operatorId }],
       ['ShipCommissioned', null, operatorShipId, { name: 'argo', type: 'operator', kind: 'operator' }],
     ]);
   });
 
+  it('stores the operator account with an Argon2id hash of the password, never the password', async () => {
+    core = await createPostgresCore();
+
+    const { fleetId, operatorId } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+
+    const accounts = await core.prisma.operator.findMany();
+    expect(accounts).toEqual([
+      expect.objectContaining({ id: operatorId, fleetId, email: OPERATOR.email, createdAt: core.clock.now() }),
+    ]);
+    expect(accounts[0]?.passwordHash).toMatch(/^\$argon2id\$/);
+    await expect(argon2idPasswordHasher.verify(OPERATOR.password, accounts[0]?.passwordHash)).resolves.toBe(true);
+    expect(JSON.stringify(accounts)).not.toContain(OPERATOR.password);
+  });
+
   it('refuses a second run', async () => {
     core = await createPostgresCore();
-    unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' }));
+    unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
 
-    await expect(core.useCases.initialiseFleet({ name: 'second fleet' })).resolves.toMatchObject({
+    await expect(core.useCases.initialiseFleet({ name: 'second fleet', ...OPERATOR })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'FLEET_ALREADY_EXISTS' },
     });
@@ -60,7 +73,7 @@ describe('initialising the fleet on Postgres', () => {
     const { initialiseFleet } = core.useCases;
 
     const results = await Promise.all(
-      Array.from({ length: 5 }, (_, index) => initialiseFleet({ name: `fleet ${String(index)}` })),
+      Array.from({ length: 5 }, (_, index) => initialiseFleet({ name: `fleet ${String(index)}`, ...OPERATOR })),
     );
 
     expect(results.filter((result) => result.isOk)).toHaveLength(1);
@@ -72,6 +85,7 @@ describe('initialising the fleet on Postgres', () => {
     ]);
     await expect(core.prisma.fleet.count()).resolves.toBe(1);
     await expect(core.prisma.ship.count()).resolves.toBe(1);
-    await expect(core.prisma.credential.count()).resolves.toBe(1);
+    await expect(core.prisma.credential.count()).resolves.toBe(0);
+    await expect(core.prisma.operator.count()).resolves.toBe(1);
   });
 });

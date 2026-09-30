@@ -1,12 +1,14 @@
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
+import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaFleetListing, createPrismaFleetRepository } from './adapters/prisma/registry.js';
+import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
-import { createReplaceOperatorSecret, type ReplaceOperatorSecret } from './core/identity/replace-operator-secret.js';
+import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
@@ -26,7 +28,7 @@ export interface UseCases {
   listFleet: ListFleet;
   signIn: SignIn;
   signOut: SignOut;
-  replaceOperatorSecret: ReplaceOperatorSecret;
+  resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
 }
 
@@ -51,14 +53,21 @@ export function createUseCases(options: {
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
-    initialiseFleet: createInitialiseFleet({ uow, clock, ids, secrets }),
+    initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, fleetUrl: options.fleetUrl }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
-    signIn: createSignIn({ uow, clock, ids, ...secrets }),
+    signIn: createSignIn({
+      uow,
+      accounts: createPrismaOperatorAccountLookup(prisma),
+      clock,
+      ids,
+      ...secrets,
+      passwords: argon2idPasswordHasher,
+    }),
     signOut: createSignOut({ uow, clock, ids }),
-    replaceOperatorSecret: createReplaceOperatorSecret({ uow, clock, ids, ...secrets }),
+    resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
   };
 }

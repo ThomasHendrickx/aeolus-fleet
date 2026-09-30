@@ -121,8 +121,7 @@ const STATUS_WORDS: Record<ShipStatus, string> = {
 
 /**
  * A starting prompt is issued only while the ship awaits crew. Never for `argo`:
- * the console crews it, and only the server command replaces its secret, ending
- * every console session with it (ADR 0012).
+ * it has no secret, and only the operator's console sign-in crews it (ADR 0012).
  */
 export function checkCanIssueStartingPrompt(
   ship: Ship,
@@ -131,7 +130,7 @@ export function checkCanIssueStartingPrompt(
   if (ship.kind === 'operator') {
     return refuse(
       'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
-      `${ship.name} is crewed through the console and gets no starting prompt; a server command replaces its secret`,
+      `${ship.name} has no secret: only the operator's console sign-in crews it, so it gets no starting prompt`,
     );
   }
   const status = shipStatus(ship, lease);
@@ -141,6 +140,17 @@ export function checkCanIssueStartingPrompt(
         'SHIP_NOT_AWAITING_CREW',
         `${ship.name} is ${STATUS_WORDS[status]}: a starting prompt is issued only while a ship awaits crew`,
       );
+}
+
+/**
+ * A session claims a ship with the ship's secret (`register`). Never `argo`:
+ * it has no secret, and only the operator's console sign-in crews it
+ * (ADR 0012).
+ */
+export function checkCanClaimWithSecret(ship: Ship): Result<void, DomainError<'OPERATOR_SHIP_HAS_NO_SECRET'>> {
+  return ship.kind === 'operator'
+    ? refuse('OPERATOR_SHIP_HAS_NO_SECRET', `${ship.name} has no secret: only the operator's console sign-in crews it`)
+    : ok(undefined);
 }
 
 export function isReservedShipName(name: string): boolean {

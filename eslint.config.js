@@ -147,7 +147,7 @@ const manualMemo = ['useMemo', 'useCallback', 'memo'];
 const reactManualMemo = [{ name: 'react', importNames: manualMemo, message: noManualMemoMessage }];
 
 const browserStorageMessage =
-  "The console keeps no state in browser storage: server data comes through tRPC, view state lives in the URL, and argo's secret is never stored.";
+  'The console keeps no state in browser storage: server data comes through tRPC, view state lives in the URL, and the session is an httpOnly cookie.';
 
 const webImpure = {
   /** @type {PropertyRestriction[]} */

@@ -37,6 +37,7 @@ export const EVENT_TYPES = [
   'LeaseRevoked',
   'CredentialRevoked',
   'StartingPromptIssued',
+  'OperatorPasswordReset',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

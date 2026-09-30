@@ -4,19 +4,22 @@ import { err, type Err } from './result.js';
 export type DomainErrorKind =
   | 'FLEET_ALREADY_EXISTS'
   | 'FLEET_NOT_FOUND'
+  | 'INVALID_EMAIL'
   | 'INVALID_FLEET_NAME'
   | 'INVALID_LOCATION'
-  | 'INVALID_SECRET'
+  | 'INVALID_PASSWORD'
   | 'INVALID_SHIP_NAME'
   | 'INVALID_SHIP_NOTE'
   | 'INVALID_SHIP_TYPE'
   | 'NOT_THE_OPERATOR_SHIP'
   | 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT'
+  | 'OPERATOR_SHIP_HAS_NO_SECRET'
   | 'OPERATOR_SHIP_IS_PERMANENT'
   | 'SHIP_NAME_RESERVED'
   | 'SHIP_NAME_TAKEN'
   | 'SHIP_NOT_AWAITING_CREW'
-  | 'SHIP_NOT_FOUND';
+  | 'SHIP_NOT_FOUND'
+  | 'WRONG_EMAIL_OR_PASSWORD';
 
 /**
  * Why the domain refused a request. Adapters map the kind to their own error

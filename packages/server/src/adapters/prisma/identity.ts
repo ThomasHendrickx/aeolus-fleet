@@ -1,11 +1,23 @@
-import type { CallerLookup, ConsoleSessionRepository, CredentialRepository } from '../../core/identity/ports.js';
+import type {
+  CallerLookup,
+  ConsoleSessionRepository,
+  CredentialRepository,
+  OperatorAccountLookup,
+  OperatorAccountRepository,
+} from '../../core/identity/ports.js';
 import type { Db } from './client.js';
-import { toAuthenticatedShip, toConsoleSession, toConsoleSessionCaller, toCredential } from './rows.js';
+import {
+  toAuthenticatedShip,
+  toConsoleSession,
+  toConsoleSessionCaller,
+  toCredential,
+  toOperatorAccount,
+} from './rows.js';
 
 // Lock order, as the CredentialRepository port states: the ship when a use case
-// locks it, then a credential, then console sessions, then leases. Sign-in,
-// sign-out, starting prompts and replacing a secret all follow it, so they
-// serialise instead of deadlocking.
+// locks it, then a credential or the operator account, then console sessions,
+// then leases. Sign-in, sign-out, starting prompts and resetting the password
+// all follow it, so they serialise instead of deadlocking.
 
 export function createPrismaCredentialRepository(db: Db): CredentialRepository {
   return {
@@ -41,6 +53,45 @@ export function createPrismaCredentialRepository(db: Db): CredentialRepository {
         where: { fleetId, id: credentialId, invalidatedAt: null },
         data: { invalidatedAt: at },
       });
+    },
+  };
+}
+
+export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup {
+  return {
+    byEmail: async (email) => {
+      // Not scoped by fleet: signing in names no fleet (ADR 0007). No lock:
+      // a plain read never waits for a sign-in or a reset holding the row.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE email = ${email}`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+  };
+}
+
+export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRepository {
+  return {
+    create: async (account) => {
+      await db.operator.create({ data: account });
+    },
+    findByEmailForUpdate: async (email) => {
+      // Not scoped by fleet: signing in names no fleet (ADR 0007).
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE email = ${email}
+        FOR UPDATE`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+    findForFleetForUpdate: async (fleetId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        WHERE fleet_id = ${fleetId}
+        FOR UPDATE`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+    changePassword: async ({ fleetId, operatorId, passwordHash }) => {
+      await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { passwordHash } });
     },
   };
 }

@@ -6,6 +6,7 @@ import {
   addAgentShip,
   identityUseCases,
   initialiseFleet,
+  OPERATOR,
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
@@ -15,13 +16,19 @@ import { buildHttpServer } from './server.js';
 const DAY_S = 24 * 60 * 60;
 
 let core: InMemoryCore;
-let secret: string;
 let server: FastifyInstance;
 
 const reachable = () => Promise.resolve();
 const unreachable = () => Promise.reject(new Error('connect ECONNREFUSED'));
 
-function start(options: { checkDatabase?: () => Promise<void>; signInRateLimit?: RateLimit } = {}) {
+function start(
+  options: {
+    checkDatabase?: () => Promise<void>;
+    signInRateLimit?: RateLimit;
+    cookieDomain?: string;
+    consoleOrigin?: string;
+  } = {},
+) {
   server = buildHttpServer({
     useCases: {
       ...identityUseCases(core),
@@ -32,12 +39,14 @@ function start(options: { checkDatabase?: () => Promise<void>; signInRateLimit?:
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
+    cookieDomain: options.cookieDomain,
+    consoleOrigin: options.consoleOrigin,
   });
 }
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-09-29T12:00:00.000Z');
-  ({ secret } = await initialiseFleet(core));
+  await initialiseFleet(core);
 });
 
 afterEach(async () => {
@@ -100,65 +109,64 @@ describe('console.signIn', () => {
   it('sets an httpOnly, Secure, SameSite=Strict session cookie valid 30 days', async () => {
     start();
 
-    const response = await signIn({ secret });
+    const response = await signIn(OPERATOR);
 
     expect(response.statusCode).toBe(200);
     const header = response.headers['set-cookie'];
     expect(header).toMatch(/^aeolus_session=[^;]+; Max-Age=2592000; Path=\/; HttpOnly; Secure; SameSite=Strict$/);
-    expect(header).not.toContain(secret);
+    expect(header).not.toContain(OPERATOR.password);
   });
 
-  it('refuses a wrong secret with 401 and sets no cookie', async () => {
+  it('refuses a wrong password and an unknown email with the same 401, and sets no cookie', async () => {
     start();
 
-    const response = await signIn({ secret: 'aeolus_sk_v1_wrong' });
+    const wrongPassword = await signIn({ email: OPERATOR.email, password: 'wrong horse' });
+    const unknownEmail = await signIn({ email: 'stranger@example.com', password: OPERATOR.password });
 
-    expect(response.statusCode).toBe(401);
-    expect(errorCode(response)).toBe('UNAUTHORIZED');
-    expect(response.headers['set-cookie']).toBeUndefined();
+    expect(wrongPassword.statusCode).toBe(401);
+    expect(errorCode(wrongPassword)).toBe('UNAUTHORIZED');
+    expect(unknownEmail.statusCode).toBe(401);
+    expect(unknownEmail.json()).toEqual(wrongPassword.json());
+    expect(wrongPassword.headers['set-cookie']).toBeUndefined();
+    expect(unknownEmail.headers['set-cookie']).toBeUndefined();
   });
 
-  it("refuses an agent ship's secret with 403", async () => {
-    start();
-    const agent = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable() });
-
-    const response = await signIn({ secret: agent.secret });
-
-    expect(response.statusCode).toBe(403);
-    expect(response.headers['set-cookie']).toBeUndefined();
-  });
-
-  it('refuses an empty secret with 400', async () => {
+  it.each([
+    ['an empty email', { email: '  ', password: OPERATOR.password }],
+    ['an empty password', { email: OPERATOR.email, password: '' }],
+    ["argo's secret instead", { secret: 'aeolus_sk_v1_anything' }],
+  ])('refuses %s with 400', async (_label, body) => {
     start();
 
-    const response = await signIn({ secret: '  ' });
+    const response = await signIn(body);
 
     expect(response.statusCode).toBe(400);
+    expect(response.headers['set-cookie']).toBeUndefined();
   });
 
   it('refuses further attempts from a client over the rate limit with 429', async () => {
     start({ signInRateLimit: { limit: 3, windowMs: 60_000 } });
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      expect((await signIn({ secret: 'aeolus_sk_v1_wrong' })).statusCode).toBe(401);
+      expect((await signIn({ email: OPERATOR.email, password: 'wrong horse' })).statusCode).toBe(401);
     }
 
-    const limited = await signIn({ secret });
+    const limited = await signIn(OPERATOR);
 
     expect(limited.statusCode).toBe(429);
     expect(errorCode(limited)).toBe('TOO_MANY_REQUESTS');
     expect(limited.headers['set-cookie']).toBeUndefined();
     core.clock.advance(60_000);
-    expect((await signIn({ secret })).statusCode).toBe(200);
+    expect((await signIn(OPERATOR)).statusCode).toBe(200);
   });
 
   it('counts attempts per client address', async () => {
     start({ signInRateLimit: { limit: 1, windowMs: 60_000 } });
 
-    expect((await signIn({ secret }, {})).statusCode).toBe(200);
+    expect((await signIn(OPERATOR, {})).statusCode).toBe(200);
     const fromElsewhere = await server.inject({
       method: 'POST',
       url: '/trpc/console.signIn',
-      payload: { secret },
+      payload: OPERATOR,
       remoteAddress: '203.0.113.7',
     });
 
@@ -188,8 +196,9 @@ describe('a procedure that needs a scope', () => {
 
   it('serves a ship with the scope, by secret', async () => {
     start();
+    const reader = addAgentShip(core, { fleetId: core.state.fleets[0]?.id ?? expect.unreachable(), scopes: ['fleet:read'] });
 
-    const response = await ping({ authorization: `Bearer ${secret}` });
+    const response = await ping({ authorization: `Bearer ${reader.secret}` });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ result: { data: { serverTime: '2026-09-29T12:00:00.000Z', fleetCount: 1 } } });
@@ -197,7 +206,7 @@ describe('a procedure that needs a scope', () => {
 
   it('refuses a wrong bearer secret even with a valid session cookie', async () => {
     start();
-    const cookie = cookieOf(await signIn({ secret }));
+    const cookie = cookieOf(await signIn(OPERATOR));
 
     const response = await ping({ authorization: 'Bearer aeolus_sk_v1_wrong', cookie });
 
@@ -206,7 +215,7 @@ describe('a procedure that needs a scope', () => {
 
   it('serves the console session, and renews its cookie for 30 days from this use', async () => {
     start();
-    const cookie = cookieOf(await signIn({ secret }));
+    const cookie = cookieOf(await signIn(OPERATOR));
     core.clock.advance(10 * DAY_S * 1000);
 
     const response = await ping({ cookie });
@@ -217,7 +226,7 @@ describe('a procedure that needs a scope', () => {
 
   it('refuses an expired console session with 401', async () => {
     start();
-    const cookie = cookieOf(await signIn({ secret }));
+    const cookie = cookieOf(await signIn(OPERATOR));
     core.clock.advance(30 * DAY_S * 1000);
 
     expect((await ping({ cookie })).statusCode).toBe(401);
@@ -225,8 +234,8 @@ describe('a procedure that needs a scope', () => {
 
   it('refuses the first session after a second sign-in', async () => {
     start();
-    const first = cookieOf(await signIn({ secret }));
-    const second = cookieOf(await signIn({ secret }));
+    const first = cookieOf(await signIn(OPERATOR));
+    const second = cookieOf(await signIn(OPERATOR));
 
     expect((await ping({ cookie: first })).statusCode).toBe(401);
     expect((await ping({ cookie: second })).statusCode).toBe(200);
@@ -244,14 +253,16 @@ describe('a procedure that needs a scope', () => {
       logger: false,
     });
 
-    expect((await ping({ authorization: `Bearer ${secret}` })).statusCode).toBe(500);
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    expect((await ping({ cookie })).statusCode).toBe(500);
   });
 });
 
 describe('console.signOut', () => {
   it('ends the session and clears the cookie', async () => {
     start();
-    const cookie = cookieOf(await signIn({ secret }));
+    const cookie = cookieOf(await signIn(OPERATOR));
 
     const response = await signOut(cookie);
 
@@ -268,5 +279,88 @@ describe('console.signOut', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['set-cookie']).toContain('Max-Age=0');
+  });
+});
+
+describe('a console on another host under the configured domain', () => {
+  const CONSOLE_ORIGIN = 'https://console.fleet.example.com';
+  const acrossHosts = { cookieDomain: 'fleet.example.com', consoleOrigin: CONSOLE_ORIGIN };
+
+  function preflight(origin: string) {
+    return server.inject({
+      method: 'OPTIONS',
+      url: '/trpc/console.signIn',
+      headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
+    });
+  }
+
+  it('gets a yes to its preflight: POST with a JSON body and credentials', async () => {
+    start(acrossHosts);
+
+    const response = await preflight(CONSOLE_ORIGIN);
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers).toMatchObject({
+      'access-control-allow-origin': CONSOLE_ORIGIN,
+      'access-control-allow-credentials': 'true',
+      'access-control-allow-methods': 'GET, POST',
+      'access-control-allow-headers': 'content-type',
+      vary: 'Origin',
+    });
+  });
+
+  it('signs in: the answer may be read with credentials, and the cookie is set for the whole domain', async () => {
+    start(acrossHosts);
+
+    const response = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers).toMatchObject({
+      'access-control-allow-origin': CONSOLE_ORIGIN,
+      'access-control-allow-credentials': 'true',
+    });
+    expect(response.headers['set-cookie']).toMatch(
+      /^aeolus_session=[^;]+; Max-Age=2592000; Domain=fleet\.example\.com; Path=\/; HttpOnly; Secure; SameSite=Strict$/,
+    );
+  });
+
+  it('keeps the domain on the renewed cookie and on the cleared one', async () => {
+    start(acrossHosts);
+    const cookie = cookieOf(await signIn(OPERATOR, { origin: CONSOLE_ORIGIN }));
+
+    const used = await ping({ cookie, origin: CONSOLE_ORIGIN });
+    const signedOut = await server.inject({
+      method: 'POST',
+      url: '/trpc/console.signOut',
+      headers: { cookie, origin: CONSOLE_ORIGIN, 'content-type': 'application/json' },
+    });
+
+    expect(used.statusCode).toBe(200);
+    expect(used.headers['access-control-allow-origin']).toBe(CONSOLE_ORIGIN);
+    expect(used.headers['set-cookie']).toContain('; Domain=fleet.example.com;');
+    expect(signedOut.headers['set-cookie']).toBe(
+      'aeolus_session=; Max-Age=0; Domain=fleet.example.com; Path=/; HttpOnly; Secure; SameSite=Strict',
+    );
+  });
+
+  it('gives any other origin no permission to read an answer', async () => {
+    start(acrossHosts);
+
+    const answer = await signIn(OPERATOR, { origin: 'https://elsewhere.example.com' });
+    const refusedPreflight = await preflight('https://elsewhere.example.com');
+
+    expect(answer.headers['access-control-allow-origin']).toBeUndefined();
+    expect(answer.headers['access-control-allow-credentials']).toBeUndefined();
+    expect(refusedPreflight.statusCode).not.toBe(204);
+    expect(refusedPreflight.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('gives no origin permission without a configured console origin, and sets a host-only cookie', async () => {
+    start();
+
+    const answer = await signIn(OPERATOR, { origin: CONSOLE_ORIGIN });
+
+    expect(answer.headers['access-control-allow-origin']).toBeUndefined();
+    expect(answer.headers['set-cookie']).not.toContain('Domain=');
   });
 });

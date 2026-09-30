@@ -39,6 +39,7 @@ model Fleet {
   deliveries      Delivery[]
   events          Event[]
   consoleSessions ConsoleSession[]
+  operator        Operator?
 
   @@map("fleets")
 }
@@ -220,6 +221,21 @@ model Event {
   delivery  Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
 
   @@map("events")
+}
+
+/// The operator's login: email and Argon2id password hash. Ids start with opr_.
+/// The email is unique across all fleets: finding the account by email is the one
+/// lookup not scoped by fleet (ADR 0007). One account per fleet in v1.
+model Operator {
+  id           String   @id
+  fleetId      String   @unique @map("fleet_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("operators")
 }
 
 /// The operator crewing argo through the web console. Ids start with ses_.

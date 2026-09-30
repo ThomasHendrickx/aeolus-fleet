@@ -112,7 +112,7 @@ describe('ending a lease', () => {
         ok(
           await endLease(
             { tx, ids: core.ids },
-            { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'secretReplaced' },
+            { fleetId, leaseId, actor: SYSTEM, at: core.clock.now(), reason: 'passwordReset' },
           ),
         ),
       );
@@ -125,7 +125,7 @@ describe('ending a lease', () => {
         type: 'LeaseRevoked',
         actor: { kind: 'system' },
         shipId: argoId,
-        details: { leaseId, reason: 'secretReplaced', returnedDeliveries: 0 },
+        details: { leaseId, reason: 'passwordReset', returnedDeliveries: 0 },
       }),
     ]);
   });

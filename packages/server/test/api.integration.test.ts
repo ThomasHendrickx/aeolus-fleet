@@ -9,7 +9,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -19,6 +19,7 @@ import { createTestClock } from './support/postgres-core.js';
 
 const newId = createIdGenerator();
 const clock = createTestClock('2026-09-29T12:00:00.000Z');
+const SIGN_IN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
 
 let databaseUrl: string;
 let database: PrismaClient;
@@ -26,13 +27,12 @@ let server: FastifyInstance;
 let address: string;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argoSecret: string;
 
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = unwrap(
-    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet' }),
+  ({ fleetId, operatorShipId: argoId } = unwrap(
+    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
   ));
 
   server = createApp({
@@ -40,7 +40,7 @@ beforeAll(async () => {
     publicUrl: FLEET_URL,
     clock,
     logger: false,
-    signInRateLimit: { limit: 5, windowMs: 60_000 },
+    signInRateLimit: SIGN_IN_RATE_LIMIT,
   });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
@@ -96,17 +96,27 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
   return secret;
 }
 
-async function signIn(secret: string): Promise<Response> {
+async function signIn(login: { email: string; password: string } = OPERATOR): Promise<Response> {
   return fetch(`${address}/trpc/console.signIn`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ secret }),
+    body: JSON.stringify(login),
   });
 }
 
 function sessionCookieOf(response: Response): string {
   const [cookie] = response.headers.getSetCookie();
   return cookie?.split(';')[0] ?? '';
+}
+
+/**
+ * argo, through a new console session: argo has no secret, so the operator's
+ * sign-in is the only way to call as argo. A new rate-limit window first, so
+ * the sign-ins of many tests never hit the limit.
+ */
+async function signedInArgo(): Promise<TRPCClient<AppRouter>> {
+  clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+  return client({ cookie: sessionCookieOf(await signIn()) });
 }
 
 describe('the migrations', () => {
@@ -119,6 +129,7 @@ describe('the migrations', () => {
     expect(applied.map((row) => row.migration_name)).toEqual([
       expect.stringMatching(/^\d{14}_init$/),
       expect.stringMatching(/^\d{14}_fleet_argo_console_session$/),
+      expect.stringMatching(/^\d{14}_operator_login$/),
     ]);
   });
 });
@@ -134,17 +145,34 @@ describe('scopes at the API', () => {
     await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe('FORBIDDEN');
   });
 
-  it("serve system.ping to argo's secret", async () => {
-    await expect(client({ authorization: `Bearer ${argoSecret}` }).system.ping.query()).resolves.toEqual({
-      serverTime: '2026-09-29T12:00:00.000Z',
+  it('serve system.ping to a ship with fleet:read', async () => {
+    const secret = await agentShip(['fleet:read']);
+
+    await expect(client({ authorization: `Bearer ${secret}` }).system.ping.query()).resolves.toEqual({
+      serverTime: clock.now().toISOString(),
       fleetCount: 1,
     });
+  });
+
+  it('refuse a secret stored for argo: argo has no secret, only the console session crews it', async () => {
+    const secret = `aeolus_sk_v1_${newId('credential')}`;
+    await database.credential.create({
+      data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: clock.now() },
+    });
+
+    try {
+      await expect(codeOf(client({ authorization: `Bearer ${secret}` }).system.ping.query())).resolves.toBe(
+        'UNAUTHORIZED',
+      );
+    } finally {
+      await database.credential.deleteMany({ where: { shipId: argoId } });
+    }
   });
 });
 
 describe('the console session over HTTP', () => {
   it('signs in with a cookie that serves system.ping', async () => {
-    const response = await signIn(argoSecret);
+    const response = await signIn();
     const cookie = sessionCookieOf(response);
 
     expect(response.status).toBe(200);
@@ -153,35 +181,45 @@ describe('the console session over HTTP', () => {
   });
 
   it('stops serving the first cookie after a second sign-in', async () => {
-    const first = sessionCookieOf(await signIn(argoSecret));
-    const second = sessionCookieOf(await signIn(argoSecret));
+    const first = sessionCookieOf(await signIn());
+    const second = sessionCookieOf(await signIn());
 
     await expect(codeOf(client({ cookie: first }).system.ping.query())).resolves.toBe('UNAUTHORIZED');
     await expect(client({ cookie: second }).system.ping.query()).resolves.toMatchObject({ fleetCount: 1 });
   });
 
   it('signs out through the tRPC client: the cookie stops working', async () => {
-    const cookie = sessionCookieOf(await signIn(argoSecret));
+    const cookie = sessionCookieOf(await signIn());
 
     await client({ cookie }).console.signOut.mutate();
 
     await expect(codeOf(client({ cookie }).system.ping.query())).resolves.toBe('UNAUTHORIZED');
   });
 
-  it('refuses a wrong secret, then rate-limits the client', async () => {
+  it('refuses a wrong email and a wrong password with the very same answer, and no cookie', async () => {
+    clock.advance(60_000);
+
+    const wrongEmail = await signIn({ email: 'stranger@example.com', password: OPERATOR.password });
+    const wrongPassword = await signIn({ email: OPERATOR.email, password: 'wrong horse' });
+
+    expect([wrongEmail.status, wrongPassword.status]).toEqual([401, 401]);
+    await expect(wrongEmail.json()).resolves.toEqual(await wrongPassword.json());
+    expect([...wrongEmail.headers.getSetCookie(), ...wrongPassword.headers.getSetCookie()]).toEqual([]);
+  });
+
+  it('refuses a wrong password, then rate-limits the client', async () => {
     clock.advance(60_000);
     const statuses: number[] = [];
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      statuses.push((await signIn('aeolus_sk_v1_wrong')).status);
+      statuses.push((await signIn({ email: OPERATOR.email, password: 'wrong horse' })).status);
     }
 
     expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
-    expect((await signIn(argoSecret)).status).toBe(429);
+    expect((await signIn()).status).toBe(429);
   });
 });
 
 describe('the fleet procedures at the API', () => {
-  const asArgo = () => client({ authorization: `Bearer ${argoSecret}` });
   const scout = { name: 'scout', type: 'reviewer' };
 
   it('refuse every fleet procedure without a caller', async () => {
@@ -218,12 +256,13 @@ describe('the fleet procedures at the API', () => {
     );
   });
 
-  it("commission a ship with argo's secret: listed as awaiting crew, its prompt unclaimed", async () => {
-    const { shipId, prompt } = await asArgo().fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
+  it('commission a ship as argo: listed as awaiting crew, its prompt unclaimed', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ ...scout, note: 'reviews pull requests' });
 
     expect(prompt).toContain(`Fleet URL: ${FLEET_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
-    const listed = await asArgo().fleet.list.query();
+    const listed = await asArgo.fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toEqual({
       id: shipId,
       name: 'scout',
@@ -233,12 +272,12 @@ describe('the fleet procedures at the API', () => {
     });
   });
 
-  it('give a new starting prompt through the console session: the previous secret stops working', async () => {
-    const { shipId, prompt: first } = await asArgo().fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
+  it('give a new starting prompt: the previous secret stops working', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt: first } = await asArgo.fleet.commission.mutate({ name: 'lookout', type: 'reviewer' });
     clock.advance(60_000);
-    const cookie = sessionCookieOf(await signIn(argoSecret));
 
-    const { prompt } = await client({ cookie }).fleet.getStartingPrompt.mutate({ shipId });
+    const { prompt } = await asArgo.fleet.getStartingPrompt.mutate({ shipId });
 
     expect(secretIn(prompt)).not.toBe(secretIn(first));
     await expect(codeOf(client({ authorization: `Bearer ${secretIn(first)}` }).fleet.list.query())).resolves.toBe(
@@ -250,9 +289,10 @@ describe('the fleet procedures at the API', () => {
   });
 
   it('refuse a commission with a name an active ship holds', async () => {
-    await asArgo().fleet.commission.mutate({ name: 'mooring', type: 'reviewer' });
+    const asArgo = await signedInArgo();
+    await asArgo.fleet.commission.mutate({ name: 'mooring', type: 'reviewer' });
 
-    await expect(codeOf(asArgo().fleet.commission.mutate({ name: 'mooring', type: 'lookout' }))).resolves.toBe(
+    await expect(codeOf(asArgo.fleet.commission.mutate({ name: 'mooring', type: 'lookout' }))).resolves.toBe(
       'CONFLICT',
     );
   });
@@ -266,38 +306,41 @@ describe('the fleet procedures at the API', () => {
       code: 'BAD_REQUEST',
     },
   ])('refuse a commission with $label', async ({ input, code }) => {
-    await expect(codeOf(asArgo().fleet.commission.mutate(input))).resolves.toBe(code);
+    const asArgo = await signedInArgo();
+    await expect(codeOf(asArgo.fleet.commission.mutate(input))).resolves.toBe(code);
   });
 
   it('refuse a starting prompt for a ship that does not exist', async () => {
+    const asArgo = await signedInArgo();
     const shipId = newId('ship');
 
-    await expect(refusalOf(asArgo().fleet.getStartingPrompt.mutate({ shipId }))).resolves.toEqual({
+    await expect(refusalOf(asArgo.fleet.getStartingPrompt.mutate({ shipId }))).resolves.toEqual({
       code: 'NOT_FOUND',
       message: `Ship ${shipId} does not exist`,
     });
   });
 
   it('refuse a starting prompt for argo', async () => {
-    await expect(codeOf(asArgo().fleet.getStartingPrompt.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    const asArgo = await signedInArgo();
+    await expect(codeOf(asArgo.fleet.getStartingPrompt.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
   });
 
   it('never carry a secret or its hash in a list response', async () => {
-    const { prompt } = await asArgo().fleet.commission.mutate({ name: 'harbour', type: 'reviewer' });
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+    const { prompt } = await client({ cookie }).fleet.commission.mutate({ name: 'harbour', type: 'reviewer' });
 
-    const response = await fetch(`${address}/trpc/fleet.list`, { headers: { authorization: `Bearer ${argoSecret}` } });
+    const response = await fetch(`${address}/trpc/fleet.list`, { headers: { cookie } });
     const body = await response.text();
 
     expect(response.status).toBe(200);
     expect(body).toContain('harbour');
-    for (const secret of [secretIn(prompt), argoSecret]) {
-      expect(body).not.toContain(secret);
-      expect(body).not.toContain(sha256Hasher.hash(secret));
-    }
+    expect(body).not.toContain(secretIn(prompt));
+    expect(body).not.toContain(sha256Hasher.hash(secretIn(prompt)));
     expect(body).not.toContain('aeolus_sk_v1_');
   });
 
-  it('never write a secret to the logs, even at trace level', async () => {
+  it('never write a secret or the password to the logs, even at trace level', async () => {
     const lines: string[] = [];
     const logged = createApp({
       databaseUrl,
@@ -314,8 +357,13 @@ describe('the fleet procedures at the API', () => {
     });
     try {
       const url = await logged.listen({ host: '127.0.0.1', port: 0 });
+      const signedIn = await fetch(`${url}/trpc/console.signIn`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(OPERATOR),
+      });
       const asArgoThere = createTRPCClient<AppRouter>({
-        links: [httpBatchLink({ url: `${url}/trpc`, headers: { authorization: `Bearer ${argoSecret}` } })],
+        links: [httpBatchLink({ url: `${url}/trpc`, headers: { cookie: sessionCookieOf(signedIn) } })],
       });
 
       const { shipId, prompt } = await asArgoThere.fleet.commission.mutate({ name: 'logbook', type: 'reviewer' });
@@ -328,13 +376,71 @@ describe('the fleet procedures at the API', () => {
 
       expect(lines.length).toBeGreaterThan(0);
       const logs = lines.join('');
-      for (const secret of [secretIn(prompt), secretIn(again.prompt), argoSecret]) {
+      for (const secret of [secretIn(prompt), secretIn(again.prompt), OPERATOR.password]) {
         expect(logs).not.toContain(secret);
       }
       expect(logs).not.toContain('aeolus_sk_v1_');
     } finally {
       await logged.close();
     }
+  });
+});
+
+describe('a console on another origin under the configured domain', () => {
+  const CONSOLE_ORIGIN = 'https://console.fleet.example.com';
+  let acrossHosts: FastifyInstance;
+  let serverUrl: string;
+
+  beforeAll(async () => {
+    acrossHosts = createApp({
+      databaseUrl,
+      publicUrl: FLEET_URL,
+      clock,
+      logger: false,
+      cookieDomain: 'fleet.example.com',
+      consoleOrigin: CONSOLE_ORIGIN,
+    });
+    serverUrl = await acrossHosts.listen({ host: '127.0.0.1', port: 0 });
+  });
+
+  afterAll(async () => {
+    await acrossHosts.close();
+  });
+
+  it('signs in with credentials across origins, gets a cookie for the whole domain, and calls with it', async () => {
+    const preflight = await fetch(`${serverUrl}/trpc/console.signIn`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: CONSOLE_ORIGIN,
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+    const signedIn = await fetch(`${serverUrl}/trpc/console.signIn`, {
+      method: 'POST',
+      headers: { origin: CONSOLE_ORIGIN, 'content-type': 'application/json' },
+      body: JSON.stringify(OPERATOR),
+    });
+    const [setCookie = ''] = signedIn.headers.getSetCookie();
+    const listed = await fetch(`${serverUrl}/trpc/fleet.list`, {
+      headers: { origin: CONSOLE_ORIGIN, cookie: setCookie.split(';')[0] ?? '' },
+    });
+
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+    expect(preflight.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(signedIn.status).toBe(200);
+    expect(signedIn.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+    expect(signedIn.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(setCookie).toMatch(/; Domain=fleet\.example\.com; Path=\/; HttpOnly; Secure; SameSite=Strict$/);
+    expect(listed.status).toBe(200);
+    expect(listed.headers.get('access-control-allow-origin')).toBe(CONSOLE_ORIGIN);
+  });
+
+  it('lets no other origin read an answer', async () => {
+    const response = await fetch(`${serverUrl}/trpc/fleet.list`, { headers: { origin: 'https://elsewhere.example.com' } });
+
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
   });
 });
 

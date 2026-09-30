@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addAgentShip, identityUseCases, initialiseFleet } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 
@@ -11,22 +11,27 @@ let core: InMemoryCore;
 let useCases: ReturnType<typeof identityUseCases>;
 let fleetId: FleetId;
 let argoId: ShipId;
-let secret: string;
 
 beforeEach(async () => {
   core = createInMemoryCore();
   useCases = identityUseCases(core);
-  ({ fleetId, operatorShipId: argoId, secret } = await initialiseFleet(core));
+  ({ fleetId, operatorShipId: argoId } = await initialiseFleet(core));
 });
 
 describe('authenticating with a ship secret', () => {
-  it("returns argo with its fleet, kind and every scope", async () => {
-    await expect(useCases.authenticate.bySecret(secret)).resolves.toEqual({
-      shipId: argoId,
+  it('never returns argo, even for a secret stored for it: argo has no secret', async () => {
+    const secret = 'aeolus_sk_v1_stored-for-argo';
+    core.state.credentials.push({
+      id: core.ids('credential'),
       fleetId,
-      kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+      shipId: argoId,
+      secretHash: core.hasher.hash(secret),
+      issuedAt: core.clock.now(),
+      claimedAt: null,
+      invalidatedAt: null,
     });
+
+    await expect(useCases.authenticate.bySecret(secret)).resolves.toBeUndefined();
   });
 
   it('returns an agent with only its own scopes', async () => {
@@ -57,7 +62,7 @@ describe('authenticating with a ship secret', () => {
 
 describe('authenticating with a console session', () => {
   it('returns argo with the session id, and the expiry this use moved to', async () => {
-    const { token, consoleSessionId } = unwrap(await useCases.signIn({ secret }));
+    const { token, consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
     core.clock.advance(DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toEqual({
@@ -73,21 +78,21 @@ describe('authenticating with a console session', () => {
   });
 
   it('works until just before 30 days after the last use', async () => {
-    const { token } = unwrap(await useCases.signIn({ secret }));
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
     core.clock.advance(30 * DAY_MS - 1);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId } });
   });
 
   it('has expired 30 days after the last use', async () => {
-    const { token } = unwrap(await useCases.signIn({ secret }));
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
     core.clock.advance(30 * DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
   });
 
   it('counts the 30 days from the last use, not from signing in', async () => {
-    const { token } = unwrap(await useCases.signIn({ secret }));
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
     core.clock.advance(29 * DAY_MS);
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeDefined();
     core.clock.advance(29 * DAY_MS);
@@ -100,14 +105,14 @@ describe('authenticating with a console session', () => {
   });
 
   it('knows no unknown token', async () => {
-    unwrap(await useCases.signIn({ secret }));
+    unwrap(await useCases.signIn(OPERATOR));
 
     await expect(useCases.authenticate.byConsoleSession('not-a-token')).resolves.toBeUndefined();
   });
 
-  it('does not take the ship secret as a session token', async () => {
-    unwrap(await useCases.signIn({ secret }));
+  it('does not take the password as a session token', async () => {
+    unwrap(await useCases.signIn(OPERATOR));
 
-    await expect(useCases.authenticate.byConsoleSession(secret)).resolves.toBeUndefined();
+    await expect(useCases.authenticate.byConsoleSession(OPERATOR.password)).resolves.toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 import { SCOPES, type FleetId, type Scope, type ShipId } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
-import { createReplaceOperatorSecret } from '../../src/core/identity/replace-operator-secret.js';
+import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
@@ -14,11 +14,19 @@ import { unwrap } from './result.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
-  const deps = { uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher, random: core.random };
+  const deps = {
+    uow: core.uow,
+    accounts: core.accounts,
+    clock: core.clock,
+    ids: core.ids,
+    hasher: core.hasher,
+    random: core.random,
+    passwords: core.passwords,
+  };
   return {
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
-    replaceOperatorSecret: createReplaceOperatorSecret(deps),
+    resetOperatorPassword: createResetOperatorPassword(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
   };
 }
@@ -56,14 +64,17 @@ export function secretIn(prompt: string): string {
   return secret;
 }
 
-/** Initialises a fleet named `test fleet` through the use case, so argo and its secret exist. */
+/** The operator's login in tests: what fleet init asks for, and sign-in takes. */
+export const OPERATOR = { email: 'operator@example.com', password: 'correct horse battery staple' };
+
+/** Initialises a fleet named `test fleet` through the use case, so argo and the operator account exist. */
 export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): Promise<FleetInitialised> {
   const initialised = await createInitialiseFleet({
     uow: core.uow,
     clock: core.clock,
     ids: core.ids,
-    secrets: { hasher: core.hasher, random: core.random },
-  })({ name });
+    passwords: core.passwords,
+  })({ name, ...OPERATOR });
   return unwrap(initialised);
 }
 

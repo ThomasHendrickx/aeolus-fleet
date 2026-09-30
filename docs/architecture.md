@@ -75,7 +75,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | `UnitOfWork` | Run a use case in one database transaction | Prisma interactive transaction |
 | `EventLog` | Append domain events: timeline, audit, live updates | Postgres table, written in the same transaction |
 | `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
-| `SecretHasher`, `PasswordHasher` | Hash ship secrets and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto, an Argon2 library |
+| `SecretHasher`, `PasswordHasher` | Hash ship secrets and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
 The one cross-context call, Messaging asking Registry to resolve a selector and check that a ship is not retired, goes through a Registry port, never through Registry's tables.

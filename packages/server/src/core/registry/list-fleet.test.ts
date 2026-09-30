@@ -5,6 +5,7 @@ import {
   crewShip,
   identityUseCases,
   initialiseFleet,
+  OPERATOR,
   operatorCaller,
   registryUseCases,
   secretIn,
@@ -19,7 +20,6 @@ let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argoSecret: string;
 let argo: Caller;
 let scoutId: ShipId;
 let scoutSecret: string;
@@ -27,7 +27,7 @@ let scoutSecret: string;
 beforeEach(async () => {
   core = createInMemoryCore(commissionedAt.toISOString());
   const fleet = await initialiseFleet(core);
-  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = fleet);
+  ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   useCases = registryUseCases(core);
   const commissioned = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
@@ -45,14 +45,14 @@ function scout() {
 }
 
 describe('listing the fleet', () => {
-  it('lists every ship in the order commissioned, argo first, with name, type, status and prompt state', async () => {
+  it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, status and prompt state', async () => {
     await expect(useCases.listFleet(argo)).resolves.toEqual([
       {
         id: argoId,
         name: 'argo',
         type: 'operator',
         status: 'awaitingCrew',
-        startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
+        startingPrompt: null,
       },
       {
         id: scoutId,
@@ -64,12 +64,12 @@ describe('listing the fleet', () => {
     ]);
   });
 
-  it('shows argo crewed and its secret claimed once the console signs in', async () => {
-    unwrap(await identityUseCases(core).signIn({ secret: argoSecret }));
+  it('shows argo crewed once the operator signs in to the console', async () => {
+    unwrap(await identityUseCases(core).signIn(OPERATOR));
 
     const [listedArgo] = await useCases.listFleet(argo);
 
-    expect(listedArgo).toMatchObject({ status: 'crewed', startingPrompt: { isClaimed: true } });
+    expect(listedArgo).toMatchObject({ status: 'crewed' });
   });
 
   it('shows when the newest prompt was issued, unclaimed, after a new one replaced the first', async () => {
@@ -124,6 +124,5 @@ describe('listing the fleet', () => {
 
     expect(listed).not.toContain(scoutSecret);
     expect(listed).not.toContain(core.hasher.hash(scoutSecret));
-    expect(listed).not.toContain(argoSecret);
   });
 });

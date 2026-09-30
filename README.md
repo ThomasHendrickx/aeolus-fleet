@@ -48,9 +48,9 @@ To run it locally against any Postgres 16 or newer:
 ```sh
 cp packages/server/.env.example packages/server/.env   # then point DATABASE_URL at your Postgres
 npm run db:migrate --workspace @aeolus-fleet/server
-npm run fleet:init --workspace @aeolus-fleet/server -- --name "my fleet"   # prints argo's secret once
+npm run fleet:init --workspace @aeolus-fleet/server -- --name "my fleet"   # asks for the operator email and password
 npm run dev --workspace @aeolus-fleet/server            # API on http://127.0.0.1:4000
-npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000, sign in with argo's secret
+npm run dev --workspace @aeolus-fleet/web               # web app on http://localhost:3000, sign in with that email and password
 ```
 
 Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).

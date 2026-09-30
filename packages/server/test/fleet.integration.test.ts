@@ -7,7 +7,7 @@ import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
-import { FLEET_URL, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -24,12 +24,11 @@ let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
 let argo: Caller;
-let argoSecret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet' }));
-  ({ fleetId, operatorShipId: argoId, secret: argoSecret } = fleet);
+  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
 });
 
@@ -376,7 +375,7 @@ describe('listing the fleet on Postgres', () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
-    unwrap(await core.useCases.signIn({ secret: argoSecret }));
+    unwrap(await core.useCases.signIn(OPERATOR));
 
     await expect(core.useCases.listFleet(argo)).resolves.toEqual([
       {
@@ -384,7 +383,7 @@ describe('listing the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         status: 'crewed',
-        startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
+        startingPrompt: null,
       },
       {
         id: shipId,
@@ -425,7 +424,7 @@ describe('listing the fleet on Postgres', () => {
     const listed = await core.useCases.listFleet(argo);
 
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt === null])).toEqual([
-      ['argo', 'awaitingCrew', false],
+      ['argo', 'awaitingCrew', true],
       ['scout', 'crewed', false],
       ['lookout', 'retired', true],
     ]);

@@ -154,7 +154,7 @@ describe('a starting prompt is issued only while the ship awaits crew', () => {
       isOk: false,
       error: {
         kind: 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
-        message: 'argo is crewed through the console and gets no starting prompt; a server command replaces its secret',
+        message: "argo has no secret: only the operator's console sign-in crews it, so it gets no starting prompt",
       },
     });
     expect(core.state).toEqual(before);

@@ -2,6 +2,7 @@ import type {
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  OperatorAccountRepository,
 } from '../../core/identity/ports.js';
 import type {
   FleetRepository,
@@ -18,6 +19,7 @@ import {
   createPrismaCallerLookup,
   createPrismaConsoleSessionRepository,
   createPrismaCredentialRepository,
+  createPrismaOperatorAccountRepository,
 } from './identity.js';
 import {
   createPrismaFleetRepository,
@@ -33,6 +35,7 @@ export interface PrismaTx {
   leases: LeaseRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
+  operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
   events: EventLog;
 }
@@ -44,6 +47,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     leases: createPrismaLeaseRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),
+    operatorAccounts: createPrismaOperatorAccountRepository(db),
     consoleSessions: createPrismaConsoleSessionRepository(db),
     events: createPrismaEventLog(db),
   };

@@ -2,20 +2,13 @@ import { ConfigError, loadConfig } from '../../config.js';
 import { createUseCases, type UseCases } from '../../wiring.js';
 import { createPrismaClient } from '../prisma/client.js';
 import type { CommandIo, ExitCode } from './io.js';
-
-const io: CommandIo = {
-  out: (text) => {
-    process.stdout.write(`${text}\n`);
-  },
-  err: (text) => {
-    process.stderr.write(`${text}\n`);
-  },
-};
+import { terminalIo } from './terminal.js';
 
 /** Runs a server command against the configured database and exits with its code. */
 export async function runCommand(
   command: (run: { args: string[]; useCases: UseCases; io: CommandIo }) => Promise<ExitCode>,
 ): Promise<never> {
+  const io = terminalIo({ input: process.stdin, output: process.stdout, errors: process.stderr });
   let code: number;
   try {
     const config = loadConfig(process.env);
@@ -29,6 +22,8 @@ export async function runCommand(
   } catch (error) {
     io.err(error instanceof ConfigError ? error.message : String(error));
     code = 1;
+  } finally {
+    io.close();
   }
   process.exit(code);
 }
