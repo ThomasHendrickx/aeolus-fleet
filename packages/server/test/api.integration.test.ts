@@ -596,20 +596,46 @@ describe('ship.send at the API', () => {
   });
 
   it.each([
-    { field: 'payload', value: 'review\u0000', message: 'A payload cannot hold the character U+0000 (NUL)' },
-    { field: 'idempotencyKey', value: 'key\u0000', message: 'An idempotency key cannot hold the character U+0000 (NUL)' },
-    { field: 'contentType', value: 'text/plain\u0000', message: 'A content type cannot hold the character U+0000 (NUL)' },
+    { field: 'payload', value: 'review\u0000' },
+    { field: 'idempotencyKey', value: 'key\u0000' },
+    { field: 'contentType', value: 'text/plain\u0000' },
   ])('refuses the character U+0000 in $field with BAD_REQUEST and a clear message, never a server failure', async ({
     field,
     value,
-    message,
   }) => {
     const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
 
-    const refusal = await refusalOf(asShip.ship.send.mutate({ ...toArgo(), [field]: value }));
+    await expect(refusalOf(asShip.ship.send.mutate({ ...toArgo(), [field]: value }))).resolves.toEqual({
+      code: 'BAD_REQUEST',
+      message: `The input field ${field} cannot hold the character U+0000 (NUL)`,
+    });
+  });
 
-    expect(refusal?.code).toBe('BAD_REQUEST');
-    expect(refusal?.message).toContain(message);
+  it('refuses a note holding U+0000 with BAD_REQUEST, and commissions nothing', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(
+      refusalOf(asArgo.fleet.commission.mutate({ name: 'nul-note', type: 'reviewer', note: 'reviews\u0000' })),
+    ).resolves.toEqual({ code: 'BAD_REQUEST', message: 'The input field note cannot hold the character U+0000 (NUL)' });
+    await expect(database.ship.count({ where: { name: 'nul-note' } })).resolves.toBe(0);
+  });
+
+  it('refuses a location description holding U+0000 with BAD_REQUEST, and opens no lease', async () => {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name: 'nul-lookout', type: 'reviewer' });
+
+    await expect(
+      refusalOf(
+        client().ship.register.mutate({
+          shipId,
+          secret: secretIn(prompt),
+          location: { kind: 'OTHER', description: 'ci\u0000runner' },
+        }),
+      ),
+    ).resolves.toEqual({
+      code: 'BAD_REQUEST',
+      message: 'The input field location.description cannot hold the character U+0000 (NUL)',
+    });
+    await expect(database.lease.count({ where: { shipId } })).resolves.toBe(0);
   });
 
   it('refuses the same key with another request with CONFLICT', async () => {

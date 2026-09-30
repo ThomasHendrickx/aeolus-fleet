@@ -15,13 +15,6 @@ describe('a payload', () => {
     expect(payload('  {not json\n')).toEqual({ isOk: true, value: '  {not json\n' });
   });
 
-  it('refuses the character U+0000, which a payload can never hold', () => {
-    expect(payload('{"review":"\u0000"}')).toEqual({
-      isOk: false,
-      error: { kind: 'INVALID_PAYLOAD', message: 'A payload cannot hold the character U+0000 (NUL)' },
-    });
-  });
-
   it.each([
     { label: 'one-byte characters', text: 'a'.repeat(65_537) },
     { label: 'three-byte characters', text: `${'€'.repeat(21_845)}ab` },

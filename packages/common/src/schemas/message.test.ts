@@ -150,16 +150,6 @@ describe('sendInputSchema', () => {
     expect(sendInputSchema.safeParse({ ...input, payload }).success).toBe(false);
   });
 
-  it.each([
-    { field: 'payload', message: 'A payload cannot hold the character U+0000 (NUL)' },
-    { field: 'idempotencyKey', message: 'An idempotency key cannot hold the character U+0000 (NUL)' },
-    { field: 'contentType', message: 'A content type cannot hold the character U+0000 (NUL)' },
-  ])('rejects the character U+0000 in $field, and says so', ({ field, message }) => {
-    const candidate = { ...input, [field]: field === 'contentType' ? 'text/plain\u0000' : 'review\u0000 22' };
-
-    expect(sendInputSchema.safeParse(candidate).error?.issues.map((issue) => issue.message)).toEqual([message]);
-  });
-
   it('accepts an idempotency key of 256 characters', () => {
     expect(sendInputSchema.safeParse({ ...input, idempotencyKey: 'k'.repeat(256) }).success).toBe(true);
   });
