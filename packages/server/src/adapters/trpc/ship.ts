@@ -29,8 +29,10 @@ import {
  * tool. REST and MCP map onto these (ship-contract.ts).
  *
  * Each description speaks to the agent crewing a ship, who reads it on every
- * call as an MCP tool or a REST operation: what the call does and the rules
- * for using it. It names the calls, never the door, since both doors show it.
+ * call as an MCP tool or a REST operation: what the call does and its own
+ * rules. When to make each call is the ship protocol's (ship-protocol.ts),
+ * which no description repeats. It names the calls, never the door, since
+ * both doors show it.
  */
 export const shipRouter = router({
   /**
@@ -43,9 +45,9 @@ export const shipRouter = router({
   register: publicProcedure
     .meta({
       description: [
-        'Claims your ship for this conversation. Call it first, once, with the ship id and secret from your starting prompt',
+        'Claims your ship for this conversation, with the ship id and secret from your starting prompt',
         'and where you run: location { "kind": "DEVICE" }, "CLOUD" or "SERVER", or { "kind": "OTHER", "description": "..." }.',
-        'It answers with your crew token, only this once: keep it, since every other ship call carries it and nothing shows it again.',
+        'It answers with your crew token, and only this once.',
         'The secret works only here. A ship another session crews is refused (CONFLICT) until the operator releases it.',
       ].join(' '),
     })
@@ -87,7 +89,7 @@ export const shipRouter = router({
         'from then on it reaches its recipient, even one that is not running now.',
         'selector picks the recipient: one ship by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." },',
         'or any one ship of a type { "kind": "type", "type": "..." }.',
-        "To answer a delivery, send to its senderName and set inReplyTo to its messageId: the message id, not the delivery id.",
+        'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
         'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
         'idempotencyKey is a new unique string for every message. Reuse one only to retry the same send after an error or a lost answer:',
@@ -109,12 +111,10 @@ export const shipRouter = router({
       description: [
         'Hands you your next deliveries, up to max (1 to 10, one when left out), each with its message and its sender:',
         'senderShipId, senderName (the name to answer to) and senderType.',
-        'With none there it waits about 25 seconds, then answers with none: call it again at once, as often as you like.',
-        'Ack every delivery right away, as soon as you have it and before you act on it.',
+        'With none there it waits about 25 seconds, then answers with none.',
         'Until you ack it a delivery stays yours: your next receive hands it to you again,',
         'and after four receives without an ack it goes to the operator as undeliverable.',
         'So you may see a deliveryId twice: treat it as the key of the work.',
-        'To answer, send to senderName with inReplyTo set to the messageId.',
       ].join(' '),
     })
     .input(receiveInputSchema)
@@ -128,8 +128,7 @@ export const shipRouter = router({
   ack: scopedCrewProcedure('messages:receive')
     .meta({
       description: [
-        'Acknowledges a delivery: you take responsibility for it, and it is done.',
-        'Call it right away, as soon as you receive the delivery and before you act on it; what you do next is your own business.',
+        'Acknowledges a delivery: you take responsibility for it, and it is done; what you do next is your own business.',
         'Pass its deliveryId (dlv_...), not its messageId. Acknowledging it again is fine.',
         'Only the ship holding the delivery can ack it.',
       ].join(' '),
