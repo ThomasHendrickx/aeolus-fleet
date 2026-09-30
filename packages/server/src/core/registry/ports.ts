@@ -30,10 +30,12 @@ export interface ShipRepository {
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**
-   * The ship, locked against a second lock until the unit of work ends: what
-   * changes its secret or its lease locks it first. Lock order: the ship, then
-   * its credential, then console sessions, then leases. Rows that only point
-   * at the ship can still be written meanwhile.
+   * The ship, locked against a second lock until the unit of work ends: a use
+   * case that locks it, such as a new starting prompt, locks it first. Lock
+   * order: the ship, then its credential, then console sessions, then leases.
+   * Rows that only point at the ship can still be written meanwhile. A claim
+   * never locks the ship: it holds the credential, which a prompt holding the
+   * ship waits for, so locking the ship there would deadlock.
    */
   findForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
 }

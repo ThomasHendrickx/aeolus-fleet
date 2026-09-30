@@ -16,7 +16,8 @@ import type { LeaseRepository, ShipRepository } from './ports.js';
 import { claimShip, type ClaimRefusal } from './ship.js';
 
 export interface ClaimShipTx extends CredentialTx {
-  ships: ShipRepository;
+  /** Read only: a claim never locks the ship (see the lock order below). */
+  ships: Pick<ShipRepository, 'find'>;
   leases: LeaseRepository;
   events: EventLog;
 }
