@@ -35,8 +35,9 @@ export const selectorKindSchema = z.enum(SELECTOR_KINDS);
 export type SelectorKind = z.infer<typeof selectorKindSchema>;
 
 /**
- * Where one delivery stands. It leaves pending only by acknowledgement,
- * undeliverable, or the operator abandoning it (docs/blueprint.md, "Key flows").
+ * Where one delivery stands (docs/blueprint.md, "Key flows"): pending until a
+ * ship receives it, then delivered (claimed and in flight) until it is
+ * acknowledged or returns to pending.
  */
 export const DELIVERY_STATES = ['pending', 'delivered', 'acknowledged', 'undeliverable', 'dismissed', 'abandoned'] as const;
 export const deliveryStateSchema = z.enum(DELIVERY_STATES);

@@ -1,9 +1,3 @@
-import pg from 'pg';
-
-import type { DeliveryNotice, Notifier } from '../../core/messaging/ports.js';
-import type { Db } from './client.js';
-import { toDeliveryNotice } from './rows.js';
-
 /**
  * Wakes receivers with Postgres LISTEN/NOTIFY (ADR 0003). A send notifies on
  * one channel inside its transaction; Postgres hands the notice to listeners
@@ -11,6 +5,13 @@ import { toDeliveryNotice } from './rows.js';
  * payload says which delivery is pending and for whom, never the message's
  * payload.
  */
+import pg from 'pg';
+
+import type { DeliveryNotice, Notifier } from '../../core/messaging/ports.js';
+import type { Db } from './client.js';
+import { toDeliveryNotice } from './rows.js';
+
+/** The one channel every pending delivery is announced on. */
 export const DELIVERY_PENDING_CHANNEL = 'aeolus_delivery_pending';
 
 export function createPrismaNotifier(db: Db): Notifier {
