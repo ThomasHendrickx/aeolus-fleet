@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { FleetId, Scope } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -24,12 +25,21 @@ const FLEET_ORIGIN = 'https://fleet.example.com';
 let core: InMemoryCore;
 let server: FastifyInstance;
 
+const serverPackage = z.object({ version: z.string() }).parse(
+  JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')),
+);
+const commonPackage = z.object({ version: z.string() }).parse(
+  JSON.parse(readFileSync(new URL('../../../../common/package.json', import.meta.url), 'utf8')),
+);
+
 const reachable = () => Promise.resolve();
+const LATEST_MIGRATION = '20261001040000_lease_last_seen';
 const unreachable = () => Promise.reject(new Error('connect ECONNREFUSED'));
 
 function start(
   options: {
     checkDatabase?: () => Promise<void>;
+    latestMigration?: () => Promise<string | null>;
     signInRateLimit?: RateLimit;
     registerRateLimit?: RateLimit;
     cookieDomain?: string;
@@ -45,6 +55,7 @@ function start(
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
+    latestMigration: options.latestMigration ?? (() => Promise.resolve(LATEST_MIGRATION)),
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
@@ -137,6 +148,30 @@ describe('/health', () => {
 
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ server: 'up', database: 'down' });
+  });
+});
+
+describe('/api/version', () => {
+  it("answers the versions the server runs, its own package's and common's, and the latest applied migration", async () => {
+    start();
+
+    const response = await server.inject({ method: 'GET', url: '/api/version' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      server: serverPackage.version,
+      common: commonPackage.version,
+      migration: LATEST_MIGRATION,
+    });
+  });
+
+  it('answers no migration when the database cannot say, and the versions all the same', async () => {
+    start({ latestMigration: () => Promise.reject(new Error('connect ECONNREFUSED')) });
+
+    const response = await server.inject({ method: 'GET', url: '/api/version' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ server: serverPackage.version, migration: null });
   });
 });
 
@@ -434,6 +469,7 @@ describe('a procedure that needs a scope', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
+      latestMigration: () => Promise.resolve(LATEST_MIGRATION),
       clock: core.clock,
       logger: false,
       consoleOrigin: FLEET_ORIGIN,
