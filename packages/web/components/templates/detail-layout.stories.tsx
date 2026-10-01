@@ -14,7 +14,8 @@ const meta = {
     title: 'reviewer-01',
     parent: { href: '/', label: 'Fleet overview' },
     live: 'live',
-    nav: { active: 'overview', attentionCount: 2 },
+    nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
+    onCompose: fn(),
     onSignOut: fn(),
     header: <ShipHeader ship={CREWED_SHIP} state="ready" now={NOW} />,
     children: (

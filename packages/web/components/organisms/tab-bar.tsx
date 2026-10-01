@@ -1,13 +1,17 @@
-import { Ship, TriangleAlert } from 'lucide-react';
+import { Inbox, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { classNames } from '../../lib/class-names';
+
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'attention';
+export type TabBarDestination = 'fleet' | 'inbox' | 'attention';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current. */
   active: TabBarDestination;
+  /** Open messages to argo; hidden until known, and when there are none. */
+  inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
 }
@@ -28,9 +32,9 @@ function Tab({
   icon: ReactNode;
   isActive: boolean;
   testId: string;
-  count?: number;
+  count?: { value: number | undefined; tone: 'primary' | 'attention'; words: string };
 }) {
-  const isCounted = count !== undefined && count > 0;
+  const isCounted = count?.value !== undefined && count.value > 0;
   return (
     <Link href={href} aria-current={isActive ? 'page' : undefined} data-testid={testId} className={TAB}>
       <span className="relative">
@@ -38,10 +42,13 @@ function Tab({
         {isCounted ? (
           <span
             data-testid={`${testId}-count`}
-            className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-semibold text-destructive-foreground tabular-nums"
+            className={classNames(
+              'absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-semibold tabular-nums',
+              count.tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-destructive text-destructive-foreground',
+            )}
           >
-            {count}
-            <span className="sr-only"> need attention</span>
+            {count.value}
+            <span className="sr-only"> {count.words}</span>
           </span>
         ) : null}
       </span>
@@ -52,11 +59,12 @@ function Tab({
 
 /**
  * Phone navigation (docs/design/png/TabBar.png): 68 px including the safe
- * area, the same destinations and counts as Sidebar: Fleet, and Attention
- * with the undeliverable deliveries counted on its icon. The active tab uses
- * --primary for icon and label.
+ * area, the same destinations and counts as Sidebar: Fleet; Inbox with the
+ * open messages to argo counted on its icon in --primary; and Attention with
+ * the undeliverable deliveries counted in the attention tone. The active tab
+ * uses --primary for icon and label.
  */
-export function TabBar({ active, attentionCount }: TabBarProps) {
+export function TabBar({ active, inboxCount, attentionCount }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
@@ -65,12 +73,20 @@ export function TabBar({ active, attentionCount }: TabBarProps) {
     >
       <Tab href="/" label="Fleet" icon={<Ship aria-hidden />} isActive={active === 'fleet'} testId="tab-fleet" />
       <Tab
+        href="/inbox"
+        label="Inbox"
+        icon={<Inbox aria-hidden />}
+        isActive={active === 'inbox'}
+        testId="tab-inbox"
+        count={{ value: inboxCount, tone: 'primary', words: 'open' }}
+      />
+      <Tab
         href="/needs-attention"
         label="Attention"
         icon={<TriangleAlert aria-hidden />}
         isActive={active === 'attention'}
         testId="tab-attention"
-        count={attentionCount}
+        count={{ value: attentionCount, tone: 'attention', words: 'need attention' }}
       />
     </nav>
   );

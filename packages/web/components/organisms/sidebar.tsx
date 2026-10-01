@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronsUpDown, LogOut, Ship, TriangleAlert } from 'lucide-react';
+import { ChevronsUpDown, Inbox, LogOut, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -9,11 +9,13 @@ import { Badge } from '../atoms/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../atoms/dropdown-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'attention';
+export type SidebarDestination = 'overview' | 'inbox' | 'attention';
 
 interface SidebarProps {
   /** The page the operator is on: its item is marked current. */
   active: SidebarDestination;
+  /** Open messages to argo; hidden until known, and when there are none. */
+  inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
   /** Signs the operator out; the account menu offers it without a confirm. */
@@ -48,6 +50,25 @@ function NavItem({
 }
 
 /**
+ * The inbox count: a pill in --primary from 1024 px, a dot on the rail, the
+ * number kept for assistive technology either way.
+ */
+function InboxCount({ count }: { count: number | undefined }) {
+  if (count === undefined || count === 0) {
+    return null;
+  }
+  return (
+    <>
+      <Badge variant="count" data-testid="nav-inbox-count" className="max-lg:sr-only">
+        {count}
+        <span className="sr-only"> open</span>
+      </Badge>
+      <span aria-hidden className="absolute top-1.5 right-4 size-1.5 rounded-full bg-primary lg:hidden" />
+    </>
+  );
+}
+
+/**
  * The attention count: a pill in the attention tone from 1024 px, a dot on the
  * rail, the number kept for assistive technology either way.
  */
@@ -70,11 +91,12 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * Desktop navigation (docs/design/png/Sidebar.png): the brand, the
  * destinations and the account menu of the signed-in operator, argo. 256 px
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
- * technology and dots instead of numbers. Destinations so far: Fleet overview
- * and Needs attention, which counts the undeliverable deliveries in the
- * attention tone. A count simply hides until it is known.
+ * technology and dots instead of numbers. Destinations so far: Fleet overview;
+ * Operator inbox, which counts the open messages to argo in --primary; and
+ * Needs attention, which counts the undeliverable deliveries in the attention
+ * tone. A count simply hides until it is known.
  */
-export function Sidebar({ active, attentionCount, onSignOut }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, onSignOut }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -94,6 +116,14 @@ export function Sidebar({ active, attentionCount, onSignOut }: SidebarProps) {
           icon={<Ship aria-hidden />}
           isActive={active === 'overview'}
           testId="nav-overview"
+        />
+        <NavItem
+          href="/inbox"
+          label="Operator inbox"
+          icon={<Inbox aria-hidden />}
+          isActive={active === 'inbox'}
+          testId="nav-inbox"
+          count={<InboxCount count={inboxCount} />}
         />
         <NavItem
           href="/needs-attention"

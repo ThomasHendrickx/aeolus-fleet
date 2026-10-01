@@ -19,7 +19,9 @@ interface DetailLayoutProps {
   sheet?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  nav: { active: SidebarDestination; attentionCount?: number };
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
+  /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
+  onCompose?: () => void;
   onSignOut: () => void;
 }
 
@@ -30,12 +32,27 @@ interface DetailLayoutProps {
  * back link, the stacked ShipHeader and segmented Tabs, the TabBar's height
  * kept free at the bottom.
  */
-export function DetailLayout({ title, parent, header, children, sheet, live, nav, onSignOut }: DetailLayoutProps) {
+export function DetailLayout({
+  title,
+  parent,
+  header,
+  children,
+  sheet,
+  live,
+  nav,
+  onCompose,
+  onSignOut,
+}: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar active={nav.active} attentionCount={nav.attentionCount} onSignOut={onSignOut} />
+      <Sidebar
+        active={nav.active}
+        inboxCount={nav.inboxCount}
+        attentionCount={nav.attentionCount}
+        onSignOut={onSignOut}
+      />
       <div className="flex min-w-0 grow flex-col">
-        <Header breadcrumb={`${parent.label} / ${title}`} live={live} />
+        <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} />
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           {header}
@@ -43,7 +60,11 @@ export function DetailLayout({ title, parent, header, children, sheet, live, nav
         </main>
       </div>
       {sheet}
-      <TabBar active={nav.active === 'overview' ? 'fleet' : nav.active} attentionCount={nav.attentionCount} />
+      <TabBar
+        active={nav.active === 'overview' ? 'fleet' : nav.active}
+        inboxCount={nav.inboxCount}
+        attentionCount={nav.attentionCount}
+      />
     </div>
   );
 }
