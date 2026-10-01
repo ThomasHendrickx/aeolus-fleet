@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { signInInputSchema } from './console.js';
+import { accountOutputSchema, setThemeInputSchema, signInInputSchema, THEMES } from './console.js';
 
 describe('signInInputSchema', () => {
   it('accepts an email and a password', () => {
@@ -31,5 +31,37 @@ describe('signInInputSchema', () => {
     ["argo's secret alone", { secret: 'aeolus_sk_v1_abc' }],
   ])('rejects %s', (_label, input) => {
     expect(signInInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('THEMES', () => {
+  it('knows Light, Dark and System', () => {
+    expect(THEMES).toEqual(['light', 'dark', 'system']);
+  });
+});
+
+describe('accountOutputSchema', () => {
+  const account = {
+    email: 'operator@example.com',
+    theme: 'system',
+    session: { device: 'Mac · Chrome', since: '2026-10-01T08:02:00.000Z' },
+  };
+
+  it('takes the email, the theme and this session', () => {
+    expect(accountOutputSchema.parse(account)).toEqual(account);
+  });
+
+  it('refuses another theme', () => {
+    expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
+  });
+});
+
+describe('setThemeInputSchema', () => {
+  it.each(['light', 'dark', 'system'])('takes %s', (theme) => {
+    expect(setThemeInputSchema.parse({ theme })).toEqual({ theme });
+  });
+
+  it('refuses another theme', () => {
+    expect(setThemeInputSchema.safeParse({ theme: 'auto' }).success).toBe(false);
   });
 });
