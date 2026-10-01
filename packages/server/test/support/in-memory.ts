@@ -29,7 +29,7 @@ import type {
 } from '../../src/core/registry/ports.js';
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { Clock } from '../../src/core/shared/clock.js';
-import type { EventLog, FleetEvent } from '../../src/core/shared/events.js';
+import type { EventLog, FleetEvent, FleetEventFeed } from '../../src/core/shared/events.js';
 import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
@@ -93,6 +93,8 @@ export interface InMemoryCore {
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
+  /** The committed events, numbered per fleet in the order they were appended. */
+  feed: FleetEventFeed;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
@@ -524,7 +526,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, clock, ids, hasher, passwords, random, wakeups };
+  const numbered = (fleetId: FleetId) =>
+    state.events.filter((event) => event.fleetId === fleetId).map((event, index) => ({ ...event, seq: index + 1 }));
+  const feed: FleetEventFeed = {
+    lastSeq: (fleetId) => Promise.resolve(numbered(fleetId).length),
+    after: (fleetId, { seq, limit }) => Promise.resolve(numbered(fleetId).slice(seq, seq + limit)),
+  };
+
+  return { state, uow, ships: tx.ships, callers, accounts, listing, feed, clock, ids, hasher, passwords, random, wakeups };
 }
 
 const TABLES = [
