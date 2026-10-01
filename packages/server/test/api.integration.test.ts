@@ -1210,15 +1210,12 @@ describe('Needs attention at the API', () => {
     const asArgo = await signedInArgo();
     const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
 
-    const listed = await asArgo.fleet.needsAttention.query();
+    const listed = (await asArgo.fleet.needsAttention.query()).find((entry) => entry.deliveryId === deliveryId);
 
-    expect(listed).toContainEqual(
-      expect.objectContaining({
-        deliveryId,
-        attempts: 5,
-        message: expect.objectContaining({ id: messageId, sender: { id: argoId, name: 'argo' }, payload: 'Pause all reviews until 15:00.' }),
-      }),
-    );
+    expect(listed).toMatchObject({
+      attempts: 5,
+      message: { id: messageId, sender: { id: argoId, name: 'argo' }, payload: 'Pause all reviews until 15:00.' },
+    });
   });
 
   it('dismiss one for fleet:manage; it leaves the list, and a second dismiss is OK', async () => {

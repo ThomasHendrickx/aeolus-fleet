@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   dismissDeliveryInputSchema,
+  dismissDeliveryOutputSchema,
   needsAttentionOutputSchema,
   resendDeliveryInputSchema,
   resendDeliveryOutputSchema,
@@ -53,6 +54,13 @@ describe('dismissDeliveryInputSchema', () => {
 
   it('refuses an id of another kind', () => {
     expect(dismissDeliveryInputSchema.safeParse({ deliveryId: newId('message') }).success).toBe(false);
+  });
+});
+
+describe('dismissDeliveryOutputSchema', () => {
+  it('answers nothing', () => {
+    expect(dismissDeliveryOutputSchema.safeParse({}).success).toBe(true);
+    expect(dismissDeliveryOutputSchema.safeParse({ deliveryId: newId('delivery') }).success).toBe(false);
   });
 });
 

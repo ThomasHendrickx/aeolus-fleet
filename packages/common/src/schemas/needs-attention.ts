@@ -41,6 +41,9 @@ export const dismissDeliveryInputSchema = z.object({
   deliveryId: idSchema('delivery'),
 });
 
+/** Output of `fleet.dismiss`: nothing; the OK is the answer. */
+export const dismissDeliveryOutputSchema = z.strictObject({});
+
 /**
  * Input of `fleet.resend`: the undeliverable delivery to send again, as a new
  * message from the same sender to the same recipient that names the original.
