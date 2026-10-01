@@ -12,6 +12,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 | `/needs-attention` | Needs attention, live: every undeliverable delivery, oldest first, with its message, claims and since when. Resend sends it again as a new message from its sender; Dismiss lets it go; either removes it from the list with a toast. Its count shows in the Sidebar and TabBar on every page |
 | `/inbox` | argo's operator inbox, live: the messages ships sent to argo, Open, Done or All (`?filter=`), two panes on desktop and a list with a pushed message page on phone (`?message=`). Opening one marks it read; Mark as unread undoes that; Mark done or Reply (plain text to the sender) acknowledges it. Its open count shows in the Sidebar and TabBar on every page |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
+| `/version` | The web process's version, plus the server's answer from its `/api/version` (its version, common's, and the latest applied migration), or `server: null` when it does not answer. Nothing about fleets |
 
 ## Running from npm
 
