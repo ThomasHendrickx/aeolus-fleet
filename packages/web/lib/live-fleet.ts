@@ -48,8 +48,10 @@ export interface LiveFleet {
 /**
  * Follows the fleet live over the WebSocket (docs/architecture.md, "Live
  * updates"). Each committed event that changes a ship reloads the snapshot;
- * `resync`, sent first and whenever the browser fell too far behind, reloads
- * it too. The tRPC client sends the number of the last event back when it
+ * an event reloads the page of each ship that caused it or that it names, and
+ * a message's event reloads the open message and the ships' message lists,
+ * whose delivery states it changes. `resync`, sent first and whenever the
+ * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
 export function useLiveFleet(): LiveFleet {
@@ -60,6 +62,9 @@ export function useLiveFleet(): LiveFleet {
   const reloadSnapshot = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.fleet.list.queryKey() });
   };
+  const reload = (queryKey: readonly unknown[]) => {
+    void queryClient.invalidateQueries({ queryKey });
+  };
 
   const subscription = useSubscription(
     trpc.fleet.events.subscriptionOptions(
@@ -67,10 +72,20 @@ export function useLiveFleet(): LiveFleet {
       {
         onData: ({ data: item }) => {
           if (item.kind === 'resync') {
-            reloadSnapshot();
+            reload(trpc.fleet.pathKey());
             return;
           }
           const { event } = item;
+          for (const concerned of new Set([event.shipId, event.actorShipId])) {
+            if (concerned !== null) {
+              reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
+              reload(trpc.fleet.shipTimeline.queryKey({ shipId: concerned }));
+            }
+          }
+          if (event.messageId !== null) {
+            reload(trpc.fleet.shipMessages.pathKey());
+            reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+          }
           if (!isShipChange(event.type)) {
             return;
           }
