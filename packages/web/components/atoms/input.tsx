@@ -10,7 +10,7 @@ import { classNames } from '../../lib/class-names';
  * family. aria-invalid draws the invalid ring; the error itself sits under the
  * field, outside this atom.
  */
-const inputVariants = cva(
+export const inputVariants = cva(
   'w-full min-w-0 rounded-md border border-input bg-card text-foreground shadow-sm transition-[border-color,box-shadow] duration-(--duration-fast) outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/22 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/16 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-50 disabled:shadow-none',
   {
     variants: {

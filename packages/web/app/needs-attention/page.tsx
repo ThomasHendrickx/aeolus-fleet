@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { showToast } from '../../components/atoms/toast';
+import { ComposeMessage } from '../../components/organisms/compose-message';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
 import { ListLayout } from '../../components/templates/list-layout';
+import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
 import {
   deliveryWithId,
@@ -34,6 +36,8 @@ export default function NeedsAttentionPage() {
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const inboxCount = useOpenInboxCount();
+  const [isComposing, setIsComposing] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
@@ -76,7 +80,10 @@ export default function NeedsAttentionPage() {
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', attentionCount: attention.data?.length }}
+      nav={{ active: 'attention', inboxCount, attentionCount: attention.data?.length }}
+      onCompose={() => {
+        setIsComposing(true);
+      }}
       onSignOut={signOut}
     >
       <NeedsAttentionList
@@ -93,6 +100,7 @@ export default function NeedsAttentionPage() {
         pendingIds={pendingIds}
         now={now}
       />
+      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
     </ListLayout>
   );
 }

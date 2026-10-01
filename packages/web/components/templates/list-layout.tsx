@@ -1,4 +1,7 @@
+import { SquarePen } from 'lucide-react';
 import type { ReactNode } from 'react';
+
+import { Button } from '../atoms/button';
 
 import type { LiveState } from '../molecules/live-status';
 import { Header } from '../organisms/header';
@@ -16,7 +19,9 @@ interface ListLayoutProps {
   toolbar?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  nav: { active: SidebarDestination; attentionCount?: number };
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
+  /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
+  onCompose?: () => void;
   onSignOut: () => void;
   children: ReactNode;
 }
@@ -35,15 +40,38 @@ export function ListLayout({
   toolbar,
   live,
   nav,
+  onCompose,
   onSignOut,
   children,
 }: ListLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar active={nav.active} attentionCount={nav.attentionCount} onSignOut={onSignOut} />
+      <Sidebar
+        active={nav.active}
+        inboxCount={nav.inboxCount}
+        attentionCount={nav.attentionCount}
+        onSignOut={onSignOut}
+      />
       <div className="flex min-w-0 grow flex-col">
-        <Header breadcrumb={title} live={live} />
-        <TopBar title={title} live={live} />
+        <Header breadcrumb={title} live={live} onCompose={onCompose} />
+        <TopBar
+          title={title}
+          live={live}
+          actions={
+            onCompose ? (
+              <Button
+                variant="ghost"
+                size="touch"
+                isIconOnly
+                aria-label="Compose"
+                data-testid="top-bar-compose"
+                onClick={onCompose}
+              >
+                <SquarePen aria-hidden />
+              </Button>
+            ) : undefined
+          }
+        />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           <div className="flex flex-wrap items-start justify-between gap-4 max-sm:gap-3">
             <div className="flex min-w-0 flex-col gap-1">
@@ -58,7 +86,11 @@ export function ListLayout({
           {children}
         </main>
       </div>
-      <TabBar active={nav.active === 'overview' ? 'fleet' : nav.active} attentionCount={nav.attentionCount} />
+      <TabBar
+        active={nav.active === 'overview' ? 'fleet' : nav.active}
+        inboxCount={nav.inboxCount}
+        attentionCount={nav.attentionCount}
+      />
     </div>
   );
 }

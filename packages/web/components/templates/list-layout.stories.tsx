@@ -22,7 +22,8 @@ const meta = {
     title: 'Fleet overview',
     description: 'Every ship in the fleet, live.',
     live: 'live',
-    nav: { active: 'overview', attentionCount: 2 },
+    nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
+    onCompose: fn(),
     onSignOut: fn(),
     primaryAction: (
       <Button variant="primary" icon={<Plus aria-hidden />}>

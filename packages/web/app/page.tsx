@@ -1,13 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
+import { use, useState } from 'react';
 
+import { ComposeMessage } from '../components/organisms/compose-message';
 import { CommissionShipForm } from '../components/organisms/commission-ship-form';
 import { FleetOverview } from '../components/organisms/fleet-overview';
 import { ListLayout } from '../components/templates/list-layout';
 import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
+import { useOpenInboxCount } from '../lib/inbox';
 import { useLiveFleet } from '../lib/live-fleet';
 import { useAttentionCount } from '../lib/needs-attention';
 import { useSignInWhenSessionEnds, useSignOut } from '../lib/session';
@@ -37,6 +39,8 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const fleet = useFleetSnapshot();
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const inboxCount = useOpenInboxCount();
+  const [isComposing, setIsComposing] = useState(false);
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
 
@@ -50,11 +54,15 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       title="Fleet overview"
       description="Every ship in the fleet, live."
       live={liveFleet.live}
-      nav={{ active: 'overview', attentionCount }}
+      nav={{ active: 'overview', inboxCount, attentionCount }}
+      onCompose={() => {
+        setIsComposing(true);
+      }}
       onSignOut={signOut}
     >
       <CommissionShipForm />
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
+      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
     </ListLayout>
   );
 }
