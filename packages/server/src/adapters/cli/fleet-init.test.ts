@@ -2,6 +2,7 @@ import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
+import type { ListFleets } from '../../core/registry/list-fleets.js';
 import { refuse } from '../../core/shared/errors.js';
 import { ok } from '../../core/shared/result.js';
 import { fleetInit } from './fleet-init.js';
@@ -43,11 +44,14 @@ const initialised: InitialiseFleet = () =>
     }),
   );
 
+/** An installation without a fleet yet. */
+const noFleets: ListFleets = () => Promise.resolve([]);
+
 describe('fleet:init', () => {
   it("asks for the operator's email, then the password twice without showing it", async () => {
     const io = scriptedIo(answers);
 
-    await fleetInit(['--name', 'home fleet'], { initialiseFleet: initialised, io });
+    await fleetInit(['--name', 'home fleet'], { initialiseFleet: initialised, listFleets: noFleets, io });
 
     expect(io.questions).toEqual([
       ['Operator email: ', false],
@@ -60,7 +64,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(answers);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(0);
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(0);
 
     expect(initialiseFleet).toHaveBeenCalledWith({
       name: 'home fleet',
@@ -79,7 +83,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(['thomas@example.com', 'correct horse', 'correct hose']);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(1);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The two passwords differ. Nothing was created.']);
@@ -89,7 +93,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(['thomas@example.com']);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(2);
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(2);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['fleet:init needs the operator email and the password twice. Nothing was created.']);
@@ -99,7 +103,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(answers);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit([], { initialiseFleet, io })).resolves.toBe(2);
+    await expect(fleetInit([], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(2);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.questions).toEqual([]);
@@ -109,7 +113,7 @@ describe('fleet:init', () => {
   it.each([[['--name']], [['--fleet', 'x']], [['--name', 'a', 'extra']]])('refuses the arguments %j', async (args) => {
     const io = scriptedIo(answers);
 
-    await expect(fleetInit(args, { initialiseFleet: initialised, io })).resolves.toBe(2);
+    await expect(fleetInit(args, { initialiseFleet: initialised, listFleets: noFleets, io })).resolves.toBe(2);
     expect(io.stdout).toEqual([]);
   });
 
@@ -118,7 +122,7 @@ describe('fleet:init', () => {
     const refused: InitialiseFleet = () =>
       Promise.resolve(refuse('FLEET_ALREADY_EXISTS', 'A fleet already exists: a fleet is initialised only once'));
 
-    await expect(fleetInit(['--name', 'again'], { initialiseFleet: refused, io })).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'again'], { initialiseFleet: refused, listFleets: noFleets, io })).resolves.toBe(1);
 
     expect(io.stderr).toEqual(['A fleet already exists: a fleet is initialised only once']);
     expect(io.stdout).toEqual([]);
@@ -129,7 +133,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(answers);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home\u0000fleet'], { initialiseFleet, io })).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'home\u0000fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(1);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.questions).toEqual([]);
@@ -140,7 +144,7 @@ describe('fleet:init', () => {
     const io = scriptedIo(['thomas\u0000@example.com', 'correct horse', 'correct horse']);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(1);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The operator email cannot hold the character U+0000 (NUL). Nothing was created.']);
@@ -150,9 +154,24 @@ describe('fleet:init', () => {
     const io = scriptedIo(['thomas@example.com', 'correct\u0000horse', 'correct\u0000horse']);
     const initialiseFleet = vi.fn(initialised);
 
-    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, io })).resolves.toBe(1);
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(1);
 
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was created.']);
+  });
+});
+
+describe('fleet:init with a fleet already there', () => {
+  it('refuses before asking for the email or the password, and creates nothing', async () => {
+    const io = scriptedIo(answers);
+    const initialiseFleet = vi.fn(initialised);
+    const oneFleet: ListFleets = () =>
+      Promise.resolve([{ id: newId('fleet'), name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') }]);
+
+    await expect(fleetInit(['--name', 'again'], { initialiseFleet, listFleets: oneFleet, io })).resolves.toBe(1);
+
+    expect(io.questions).toEqual([]);
+    expect(io.stderr).toEqual(['A fleet already exists: a fleet is initialised only once. Nothing was created.']);
+    expect(initialiseFleet).not.toHaveBeenCalled();
   });
 });
