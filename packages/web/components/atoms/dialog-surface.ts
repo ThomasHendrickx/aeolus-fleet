@@ -27,4 +27,11 @@ export const dialogSurface = {
   footer: 'flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end',
   title: 'text-heading font-semibold text-foreground',
   description: 'text-body text-muted-foreground',
+  // On phone a confirm rises as a bottom sheet (docs/design/png/Sheet.png):
+  // pinned to the bottom, full width, rounded top, clear of the home bar.
+  phoneSheet:
+    'max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-b-0 max-sm:px-4 max-sm:pb-[max(calc(var(--spacing)*4),env(safe-area-inset-bottom))] max-sm:[&_[data-slot=button]]:h-(--size-control-touch) max-sm:[&_[data-slot=button]]:w-full',
+  // On phone a dialog that shows a form or a prompt fills the screen.
+  phoneFullScreen:
+    'max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-w-full max-sm:translate-x-0 max-sm:translate-y-0 max-sm:content-start max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-0',
 };
