@@ -189,7 +189,10 @@ describe('Compose', () => {
 describe('diagnostic: the live inbox count', () => {
   it.each(Array.from({ length: 8 }, (_, index) => index + 1))('run %i', async (run) => {
     const sender = await crewedOverRest({ name: `diag-${String(run)}`, type: 'diag' });
-    const page = await signedInPage();
+    clock.advance(SIGN_IN_WINDOW_MS);
+    const context = await browser.newContext({ baseURL: web.url });
+    contexts.push(context);
+    const page = await context.newPage();
     const frames: string[] = [];
     const logs: string[] = [];
     const started = Date.now();
@@ -211,6 +214,9 @@ describe('diagnostic: the live inbox count', () => {
         void response.text().then((text) => logs.push(`${String(Date.now() - started)} response ${text.slice(0, 200)}`));
       }
     });
+    await signIn(page, OPERATOR);
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    frames.push(`${String(Date.now() - started)} overview shown`);
     const navigation = page.getByTestId('nav-inbox');
     await navigation.waitFor();
     const open = (await database.delivery.count({ where: { recipientShipId: argo.shipId, state: 'pending' } })) + 1;
@@ -226,6 +232,9 @@ describe('diagnostic: the live inbox count', () => {
         `count ${String(open)} not shown. live: ${String(live)}\nnav: ${nav.slice(0, 1200)}\nframes:\n${frames.join('\n')}\nlogs:\n${logs.join('\n')}`,
         { cause: error },
       );
+    }
+    if (run === 1) {
+      throw new Error(`run 1 trace, for comparison:\n${frames.join('\n')}\nlogs:\n${logs.join('\n')}`);
     }
     await page.context().close();
   });
