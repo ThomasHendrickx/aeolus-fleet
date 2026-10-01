@@ -7,18 +7,22 @@ import { Button } from '../atoms/button';
 import { CodeBlock } from '../atoms/code-block';
 
 /**
- * A starting prompt, shown once: the operator copies it into a new session.
- * It holds the ship's secret, which the fleet never shows again, so nothing
- * here keeps it beyond this view. The copy button announces a copy; when the
+ * A starting prompt, shown once: the operator copies it into a new session,
+ * or copies the crew line into a Claude Code session with the aeolus plugin.
+ * Both hold the ship's secret, which the fleet never shows again, so nothing
+ * here keeps them beyond this view. The copy button announces a copy; when the
  * clipboard refuses, the block says how to copy by hand.
  */
 export function StartingPromptBlock({
   shipName,
   prompt,
+  crewLine,
   onDone,
 }: {
   shipName: string;
   prompt: string;
+  /** `/aeolus:crew <fleetUrl> <shipId> <secret>`, for a Claude Code session with the aeolus plugin. */
+  crewLine: string;
   onDone: () => void;
 }) {
   const headingId = useId();
@@ -35,7 +39,8 @@ export function StartingPromptBlock({
           Starting prompt for {shipName}
         </h3>
         <p className="text-meta text-muted-foreground">
-          Paste it into a new session. It is shown only now: the secret in it cannot be read again.
+          Paste it into a new session, or the crew line into Claude Code with the aeolus plugin. Both are shown only
+          now: the secret in them cannot be read again.
         </p>
       </div>
       <CodeBlock
@@ -45,6 +50,19 @@ export function StartingPromptBlock({
         copyLabel={`Copy the starting prompt for ${shipName}`}
         codeTestId="starting-prompt-text"
         copyTestId="starting-prompt-copy"
+        onCopied={() => {
+          setHasCopyFailed(false);
+        }}
+        onCopyFailed={() => {
+          setHasCopyFailed(true);
+        }}
+      />
+      <CodeBlock
+        label="Crew line, Claude Code with the aeolus plugin"
+        code={crewLine}
+        copyLabel={`Copy the crew line for ${shipName}`}
+        codeTestId="starting-prompt-crew-line"
+        copyTestId="starting-prompt-crew-line-copy"
         onCopied={() => {
           setHasCopyFailed(false);
         }}

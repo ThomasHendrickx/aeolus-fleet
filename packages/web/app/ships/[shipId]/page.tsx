@@ -117,6 +117,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         <StartingPromptBlock
           shipName={ship.data.name}
           prompt={issued.prompt}
+          crewLine={issued.crewLine}
           onDone={() => {
             getStartingPrompt.reset();
           }}
