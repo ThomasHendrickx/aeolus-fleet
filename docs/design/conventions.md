@@ -52,6 +52,8 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Select: short closed list. Combobox: search helps (ships, types). Tabs segmented: views of one list. Tabs line: page sections. Switch: instant setting. Checkbox: multi-select only.
 - Buttons: max one primary per view (page, Dialog, Sheet); others secondary; tertiary ghost. Destructive variant only for the final confirm of an irreversible action, never in a page toolbar.
 - Button order: desktop footers right-aligned, Cancel left of the action; phone stacked full width, action on top, Cancel last.
+- AccountMenu is the only home for the signed-in person: identity, this session, Account settings, Theme, Sign out. Future account features go here, never into page chrome. Desktop: Sidebar foot, DropdownMenu opening upwards. Phone: Avatar last in TopBar on every root page, bottom Sheet.
+- Theme switch lives only in AccountMenu: Light, Dark, System (default System).
 - argo: first in FleetTable; operator kind chip; row opens OperatorInbox; menu only Open inbox and Copy ship id; never Release, Rename, Retire or starting prompt; excluded from SelectorPicker, CommandPalette ships and overview metrics; as a party "argo (you)".
 
 ## States
@@ -91,7 +93,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 
 ## Responsive
 - Below `--breakpoint-sm`: phone. From `--breakpoint-sm`: desktop layout, Sidebar as rail (`--size-rail`). From `--breakpoint-lg`: full Sidebar (`--size-sidebar`).
-- Phone swaps: Sidebar → TabBar; Header → TopBar; Table → list rows; DropdownMenu → bottom Sheet; form Dialog → full-screen page; confirm Dialog → bottom Sheet; side Sheet → pushed page, delivery first; two-pane OperatorInbox → list + page with pinned reply, TabBar hidden; filters → bottom Sheet; Toast above TabBar.
+- Phone swaps: Sidebar → TabBar; Sidebar account button → TopBar Avatar opening AccountMenu; Header → TopBar; Table → list rows; DropdownMenu → bottom Sheet; form Dialog → full-screen page; confirm Dialog → bottom Sheet; side Sheet → pushed page, delivery first; two-pane OperatorInbox → list + page with pinned reply, TabBar hidden; filters → bottom Sheet; Toast above TabBar.
 - Never drop an action on phone; move it into the TopBar menu or a bottom Sheet.
 - Pages use AuthLayout, ListLayout or DetailLayout; no other skeleton.
 
