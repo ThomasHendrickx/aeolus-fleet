@@ -27,6 +27,9 @@ import { createReleaseShip } from '../../src/core/registry/release-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
+import { createReadMessage } from '../../src/core/shared/read-message.js';
+import { createReadShipMessages } from '../../src/core/shared/read-ship-messages.js';
+import { createReadShipTimeline } from '../../src/core/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
@@ -75,6 +78,15 @@ export function registryUseCases(core: InMemoryCore) {
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed }),
+  };
+}
+
+/** The history reads for the ship page, wired to the in-memory core. */
+export function historyUseCases(core: InMemoryCore) {
+  return {
+    readShipTimeline: createReadShipTimeline({ history: core.history }),
+    readShipMessages: createReadShipMessages({ history: core.history }),
+    readMessage: createReadMessage({ history: core.history }),
   };
 }
 

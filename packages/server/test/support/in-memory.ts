@@ -30,7 +30,9 @@ import type {
 } from '../../src/core/registry/ports.js';
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { Clock } from '../../src/core/shared/clock.js';
-import type { EventLog, FleetEvent, FleetEventFeed } from '../../src/core/shared/events.js';
+import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
+import type { DeliveryChange, HistoryMessage, HistoryParty, HistoryRecipient, ShipHistory, TimelineEntry } from '../../src/core/shared/history.js';
+import type { Recipient } from '../../src/core/shared/selector.js';
 import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
@@ -96,6 +98,8 @@ export interface InMemoryCore {
   listing: FleetListing;
   /** The committed events, numbered per fleet in the order they were appended. */
   feed: FleetEventFeed;
+  /** The history reads for the ship page, from the events, messages and deliveries held. */
+  history: ShipHistory;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
@@ -542,7 +546,125 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     after: (fleetId, { seq, limit }) => Promise.resolve(numbered(fleetId).slice(seq, seq + limit)),
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, feed, clock, ids, hasher, passwords, random, wakeups };
+  const partyOf = (fleetId: FleetId, shipId: ShipId): HistoryParty => {
+    const found = ship(fleetId, shipId);
+    if (!found) {
+      throw new Error(`no ship ${shipId}`);
+    }
+    return { id: found.id, name: found.name };
+  };
+  const recipientOf = (fleetId: FleetId, recipient: Recipient): HistoryRecipient =>
+    recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
+  const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
+    state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
+  const deliveryOfMessage = (message: Message): Delivery => {
+    const found = state.deliveries.find((held) => held.messageId === message.id);
+    if (!found) {
+      throw new Error(`no delivery of ${message.id}`);
+    }
+    return found;
+  };
+  const timelineEntryOf = (event: SequencedEvent): TimelineEntry => {
+    const message = event.messageId === undefined ? undefined : messageOf(event.fleetId, event.messageId);
+    return {
+      seq: event.seq,
+      id: event.id,
+      type: event.type,
+      occurredAt: event.occurredAt,
+      actor: event.actor.kind === 'ship' ? partyOf(event.fleetId, event.actor.shipId) : null,
+      ship: event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
+      message: message
+        ? {
+            id: message.id,
+            sender: partyOf(message.fleetId, message.senderShipId),
+            recipient: recipientOf(message.fleetId, message.selector),
+          }
+        : null,
+      details: event.details,
+    };
+  };
+  const historyMessageOf = (message: Message): HistoryMessage => {
+    const delivery = deliveryOfMessage(message);
+    return {
+      id: message.id,
+      sender: partyOf(message.fleetId, message.senderShipId),
+      recipient: recipientOf(message.fleetId, message.selector),
+      inReplyTo: message.inReplyToMessageId,
+      sentAt: message.createdAt,
+      contentType: message.contentType,
+      payload: message.payload,
+      delivery: {
+        id: delivery.id,
+        state: delivery.state,
+        attempts: delivery.attempts,
+        claimedBy: delivery.claimedByShipId === null ? null : partyOf(message.fleetId, delivery.claimedByShipId),
+      },
+    };
+  };
+  const HISTORY_TYPES = new Set(['MessageAccepted', 'DeliveryClaimed', 'DeliveryReturned', 'DeliveryAcknowledged', 'DeliveryUndeliverable']);
+  const changeOf = (event: SequencedEvent): DeliveryChange => {
+    const lease =
+      event.type === 'DeliveryClaimed' ? state.leases.find((held) => held.id === event.details.leaseId) : undefined;
+    const { attempts } = event.details;
+    return {
+      seq: event.seq,
+      type: event.type,
+      occurredAt: event.occurredAt,
+      ship: event.type === 'MessageAccepted' || event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
+      location: lease ? { ...lease.location } : null,
+      attempts: typeof attempts === 'number' ? attempts : null,
+    };
+  };
+  const newestFirst = (first: Message, second: Message) =>
+    second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
+  const history: ShipHistory = {
+    timeline: (fleetId, shipId, { limit }) =>
+      Promise.resolve(
+        ship(fleetId, shipId) &&
+          numbered(fleetId)
+            .filter((event) => event.shipId === shipId || (event.actor.kind === 'ship' && event.actor.shipId === shipId))
+            .reverse()
+            .slice(0, limit)
+            .map(timelineEntryOf),
+      ),
+    messages: (fleetId, shipId, { limit }) => {
+      if (!ship(fleetId, shipId)) {
+        return Promise.resolve(undefined);
+      }
+      const claimed = new Set(
+        state.events
+          .filter((event) => event.fleetId === fleetId && event.type === 'DeliveryClaimed' && event.shipId === shipId)
+          .map((event) => event.messageId),
+      );
+      return Promise.resolve(
+        state.messages
+          .filter(
+            (message) =>
+              message.fleetId === fleetId &&
+              (message.senderShipId === shipId ||
+                (message.selector.kind === 'ship' && message.selector.shipId === shipId) ||
+                claimed.has(message.id)),
+          )
+          .sort(newestFirst)
+          .slice(0, limit)
+          .map(historyMessageOf),
+      );
+    },
+    message: (fleetId, messageId) => {
+      const message = messageOf(fleetId, messageId);
+      if (!message) {
+        return Promise.resolve(undefined);
+      }
+      const delivery = deliveryOfMessage(message);
+      const changes = numbered(fleetId)
+        .filter((event) => event.deliveryId === delivery.id && HISTORY_TYPES.has(event.type))
+        .reverse()
+        .map(changeOf);
+      return Promise.resolve({ ...historyMessageOf(message), history: changes });
+    },
+  };
+
+  return { state, uow, ships: tx.ships, callers, accounts, listing, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
 
 const TABLES = [
