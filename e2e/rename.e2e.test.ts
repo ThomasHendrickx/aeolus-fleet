@@ -1,0 +1,91 @@
+import type { FastifyInstance } from 'fastify';
+import type { Browser, BrowserContext, Page } from 'playwright';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
+import { createApp } from '../packages/server/src/app.js';
+import type { Caller } from '../packages/server/src/core/shared/caller.js';
+import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
+import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/server/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/server/test/support/database.js';
+import { createTestClock } from '../packages/server/test/support/postgres-core.js';
+import { unwrap } from '../packages/server/test/support/result.js';
+import { signIn } from './support/console.js';
+import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+
+// Rename, end to end: the operator renames a ship from its page with the
+// live name check and the typed confirm; the page and its timeline show the
+// new name.
+
+const clock = createTestClock('2026-10-01T09:00:00.000Z');
+/** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
+const SIGN_IN_WINDOW_MS = 60_000;
+
+let database: PrismaClient;
+let useCases: UseCases;
+let argo: Caller;
+let server: FastifyInstance;
+let web: RunningWeb;
+let browser: Browser;
+const contexts: BrowserContext[] = [];
+
+beforeAll(async () => {
+  const databaseUrl = await createMigratedDatabase();
+  database = createPrismaClient(databaseUrl);
+  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+
+  const webUrl = await reserveWebUrl();
+  server = createApp({
+    databaseUrl,
+    publicUrl: FLEET_URL,
+    consoleOrigin: webUrl,
+    clock,
+    logger: false,
+  });
+  const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
+  web = await startWeb({ url: webUrl, serverUrl });
+  browser = await launchChromium();
+});
+
+afterAll(async () => {
+  await Promise.all(contexts.map((context) => context.close()));
+  await browser.close();
+  await web.stop();
+  await server.close();
+  await database.$disconnect();
+});
+
+async function signedInPage(): Promise<Page> {
+  clock.advance(SIGN_IN_WINDOW_MS);
+  const context = await browser.newContext({ baseURL: web.url });
+  contexts.push(context);
+  const page = await context.newPage();
+  await signIn(page, OPERATOR);
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  return page;
+}
+
+describe('renaming a ship', () => {
+  it('renames a ship from its page after the name check and the typed confirm; the page shows the new name', async () => {
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'reviewer-01', type: 'reviewer' }));
+    unwrap(await useCases.commissionShip(argo, { name: 'planner', type: 'planner' }));
+    const page = await signedInPage();
+    await page.goto(`/ships/${shipId}`);
+
+    await page.getByTestId('fleet-ship-rename').click();
+    const dialog = page.getByTestId('rename-dialog');
+    await dialog.getByTestId('rename-name').fill('planner');
+    await dialog.getByText('planner is already used by an active ship.').waitFor();
+    await dialog.getByTestId('rename-name').fill('reviewer-web');
+    await dialog.getByText('reviewer-web is available.').waitFor();
+    expect(await dialog.getByTestId('rename-submit').isDisabled()).toBe(true);
+    await dialog.getByTestId('rename-typed-confirm').getByRole('textbox').fill('reviewer-01');
+    await dialog.getByTestId('rename-submit').click();
+
+    await dialog.waitFor({ state: 'hidden' });
+    await page.getByRole('heading', { name: 'reviewer-web' }).first().waitFor();
+    await page.getByText('Renamed from reviewer-01 to reviewer-web by argo').waitFor();
+    await expect(database.ship.findUniqueOrThrow({ where: { id: shipId } })).resolves.toMatchObject({ name: 'reviewer-web' });
+  });
+});
