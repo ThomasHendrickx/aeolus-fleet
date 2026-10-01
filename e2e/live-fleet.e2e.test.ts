@@ -114,7 +114,7 @@ describe('the live fleet overview', () => {
     const releasing = shipRow(first, 'scout');
     await releasing.getByText('Crewed').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await releasing.getByTestId('fleet-ship-release').click();
-    await releasing.getByRole('group', { name: 'Release scout?' }).getByRole('button', { name: 'Release ship' }).click();
+    await first.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await watched.getByText('No starting prompt issued').waitFor();
