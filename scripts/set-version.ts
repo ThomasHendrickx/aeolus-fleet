@@ -1,7 +1,7 @@
 /**
  * Sets one version on the three published packages and pins their dependencies
  * on each other to exactly that version, because they are released together
- * (ADR 0011). Used by the release workflow and the publish dry run in CI.
+ * (ADR 0011). The aeolus Claude Code plugin carries the same version. Used by the release workflow and the publish dry run in CI.
  *
  * Usage: npm run set-version -- <version>
  */
@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 export const PUBLISHED_PACKAGES = ['common', 'server', 'web'] as const;
+
+/** The aeolus Claude Code plugin's manifest, released with the packages. */
+export const PLUGIN_MANIFEST = 'plugins/aeolus/.claude-plugin/plugin.json';
 
 const SCOPE = '@aeolus-fleet/';
 const SEMVER =
@@ -57,13 +60,17 @@ export function setVersion(repositoryRoot: string, version: string): void {
 
     writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`);
   }
+
+  const pluginPath = join(repositoryRoot, PLUGIN_MANIFEST);
+  const plugin = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(pluginPath, 'utf8')));
+  writeFileSync(pluginPath, `${JSON.stringify({ ...plugin, version }, null, 2)}\n`);
 }
 
 if (import.meta.main) {
   const version = process.argv[2] ?? '';
   try {
     setVersion(fileURLToPath(new URL('..', import.meta.url)), version);
-    console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} to ${version}`);
+    console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} and the aeolus plugin to ${version}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

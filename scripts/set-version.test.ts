@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { PUBLISHED_PACKAGES, setVersion } from './set-version.ts';
+import { PLUGIN_MANIFEST, PUBLISHED_PACKAGES, setVersion } from './set-version.ts';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -19,6 +19,8 @@ beforeEach(() => {
     mkdirSync(join(copy, 'packages', name), { recursive: true });
     cpSync(join(repositoryRoot, 'packages', name, 'package.json'), join(copy, 'packages', name, 'package.json'));
   }
+  mkdirSync(join(copy, PLUGIN_MANIFEST, '..'), { recursive: true });
+  cpSync(join(repositoryRoot, PLUGIN_MANIFEST), join(copy, PLUGIN_MANIFEST));
 });
 
 afterEach(() => {
@@ -38,6 +40,14 @@ function manifest(name: string): z.infer<typeof manifestSchema> {
 }
 
 describe('setVersion', () => {
+  it('sets the same version on the aeolus Claude Code plugin, keeping its other fields', () => {
+    const before = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8')));
+
+    setVersion(copy, '0.3.0');
+
+    expect(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8'))).toEqual({ ...before, version: '0.3.0' });
+  });
+
   it('sets the same version on all three packages', () => {
     setVersion(copy, '0.1.0');
 
