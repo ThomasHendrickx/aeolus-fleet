@@ -116,3 +116,46 @@ export function acknowledgeDelivery(
       );
   }
 }
+
+export type DismissRefusal = DomainError<'DELIVERY_NOT_UNDELIVERABLE'>;
+
+/**
+ * The operator lets an undeliverable delivery go (docs/blueprint.md,
+ * "DeliveryUndeliverable"): it becomes dismissed, kept in history with its
+ * claims, and leaves Needs attention. The event names the ship it was for; a
+ * delivery to a type names none. Dismissing it again is harmless: OK, and
+ * nothing changes. Any other delivery is refused: only an undeliverable one
+ * waits for the operator.
+ */
+export function dismissDelivery(
+  delivery: Delivery,
+  dismiss: { by: ShipId; at: Date },
+): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
+  switch (delivery.state) {
+    case 'dismissed':
+      return ok({ delivery, events: [] });
+    case 'undeliverable':
+      return ok({
+        delivery: { ...delivery, state: 'dismissed' },
+        events: [
+          {
+            fleetId: delivery.fleetId,
+            type: 'DeliveryDismissed',
+            occurredAt: dismiss.at,
+            actor: shipActor(dismiss.by),
+            shipId: delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : undefined,
+            messageId: delivery.messageId,
+            deliveryId: delivery.id,
+          },
+        ],
+      });
+    case 'pending':
+    case 'delivered':
+    case 'acknowledged':
+    case 'abandoned':
+      return refuse(
+        'DELIVERY_NOT_UNDELIVERABLE',
+        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is dismissed`,
+      );
+  }
+}
