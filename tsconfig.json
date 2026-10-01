@@ -9,6 +9,7 @@
     "scripts/**/*.ts",
     "lint/**/*.ts",
     "e2e/**/*.ts",
+    "plugins/**/*.ts",
     // Declares what the Postgres global setup provides to the end-to-end tests.
     "packages/server/test/postgres.global-setup.ts"
   ]

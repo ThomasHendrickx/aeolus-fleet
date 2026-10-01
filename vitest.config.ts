@@ -53,6 +53,16 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          // The aeolus Claude Code plugin's bash scripts, run against a stub fleet.
+          name: 'plugin:unit',
+          root: 'plugins/aeolus',
+          include: ['test/**/*.test.ts'],
+          testTimeout: 30_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'server:integration',
           root: 'packages/server',
           include: ['test/**/*.integration.test.ts'],
