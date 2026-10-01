@@ -198,6 +198,6 @@ describe('installed from npm', () => {
     await signIn(page, OPERATOR);
 
     await page.waitForURL(`${webUrl}/`);
-    await page.getByText('Signed in as argo.').waitFor();
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   });
 });

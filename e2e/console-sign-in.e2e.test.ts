@@ -61,7 +61,7 @@ async function newPage(): Promise<Page> {
 
 async function expectSignedIn(page: Page): Promise<void> {
   await page.waitForURL(`${web.url}/`);
-  await page.getByText('Signed in as argo.').waitFor();
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
 }
 
 async function expectSentToSignIn(page: Page): Promise<void> {
@@ -126,9 +126,11 @@ describe('the console sign-in', () => {
     await signIn(second, OPERATOR);
     await expectSignedIn(second);
 
-    await expectSentToSignIn(first);
+    // Without a reload: the first console hears its session end, and says why, calmly.
+    await first.waitForURL(`${web.url}/sign-in?notice=signed-in-elsewhere`);
+    await first.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
     await second.reload();
-    await second.getByText('Signed in as argo.').waitFor();
+    await second.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   });
 
   it('sends the operator back to sign in once the session has expired', async () => {
@@ -146,7 +148,8 @@ describe('the console sign-in', () => {
     await signIn(page, OPERATOR);
     await expectSignedIn(page);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByTestId('account-menu').click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in`);
     await expect(page.context().cookies()).resolves.toEqual([]);

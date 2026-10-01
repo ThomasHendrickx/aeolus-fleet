@@ -57,7 +57,7 @@ async function signedInPage(): Promise<Page> {
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
-  await page.getByText('Signed in as argo.').waitFor();
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   return page;
 }
 
@@ -69,8 +69,9 @@ async function commission(page: Page, ship: { name: string; type: string; note?:
   await form.getByRole('button', { name: 'Commission' }).click();
 }
 
+/** A ship's row in the overview's table: the phone list holds the same ships, hidden at this width. */
 function shipRow(page: Page, name: string) {
-  return page.getByTestId('fleet-ship').filter({ has: page.getByRole('rowheader', { name, exact: true }) });
+  return page.getByTestId(`fleet-row-${name}`);
 }
 
 function promptBlock(page: Page, shipName: string) {
@@ -101,7 +102,6 @@ async function crewedShip(page: Page, ship: { name: string; type: string }): Pro
     secret: secretIn(prompt),
     location: { kind: 'CLOUD' },
   });
-  await page.reload();
   await shipRow(page, ship.name).getByText('Crewed').waitFor();
   return crewToken;
 }
@@ -124,8 +124,8 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(first)).resolves.toBe(true);
     const row = shipRow(page, 'scout');
     await row.getByText('Awaiting crew').waitFor();
-    await row.getByText(/^Unclaimed, issued/).waitFor();
-    await expect(row.getByRole('cell').nth(0).textContent()).resolves.toBe('reviewer');
+    await row.getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
+    await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('reviewer');
 
     await promptBlock(page, 'scout').getByRole('button', { name: 'Done' }).click();
     await promptBlock(page, 'scout').waitFor({ state: 'detached' });
@@ -187,7 +187,7 @@ describe('commissioning a ship in the console', () => {
 });
 
 describe('claiming a commissioned ship', () => {
-  it('lists the ship as crewed where its session runs, its prompt claimed, once a session claims it through the API', async () => {
+  it('lists the ship as crewed where its session runs, without a reload, once a session claims it through the API', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'navigator', type: 'reviewer' });
     const prompt = await promptTextIn(page, 'navigator');
@@ -202,15 +202,11 @@ describe('claiming a commissioned ship', () => {
       secret: secretIn(prompt),
       location: { kind: 'OTHER', description: 'a ci runner' },
     });
-    await page.reload();
 
     await row.getByText('Crewed').waitFor();
-    await expect(row.getByTestId('fleet-ship-location').textContent()).resolves.toBe('Other · a ci runner');
-    await row.getByText(/^Claimed, issued/).waitFor();
+    await row.getByText('a ci runner', { exact: true }).waitFor();
     await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
-    await expect(shipRow(page, 'argo').getByTestId('fleet-ship-location').textContent()).resolves.toBe(
-      'Other · web console',
-    );
+    await shipRow(page, 'argo').getByText('web console', { exact: true }).waitFor();
   });
 });
 
@@ -224,7 +220,7 @@ describe('releasing a crewed ship', () => {
     await row.getByRole('group', { name: 'Release coxswain?' }).getByRole('button', { name: 'Release ship' }).click();
 
     await row.getByText('Awaiting crew').waitFor();
-    await expect(row.getByTestId('fleet-ship-location').textContent()).resolves.toBe('');
+    await row.getByText('No starting prompt issued').waitFor();
     await row.getByRole('button', { name: 'Get starting prompt' }).waitFor();
     await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();
   });
