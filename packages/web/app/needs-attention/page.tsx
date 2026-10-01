@@ -20,7 +20,8 @@ import {
   useResendDelivery,
 } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
-import { useSignInWhenSessionEnds, useSignOut } from '../../lib/session';
+import { useAccountMenu } from '../../lib/account';
+import { useSignInWhenSessionEnds } from '../../lib/session';
 
 /**
  * Needs attention, live: every undeliverable delivery, oldest first. Resend
@@ -35,7 +36,7 @@ export default function NeedsAttentionPage() {
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
-  const signOut = useSignOut();
+  const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -84,7 +85,7 @@ export default function NeedsAttentionPage() {
       onCompose={() => {
         setIsComposing(true);
       }}
-      account={{ account: undefined, onThemeChange: () => undefined, onSignOut: signOut, isSigningOut: false, now }}
+      account={accountMenu}
     >
       <NeedsAttentionList
         deliveries={attention.data ?? []}
