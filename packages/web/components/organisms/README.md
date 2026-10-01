@@ -1,3 +1,3 @@
 # Organisms
 
-Larger sections, such as the ship table, message sheet and delivery timeline. Until the console design, bare versions on native elements: FleetList, CommissionShipForm and SignInForm.
+Larger sections that take their data through a hook: FleetList, CommissionShipForm and SignInForm.

@@ -7,7 +7,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 | Path | What |
 | --- | --- |
 | `/sign-in` | Sign in with the operator email and password; the session crews `argo`. Only a session cookie stays in the browser |
-| `/` | The fleet, bare until the console design: every ship with type, status, where a crewed ship's session runs, and prompt state; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out. Without a session it sends you to `/sign-in` |
+| `/` | The fleet, in a plain column until the app shell: every ship with type, status, where a crewed ship's session runs, and prompt state; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out. Without a session it sends you to `/sign-in` |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
 
 ## Running from npm
@@ -32,3 +32,9 @@ Environment variables, read when the app runs, never when it is built:
 | `HOST` | `127.0.0.1` | Interface to listen on |
 
 `npm run dev` builds `@aeolus-fleet/common` first: the console checks its forms with common's schemas and bundles the built package.
+
+## Design system
+
+The console is themed from `app/tokens.css`, the single copy of the design tokens (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. The parts live in `components/` by atomic design level; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
+
+`npm run storybook -w @aeolus-fleet/web` shows every part, with a story per meaningful state and a toolbar for light and dark. `npm run build-storybook -w @aeolus-fleet/web` builds it; CI does on every pull request.

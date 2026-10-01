@@ -1,3 +1,3 @@
 # Molecules
 
-Small compositions of atoms, such as StatusBadge, SelectorPicker and StartingPromptBlock. Until the console design, bare versions on native elements: ShipRow and StartingPromptBlock.
+Small compositions of atoms, props only: StatusBadge, ShipName, StartingPromptBlock and ShipRow.
