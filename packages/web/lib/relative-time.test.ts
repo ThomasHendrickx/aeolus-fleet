@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fullDateTime, relativeTime, shortDateTime } from './relative-time';
+import { clockTime, fullDateTime, relativeTime, shortDateTime } from './relative-time';
 
 const NOW = new Date(2026, 8, 28, 14, 21, 5);
 
@@ -35,5 +35,11 @@ describe('shortDateTime and fullDateTime', () => {
     const at = new Date(2026, 0, 5, 7, 4, 9);
     expect(shortDateTime(at)).toBe('5 Jan, 07:04');
     expect(fullDateTime(at)).toBe('5 Jan 2026, 07:04:09');
+  });
+});
+
+describe('clockTime', () => {
+  it('words a moment as a 24 h clock', () => {
+    expect(clockTime(new Date(2026, 9, 1, 9, 5, 59))).toBe('09:05');
   });
 });

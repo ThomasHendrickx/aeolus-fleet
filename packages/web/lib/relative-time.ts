@@ -8,6 +8,11 @@ function twoDigits(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/** "14:33": a 24 h clock, in the browser's time zone, for a moment later today. */
+export function clockTime(at: Date): string {
+  return `${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;
+}
+
 /** "28 Sep, 14:21": day, month and a 24 h clock, in the browser's time zone. */
 export function shortDateTime(at: Date): string {
   return `${String(at.getDate())} ${MONTHS[at.getMonth()] ?? ''}, ${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;
