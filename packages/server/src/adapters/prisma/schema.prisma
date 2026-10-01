@@ -111,6 +111,8 @@ model Lease {
   locationDescription String?      @map("location_description")
   crewTokenHash       String?      @unique @map("crew_token_hash")
   startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
+  /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
+  lastSeenAt      DateTime? @map("last_seen_at") @db.Timestamptz(3)
   endedAt             DateTime?    @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])

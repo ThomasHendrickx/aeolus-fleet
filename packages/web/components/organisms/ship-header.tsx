@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
-import { clockTime, dayDate, duration, fullDateTime, shortDateTime } from '../../lib/relative-time';
+import { clockTime, dayDate, duration, fullDateTime, lastSeen, shortDateTime } from '../../lib/relative-time';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { CopyButton } from '../atoms/copy-button';
@@ -52,7 +52,19 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
   return (
     <dl className="grid grid-cols-4 gap-px overflow-hidden rounded-lg border border-border bg-border max-sm:grid-cols-2">
       <MetaCell label="Location">
-        <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size="md" />
+        <span className="inline-flex min-w-0 flex-col gap-0.5">
+          <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size="md" />
+          {ship.lastSeenAt === null ? null : (
+            <time
+              dateTime={ship.lastSeenAt}
+              title={fullDateTime(new Date(ship.lastSeenAt))}
+              data-testid="ship-last-seen"
+              className="text-meta text-muted-foreground tabular-nums"
+            >
+              {lastSeen(new Date(ship.lastSeenAt), now)}
+            </time>
+          )}
+        </span>
       </MetaCell>
       <MetaCell label="Crewed since">
         {since ? (

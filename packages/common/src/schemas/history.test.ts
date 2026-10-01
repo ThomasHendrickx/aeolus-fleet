@@ -36,6 +36,7 @@ describe('shipDetailOutputSchema', () => {
     status: 'crewed',
     startingPrompt: { issuedAt: AT, isClaimed: true },
     location: { kind: 'SERVER', description: null },
+    lastSeenAt: AT,
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,

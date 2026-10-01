@@ -44,6 +44,27 @@ function scout() {
   return core.state.ships.find((ship) => ship.id === scoutId);
 }
 
+describe('when a crewed ship was last seen', () => {
+  it('is null while no session crews it', async () => {
+    await expect(listedScout()).resolves.toMatchObject({ lastSeenAt: null });
+  });
+
+  it('is when its session claimed it, until it calls again', async () => {
+    const claimedAt = core.clock.now();
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }));
+
+    await expect(listedScout()).resolves.toMatchObject({ lastSeenAt: claimedAt });
+  });
+
+  it('is its last call', async () => {
+    const crewToken = crewShip(core, { fleetId, shipId: scoutId });
+    core.clock.advance(30_000);
+    await identityUseCases(core).authenticate.byCrewToken(crewToken);
+
+    await expect(listedScout()).resolves.toMatchObject({ lastSeenAt: core.clock.now() });
+  });
+});
+
 describe('listing the fleet', () => {
   it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, kind, status, prompt state and no location while awaiting crew', async () => {
     await expect(useCases.listFleet(argo)).resolves.toEqual([
@@ -55,6 +76,7 @@ describe('listing the fleet', () => {
         status: 'awaitingCrew',
         startingPrompt: null,
         location: null,
+        lastSeenAt: null,
       },
       {
         id: scoutId,
@@ -64,6 +86,7 @@ describe('listing the fleet', () => {
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
+        lastSeenAt: null,
       },
     ]);
   });

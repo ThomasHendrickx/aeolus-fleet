@@ -140,6 +140,7 @@ describe('fleetListOutputSchema', () => {
     status: 'awaitingCrew',
     startingPrompt: { issuedAt: '2026-09-29T12:00:00.000Z', isClaimed: false },
     location: null,
+    lastSeenAt: null,
   };
 
   it('accepts ships with their status and prompt state', () => {
@@ -152,6 +153,7 @@ describe('fleetListOutputSchema', () => {
       status: 'crewed',
       startingPrompt: { ...ship.startingPrompt, isClaimed: true },
       location: { kind: 'OTHER', description: 'a ci runner' },
+      lastSeenAt: '2026-09-29T12:05:00.000Z',
     };
 
     expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);

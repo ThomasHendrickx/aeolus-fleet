@@ -14,6 +14,7 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
     status: 'crewed',
     startingPrompt: null,
     location: null,
+    lastSeenAt: null,
     ...ship,
   };
 }

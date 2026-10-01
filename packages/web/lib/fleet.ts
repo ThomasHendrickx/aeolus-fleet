@@ -2,10 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useTRPC } from './trpc';
 
-/** The fleet snapshot: every ship with its status and prompt state. */
+/**
+ * How often an open console reads the snapshot again: last seen changes with
+ * every call a ship makes, which writes no event, so no live update brings it.
+ */
+export const LAST_SEEN_REFRESH_MS = 30_000;
+
+/** The fleet snapshot: every ship with its status, prompt state and when it was last seen. */
 export function useFleetSnapshot() {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.list.queryOptions());
+  return useQuery(trpc.fleet.list.queryOptions(undefined, { refetchInterval: LAST_SEEN_REFRESH_MS }));
 }
 
 /** Refreshes the fleet snapshot, and every ship page read, after a change to the fleet. */

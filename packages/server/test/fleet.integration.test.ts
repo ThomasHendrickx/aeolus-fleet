@@ -327,6 +327,7 @@ describe('getting one ship on Postgres', () => {
         status: 'crewed',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
         location: { kind: 'SERVER', description: null },
+        lastSeenAt: crewedAt,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -351,6 +352,7 @@ describe('listing the fleet on Postgres', () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
+    const signedInAt = core.clock.now();
     unwrap(await core.useCases.signIn(OPERATOR));
 
     await expect(core.useCases.listFleet(argo)).resolves.toEqual([
@@ -362,6 +364,7 @@ describe('listing the fleet on Postgres', () => {
         status: 'crewed',
         startingPrompt: null,
         location: { kind: 'OTHER', description: 'Unknown device' },
+        lastSeenAt: signedInAt,
       },
       {
         id: shipId,
@@ -371,6 +374,7 @@ describe('listing the fleet on Postgres', () => {
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
+        lastSeenAt: null,
       },
     ]);
   });

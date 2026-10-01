@@ -61,6 +61,8 @@ export interface InMemoryState {
   consoleSessions: ConsoleSession[];
   messages: Message[];
   deliveries: Delivery[];
+  /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
+  leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
@@ -135,6 +137,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     messages: [],
     deliveries: [],
     deliveryReads: [],
+    leaseSeen: [],
     events: [],
     notices: [],
   };
@@ -530,12 +533,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const markSeen = (lease: Lease, at: Date) => {
+    const seen = state.leaseSeen.find((held) => held.leaseId === lease.id);
+    if (seen) {
+      seen.at = at;
+    } else {
+      state.leaseSeen.push({ fleetId: lease.fleetId, leaseId: lease.id, at });
+    }
+  };
+
   const callers: CallerLookup = {
-    byCrewTokenHash: (crewTokenHash) => {
+    byCrewTokenHash: (crewTokenHash, { at }) => {
       const lease = state.leases.find((held) => held.crewTokenHash === crewTokenHash);
       const owner = lease && ship(lease.fleetId, lease.shipId);
       if (!lease || owner?.retiredAt !== null) {
         return Promise.resolve(undefined);
+      }
+      if (lease.endedAt === null) {
+        markSeen(lease, at);
       }
       return Promise.resolve(
         lease.endedAt === null
@@ -553,6 +568,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       session.lastUsedAt = at;
       session.expiresAt = expiresAt;
+      const lease = state.leases.find((held) => held.id === session.leaseId);
+      if (lease) {
+        markSeen(lease, at);
+      }
       return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id, leaseId: session.leaseId });
     },
     consoleSessionEnding: (tokenHash) =>
@@ -571,7 +590,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
     return {
       ship: { ...held },
-      openLease: lease ? { location: { ...lease.location }, startedAt: lease.startedAt } : null,
+      openLease: lease
+        ? {
+            location: { ...lease.location },
+            startedAt: lease.startedAt,
+            lastSeenAt: state.leaseSeen.find((seen) => seen.leaseId === lease.id)?.at ?? lease.startedAt,
+          }
+        : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
     };
   };
@@ -834,6 +859,7 @@ const TABLES = [
   'messages',
   'deliveries',
   'deliveryReads',
+  'leaseSeen',
   'events',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];

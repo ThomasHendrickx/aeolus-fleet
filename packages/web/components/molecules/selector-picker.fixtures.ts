@@ -9,6 +9,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     status: 'crewed',
     startingPrompt: { issuedAt: '2026-09-28T08:30:00.000Z', isClaimed: true },
     location: { kind: 'DEVICE', description: null },
+    lastSeenAt: null,
     ...changes,
   };
 }
@@ -17,6 +18,7 @@ export const REVIEWER_01 = ship('r01a', {
   name: 'reviewer-01',
   type: 'reviewer',
   location: { kind: 'SERVER', description: 'hetzner-1' },
+  lastSeenAt: null,
 });
 
 export const COMPOSE_SHIPS: ListedShip[] = [

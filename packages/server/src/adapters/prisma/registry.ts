@@ -177,7 +177,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
-               l.started_at AS lease_started_at,
+               l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
@@ -197,7 +197,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
-               l.started_at AS lease_started_at,
+               l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL

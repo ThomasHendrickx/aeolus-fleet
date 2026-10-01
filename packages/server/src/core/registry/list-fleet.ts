@@ -21,6 +21,8 @@ export interface ListedShip {
   startingPrompt: { issuedAt: Date; isClaimed: boolean } | null;
   /** Where the session crewing the ship runs, as it reported on claim; null while no session crews it. */
   location: Location | null;
+  /** The last call of the session crewing it; null while no session crews it. Observation only. */
+  lastSeenAt: Date | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -44,5 +46,6 @@ export function listedShipOf({ ship, openLease, validSecret }: ShipFacts): Liste
     status: shipStatus(ship, { isCrewed: openLease !== null }),
     startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
     location: openLease?.location ?? null,
+    lastSeenAt: openLease?.lastSeenAt ?? null,
   };
 }

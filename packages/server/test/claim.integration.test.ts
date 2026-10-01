@@ -109,6 +109,7 @@ describe('claiming a ship on Postgres', () => {
         locationDescription: 'a ci runner',
         crewTokenHash: sha256Hasher.hash(crewToken),
         startedAt: core.clock.now(),
+        lastSeenAt: null,
         endedAt: null,
       },
     ]);

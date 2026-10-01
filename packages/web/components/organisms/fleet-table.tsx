@@ -13,7 +13,7 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../../lib/fleet-filter';
-import { fullDateTime, relativeTime } from '../../lib/relative-time';
+import { fullDateTime, lastSeen, relativeTime } from '../../lib/relative-time';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
@@ -83,7 +83,21 @@ function Whereabouts({ ship, now, size }: { ship: ListedShip; now: Date; size: '
     return null;
   }
   if (ship.status === 'crewed') {
-    return <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size={size} />;
+    return (
+      <span className="inline-flex min-w-0 flex-col gap-0.5">
+        <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size={size} />
+        {ship.lastSeenAt === null ? null : (
+          <time
+            dateTime={ship.lastSeenAt}
+            title={fullDateTime(new Date(ship.lastSeenAt))}
+            data-testid="fleet-last-seen"
+            className="text-meta text-muted-foreground tabular-nums"
+          >
+            {lastSeen(new Date(ship.lastSeenAt), now)}
+          </time>
+        )}
+      </span>
+    );
   }
   const prompt = ship.startingPrompt;
   const frame = classNames(
