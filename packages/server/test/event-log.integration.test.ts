@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { listenForPendingDeliveries } from '../src/adapters/prisma/delivery-notices.js';
+import { createPrismaFleetEventFeed } from '../src/adapters/prisma/event-log.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { FleetEvent } from '../src/core/shared/events.js';
 import { SYSTEM } from '../src/core/shared/events.js';
@@ -178,5 +179,54 @@ describe('the event sequence', () => {
     } finally {
       await listener.close();
     }
+  });
+});
+
+describe('the event feed', () => {
+  it('gives the last number of a fleet, and 0 before its first event', async () => {
+    const fleetId = await aFleet();
+    const feed = createPrismaFleetEventFeed(prisma);
+    await expect(feed.lastSeq(fleetId)).resolves.toBe(0);
+
+    await appendInOwnUnit(anEvent(fleetId));
+    await appendInOwnUnit(anEvent(fleetId));
+
+    await expect(feed.lastSeq(fleetId)).resolves.toBe(2);
+  });
+
+  it('gives up to the limit of events after a number, lowest first, as they were written', async () => {
+    const fleetId = await aFleet();
+    const events = [anEvent(fleetId), anEvent(fleetId), anEvent(fleetId), anEvent(fleetId)];
+    for (const event of events) {
+      await appendInOwnUnit(event);
+    }
+    await appendInOwnUnit(anEvent(await aFleet()));
+
+    const read = await createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 1, limit: 2 });
+
+    expect(read).toEqual([
+      { ...events[1], seq: 2 },
+      { ...events[2], seq: 3 },
+    ]);
+  });
+
+  it('gives an event its actor ship and what it concerns', async () => {
+    const fleetId = await aFleet();
+    const shipId = newId('ship');
+    await prisma.ship.create({
+      data: { id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: new Date() },
+    });
+    const event: FleetEvent = {
+      ...anEvent(fleetId),
+      type: 'ShipCommissioned',
+      actor: { kind: 'ship', shipId },
+      shipId,
+      details: { name: 'scout' },
+    };
+    await appendInOwnUnit(event);
+
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([
+      { ...event, seq: 1 },
+    ]);
   });
 });
