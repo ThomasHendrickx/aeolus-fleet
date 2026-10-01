@@ -54,11 +54,11 @@ export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), 
 export const markDoneInputSchema = z.object({ deliveryId: idSchema('delivery') });
 
 /**
- * Input of `fleet.reply`: an answer to a message sent to argo, as plain text
- * to its sender, which also marks the message done.
+ * Input of `fleet.reply`: an answer to a message sent to argo, named by its
+ * delivery, as plain text to its sender, which also marks the message done.
  */
 export const replyInputSchema = z.object({
-  messageId: idSchema('message'),
+  deliveryId: idSchema('delivery'),
   payload: sendInputSchema.shape.payload,
   idempotencyKey: sendInputSchema.shape.idempotencyKey,
 });

@@ -71,65 +71,95 @@ export function createSendMessage(deps: {
   hasher: RequestHasher;
 }): SendMessage {
   return async (caller, input) => {
-    const text = payload(input.payload);
-    if (!text.isOk) {
-      return text;
+    const request = checkedSend(input, deps.hasher);
+    if (!request.isOk) {
+      return request;
     }
-    const mediaType = contentType(input.contentType);
-    if (!mediaType.isOk) {
-      return mediaType;
-    }
-    const key = idempotencyKey(input.idempotencyKey);
-    if (!key.isOk) {
-      return key;
-    }
-    const { inReplyTo } = input;
-    const requestHash = deps.hasher.hash(
-      sendRequestText({ selector: input.selector, payload: text.value, contentType: mediaType.value, inReplyTo }),
-    );
-
-    return deps.uow.run(async (tx): Promise<Result<MessageSent, SendMessageRefusal>> => {
-      const { fleetId, shipId: senderShipId } = caller;
-      const senderKey = { fleetId, senderShipId, idempotencyKey: key.value };
-      await tx.messages.lockIdempotencyKey(senderKey);
-      const original = await tx.messages.findByIdempotencyKey(senderKey);
-      if (original) {
-        const repeat = repeatOf(original, requestHash);
-        return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
-      }
-
-      const recipient = await resolveSelector(tx, { fleetId, selector: input.selector });
-      if (!recipient.isOk) {
-        return recipient;
-      }
-      const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
-      const accepted = acceptMessage(
-        { recipient: recipient.value, repliedTo },
-        {
-          messageId: deps.ids('message'),
-          deliveryId: deps.ids('delivery'),
-          fleetId,
-          senderShipId,
-          payload: text.value,
-          contentType: mediaType.value,
-          idempotencyKey: key.value,
-          requestHash,
-          inReplyTo,
-          at: deps.clock.now(),
-        },
-      );
-      if (!accepted.isOk) {
-        return accepted;
-      }
-
-      const { message, delivery, events } = accepted.value;
-      await tx.messages.create(message);
-      await tx.deliveries.create(delivery);
-      for (const event of events) {
-        await recordEvent({ events: tx.events, ids: deps.ids }, event);
-      }
-      await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
-      return ok({ messageId: message.id });
-    });
+    return deps.uow.run((tx) => sendWithin({ tx, clock: deps.clock, ids: deps.ids }, { caller, request: request.value }));
   };
+}
+
+/** A send whose payload, content type and key were checked, with the hash of its request. */
+export interface CheckedSend {
+  selector: Selector;
+  payload: string;
+  contentType: string;
+  idempotencyKey: string;
+  inReplyTo: MessageId | undefined;
+  requestHash: string;
+}
+
+/**
+ * Checks what a send asks for before any unit of work starts, so a refusal
+ * stores nothing: the payload, the content type (text/plain when none is
+ * given) and the key; and hashes the request.
+ */
+export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result<CheckedSend, SendMessageRefusal> {
+  const text = payload(input.payload);
+  if (!text.isOk) {
+    return text;
+  }
+  const mediaType = contentType(input.contentType);
+  if (!mediaType.isOk) {
+    return mediaType;
+  }
+  const key = idempotencyKey(input.idempotencyKey);
+  if (!key.isOk) {
+    return key;
+  }
+  const { selector, inReplyTo } = input;
+  const requestHash = hasher.hash(
+    sendRequestText({ selector, payload: text.value, contentType: mediaType.value, inReplyTo }),
+  );
+  return ok({ selector, payload: text.value, contentType: mediaType.value, idempotencyKey: key.value, inReplyTo, requestHash });
+}
+
+/** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
+export async function sendWithin(
+  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  send: { caller: Caller; request: CheckedSend },
+): Promise<Result<MessageSent, SendMessageRefusal>> {
+  const { tx, clock, ids } = deps;
+  const { fleetId, shipId: senderShipId } = send.caller;
+  const { selector, inReplyTo, requestHash } = send.request;
+  const senderKey = { fleetId, senderShipId, idempotencyKey: send.request.idempotencyKey };
+  await tx.messages.lockIdempotencyKey(senderKey);
+  const original = await tx.messages.findByIdempotencyKey(senderKey);
+  if (original) {
+    const repeat = repeatOf(original, requestHash);
+    return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
+  }
+
+  const recipient = await resolveSelector(tx, { fleetId, selector });
+  if (!recipient.isOk) {
+    return recipient;
+  }
+  const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
+  const accepted = acceptMessage(
+    { recipient: recipient.value, repliedTo },
+    {
+      messageId: ids('message'),
+      deliveryId: ids('delivery'),
+      fleetId,
+      senderShipId,
+      payload: send.request.payload,
+      contentType: send.request.contentType,
+      idempotencyKey: send.request.idempotencyKey,
+      requestHash,
+      inReplyTo,
+      at: clock.now(),
+    },
+  );
+  if (!accepted.isOk) {
+    return accepted;
+  }
+
+  const { message, delivery, events } = accepted.value;
+  await tx.messages.create(message);
+  await tx.deliveries.create(delivery);
+  for (const event of events) {
+    await recordEvent({ events: tx.events, ids }, event);
+  }
+  await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  return ok({ messageId: message.id });
 }
