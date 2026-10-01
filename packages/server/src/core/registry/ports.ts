@@ -124,4 +124,10 @@ export interface FleetListing {
   ships(fleetId: FleetId): Promise<ShipFacts[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
+  /**
+   * The ship's deliveries as its page counts them: in flight with it (what a
+   * release returns) and its direct ones pending or in flight (what a retire
+   * abandons).
+   */
+  deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
 }

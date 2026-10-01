@@ -38,6 +38,10 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
   retiredAt: isoTime.nullable(),
+  /** What its crew holds in flight now: what a release or a re-crew returns to pending. */
+  inFlightDeliveries: z.int().min(0),
+  /** Its direct deliveries pending or in flight: what a retire abandons. */
+  openDeliveries: z.int().min(0),
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;

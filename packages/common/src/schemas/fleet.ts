@@ -59,6 +59,18 @@ export type ReleaseShipInput = z.infer<typeof releaseShipInputSchema>;
 /** Output of `fleet.release`: nothing; the OK is the answer. */
 export const releaseShipOutputSchema = z.strictObject({});
 
+/** Input of `fleet.retire`: the ship to end for good. Never argo. */
+export const retireShipInputSchema = z.object({ shipId: idSchema('ship') });
+
+/** Output of `fleet.retire`: how many of its direct deliveries it abandoned. */
+export const retireShipOutputSchema = z.object({ abandonedDeliveries: z.int().min(0) });
+
+/**
+ * Input of `fleet.recrew`: a crewed ship whose session is gone. The answer is
+ * a new starting prompt, as from `fleet.getStartingPrompt`.
+ */
+export const recrewShipInputSchema = z.object({ shipId: idSchema('ship') });
+
 /**
  * One ship in `fleet.list`. `startingPrompt` is the prompt holding the ship's
  * valid secret, when there is one: when it was issued and whether a session

@@ -39,6 +39,8 @@ export const CREWED_SHIP: ShipDetail = {
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,
+  inFlightDeliveries: 1,
+  openDeliveries: 2,
 };
 
 export const AWAITING_SHIP: ShipDetail = {

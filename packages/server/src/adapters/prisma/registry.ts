@@ -183,6 +183,13 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         ORDER BY s.id`;
       return rows.map(toShipFacts);
     },
+    deliveryCounts: async (fleetId, shipId) => {
+      const [inFlight, open] = await Promise.all([
+        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: 'delivered' } }),
+        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'delivered'] } } }),
+      ]);
+      return { inFlight, open };
+    },
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,

@@ -548,6 +548,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
     },
+    deliveryCounts: (fleetId, shipId) => {
+      const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
+      return Promise.resolve({
+        inFlight: ofFleet.filter((delivery) => delivery.state === 'delivered' && delivery.claimedByShipId === shipId).length,
+        open: ofFleet.filter(
+          (delivery) =>
+            (delivery.state === 'pending' || delivery.state === 'delivered') &&
+            delivery.recipient.kind === 'ship' &&
+            delivery.recipient.shipId === shipId,
+        ).length,
+      });
+    },
   };
 
 
