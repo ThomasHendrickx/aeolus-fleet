@@ -118,8 +118,31 @@ describe('the ship calls at /api/v1', () => {
       '/ship/send',
       '/ship/receive',
       '/ship/ack',
+      '/ship/inbox',
       '/ship/deregister',
     ]);
+  });
+
+  it('check the inbox: how many deliveries wait for the crew, claiming none of them', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    await ok(request('inbox', { crewToken: mooringToken }), z.object({ waiting: z.literal(0) }));
+
+    await ok(
+      request('send', {
+        crewToken: harbourToken,
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', idempotencyKey: freshKey() },
+      }),
+      z.object({ messageId: z.string() }),
+    );
+
+    await expect(ok(request('inbox', { crewToken: mooringToken, body: { waitSeconds: 1 } }), z.object({ waiting: z.number() }))).resolves.toEqual({
+      waiting: 1,
+    });
+    const received = await ok(request('receive', { crewToken: mooringToken }), deliveriesSchema);
+    expect(received.deliveries).toHaveLength(1);
   });
 
   it('register, send, receive, ack and deregister: two ships exchange a message and its answer', async () => {

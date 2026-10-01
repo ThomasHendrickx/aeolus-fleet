@@ -392,3 +392,29 @@ describe('acknowledging on Postgres', () => {
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'delivered', claimedByShipId: lookout.shipId });
   });
 });
+
+describe('checking the inbox on Postgres', () => {
+  it("counts what the crew's next receive would hand it: its own in flight, pending to its ship and its type, and claims none", async () => {
+    const inFlight = await sendTo(toShip(scout));
+    await receive(scout);
+    const pending = await sendTo(toShip(scout));
+    const queued = await sendTo(toReviewers);
+    await sendTo(toShip(lookout));
+
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3 } });
+    await expect(stored(pending)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
+    await expect(stored(queued)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
+    await expect(stored(inFlight)).resolves.toMatchObject({ state: 'delivered', attempts: 1 });
+  });
+
+  it('waits while nothing waits, and answers as soon as a delivery is sent', async () => {
+    const startedAt = Date.now();
+    const checking = useCases.checkInbox(scout, { waitSeconds: 15 });
+    await pause(SETTLE_MS);
+
+    await sendTo(toReviewers);
+
+    await expect(checking).resolves.toEqual({ isOk: true, value: { waiting: 1 } });
+    expect(Date.now() - startedAt).toBeLessThan(LONG_WAIT_MS);
+  });
+});

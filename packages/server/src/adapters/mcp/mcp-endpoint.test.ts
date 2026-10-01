@@ -25,7 +25,7 @@ import { registerMcpEndpoint } from './mcp-endpoint.js';
 // failure reads. The whole flow on Postgres is in test/mcp.integration.test.ts.
 
 const FLEET_ORIGIN = 'https://fleet.example.com';
-const SHIP_TOOLS = ['register', 'whoami', 'send', 'receive', 'ack', 'deregister'];
+const SHIP_TOOLS = ['register', 'whoami', 'send', 'receive', 'ack', 'inbox', 'deregister'];
 
 let core: InMemoryCore;
 let fleetId: FleetId;
