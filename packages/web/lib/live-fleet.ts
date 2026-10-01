@@ -57,8 +57,8 @@ export interface LiveFleet {
  * Follows the fleet live over the WebSocket (docs/architecture.md, "Live
  * updates"). Each committed event that changes a ship reloads the snapshot;
  * an event reloads the page of each ship that caused it or that it names, and
- * a message's event reloads the open message and the ships' message lists,
- * whose delivery states it changes; a delivery that becomes undeliverable or
+ * a message's event reloads the open message, the ships' message lists and
+ * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
  * is dismissed reloads Needs attention. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
@@ -94,6 +94,7 @@ export function useLiveFleet(): LiveFleet {
           if (event.messageId !== null) {
             reload(trpc.fleet.shipMessages.pathKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+            reload(trpc.fleet.inbox.pathKey());
           }
           if (isAttentionChange(event.type)) {
             reload(trpc.fleet.needsAttention.queryKey());
