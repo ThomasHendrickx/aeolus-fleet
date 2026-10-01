@@ -8,11 +8,11 @@ export function useFleetSnapshot() {
   return useQuery(trpc.fleet.list.queryOptions());
 }
 
-/** Refreshes the fleet snapshot after a change to the fleet. */
+/** Refreshes the fleet snapshot, and every ship page read, after a change to the fleet. */
 function useRefreshFleetSnapshot(): () => Promise<void> {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: trpc.fleet.list.queryKey() });
+  return () => queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() });
 }
 
 /** Commissions a ship. Its data holds the first starting prompt, to show once. */
@@ -34,4 +34,24 @@ export function useReleaseShip() {
   const trpc = useTRPC();
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.release.mutationOptions({ onSuccess: refresh }));
+}
+
+/**
+ * Retires a ship for good: its lease and secret end, its direct deliveries are
+ * abandoned. Its data says how many.
+ */
+export function useRetireShip() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.retire.mutationOptions({ onSuccess: refresh }));
+}
+
+/**
+ * Re-crews a crewed ship whose session is gone: a release and a new starting
+ * prompt at once. Its data holds the prompt and crew line, to show once.
+ */
+export function useRecrewShip() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.recrew.mutationOptions({ onSuccess: refresh }));
 }
