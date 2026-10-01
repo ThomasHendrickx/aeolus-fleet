@@ -104,6 +104,7 @@ function liveEventOf(event: SequencedEvent) {
     id: event.id,
     type: event.type,
     occurredAt: event.occurredAt.toISOString(),
+    actorShipId: event.actor.kind === 'ship' ? event.actor.shipId : null,
     shipId: event.shipId ?? null,
     messageId: event.messageId ?? null,
     deliveryId: event.deliveryId ?? null,
