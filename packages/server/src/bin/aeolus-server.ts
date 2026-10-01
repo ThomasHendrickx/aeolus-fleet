@@ -32,7 +32,7 @@ switch (command) {
     await runAtTerminal((io) => migrate({ environment: process.env, migrateDatabase, io }));
     break;
   case 'fleet:init':
-    await runCommand(args, ({ useCases, io }) => fleetInit(args, { initialiseFleet: useCases.initialiseFleet, io }));
+    await runCommand(args, ({ useCases, io }) => fleetInit(args, { initialiseFleet: useCases.initialiseFleet, listFleets: useCases.listFleets, io }));
     break;
   case 'operator:reset-password':
     await runCommand(args, ({ useCases, io }) =>

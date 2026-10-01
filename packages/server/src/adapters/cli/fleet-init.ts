@@ -1,6 +1,7 @@
 import { parseArgs } from 'node:util';
 
 import type { InitialiseFleet } from '../../core/registry/initialise-fleet.js';
+import type { ListFleets } from '../../core/registry/list-fleets.js';
 import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
 
 const NOTHING_CREATED = 'Nothing was created.';
@@ -10,11 +11,12 @@ const USAGE = 'Usage: aeolus-server fleet:init --name "<fleet name>"';
 /**
  * `fleet:init --name <name>`: asks for the operator's email and password, then
  * creates the fleet, its operator ship argo and the operator account the
- * console signs in with. Refuses when a fleet already exists.
+ * console signs in with. Refuses when a fleet already exists, before asking
+ * anything; the use case checks again under its lock, for two runs at once.
  */
 export async function fleetInit(
   args: string[],
-  deps: { initialiseFleet: InitialiseFleet; io: CommandIo },
+  deps: { initialiseFleet: InitialiseFleet; listFleets: ListFleets; io: CommandIo },
 ): Promise<ExitCode> {
   const { io } = deps;
 
@@ -32,6 +34,11 @@ export async function fleetInit(
   const nameRefusal = nulRefusal([{ name: 'fleet name', text: name }], NOTHING_CREATED);
   if (nameRefusal !== undefined) {
     io.err(nameRefusal);
+    return 1;
+  }
+
+  if ((await deps.listFleets()).length > 0) {
+    io.err(`A fleet already exists: a fleet is initialised only once. ${NOTHING_CREATED}`);
     return 1;
   }
 
