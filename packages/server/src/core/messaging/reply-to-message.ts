@@ -5,6 +5,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { isInInboxOf } from './delivery.js';
 import { markDoneWithin, type MarkDoneTx, type MarkDoneUseCaseRefusal } from './mark-done.js';
 import type { RequestHasher } from './ports.js';
 import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } from './send-message.js';
@@ -43,7 +44,7 @@ export function createReplyToMessage(deps: {
       const { fleetId } = crew;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const asked = delivery && (await tx.messages.find(fleetId, delivery.messageId));
-      if (!delivery || !asked || delivery.recipient.kind !== 'ship' || delivery.recipient.shipId !== crew.shipId) {
+      if (!isInInboxOf(delivery, crew.shipId) || !asked) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} is not in your inbox`);
       }
       const request = checkedSend(

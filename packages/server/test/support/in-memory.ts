@@ -60,6 +60,8 @@ export interface InMemoryState {
   consoleSessions: ConsoleSession[];
   messages: Message[];
   deliveries: Delivery[];
+  /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
+  deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
@@ -131,6 +133,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     consoleSessions: [],
     messages: [],
     deliveries: [],
+    deliveryReads: [],
     events: [],
     notices: [],
   };
@@ -454,6 +457,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.deliveries[index] = structuredClone(delivery);
         return Promise.resolve();
       },
+      markRead: ({ fleetId, deliveryId, at }) => {
+        if (!state.deliveryReads.some((read) => read.fleetId === fleetId && read.deliveryId === deliveryId)) {
+          state.deliveryReads.push({ fleetId, deliveryId, readAt: at });
+        }
+        return Promise.resolve();
+      },
+      markUnread: ({ fleetId, deliveryId }) => {
+        const index = state.deliveryReads.findIndex((read) => read.fleetId === fleetId && read.deliveryId === deliveryId);
+        if (index !== -1) {
+          state.deliveryReads.splice(index, 1);
+        }
+        return Promise.resolve();
+      },
     },
     events: {
       append: (event) => {
@@ -763,6 +779,7 @@ const TABLES = [
   'consoleSessions',
   'messages',
   'deliveries',
+  'deliveryReads',
   'events',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];

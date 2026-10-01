@@ -231,3 +231,8 @@ export function markDone(
       return refuse('DELIVERY_NOT_OPEN', `Delivery ${delivery.id} is ${delivery.state}: only an open message is marked done`);
   }
 }
+
+/** Whether the delivery is addressed to the ship itself: in its inbox, not its type's queue. */
+export function isInInboxOf(delivery: Delivery | undefined, shipId: ShipId): delivery is Delivery {
+  return delivery?.recipient.kind === 'ship' && delivery.recipient.shipId === shipId;
+}

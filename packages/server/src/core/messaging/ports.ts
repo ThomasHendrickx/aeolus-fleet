@@ -73,6 +73,13 @@ export interface DeliveryRepository {
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** Stores the delivery's state, its claim and its attempts. */
   update(delivery: Delivery): Promise<void>;
+  /**
+   * Records that the delivery's recipient read it at `at`, keeping an earlier
+   * read: read is how the operator sees a message, not a delivery state.
+   */
+  markRead(read: { fleetId: FleetId; deliveryId: DeliveryId; at: Date }): Promise<void>;
+  /** Forgets that the delivery was read: unread again. */
+  markUnread(read: { fleetId: FleetId; deliveryId: DeliveryId }): Promise<void>;
 }
 
 /** Where a waiting receive listens: its ship, and the queue of its type, in its fleet. */
