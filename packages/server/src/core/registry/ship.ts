@@ -292,6 +292,56 @@ export function checkCanRename(ship: Ship, newName: string): Result<void, Perman
   return permanent.isOk ? checkNameIsNotReserved(newName) : permanent;
 }
 
+export type RenameRefusal =
+  | Permanent
+  | Reserved
+  | DomainError<'INVALID_SHIP_NAME' | 'SHIP_NAME_TAKEN' | 'SHIP_ALREADY_RETIRED'>;
+
+/**
+ * The operator gives a ship a new name (docs/blueprint.md, "Ship"): any ship
+ * but argo, crewed or not, never a retired one, which keeps the name it had.
+ * The name is a handle, never `argo`, and unique among the fleet's active
+ * ships: `activeShipNamed` is the active ship that holds it, if any, read
+ * while the name is locked. Messages store ids, so nothing sent is
+ * redirected; a sender addressing the old name no longer reaches it. The
+ * name it already has is OK, and nothing changes.
+ */
+export function renameShip(
+  ship: Ship,
+  rename: { name: string; at: Date; actor: Actor; activeShipNamed: Ship | undefined },
+): Result<{ ship: Ship; events: NewEvent[] }, RenameRefusal> {
+  const name = shipName(rename.name);
+  if (!name.isOk) {
+    return name;
+  }
+  const allowed = checkCanRename(ship, name.value);
+  if (!allowed.isOk) {
+    return allowed;
+  }
+  if (ship.retiredAt !== null) {
+    return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: a retired ship keeps the name it had`);
+  }
+  if (name.value === ship.name) {
+    return ok({ ship, events: [] });
+  }
+  if (rename.activeShipNamed && rename.activeShipNamed.id !== ship.id) {
+    return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
+  }
+  return ok({
+    ship: { ...ship, name: name.value },
+    events: [
+      {
+        fleetId: ship.fleetId,
+        type: 'ShipRenamed',
+        occurredAt: rename.at,
+        actor: rename.actor,
+        shipId: ship.id,
+        details: { from: ship.name, to: name.value },
+      },
+    ],
+  });
+}
+
 function checkNotOperatorShip(ship: Ship, action: 'retired' | 'released' | 'renamed'): Result<void, Permanent> {
   return ship.kind === 'operator'
     ? refuse('OPERATOR_SHIP_IS_PERMANENT', `${ship.name} is the operator ship and can never be ${action}`)

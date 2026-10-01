@@ -55,3 +55,10 @@ export function useRecrewShip() {
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.recrew.mutationOptions({ onSuccess: refresh }));
 }
+
+/** Renames a ship; other ships addressing its old name no longer reach it. */
+export function useRenameShip() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.rename.mutationOptions({ onSuccess: refresh }));
+}

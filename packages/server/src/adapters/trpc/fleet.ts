@@ -21,6 +21,8 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  renameShipInputSchema,
+  renameShipOutputSchema,
   replyInputSchema,
   replyOutputSchema,
   resendDeliveryInputSchema,
@@ -80,6 +82,19 @@ export const fleetRouter = router({
     .input(retireShipInputSchema)
     .output(retireShipOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
+
+  /**
+   * Gives a ship a new name, any ship but argo or a retired one. Its id,
+   * history and session stay; a sender addressing the old name no longer
+   * reaches it.
+   */
+  rename: scopedProcedure('fleet:manage')
+    .input(renameShipInputSchema)
+    .output(renameShipOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.renameShip(ctx.caller, input));
+      return {};
+    }),
 
   /**
    * A new crew for a crewed ship whose session is gone: a release and a new

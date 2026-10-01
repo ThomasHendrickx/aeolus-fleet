@@ -31,6 +31,7 @@ import { createInitialiseFleet, type FleetInitialised } from '../../src/core/reg
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
 import { createRecrewShip } from '../../src/core/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/core/registry/release-ship.js';
+import { createRenameShip } from '../../src/core/registry/rename-ship.js';
 import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
@@ -98,6 +99,7 @@ export function registryUseCases(core: InMemoryCore) {
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
     retireShip: createRetireShip(deps),
+    renameShip: createRenameShip(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),

@@ -3,15 +3,16 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
-import { useGetStartingPrompt, useRecrewShip, useReleaseShip, useRetireShip } from '../../lib/fleet';
+import { useFleetSnapshot, useGetStartingPrompt, useRecrewShip, useReleaseShip, useRenameShip, useRetireShip } from '../../lib/fleet';
 import { useShip } from '../../lib/ship';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { Button } from '../atoms/button';
 import { ReleaseDialog } from './release-dialog';
+import { RenameDialog } from './rename-dialog';
 import { RetireDialog } from './retire-dialog';
 import { StartingPromptDialog, type StartingPromptDialogState } from './starting-prompt-dialog';
 
-type OpenDialog = 'release' | 'recrew' | 'retire' | 'prompt' | undefined;
+type OpenDialog = 'release' | 'recrew' | 'retire' | 'rename' | 'prompt' | undefined;
 
 /** Where a crewed ship's session runs, as the release dialog names it. */
 function sessionLocationOf(ship: ListedShip): string | null {
@@ -24,8 +25,8 @@ function sessionLocationOf(ship: ListedShip): string | null {
 /**
  * A ship's actions, in a fleet row or on its page, each behind its designed
  * dialog (docs/design/conventions.md, "Confirm"). A ship awaiting crew offers
- * Get starting prompt and Retire; a crewed ship Re-crew, Release and Retire;
- * argo and retired ships none. A dialog reads the ship's counts first and
+ * Get starting prompt, Rename and Retire; a crewed ship Re-crew, Release,
+ * Rename and Retire; argo and retired ships none. A dialog reads the ship's counts first and
  * opens once it has them, so its numbers are exact and a retire never skips
  * the typed confirm because the open deliveries were not known yet. A new or re-crewed prompt shows once, in the
  * StartingPromptDialog.
@@ -36,6 +37,8 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const releaseShip = useReleaseShip();
   const retireShip = useRetireShip();
   const recrewShip = useRecrewShip();
+  const renameShip = useRenameShip();
+  const fleet = useFleetSnapshot();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' ? ship.id : undefined);
 
   if (ship.kind === 'operator' || ship.status === 'retired') {
@@ -70,6 +73,7 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
     releaseShip.reset();
     retireShip.reset();
     recrewShip.reset();
+    renameShip.reset();
     setDialog(next);
   };
 
@@ -89,6 +93,9 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
           </Button>
         </>
       )}
+      <Button size="xs" variant="ghost" data-testid="fleet-ship-rename" onClick={open('rename')}>
+        Rename
+      </Button>
       <Button size="xs" variant="ghost" data-testid="fleet-ship-retire" onClick={open('retire')}>
         Retire
       </Button>
@@ -128,6 +135,21 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
         error={retireShip.error?.message}
         onConfirm={() => {
           retireShip.mutate({ shipId: ship.id }, { onSuccess: close });
+        }}
+      />
+      <RenameDialog
+        shipName={ship.name}
+        activeNames={(fleet.data ?? []).filter((each) => each.status !== 'retired').map((each) => each.name)}
+        isOpen={dialog === 'rename'}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            close();
+          }
+        }}
+        isPending={renameShip.isPending}
+        error={renameShip.error?.message}
+        onSubmit={(name) => {
+          renameShip.mutate({ shipId: ship.id, name }, { onSuccess: close });
         }}
       />
       <StartingPromptDialog

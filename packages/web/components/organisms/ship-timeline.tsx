@@ -12,6 +12,7 @@ import {
   MailCheck,
   MailMinus,
   MailX,
+  PenLine,
   PackageX,
   RotateCw,
   ShieldAlert,
@@ -44,6 +45,7 @@ const ICONS: Record<TimelineIcon, LucideIcon> = {
   retired: Archive,
   abandoned: PackageX,
   dismissed: MailMinus,
+  renamed: PenLine,
 };
 
 const TONES: Record<TimelineTone, string> = {

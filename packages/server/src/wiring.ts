@@ -39,6 +39,7 @@ import { createListFleet, type ListFleet } from './core/registry/list-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
 import { createRecrewShip, type RecrewShip } from './core/registry/recrew-ship.js';
 import { createReleaseShip, type ReleaseShip } from './core/registry/release-ship.js';
+import { createRenameShip, type RenameShip } from './core/registry/rename-ship.js';
 import { createRetireShip, type RetireShip } from './core/registry/retire-ship.js';
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
@@ -58,6 +59,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   retireShip: RetireShip;
+  renameShip: RenameShip;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
@@ -121,6 +123,7 @@ export function createUseCases(options: {
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     retireShip: createRetireShip({ uow, clock, ids }),
+    renameShip: createRenameShip({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),

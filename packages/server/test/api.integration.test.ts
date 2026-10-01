@@ -1339,3 +1339,26 @@ describe("argo's inbox at the API", () => {
     await expect(codeOf(agent.fleet.inbox.query({ filter: 'all' }))).resolves.toBe('FORBIDDEN');
   });
 });
+
+describe('rename at the API', () => {
+  it('rename a ship for fleet:manage; the ship reads its new name', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: `old-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const name = `new-${newId('ship').slice(-6)}`;
+
+    await expect(asArgo.fleet.rename.mutate({ shipId, name })).resolves.toEqual({});
+    await expect(asArgo.fleet.ship.query({ shipId })).resolves.toMatchObject({ name });
+  });
+
+  it('refuse argo, a taken name, and a ship without fleet:manage', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: `one-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const taken = `two-${newId('ship').slice(-6)}`;
+    await asArgo.fleet.commission.mutate({ name: taken, type: 'reviewer' });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+
+    await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(asArgo.fleet.rename.mutate({ shipId, name: taken }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(reader.fleet.rename.mutate({ shipId, name: 'any' }))).resolves.toBe('FORBIDDEN');
+  });
+});

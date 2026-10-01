@@ -59,6 +59,12 @@ export type ReleaseShipInput = z.infer<typeof releaseShipInputSchema>;
 /** Output of `fleet.release`: nothing; the OK is the answer. */
 export const releaseShipOutputSchema = z.strictObject({});
 
+/** Input of `fleet.rename`: the ship and its new name, a handle as at commissioning. Never argo or a retired ship. */
+export const renameShipInputSchema = z.object({ shipId: idSchema('ship'), name: shipHandleSchema });
+
+/** Output of `fleet.rename`: nothing; the OK is the answer. */
+export const renameShipOutputSchema = z.strictObject({});
+
 /** Input of `fleet.retire`: the ship to end for good. Never argo. */
 export const retireShipInputSchema = z.object({ shipId: idSchema('ship') });
 

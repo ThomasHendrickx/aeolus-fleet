@@ -10,6 +10,7 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  renameShipInputSchema,
   retireShipInputSchema,
   retireShipOutputSchema,
   shipHandleSchema,
@@ -242,5 +243,24 @@ describe('recrewShipInputSchema', () => {
     const input = { shipId: newId('ship') };
 
     expect(recrewShipInputSchema.parse(input)).toEqual(input);
+  });
+});
+
+describe('renameShipInputSchema', () => {
+  it('takes the ship and its new name', () => {
+    const input = { shipId: newId('ship'), name: 'lookout' };
+
+    expect(renameShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('takes a name of 48 characters and refuses 49', () => {
+    const shipId = newId('ship');
+
+    expect(renameShipInputSchema.safeParse({ shipId, name: 'a'.repeat(48) }).success).toBe(true);
+    expect(renameShipInputSchema.safeParse({ shipId, name: 'a'.repeat(49) }).success).toBe(false);
+  });
+
+  it('refuses a name that is no handle', () => {
+    expect(renameShipInputSchema.safeParse({ shipId: newId('ship'), name: 'Look Out' }).success).toBe(false);
   });
 });

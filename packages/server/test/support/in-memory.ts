@@ -208,6 +208,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = ship(fleetId, shipId);
         return Promise.resolve(found && { ...found });
       },
+      rename: ({ fleetId, shipId, name }) => {
+        const found = ship(fleetId, shipId);
+        if (found) {
+          found.name = name;
+        }
+        return Promise.resolve();
+      },
       retire: ({ fleetId, shipId, at }) => {
         const found = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
         if (!found) {

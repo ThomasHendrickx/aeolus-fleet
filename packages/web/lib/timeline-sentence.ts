@@ -22,7 +22,8 @@ export type TimelineIcon =
   | 'password'
   | 'retired'
   | 'abandoned'
-  | 'dismissed';
+  | 'dismissed'
+  | 'renamed';
 
 export interface TimelineSentence {
   parts: SentencePart[];
@@ -177,6 +178,15 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
     }
     case 'DeliveryAbandoned':
       return { parts: [...aMessageFromStarting(entry), text(' was abandoned')], tone: 'ended', icon: 'abandoned' };
+    case 'ShipRenamed': {
+      const from = stringDetail(entry, 'from');
+      const to = stringDetail(entry, 'to');
+      return {
+        parts: [text(from === undefined || to === undefined ? 'Renamed' : `Renamed from ${from} to ${to}`), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'renamed',
+      };
+    }
     case 'DeliveryDismissed':
       return {
         parts: [...aMessageFromStarting(entry), text(' was dismissed'), ...by(entry.actor)],

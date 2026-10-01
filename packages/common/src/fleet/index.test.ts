@@ -54,6 +54,7 @@ describe('eventTypeSchema', () => {
       'ShipRetired',
       'DeliveryAbandoned',
       'DeliveryDismissed',
+      'ShipRenamed',
     ]);
   });
 });
