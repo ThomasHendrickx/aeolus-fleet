@@ -153,6 +153,14 @@ describe('messageOutputSchema', () => {
     );
   });
 
+  it('accepts a dismissed delivery in the history', () => {
+    const history = [{ seq: 6, type: 'DeliveryDismissed', occurredAt: AT, ship: null, location: null, attempts: null }];
+
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'dismissed', history } }).success).toBe(
+      true,
+    );
+  });
+
   it('rejects a history entry of a type that is no delivery change', () => {
     const history = [{ ...message.delivery.history[0], type: 'ShipClaimed' }];
 
