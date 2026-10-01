@@ -6,6 +6,7 @@ import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
+import { createPrismaShipHistory } from './adapters/prisma/history.js';
 import {
   createPrismaFleetListing,
   createPrismaFleetRepository,
@@ -35,6 +36,9 @@ import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-fleet-events.js';
+import { createReadMessage, type ReadMessage } from './core/shared/read-message.js';
+import { createReadShipMessages, type ReadShipMessages } from './core/shared/read-ship-messages.js';
+import { createReadShipTimeline, type ReadShipTimeline } from './core/shared/read-ship-timeline.js';
 
 export interface UseCases {
   ping: Ping;
@@ -52,6 +56,9 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   readFleetEvents: ReadFleetEvents;
+  readShipTimeline: ReadShipTimeline;
+  readShipMessages: ReadShipMessages;
+  readMessage: ReadMessage;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -107,6 +114,9 @@ export function createUseCases(options: {
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
+    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
+    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
+    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),
