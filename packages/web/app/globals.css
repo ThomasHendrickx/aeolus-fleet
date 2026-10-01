@@ -100,6 +100,15 @@
   --text-id--line-height: var(--text-id--line-height);
   --text-code: var(--text-code);
   --text-code--line-height: var(--text-code--line-height);
+
+  /* A row that just appeared starts on --highlight and fades back (Table). */
+  --animate-highlight: highlight-fade var(--duration-highlight) var(--ease-standard);
+
+  @keyframes highlight-fade {
+    from {
+      background-color: var(--highlight);
+    }
+  }
 }
 
 @layer base {
