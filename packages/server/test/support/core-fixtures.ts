@@ -16,6 +16,7 @@ import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
 import { createMarkDone } from '../../src/core/messaging/mark-done.js';
+import { createReplyToMessage } from '../../src/core/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/core/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
 import { createResendDelivery } from '../../src/core/messaging/resend-delivery.js';
@@ -125,6 +126,7 @@ export function messagingUseCases(core: InMemoryCore) {
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
     dismissDelivery: createDismissDelivery(deps),
     markDone: createMarkDone(deps),
+    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
   };
 }

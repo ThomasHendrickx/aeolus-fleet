@@ -83,9 +83,9 @@ describe('markDoneInputSchema', () => {
 });
 
 describe('replyInputSchema', () => {
-  const reply = { messageId: newId('message'), payload: 'go', idempotencyKey: 'reply-1' };
+  const reply = { deliveryId: newId('delivery'), payload: 'go', idempotencyKey: 'reply-1' };
 
-  it('takes the message replied to, the payload and a key', () => {
+  it('takes the delivery to argo replied to, the payload and a key', () => {
     expect(replyInputSchema.parse(reply)).toEqual(reply);
   });
 
