@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { hasScope, isCrew, type Caller } from './caller.js';
+import { hasScope, isCrew, type Caller, type Crew } from './caller.js';
 
 const newId = createIdGenerator();
 
@@ -27,7 +27,9 @@ describe('isCrew', () => {
   const caller: Caller = { shipId: newId('ship'), fleetId: newId('fleet'), kind: 'operator', scopes: ['fleet:read'] };
 
   it('knows a caller that crews its ship under a lease', () => {
-    expect(isCrew({ ...caller, leaseId: newId('lease') })).toBe(true);
+    const crew: Crew = { ...caller, leaseId: newId('lease') };
+
+    expect(isCrew(crew)).toBe(true);
   });
 
   it('knows a caller without a lease is no crew', () => {
