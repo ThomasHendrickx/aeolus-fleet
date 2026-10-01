@@ -31,6 +31,19 @@ beforeEach(async () => {
 });
 
 describe('signing in to the console', () => {
+  it('records the device it signed in from on the session', async () => {
+    const { consoleSessionId } = unwrap(await useCases.signIn({ ...OPERATOR, device: 'iPhone · Safari' }));
+
+    expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.device).toBe('iPhone · Safari');
+  });
+
+  it('calls a device it was not told an unknown device', async () => {
+    const { consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
+
+    expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.device).toBe('Unknown device');
+    expect(core.state.leases[0]?.location).toEqual({ kind: 'DEVICE', description: 'Unknown device' });
+  });
+
   it("exchanges the operator's email and password for a session token valid 30 days, crewing argo", async () => {
     const signedIn = unwrap(await useCases.signIn(OPERATOR));
 
@@ -60,11 +73,11 @@ describe('signing in to the console', () => {
     expect(JSON.stringify(core.state)).not.toContain(`"${token}"`);
   });
 
-  it("takes argo's lease from the web console and writes ShipClaimed by argo", async () => {
-    const { consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
+  it("takes argo's lease on the device it signed in from and writes ShipClaimed by argo", async () => {
+    const { consoleSessionId } = unwrap(await useCases.signIn({ ...OPERATOR, device: 'Mac · Chrome' }));
 
     const [lease] = core.state.leases;
-    expect(lease).toMatchObject({ shipId: argoId, location: { kind: 'OTHER', description: 'web console' }, endedAt: null });
+    expect(lease).toMatchObject({ shipId: argoId, location: { kind: 'DEVICE', description: 'Mac · Chrome' }, endedAt: null });
     expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.leaseId).toBe(lease?.id);
     expect(core.state.events).toEqual([
       expect.objectContaining({ type: 'ShipClaimed', actor: { kind: 'ship', shipId: argoId }, shipId: argoId }),
