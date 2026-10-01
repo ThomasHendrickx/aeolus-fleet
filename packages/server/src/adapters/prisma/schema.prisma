@@ -264,6 +264,16 @@ model Event {
   @@map("events")
 }
 
+/// Why a console session ended: a sign-in elsewhere took argo over, the
+/// operator signed out, or the password was reset.
+enum ConsoleSessionEndReason {
+  takenOver
+  signedOut
+  passwordReset
+
+  @@map("console_session_end_reason")
+}
+
 /// The operator's login: email and Argon2id password hash. Ids start with opr_.
 /// The email is unique across all fleets: finding the account by email is the one
 /// lookup not scoped by fleet (ADR 0007). One account per fleet in v1.
@@ -293,6 +303,8 @@ model ConsoleSession {
   lastUsedAt DateTime  @map("last_used_at") @db.Timestamptz(3)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
   endedAt    DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// Why the session ended; null while it has not.
+  endReason  ConsoleSessionEndReason? @map("end_reason")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
   ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])

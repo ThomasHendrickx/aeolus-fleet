@@ -100,18 +100,20 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
     create: async (session) => {
       await db.consoleSession.create({ data: session });
     },
-    end: async ({ fleetId, consoleSessionId, at }) => {
+    end: async ({ fleetId, consoleSessionId, at, reason }) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        UPDATE console_sessions SET ended_at = ${at}
+        UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at`;
+        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+          end_reason::text AS end_reason`;
       return row ? toConsoleSession(row) : undefined;
     },
-    endAll: async (fleetId, at) => {
+    endAll: async (fleetId, { at, reason }) => {
       const rows = await db.$queryRaw<unknown[]>`
-        UPDATE console_sessions SET ended_at = ${at}
+        UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at`;
+        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+          end_reason::text AS end_reason`;
       return rows.map(toConsoleSession);
     },
   };
@@ -139,6 +141,10 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
           AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
         RETURNING cs.id AS console_session_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes`;
       return row ? toConsoleSessionCaller(row) : undefined;
+    },
+    consoleSessionEnding: async (tokenHash) => {
+      const session = await db.consoleSession.findUnique({ where: { tokenHash }, select: { endReason: true } });
+      return session?.endReason ?? undefined;
     },
   };
 }

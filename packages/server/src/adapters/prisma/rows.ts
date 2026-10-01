@@ -184,6 +184,7 @@ const consoleSessionSqlRow = z
     last_used_at: z.date(),
     expires_at: z.date(),
     ended_at: z.date().nullable(),
+    end_reason: z.enum(['takenOver', 'signedOut', 'passwordReset']).nullable(),
   })
   .transform(
     (row): ConsoleSession => ({
@@ -196,6 +197,7 @@ const consoleSessionSqlRow = z
       lastUsedAt: row.last_used_at,
       expiresAt: row.expires_at,
       endedAt: row.ended_at,
+      endReason: row.end_reason,
     }),
   );
 
