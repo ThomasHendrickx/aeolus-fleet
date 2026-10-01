@@ -164,4 +164,30 @@ describe('the ship page', () => {
     ]);
     await sheet.getByText('"task": "review"').waitFor();
   });
+
+  it("replies as argo from a message's sheet: the reply reaches its sender, naming the message", async () => {
+    const helmsman = await crewedOverRest({ name: 'helmsman', type: 'planner' });
+    const deckhand = await crewedOverRest({ name: 'deckhand', type: 'reviewer' });
+    const asked = sentSchema.parse(
+      await helmsman.call('send', {
+        selector: { kind: 'ship', shipId: deckhand.shipId },
+        payload: 'Which branch?',
+        idempotencyKey: 'which-branch',
+      }),
+    ).messageId;
+    const page = await signedInPage();
+    await page.goto(`/ships/${deckhand.shipId}?tab=messages&message=${asked}`);
+    const sheet = page.getByTestId('message-sheet');
+
+    await sheet.getByTestId('message-reply').click();
+    const dialog = page.getByTestId('compose-dialog');
+    await dialog.getByTestId('compose-payload').fill('main');
+    await dialog.getByTestId('compose-send').click();
+
+    await dialog.waitFor({ state: 'hidden' });
+    const replied = z
+      .object({ deliveries: z.array(z.object({ payload: z.string(), inReplyTo: z.string().nullable() })) })
+      .parse(await helmsman.call('receive', {}));
+    expect(replied.deliveries).toEqual([expect.objectContaining({ payload: 'main', inReplyTo: asked })]);
+  });
 });
