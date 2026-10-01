@@ -9,6 +9,7 @@ import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { Deregister } from '../../core/registry/deregister.js';
+import type { GetShip } from '../../core/registry/get-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../core/registry/list-fleet.js';
 import type { ReleaseShip } from '../../core/registry/release-ship.js';
@@ -26,6 +27,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   listFleet: ListFleet;
+  getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
   deregister: Deregister;

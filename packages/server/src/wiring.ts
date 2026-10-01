@@ -26,6 +26,7 @@ import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
 import { createDeregister, type Deregister } from './core/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
+import { createGetShip, type GetShip } from './core/registry/get-ship.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './core/registry/list-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
@@ -43,6 +44,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   listFleet: ListFleet;
+  getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
   deregister: Deregister;
@@ -91,6 +93,7 @@ export function createUseCases(options: {
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
+    getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),

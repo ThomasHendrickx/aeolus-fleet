@@ -161,6 +161,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
+               l.started_at AS lease_started_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
@@ -168,6 +169,18 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         WHERE s.fleet_id = ${fleetId}
         ORDER BY s.id`;
       return rows.map(toShipFacts);
+    },
+    ship: async (fleetId, shipId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
+               l.location::text AS lease_location, l.location_description AS lease_location_description,
+               l.started_at AS lease_started_at,
+               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
+        FROM ships s
+        LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
+        LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+        WHERE s.fleet_id = ${fleetId} AND s.id = ${shipId}`;
+      return row === undefined ? undefined : toShipFacts(row);
     },
   };
 }
