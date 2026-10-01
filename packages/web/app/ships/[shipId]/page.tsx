@@ -2,9 +2,10 @@
 
 import { idSchema, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
+import { use, useState } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
+import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
 import { ShipActions } from '../../../components/organisms/ship-actions';
@@ -12,6 +13,7 @@ import { ShipHeader } from '../../../components/organisms/ship-header';
 import { ShipTimeline } from '../../../components/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { trpcErrorCode } from '../../../lib/errors';
+import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useAttentionCount } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -55,6 +57,8 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const inboxCount = useOpenInboxCount();
+  const [isComposing, setIsComposing] = useState(false);
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
 
@@ -72,7 +76,10 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       title={ship.data?.name ?? 'Ship'}
       parent={{ href: '/', label: 'Fleet overview' }}
       live={liveFleet.live}
-      nav={{ active: 'overview', attentionCount }}
+      nav={{ active: 'overview', inboxCount, attentionCount }}
+      onCompose={() => {
+        setIsComposing(true);
+      }}
       onSignOut={signOut}
       header={
         <ShipHeader
@@ -97,6 +104,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         />
       }
     >
+      <>
       {isNotFound ? null : (
         <Tabs
           value={tab}
@@ -138,6 +146,8 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           </TabsContent>
         </Tabs>
       )}
+      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      </>
     </DetailLayout>
   );
 }
