@@ -54,3 +54,19 @@ export interface FleetEventNotice {
   fleetId: FleetId;
   seq: number;
 }
+
+/** A committed event and its place in its fleet's stream: commit order, without gaps. */
+export interface SequencedEvent extends FleetEvent {
+  seq: number;
+}
+
+/**
+ * Outbound port: reads a fleet's committed events by their place in its
+ * stream, for live subscriptions to resume without missing one.
+ */
+export interface FleetEventFeed {
+  /** The number of the fleet's last committed event; 0 before its first. */
+  lastSeq(fleetId: FleetId): Promise<number>;
+  /** Up to `limit` events numbered after `seq`, lowest first. */
+  after(fleetId: FleetId, position: { seq: number; limit: number }): Promise<SequencedEvent[]>;
+}
