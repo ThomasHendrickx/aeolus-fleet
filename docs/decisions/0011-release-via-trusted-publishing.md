@@ -2,6 +2,7 @@
 
 - Only `.github/workflows/release.yml` publishes, via npm OIDC. Packages require 2FA and disallow tokens. No npm token anywhere.
 - One version for all three packages; the workflow tags the commit `v<version>` (`contents: write`).
+- The aeolus Claude Code plugin carries the same version. The marketplace installs it from main, so after the tag the workflow commits the plugin's version to main; the packages on main keep 0.0.0.
 - 0.0.0 is the name placeholder; first real release 0.1.0.
 
 Why: A leaked token cannot publish; npm and git versions always match.

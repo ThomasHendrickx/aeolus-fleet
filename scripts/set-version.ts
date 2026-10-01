@@ -4,6 +4,7 @@
  * (ADR 0011). The aeolus Claude Code plugin carries the same version. Used by the release workflow and the publish dry run in CI.
  *
  * Usage: npm run set-version -- <version>
+ *        npm run set-version -- --plugin-only <version>
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -61,16 +62,36 @@ export function setVersion(repositoryRoot: string, version: string): void {
     writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`);
   }
 
+  setPluginVersion(repositoryRoot, version);
+}
+
+/**
+ * Sets the version of the aeolus Claude Code plugin alone. The release commits
+ * it back to main, where the plugin marketplace installs from, so the
+ * installed plugin shows the version just released; the packages on main keep
+ * 0.0.0, as only the published packages carry their version.
+ */
+export function setPluginVersion(repositoryRoot: string, version: string): void {
+  if (!SEMVER.test(version)) {
+    throw new Error(`Not a semantic version: "${version}"`);
+  }
   const pluginPath = join(repositoryRoot, PLUGIN_MANIFEST);
   const plugin = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(pluginPath, 'utf8')));
   writeFileSync(pluginPath, `${JSON.stringify({ ...plugin, version }, null, 2)}\n`);
 }
 
 if (import.meta.main) {
-  const version = process.argv[2] ?? '';
+  const isPluginOnly = process.argv[2] === '--plugin-only';
+  const version = (isPluginOnly ? process.argv[3] : process.argv[2]) ?? '';
   try {
-    setVersion(fileURLToPath(new URL('..', import.meta.url)), version);
-    console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} and the aeolus plugin to ${version}`);
+    const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
+    if (isPluginOnly) {
+      setPluginVersion(repositoryRoot, version);
+      console.log(`Set the aeolus plugin to ${version}`);
+    } else {
+      setVersion(repositoryRoot, version);
+      console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} and the aeolus plugin to ${version}`);
+    }
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

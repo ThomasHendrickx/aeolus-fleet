@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { PLUGIN_MANIFEST, PUBLISHED_PACKAGES, setVersion } from './set-version.ts';
+import { PLUGIN_MANIFEST, PUBLISHED_PACKAGES, setPluginVersion, setVersion } from './set-version.ts';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -109,5 +109,22 @@ describe('published manifests', () => {
       url: 'git+https://github.com/ThomasHendrickx/aeolus-fleet.git',
       directory: `packages/${name}`,
     });
+  });
+});
+
+describe('setPluginVersion', () => {
+  it("sets the aeolus plugin's version alone, leaving the packages as they are", () => {
+    const packagesBefore = PUBLISHED_PACKAGES.map((name) => manifest(name));
+
+    setPluginVersion(copy, '0.4.0');
+
+    expect(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8'))).toMatchObject({ name: 'aeolus', version: '0.4.0' });
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name))).toEqual(packagesBefore);
+  });
+
+  it('refuses a version that is not semantic', () => {
+    expect(() => {
+      setPluginVersion(copy, 'latest');
+    }).toThrow('Not a semantic version: "latest"');
   });
 });

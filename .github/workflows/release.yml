@@ -1,6 +1,7 @@
 # Publishes @aeolus-fleet/common, server and web to npm with one version, and
 # tags the released commit v<version>, so a version on npm always matches a tag
-# in git.
+# in git. Then sets the aeolus Claude Code plugin to that version on main,
+# where the plugin marketplace installs from.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -17,7 +18,7 @@ on:
 
 permissions:
   id-token: write
-  # To push the release tag.
+  # To push the release tag, and the plugin's version to main.
   contents: write
 
 concurrency:
@@ -110,3 +111,30 @@ jobs:
         run: |
           git tag "v$VERSION" "$GITHUB_SHA"
           git push origin "refs/tags/v$VERSION"
+
+      # The plugin marketplace installs from main, so main carries the plugin's
+      # released version (the packages on main keep 0.0.0). After the tag: if
+      # this step fails, the release is whole; set it by hand with
+      # npm run set-version -- --plugin-only <version>, commit and push.
+      - name: Set the aeolus plugin to ${{ inputs.version }} on main
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            git fetch --quiet origin main
+            git checkout --quiet --force -B plugin-version origin/main
+            npm run set-version -- --plugin-only "$VERSION"
+            if git diff --quiet; then
+              echo "main already carries the aeolus plugin at $VERSION"
+              exit 0
+            fi
+            git commit --quiet --all --message "chore(release): the aeolus plugin is $VERSION"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "main moved meanwhile (attempt $attempt); trying again on top of it"
+          done
+          echo "::error::Could not push the aeolus plugin version to main"
+          exit 1
