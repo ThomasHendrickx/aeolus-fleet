@@ -48,3 +48,9 @@ export type NewEvent = Omit<FleetEvent, 'id' | 'details'> & { details?: EventDet
 export async function recordEvent(deps: { events: EventLog; ids: IdGenerator }, event: NewEvent): Promise<void> {
   await deps.events.append({ ...event, id: deps.ids('event'), details: event.details ?? {} });
 }
+
+/** That a fleet's events up to `seq` have committed: a hint to read them, never their content. */
+export interface FleetEventNotice {
+  fleetId: FleetId;
+  seq: number;
+}

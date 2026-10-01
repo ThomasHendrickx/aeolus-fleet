@@ -133,7 +133,8 @@ describe('the operator login migration', () => {
     const scoutId = newId('ship');
     const credential = (shipId: ShipId) => ({ id: newId('credential'), fleetId, shipId, secretHash: newId('credential'), issuedAt: now });
     try {
-      await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      // Raw: the generated client knows columns that later migrations add.
+      await before.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'old fleet', ${now})`;
       await before.ship.createMany({
         data: [
           { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: [], createdAt: now },
@@ -150,6 +151,61 @@ describe('the operator login migration', () => {
     const after = createPrismaClient(url);
     try {
       await expect(after.credential.findMany()).resolves.toEqual([expect.objectContaining({ shipId: scoutId })]);
+    } finally {
+      await after.$disconnect();
+    }
+  });
+});
+
+describe('the event sequence migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const eventSeq = names.findIndex((name) => name.endsWith('_event_seq'));
+
+  async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
+    for (const name of migrations) {
+      await prisma(databaseUrl, 'db', 'execute', '--file', `${MIGRATIONS}/${name}/migration.sql`);
+    }
+  }
+
+  it('numbers the events written before it per fleet, by time then id, and records each fleet\'s last number', async () => {
+    const url = await createEmptyDatabase();
+    await apply(url, names.slice(0, eventSeq));
+    const before = createPrismaClient(url);
+    const home = newId('fleet');
+    const away = newId('fleet');
+    const [first, second, third] = [newId('event'), newId('event'), newId('event')];
+    const later = new Date(now.getTime() + 1_000);
+    try {
+      await before.$executeRaw`
+        INSERT INTO fleets (id, name, created_at) VALUES (${home}, 'home', ${now}), (${away}, 'away', ${now})`;
+      await before.$executeRaw`
+        INSERT INTO events (id, fleet_id, type, occurred_at, details) VALUES
+          (${third}, ${home}, 'ShipCommissioned', ${later}, '{}'),
+          (${first}, ${home}, 'FleetInitialised', ${now}, '{}'),
+          (${second}, ${away}, 'FleetInitialised', ${now}, '{}')`;
+    } finally {
+      await before.$disconnect();
+    }
+
+    await apply(url, [names[eventSeq] ?? '']);
+
+    const after = createPrismaClient(url);
+    try {
+      await expect(after.event.findMany({ select: { id: true, seq: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+        { id: first, seq: 1n },
+        { id: second, seq: 1n },
+        { id: third, seq: 2n },
+      ]);
+      await expect(
+        after.fleet.findMany({ select: { id: true, lastEventSeq: true }, orderBy: { id: 'asc' } }),
+      ).resolves.toEqual([
+        { id: home, lastEventSeq: 2n },
+        { id: away, lastEventSeq: 1n },
+      ]);
     } finally {
       await after.$disconnect();
     }
@@ -573,10 +629,19 @@ describe('deliveries', () => {
 });
 
 describe('events', () => {
+  /** Each event a test writes takes the next number; the tests here write outside a unit of work. */
+  let lastSeq = 0n;
+  const nextSeq = () => {
+    lastSeq += 1n;
+    return lastSeq;
+  };
+
   it('keep their details as a JSON object', async () => {
     const fleetId = await createFleet();
     const event = (details: object) =>
-      database.event.create({ data: { id: newId('event'), fleetId, type: 'FleetInitialised', occurredAt: now, details } });
+      database.event.create({
+        data: { id: newId('event'), fleetId, type: 'FleetInitialised', occurredAt: now, details, seq: nextSeq() },
+      });
 
     await expect(event(['name'])).rejects.toThrow(/events_details_object/);
     await expect(event({ name: 'home fleet' })).resolves.toMatchObject({ details: { name: 'home fleet' } });
@@ -587,7 +652,7 @@ describe('events', () => {
     const fleetId = await createFleet();
     const event = (ids: { actorShipId?: string; shipId?: string }) =>
       database.event.create({
-        data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, ...ids },
+        data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, seq: nextSeq(), ...ids },
       });
 
     await expect(event({ actorShipId: shipOfAnotherFleet })).rejects.toThrow(/Foreign key constraint/);
@@ -595,10 +660,21 @@ describe('events', () => {
   });
 
 
+  it('take each number once per fleet', async () => {
+    const fleetId = await createFleet();
+    const event = () =>
+      database.event.create({ data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, seq: 1n } });
+
+    await event();
+    await expect(event()).rejects.toThrow(/Unique constraint/);
+  });
+
   it('are append-only: never updated, deleted or truncated', async () => {
     const fleetId = await createFleet();
     const id = newId('event');
-    await database.event.create({ data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now, details: {} } });
+    await database.event.create({
+      data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now, details: {}, seq: nextSeq() },
+    });
 
     await expect(database.event.update({ where: { id }, data: { type: 'ShipRetired' } })).rejects.toThrow(
       /append-only: UPDATE/,

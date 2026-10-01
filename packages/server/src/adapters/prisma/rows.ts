@@ -6,6 +6,7 @@ import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../..
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
+import type { FleetEventNotice } from '../../core/shared/events.js';
 import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
@@ -272,6 +273,19 @@ const deliveryNoticeSchema = z.object({
 /** A pending delivery's notice, as the payload of its NOTIFY carries it. */
 export function toDeliveryNotice(payload: unknown): DeliveryNotice {
   return deliveryNoticeSchema.parse(payload);
+}
+
+const fleetEventNoticeSchema = z.object({ fleetId: idSchema('fleet'), seq: z.number().int().positive() });
+
+export function toFleetEventNotice(payload: unknown): FleetEventNotice {
+  return fleetEventNoticeSchema.parse(payload);
+}
+
+/** A sequence number as Postgres returns a bigint; well within a safe integer for any fleet. */
+const seqSchema = z.bigint().transform(Number);
+
+export function toLastEventSeq(row: unknown): number {
+  return z.object({ last_event_seq: seqSchema }).parse(row).last_event_seq;
 }
 
 /** A delivery's recipient columns: a ship's id, or a type. */

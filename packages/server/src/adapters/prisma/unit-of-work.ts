@@ -11,13 +11,12 @@ import type {
   LeaseRepository,
   ShipRepository,
 } from '../../core/registry/ports.js';
-import type { EventLog } from '../../core/shared/events.js';
 import type { Notifier } from '../../core/shared/notifier.js';
 import type { Result } from '../../core/shared/result.js';
 import type { UnitOfWork } from '../../core/shared/unit-of-work.js';
 import type { Db, PrismaClient } from './client.js';
 import { createPrismaNotifier } from './delivery-notices.js';
-import { createPrismaEventLog } from './event-log.js';
+import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
 import {
   createPrismaCallerLookup,
   createPrismaConsoleSessionRepository,
@@ -43,7 +42,7 @@ export interface PrismaTx {
   consoleSessions: ConsoleSessionRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
-  events: EventLog;
+  events: BufferedEventLog;
   notifier: Notifier;
 }
 
@@ -70,7 +69,8 @@ class Refused extends Error {
 
 /**
  * Runs each use case in one interactive transaction (read committed). Every
- * write, events included, commits together. A refusal or a thrown error rolls
+ * write, events included, commits together; the events are written last, so
+ * their numbers follow commit order (event-log.ts). A refusal or a thrown error rolls
  * all of it back; Prisma rolls back only on a throw, so a refusal is thrown
  * inside the transaction and returned outside it.
  */
@@ -80,11 +80,13 @@ export function createPrismaUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaT
       const outcome: { refusal?: Result<T, E> } = {};
       try {
         return await prisma.$transaction(async (tx) => {
-          const result = await work(createPrismaTx(tx));
+          const unit = createPrismaTx(tx);
+          const result = await work(unit);
           if (!result.isOk) {
             outcome.refusal = result;
             throw new Refused();
           }
+          await unit.events.flush();
           return result;
         });
       } catch (error) {

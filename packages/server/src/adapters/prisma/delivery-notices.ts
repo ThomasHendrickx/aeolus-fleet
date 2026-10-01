@@ -3,13 +3,16 @@
  * one channel inside its transaction; Postgres hands the notice to listeners
  * only when that transaction commits, and drops it when it rolls back. The
  * payload says which delivery is pending and for whom, never the message's
- * payload.
+ * payload. The same connection hears committed events (event-log.ts) for the
+ * live subscriptions.
  */
 import pg from 'pg';
 
+import type { FleetEventNotice } from '../../core/shared/events.js';
 import type { DeliveryNotice, Notifier } from '../../core/shared/notifier.js';
 import type { Db } from './client.js';
-import { toDeliveryNotice } from './rows.js';
+import { FLEET_EVENT_CHANNEL } from './event-log.js';
+import { toDeliveryNotice, toFleetEventNotice } from './rows.js';
 
 /** The one channel every pending delivery is announced on. */
 export const DELIVERY_PENDING_CHANNEL = 'aeolus_delivery_pending';
@@ -40,7 +43,8 @@ export interface DeliveryListener {
 /**
  * Listens for pending deliveries on a connection of its own: LISTEN needs one
  * that no pool hands to another query, and it must be direct, not through a
- * transaction pooler. Waiting receives are woken through it. Returns at once.
+ * transaction pooler. Waiting receives and live subscriptions are woken
+ * through it. Returns at once.
  *
  * It never throws: a failed connect or a lost connection goes to `onError`,
  * and it tries again after a delay that doubles with each failure, up to 30
@@ -50,6 +54,8 @@ export interface DeliveryListener {
 export function listenForPendingDeliveries(options: {
   databaseUrl: string;
   onNotice: (notice: DeliveryNotice) => void;
+  /** Hears that a fleet's events up to a number have committed (event-log.ts), for live subscriptions. */
+  onFleetEvent?: (notice: FleetEventNotice) => void;
   onListening?: () => void;
   onError?: (error: Error) => void;
   /** The first wait before trying again; 1 second unless a test says otherwise. */
@@ -89,19 +95,23 @@ export function listenForPendingDeliveries(options: {
       tryAgainLater(client);
     });
     client.on('notification', ({ channel, payload }) => {
-      if (channel !== DELIVERY_PENDING_CHANNEL || payload === undefined) {
+      if (payload === undefined) {
         return;
       }
       try {
-        options.onNotice(toDeliveryNotice(JSON.parse(payload)));
+        if (channel === DELIVERY_PENDING_CHANNEL) {
+          options.onNotice(toDeliveryNotice(JSON.parse(payload)));
+        } else if (channel === FLEET_EVENT_CHANNEL) {
+          options.onFleetEvent?.(toFleetEventNotice(JSON.parse(payload)));
+        }
       } catch (error) {
         report(error);
       }
     });
     client
       .connect()
-      // The channel is the constant above, never outside input.
-      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}`))
+      // The channels are constants, never outside input.
+      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}; LISTEN ${FLEET_EVENT_CHANNEL}`))
       .then(
         () => {
           if (client !== current) {

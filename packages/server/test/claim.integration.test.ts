@@ -262,7 +262,7 @@ describe('claiming a ship on Postgres', () => {
     const before = await everyRow(core.prisma);
     const uow = createPrismaUnitOfWork(core.prisma);
     const claimShip = claimShipWith({
-      run: (work) => uow.run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } })),
+      run: (work) => uow.run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')), flush: () => Promise.resolve() } })),
     });
 
     await expect(claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice })).rejects.toThrow('disk full');

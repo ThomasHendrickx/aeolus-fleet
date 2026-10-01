@@ -156,6 +156,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_crew_token$/),
       expect.stringMatching(/^\d{14}_send$/),
       expect.stringMatching(/^\d{14}_receive$/),
+      expect.stringMatching(/^\d{14}_event_seq$/),
     ]);
   });
 });
