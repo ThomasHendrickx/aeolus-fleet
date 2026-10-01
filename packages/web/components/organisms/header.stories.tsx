@@ -6,7 +6,7 @@ import { Header } from './header';
 const meta = {
   title: 'Organisms/Header',
   component: Header,
-  args: { breadcrumb: 'Fleet overview', live: 'live', onCompose: fn() },
+  args: { breadcrumb: 'Fleet overview', live: 'live', onCompose: fn(), onSearch: fn() },
 } satisfies Meta<typeof Header>;
 
 export default meta;
@@ -18,3 +18,6 @@ export const Offline: Story = { args: { live: 'offline' } };
 
 /** A page that offers no Compose. */
 export const WithoutCompose: Story = { args: { onCompose: undefined } };
+
+/** Without the CommandPalette: no search trigger. */
+export const WithoutSearch: Story = { args: { onSearch: undefined } };

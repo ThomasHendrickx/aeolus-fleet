@@ -6,6 +6,7 @@ import { use, useState } from 'react';
 
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
+import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { OperatorInbox } from '../../components/organisms/operator-inbox';
 import { ListLayout } from '../../components/templates/list-layout';
 import {
@@ -57,6 +58,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
   const accountMenu = useAccountMenu(now);
   useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
   const [isComposing, setIsComposing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
   const all = inbox.data ?? [];
@@ -83,6 +85,9 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       account={accountMenu}
       onCompose={() => {
         setIsComposing(true);
+      }}
+      onSearch={() => {
+        setIsSearching(true);
       }}
     >
       <OperatorInbox
@@ -126,6 +131,13 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
         now={now}
       />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ConsoleCommands
+        isOpen={isSearching}
+        onOpenChange={setIsSearching}
+        onCompose={() => {
+          setIsComposing(true);
+        }}
+      />
     </ListLayout>
   );
 }

@@ -88,11 +88,12 @@ async function isLive(page: Page): Promise<void> {
 }
 
 async function commissionInConsole(page: Page, ship: { name: string; type: string }): Promise<string> {
-  const form = page.getByTestId('commission-form');
-  await form.getByLabel('Name').fill(ship.name);
-  await form.getByLabel('Type').fill(ship.type);
-  await form.getByRole('button', { name: 'Commission' }).click();
-  const block = page.getByRole('region', { name: `Starting prompt for ${ship.name}` });
+  await page.getByTestId('fleet-commission').click();
+  const dialog = page.getByTestId('commission-dialog');
+  await dialog.getByTestId('commission-name').fill(ship.name);
+  await dialog.getByTestId('commission-type').fill(ship.type);
+  await dialog.getByTestId('commission-submit').click();
+  const block = page.getByTestId('starting-prompt-dialog');
   const prompt = (await block.getByTestId('starting-prompt-text').textContent()) ?? '';
   await block.getByRole('button', { name: 'Done' }).click();
   return prompt;

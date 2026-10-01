@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkShipName, NAME_RULE } from './ship-name';
+import { checkShipName, NAME_RULE, typeHint } from './ship-name';
 
 const fleet = { activeNames: ['planner', 'reviewer-01'], current: 'reviewer-01' };
 
@@ -31,5 +31,20 @@ describe('checkShipName', () => {
 
   it('says argo is reserved', () => {
     expect(checkShipName('argo', fleet)).toEqual({ kind: 'reserved', message: 'argo is reserved for the operator ship.' });
+  });
+});
+
+describe('typeHint', () => {
+  it('states the rule while empty', () => {
+    expect(typeHint('', 0)).toBe('Free text. Pick a type in use or write a new one.');
+  });
+
+  it('says a type no ship uses becomes a new type', () => {
+    expect(typeHint('auditor', 0)).toBe('No ship uses this type yet. auditor becomes a new type.');
+  });
+
+  it('counts the ships of a type in use', () => {
+    expect(typeHint('reviewer', 1)).toBe('1 ship uses this type.');
+    expect(typeHint('reviewer', 2)).toBe('2 ships use this type.');
   });
 });

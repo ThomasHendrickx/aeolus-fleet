@@ -65,12 +65,18 @@ async function signedInPage(): Promise<Page> {
   return page;
 }
 
+/** Fills the CommissionDialog, opened from the overview's primary action. */
+async function fillCommission(page: Page, ship: { name: string; type: string; note?: string }): Promise<void> {
+  await page.getByTestId('fleet-commission').click();
+  const dialog = page.getByTestId('commission-dialog');
+  await dialog.getByTestId('commission-name').fill(ship.name);
+  await dialog.getByTestId('commission-type').fill(ship.type);
+  await dialog.getByTestId('commission-note').fill(ship.note ?? '');
+}
+
 async function commission(page: Page, ship: { name: string; type: string; note?: string }): Promise<void> {
-  const form = page.getByTestId('commission-form');
-  await form.getByLabel('Name').fill(ship.name);
-  await form.getByLabel('Type').fill(ship.type);
-  await form.getByLabel('Note (optional)').fill(ship.note ?? '');
-  await form.getByRole('button', { name: 'Commission' }).click();
+  await fillCommission(page, ship);
+  await page.getByTestId('commission-dialog').getByTestId('commission-submit').click();
 }
 
 /** A ship's row in the overview's table: the phone list holds the same ships, hidden at this width. */
@@ -78,8 +84,9 @@ function shipRow(page: Page, name: string) {
   return page.getByTestId(`fleet-row-${name}`);
 }
 
+/** The StartingPromptDialog showing the ship's prompt, once. */
 function promptBlock(page: Page, shipName: string) {
-  return page.getByRole('region', { name: `Starting prompt for ${shipName}` });
+  return page.getByTestId('starting-prompt-dialog').filter({ hasText: shipName });
 }
 
 async function promptTextIn(page: Page, shipName: string): Promise<string> {
@@ -126,13 +133,12 @@ describe('commissioning a ship in the console', () => {
 
     const first = await promptSecretIn(page, 'scout');
     await expect(isValid(first)).resolves.toBe(true);
+    await promptBlock(page, 'scout').getByRole('button', { name: 'Done' }).click();
+    await promptBlock(page, 'scout').waitFor({ state: 'detached' });
     const row = shipRow(page, 'scout');
     await row.getByText('Awaiting crew').waitFor();
     await row.getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
     await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('reviewer');
-
-    await promptBlock(page, 'scout').getByRole('button', { name: 'Done' }).click();
-    await promptBlock(page, 'scout').waitFor({ state: 'detached' });
     await page.reload();
     await shipRow(page, 'scout').waitFor();
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
@@ -185,19 +191,24 @@ describe('commissioning a ship in the console', () => {
     await expect(page.evaluate('navigator.clipboard.readText()')).resolves.toBe(shown);
   });
 
-  it('keeps the input and says why when a name is not a handle or already taken', async () => {
+  it('says as the operator types whether a name is free, and why not, and keeps Commission disabled until it is', async () => {
     const page = await signedInPage();
-    const form = page.getByTestId('commission-form');
-
-    await commission(page, { name: 'Harbour Master', type: 'reviewer' });
-    await form.getByText('Use 1 to 48 lowercase letters, digits or hyphens').waitFor();
-    await expect(form.getByLabel('Name').inputValue()).resolves.toBe('Harbour Master');
-
     await commission(page, { name: 'dock', type: 'reviewer' });
     await promptBlock(page, 'dock').getByRole('button', { name: 'Done' }).click();
-    await commission(page, { name: 'dock', type: 'lookout' });
-    await page.getByRole('alert').filter({ hasText: 'An active ship is already named dock' }).waitFor();
-    await expect(form.getByLabel('Type').inputValue()).resolves.toBe('lookout');
+    const dialog = page.getByTestId('commission-dialog');
+
+    await fillCommission(page, { name: 'Harbour Master', type: 'reviewer' });
+    await dialog.getByText('Use 1 to 48 lowercase letters, digits or hyphens.').waitFor();
+    await expect(dialog.getByTestId('commission-submit').isDisabled()).resolves.toBe(true);
+
+    await dialog.getByTestId('commission-name').fill('dock');
+    await dialog.getByText('dock is already used by an active ship.').waitFor();
+    await expect(dialog.getByTestId('commission-submit').isDisabled()).resolves.toBe(true);
+
+    await dialog.getByTestId('commission-name').fill('harbour');
+    await dialog.getByText('harbour is available.').waitFor();
+    await dialog.getByText(/^\d+ ships? uses? this type\.$/).waitFor();
+    await expect(dialog.getByTestId('commission-submit').isEnabled()).resolves.toBe(true);
   });
 });
 

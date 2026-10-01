@@ -23,6 +23,8 @@ interface DetailLayoutProps {
   nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
+  /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
+  onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
 }
@@ -43,6 +45,7 @@ export function DetailLayout({
   live,
   nav,
   onCompose,
+  onSearch,
   account,
 }: DetailLayoutProps) {
   return (
@@ -54,7 +57,7 @@ export function DetailLayout({
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
-        <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} />
+        <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} onSearch={onSearch} />
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           {header}

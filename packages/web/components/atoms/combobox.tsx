@@ -88,7 +88,13 @@ export function Combobox({
       inputValue={query}
       open={isOpen && query.trim() !== ''}
       onOpenChange={setIsOpen}
-      onInputValueChange={(text) => {
+      onInputValueChange={(text, details) => {
+        // With free text the typed text is the value: only typing or a chosen
+        // suggestion changes it. Base UI would otherwise reset it to the
+        // selected item's label (none) when the field loses focus.
+        if (isFreeText && details.reason !== 'input-change' && details.reason !== 'item-press') {
+          return;
+        }
         setQuery(text);
         if (isFreeText) {
           onValueChange(text === '' ? null : text);

@@ -16,6 +16,7 @@ const meta = {
     live: 'live',
     nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
     onCompose: fn(),
+    onSearch: fn(),
     account: {
       account: {
         email: 'operator@example.com',
