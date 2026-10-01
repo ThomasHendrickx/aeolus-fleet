@@ -5,6 +5,7 @@ import { TabBar } from './tab-bar';
 const meta = {
   title: 'Organisms/TabBar',
   component: TabBar,
+  args: { active: 'fleet', attentionCount: 2 },
   globals: { viewport: { value: 'mobile1' } },
 } satisfies Meta<typeof TabBar>;
 
@@ -13,3 +14,5 @@ type Story = StoryObj<typeof meta>;
 
 /** Phone only: switch the canvas to a phone viewport to see it. */
 export const FleetActive: Story = {};
+
+export const AttentionActiveNoCounts: Story = { args: { active: 'attention', attentionCount: undefined } };

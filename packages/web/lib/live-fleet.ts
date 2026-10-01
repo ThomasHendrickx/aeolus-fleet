@@ -25,6 +25,13 @@ export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
 }
 
+/** The events that change Needs attention: a delivery becomes undeliverable, or the operator lets one go. */
+const ATTENTION_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['DeliveryUndeliverable', 'DeliveryDismissed']);
+
+export function isAttentionChange(type: EventType): boolean {
+  return ATTENTION_EVENTS.has(type);
+}
+
 /** The subscription's state as the live dot words it. */
 export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error'): LiveState {
   switch (status) {
@@ -51,7 +58,8 @@ export interface LiveFleet {
  * updates"). Each committed event that changes a ship reloads the snapshot;
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message and the ships' message lists,
- * whose delivery states it changes. `resync`, sent first and whenever the
+ * whose delivery states it changes; a delivery that becomes undeliverable or
+ * is dismissed reloads Needs attention. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
@@ -86,6 +94,9 @@ export function useLiveFleet(): LiveFleet {
           if (event.messageId !== null) {
             reload(trpc.fleet.shipMessages.pathKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+          }
+          if (isAttentionChange(event.type)) {
+            reload(trpc.fleet.needsAttention.queryKey());
           }
           if (!isShipChange(event.type)) {
             return;

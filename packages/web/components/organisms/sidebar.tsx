@@ -1,24 +1,80 @@
 'use client';
 
-import { ChevronsUpDown, LogOut, Ship } from 'lucide-react';
+import { ChevronsUpDown, LogOut, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { Avatar } from '../atoms/avatar';
+import { Badge } from '../atoms/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../atoms/dropdown-menu';
 
+/** The console's destinations so far. */
+export type SidebarDestination = 'overview' | 'attention';
+
 interface SidebarProps {
+  /** The page the operator is on: its item is marked current. */
+  active: SidebarDestination;
+  /** Undeliverable deliveries; hidden until known, and when there are none. */
+  attentionCount?: number;
   /** Signs the operator out; the account menu offers it without a confirm. */
   onSignOut: () => void;
+}
+
+const ITEM =
+  'relative flex h-(--size-control) items-center gap-2.5 rounded-md px-2.5 text-body text-muted-foreground transition-colors duration-(--duration-fast) hover:bg-accent hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground max-lg:justify-center max-lg:px-0 [&_svg]:size-(--size-icon) [&_svg]:shrink-0';
+
+function NavItem({
+  href,
+  label,
+  icon,
+  isActive,
+  testId,
+  count,
+}: {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  isActive: boolean;
+  testId: string;
+  count?: ReactNode;
+}) {
+  return (
+    <Link href={href} aria-current={isActive ? 'page' : undefined} data-testid={testId} className={ITEM}>
+      {icon}
+      <span className="grow max-lg:sr-only">{label}</span>
+      {count}
+    </Link>
+  );
+}
+
+/**
+ * The attention count: a pill in the attention tone from 1024 px, a dot on the
+ * rail, the number kept for assistive technology either way.
+ */
+function AttentionCount({ count }: { count: number | undefined }) {
+  if (count === undefined || count === 0) {
+    return null;
+  }
+  return (
+    <>
+      <Badge variant="count-attention" data-testid="nav-attention-count" className="max-lg:sr-only">
+        {count}
+        <span className="sr-only"> need attention</span>
+      </Badge>
+      <span aria-hidden className="absolute top-1.5 right-4 size-1.5 rounded-full bg-tone-attention-fg lg:hidden" />
+    </>
+  );
 }
 
 /**
  * Desktop navigation (docs/design/png/Sidebar.png): the brand, the
  * destinations and the account menu of the signed-in operator, argo. 256 px
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
- * technology. Only the fleet overview exists so far, so it is the one
- * destination, without counts.
+ * technology and dots instead of numbers. Destinations so far: Fleet overview
+ * and Needs attention, which counts the undeliverable deliveries in the
+ * attention tone. A count simply hides until it is known.
  */
-export function Sidebar({ onSignOut }: SidebarProps) {
+export function Sidebar({ active, attentionCount, onSignOut }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -32,15 +88,21 @@ export function Sidebar({ onSignOut }: SidebarProps) {
         </div>
       </div>
       <nav aria-label="Console" className="flex grow flex-col gap-0.5 px-2.5 py-2">
-        <Link
+        <NavItem
           href="/"
-          aria-current="page"
-          data-testid="nav-overview"
-          className="flex h-(--size-control) items-center gap-2.5 rounded-md px-2.5 text-body text-muted-foreground transition-colors duration-(--duration-fast) hover:bg-accent hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground max-lg:justify-center max-lg:px-0 [&_svg]:size-(--size-icon) [&_svg]:shrink-0"
-        >
-          <Ship aria-hidden />
-          <span className="max-lg:sr-only">Fleet overview</span>
-        </Link>
+          label="Fleet overview"
+          icon={<Ship aria-hidden />}
+          isActive={active === 'overview'}
+          testId="nav-overview"
+        />
+        <NavItem
+          href="/needs-attention"
+          label="Needs attention"
+          icon={<TriangleAlert aria-hidden />}
+          isActive={active === 'attention'}
+          testId="nav-attention"
+          count={<AttentionCount count={attentionCount} />}
+        />
       </nav>
       <div className="border-t border-border p-2.5">
         <DropdownMenu>

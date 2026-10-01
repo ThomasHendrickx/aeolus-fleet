@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
 import { Header } from '../organisms/header';
-import { Sidebar } from '../organisms/sidebar';
+import { Sidebar, type SidebarDestination } from '../organisms/sidebar';
 import { TabBar } from '../organisms/tab-bar';
 import { TopBar } from '../organisms/top-bar';
 
@@ -15,6 +15,8 @@ interface ListLayoutProps {
   /** Search and filters, under the title row. */
   toolbar?: ReactNode;
   live: LiveState;
+  /** Where the operator is, and the counts the navigation shows once known. */
+  nav: { active: SidebarDestination; attentionCount?: number };
   onSignOut: () => void;
   children: ReactNode;
 }
@@ -32,12 +34,13 @@ export function ListLayout({
   primaryAction,
   toolbar,
   live,
+  nav,
   onSignOut,
   children,
 }: ListLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar onSignOut={onSignOut} />
+      <Sidebar active={nav.active} attentionCount={nav.attentionCount} onSignOut={onSignOut} />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={title} live={live} />
         <TopBar title={title} live={live} />
@@ -55,7 +58,7 @@ export function ListLayout({
           {children}
         </main>
       </div>
-      <TabBar />
+      <TabBar active={nav.active === 'overview' ? 'fleet' : nav.active} attentionCount={nav.attentionCount} />
     </div>
   );
 }

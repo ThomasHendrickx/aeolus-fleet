@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
 import { Header } from '../organisms/header';
-import { Sidebar } from '../organisms/sidebar';
+import { Sidebar, type SidebarDestination } from '../organisms/sidebar';
 import { TabBar } from '../organisms/tab-bar';
 import { TopBar } from '../organisms/top-bar';
 
@@ -18,6 +18,8 @@ interface DetailLayoutProps {
   /** A sheet over the page: the MessageSheet. */
   sheet?: ReactNode;
   live: LiveState;
+  /** Where the operator is, and the counts the navigation shows once known. */
+  nav: { active: SidebarDestination; attentionCount?: number };
   onSignOut: () => void;
 }
 
@@ -28,10 +30,10 @@ interface DetailLayoutProps {
  * back link, the stacked ShipHeader and segmented Tabs, the TabBar's height
  * kept free at the bottom.
  */
-export function DetailLayout({ title, parent, header, children, sheet, live, onSignOut }: DetailLayoutProps) {
+export function DetailLayout({ title, parent, header, children, sheet, live, nav, onSignOut }: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar onSignOut={onSignOut} />
+      <Sidebar active={nav.active} attentionCount={nav.attentionCount} onSignOut={onSignOut} />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={`${parent.label} / ${title}`} live={live} />
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
@@ -41,7 +43,7 @@ export function DetailLayout({ title, parent, header, children, sheet, live, onS
         </main>
       </div>
       {sheet}
-      <TabBar />
+      <TabBar active={nav.active === 'overview' ? 'fleet' : nav.active} attentionCount={nav.attentionCount} />
     </div>
   );
 }
