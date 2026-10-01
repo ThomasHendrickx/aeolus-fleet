@@ -23,6 +23,8 @@ interface ListLayoutProps {
   nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
+  /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
+  onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
   children: ReactNode;
@@ -44,6 +46,7 @@ export function ListLayout({
   live,
   nav,
   onCompose,
+  onSearch,
   account,
   children,
 }: ListLayoutProps) {
@@ -56,11 +59,12 @@ export function ListLayout({
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
-        <Header breadcrumb={title} live={live} onCompose={onCompose} />
+        <Header breadcrumb={title} live={live} onCompose={onCompose} onSearch={onSearch} />
         <TopBar
           title={title}
           live={live}
           account={account}
+          onSearch={onSearch}
           actions={
             onCompose ? (
               <Button

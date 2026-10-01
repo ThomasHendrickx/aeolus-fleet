@@ -1,7 +1,8 @@
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { Button } from '../atoms/button';
 import { LiveStatus, type LiveState } from '../molecules/live-status';
 import { AccountMenuSheet, type AccountMenuProps } from './account-menu';
 
@@ -18,16 +19,20 @@ interface TopBarProps {
   back?: { href: string; label: string };
   /** Root mode: the AccountMenu's Avatar, always last. Detail and modal modes need none. */
   account?: AccountMenuProps;
+  /** Root mode: the search icon that opens the CommandPalette full screen, before the other actions. */
+  onSearch?: () => void;
 }
 
 /**
  * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the page
- * title, the live status, up to two icon actions and the AccountMenu's
+ * title, the live status, the CommandPalette's search icon, up to two icon
+ * actions and the AccountMenu's
  * Avatar, always last, which opens it as a bottom Sheet. Detail mode: a back link
  * labelled with the previous page, the title and the live status. Modal mode
  * comes with the pages that need it.
  */
-export function TopBar({ title, live, actions, back, account }: TopBarProps) {
+export function TopBar({ title, live, actions, back, account, onSearch }: TopBarProps) {
+  const search = onSearch && !back ? onSearch : undefined;
   return (
     <header
       data-slot="top-bar"
@@ -49,8 +54,20 @@ export function TopBar({ title, live, actions, back, account }: TopBarProps) {
         <h1 className="truncate text-title-touch font-semibold tracking-tight text-foreground">{title}</h1>
       )}
       <LiveStatus state={live} />
-      {actions || (account && !back) ? (
+      {actions || search || (account && !back) ? (
         <div className="ml-auto flex items-center gap-1">
+          {search ? (
+            <Button
+              variant="ghost"
+              size="touch"
+              isIconOnly
+              aria-label="Search ships or jump to"
+              data-testid="top-bar-search"
+              onClick={search}
+            >
+              <Search aria-hidden />
+            </Button>
+          ) : null}
           {actions}
           {account && !back ? <AccountMenuSheet {...account} /> : null}
         </div>

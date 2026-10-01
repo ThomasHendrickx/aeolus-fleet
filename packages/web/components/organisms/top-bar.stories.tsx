@@ -18,6 +18,15 @@ type Story = StoryObj<typeof meta>;
 export const Root: Story = {};
 export const Detail: Story = { args: { title: 'reviewer-01', back: { href: '/', label: 'Fleet' } } };
 export const Offline: Story = { args: { live: 'offline' } };
+/** Root with the CommandPalette's search icon, before the other actions. */
+export const WithSearch: Story = {
+  args: {
+    onSearch: fn(),
+    actions: (
+      <Button variant="ghost" size="touch" isIconOnly aria-label="Commission ship" icon={<Plus aria-hidden />} />
+    ),
+  },
+};
 export const WithAction: Story = {
   args: {
     actions: (
