@@ -63,6 +63,10 @@ describe('deliveryHistorySentence', () => {
       'Received 5 times, never acknowledged.',
     );
   });
+
+  it('says a message was abandoned when its ship was retired', () => {
+    expect(sentence(anEntry('DeliveryAbandoned', { ship: planner }))).toBe('Abandoned: planner was retired before taking it.');
+  });
 });
 
 describe('deliveryHistoryState', () => {
@@ -71,6 +75,7 @@ describe('deliveryHistoryState', () => {
     ['DeliveryReturned', 'pending'],
     ['DeliveryClaimed', 'delivered'],
     ['DeliveryAcknowledged', 'acknowledged'],
+    ['DeliveryAbandoned', 'abandoned'],
     ['DeliveryUndeliverable', 'undeliverable'],
   ] as const)('shows %s as %s', (type, state) => {
     expect(deliveryHistoryState({ type })).toBe(state);

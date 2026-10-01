@@ -51,6 +51,8 @@ export interface ShipRepository {
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /** Whether at least one ship of the fleet with this type is not retired. */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
+  /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
+  retire(change: { fleetId: FleetId; shipId: ShipId; at: Date }): Promise<void>;
 }
 
 /** Outbound port: leases, always within one fleet. */
@@ -90,6 +92,18 @@ export interface InFlightDeliveries {
    * type's queue, and its attempts stay, so the fifth claim still stops it.
    */
   returnToPending(fleetId: FleetId, leaseId: LeaseId): Promise<ReturnedDelivery[]>;
+  /**
+   * Abandons every delivery pending for the ship itself and lists them,
+   * oldest first. Deliveries to its type stay, for the other ships of the
+   * type; an undeliverable one stays for the operator.
+   */
+  abandonPendingTo(fleetId: FleetId, shipId: ShipId): Promise<AbandonedDelivery[]>;
+}
+
+/** A delivery to a ship that was retired before taking it. */
+export interface AbandonedDelivery {
+  deliveryId: DeliveryId;
+  messageId: MessageId;
 }
 
 /** What the fleet listing reads about one ship: the ship, the lease of the session crewing it, and its valid secret. */
@@ -110,4 +124,10 @@ export interface FleetListing {
   ships(fleetId: FleetId): Promise<ShipFacts[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
+  /**
+   * The ship's deliveries as its page counts them: in flight with it (what a
+   * release returns) and its direct ones pending or in flight (what a retire
+   * abandons).
+   */
+  deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
 }

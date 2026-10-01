@@ -204,6 +204,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = ship(fleetId, shipId);
         return Promise.resolve(found && { ...found });
       },
+      retire: ({ fleetId, shipId, at }) => {
+        const found = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
+        if (!found) {
+          return Promise.reject(new Error(`no ship ${shipId} to retire`));
+        }
+        found.retiredAt = at;
+        return Promise.resolve();
+      },
       findForUpdate: (fleetId, shipId) => Promise.resolve(ship(fleetId, shipId)),
       findForShare: (fleetId, shipId) => {
         const found = ship(fleetId, shipId);
@@ -266,6 +274,21 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             attempts,
           })),
         );
+      },
+      abandonPendingTo: (fleetId, shipId) => {
+        const pending = state.deliveries
+          .filter(
+            (delivery) =>
+              delivery.fleetId === fleetId &&
+              delivery.state === 'pending' &&
+              delivery.recipient.kind === 'ship' &&
+              delivery.recipient.shipId === shipId,
+          )
+          .sort(byAge);
+        for (const delivery of pending) {
+          delivery.state = 'abandoned';
+        }
+        return Promise.resolve(pending.map(({ id, messageId }) => ({ deliveryId: id, messageId })));
       },
     },
     credentials: {
@@ -524,6 +547,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     ship: (fleetId, shipId) => {
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
+    },
+    deliveryCounts: (fleetId, shipId) => {
+      const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
+      return Promise.resolve({
+        inFlight: ofFleet.filter((delivery) => delivery.state === 'delivered' && delivery.claimedByShipId === shipId).length,
+        open: ofFleet.filter(
+          (delivery) =>
+            (delivery.state === 'pending' || delivery.state === 'delivered') &&
+            delivery.recipient.kind === 'ship' &&
+            delivery.recipient.shipId === shipId,
+        ).length,
+      });
     },
   };
 

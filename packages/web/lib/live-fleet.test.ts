@@ -14,7 +14,7 @@ describe('liveStateOf', () => {
 });
 
 describe('isShipChange', () => {
-  it.each(['ShipCommissioned', 'ShipClaimed', 'LeaseRevoked', 'CredentialRevoked', 'StartingPromptIssued'] as const)(
+  it.each(['ShipCommissioned', 'ShipClaimed', 'LeaseRevoked', 'CredentialRevoked', 'StartingPromptIssued', 'ShipRetired'] as const)(
     'reloads the snapshot for %s',
     (type) => {
       expect(isShipChange(type)).toBe(true);

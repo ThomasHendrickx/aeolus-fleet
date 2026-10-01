@@ -6,7 +6,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
-import { toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
+import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -81,6 +81,9 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null }, select: { id: true } });
       return row !== null;
     },
+    retire: async ({ fleetId, shipId, at }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at } });
+    },
   };
 }
 
@@ -150,6 +153,16 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
         .map(toDeliveryFromSql)
         .map(({ id, messageId, recipient, attempts }) => ({ deliveryId: id, messageId, recipient, attempts }));
     },
+    abandonPendingTo: async (fleetId, shipId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        UPDATE deliveries SET state = 'abandoned'
+        WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} AND state = 'pending'
+        RETURNING id, message_id, created_at`;
+      return rows
+        .map(toAbandonedDelivery)
+        .sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.deliveryId.localeCompare(second.deliveryId))
+        .map(({ deliveryId, messageId }) => ({ deliveryId, messageId }));
+    },
   };
 }
 
@@ -169,6 +182,13 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         WHERE s.fleet_id = ${fleetId}
         ORDER BY s.id`;
       return rows.map(toShipFacts);
+    },
+    deliveryCounts: async (fleetId, shipId) => {
+      const [inFlight, open] = await Promise.all([
+        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: 'delivered' } }),
+        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'delivered'] } } }),
+      ]);
+      return { inFlight, open };
     },
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`

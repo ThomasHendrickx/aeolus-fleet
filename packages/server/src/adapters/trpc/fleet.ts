@@ -10,8 +10,11 @@ import {
   shipTimelineOutputSchema,
   type FleetStreamItem,
   getStartingPromptInputSchema,
+  recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  retireShipInputSchema,
+  retireShipOutputSchema,
   startingPromptOutputSchema,
 } from '@aeolus-fleet/common';
 import { tracked, type TrackedEnvelope } from '@trpc/server';
@@ -53,6 +56,25 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.releaseShip(ctx.caller, input));
       return {};
     }),
+
+  /**
+   * Ends a ship for good, crewed or not, never argo: its lease and secret end,
+   * its direct deliveries are abandoned, deliveries to its type stay for the
+   * other ships of the type. Answers how many it abandoned.
+   */
+  retire: scopedProcedure('fleet:manage')
+    .input(retireShipInputSchema)
+    .output(retireShipOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
+
+  /**
+   * A new crew for a crewed ship whose session is gone: a release and a new
+   * starting prompt in one transaction. Its prompt and crew line are shown once.
+   */
+  recrew: scopedProcedure('fleet:manage')
+    .input(recrewShipInputSchema)
+    .output(startingPromptOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.recrewShip(ctx.caller, input))),
 
   /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
   list: scopedProcedure('fleet:read')

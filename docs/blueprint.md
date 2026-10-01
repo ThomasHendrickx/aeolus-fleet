@@ -66,7 +66,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 | Talk to any ship, template or group | Send a message from the web app, exactly as a ship would |
 | Answer what agents escalate | Personal inbox: questions and approvals addressed to the operator, with the thread to decide from. Opening marks a message read; Reply or Mark done acknowledges it |
 | Understand what happened | Timeline per ship and per message thread: every send, delivery, acknowledgement and state change |
-| Stay in control | Release a ship (the session loses it and its secret stops working), get a fresh starting prompt whenever you are ready to crew it, retire a ship (confirm for a clean inbox, type the ship's name when unprocessed messages remain) |
+| Stay in control | Release a ship (the session loses it and its secret stops working), get a fresh starting prompt whenever you are ready to crew it, re-crew a crewed ship whose session is gone (release it and get a fresh starting prompt in one step), retire a ship (confirm for a clean inbox, type the ship's name when unprocessed messages remain) |
 
 ### The agent (a ship's crew)
 
@@ -150,7 +150,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `StartingPromptIssued` | Registry | A new secret is out; the snapshot shows the prompt as unclaimed until a session claims the ship |
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
-| `ShipRetired` | Registry | Unprocessed deliveries marked abandoned by operator, id blocked forever |
+| `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
+| `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken |
 | `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
@@ -207,7 +208,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 ### Retire a ship
 
 1. The operator chooses retire. With a clean inbox: one confirm. With unprocessed deliveries: type the ship's name to confirm.
-2. Remaining deliveries become abandoned by operator. They stay in the audit trail and their senders can see it.
+2. Its remaining direct deliveries become abandoned by operator. They stay in the audit trail and their senders can see it. Deliveries to its type are never abandoned: other ships of the type can still take them. One already undeliverable stays in Needs attention.
 3. The lease and the secret are revoked, and the ship id can never be claimed or addressed again.
 
 ## Components and deployment

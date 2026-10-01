@@ -18,6 +18,7 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'LeaseRevoked',
   'CredentialRevoked',
   'StartingPromptIssued',
+  'ShipRetired',
 ]);
 
 export function isShipChange(type: EventType): boolean {

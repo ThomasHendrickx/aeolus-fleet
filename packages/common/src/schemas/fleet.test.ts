@@ -7,8 +7,11 @@ import {
   fleetListOutputSchema,
   fleetStreamItemSchema,
   getStartingPromptInputSchema,
+  recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  retireShipInputSchema,
+  retireShipOutputSchema,
   shipHandleSchema,
   startingPromptOutputSchema,
 } from './fleet.js';
@@ -217,5 +220,27 @@ describe('fleetStreamItemSchema', () => {
     ['no word on who caused it', { kind: 'event', event: { ...event, actorShipId: undefined } }],
   ])('rejects %s', (_label, item) => {
     expect(fleetStreamItemSchema.safeParse(item).success).toBe(false);
+  });
+});
+
+describe('retireShipInputSchema', () => {
+  it('takes the ship to retire', () => {
+    const input = { shipId: newId('ship') };
+
+    expect(retireShipInputSchema.parse(input)).toEqual(input);
+  });
+});
+
+describe('retireShipOutputSchema', () => {
+  it('answers how many deliveries the retire abandoned', () => {
+    expect(retireShipOutputSchema.parse({ abandonedDeliveries: 2 })).toEqual({ abandonedDeliveries: 2 });
+  });
+});
+
+describe('recrewShipInputSchema', () => {
+  it('takes the crewed ship to give a new crew', () => {
+    const input = { shipId: newId('ship') };
+
+    expect(recrewShipInputSchema.parse(input)).toEqual(input);
   });
 });

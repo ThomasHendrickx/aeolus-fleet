@@ -330,6 +330,8 @@ describe('getting one ship on Postgres', () => {
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
+        inFlightDeliveries: 0,
+        openDeliveries: 0,
       },
     });
   });

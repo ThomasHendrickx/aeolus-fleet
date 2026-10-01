@@ -1,6 +1,7 @@
 import type { MessageId, ShipId, TimelineEntry } from '@aeolus-fleet/common';
 import {
   Anchor,
+  Archive,
   ArrowDownLeft,
   ArrowUpRight,
   Flag,
@@ -10,6 +11,7 @@ import {
   LogOut,
   MailCheck,
   MailX,
+  PackageX,
   RotateCw,
   ShieldAlert,
   Undo2,
@@ -38,6 +40,8 @@ const ICONS: Record<TimelineIcon, LucideIcon> = {
   secret: LockKeyhole,
   fleet: Anchor,
   password: ShieldAlert,
+  retired: Archive,
+  abandoned: PackageX,
 };
 
 const TONES: Record<TimelineTone, string> = {

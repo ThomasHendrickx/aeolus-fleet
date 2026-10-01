@@ -362,3 +362,11 @@ export function toSequencedEvent(row: unknown): SequencedEvent {
     ...(deliveryId === null ? {} : { deliveryId }),
   };
 }
+
+const abandonedDeliverySqlRow = z.object({ id: idSchema('delivery'), message_id: idSchema('message'), created_at: z.date() });
+
+/** A delivery a retire abandoned, as its UPDATE returns it. */
+export function toAbandonedDelivery(row: unknown) {
+  const { id, message_id, created_at } = abandonedDeliverySqlRow.parse(row);
+  return { deliveryId: id, messageId: message_id, createdAt: created_at };
+}

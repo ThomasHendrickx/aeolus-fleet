@@ -1,7 +1,14 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewShip, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import {
+  crewAboard,
+  crewShip,
+  initialiseFleet,
+  messagingUseCases,
+  operatorCaller,
+  registryUseCases,
+} from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -33,6 +40,8 @@ describe('getting one ship', () => {
       commissionedAt,
       crewedSince: null,
       retiredAt: null,
+      inFlightDeliveries: 0,
+      openDeliveries: 0,
     });
   });
 
@@ -55,6 +64,21 @@ describe('getting one ship', () => {
 
     await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { status: 'retired', retiredAt },
+    });
+  });
+
+  it('counts what its crew holds in flight, and its direct deliveries open, which a retire would abandon', async () => {
+    const messaging = messagingUseCases(core);
+    const scout = crewAboard(core, { fleetId, shipId: scoutId });
+    const send = (selector: { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type: string }, key: string) =>
+      messaging.sendMessage(argo, { selector, payload: 'Review', idempotencyKey: key });
+    unwrap(await send({ kind: 'ship', shipId: scoutId }, 'direct-1'));
+    unwrap(await send({ kind: 'type', type: 'reviewer' }, 'type-1'));
+    unwrap(await messaging.receiveDeliveries(scout, { max: 2 }));
+    unwrap(await send({ kind: 'ship', shipId: scoutId }, 'direct-2'));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { inFlightDeliveries: 2, openDeliveries: 2 },
     });
   });
 

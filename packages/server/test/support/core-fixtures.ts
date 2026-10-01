@@ -24,7 +24,9 @@ import { createGetShip } from '../../src/core/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
+import { createRecrewShip } from '../../src/core/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/core/registry/release-ship.js';
+import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
@@ -74,6 +76,8 @@ export function registryUseCases(core: InMemoryCore) {
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
+    retireShip: createRetireShip(deps),
+    recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
     listFleet: createListFleet({ listing: core.listing }),

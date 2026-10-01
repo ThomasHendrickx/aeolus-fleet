@@ -38,6 +38,10 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
   retiredAt: isoTime.nullable(),
+  /** What its crew holds in flight now: what a release or a re-crew returns to pending. */
+  inFlightDeliveries: z.int().min(0),
+  /** Its direct deliveries pending or in flight: what a retire abandons. */
+  openDeliveries: z.int().min(0),
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;
@@ -97,6 +101,7 @@ export const DELIVERY_HISTORY_TYPES = [
   'DeliveryReturned',
   'DeliveryAcknowledged',
   'DeliveryUndeliverable',
+  'DeliveryAbandoned',
 ] as const;
 
 /** One change to a delivery: when, which ship held it and where its session ran, and the claims counted by then. */

@@ -13,7 +13,9 @@ import type { Deregister } from '../../core/registry/deregister.js';
 import type { GetShip } from '../../core/registry/get-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../core/registry/list-fleet.js';
+import type { RecrewShip } from '../../core/registry/recrew-ship.js';
 import type { ReleaseShip } from '../../core/registry/release-ship.js';
+import type { RetireShip } from '../../core/registry/retire-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
@@ -30,6 +32,8 @@ export interface UseCases {
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
+  retireShip: RetireShip;
+  recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
   claimShip: ClaimShip;

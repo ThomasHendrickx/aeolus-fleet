@@ -1155,3 +1155,34 @@ describe('the ship page reads at the API', () => {
     await expect(codeOf(asArgo.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
   });
 });
+
+describe('retire and re-crew at the API', () => {
+  it('retire a ship for fleet:manage, answering how many deliveries it abandoned; the ship reads retired', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: `retiree-${newId('ship').slice(-6)}`, type: 'reviewer' });
+
+    await expect(asArgo.fleet.retire.mutate({ shipId })).resolves.toEqual({ abandonedDeliveries: 0 });
+    await expect(asArgo.fleet.ship.query({ shipId })).resolves.toMatchObject({ status: 'retired', openDeliveries: 0 });
+    await expect(codeOf(asArgo.fleet.retire.mutate({ shipId }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(asArgo.fleet.retire.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('re-crew a crewed ship for fleet:manage, answering a new starting prompt and crew line', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ name: `recrew-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } });
+
+    const issued = await asArgo.fleet.recrew.mutate({ shipId });
+
+    expect(issued.crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipId} ${secretIn(issued.prompt)}`);
+    await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
+    await expect(codeOf(asArgo.fleet.recrew.mutate({ shipId }))).resolves.toBe('CONFLICT');
+  });
+
+  it('refuse retire and re-crew to a ship without fleet:manage', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+
+    await expect(codeOf(reader.fleet.retire.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.recrew.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+  });
+});
