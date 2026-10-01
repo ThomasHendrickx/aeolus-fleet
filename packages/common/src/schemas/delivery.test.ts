@@ -4,11 +4,14 @@ import { createIdGenerator } from '../ids/index.js';
 import {
   ackInputSchema,
   ackOutputSchema,
+  INBOX_WAIT_MAX_SECONDS,
+  inboxInputSchema,
+  inboxOutputSchema,
   RECEIVE_MAX_DEFAULT,
   RECEIVE_MAX_UPPER_BOUND,
+  receivedDeliverySchema,
   receiveInputSchema,
   receiveOutputSchema,
-  receivedDeliverySchema,
 } from './delivery.js';
 
 const newId = createIdGenerator();
@@ -105,5 +108,31 @@ describe('ackInputSchema', () => {
 describe('ackOutputSchema', () => {
   it('is empty: the OK is the answer', () => {
     expect(ackOutputSchema.parse({})).toEqual({});
+  });
+});
+
+describe('inboxInputSchema', () => {
+  it.each([undefined, {}, { waitSeconds: 0 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS }])(
+    'accepts %j: no wait, or up to 25 seconds while the inbox is empty',
+    (input) => {
+      expect(inboxInputSchema.parse(input)).toEqual(input);
+    },
+  );
+
+  it.each([{ waitSeconds: -1 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS + 1 }, { waitSeconds: 2.5 }])(
+    'rejects %j',
+    (input) => {
+      expect(inboxInputSchema.safeParse(input).success).toBe(false);
+    },
+  );
+});
+
+describe('inboxOutputSchema', () => {
+  it('answers how many deliveries wait for the crew', () => {
+    expect(inboxOutputSchema.parse({ waiting: 3 })).toEqual({ waiting: 3 });
+  });
+
+  it('rejects a negative count', () => {
+    expect(inboxOutputSchema.safeParse({ waiting: -1 }).success).toBe(false);
   });
 });
