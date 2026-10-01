@@ -190,6 +190,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says what a ship was renamed from and to, and by whom', () => {
+    expect(onScoutsPage(anEntry('ShipRenamed', { actor: argo, details: { from: 'lookout', to: 'scout' } }))).toEqual({
+      sentence: 'Renamed from lookout to scout by argo',
+      tone: 'ended',
+      icon: 'renamed',
+    });
+  });
+
   it('says who dismissed an undeliverable message', () => {
     expect(onScoutsPage(anEntry('DeliveryDismissed', { actor: argo, message: fromPlanner }))).toEqual({
       sentence: 'A message from planner was dismissed by argo',

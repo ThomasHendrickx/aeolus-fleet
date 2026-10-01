@@ -81,6 +81,9 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null }, select: { id: true } });
       return row !== null;
     },
+    rename: async ({ fleetId, shipId, name }) => {
+      await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });
+    },
     retire: async ({ fleetId, shipId, at }) => {
       await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at } });
     },
