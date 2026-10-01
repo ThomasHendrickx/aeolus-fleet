@@ -192,7 +192,7 @@ describe('resending an undeliverable delivery', () => {
     expect(core.state.messages).toHaveLength(messages);
   });
 
-  it.each(['pending', 'delivered', 'acknowledged', 'abandoned'] as const)(
+  it.each(['pending', 'delivered', 'acknowledged', 'dismissed', 'abandoned'] as const)(
     'refuses a delivery that is %s: only an undeliverable one is resent',
     async (state) => {
       const original = await undeliverable();

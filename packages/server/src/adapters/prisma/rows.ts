@@ -255,6 +255,7 @@ const messageRow = z.object({
   idempotencyKey: z.string(),
   requestHash: z.string(),
   inReplyToMessageId: idSchema('message').nullable(),
+  resendOfMessageId: idSchema('message').nullable(),
   createdAt: z.date(),
 });
 

@@ -71,6 +71,7 @@ describe('sending a message to a ship', () => {
         idempotencyKey: input.idempotencyKey,
         requestHash: message?.requestHash,
         inReplyToMessageId: null,
+        resendOfMessageId: null,
         createdAt: core.clock.now(),
       },
     ]);
@@ -432,6 +433,7 @@ describe('a send refused', () => {
       idempotencyKey: 'elsewhere',
       requestHash: 'elsewhere',
       inReplyToMessageId: null,
+      resendOfMessageId: null,
       createdAt: core.clock.now(),
     });
 

@@ -17,6 +17,7 @@ import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
 import { createDismissDelivery } from '../../src/core/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
+import { createResendDelivery } from '../../src/core/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
@@ -106,6 +107,7 @@ export function messagingUseCases(core: InMemoryCore) {
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
     dismissDelivery: createDismissDelivery(deps),
+    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
   };
 }
 
@@ -282,6 +284,7 @@ export function deliveryInFlight(
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
     inReplyToMessageId: null,
+    resendOfMessageId: null,
     createdAt: at,
   });
   core.state.deliveries.push({

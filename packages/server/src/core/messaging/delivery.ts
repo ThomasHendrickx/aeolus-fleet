@@ -159,3 +159,19 @@ export function dismissDelivery(
       );
   }
 }
+
+/**
+ * A resend dismisses the delivery it resends, which must be undeliverable:
+ * one already dismissed has nothing left to resend.
+ */
+export function dismissForResend(
+  delivery: Delivery,
+  dismiss: { by: ShipId; at: Date },
+): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
+  return delivery.state === 'undeliverable'
+    ? dismissDelivery(delivery, dismiss)
+    : refuse(
+        'DELIVERY_NOT_UNDELIVERABLE',
+        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is resent`,
+      );
+}
