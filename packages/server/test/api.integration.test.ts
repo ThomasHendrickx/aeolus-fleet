@@ -159,6 +159,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_event_seq$/),
       expect.stringMatching(/^\d{14}_console_session_end_reason$/),
       expect.stringMatching(/^\d{14}_account_theme_session_device$/),
+      expect.stringMatching(/^\d{14}_lease_last_seen$/),
     ]);
   });
 });
@@ -295,6 +296,7 @@ describe('the fleet procedures at the API', () => {
       status: 'awaitingCrew',
       startingPrompt: { issuedAt: clock.now().toISOString(), isClaimed: false },
       location: null,
+      lastSeenAt: null,
     });
   });
 
@@ -1399,5 +1401,23 @@ describe("the operator's account at the API", () => {
 
     await expect(codeOf(agent.console.account.query())).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.console.setTheme.mutate({ theme: 'dark' }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('last seen at the API', () => {
+  it("shows a crewed ship's last call in the fleet list, and argo's from its console session", async () => {
+    const crewToken = await crewedShip();
+    const asShip = client({ authorization: `Bearer ${crewToken}` });
+    const { shipId } = await asShip.ship.whoami.query();
+    clock.advance(30_000);
+    await asShip.ship.whoami.query();
+    const seenAt = clock.now().toISOString();
+    const asArgo = await signedInArgo();
+    clock.advance(5_000);
+
+    const ships = await asArgo.fleet.list.query();
+
+    expect(ships.find((ship) => ship.id === shipId)?.lastSeenAt).toBe(seenAt);
+    expect(ships.find((ship) => ship.kind === 'operator')?.lastSeenAt).toBe(clock.now().toISOString());
   });
 });

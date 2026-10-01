@@ -22,6 +22,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
       isClaimed: true,
     },
     location: { kind: 'DEVICE', description: null },
+    lastSeenAt: null,
     ...changes,
   };
 }
@@ -32,6 +33,7 @@ const argo = ship('h1aa', {
   kind: 'operator',
   startingPrompt: null,
   location: { kind: 'OTHER', description: 'web console' },
+  lastSeenAt: null,
 });
 
 const FLEET: ListedShip[] = [
@@ -39,11 +41,13 @@ const FLEET: ListedShip[] = [
   ship('h1ab', {
     name: 'builder-core',
     location: { kind: 'CLOUD', description: null },
+    lastSeenAt: null,
   }),
   ship('h1ac', {
     name: 'builder-web',
     status: 'awaitingCrew',
     location: null,
+    lastSeenAt: null,
     startingPrompt: {
       issuedAt: new Date(NOW.getTime() - 3 * HOUR_MS).toISOString(),
       isClaimed: false,
@@ -54,17 +58,20 @@ const FLEET: ListedShip[] = [
     name: 'release-captain',
     type: 'release',
     location: { kind: 'SERVER', description: null },
+    lastSeenAt: null,
   }),
   ship('h1af', {
     name: 'reviewer-01',
     type: 'reviewer',
     location: { kind: 'OTHER', description: 'CI runner' },
+    lastSeenAt: null,
   }),
   ship('h1ag', {
     name: 'triage-bot',
     type: 'triage',
     status: 'awaitingCrew',
     location: null,
+    lastSeenAt: null,
     startingPrompt: null,
   }),
   ship('h1ah', {
@@ -72,6 +79,7 @@ const FLEET: ListedShip[] = [
     type: 'scout',
     status: 'retired',
     location: null,
+    lastSeenAt: null,
     startingPrompt: null,
   }),
 ];

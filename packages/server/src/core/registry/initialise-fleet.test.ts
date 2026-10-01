@@ -177,6 +177,7 @@ describe('initialise fleet', () => {
       messages: [],
       deliveries: [],
       deliveryReads: [],
+      leaseSeen: [],
       events: [],
       notices: [],
     });

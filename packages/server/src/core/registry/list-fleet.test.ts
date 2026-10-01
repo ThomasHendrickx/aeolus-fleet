@@ -76,6 +76,7 @@ describe('listing the fleet', () => {
         status: 'awaitingCrew',
         startingPrompt: null,
         location: null,
+        lastSeenAt: null,
       },
       {
         id: scoutId,
@@ -85,6 +86,7 @@ describe('listing the fleet', () => {
         status: 'awaitingCrew',
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
+        lastSeenAt: null,
       },
     ]);
   });

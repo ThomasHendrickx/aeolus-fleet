@@ -115,6 +115,7 @@ export const fleetRouter = router({
           issuedAt: ship.startingPrompt.issuedAt.toISOString(),
           isClaimed: ship.startingPrompt.isClaimed,
         },
+        lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
       })),
     ),
 
@@ -130,6 +131,7 @@ export const fleetRouter = router({
           issuedAt: ship.startingPrompt.issuedAt.toISOString(),
           isClaimed: ship.startingPrompt.isClaimed,
         },
+        lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,

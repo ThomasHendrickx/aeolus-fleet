@@ -111,8 +111,11 @@ export interface AbandonedDelivery {
 /** What the fleet listing reads about one ship: the ship, the lease of the session crewing it, and its valid secret. */
 export interface ShipFacts {
   ship: Ship;
-  /** Where the session holding the ship's open lease runs, and since when; null while no session crews it. */
-  openLease: { location: Location; startedAt: Date } | null;
+  /**
+   * Where the session holding the ship's open lease runs, since when, and its
+   * last call (its claim until it calls again); null while no session crews it.
+   */
+  openLease: { location: Location; startedAt: Date; lastSeenAt: Date } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
 }

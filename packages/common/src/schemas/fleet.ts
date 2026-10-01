@@ -82,6 +82,7 @@ export const recrewShipInputSchema = z.object({ shipId: idSchema('ship') });
  * valid secret, when there is one: when it was issued and whether a session
  * has claimed the ship with it. `location` is where the session crewing the
  * ship runs, as it reported on claim; null while no session crews it.
+ * `lastSeenAt` is its session's last call.
  */
 export const listedShipSchema = z.object({
   id: idSchema('ship'),
@@ -104,6 +105,11 @@ export const listedShipSchema = z.object({
       description: z.string().nullable(),
     })
     .nullable(),
+  /**
+   * When the session crewing the ship last called the fleet (ISO 8601 in UTC):
+   * observation only, nothing acts on it. Null while no session crews it.
+   */
+  lastSeenAt: z.iso.datetime().nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

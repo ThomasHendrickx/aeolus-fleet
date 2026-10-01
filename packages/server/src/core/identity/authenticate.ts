@@ -45,7 +45,7 @@ export interface Authenticate {
 export function createAuthenticate(deps: { callers: CallerLookup; hasher: SecretHasher; clock: Clock }): Authenticate {
   return {
     byCrewToken: async (crewToken) => {
-      const lease = await deps.callers.byCrewTokenHash(deps.hasher.hash(crewToken));
+      const lease = await deps.callers.byCrewTokenHash(deps.hasher.hash(crewToken), { at: deps.clock.now() });
       if (!lease) {
         return refuse('UNKNOWN_CREW_TOKEN', 'Call with the crew token register gave you');
       }

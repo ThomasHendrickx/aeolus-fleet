@@ -138,8 +138,14 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
 
 export function createPrismaCallerLookup(db: Db): CallerLookup {
   return {
-    byCrewTokenHash: async (crewTokenHash) => {
+    byCrewTokenHash: async (crewTokenHash, { at }) => {
+      // One statement marks an open lease seen and reads it back. GREATEST
+      // keeps two overlapping calls from moving it back.
       const [row] = await db.$queryRaw<unknown[]>`
+        WITH seen AS (
+          UPDATE leases SET last_seen_at = GREATEST(COALESCE(last_seen_at, ${at}), ${at})
+          WHERE crew_token_hash = ${crewTokenHash} AND ended_at IS NULL
+        )
         SELECT s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes, l.id AS lease_id,
           l.ended_at IS NULL AS is_open
         FROM leases l
@@ -148,15 +154,22 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
       return row ? toCrewTokenLease(row) : undefined;
     },
     useConsoleSession: async ({ tokenHash, now, expiresAt }) => {
-      // One statement checks the session, moves its expiry and returns the ship.
-      // GREATEST keeps two overlapping requests from moving either date back.
+      // One statement checks the session, moves its expiry, marks argo's lease
+      // seen and returns the ship. GREATEST keeps two overlapping requests from
+      // moving any date back.
       const [row] = await db.$queryRaw<unknown[]>`
-        UPDATE console_sessions cs
-        SET last_used_at = GREATEST(cs.last_used_at, ${now}), expires_at = GREATEST(cs.expires_at, ${expiresAt})
-        FROM ships s
-        WHERE cs.token_hash = ${tokenHash} AND cs.ended_at IS NULL AND cs.expires_at > ${now}
-          AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
-        RETURNING cs.id AS console_session_id, cs.lease_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes`;
+        WITH used AS (
+          UPDATE console_sessions cs
+          SET last_used_at = GREATEST(cs.last_used_at, ${now}), expires_at = GREATEST(cs.expires_at, ${expiresAt})
+          FROM ships s
+          WHERE cs.token_hash = ${tokenHash} AND cs.ended_at IS NULL AND cs.expires_at > ${now}
+            AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
+          RETURNING cs.id AS console_session_id, cs.lease_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
+        ), seen AS (
+          UPDATE leases l SET last_seen_at = GREATEST(COALESCE(l.last_seen_at, ${now}), ${now})
+          FROM used WHERE l.id = used.lease_id AND l.ended_at IS NULL
+        )
+        SELECT * FROM used`;
       return row ? toConsoleSessionCaller(row) : undefined;
     },
     consoleSessionEnding: async (tokenHash) => {

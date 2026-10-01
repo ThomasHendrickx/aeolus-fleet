@@ -23,6 +23,7 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
     status: 'crewed',
     startingPrompt: null,
     location: { kind: 'DEVICE', description: null },
+    lastSeenAt: null,
     ...overrides,
   };
 }

@@ -85,14 +85,16 @@ export interface ConsoleSessionRepository {
 export interface CallerLookup {
   /**
    * The lease that holds this crew token hash, open or ended; undefined when
-   * no lease of a ship that is not retired ever held it.
+   * no lease of a ship that is not retired ever held it. An open lease is
+   * marked seen `at`: every call by its crew shows the ship alive. Observation
+   * only (ADR 0016): nothing acts on it.
    */
-  byCrewTokenHash(crewTokenHash: string): Promise<CrewTokenLease | undefined>;
+  byCrewTokenHash(crewTokenHash: string, seen: { at: Date }): Promise<CrewTokenLease | undefined>;
   /**
    * The caller of the console session with this token hash, when the session
    * has not ended and expires after `now`: argo, crewed under the lease the
-   * session holds. Using it moves its last use to `now` and its expiry to
-   * `expiresAt`.
+   * session holds. Using it moves its last use to `now`, its expiry to
+   * `expiresAt`, and marks argo's lease seen `now`.
    */
   useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Crew | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
