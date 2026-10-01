@@ -514,7 +514,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       session.lastUsedAt = at;
       session.expiresAt = expiresAt;
-      return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id });
+      return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id, leaseId: session.leaseId });
     },
     consoleSessionEnding: (tokenHash) =>
       Promise.resolve(state.consoleSessions.find((held) => held.tokenHash === tokenHash)?.endReason ?? undefined),

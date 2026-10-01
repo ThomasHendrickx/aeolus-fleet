@@ -1,5 +1,5 @@
 import { refuseEndedLease, type LeaseEnded } from '../registry/public.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -8,7 +8,8 @@ import { consoleSessionExpiry, type ConsoleSessionEndReason } from './console-se
 import type { CallerLookup } from './ports.js';
 
 export interface ConsoleSessionUse {
-  caller: Caller;
+  /** argo, crewed under the lease the session holds. */
+  caller: Crew;
   /** The session's new expiry: 30 days after this use. */
   expiresAt: Date;
 }
