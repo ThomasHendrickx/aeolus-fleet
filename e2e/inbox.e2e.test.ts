@@ -185,3 +185,48 @@ describe('Compose', () => {
     expect(deliveries).toEqual([expect.objectContaining({ payload: 'Pause all reviews until 15:00.', inReplyTo: null })]);
   });
 });
+
+describe('diagnostic: the live inbox count', () => {
+  it.each(Array.from({ length: 8 }, (_, index) => index + 1))('run %i', async (run) => {
+    const sender = await crewedOverRest({ name: `diag-${String(run)}`, type: 'diag' });
+    const page = await signedInPage();
+    const frames: string[] = [];
+    const logs: string[] = [];
+    const started = Date.now();
+    page.on('websocket', (socket) => {
+      frames.push(`${String(Date.now() - started)} open ${socket.url()}`);
+      socket.on('framesent', (frame) => frames.push(`${String(Date.now() - started)} > ${String(frame.payload).slice(0, 160)}`));
+      socket.on('framereceived', (frame) => frames.push(`${String(Date.now() - started)} < ${String(frame.payload).slice(0, 160)}`));
+      socket.on('close', () => frames.push(`${String(Date.now() - started)} close`));
+      socket.on('socketerror', (error) => frames.push(`${String(Date.now() - started)} error ${error}`));
+    });
+    page.on('console', (message) => logs.push(`${String(Date.now() - started)} ${message.type()} ${message.text().slice(0, 200)}`));
+    page.on('request', (request) => {
+      if (request.url().includes('fleet.inbox')) {
+        logs.push(`${String(Date.now() - started)} request ${request.url().slice(-80)}`);
+      }
+    });
+    page.on('response', (response) => {
+      if (response.url().includes('fleet.inbox')) {
+        void response.text().then((text) => logs.push(`${String(Date.now() - started)} response ${text.slice(0, 200)}`));
+      }
+    });
+    const navigation = page.getByTestId('nav-inbox');
+    await navigation.waitFor();
+    const open = (await database.delivery.count({ where: { recipientShipId: argo.shipId, state: 'pending' } })) + 1;
+    frames.push(`${String(Date.now() - started)} sending`);
+    await toArgo(sender, `diag message ${String(run)}`);
+    frames.push(`${String(Date.now() - started)} sent`);
+    try {
+      await navigation.getByText(String(open), { exact: true }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    } catch (error) {
+      const live = await page.getByRole('banner').textContent();
+      const nav = await navigation.innerHTML();
+      throw new Error(
+        `count ${String(open)} not shown. live: ${String(live)}\nnav: ${nav.slice(0, 400)}\nframes:\n${frames.join('\n')}\nlogs:\n${logs.join('\n')}`,
+        { cause: error },
+      );
+    }
+    await page.context().close();
+  });
+});
