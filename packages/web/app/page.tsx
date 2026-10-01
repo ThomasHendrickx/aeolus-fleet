@@ -9,6 +9,7 @@ import { ListLayout } from '../components/templates/list-layout';
 import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
 import { useLiveFleet } from '../lib/live-fleet';
+import { useAttentionCount } from '../lib/needs-attention';
 import { useSignInWhenSessionEnds, useSignOut } from '../lib/session';
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -36,6 +37,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const fleet = useFleetSnapshot();
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
 
   const changeView = (next: FleetView) => {
@@ -48,6 +50,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       title="Fleet overview"
       description="Every ship in the fleet, live."
       live={liveFleet.live}
+      nav={{ active: 'overview', attentionCount }}
       onSignOut={signOut}
     >
       <CommissionShipForm />

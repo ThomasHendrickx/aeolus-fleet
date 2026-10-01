@@ -13,6 +13,7 @@ import { ShipTimeline } from '../../../components/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { trpcErrorCode } from '../../../lib/errors';
 import { useLiveFleet } from '../../../lib/live-fleet';
+import { useAttentionCount } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds, useSignOut } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
@@ -54,6 +55,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
 
   const show = (view: { tab: Tab; messageId?: MessageId }) => {
@@ -70,6 +72,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       title={ship.data?.name ?? 'Ship'}
       parent={{ href: '/', label: 'Fleet overview' }}
       live={liveFleet.live}
+      nav={{ active: 'overview', attentionCount }}
       onSignOut={signOut}
       header={
         <ShipHeader
