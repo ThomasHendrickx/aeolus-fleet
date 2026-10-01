@@ -1,0 +1,82 @@
+import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
+
+import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
+import type { Caller } from '../shared/caller.js';
+import type { Clock } from '../shared/clock.js';
+import { refuse, type DomainError } from '../shared/errors.js';
+import { recordEvent, shipActor } from '../shared/events.js';
+import { ok, type Result } from '../shared/result.js';
+import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { endLease, type LeaseTx } from './leases.js';
+import type { ShipRepository } from './ports.js';
+import { checkCanRetire, type RetireRefusal } from './ship.js';
+
+export interface RetireShipTx extends LeaseTx, CredentialTx {
+  ships: ShipRepository;
+}
+
+export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
+
+export type RetireShip = (
+  caller: Caller,
+  input: { shipId: ShipId },
+) => Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>>;
+
+/**
+ * Use case: the caller retires a ship of its fleet for good (Retire): any ship
+ * but argo, crewed or not. In one unit of work: its secret stops working; a
+ * crewed ship's lease ends as a release ends it, so its crew token stops
+ * working and what it held in flight returns to pending; then its direct
+ * pending deliveries are abandoned, one DeliveryAbandoned each, and the ship
+ * is retired: never claimed or addressed again, its name free. Deliveries to
+ * its type stay for the other ships of the type, and an undeliverable one
+ * stays for the operator. The caller's scope (fleet:manage) is checked before
+ * this runs.
+ *
+ * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
+ * the ship holds it FOR SHARE while it resolves the selector, so the two
+ * serialise: a send that commits first has its delivery abandoned here, and a
+ * send after finds the ship retired and is refused.
+ */
+export function createRetireShip(deps: {
+  uow: UnitOfWork<RetireShipTx>;
+  clock: Clock;
+  ids: IdGenerator;
+}): RetireShip {
+  return (caller, { shipId }) =>
+    deps.uow.run(async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
+      const { fleetId } = caller;
+      const ship = await tx.ships.findForUpdate(fleetId, shipId);
+      if (!ship) {
+        return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
+      }
+      const retirable = checkCanRetire(ship);
+      if (!retirable.isOk) {
+        return retirable;
+      }
+      const actor = shipActor(caller.shipId);
+      const at = deps.clock.now();
+      const recorded = { events: tx.events, ids: deps.ids };
+
+      await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
+      const lease = await tx.leases.findOpenForUpdate(fleetId, shipId);
+      if (lease) {
+        await endLease({ tx, ids: deps.ids }, { fleetId, leaseId: lease.id, actor, at, reason: 'retired' });
+      }
+      const abandoned = await tx.inFlightDeliveries.abandonPendingTo(fleetId, shipId);
+      await tx.ships.retire({ fleetId, shipId, at });
+
+      await recordEvent(recorded, {
+        fleetId,
+        type: 'ShipRetired',
+        occurredAt: at,
+        actor,
+        shipId,
+        details: { abandonedDeliveries: abandoned.length },
+      });
+      for (const { deliveryId, messageId } of abandoned) {
+        await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
+      }
+      return ok({ abandonedDeliveries: abandoned.length });
+    });
+}

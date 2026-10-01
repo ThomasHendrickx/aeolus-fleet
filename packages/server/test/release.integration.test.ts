@@ -415,6 +415,7 @@ describe('a release racing a receive', () => {
     const { uow, reached } = heldUnitOfWork(prisma, (tx, hold) => ({
       ...tx,
       inFlightDeliveries: {
+        ...tx.inFlightDeliveries,
         returnToPending: async (fleet, leaseId) => {
           const returned = await tx.inFlightDeliveries.returnToPending(fleet, leaseId);
           await hold();

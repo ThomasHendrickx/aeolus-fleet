@@ -229,11 +229,23 @@ export function checkNameIsNotReserved(name: string): Result<void, Reserved> {
     : ok(undefined);
 }
 
-export function checkCanRetire(ship: Ship): Result<void, Permanent> {
-  return checkNotOperatorShip(ship, 'retired');
-}
-
 export type ReleaseRefusal = Permanent | DomainError<'SHIP_NOT_CREWED'>;
+
+export type RetireRefusal = Permanent | DomainError<'SHIP_ALREADY_RETIRED'>;
+
+/**
+ * The operator ends a ship for good (Retire): any ship but argo, crewed or
+ * not, unless it is retired already.
+ */
+export function checkCanRetire(ship: Ship): Result<void, RetireRefusal> {
+  const permanent = checkNotOperatorShip(ship, 'retired');
+  if (!permanent.isOk) {
+    return permanent;
+  }
+  return ship.retiredAt === null
+    ? ok(undefined)
+    : refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired already: a retired ship stays retired`);
+}
 
 /**
  * The operator frees a ship from the session crewing it (Release), and the
