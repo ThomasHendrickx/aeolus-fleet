@@ -1,17 +1,21 @@
 import {
   commissionShipInputSchema,
+  fleetEventsInputSchema,
   fleetListOutputSchema,
+  type FleetStreamItem,
   getStartingPromptInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
   startingPromptOutputSchema,
 } from '@aeolus-fleet/common';
+import { tracked } from '@trpc/server';
 
-import { okOrThrow, router, scopedProcedure } from './trpc.js';
+import type { SequencedEvent } from '../../core/shared/events.js';
+import { checkCallerStillHolds, okOrThrow, router, scopedProcedure } from './trpc.js';
 
 /**
  * Fleet procedures: commission ships, hand out their starting prompts, release
- * them, list the fleet. The caller's fleet and ship come from its credentials, never from
+ * them, list the fleet and follow it live. The caller's fleet and ship come from its credentials, never from
  * the input.
  */
 export const fleetRouter = router({
@@ -52,4 +56,53 @@ export const fleetRouter = router({
         },
       })),
     ),
+
+  /**
+   * The fleet's committed events, live, over the WebSocket: each with its
+   * number, which tRPC sends back as `lastEventId` when the browser
+   * reconnects, so it misses none. Without a number, or too far behind, the
+   * browser is told to load the fleet again first (`resync`). Each wake-up
+   * asks again whether the caller still holds, so a console session that ended
+   * hears no more.
+   */
+  events: scopedProcedure('fleet:read')
+    .input(fleetEventsInputSchema)
+    .subscription(async function* ({ ctx, input, signal }) {
+      const watch = ctx.fleetEvents.watch(ctx.caller.fleetId);
+      const stopped = signal ?? new AbortController().signal;
+      try {
+        let afterSeq = input.lastEventId == null ? undefined : Number(input.lastEventId);
+        do {
+          const read = await ctx.useCases.readFleetEvents(ctx.caller, afterSeq);
+          if (read.kind === 'resync') {
+            afterSeq = read.seq;
+            yield tracked(String(read.seq), { kind: 'resync' } satisfies FleetStreamItem);
+          } else {
+            for (const event of read.events) {
+              afterSeq = event.seq;
+              yield tracked(String(event.seq), { kind: 'event', event: liveEventOf(event) } satisfies FleetStreamItem);
+            }
+          }
+          if (!(await watch.next(stopped))) {
+            return;
+          }
+          await checkCallerStillHolds(ctx);
+        } while (!stopped.aborted);
+      } finally {
+        watch.stop();
+      }
+    }),
 });
+
+/** An event as the browser hears it: never its details. */
+function liveEventOf(event: SequencedEvent) {
+  return {
+    seq: event.seq,
+    id: event.id,
+    type: event.type,
+    occurredAt: event.occurredAt.toISOString(),
+    shipId: event.shipId ?? null,
+    messageId: event.messageId ?? null,
+    deliveryId: event.deliveryId ?? null,
+  };
+}

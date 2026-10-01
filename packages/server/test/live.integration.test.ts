@@ -71,6 +71,8 @@ const answerSchema = z.object({
   error: z.object({ data: z.object({ code: z.string() }) }).optional(),
 });
 
+const trackedSchema = z.object({ id: z.string(), data: z.unknown() });
+
 interface Following {
   /** What the subscription sent, with the event id tRPC tracks it by. */
   items: { trackedId: string; item: FleetStreamItem }[];
@@ -96,7 +98,9 @@ async function follow(options: { cookie?: string; origin?: string; lastEventId?:
     if (answer.error) {
       following.refusal = answer.error.data.code;
     } else if (answer.result?.type === 'data') {
-      following.items.push({ trackedId: answer.result.id ?? '', item: fleetStreamItemSchema.parse(answer.result.data) });
+      // A tracked item travels as { id, data }; its id is the event's number.
+      const { id, data } = trackedSchema.parse(answer.result.data);
+      following.items.push({ trackedId: id, item: fleetStreamItemSchema.parse(data) });
     }
   });
   await new Promise<void>((resolve, reject) => {

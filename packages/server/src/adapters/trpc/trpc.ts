@@ -208,6 +208,17 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   return undefined;
 }
 
+/**
+ * Refuses a live subscription whose caller no longer holds: its console
+ * session ended, or its crew's lease did. A subscription outlives the call
+ * that opened it, so it asks again each time it has news.
+ */
+export async function checkCallerStillHolds(ctx: Context): Promise<void> {
+  if (!(await resolveCaller(ctx))) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
+  }
+}
+
 /** What a caller without a valid crew token is told, at a door for ships and for a crew procedure. */
 const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
 
@@ -218,10 +229,13 @@ const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
  */
 export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, next }) => {
   // A mutation on the console session's cookie changes state: checked before
-  // the session is used, so a forged call does not even renew it. A crew token
-  // wins over the cookie, and no browser sends one by itself.
+  // the session is used, so a forged call does not even renew it. A
+  // subscription is checked too: a browser opens a WebSocket from any page
+  // with the cookie, and no CORS rule keeps that page from reading the
+  // answers. A crew token wins over the cookie, and no browser sends one by
+  // itself.
   const { bearer, sessionToken } = ctx.credentials;
-  if (type === 'mutation' && bearer === undefined && sessionToken !== undefined) {
+  if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
     checkConsoleOrigin(ctx);
   }
   const caller = await resolveCaller(ctx);

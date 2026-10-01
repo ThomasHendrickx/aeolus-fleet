@@ -4,6 +4,7 @@ import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
 import { mcpUrlOf } from './adapters/mcp/mcp-url.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
+import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import {
   createPrismaFleetListing,
@@ -32,6 +33,7 @@ import { createReleaseShip, type ReleaseShip } from './core/registry/release-shi
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
+import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-fleet-events.js';
 
 export interface UseCases {
   ping: Ping;
@@ -47,6 +49,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
+  readFleetEvents: ReadFleetEvents;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -100,6 +103,7 @@ export function createUseCases(options: {
       waitMs: options.receiveWaitMs,
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
+    readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),
