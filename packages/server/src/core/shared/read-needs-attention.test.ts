@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
-import { UNDELIVERABLE_AT_CLAIM } from '../messaging/delivery.js';
 import type { Crew } from './caller.js';
+
+/** The claim that makes a delivery never acknowledged undeliverable (docs/blueprint.md, "Key flows"). */
+const UNDELIVERABLE_AT_CLAIM = 5;
 
 let scene: HistoryScenario;
 
@@ -20,11 +22,7 @@ async function receiveUntilUndeliverable(crew: Crew): Promise<void> {
 }
 
 function deliveryOf(messageId: MessageId) {
-  const delivery = scene.core.state.deliveries.find((held) => held.messageId === messageId);
-  if (!delivery) {
-    throw new Error(`No delivery of ${messageId}`);
-  }
-  return delivery;
+  return scene.core.state.deliveries.find((held) => held.messageId === messageId);
 }
 
 describe('reading Needs attention', () => {
@@ -33,11 +31,12 @@ describe('reading Needs attention', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId }, payload });
     const sentAt = scene.core.clock.now();
     await receiveUntilUndeliverable(scene.scout);
-    const since = scene.core.clock.now();
+    // Each receive comes a second after the one before; the fifth claim made it undeliverable.
+    const since = new Date(sentAt.getTime() + UNDELIVERABLE_AT_CLAIM * 1_000);
 
     await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([
       {
-        deliveryId: deliveryOf(messageId).id,
+        deliveryId: deliveryOf(messageId)?.id,
         attempts: UNDELIVERABLE_AT_CLAIM,
         since,
         message: {
@@ -68,7 +67,11 @@ describe('reading Needs attention', () => {
   it('leaves out every delivery that is not undeliverable: dismissed, abandoned, pending and acknowledged ones', async () => {
     const dismissed = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await receiveUntilUndeliverable(scene.scout);
-    unwrap(await scene.messaging.dismissDelivery(scene.argo, { deliveryId: deliveryOf(dismissed).id }));
+    const deliveryId = deliveryOf(dismissed)?.id;
+    expect(deliveryId).toBeDefined();
+    if (deliveryId) {
+      unwrap(await scene.messaging.dismissDelivery(scene.argo, { deliveryId }));
+    }
     const acknowledged = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await scene.receive(scene.scout);
     await scene.ack(scene.scout, acknowledged);
