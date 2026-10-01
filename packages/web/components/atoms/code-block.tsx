@@ -13,6 +13,7 @@ interface CodeBlockProps {
   copyValue?: string;
   /** The accessible name of the copy button: "Copy starting prompt". */
   copyLabel?: string;
+  onCopied?: () => void;
   onCopyFailed?: () => void;
   codeTestId?: string;
   copyTestId?: string;
@@ -29,6 +30,7 @@ export function CodeBlock({
   isWrapped = false,
   copyValue,
   copyLabel = `Copy ${label.toLowerCase()}`,
+  onCopied,
   onCopyFailed,
   codeTestId,
   copyTestId,
@@ -44,6 +46,7 @@ export function CodeBlock({
           value={copyValue ?? code}
           label={copyLabel}
           isLabeled
+          onCopied={onCopied}
           onCopyFailed={onCopyFailed}
           data-testid={copyTestId}
         />

@@ -134,3 +134,9 @@
     }
   }
 }
+
+/* The dotted ground of signed-out pages (AuthLayout). */
+@utility bg-dots {
+  background-image: radial-gradient(color-mix(in oklch, var(--foreground) 10%, transparent) 1px, transparent 1.2px);
+  background-size: calc(var(--spacing) * 5.5) calc(var(--spacing) * 5.5);
+}

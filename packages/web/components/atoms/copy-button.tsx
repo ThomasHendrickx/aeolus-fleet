@@ -16,6 +16,7 @@ interface CopyButtonProps {
   size?: 'xs' | 'touch';
   /** Shows "Copy" and "Copied" next to the icon. */
   isLabeled?: boolean;
+  onCopied?: () => void;
   /** The clipboard refused: the caller says how to copy by hand. */
   onCopyFailed?: () => void;
   className?: string;
@@ -31,6 +32,7 @@ export function CopyButton({
   label,
   size = 'xs',
   isLabeled = false,
+  onCopied,
   onCopyFailed,
   className,
   'data-testid': testId,
@@ -45,6 +47,7 @@ export function CopyButton({
       return;
     }
     setIsCopied(true);
+    onCopied?.();
     setTimeout(() => {
       setIsCopied(false);
     }, COPIED_FOR_MS);
