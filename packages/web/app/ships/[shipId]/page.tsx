@@ -1,6 +1,6 @@
 'use client';
 
-import { idSchema, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { idSchema, type MessageId, type Party, type ShipId } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
@@ -62,6 +62,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ messageId: MessageId; sender: Party }>();
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
 
@@ -106,6 +107,9 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
             if (!isOpen) {
               show({ tab });
             }
+          }}
+          onReply={(replied) => {
+            setReplyTo({ messageId: replied.id, sender: replied.sender });
           }}
         />
       }
@@ -153,6 +157,15 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         </Tabs>
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ComposeMessage
+        isOpen={replyTo !== undefined}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setReplyTo(undefined);
+          }
+        }}
+        replyTo={replyTo}
+      />
       <ConsoleCommands
         isOpen={isSearching}
         onOpenChange={setIsSearching}

@@ -1,13 +1,14 @@
 'use client';
 
 import type { MessageDetail, MessageId } from '@aeolus-fleet/common';
-import { MailQuestion } from 'lucide-react';
+import { MailQuestion, Reply } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { formattedPayload, payloadLabel } from '../../lib/payload';
 import { fullDateTime } from '../../lib/relative-time';
 import { OPERATOR_NAME, ship, text, type SentencePart } from '../../lib/sentence';
 import { CodeBlock } from '../atoms/code-block';
+import { Button } from '../atoms/button';
 import { CopyButton } from '../atoms/copy-button';
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../atoms/sheet';
 import { Skeleton } from '../atoms/skeleton';
@@ -26,6 +27,8 @@ interface MessageSheetProps {
   state: 'ready' | 'loading' | 'not-found';
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  /** Replies to the message as argo, to its sender; offered when someone other than argo sent it. */
+  onReply?: (message: MessageDetail) => void;
 }
 
 const SECTION_TITLE = 'text-section font-semibold text-foreground';
@@ -144,9 +147,10 @@ function Loading() {
  * One message without leaving the page (docs/design/png/MessageSheet.png):
  * envelope, payload (Formatted for JSON, or Raw) and its DeliveryHistory. A
  * 560 px side sheet on desktop; full width on phone, where the delivery comes
- * first. Resend and Dismiss come with Needs attention.
+ * first. Reply answers its sender as argo, through Compose with the
+ * recipient and the reply already set.
  */
-export function MessageSheet({ message, messageId, state, isOpen, onOpenChange }: MessageSheetProps) {
+export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, onReply }: MessageSheetProps) {
   const isReady = state === 'ready' && message !== undefined;
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -166,6 +170,20 @@ export function MessageSheet({ message, messageId, state, isOpen, onOpenChange }
               <SheetDescription>
                 <Sentence parts={recipientParts(message)} />. {statusLabel(message.delivery.state)}.
               </SheetDescription>
+              {onReply && message.sender.name !== OPERATOR_NAME ? (
+                <div>
+                  <Button
+                    size="xs"
+                    icon={<Reply />}
+                    data-testid="message-reply"
+                    onClick={() => {
+                      onReply(message);
+                    }}
+                  >
+                    Reply to {message.sender.name}
+                  </Button>
+                </div>
+              ) : null}
             </>
           ) : (
             <>
