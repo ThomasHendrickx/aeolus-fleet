@@ -87,3 +87,5 @@ No text input to any procedure may hold the character U+0000, which Postgres can
 A database error is logged by its codes only, under `database`: Prisma's code, Postgres's SQLSTATE and the driver adapter's kind, never its message or stack, since Postgres quotes values from the request in its words. The same holds for the health check, the delivery listener and the server commands.
 
 A request Fastify refuses before any procedure runs answers in the same `{ "code", "message" }` shape: a body that is not JSON `400 BAD_REQUEST`, a body over 1 MiB `413 PAYLOAD_TOO_LARGE`, a body of another content type `415 UNSUPPORTED_MEDIA_TYPE`, and a path or method nothing serves `404 NOT_FOUND`.
+
+The operator's account: `console.account` answers the signed-in operator's email, theme and this console session (`{ "device": "Mac · Chrome", "since": "..." }`; the device is worded from the sign-in's User-Agent and is also argo's lease location). `console.setTheme` (`{ "theme": "light" | "dark" | "system" }`) stores the theme on the account, so it follows the operator to any browser; no event. Both answer only a console session (`FORBIDDEN` otherwise).
