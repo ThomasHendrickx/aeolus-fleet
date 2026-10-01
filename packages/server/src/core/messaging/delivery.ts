@@ -1,4 +1,4 @@
-import type { LeaseId, ShipId } from '@aeolus-fleet/common';
+import type { LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -174,4 +174,60 @@ export function dismissForResend(
         'DELIVERY_NOT_UNDELIVERABLE',
         `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is resent`,
       );
+}
+
+export type MarkDoneRefusal = DomainError<'DELIVERY_NOT_FOUND' | 'DELIVERY_NOT_OPEN' | 'DELIVERY_HELD_BY_ANOTHER_SHIP'>;
+
+/**
+ * argo marks a message to it done (docs/blueprint.md, "Inbox"): the console
+ * never receives, so an open delivery is claimed and acknowledged at once
+ * under the console session's lease, one claim counted, and its two events
+ * written as a receive and an ack would write them. One the session already
+ * holds in flight is only acknowledged. The acknowledgement names the reply
+ * that made it done, when a reply did. Marking it done again is harmless: OK,
+ * and nothing changes. A delivery to another ship is not in argo's inbox; one
+ * undeliverable, dismissed or abandoned is no longer open.
+ */
+export function markDone(
+  delivery: Delivery,
+  done: { crew: CrewOfShip; at: Date; reply?: MessageId },
+): Result<{ delivery: Delivery; events: NewEvent[] }, MarkDoneRefusal> {
+  const { crew, at, reply } = done;
+  const { recipient } = delivery;
+  if (recipient.kind !== 'ship' || recipient.shipId !== crew.shipId) {
+    return refuse('DELIVERY_NOT_FOUND', `Delivery ${delivery.id} is not in your inbox`);
+  }
+  const concerns = {
+    fleetId: delivery.fleetId,
+    occurredAt: at,
+    actor: shipActor(crew.shipId),
+    shipId: crew.shipId,
+    messageId: delivery.messageId,
+    deliveryId: delivery.id,
+  };
+  const acknowledged: NewEvent = {
+    ...concerns,
+    type: 'DeliveryAcknowledged',
+    details: { leaseId: crew.leaseId, ...(reply && { reply }) },
+  };
+
+  switch (delivery.state) {
+    case 'acknowledged':
+      return ok({ delivery, events: [] });
+    case 'pending': {
+      const attempts = delivery.attempts + 1;
+      return ok({
+        delivery: { ...delivery, state: 'acknowledged', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts },
+        events: [{ ...concerns, type: 'DeliveryClaimed', details: { leaseId: crew.leaseId, attempts } }, acknowledged],
+      });
+    }
+    case 'delivered':
+      return delivery.claimedByLeaseId === crew.leaseId
+        ? ok({ delivery: { ...delivery, state: 'acknowledged' }, events: [acknowledged] })
+        : refuse('DELIVERY_HELD_BY_ANOTHER_SHIP', `Delivery ${delivery.id} is held by another session`);
+    case 'undeliverable':
+    case 'dismissed':
+    case 'abandoned':
+      return refuse('DELIVERY_NOT_OPEN', `Delivery ${delivery.id} is ${delivery.state}: only an open message is marked done`);
+  }
 }
