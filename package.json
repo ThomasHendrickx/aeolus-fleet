@@ -39,5 +39,16 @@
     "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.2",
     "zod": "^4.6.5"
+  },
+  "overrides": {
+    "@scalar/json-magic": {
+      "undici": "7.30.0"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    },
+    "prisma": {
+      "mysql2": "3.24.5"
+    }
   }
 }
