@@ -2,6 +2,8 @@ import {
   ackInputSchema,
   ackOutputSchema,
   deregisterOutputSchema,
+  inboxInputSchema,
+  inboxOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
   registerInputSchema,
@@ -139,6 +141,25 @@ export const shipRouter = router({
       okOrThrow(await ctx.useCases.acknowledgeDelivery(ctx.crew, input));
       return {};
     }),
+
+  /**
+   * How many deliveries wait for the crew: what its next receive would hand
+   * it. Claims nothing. With waitSeconds (0 to 25) it waits while none does.
+   * A mutation only so that REST takes its body; it changes nothing.
+   */
+  inbox: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Tells you how many deliveries wait for you: what your next receive would hand you, your own unacknowledged ones included.',
+        'It claims nothing, so call receive to get them.',
+        'With waitSeconds (0 to 25) it waits while none does, and answers as soon as one arrives.',
+      ].join(' '),
+    })
+    .input(inboxInputSchema)
+    .output(inboxOutputSchema)
+    .mutation(async ({ ctx, input }) =>
+      okOrThrow(await ctx.useCases.checkInbox(ctx.crew, { waitSeconds: input?.waitSeconds })),
+    ),
 
   /**
    * Ends the calling crew's own lease, and with it its crew token: the ship

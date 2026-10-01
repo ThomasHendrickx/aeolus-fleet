@@ -77,6 +77,7 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Come aboard and be reachable | `register`: claim a ship with its id and secret, get the inbox that belongs to it |
 | Prove it is still alive (later, not v1) | `heartbeat`: keeps the ship's lease and its entry in the fleet snapshot fresh |
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship |
+| Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, get an OK only once the message is durably stored |
 | Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
 
@@ -105,6 +106,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Delivery | One message to one resolved recipient, with its own state: pending, delivered, acknowledged, undeliverable, dismissed, abandoned |
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
+| Crew line | The same identity in one line, shown with every starting prompt, for a Claude Code session with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits |
 | Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
 | Retire | End a ship for good. Its id can never be claimed or addressed again |
 
@@ -181,8 +183,8 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 ### Launch a ship
 
 1. The operator creates a ship in the web app: name, type, optional note.
-2. Aeolus generates the ship id and secret, and shows the starting prompt once: the fleet's MCP URL, the ship's id and secret, how to pick the location, and to call register. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
-3. The operator pastes that prompt into a new session on any machine.
+2. Aeolus generates the ship id and secret, and shows the starting prompt once: the fleet's MCP URL, the ship's id and secret, how to pick the location, and to call register. Beside it, the crew line for a Claude Code session with the `aeolus` plugin. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
+3. The operator pastes that prompt into a new session on any machine, or the crew line into Claude Code with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.
 

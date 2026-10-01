@@ -14,6 +14,7 @@ import { createResetOperatorPassword } from '../../src/core/identity/reset-opera
 import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
+import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
@@ -67,6 +68,7 @@ export function registryUseCases(core: InMemoryCore) {
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
     mcpUrl: FLEET_MCP_URL,
+    fleetUrl: FLEET_URL,
   };
   return {
     commissionShip: createCommissionShip(deps),
@@ -97,6 +99,7 @@ export function messagingUseCases(core: InMemoryCore) {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
+    checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
   };
 }
 

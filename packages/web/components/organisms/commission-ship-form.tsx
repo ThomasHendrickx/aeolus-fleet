@@ -118,6 +118,7 @@ export function CommissionShipForm() {
         <StartingPromptBlock
           shipName={commission.variables.name}
           prompt={commission.data.prompt}
+          crewLine={commission.data.crewLine}
           onDone={() => {
             commission.reset();
           }}

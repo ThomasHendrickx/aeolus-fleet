@@ -63,6 +63,12 @@ export interface DeliveryRepository {
    * for: two receivers never get the same delivery (ADR 0003).
    */
   findClaimableForUpdate(query: ClaimableDeliveries): Promise<ClaimableDelivery[]>;
+  /**
+   * How many deliveries the crew's next receive would hand it: those in
+   * flight with its lease, and those pending for its ship or its type. Locks
+   * nothing and claims nothing.
+   */
+  countReceivable(query: Omit<ClaimableDeliveries, 'limit' | 'excluding'>): Promise<number>;
   /** The delivery, locked until the unit of work ends. */
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** Stores the delivery's state, its claim and its attempts. */

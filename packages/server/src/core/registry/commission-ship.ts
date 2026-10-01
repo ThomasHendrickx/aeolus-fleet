@@ -31,6 +31,8 @@ export function createCommissionShip(deps: {
   secrets: Omit<SecretTools, 'ids'>;
   /** Where a session reaches the fleet over MCP: the URL the starting prompt carries. */
   mcpUrl: string;
+  /** The fleet's public URL: the one the crew line carries. */
+  fleetUrl: string;
 }): CommissionShip {
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, CommissionRefusal>> => {
@@ -52,10 +54,10 @@ export function createCommissionShip(deps: {
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      const prompt = await issueStartingPrompt(
-        { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl },
+      const issued = await issueStartingPrompt(
+        { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl, fleetUrl: deps.fleetUrl },
         { fleetId, shipId: ship.id, actor, at },
       );
-      return ok({ shipId: ship.id, prompt });
+      return ok(issued);
     });
 }

@@ -38,12 +38,15 @@ export const getStartingPromptInputSchema = z.object({ shipId: idSchema('ship') 
 
 /**
  * Output of `fleet.commission` and `fleet.getStartingPrompt`: the starting
- * prompt, holding the ship's new secret. Shown once; the secret is never
- * readable again.
+ * prompt, holding the ship's new secret, and the crew line, the same in one
+ * line for a Claude Code session with the aeolus plugin. Shown once; the
+ * secret is never readable again.
  */
 export const startingPromptOutputSchema = z.object({
   shipId: idSchema('ship'),
   prompt: z.string(),
+  /** `/aeolus:crew <fleetUrl> <shipId> <secret>`. */
+  crewLine: z.string(),
 });
 
 export type StartingPromptOutput = z.infer<typeof startingPromptOutputSchema>;

@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { startingPromptText } from './starting-prompt.js';
+import { crewLine, startingPromptText } from './starting-prompt.js';
 
 const shipId = createIdGenerator()('ship');
 const MCP_URL = 'https://fleet.example.com/mcp';
@@ -55,6 +55,14 @@ describe('the starting prompt text', () => {
         '',
         'Call register.',
       ].join('\n'),
+    );
+  });
+});
+
+describe('the crew line', () => {
+  it('crews the ship from a Claude Code session with the aeolus plugin, in one line: the fleet URL, the ship id and the secret', () => {
+    expect(crewLine({ fleetUrl: 'https://fleet.example.com', shipId, secret: 'aeolus_sk_v1_abc' })).toBe(
+      `/aeolus:crew https://fleet.example.com ${shipId} aeolus_sk_v1_abc`,
     );
   });
 });

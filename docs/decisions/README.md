@@ -16,5 +16,5 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0012](0012-operator-is-a-ship.md) **Operator is the ship `argo`.** Permanent, all scopes, no secret; crewed only by the operator's email and password login; one session at a time.
 - [0013](0013-breaking-changes-before-1-0.md) **Breaking changes before 1.0.0.** Allowed; no compatibility layers.
 - [0014](0014-strict-test-driven-development.md) **Strict TDD.** Server and common test first, `(red)` commit then green; push green only.
-- [0015](0015-ship-identity-per-conversation.md) **Identity per conversation.** `register` returns a crew token; later calls carry it; MCP connection has no ship credential.
+- [0015](0015-ship-identity-per-conversation.md) **Identity per conversation, per folder with the plugin.** `register` returns a crew token; later calls carry it; MCP connection has no ship credential; the plugin keeps the token per working folder.
 - [0016](0016-no-policy.md) **No policy.** Scopes are enforced exactly; Aeolus adds no protective rules. Risk is the operator's call.

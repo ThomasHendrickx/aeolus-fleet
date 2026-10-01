@@ -158,6 +158,17 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(second)).resolves.toBe(true);
   });
 
+  it('shows the crew line for the aeolus plugin beside the prompt, with the same ship and secret', async () => {
+    const page = await signedInPage();
+    await commission(page, { name: 'bosun', type: 'reviewer' });
+    const block = promptBlock(page, 'bosun');
+    const prompt = await promptTextIn(page, 'bosun');
+
+    const crewLine = await block.getByTestId('starting-prompt-crew-line').textContent();
+
+    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`);
+  });
+
   it('copies the starting prompt', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'pilot', type: 'navigator' });

@@ -87,14 +87,22 @@ describe('getStartingPromptInputSchema', () => {
 });
 
 describe('startingPromptOutputSchema', () => {
-  it('accepts the ship id and the prompt', () => {
-    const output = { shipId: newId('ship'), prompt: 'Ship secret: aeolus_sk_v1_abc' };
+  it('accepts the ship id, the prompt and the crew line', () => {
+    const output = {
+      shipId: newId('ship'),
+      prompt: 'Ship secret: aeolus_sk_v1_abc',
+      crewLine: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc',
+    };
 
     expect(startingPromptOutputSchema.parse(output)).toEqual(output);
   });
 
   it('rejects a missing prompt', () => {
-    expect(startingPromptOutputSchema.safeParse({ shipId: newId('ship') }).success).toBe(false);
+    expect(startingPromptOutputSchema.safeParse({ shipId: newId('ship'), crewLine: '/aeolus:crew' }).success).toBe(false);
+  });
+
+  it('rejects a missing crew line', () => {
+    expect(startingPromptOutputSchema.safeParse({ shipId: newId('ship'), prompt: 'Ship secret: s' }).success).toBe(false);
   });
 });
 

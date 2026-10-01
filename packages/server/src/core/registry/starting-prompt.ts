@@ -38,34 +38,47 @@ export function startingPromptText(input: { mcpUrl: string; shipId: ShipId; secr
   ].join('\n');
 }
 
+/**
+ * The crew line: the same identity in one line, for a Claude Code session
+ * with the aeolus plugin, which registers and keeps the crew token itself.
+ * The fleet URL is where the plugin reaches the fleet; it finds the MCP
+ * server and REST under it.
+ */
+export function crewLine(input: { fleetUrl: string; shipId: ShipId; secret: string }): string {
+  return `/aeolus:crew ${input.fleetUrl} ${input.shipId} ${input.secret}`;
+}
+
 /** A starting prompt as a use case hands it out: once. */
 export interface IssuedStartingPrompt {
   shipId: ShipId;
   /** The starting prompt, holding the ship's secret in plain text only here. */
   prompt: string;
+  /** The crew line for the aeolus plugin, holding the same secret. */
+  crewLine: string;
 }
 
 export interface StartingPromptTx extends CredentialTx {
   events: EventLog;
 }
 
-/** What issuing a starting prompt works with: the caller's unit of work, the secret tools and the fleet's MCP URL. */
+/** What issuing a starting prompt works with: the caller's unit of work, the secret tools and the fleet's URLs. */
 export interface StartingPromptDeps {
   tx: StartingPromptTx;
   secrets: SecretTools;
   mcpUrl: string;
+  fleetUrl: string;
 }
 
 /**
  * Issues a new secret for the ship and writes StartingPromptIssued. The caller
- * invalidates any earlier secret first. Returns the prompt: the one moment the
- * secret exists in plain text.
+ * invalidates any earlier secret first. Returns the prompt and the crew line:
+ * the one moment the secret exists in plain text.
  */
 export async function issueStartingPrompt(
   deps: StartingPromptDeps,
   input: { fleetId: FleetId; shipId: ShipId; actor: Actor; at: Date },
-): Promise<string> {
-  const { tx, secrets, mcpUrl } = deps;
+): Promise<IssuedStartingPrompt> {
+  const { tx, secrets, mcpUrl, fleetUrl } = deps;
   const { fleetId, shipId, actor, at } = input;
 
   const { secret, credentialId } = await issueShipSecret({ tx, ...secrets }, { fleetId, shipId, at });
@@ -77,5 +90,5 @@ export async function issueStartingPrompt(
     shipId,
     details: { credentialId },
   });
-  return startingPromptText({ mcpUrl, shipId, secret });
+  return { shipId, prompt: startingPromptText({ mcpUrl, shipId, secret }), crewLine: crewLine({ fleetUrl, shipId, secret }) };
 }

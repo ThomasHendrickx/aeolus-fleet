@@ -20,6 +20,7 @@ import { createResetOperatorPassword, type ResetOperatorPassword } from './core/
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './core/messaging/acknowledge-delivery.js';
+import { createCheckInbox, type CheckInbox } from './core/messaging/check-inbox.js';
 import type { ReceiverWakeups } from './core/messaging/ports.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './core/messaging/receive-deliveries.js';
 import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
@@ -55,6 +56,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
+  checkInbox: CheckInbox;
   readFleetEvents: ReadFleetEvents;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
@@ -91,13 +93,14 @@ export function createUseCases(options: {
   const uow = createPrismaUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const mcpUrl = mcpUrlOf(options.fleetUrl);
+  const wakeups = options.wakeups ?? createReceiverWakeups();
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
-    commissionShip: createCommissionShip({ uow, clock, ids, secrets, mcpUrl }),
-    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl }),
+    commissionShip: createCommissionShip({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
+    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
@@ -109,10 +112,11 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
-      wakeups: options.wakeups ?? createReceiverWakeups(),
+      wakeups,
       waitMs: options.receiveWaitMs,
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
+    checkInbox: createCheckInbox({ uow, clock, wakeups }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),

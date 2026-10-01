@@ -408,6 +408,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         });
         return Promise.resolve(claimable);
       },
+      countReceivable: ({ fleetId, shipId, type, leaseId }) =>
+        Promise.resolve(
+          state.deliveries.filter(
+            (delivery) =>
+              delivery.fleetId === fleetId &&
+              ((delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId) ||
+                (delivery.state === 'pending' &&
+                  ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
+                    (delivery.recipient.kind === 'type' && delivery.recipient.type === type)))),
+          ).length,
+        ),
       findForUpdate: (fleetId, deliveryId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));

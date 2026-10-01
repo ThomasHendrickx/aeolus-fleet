@@ -154,6 +154,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/send', ['post']],
       ['/ship/receive', ['post']],
       ['/ship/ack', ['post']],
+      ['/ship/inbox', ['post']],
       ['/ship/deregister', ['post']],
     ]);
   });

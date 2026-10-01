@@ -81,6 +81,7 @@ export function FleetOverview({
         <StartingPromptBlock
           shipName={issuedFor?.name ?? issued.shipId}
           prompt={issued.prompt}
+          crewLine={issued.crewLine}
           onDone={() => {
             getStartingPrompt.reset();
           }}

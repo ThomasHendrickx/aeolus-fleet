@@ -4,6 +4,7 @@ import type { Authenticate } from '../../core/identity/authenticate.js';
 import type { SignIn } from '../../core/identity/sign-in.js';
 import type { SignOut } from '../../core/identity/sign-out.js';
 import type { AcknowledgeDelivery } from '../../core/messaging/acknowledge-delivery.js';
+import type { CheckInbox } from '../../core/messaging/check-inbox.js';
 import type { ReceiveDeliveries } from '../../core/messaging/receive-deliveries.js';
 import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
@@ -37,6 +38,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
+  checkInbox: CheckInbox;
   readFleetEvents: ReadFleetEvents;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
