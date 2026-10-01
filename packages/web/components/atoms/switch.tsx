@@ -14,7 +14,7 @@ export function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
     <SwitchPrimitive.Root
       data-slot="switch"
       className={classNames(
-        'peer inline-flex h-5 w-8.5 shrink-0 items-center rounded-full border border-transparent bg-input p-0.5 transition-colors duration-(--duration-fast) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-checked:bg-primary data-disabled:cursor-not-allowed data-disabled:opacity-45',
+        'peer inline-flex h-5 w-8.5 shrink-0 items-center rounded-full border border-transparent bg-input p-0.5 transition-colors duration-(--duration-fast) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-checked:bg-primary data-disabled:opacity-45',
         className,
       )}
       {...props}

@@ -75,7 +75,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={classNames(
-        'relative flex h-8.5 cursor-default items-center gap-2.5 rounded-sm pr-8 pl-2.5 text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent',
+        'relative flex h-8.5 items-center gap-2.5 rounded-sm pr-8 pl-2.5 text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent',
         className,
       )}
       {...props}

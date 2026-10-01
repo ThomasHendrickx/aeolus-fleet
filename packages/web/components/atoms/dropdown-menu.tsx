@@ -55,7 +55,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-variant={variant}
       className={classNames(
-        "relative flex h-8.5 cursor-default items-center gap-2.5 rounded-sm px-2.5 text-body text-foreground outline-none select-none data-highlighted:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-disabled:pointer-events-none data-disabled:opacity-45 data-[variant=destructive]:text-destructive-text [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--size-icon) [&_svg]:text-muted-foreground data-[variant=destructive]:[&_svg]:text-destructive-text",
+        "relative flex h-8.5 items-center gap-2.5 rounded-sm px-2.5 text-body text-foreground outline-none select-none data-highlighted:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-disabled:pointer-events-none data-disabled:opacity-45 data-[variant=destructive]:text-destructive-text [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--size-icon) [&_svg]:text-muted-foreground data-[variant=destructive]:[&_svg]:text-destructive-text",
         className,
       )}
       {...props}
