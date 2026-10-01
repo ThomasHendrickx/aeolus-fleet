@@ -20,6 +20,7 @@ import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.
 import type { ListFleet } from '../../core/registry/list-fleet.js';
 import type { RecrewShip } from '../../core/registry/recrew-ship.js';
 import type { ReleaseShip } from '../../core/registry/release-ship.js';
+import type { RenameShip } from '../../core/registry/rename-ship.js';
 import type { RetireShip } from '../../core/registry/retire-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
@@ -40,6 +41,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   retireShip: RetireShip;
+  renameShip: RenameShip;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
