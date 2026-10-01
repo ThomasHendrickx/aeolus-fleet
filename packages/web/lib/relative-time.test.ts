@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clockTime, dayDate, duration, fullDateTime, relativeTime, secondsTime, shortDateTime } from './relative-time';
+import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, secondsTime, shortDateTime } from './relative-time';
 
 const NOW = new Date(2026, 8, 28, 14, 21, 5);
 
@@ -69,5 +69,18 @@ describe('duration', () => {
     [0, '0 min'],
   ])('words %i ms as %s', (ms, words) => {
     expect(duration(from, after(ms))).toBe(words);
+  });
+});
+
+describe('lastSeen', () => {
+  const now = new Date('2026-10-01T14:00:00.000Z');
+
+  it('counts seconds under a minute', () => {
+    expect(lastSeen(new Date('2026-10-01T13:59:40.000Z'), now)).toBe('Last seen 20 s ago');
+    expect(lastSeen(now, now)).toBe('Last seen 0 s ago');
+  });
+
+  it('reads as other relative times from a minute on', () => {
+    expect(lastSeen(new Date('2026-10-01T13:54:00.000Z'), now)).toBe('Last seen 6 min ago');
   });
 });

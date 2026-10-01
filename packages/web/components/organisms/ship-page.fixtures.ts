@@ -36,7 +36,7 @@ export const CREWED_SHIP: ShipDetail = {
   status: 'crewed',
   startingPrompt: { issuedAt: minutesAgo(15), isClaimed: true },
   location: { kind: 'SERVER', description: 'hetzner-1' },
-  lastSeenAt: null,
+  lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,

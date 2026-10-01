@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
-/** Relative times ("6 min ago") move on once a minute. */
-const TICK_MS = 60_000;
+/** Relative times ("6 min ago", "Last seen 20 s ago") move on every ten seconds. */
+const TICK_MS = 10_000;
 
 let now = Date.now();
 const listeners = new Set<() => void>();

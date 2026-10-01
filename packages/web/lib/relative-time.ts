@@ -1,3 +1,4 @@
+const SECOND_MS = 1_000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
@@ -65,4 +66,16 @@ export function relativeTime(at: Date, now: Date): string {
     return `${String(Math.floor(elapsedMs / MINUTE_MS))} min ago`;
   }
   return `${String(Math.floor(elapsedMs / HOUR_MS))} h ago`;
+}
+
+/**
+ * When a crewed ship last called the fleet (issue #67): seconds under a
+ * minute, so a live session reads "Last seen 20 s ago", then as other
+ * relative times.
+ */
+export function lastSeen(at: Date, now: Date): string {
+  const elapsedMs = Math.max(0, now.getTime() - at.getTime());
+  return elapsedMs < MINUTE_MS
+    ? `Last seen ${String(Math.floor(elapsedMs / SECOND_MS))} s ago`
+    : `Last seen ${relativeTime(at, now)}`;
 }

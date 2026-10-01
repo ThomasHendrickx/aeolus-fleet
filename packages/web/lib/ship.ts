@@ -1,6 +1,7 @@
 import type { MessageId, ShipId } from '@aeolus-fleet/common';
 import { skipToken, useQuery } from '@tanstack/react-query';
 
+import { LAST_SEEN_REFRESH_MS } from './fleet';
 import { useTRPC } from './trpc';
 
 /**
@@ -10,7 +11,9 @@ import { useTRPC } from './trpc';
  */
 export function useShip(shipId: ShipId | undefined) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.ship.queryOptions(shipId === undefined ? skipToken : { shipId }));
+  return useQuery(
+    trpc.fleet.ship.queryOptions(shipId === undefined ? skipToken : { shipId }, { refetchInterval: LAST_SEEN_REFRESH_MS }),
+  );
 }
 
 /** Every change to the ship, newest first. */

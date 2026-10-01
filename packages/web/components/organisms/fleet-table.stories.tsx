@@ -146,3 +146,14 @@ export const Error: Story = {
 };
 
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** Crewed ships with when each last called: one live, one whose session went quiet. */
+export const LastSeen: Story = {
+  args: {
+    ships: [
+      argo,
+      ship('h1ba', { name: 'reviewer-01', type: 'reviewer', lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString() }),
+      ship('h1bb', { name: 'quiet-bot', type: 'triage', lastSeenAt: new Date(NOW.getTime() - 2 * HOUR_MS).toISOString() }),
+    ],
+  },
+};
