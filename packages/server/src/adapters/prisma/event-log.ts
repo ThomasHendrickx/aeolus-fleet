@@ -13,9 +13,9 @@
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { EventLog, FleetEvent } from '../../core/shared/events.js';
+import type { EventLog, FleetEvent, FleetEventFeed } from '../../core/shared/events.js';
 import type { Db } from './client.js';
-import { toLastEventSeq } from './rows.js';
+import { toLastEventSeq, toSequencedEvent } from './rows.js';
 
 /** The one channel every committed event is announced on, with its fleet and the last number. */
 export const FLEET_EVENT_CHANNEL = 'aeolus_event';
@@ -66,4 +66,22 @@ async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[
     })),
   });
   await db.$executeRaw`SELECT pg_notify(${FLEET_EVENT_CHANNEL}, ${JSON.stringify({ fleetId, seq: lastSeq })})`;
+}
+
+/** Reads committed events by number. Each read is one statement, outside a unit of work. */
+export function createPrismaFleetEventFeed(db: Db): FleetEventFeed {
+  return {
+    lastSeq: async (fleetId) => {
+      const fleet = await db.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } });
+      return Number(fleet?.lastEventSeq ?? 0);
+    },
+    after: async (fleetId, { seq, limit }) => {
+      const rows = await db.event.findMany({
+        where: { fleetId, seq: { gt: seq } },
+        orderBy: { seq: 'asc' },
+        take: limit,
+      });
+      return rows.map(toSequencedEvent);
+    },
+  };
 }

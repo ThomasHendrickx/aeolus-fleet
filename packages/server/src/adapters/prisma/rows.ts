@@ -1,4 +1,11 @@
-import { deliveryStateSchema, idSchema, locationKindSchema, scopeSchema, shipKindSchema } from '@aeolus-fleet/common';
+import {
+  deliveryStateSchema,
+  eventTypeSchema,
+  idSchema,
+  locationKindSchema,
+  scopeSchema,
+  shipKindSchema,
+} from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { ConsoleSession } from '../../core/identity/console-session.js';
@@ -6,7 +13,7 @@ import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../..
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
-import type { FleetEventNotice } from '../../core/shared/events.js';
+import type { FleetEventNotice, SequencedEvent } from '../../core/shared/events.js';
 import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
@@ -322,5 +329,30 @@ export function toDeliveryFromSql(row: unknown): Delivery {
     claimedByLeaseId: delivery.claimed_by_lease_id,
     attempts: delivery.attempts,
     createdAt: delivery.created_at,
+  };
+}
+
+const eventRowSchema = z.object({
+  id: idSchema('event'),
+  fleetId: idSchema('fleet'),
+  type: eventTypeSchema,
+  occurredAt: z.date(),
+  actorShipId: idSchema('ship').nullable(),
+  shipId: idSchema('ship').nullable(),
+  messageId: idSchema('message').nullable(),
+  deliveryId: idSchema('delivery').nullable(),
+  details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  seq: seqSchema,
+});
+
+/** An event row as Prisma reads it; a missing subject stays absent, as the core wrote it. */
+export function toSequencedEvent(row: unknown): SequencedEvent {
+  const { actorShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
+  return {
+    ...event,
+    actor: actorShipId === null ? { kind: 'system' } : { kind: 'ship', shipId: actorShipId },
+    ...(shipId === null ? {} : { shipId }),
+    ...(messageId === null ? {} : { messageId }),
+    ...(deliveryId === null ? {} : { deliveryId }),
   };
 }
