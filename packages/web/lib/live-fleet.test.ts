@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isShipChange, liveStateOf } from './live-fleet';
+import { isAttentionChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -25,6 +25,19 @@ describe('isShipChange', () => {
     'leaves the snapshot alone for %s',
     (type) => {
       expect(isShipChange(type)).toBe(false);
+    },
+  );
+});
+
+describe('isAttentionChange', () => {
+  it.each(['DeliveryUndeliverable', 'DeliveryDismissed'] as const)('reloads Needs attention for %s', (type) => {
+    expect(isAttentionChange(type)).toBe(true);
+  });
+
+  it.each(['MessageAccepted', 'DeliveryClaimed', 'DeliveryAcknowledged', 'DeliveryAbandoned', 'ShipRetired'] as const)(
+    'leaves Needs attention alone for %s',
+    (type) => {
+      expect(isAttentionChange(type)).toBe(false);
     },
   );
 });
