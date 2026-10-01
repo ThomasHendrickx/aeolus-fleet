@@ -2,6 +2,12 @@ import {
   commissionShipInputSchema,
   fleetEventsInputSchema,
   fleetListOutputSchema,
+  messageInputSchema,
+  messageOutputSchema,
+  shipDetailOutputSchema,
+  shipInputSchema,
+  shipMessagesOutputSchema,
+  shipTimelineOutputSchema,
   type FleetStreamItem,
   getStartingPromptInputSchema,
   releaseShipInputSchema,
@@ -18,7 +24,8 @@ import { checkCallerStillHolds, okOrThrow, router, scopedProcedure } from './trp
 
 /**
  * Fleet procedures: commission ships, hand out their starting prompts, release
- * them, list the fleet and follow it live. The caller's fleet and ship come from its credentials, never from
+ * them, list the fleet and follow it live, and read a ship's page: the ship,
+ * its timeline, its messages and one message's delivery history. The caller's fleet and ship come from its credentials, never from
  * the input.
  */
 export const fleetRouter = router({
@@ -59,6 +66,62 @@ export const fleetRouter = router({
         },
       })),
     ),
+
+  /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
+  ship: scopedProcedure('fleet:read')
+    .input(shipInputSchema)
+    .output(shipDetailOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const ship = okOrThrow(await ctx.useCases.getShip(ctx.caller, input));
+      return {
+        ...ship,
+        startingPrompt: ship.startingPrompt && {
+          issuedAt: ship.startingPrompt.issuedAt.toISOString(),
+          isClaimed: ship.startingPrompt.isClaimed,
+        },
+        commissionedAt: ship.commissionedAt.toISOString(),
+        crewedSince: ship.crewedSince?.toISOString() ?? null,
+        retiredAt: ship.retiredAt?.toISOString() ?? null,
+      };
+    }),
+
+  /** Every change to a ship, newest first: the events naming it and the ones it caused. */
+  shipTimeline: scopedProcedure('fleet:read')
+    .input(shipInputSchema)
+    .output(shipTimelineOutputSchema)
+    .query(async ({ ctx, input }) =>
+      okOrThrow(await ctx.useCases.readShipTimeline(ctx.caller, input)).map((entry) => ({
+        ...entry,
+        occurredAt: entry.occurredAt.toISOString(),
+      })),
+    ),
+
+  /** The messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
+  shipMessages: scopedProcedure('fleet:read')
+    .input(shipInputSchema)
+    .output(shipMessagesOutputSchema)
+    .query(async ({ ctx, input }) =>
+      okOrThrow(await ctx.useCases.readShipMessages(ctx.caller, input)).map((message) => ({
+        ...message,
+        sentAt: message.sentAt.toISOString(),
+      })),
+    ),
+
+  /** One message: envelope, payload, and its delivery with every change, newest first. */
+  message: scopedProcedure('fleet:read')
+    .input(messageInputSchema)
+    .output(messageOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const message = okOrThrow(await ctx.useCases.readMessage(ctx.caller, input));
+      return {
+        ...message,
+        sentAt: message.sentAt.toISOString(),
+        delivery: {
+          ...message.delivery,
+          history: message.delivery.history.map((change) => ({ ...change, occurredAt: change.occurredAt.toISOString() })),
+        },
+      };
+    }),
 
   /**
    * The fleet's committed events, live, over the WebSocket: each with its

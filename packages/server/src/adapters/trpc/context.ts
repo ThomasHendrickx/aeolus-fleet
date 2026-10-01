@@ -16,6 +16,9 @@ import type { ReleaseShip } from '../../core/registry/release-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
+import type { ReadMessage } from '../../core/shared/read-message.js';
+import type { ReadShipMessages } from '../../core/shared/read-ship-messages.js';
+import type { ReadShipTimeline } from '../../core/shared/read-ship-timeline.js';
 
 /** The use cases procedures can call. Wired once at startup. */
 export interface UseCases {
@@ -35,6 +38,9 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   readFleetEvents: ReadFleetEvents;
+  readShipTimeline: ReadShipTimeline;
+  readShipMessages: ReadShipMessages;
+  readMessage: ReadMessage;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

@@ -8,6 +8,7 @@ import {
   crewShip,
   identityUseCases,
   initialiseFleet,
+  historyUseCases,
   messagingUseCases,
   OPERATOR,
   registryUseCases,
@@ -46,6 +47,7 @@ function useCasesOf(overrides: Partial<UseCases> = {}): UseCases {
     ...identityUseCases(core),
     ...registryUseCases(core),
     ...messagingUseCases(core),
+      ...historyUseCases(core),
     ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     ...overrides,
   };

@@ -31,7 +31,15 @@ import type {
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
-import type { DeliveryChange, HistoryMessage, HistoryParty, HistoryRecipient, ShipHistory, TimelineEntry } from '../../src/core/shared/history.js';
+import {
+  isDeliveryChangeType,
+  type DeliveryChange,
+  type HistoryMessage,
+  type HistoryParty,
+  type HistoryRecipient,
+  type ShipHistory,
+  type TimelineEntry,
+} from '../../src/core/shared/history.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
 import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
@@ -601,19 +609,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     };
   };
-  const HISTORY_TYPES = new Set(['MessageAccepted', 'DeliveryClaimed', 'DeliveryReturned', 'DeliveryAcknowledged', 'DeliveryUndeliverable']);
-  const changeOf = (event: SequencedEvent): DeliveryChange => {
+  const changeOf = (event: SequencedEvent): DeliveryChange[] => {
+    const { type } = event;
+    if (!isDeliveryChangeType(type)) {
+      return [];
+    }
     const lease =
       event.type === 'DeliveryClaimed' ? state.leases.find((held) => held.id === event.details.leaseId) : undefined;
     const { attempts } = event.details;
-    return {
-      seq: event.seq,
-      type: event.type,
-      occurredAt: event.occurredAt,
-      ship: event.type === 'MessageAccepted' || event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
-      location: lease ? { ...lease.location } : null,
-      attempts: typeof attempts === 'number' ? attempts : null,
-    };
+    return [
+      {
+        seq: event.seq,
+        type,
+        occurredAt: event.occurredAt,
+        ship: type === 'MessageAccepted' || event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
+        location: lease ? { ...lease.location } : null,
+        attempts: typeof attempts === 'number' ? attempts : null,
+      },
+    ];
   };
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
@@ -657,9 +670,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       const delivery = deliveryOfMessage(message);
       const changes = numbered(fleetId)
-        .filter((event) => event.deliveryId === delivery.id && HISTORY_TYPES.has(event.type))
+        .filter((event) => event.deliveryId === delivery.id)
         .reverse()
-        .map(changeOf);
+        .flatMap(changeOf);
       return Promise.resolve({ ...historyMessageOf(message), history: changes });
     },
   };

@@ -1,11 +1,12 @@
-import type {
-  DeliveryId,
-  DeliveryState,
-  EventId,
-  EventType,
-  FleetId,
-  MessageId,
-  ShipId,
+import {
+  DELIVERY_HISTORY_TYPES,
+  type DeliveryId,
+  type DeliveryState,
+  type EventId,
+  type EventType,
+  type FleetId,
+  type MessageId,
+  type ShipId,
 } from '@aeolus-fleet/common';
 
 import type { Location } from '../registry/public.js';
@@ -51,10 +52,17 @@ export interface HistoryMessage {
   delivery: { id: DeliveryId; state: DeliveryState; attempts: number; claimedBy: HistoryParty | null };
 }
 
-/** One change to a delivery: stored, claimed, returned, acknowledged or undeliverable. */
+/** The events that change a delivery: stored, claimed, returned, acknowledged or undeliverable. */
+export type DeliveryChangeType = (typeof DELIVERY_HISTORY_TYPES)[number];
+
+export function isDeliveryChangeType(type: EventType): type is DeliveryChangeType {
+  return DELIVERY_HISTORY_TYPES.some((change) => change === type);
+}
+
+/** One change to a delivery. */
 export interface DeliveryChange {
   seq: number;
-  type: EventType;
+  type: DeliveryChangeType;
   occurredAt: Date;
   /** The ship that claimed, returned or acknowledged it; null when it was stored. */
   ship: HistoryParty | null;

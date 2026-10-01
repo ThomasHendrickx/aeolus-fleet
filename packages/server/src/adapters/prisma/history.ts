@@ -4,31 +4,30 @@
  * read takes a few queries and names every party in one more, by the ships'
  * current names, so a renamed ship goes by its new name.
  */
-import { deliveryStateSchema, idSchema, locationKindSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import {
+  DELIVERY_HISTORY_TYPES,
+  deliveryStateSchema,
+  idSchema,
+  locationKindSchema,
+  type FleetId,
+  type ShipId,
+} from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { SequencedEvent } from '../../core/shared/events.js';
-import type {
-  DeliveryChange,
-  HistoryMessage,
-  HistoryParty,
-  HistoryRecipient,
-  ShipHistory,
+import {
+  isDeliveryChangeType,
+  type DeliveryChange,
+  type HistoryMessage,
+  type HistoryParty,
+  type HistoryRecipient,
+  type ShipHistory,
 } from '../../core/shared/history.js';
 import type { Message } from '../../core/messaging/message.js';
 import type { Recipient } from '../../core/shared/selector.js';
 import type { Db } from './client.js';
 import type { Location } from '../../core/registry/public.js';
 import { toMessage, toSequencedEvent } from './rows.js';
-
-/** The event types that change a delivery: its history. */
-const DELIVERY_HISTORY_TYPES = [
-  'MessageAccepted',
-  'DeliveryClaimed',
-  'DeliveryReturned',
-  'DeliveryAcknowledged',
-  'DeliveryUndeliverable',
-];
 
 const deliveryRow = z.object({
   id: idSchema('delivery'),
@@ -188,7 +187,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const delivery = onlyDelivery(row);
       const events = (
         await db.event.findMany({
-          where: { fleetId, deliveryId: delivery.id, type: { in: DELIVERY_HISTORY_TYPES } },
+          where: { fleetId, deliveryId: delivery.id, type: { in: [...DELIVERY_HISTORY_TYPES] } },
           orderBy: { seq: 'desc' },
         })
       ).map(toSequencedEvent);
@@ -203,7 +202,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       });
       return {
         ...historyMessageOf({ message, delivery }, party),
-        history: events.map((event) => changeOf(event, { party, leases })),
+        history: events.flatMap((event) => changeOf(event, { party, leases })),
       };
     },
   };
@@ -230,16 +229,22 @@ async function claimingLeases(db: Db, of: { fleetId: FleetId; events: SequencedE
 function changeOf(
   event: SequencedEvent,
   read: { party: (id: ShipId) => HistoryParty; leases: Map<string, Location> },
-): DeliveryChange {
+): DeliveryChange[] {
+  const { type } = event;
+  if (!isDeliveryChangeType(type)) {
+    return [];
+  }
   const { leaseId, attempts } = event.details;
   const location = event.type === 'DeliveryClaimed' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
-  return {
-    seq: event.seq,
-    type: event.type,
-    occurredAt: event.occurredAt,
-    ship: event.type === 'MessageAccepted' || event.shipId === undefined ? null : read.party(event.shipId),
-    location: location ?? null,
-    attempts: typeof attempts === 'number' ? attempts : null,
-  };
+  return [
+    {
+      seq: event.seq,
+      type,
+      occurredAt: event.occurredAt,
+      ship: type === 'MessageAccepted' || event.shipId === undefined ? null : read.party(event.shipId),
+      location: location ?? null,
+      attempts: typeof attempts === 'number' ? attempts : null,
+    },
+  ];
 }
 
