@@ -81,7 +81,7 @@ async function deliveryInFlightToArgo(): Promise<string> {
 }
 
 describe('signing in on Postgres', () => {
-  it('stores the session by token hash and a lease from the web console', async () => {
+  it('stores the session by token hash, its device, and a lease from that device', async () => {
     const { token, consoleSessionId } = unwrap(await core.useCases.signIn(OPERATOR));
 
     const [session] = await liveSessions();
@@ -93,7 +93,7 @@ describe('signing in on Postgres', () => {
       leaseId: lease?.id,
       expiresAt: new Date(core.clock.now().getTime() + 30 * DAY_MS),
     });
-    expect(lease).toMatchObject({ shipId: argoId, location: 'OTHER', locationDescription: 'web console' });
+    expect(lease).toMatchObject({ shipId: argoId, location: 'OTHER', locationDescription: 'Unknown device' });
     await expect(eventTypes()).resolves.toEqual(['ShipClaimed']);
   });
 

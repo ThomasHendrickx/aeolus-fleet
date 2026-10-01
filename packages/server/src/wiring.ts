@@ -16,7 +16,9 @@ import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
+import { createReadAccount, type ReadAccount } from './core/identity/read-account.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
+import { createSetTheme, type SetTheme } from './core/identity/set-theme.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './core/messaging/acknowledge-delivery.js';
@@ -83,6 +85,8 @@ export interface UseCases {
   readInbox: ReadInbox;
   signIn: SignIn;
   signOut: SignOut;
+  readAccount: ReadAccount;
+  setTheme: SetTheme;
   resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
 }
@@ -160,6 +164,8 @@ export function createUseCases(options: {
       passwords: argon2idPasswordHasher,
     }),
     signOut: createSignOut({ uow, clock, ids }),
+    readAccount: createReadAccount({ uow }),
+    setTheme: createSetTheme({ uow }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
   };

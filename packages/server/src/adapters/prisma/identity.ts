@@ -62,7 +62,7 @@ export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup
       // Not scoped by fleet: signing in names no fleet (ADR 0007). No lock:
       // a plain read never waits for a sign-in or a reset holding the row.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
         WHERE email = ${email}`;
       return row ? toOperatorAccount(row) : undefined;
     },
@@ -77,20 +77,29 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     findByEmailForUpdate: async (email) => {
       // Not scoped by fleet: signing in names no fleet (ADR 0007).
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
         WHERE email = ${email}
         FOR UPDATE`;
       return row ? toOperatorAccount(row) : undefined;
     },
     findForFleetForUpdate: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, email, password_hash, created_at FROM operators
+        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
         WHERE fleet_id = ${fleetId}
         FOR UPDATE`;
       return row ? toOperatorAccount(row) : undefined;
     },
     changePassword: async ({ fleetId, operatorId, passwordHash }) => {
       await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { passwordHash } });
+    },
+    findForFleet: async (fleetId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        WHERE fleet_id = ${fleetId}`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
+    setTheme: async ({ fleetId, operatorId, theme }) => {
+      await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { theme } });
     },
   };
 }
@@ -100,11 +109,19 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
     create: async (session) => {
       await db.consoleSession.create({ data: session });
     },
+    find: async (fleetId, consoleSessionId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, ship_id, lease_id, device, token_hash, created_at, last_used_at, expires_at, ended_at,
+          end_reason::text AS end_reason
+        FROM console_sessions
+        WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId}`;
+      return row ? toConsoleSession(row) : undefined;
+    },
     end: async ({ fleetId, consoleSessionId, at, reason }) => {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+        RETURNING id, fleet_id, ship_id, lease_id, device, token_hash, created_at, last_used_at, expires_at, ended_at,
           end_reason::text AS end_reason`;
       return row ? toConsoleSession(row) : undefined;
     },
@@ -112,7 +129,7 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
       const rows = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+        RETURNING id, fleet_id, ship_id, lease_id, device, token_hash, created_at, last_used_at, expires_at, ended_at,
           end_reason::text AS end_reason`;
       return rows.map(toConsoleSession);
     },

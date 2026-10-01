@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId } from '@aeolus-fleet/common';
+import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
 
 import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
@@ -56,11 +56,16 @@ export interface OperatorAccountRepository {
   /** The fleet's operator account, locked until the unit of work ends. */
   findForFleetForUpdate(fleetId: FleetId): Promise<OperatorAccount | undefined>;
   changePassword(change: { fleetId: FleetId; operatorId: OperatorId; passwordHash: string }): Promise<void>;
+  /** The fleet's operator account, read without a lock. */
+  findForFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
+  setTheme(change: { fleetId: FleetId; operatorId: OperatorId; theme: Theme }): Promise<void>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */
 export interface ConsoleSessionRepository {
   create(session: ConsoleSession): Promise<void>;
+  /** The session, read without a lock. */
+  find(fleetId: FleetId, consoleSessionId: ConsoleSessionId): Promise<ConsoleSession | undefined>;
   /** Ends the session if it has not ended and returns it; undefined when it had already ended. */
   end(change: {
     fleetId: FleetId;

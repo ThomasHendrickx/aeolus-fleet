@@ -4,6 +4,7 @@ import {
   OPERATOR_PASSWORD_MAX_LENGTH,
   type FleetId,
   type OperatorId,
+  type Theme,
 } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -20,6 +21,8 @@ export interface OperatorAccount {
   /** Normalised: unique across the installation, found before the fleet is known (ADR 0007). */
   email: string;
   passwordHash: string;
+  /** How the console looks for this operator; System until they choose. */
+  theme: Theme;
   createdAt: Date;
 }
 

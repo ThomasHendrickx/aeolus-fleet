@@ -8,7 +8,7 @@ import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { CONSOLE_LOCATION, consoleSessionExpiry } from './console-session.js';
+import { consoleLocation, consoleSessionExpiry, UNKNOWN_DEVICE } from './console-session.js';
 import { normaliseEmail } from './operator-account.js';
 import type { ConsoleSessionRepository, OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
 
@@ -28,7 +28,12 @@ export interface SignedIn {
 /** Only a wrong email or password in practice: the account's fleet always has its argo. */
 export type SignInRefusal = DomainError<'WRONG_EMAIL_OR_PASSWORD' | 'FLEET_NOT_FOUND' | 'NOT_THE_OPERATOR_SHIP'>;
 
-export type SignIn = (input: { email: string; password: string }) => Promise<Result<SignedIn, SignInRefusal>>;
+export type SignIn = (input: {
+  email: string;
+  password: string;
+  /** The device it signs in from, as the console words it; an unknown device when not told. */
+  device?: string;
+}) => Promise<Result<SignedIn, SignInRefusal>>;
 
 const WRONG_EMAIL_OR_PASSWORD = 'Wrong email or password';
 
@@ -36,7 +41,8 @@ const WRONG_EMAIL_OR_PASSWORD = 'Wrong email or password';
  * Use case: the operator signs in to the console with email and password, and
  * the session crews `argo` (ADR 0012). Signing in ends the previous console
  * session and takes argo's lease over, so its deliveries in flight return to
- * pending.
+ * pending. The session records the device it signed in from, which is also
+ * where argo's lease runs.
  *
  * A wrong email and a wrong password are one refusal, and both check a
  * password, so neither the answer nor its timing says whether the email
@@ -76,13 +82,14 @@ export function createSignIn(deps: {
 
       const at = deps.clock.now();
       const actor = shipActor(argo.id);
+      const device = input.device ?? UNKNOWN_DEVICE;
 
       await tx.consoleSessions.endAll(argo.fleetId, { at, reason: 'takenOver' });
       const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
         fleetId: argo.fleetId,
         shipId: argo.id,
         kind: argo.kind,
-        location: CONSOLE_LOCATION,
+        location: consoleLocation(device),
         actor,
         at,
       });
@@ -98,6 +105,7 @@ export function createSignIn(deps: {
         fleetId: argo.fleetId,
         shipId: argo.id,
         leaseId: takenOver.value,
+        device,
         tokenHash: deps.hasher.hash(token),
         createdAt: at,
         lastUsedAt: at,

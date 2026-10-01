@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet, OPERATOR, operatorCaller } from '../../../test/support/core-fixtures.js';
+import { identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -28,7 +28,7 @@ describe("reading the operator's account", () => {
   });
 
   it('refuses a caller that is no console session', async () => {
-    const { consoleSessionId: _session, ...withoutSession } = console;
+    const withoutSession: Caller = { shipId: console.shipId, fleetId: console.fleetId, kind: console.kind, scopes: console.scopes };
 
     await expect(useCases.readAccount(withoutSession)).resolves.toMatchObject({
       isOk: false,
@@ -61,7 +61,9 @@ describe('choosing a theme', () => {
   });
 
   it('refuses a caller that is no console session', async () => {
-    await expect(useCases.setTheme(operatorCaller({ fleetId: console.fleetId, operatorShipId: console.shipId }), { theme: 'dark' })).resolves.toMatchObject({
+    const withoutSession: Caller = { shipId: console.shipId, fleetId: console.fleetId, kind: console.kind, scopes: console.scopes };
+
+    await expect(useCases.setTheme(withoutSession, { theme: 'dark' })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'NOT_THE_OPERATOR_SHIP' },
     });

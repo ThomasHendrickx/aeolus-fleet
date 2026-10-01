@@ -361,7 +361,7 @@ describe('listing the fleet on Postgres', () => {
         kind: 'operator',
         status: 'crewed',
         startingPrompt: null,
-        location: { kind: 'OTHER', description: 'web console' },
+        location: { kind: 'OTHER', description: 'Unknown device' },
       },
       {
         id: shipId,

@@ -12,6 +12,8 @@ export interface ConsoleSession {
   shipId: ShipId;
   /** The lease on `argo` this session holds. */
   leaseId: LeaseId;
+  /** The device it signed in from, as the browser told: "Mac · Chrome". */
+  device: string;
   tokenHash: string;
   createdAt: Date;
   lastUsedAt: Date;
@@ -31,8 +33,16 @@ export type ConsoleSessionEndReason = 'takenOver' | 'signedOut' | 'passwordReset
 /** A console session stays valid this long after its last use. */
 export const CONSOLE_SESSION_IDLE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Where a console session crews `argo` from. */
-export const CONSOLE_LOCATION: Location = { kind: 'OTHER', description: 'web console' };
+/** The device of a sign-in that named none. */
+export const UNKNOWN_DEVICE = 'Unknown device';
+
+/**
+ * Where a console session crews `argo` from: the device it signed in from, as
+ * the description of an OTHER location, the one kind that carries words.
+ */
+export function consoleLocation(device: string): Location {
+  return { kind: 'OTHER', description: device };
+}
 
 /** When a session used at `usedAt` expires: it is valid strictly before that moment. */
 export function consoleSessionExpiry(usedAt: Date): Date {

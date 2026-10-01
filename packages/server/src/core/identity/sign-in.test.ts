@@ -41,7 +41,7 @@ describe('signing in to the console', () => {
     const { consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
 
     expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.device).toBe('Unknown device');
-    expect(core.state.leases[0]?.location).toEqual({ kind: 'DEVICE', description: 'Unknown device' });
+    expect(core.state.leases[0]?.location).toEqual({ kind: 'OTHER', description: 'Unknown device' });
   });
 
   it("exchanges the operator's email and password for a session token valid 30 days, crewing argo", async () => {
@@ -77,7 +77,7 @@ describe('signing in to the console', () => {
     const { consoleSessionId } = unwrap(await useCases.signIn({ ...OPERATOR, device: 'Mac · Chrome' }));
 
     const [lease] = core.state.leases;
-    expect(lease).toMatchObject({ shipId: argoId, location: { kind: 'DEVICE', description: 'Mac · Chrome' }, endedAt: null });
+    expect(lease).toMatchObject({ shipId: argoId, location: { kind: 'OTHER', description: 'Mac · Chrome' }, endedAt: null });
     expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.leaseId).toBe(lease?.id);
     expect(core.state.events).toEqual([
       expect.objectContaining({ type: 'ShipClaimed', actor: { kind: 'ship', shipId: argoId }, shipId: argoId }),

@@ -164,6 +164,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     useCases: options.useCases,
     fleetEvents,
     ...caller,
+    userAgent: request.headers['user-agent'],
     origin: request.headers.origin,
     consoleOrigin,
     clientKey: request.ip,

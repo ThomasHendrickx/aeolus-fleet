@@ -68,12 +68,12 @@ describe('listing the fleet', () => {
     ]);
   });
 
-  it('shows argo crewed from the web console once the operator signs in', async () => {
-    unwrap(await identityUseCases(core).signIn(OPERATOR));
+  it('shows argo crewed from the device the operator signed in on', async () => {
+    unwrap(await identityUseCases(core).signIn({ ...OPERATOR, device: 'Mac · Chrome' }));
 
     const [listedArgo] = await useCases.listFleet(argo);
 
-    expect(listedArgo).toMatchObject({ status: 'crewed', location: { kind: 'OTHER', description: 'web console' } });
+    expect(listedArgo).toMatchObject({ status: 'crewed', location: { kind: 'OTHER', description: 'Mac · Chrome' } });
   });
 
   it('shows when the newest prompt was issued, unclaimed, after a new one replaced the first', async () => {

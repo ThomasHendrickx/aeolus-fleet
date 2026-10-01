@@ -282,11 +282,21 @@ model Operator {
   fleetId      String   @unique @map("fleet_id")
   email        String   @unique
   passwordHash String   @map("password_hash")
+  /// How the console looks for this operator; system until they choose.
+  theme        Theme    @default(system)
   createdAt    DateTime @map("created_at") @db.Timestamptz(3)
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
   @@map("operators")
+}
+
+enum Theme {
+  light
+  dark
+  system
+
+  @@map("theme")
 }
 
 /// The operator crewing argo through the web console. Ids start with ses_.
@@ -298,6 +308,8 @@ model ConsoleSession {
   fleetId    String    @map("fleet_id")
   shipId     String    @map("ship_id")
   leaseId    String    @map("lease_id")
+  /// The device it signed in from, as the browser told: "Mac · Chrome".
+  device     String    @default("Unknown device")
   tokenHash  String    @unique @map("token_hash")
   createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
   lastUsedAt DateTime  @map("last_used_at") @db.Timestamptz(3)
