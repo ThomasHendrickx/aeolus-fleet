@@ -5,7 +5,8 @@ import { idSchema } from '../ids/index.js';
 /**
  * Inputs and outputs of receiving and acknowledging deliveries (`ship.receive`
  * and `ship.ack`): how many deliveries a ship takes at once, what it gets for
- * each, and which one it acknowledges.
+ * each, and which one it acknowledges; and of the inbox check (`ship.inbox`),
+ * which counts what waits without taking any of it.
  */
 
 /** How many deliveries a receive returns when the ship does not say. */
@@ -74,3 +75,21 @@ export type AckInput = z.infer<typeof ackInputSchema>;
 export const ackOutputSchema = z.strictObject({});
 
 export type AckOutput = z.infer<typeof ackOutputSchema>;
+
+/** The longest an inbox check waits while nothing waits: as long as a receive. */
+export const INBOX_WAIT_MAX_SECONDS = 25;
+
+/**
+ * Input of `ship.inbox`: how long to wait, 0 to 25 whole seconds, while
+ * nothing waits for the crew. Without it, it answers at once.
+ */
+export const inboxInputSchema = z
+  .object({ waitSeconds: z.int().min(0).max(INBOX_WAIT_MAX_SECONDS).optional() })
+  .optional();
+
+export type InboxInput = z.infer<typeof inboxInputSchema>;
+
+/** Output of `ship.inbox`: how many deliveries the crew's next receive would hand it. */
+export const inboxOutputSchema = z.object({ waiting: z.int().min(0) });
+
+export type InboxOutput = z.infer<typeof inboxOutputSchema>;
