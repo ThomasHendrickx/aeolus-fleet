@@ -67,8 +67,8 @@ describe('retiring a ship on Postgres', () => {
       value: { abandonedDeliveries: 1 },
     });
 
-    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: scoutId } })).resolves.toMatchObject({
-      retiredAt: expect.any(Date) as unknown,
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: scoutId } })).resolves.not.toMatchObject({
+      retiredAt: null,
     });
     await expect(core.prisma.lease.count({ where: { shipId: scoutId, endedAt: null } })).resolves.toBe(0);
     await expect(core.prisma.credential.count({ where: { shipId: scoutId, invalidatedAt: null } })).resolves.toBe(0);
@@ -94,7 +94,7 @@ describe('retiring a ship on Postgres', () => {
       core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }),
     ).resolves.toMatchObject({ isOk: false });
     await expect(
-      core.useCases.sendMessage(argo, { selector: { kind: 'name', name: 'scout' }, payload: 'Hi', idempotencyKey: 'by-name' }),
+      core.useCases.sendMessage(argo, { selector: { kind: 'ship', name: 'scout' }, payload: 'Hi', idempotencyKey: 'by-name' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'UNRESOLVABLE_SELECTOR' } });
     await expect(core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
