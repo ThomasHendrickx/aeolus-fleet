@@ -50,6 +50,9 @@ export const operatorInboxOutputSchema = z.array(inboxMessageSchema);
 /** Input of `fleet.markRead`: a delivery to argo, read or unread again. */
 export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), isRead: z.boolean() });
 
+/** Output of `fleet.markRead` and `fleet.markDone`: nothing; the OK is the answer. */
+export const inboxActionOutputSchema = z.strictObject({});
+
 /** Input of `fleet.markDone`: a delivery to argo, acknowledged without a reply. */
 export const markDoneInputSchema = z.object({ deliveryId: idSchema('delivery') });
 

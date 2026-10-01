@@ -1,7 +1,7 @@
 import type { Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
-import { hasScope, type Caller, type Crew } from '../../core/shared/caller.js';
+import { hasScope, isCrew, type Caller, type Crew } from '../../core/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../core/shared/errors.js';
 import type { Result } from '../../core/shared/result.js';
 import type { Context } from './context.js';
@@ -318,5 +318,24 @@ export function scopedProcedure(scope: Scope) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
     }
     return next();
+  });
+}
+
+/**
+ * A procedure for a caller that crews its ship under a lease, with every given
+ * scope: argo's inbox, which its console session calls. A console session
+ * crews argo under the lease it holds; the use case refuses any ship but argo.
+ */
+export function scopedCrewCallerProcedure(...scopes: Scope[]) {
+  return authenticatedProcedure.use(({ ctx, next }) => {
+    const missing = scopes.find((scope) => !hasScope(ctx.caller, scope));
+    if (missing !== undefined) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${missing} scope` });
+    }
+    const { caller } = ctx;
+    if (!isCrew(caller)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the operator inbox of argo, signed in to the console, calls this' });
+    }
+    return next({ ctx: { crew: caller } });
   });
 }

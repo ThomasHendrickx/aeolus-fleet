@@ -26,3 +26,8 @@ export interface Crew extends Caller {
 export function hasScope(caller: Caller, scope: Scope): boolean {
   return caller.scopes.includes(scope);
 }
+
+/** Whether the caller crews its ship under a lease: a crew token's crew, or argo's console session. */
+export function isCrew(caller: Caller): caller is Crew {
+  return 'leaseId' in caller;
+}

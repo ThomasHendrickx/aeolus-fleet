@@ -3,10 +3,15 @@ import {
   dismissDeliveryInputSchema,
   dismissDeliveryOutputSchema,
   fleetEventsInputSchema,
+  inboxActionOutputSchema,
+  markDoneInputSchema,
+  markReadInputSchema,
   fleetListOutputSchema,
   messageInputSchema,
   messageOutputSchema,
   needsAttentionOutputSchema,
+  operatorInboxInputSchema,
+  operatorInboxOutputSchema,
   shipDetailOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
@@ -16,6 +21,8 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  replyInputSchema,
+  replyOutputSchema,
   resendDeliveryInputSchema,
   resendDeliveryOutputSchema,
   retireShipInputSchema,
@@ -28,13 +35,14 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
 import type { SequencedEvent } from '../../core/shared/events.js';
-import { checkCallerStillHolds, okOrThrow, router, scopedProcedure } from './trpc.js';
+import { checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /**
  * Fleet procedures: commission ships, hand out their starting prompts, release
  * them, list the fleet and follow it live, read a ship's page (the ship, its
  * timeline, its messages and one message's delivery history), and Needs
- * attention: the undeliverable deliveries, resent or dismissed. The caller's
+ * attention: the undeliverable deliveries, resent or dismissed, and argo's
+ * inbox: the messages to it, read, marked done or replied to. The caller's
  * fleet and ship come from its credentials, never from the input.
  */
 export const fleetRouter = router({
@@ -180,6 +188,43 @@ export const fleetRouter = router({
     .input(resendDeliveryInputSchema)
     .output(resendDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
+
+  /** The caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
+  inbox: scopedProcedure('fleet:read')
+    .input(operatorInboxInputSchema)
+    .output(operatorInboxOutputSchema)
+    .query(async ({ ctx, input }) =>
+      (await ctx.useCases.readInbox(ctx.caller, input)).map((entry) => ({
+        ...entry,
+        readAt: entry.readAt?.toISOString() ?? null,
+        doneAt: entry.doneAt?.toISOString() ?? null,
+        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+      })),
+    ),
+
+  /** Marks a message to argo read, as opening it does, or unread again. Read is not done. */
+  markRead: scopedCrewCallerProcedure('messages:receive')
+    .input(markReadInputSchema)
+    .output(inboxActionOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.markRead(ctx.crew, input));
+      return {};
+    }),
+
+  /** Marks a message to argo done without a reply: acknowledged under the console session's lease. */
+  markDone: scopedCrewCallerProcedure('messages:receive')
+    .input(markDoneInputSchema)
+    .output(inboxActionOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.markDone(ctx.crew, input));
+      return {};
+    }),
+
+  /** Replies to a message to argo as plain text to its sender, and marks it done, in one transaction. */
+  reply: scopedCrewCallerProcedure('messages:send', 'messages:receive')
+    .input(replyInputSchema)
+    .output(replyOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.replyToMessage(ctx.crew, input))),
 
   /**
    * The fleet's committed events, live, over the WebSocket: each with its
