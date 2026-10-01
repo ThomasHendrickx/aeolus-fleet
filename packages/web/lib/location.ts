@@ -7,6 +7,11 @@ const KIND_WORDS: Record<LocationKind, string> = {
   OTHER: 'Other',
 };
 
+/** A location kind as the console words it: Device, Cloud, Server or Other. */
+export function locationKindWord(kind: LocationKind): string {
+  return KIND_WORDS[kind];
+}
+
 /**
  * Where the session crewing a ship runs, as the console words it:
  * `<Kind> · <description>` (docs/design/conventions.md, "Copy"). Only OTHER

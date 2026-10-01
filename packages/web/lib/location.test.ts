@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { locationText } from './location';
+import { locationKindWord, locationText } from './location';
+
+describe('locationKindWord', () => {
+  it('words a kind in sentence case', () => {
+    expect(locationKindWord('OTHER')).toBe('Other');
+  });
+});
 
 describe('locationText', () => {
   it.each([
