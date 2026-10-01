@@ -16,7 +16,17 @@ const meta = {
     live: 'live',
     nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
     onCompose: fn(),
-    onSignOut: fn(),
+    account: {
+      account: {
+        email: 'operator@example.com',
+        session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
+        theme: 'system',
+      },
+      onThemeChange: fn(),
+      onSignOut: fn(),
+      isSigningOut: false,
+      now: new Date('2026-10-01T12:30:00.000Z'),
+    },
     header: <ShipHeader ship={CREWED_SHIP} state="ready" now={NOW} />,
     children: (
       <Tabs defaultValue="timeline">

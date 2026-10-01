@@ -80,7 +80,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       onCompose={() => {
         setIsComposing(true);
       }}
-      onSignOut={signOut}
+      account={{ account: undefined, onThemeChange: () => undefined, onSignOut: signOut, isSigningOut: false, now }}
       header={
         <ShipHeader
           ship={ship.data}

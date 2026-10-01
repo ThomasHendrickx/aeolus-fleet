@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { fn } from 'storybook/test';
 import { Plus } from 'lucide-react';
 
 import { Button } from '../atoms/button';
@@ -22,5 +23,25 @@ export const WithAction: Story = {
     actions: (
       <Button variant="ghost" size="touch" isIconOnly aria-label="Commission ship" icon={<Plus aria-hidden />} />
     ),
+  },
+};
+
+/** Root with the AccountMenu's Avatar, always last; it opens the menu as a bottom Sheet. */
+export const WithAccount: Story = {
+  args: {
+    actions: (
+      <Button variant="ghost" size="touch" isIconOnly aria-label="Commission ship" icon={<Plus aria-hidden />} />
+    ),
+    account: {
+      account: {
+        email: 'operator@example.com',
+        session: { device: 'iPhone · Safari', since: '2026-10-01T11:10:00.000Z' },
+        theme: 'system',
+      },
+      onThemeChange: fn(),
+      onSignOut: fn(),
+      isSigningOut: false,
+      now: new Date('2026-10-01T12:30:00.000Z'),
+    },
   },
 };

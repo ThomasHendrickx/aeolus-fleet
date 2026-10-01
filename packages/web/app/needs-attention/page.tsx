@@ -84,7 +84,7 @@ export default function NeedsAttentionPage() {
       onCompose={() => {
         setIsComposing(true);
       }}
-      onSignOut={signOut}
+      account={{ account: undefined, onThemeChange: () => undefined, onSignOut: signOut, isSigningOut: false, now }}
     >
       <NeedsAttentionList
         deliveries={attention.data ?? []}

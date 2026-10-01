@@ -11,6 +11,7 @@ import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
 import { useOpenInboxCount } from '../lib/inbox';
 import { useLiveFleet } from '../lib/live-fleet';
+import { useNow } from '../lib/now';
 import { useAttentionCount } from '../lib/needs-attention';
 import { useSignInWhenSessionEnds, useSignOut } from '../lib/session';
 
@@ -39,6 +40,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const fleet = useFleetSnapshot();
   const liveFleet = useLiveFleet();
   const signOut = useSignOut();
+  const now = useNow();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const attentionCount = useAttentionCount();
@@ -58,7 +60,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       onCompose={() => {
         setIsComposing(true);
       }}
-      onSignOut={signOut}
+      account={{ account: undefined, onThemeChange: () => undefined, onSignOut: signOut, isSigningOut: false, now }}
     >
       <CommissionShipForm />
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />

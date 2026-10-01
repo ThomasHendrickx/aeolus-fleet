@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { LiveStatus, type LiveState } from '../molecules/live-status';
+import { AccountMenuSheet, type AccountMenuProps } from './account-menu';
 
 interface TopBarProps {
   /** The page title; on a root page it is the page's one title. */
@@ -15,15 +16,18 @@ interface TopBarProps {
    * below carries its own title then, so the bar's title is no heading.
    */
   back?: { href: string; label: string };
+  /** Root mode: the AccountMenu's Avatar, always last. Detail and modal modes need none. */
+  account?: AccountMenuProps;
 }
 
 /**
  * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the page
- * title, the live status and up to two icon actions. Detail mode: a back link
+ * title, the live status, up to two icon actions and the AccountMenu's
+ * Avatar, always last, which opens it as a bottom Sheet. Detail mode: a back link
  * labelled with the previous page, the title and the live status. Modal mode
  * comes with the pages that need it.
  */
-export function TopBar({ title, live, actions, back }: TopBarProps) {
+export function TopBar({ title, live, actions, back, account }: TopBarProps) {
   return (
     <header
       data-slot="top-bar"
@@ -45,7 +49,12 @@ export function TopBar({ title, live, actions, back }: TopBarProps) {
         <h1 className="truncate text-title-touch font-semibold tracking-tight text-foreground">{title}</h1>
       )}
       <LiveStatus state={live} />
-      {actions ? <div className="ml-auto flex items-center gap-1">{actions}</div> : null}
+      {actions || (account && !back) ? (
+        <div className="ml-auto flex items-center gap-1">
+          {actions}
+          {account && !back ? <AccountMenuSheet {...account} /> : null}
+        </div>
+      ) : null}
     </header>
   );
 }

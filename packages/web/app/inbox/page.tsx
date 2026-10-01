@@ -79,7 +79,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
       nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount }}
-      onSignOut={signOut}
+      account={{ account: undefined, onThemeChange: () => undefined, onSignOut: signOut, isSigningOut: false, now }}
       onCompose={() => {
         setIsComposing(true);
       }}
