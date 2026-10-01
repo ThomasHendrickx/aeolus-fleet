@@ -1,3 +1,3 @@
 # Organisms
 
-Larger sections that take their data through a hook: FleetList, CommissionShipForm and SignInForm.
+Larger sections. FleetList, CommissionShipForm and SignInForm take their data through a hook. Sidebar, TabBar, Header, TopBar and FleetTable take props; the page that uses them supplies the data.
