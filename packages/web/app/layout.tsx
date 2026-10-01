@@ -1,10 +1,9 @@
-import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
 import { serverUrlFrom } from '../lib/server-url';
+import { geistMono, geistSans } from './fonts';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -30,7 +29,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   await connection();
   return (
     // The theme script sets the class before React hydrates.
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: FOLLOW_SYSTEM_THEME }} />
       </head>

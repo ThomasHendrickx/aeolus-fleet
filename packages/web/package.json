@@ -31,7 +31,9 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "node bin/aeolus-web.js start",
-    "typecheck": "next typegen && tsc --project tsconfig.json"
+    "typecheck": "next typegen && tsc --project tsconfig.json",
+    "storybook": "storybook dev --port 6006",
+    "build-storybook": "storybook build --output-dir storybook-static"
   },
   "dependencies": {
     "@aeolus-fleet/common": "0.0.0",
@@ -43,7 +45,6 @@
     "@trpc/tanstack-react-query": "^11.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "geist": "^1.7.2",
     "lucide-react": "^1.49.0",
     "next": "^16.3.7",
     "react": "^19.3.0",
@@ -56,7 +57,9 @@
   },
   "devDependencies": {
     "@aeolus-fleet/server": "0.0.0",
+    "@storybook/nextjs-vite": "^10.6.1",
     "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0"
+    "@types/react-dom": "^19.3.0",
+    "storybook": "^10.6.1"
   }
 }
