@@ -244,7 +244,9 @@ function Toolbar({
 }
 
 function ShipNameCell({ ship }: { ship: ListedShip }) {
-  return <ShipName name={ship.name} shipId={ship.id} isSuffixShown={ship.status === 'retired'} />;
+  return (
+    <ShipName name={ship.name} shipId={ship.id} isSuffixShown={ship.status === 'retired'} href={`/ships/${ship.id}`} />
+  );
 }
 
 function DesktopTable({

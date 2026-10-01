@@ -1,0 +1,36 @@
+import type { ShipId } from '@aeolus-fleet/common';
+
+import type { Caller } from '../shared/caller.js';
+import { refuse, type DomainError } from '../shared/errors.js';
+import { ok, type Result } from '../shared/result.js';
+import { listedShipOf, type ListedShip } from './list-fleet.js';
+import type { FleetListing } from './ports.js';
+
+/** One ship for its page: as the fleet lists it, with when it was commissioned, crewed and retired. */
+export interface ShipDetail extends ListedShip {
+  commissionedAt: Date;
+  /** Since when the session crewing it has held it; null while no session does. */
+  crewedSince: Date | null;
+  retiredAt: Date | null;
+}
+
+export type GetShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ShipDetail, DomainError<'SHIP_NOT_FOUND'>>>;
+
+/**
+ * Use case: one ship of the caller's fleet, retired ships included: they keep
+ * their page. The caller's scope (fleet:read) is checked before this runs.
+ */
+export function createGetShip(deps: { listing: FleetListing }): GetShip {
+  return async (caller, { shipId }) => {
+    const facts = await deps.listing.ship(caller.fleetId, shipId);
+    if (!facts) {
+      return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
+    }
+    return ok({
+      ...listedShipOf(facts),
+      commissionedAt: facts.ship.createdAt,
+      crewedSince: facts.openLease?.startedAt ?? null,
+      retiredAt: facts.ship.retiredAt,
+    });
+  };
+}

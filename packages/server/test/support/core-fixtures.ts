@@ -19,6 +19,7 @@ import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
 import { createDeregister } from '../../src/core/registry/deregister.js';
+import { createGetShip } from '../../src/core/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/core/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/core/registry/list-fleet.js';
@@ -26,6 +27,9 @@ import { createReleaseShip } from '../../src/core/registry/release-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
+import { createReadMessage } from '../../src/core/shared/read-message.js';
+import { createReadShipMessages } from '../../src/core/shared/read-ship-messages.js';
+import { createReadShipTimeline } from '../../src/core/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
@@ -71,8 +75,18 @@ export function registryUseCases(core: InMemoryCore) {
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
     listFleet: createListFleet({ listing: core.listing }),
+    getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed }),
+  };
+}
+
+/** The history reads for the ship page, wired to the in-memory core. */
+export function historyUseCases(core: InMemoryCore) {
+  return {
+    readShipTimeline: createReadShipTimeline({ history: core.history }),
+    readShipMessages: createReadShipMessages({ history: core.history }),
+    readMessage: createReadMessage({ history: core.history }),
   };
 }
 

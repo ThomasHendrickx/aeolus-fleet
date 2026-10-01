@@ -2,7 +2,7 @@ import type { ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
-import type { FleetListing } from './ports.js';
+import type { FleetListing, ShipFacts } from './ports.js';
 import { shipStatus } from './ship.js';
 
 /** A ship as the fleet snapshot shows it. */
@@ -31,14 +31,18 @@ export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
  * (fleet:read) is checked before this runs.
  */
 export function createListFleet(deps: { listing: FleetListing }): ListFleet {
-  return async (caller) =>
-    (await deps.listing.ships(caller.fleetId)).map(({ ship, openLease, validSecret }) => ({
-      id: ship.id,
-      name: ship.name,
-      type: ship.type,
-      kind: ship.kind,
-      status: shipStatus(ship, { isCrewed: openLease !== null }),
-      startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
-      location: openLease?.location ?? null,
-    }));
+  return async (caller) => (await deps.listing.ships(caller.fleetId)).map(listedShipOf);
+}
+
+/** A ship as the fleet snapshot shows it, from what the listing read about it. */
+export function listedShipOf({ ship, openLease, validSecret }: ShipFacts): ListedShip {
+  return {
+    id: ship.id,
+    name: ship.name,
+    type: ship.type,
+    kind: ship.kind,
+    status: shipStatus(ship, { isCrewed: openLease !== null }),
+    startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
+    location: openLease?.location ?? null,
+  };
 }

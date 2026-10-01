@@ -71,6 +71,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
   // The crew token belonged to that lease: it no longer authenticates anyone.
   LEASE_ENDED: 'UNAUTHORIZED',
+  MESSAGE_NOT_FOUND: 'NOT_FOUND',
   NOT_THE_OPERATOR_SHIP: 'FORBIDDEN',
   OPERATOR_SHIP_GETS_NO_STARTING_PROMPT: 'FORBIDDEN',
   OPERATOR_SHIP_HAS_NO_SECRET: 'FORBIDDEN',

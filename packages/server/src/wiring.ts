@@ -6,6 +6,7 @@ import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
+import { createPrismaShipHistory } from './adapters/prisma/history.js';
 import {
   createPrismaFleetListing,
   createPrismaFleetRepository,
@@ -26,6 +27,7 @@ import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
 import { createDeregister, type Deregister } from './core/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './core/registry/get-starting-prompt.js';
+import { createGetShip, type GetShip } from './core/registry/get-ship.js';
 import { createInitialiseFleet, type InitialiseFleet } from './core/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './core/registry/list-fleet.js';
 import { createListFleets, type ListFleets } from './core/registry/list-fleets.js';
@@ -34,6 +36,9 @@ import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-fleet-events.js';
+import { createReadMessage, type ReadMessage } from './core/shared/read-message.js';
+import { createReadShipMessages, type ReadShipMessages } from './core/shared/read-ship-messages.js';
+import { createReadShipTimeline, type ReadShipTimeline } from './core/shared/read-ship-timeline.js';
 
 export interface UseCases {
   ping: Ping;
@@ -43,6 +48,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   listFleet: ListFleet;
+  getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
   deregister: Deregister;
@@ -50,6 +56,9 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   readFleetEvents: ReadFleetEvents;
+  readShipTimeline: ReadShipTimeline;
+  readShipMessages: ReadShipMessages;
+  readMessage: ReadMessage;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -91,6 +100,7 @@ export function createUseCases(options: {
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
+    getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
@@ -104,6 +114,9 @@ export function createUseCases(options: {
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
+    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
+    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
+    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

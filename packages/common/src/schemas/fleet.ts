@@ -106,8 +106,9 @@ export type FleetEventsInput = z.infer<typeof fleetEventsInputSchema>;
 
 /**
  * One committed event as the live fleet view hears it: its number in the
- * fleet's stream (commit order, without gaps), what happened and when, and
- * which ship, message and delivery it concerns. Never its details.
+ * fleet's stream (commit order, without gaps), what happened and when, which
+ * ship caused it, and which ship, message and delivery it concerns. Never its
+ * details.
  */
 export const liveFleetEventSchema = z.object({
   seq: z.number().int().positive(),
@@ -115,6 +116,8 @@ export const liveFleetEventSchema = z.object({
   type: eventTypeSchema,
   /** ISO 8601 in UTC. */
   occurredAt: z.iso.datetime(),
+  /** The ship that caused it; null for the system. */
+  actorShipId: idSchema('ship').nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),

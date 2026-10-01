@@ -62,3 +62,8 @@ export function StatusBadge({ status, className }: { status: ShipStatus | Delive
     </Badge>
   );
 }
+
+/** The label a status or state reads as, for a sentence beside the badge: "In flight". */
+export function statusLabel(status: ShipStatus | DeliveryState): string {
+  return STATUSES[status].label;
+}

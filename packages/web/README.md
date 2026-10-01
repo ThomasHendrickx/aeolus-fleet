@@ -8,6 +8,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 | --- | --- |
 | `/sign-in` | Sign in with the operator email and password; the session crews `argo`. Only a session cookie stays in the browser |
 | `/` | The fleet overview, live over a WebSocket: every ship with status, type, and where a crewed ship's session runs or an awaiting ship's prompt status, updated without a reload; search and filters in the URL; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out from the account menu. Without a session it sends you to `/sign-in`, which says so when you signed in somewhere else |
+| `/ships/[shipId]` | A ship's page, live: status, type, where its session runs, since when, when it was commissioned and its id; Get starting prompt or Release; a Timeline tab with every change to the ship, newest first, and a Messages tab with its messages grouped into threads by reply. A message opens in a side sheet (`?message=`) with its envelope, payload (formatted JSON or raw) and the history of its delivery |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
 
 ## Running from npm

@@ -13,6 +13,31 @@ export function clockTime(at: Date): string {
   return `${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;
 }
 
+/** "14:27:40": a 24 h clock to the second, for DeliveryHistory and envelopes. */
+export function secondsTime(at: Date): string {
+  return `${clockTime(at)}:${twoDigits(at.getSeconds())}`;
+}
+
+/** "20 Sep 2026": a date without a time, for when a ship was commissioned. */
+export function dayDate(at: Date): string {
+  return `${String(at.getDate())} ${MONTHS[at.getMonth()] ?? ''} ${String(at.getFullYear())}`;
+}
+
+/** "11 min", "6 h 30 min", "1 d 2 h": how long from one moment to another (docs/design/conventions.md, "Copy"). */
+export function duration(from: Date, to: Date): string {
+  const elapsedMs = Math.max(0, to.getTime() - from.getTime());
+  const days = Math.floor(elapsedMs / DAY_MS);
+  const hours = Math.floor((elapsedMs % DAY_MS) / HOUR_MS);
+  const minutes = Math.floor((elapsedMs % HOUR_MS) / MINUTE_MS);
+  if (days > 0) {
+    return hours > 0 ? `${String(days)} d ${String(hours)} h` : `${String(days)} d`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${String(hours)} h ${String(minutes)} min` : `${String(hours)} h`;
+  }
+  return `${String(minutes)} min`;
+}
+
 /** "28 Sep, 14:21": day, month and a 24 h clock, in the browser's time zone. */
 export function shortDateTime(at: Date): string {
   return `${String(at.getDate())} ${MONTHS[at.getMonth()] ?? ''}, ${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;

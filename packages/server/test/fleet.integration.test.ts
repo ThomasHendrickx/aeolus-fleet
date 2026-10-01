@@ -305,6 +305,41 @@ describe('getting a starting prompt on Postgres', () => {
   });
 });
 
+describe('getting one ship on Postgres', () => {
+  it('gives the ship with when it was commissioned, since when its crew has held it, and no retirement', async () => {
+    const commissionedAt = core.clock.now();
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    core.clock.advance(60_000);
+    const crewedAt = core.clock.now();
+    unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } }));
+
+    await expect(core.useCases.getShip(argo, { shipId })).resolves.toEqual({
+      isOk: true,
+      value: {
+        id: shipId,
+        name: 'scout',
+        type: 'reviewer',
+        kind: 'agent',
+        status: 'crewed',
+        startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
+        location: { kind: 'SERVER', description: null },
+        commissionedAt,
+        crewedSince: crewedAt,
+        retiredAt: null,
+      },
+    });
+  });
+
+  it('knows no ship of another fleet', async () => {
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+
+    await expect(core.useCases.getShip({ ...argo, fleetId: newId('fleet') }, { shipId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'SHIP_NOT_FOUND' },
+    });
+  });
+});
+
 describe('listing the fleet on Postgres', () => {
   it('lists argo and a commissioned ship with their status and prompt state', async () => {
     const commissionedAt = core.clock.now();

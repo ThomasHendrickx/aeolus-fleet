@@ -9,12 +9,16 @@ import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { Deregister } from '../../core/registry/deregister.js';
+import type { GetShip } from '../../core/registry/get-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../core/registry/list-fleet.js';
 import type { ReleaseShip } from '../../core/registry/release-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
+import type { ReadMessage } from '../../core/shared/read-message.js';
+import type { ReadShipMessages } from '../../core/shared/read-ship-messages.js';
+import type { ReadShipTimeline } from '../../core/shared/read-ship-timeline.js';
 
 /** The use cases procedures can call. Wired once at startup. */
 export interface UseCases {
@@ -26,6 +30,7 @@ export interface UseCases {
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
   listFleet: ListFleet;
+  getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
   deregister: Deregister;
@@ -33,6 +38,9 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   readFleetEvents: ReadFleetEvents;
+  readShipTimeline: ReadShipTimeline;
+  readShipMessages: ReadShipMessages;
+  readMessage: ReadMessage;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

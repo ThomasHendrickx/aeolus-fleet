@@ -1109,3 +1109,49 @@ describe('/health', () => {
     }
   });
 });
+
+describe('the ship page reads at the API', () => {
+  it('serve a ship, its timeline and messages, and one message with its delivery history, to argo', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ name: `pager-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } });
+    const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
+      selector: { kind: 'ship', name: 'argo' },
+      payload: 'Done with PR 48',
+      idempotencyKey: `done-${newId('message')}`,
+    });
+
+    const ship = await asArgo.fleet.ship.query({ shipId });
+    const timeline = await asArgo.fleet.shipTimeline.query({ shipId });
+    const messages = await asArgo.fleet.shipMessages.query({ shipId });
+    const message = await asArgo.fleet.message.query({ messageId });
+
+    expect(ship).toMatchObject({ id: shipId, status: 'crewed', crewedSince: clock.now().toISOString(), retiredAt: null });
+    expect(timeline[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
+    expect(messages).toMatchObject([{ id: messageId, preview: 'Done with PR 48', delivery: { state: 'pending' } }]);
+    expect(message).toMatchObject({
+      id: messageId,
+      payload: 'Done with PR 48',
+      recipient: { kind: 'ship', ship: { id: argoId, name: 'argo' } },
+      delivery: { state: 'pending', history: [{ type: 'MessageAccepted' }] },
+    });
+  });
+
+  it('refuse them to a ship without fleet:read', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(reader.fleet.ship.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.shipTimeline.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.shipMessages.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('answer NOT_FOUND for a ship or message the fleet does not have', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(codeOf(asArgo.fleet.ship.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.shipTimeline.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.shipMessages.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
+  });
+});

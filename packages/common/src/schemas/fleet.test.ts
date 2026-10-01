@@ -187,12 +187,13 @@ describe('fleetStreamItemSchema', () => {
     id: newId('event'),
     type: 'ShipClaimed',
     occurredAt: '2026-10-01T09:00:00.000Z',
+    actorShipId: newId('ship'),
     shipId: newId('ship'),
     messageId: null,
     deliveryId: null,
   };
 
-  it('accepts an event with its number, type, time and what it concerns', () => {
+  it('accepts an event with its number, type, time, the ship that caused it and what it concerns', () => {
     expect(fleetStreamItemSchema.parse({ kind: 'event', event })).toEqual({ kind: 'event', event });
   });
 
@@ -205,6 +206,7 @@ describe('fleetStreamItemSchema', () => {
     ['an event numbered 0', { kind: 'event', event: { ...event, seq: 0 } }],
     ['an unknown event type', { kind: 'event', event: { ...event, type: 'ShipSank' } }],
     ['a time that is not ISO 8601', { kind: 'event', event: { ...event, occurredAt: 'now' } }],
+    ['no word on who caused it', { kind: 'event', event: { ...event, actorShipId: undefined } }],
   ])('rejects %s', (_label, item) => {
     expect(fleetStreamItemSchema.safeParse(item).success).toBe(false);
   });

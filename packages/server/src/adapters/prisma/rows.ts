@@ -83,17 +83,21 @@ export function toShipFromSql(row: unknown): Ship {
 const shipFactsSqlRow = z.object({
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),
+  lease_started_at: z.date().nullable(),
   secret_issued_at: z.date().nullable(),
   secret_claimed_at: z.date().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
 export function toShipFacts(row: unknown): ShipFacts {
-  const { lease_location, lease_location_description, secret_issued_at, secret_claimed_at } =
+  const { lease_location, lease_location_description, lease_started_at, secret_issued_at, secret_claimed_at } =
     shipFactsSqlRow.parse(row);
   return {
     ship: toShipFromSql(row),
-    openLease: lease_location && { location: { kind: lease_location, description: lease_location_description } },
+    openLease:
+      lease_location && lease_started_at
+        ? { location: { kind: lease_location, description: lease_location_description }, startedAt: lease_started_at }
+        : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
   };
 }
