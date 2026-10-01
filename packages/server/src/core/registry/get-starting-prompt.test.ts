@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   crewShip,
   FLEET_MCP_URL,
+  FLEET_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -44,6 +45,12 @@ function validSecretsOf(shipId: ShipId) {
 }
 
 describe('getting a starting prompt', () => {
+  it('gives the crew line with the same ship id and the new secret', async () => {
+    const { prompt, crewLine } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
+
+    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${scoutId} ${secretIn(prompt)}`);
+  });
+
   it('issues a new prompt with the fleet MCP URL, the ship id and a new secret while the ship awaits crew', async () => {
     const { shipId, prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
@@ -196,6 +203,7 @@ describe('a failed starting prompt', () => {
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('event log unavailable');

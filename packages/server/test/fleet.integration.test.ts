@@ -6,7 +6,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
-import { FLEET_MCP_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 
@@ -143,6 +143,7 @@ describe('commissioning a ship on Postgres', () => {
       ids: newId,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     const results = await Promise.all(
@@ -184,6 +185,7 @@ describe('commissioning a ship on Postgres', () => {
       ids: newId,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     await expect(commissionShip(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
@@ -270,6 +272,7 @@ describe('getting a starting prompt on Postgres', () => {
       ids: newId,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     const results = await Promise.all(
@@ -296,6 +299,7 @@ describe('getting a starting prompt on Postgres', () => {
       ids: newId,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('disk full');

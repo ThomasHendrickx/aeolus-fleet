@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addAgentShip,
   FLEET_MCP_URL,
+  FLEET_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
@@ -60,6 +61,12 @@ describe('commissioning a ship', () => {
     unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' }));
 
     expect(shipsNamed('scout')[0]?.note).toBeNull();
+  });
+
+  it('gives the crew line with the same ship id and secret as the prompt', async () => {
+    const { shipId, prompt, crewLine } = unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+
+    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipId} ${secretIn(prompt)}`);
   });
 
   it('issues the first starting prompt, with the fleet MCP URL, the ship id and a new secret', async () => {
@@ -199,6 +206,7 @@ describe('a failed commission', () => {
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
       mcpUrl: FLEET_MCP_URL,
+      fleetUrl: FLEET_URL,
     });
 
     await expect(commission(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('event log unavailable');

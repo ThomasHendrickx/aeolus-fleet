@@ -67,6 +67,7 @@ export function registryUseCases(core: InMemoryCore) {
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
     mcpUrl: FLEET_MCP_URL,
+    fleetUrl: FLEET_URL,
   };
   return {
     commissionShip: createCommissionShip(deps),
