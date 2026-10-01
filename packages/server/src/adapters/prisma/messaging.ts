@@ -60,6 +60,16 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         },
       });
     },
+    countReceivable: async ({ fleetId, shipId, type, leaseId }) =>
+      db.delivery.count({
+        where: {
+          fleetId,
+          OR: [
+            { state: 'delivered', claimedByLeaseId: leaseId },
+            { state: 'pending', OR: [{ recipientShipId: shipId }, { recipientType: type }] },
+          ],
+        },
+      }),
     findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding }) => {
       // SKIP LOCKED: a delivery another receive holds is passed over, never
       // waited for, so two receivers never get the same one (ADR 0003). The
