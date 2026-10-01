@@ -253,11 +253,17 @@ export const fleetRouter = router({
     .input(fleetEventsInputSchema)
     .subscription(async function* ({ ctx, input, signal }): AsyncGenerator<TrackedEnvelope<FleetStreamItem>> {
       const watch = ctx.fleetEvents.watch(ctx.caller.fleetId);
+      // DIAGNOSTIC, not to merge.
+      const say = (what: string) => {
+        process.stderr.write(`[diag ${String(Date.now())}] ${ctx.caller.fleetId.slice(-6)} ${what}\n`);
+      };
+      say(`start lastEventId=${String(input.lastEventId)}`);
       const stopped = signal ?? new AbortController().signal;
       try {
         let afterSeq = input.lastEventId == null ? undefined : Number(input.lastEventId);
         do {
           const read = await ctx.useCases.readFleetEvents(ctx.caller, afterSeq);
+          say(`read after=${String(afterSeq)} kind=${read.kind}${read.kind === 'events' ? ` n=${String(read.events.length)}` : ` seq=${String(read.seq)}`}`);
           if (read.kind === 'resync') {
             afterSeq = read.seq;
             yield tracked(String(read.seq), { kind: 'resync' } satisfies FleetStreamItem);
@@ -268,8 +274,10 @@ export const fleetRouter = router({
             }
           }
           if (!(await watch.next(stopped))) {
+            say('watch ended');
             return;
           }
+          say('woken');
           await checkCallerStillHolds(ctx);
         } while (!stopped.aborted);
       } finally {

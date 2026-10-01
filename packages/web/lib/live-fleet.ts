@@ -79,7 +79,9 @@ export function useLiveFleet(): LiveFleet {
     trpc.fleet.events.subscriptionOptions(
       { lastEventId: null },
       {
-        onData: ({ data: item }) => {
+        onData: ({ id, data: item }) => {
+          // DIAGNOSTIC, not to merge.
+          console.info(`live ${String(Date.now())} id=${String(id)} ${item.kind === 'event' ? item.event.type : item.kind}`);
           if (item.kind === 'resync') {
             reload(trpc.fleet.pathKey());
             return;
