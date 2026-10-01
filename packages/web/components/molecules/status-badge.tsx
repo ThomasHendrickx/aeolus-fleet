@@ -1,0 +1,64 @@
+import type { DeliveryState, ShipStatus } from '@aeolus-fleet/common';
+import {
+  Archive,
+  Ban,
+  CircleArrowRight,
+  CircleCheck,
+  CircleDashed,
+  CircleMinus,
+  CircleX,
+  Hourglass,
+  UserCheck,
+  type LucideIcon,
+} from 'lucide-react';
+
+import { classNames } from '../../lib/class-names';
+import { Badge } from '../atoms/badge';
+
+type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
+
+const TONE_CLASSES: Record<Tone, string> = {
+  waiting: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
+  active: 'border-tone-active-border bg-tone-active-bg text-tone-active-fg',
+  ok: 'border-tone-ok-border bg-tone-ok-bg text-tone-ok-fg',
+  attention: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
+  ended: 'border-tone-ended-border bg-tone-ended-bg text-tone-ended-fg',
+};
+
+/**
+ * Every ship status and delivery state with its tone, icon and label
+ * (docs/design/conventions.md, "Colour"). A delivered delivery is in flight:
+ * claimed by a crew and not yet acknowledged.
+ */
+const STATUSES: Record<ShipStatus | DeliveryState, { tone: Tone; Icon: LucideIcon; label: string }> = {
+  awaitingCrew: { tone: 'waiting', Icon: CircleDashed, label: 'Awaiting crew' },
+  crewed: { tone: 'ok', Icon: UserCheck, label: 'Crewed' },
+  retired: { tone: 'ended', Icon: Archive, label: 'Retired' },
+  pending: { tone: 'waiting', Icon: Hourglass, label: 'Pending' },
+  delivered: { tone: 'active', Icon: CircleArrowRight, label: 'In flight' },
+  acknowledged: { tone: 'ok', Icon: CircleCheck, label: 'Acknowledged' },
+  undeliverable: { tone: 'attention', Icon: CircleX, label: 'Undeliverable' },
+  dismissed: { tone: 'ended', Icon: CircleMinus, label: 'Dismissed' },
+  abandoned: { tone: 'ended', Icon: Ban, label: 'Abandoned' },
+};
+
+/**
+ * One component for every ship status and delivery state
+ * (docs/design/png/StatusBadge.png). Colour comes from the tone family, and
+ * each state has its own icon and label, so it reads without colour.
+ * Abandoned has a dashed border to set it apart from Dismissed.
+ */
+export function StatusBadge({ status, className }: { status: ShipStatus | DeliveryState; className?: string }) {
+  const { tone, Icon, label } = STATUSES[status];
+  return (
+    <Badge
+      variant="outline"
+      data-slot="status-badge"
+      data-status={status}
+      className={classNames(TONE_CLASSES[tone], status === 'abandoned' ? 'border-dashed' : undefined, className)}
+    >
+      <Icon aria-hidden />
+      {label}
+    </Badge>
+  );
+}

@@ -219,6 +219,7 @@ export default defineConfig(
     '**/dist/',
     '**/.next/',
     '**/coverage/',
+    '**/storybook-static/',
     '**/next-env.d.ts',
     'packages/server/src/adapters/prisma/generated/',
   ]),
@@ -288,6 +289,9 @@ export default defineConfig(
     files: [
       'packages/web/app/**/{page,layout,loading,error,not-found,global-error,template,default}.tsx',
       '**/*.config.{js,ts}',
+      // Storybook reads a story file's default export (its meta) and its configuration's.
+      'packages/web/components/**/*.stories.tsx',
+      'packages/web/.storybook/{main,preview}.{ts,tsx}',
     ],
     rules: { 'no-restricted-exports': 'off' },
   },

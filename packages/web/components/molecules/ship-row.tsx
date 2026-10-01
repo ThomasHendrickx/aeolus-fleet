@@ -1,17 +1,21 @@
 'use client';
 
-import type { ListedShip, ShipStatus } from '@aeolus-fleet/common';
+import type { ListedShip } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { locationText } from '../../lib/location';
 import { isReleasable } from '../../lib/release';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
+import { Badge } from '../atoms/badge';
+import { Button } from '../atoms/button';
+import { TableCell, TableRow } from '../atoms/table';
+import { ShipName } from './ship-name';
+import { StatusBadge } from './status-badge';
 
-const STATUS_LABELS: Record<ShipStatus, string> = {
-  awaitingCrew: 'Awaiting crew',
-  crewed: 'Crewed',
-  retired: 'Retired',
-};
+/** An inline confirm in the row: the question, its consequences, then the action and Cancel. */
+const CONFIRM =
+  'mt-2 ml-auto flex max-w-96 text-left flex-col gap-2 rounded-lg border border-border bg-card p-3 text-meta shadow-sm';
+const CONFIRM_ACTIONS = 'flex flex-row-reverse justify-end gap-2';
 
 function IssuedAt({ iso }: { iso: string }) {
   return <time dateTime={iso}>{new Date(iso).toLocaleString()}</time>;
@@ -47,43 +51,46 @@ function ReleaseAction({
 
   if (!isConfirming) {
     return (
-      <button
-        type="button"
+      <Button
+        size="xs"
         data-testid="fleet-ship-release"
-        disabled={isReleasing}
+        isLoading={isReleasing}
         onClick={() => {
           setIsConfirming(true);
         }}
       >
         {isReleasing ? 'Releasing...' : 'Release'}
-      </button>
+      </Button>
     );
   }
   return (
-    <div role="group" aria-label={`Release ${ship.name}?`}>
-      <p>Release {ship.name}?</p>
-      <p>
+    <div role="group" aria-label={`Release ${ship.name}?`} className={CONFIRM}>
+      <p className="text-body font-semibold">Release {ship.name}?</p>
+      <p className="text-muted-foreground">
         The session crewing it loses it now. Its secret stops working, so that session cannot come back. Deliveries in
         flight return to pending; nothing is lost. {ship.name} shows as Awaiting crew until you get a new starting
         prompt.
       </p>
-      <button
-        type="button"
-        onClick={() => {
-          setIsConfirming(false);
-          onRelease();
-        }}
-      >
-        Release ship
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setIsConfirming(false);
-        }}
-      >
-        Cancel
-      </button>
+      <div className={CONFIRM_ACTIONS}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            setIsConfirming(false);
+            onRelease();
+          }}
+        >
+          Release ship
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            setIsConfirming(false);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }
@@ -121,47 +128,58 @@ export function ShipRow({
   }
 
   return (
-    <tr data-testid="fleet-ship">
-      <th scope="row">{ship.name}</th>
-      <td>{ship.type}</td>
-      <td>{STATUS_LABELS[ship.status]}</td>
-      <td data-testid="fleet-ship-location">{locationText(ship)}</td>
-      <td>
+    <TableRow data-testid="fleet-ship">
+      <th scope="row" className="h-(--size-row) px-4 text-left align-middle font-normal">
+        <ShipName name={ship.name} shipId={ship.id} />
+      </th>
+      <TableCell>
+        <Badge variant="type">{ship.type}</Badge>
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={ship.status} />
+      </TableCell>
+      <TableCell data-testid="fleet-ship-location" className="text-meta text-muted-foreground">
+        {locationText(ship)}
+      </TableCell>
+      <TableCell className="text-meta text-muted-foreground">
         <PromptState ship={ship} />
-      </td>
-      <td>
+      </TableCell>
+      <TableCell className="py-2.5 text-right">
         {ship.status === 'awaitingCrew' && !promptToReplace ? (
-          <button type="button" disabled={isIssuing} onClick={requestPrompt}>
+          <Button size="xs" disabled={isIssuing} onClick={requestPrompt}>
             Get starting prompt
-          </button>
+          </Button>
         ) : null}
         {isReleasable(ship) ? <ReleaseAction ship={ship} isReleasing={isReleasing} onRelease={onRelease} /> : null}
         {promptToReplace ? (
-          <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`}>
-            <p>
+          <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`} className={CONFIRM}>
+            <p className="text-muted-foreground">
               An unclaimed prompt issued <IssuedAt iso={promptToReplace.issuedAt} /> is still out. A new one stops it
               working.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setIsConfirming(false);
-                onGetStartingPrompt();
-              }}
-            >
-              Replace prompt
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsConfirming(false);
-              }}
-            >
-              Cancel
-            </button>
+            <div className={CONFIRM_ACTIONS}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setIsConfirming(false);
+                  onGetStartingPrompt();
+                }}
+              >
+                Replace prompt
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setIsConfirming(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         ) : null}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
