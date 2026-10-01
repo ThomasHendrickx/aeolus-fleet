@@ -156,6 +156,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
+| `DeliveryDismissed` | Messaging | The operator let an undeliverable delivery go, by Dismiss or by a resend: it leaves Needs attention and stays in the timelines as dismissed |
 | `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
@@ -174,6 +175,7 @@ stateDiagram-v2
   pending --> undeliverable: fifth claim without ack
   delivered --> undeliverable: fifth claim without ack
   pending --> abandoned: ship retired (direct deliveries)
+  undeliverable --> dismissed: operator dismisses or resends
   acknowledged --> [*]
 ```
 
@@ -204,6 +206,12 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 4. It registers, inherits the inbox and receives everything that was not acknowledged.
 
 The operator restarting a session is not a recovery step for messages: nothing was lost and nothing needs to be told which ids to redo. Starting sessions automatically is a later concern.
+
+### Needs attention
+
+1. A delivery claimed a fifth time without an acknowledgement becomes undeliverable and shows in Needs attention, oldest first. Abandoned deliveries never do.
+2. The operator resends it or dismisses it. Either way the delivery becomes dismissed and stays in the timelines.
+3. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 
 ### Retire a ship
 
