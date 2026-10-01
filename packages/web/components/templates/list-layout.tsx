@@ -37,7 +37,7 @@ export function ListLayout({
 }: ListLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar onSignOut={onSignOut} />
+      <Sidebar active="overview" onSignOut={onSignOut} />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={title} live={live} />
         <TopBar title={title} live={live} />
@@ -55,7 +55,7 @@ export function ListLayout({
           {children}
         </main>
       </div>
-      <TabBar />
+      <TabBar active="fleet" />
     </div>
   );
 }

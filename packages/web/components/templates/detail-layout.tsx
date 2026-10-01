@@ -31,7 +31,7 @@ interface DetailLayoutProps {
 export function DetailLayout({ title, parent, header, children, sheet, live, onSignOut }: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
-      <Sidebar onSignOut={onSignOut} />
+      <Sidebar active="overview" onSignOut={onSignOut} />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={`${parent.label} / ${title}`} live={live} />
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
@@ -41,7 +41,7 @@ export function DetailLayout({ title, parent, header, children, sheet, live, onS
         </main>
       </div>
       {sheet}
-      <TabBar />
+      <TabBar active="fleet" />
     </div>
   );
 }
