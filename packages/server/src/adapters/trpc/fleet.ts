@@ -8,7 +8,10 @@ import {
   releaseShipOutputSchema,
   startingPromptOutputSchema,
 } from '@aeolus-fleet/common';
-import { tracked } from '@trpc/server';
+import { tracked, type TrackedEnvelope } from '@trpc/server';
+// The subscription's output type names TrackedData, which tRPC exports only
+// here; the declarations the build emits need a path to reach it by.
+import type {} from '@trpc/server/unstable-core-do-not-import';
 
 import type { SequencedEvent } from '../../core/shared/events.js';
 import { checkCallerStillHolds, okOrThrow, router, scopedProcedure } from './trpc.js';
@@ -67,7 +70,7 @@ export const fleetRouter = router({
    */
   events: scopedProcedure('fleet:read')
     .input(fleetEventsInputSchema)
-    .subscription(async function* ({ ctx, input, signal }) {
+    .subscription(async function* ({ ctx, input, signal }): AsyncGenerator<TrackedEnvelope<FleetStreamItem>> {
       const watch = ctx.fleetEvents.watch(ctx.caller.fleetId);
       const stopped = signal ?? new AbortController().signal;
       try {
