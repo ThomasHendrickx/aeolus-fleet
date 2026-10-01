@@ -1421,3 +1421,16 @@ describe('last seen at the API', () => {
     expect(ships.find((ship) => ship.kind === 'operator')?.lastSeenAt).toBe(clock.now().toISOString());
   });
 });
+
+describe('/api/version', () => {
+  it('names the latest migration applied to the database', async () => {
+    const response = await fetch(`${address}/api/version`);
+
+    expect(response.status).toBe(200);
+    const { server: serverVersion, migration } = z
+      .object({ server: z.string(), migration: z.string() })
+      .parse(await response.json());
+    expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(migration).toMatch(/^\d{14}_lease_last_seen$/);
+  });
+});

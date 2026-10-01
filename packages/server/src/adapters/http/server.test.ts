@@ -502,6 +502,7 @@ describe('error responses', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
+      latestMigration: () => Promise.resolve(null),
       clock: core.clock,
       logger: {
         level: 'error',

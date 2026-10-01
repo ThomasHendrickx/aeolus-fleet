@@ -58,6 +58,7 @@ function start(options: { useCases?: UseCases; registerRateLimit?: RateLimit; lo
   server = buildHttpServer({
     useCases: options.useCases ?? useCasesOf(),
     checkDatabase: () => Promise.resolve(),
+    latestMigration: () => Promise.resolve(null),
     clock: core.clock,
     logger: logLines
       ? {
