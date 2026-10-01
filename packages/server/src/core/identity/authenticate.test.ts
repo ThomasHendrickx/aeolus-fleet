@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addAgentShip, crewShip, identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, crewShip, identityUseCases, initialiseFleet, OPERATOR, openLeaseOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 
@@ -82,6 +82,29 @@ describe('authenticating with a crew token', () => {
       isOk: false,
       error: { kind: 'UNKNOWN_CREW_TOKEN' },
     });
+  });
+});
+
+describe('a ship seen through its calls', () => {
+  it("marks the crew's lease seen each time its crew token is used", async () => {
+    const shipId = addAgentShip(core, { fleetId }).shipId;
+    const crewToken = crewShip(core, { fleetId, shipId });
+    core.clock.advance(20_000);
+
+    unwrap(await useCases.authenticate.byCrewToken(crewToken));
+    expect(core.state.leaseSeen).toEqual([expect.objectContaining({ leaseId: openLeaseOf(core, shipId), at: core.clock.now() })]);
+
+    core.clock.advance(25_000);
+    unwrap(await useCases.authenticate.byCrewToken(crewToken));
+    expect(core.state.leaseSeen).toEqual([expect.objectContaining({ at: core.clock.now() })]);
+  });
+
+  it("marks argo's lease seen each time its console session is used", async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+    core.clock.advance(20_000);
+
+    await useCases.authenticate.byConsoleSession(token);
+    expect(core.state.leaseSeen).toEqual([expect.objectContaining({ leaseId: openLeaseOf(core, argoId), at: core.clock.now() })]);
   });
 });
 
