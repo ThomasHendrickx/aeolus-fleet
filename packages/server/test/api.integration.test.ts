@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -1256,5 +1256,86 @@ describe('Needs attention at the API', () => {
     await expect(codeOf(reader.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe("argo's inbox at the API", () => {
+  /** A message to argo from a crewed agent ship; answers its delivery and its sender's crew token. */
+  async function toArgo(payload: string): Promise<{ deliveryId: string; messageId: string; crewToken: string }> {
+    const crewToken = await crewedShip();
+    const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
+      selector: { kind: 'ship', shipId: argoId },
+      payload,
+      idempotencyKey: `ask-${newId('message')}`,
+    });
+    const { id } = await database.delivery.findFirstOrThrow({ where: { messageId } });
+    return { deliveryId: id, messageId, crewToken };
+  }
+
+  it('list the messages to argo by filter for its console session', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId, messageId } = await toArgo('Promote 2.14?');
+
+    const open = await asArgo.fleet.inbox.query({ filter: 'open' });
+
+    expect(open.find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
+      state: 'pending',
+      readAt: null,
+      message: { id: messageId, payload: 'Promote 2.14?' },
+    });
+  });
+
+  it('mark a message read and done, answering {}; it moves from open to done', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId } = await toArgo('checkout-e2e failed.');
+
+    await expect(asArgo.fleet.markRead.mutate({ deliveryId, isRead: true })).resolves.toEqual({});
+    await expect(asArgo.fleet.markDone.mutate({ deliveryId })).resolves.toEqual({});
+
+    expect((await asArgo.fleet.inbox.query({ filter: 'open' })).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.inbox.query({ filter: 'done' })).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
+      readAt: clock.now().toISOString(),
+      doneAt: clock.now().toISOString(),
+    });
+  });
+
+  it('reply to a message: the sender receives the reply, and the message is done', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId, messageId, crewToken } = await toArgo('Promote 2.14?');
+
+    const reply = await asArgo.fleet.reply.mutate({ deliveryId, payload: 'go', idempotencyKey: `go-${deliveryId}` });
+
+    const { deliveries } = await client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({});
+    expect(deliveries).toEqual([
+      expect.objectContaining({ messageId: reply.messageId, payload: 'go', inReplyTo: messageId }),
+    ]);
+    expect((await asArgo.fleet.inbox.query({ filter: 'done' })).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
+      repliedWith: reply.messageId,
+    });
+  });
+
+  it("answer NOT_FOUND for a delivery not in argo's inbox", async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(codeOf(asArgo.fleet.markDone.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.markRead.mutate({ deliveryId: newId('delivery'), isRead: true }))).resolves.toBe('NOT_FOUND');
+    await expect(
+      codeOf(asArgo.fleet.reply.mutate({ deliveryId: newId('delivery'), payload: 'go', idempotencyKey: 'go' })),
+    ).resolves.toBe('NOT_FOUND');
+  });
+
+  it('refuse any ship but argo, even with every scope', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip([...SCOPES])}` });
+    const { deliveryId } = await toArgo('Promote 2.14?');
+
+    await expect(codeOf(agent.fleet.markDone.mutate({ deliveryId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.markRead.mutate({ deliveryId, isRead: true }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.reply.mutate({ deliveryId, payload: 'go', idempotencyKey: 'go' }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('refuse the inbox without fleet:read', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(agent.fleet.inbox.query({ filter: 'all' }))).resolves.toBe('FORBIDDEN');
   });
 });

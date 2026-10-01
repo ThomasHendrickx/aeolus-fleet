@@ -4,6 +4,7 @@ import { createIdGenerator } from '../ids/index.js';
 import { PAYLOAD_MAX_BYTES } from './message.js';
 import {
   INBOX_FILTERS,
+  inboxActionOutputSchema,
   markDoneInputSchema,
   markReadInputSchema,
   operatorInboxInputSchema,
@@ -104,5 +105,12 @@ describe('replyOutputSchema', () => {
     const output = { messageId: newId('message') };
 
     expect(replyOutputSchema.parse(output)).toEqual(output);
+  });
+});
+
+describe('inboxActionOutputSchema', () => {
+  it('answers nothing: the OK is the answer to mark read and mark done', () => {
+    expect(inboxActionOutputSchema.safeParse({}).success).toBe(true);
+    expect(inboxActionOutputSchema.safeParse({ readAt: AT }).success).toBe(false);
   });
 });
