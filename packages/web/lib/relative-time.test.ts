@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clockTime, fullDateTime, relativeTime, shortDateTime } from './relative-time';
+import { clockTime, dayDate, duration, fullDateTime, relativeTime, secondsTime, shortDateTime } from './relative-time';
 
 const NOW = new Date(2026, 8, 28, 14, 21, 5);
 
@@ -41,5 +41,33 @@ describe('shortDateTime and fullDateTime', () => {
 describe('clockTime', () => {
   it('words a moment as a 24 h clock', () => {
     expect(clockTime(new Date(2026, 9, 1, 9, 5, 59))).toBe('09:05');
+  });
+});
+
+describe('secondsTime', () => {
+  it('words a moment as a 24 h clock to the second', () => {
+    expect(secondsTime(new Date(2026, 9, 1, 9, 5, 7))).toBe('09:05:07');
+  });
+});
+
+describe('dayDate', () => {
+  it('words a date without a time', () => {
+    expect(dayDate(new Date(2026, 8, 20, 16, 2))).toBe('20 Sep 2026');
+  });
+});
+
+describe('duration', () => {
+  const from = new Date(2026, 8, 28, 8, 0);
+  const after = (ms: number) => new Date(from.getTime() + ms);
+
+  it.each([
+    [11 * 60_000, '11 min'],
+    [6 * 3_600_000 + 30 * 60_000, '6 h 30 min'],
+    [2 * 3_600_000, '2 h'],
+    [26 * 3_600_000, '1 d 2 h'],
+    [48 * 3_600_000, '2 d'],
+    [0, '0 min'],
+  ])('words %i ms as %s', (ms, words) => {
+    expect(duration(from, after(ms))).toBe(words);
   });
 });
