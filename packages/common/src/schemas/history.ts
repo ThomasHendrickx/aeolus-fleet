@@ -102,6 +102,7 @@ export const DELIVERY_HISTORY_TYPES = [
   'DeliveryAcknowledged',
   'DeliveryUndeliverable',
   'DeliveryAbandoned',
+  'DeliveryDismissed',
 ] as const;
 
 /** One change to a delivery: when, which ship held it and where its session ran, and the claims counted by then. */
