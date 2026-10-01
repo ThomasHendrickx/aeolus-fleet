@@ -69,7 +69,7 @@ flowchart LR
     web["web (Next.js)"]
     server["server (Fastify, tRPC, REST, MCP)"]
     pg[("Postgres on a volume")]
-    caddy -- "/" --> web
+    caddy -- "/, /version" --> web
     caddy -- "/trpc, /api/v1, /mcp, /health" --> server
     web --> server
     server --> pg
@@ -85,6 +85,8 @@ flowchart LR
 | `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP), with the ship protocol as its instructions. The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
 | `/health` (web) | web | Monitoring | Web up and the server's health. Nothing about fleets |
+| `/version` | web | Operator, monitoring | The live versions: the web process's own, plus the server process's own answer from `/api/version` (`server: null` when it does not answer). Each process reports what it runs, so a deploy that failed halfway shows. No authentication, no fleet data. Caddy routes `/version` to web |
+| `/api/version` | server | The web app's `/version` | The server process's own version, the version of the common package it loaded, and the latest migration applied to the database |
 
 Only ports 80 (redirect) and 443 are open, and the fleet is reachable over public HTTPS: ship secrets carry the security. Postgres listens on the Compose network only. Estimated cost stays as in the blueprint: about €12.50 a month including VAT.
 
@@ -182,7 +184,7 @@ Lint and CI enforce these rules (slice 1b).
 | Concern | Approach |
 | --- | --- |
 | Tenancy | Every record belongs to a fleet. A ship secret, a crew token or a console session resolves to exactly one ship and fleet (the lookups that are not scoped by fleet), and the API sets that fleet scope before any use case runs. v1 has one fleet; hosting several is a data change later |
-| Configuration | Environment variables (database URL, public URL, session secret), validated into one typed config object at startup. A bad config stops the process with a clear message. The web app reads the server's address when it runs and passes it to the browser, never at build time, so one published build serves any fleet |
+| Configuration | Environment variables (database URL, public URL), validated into one typed config object at startup. A bad config stops the process with a clear message. The web app reads the server's address when it runs and passes it to the browser, never at build time, so one published build serves any fleet |
 | Running from npm | Each package has a `bin` command for what an operator runs: `aeolus-server start`, `migrate`, `fleet:init` and `operator:reset-password`; `aeolus-web start`. The infra repo installs a pinned version and runs these, knowing nothing of the source |
 | Migrations | Prisma Migrate, run at startup (`aeolus-server start`) under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command (`aeolus-server migrate`) |
 | First run | A server command initialises the fleet: it creates the fleet, `argo` and the operator account, asking for email and password. There is no setup page on the public web |

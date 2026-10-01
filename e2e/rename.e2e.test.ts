@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
 import { createApp } from '../packages/server/src/app.js';
@@ -87,5 +88,17 @@ describe('renaming a ship', () => {
     await page.getByRole('heading', { name: 'reviewer-web' }).first().waitFor();
     await page.getByText('Renamed from reviewer-01 to reviewer-web by argo').waitFor();
     await expect(database.ship.findUniqueOrThrow({ where: { id: shipId } })).resolves.toMatchObject({ name: 'reviewer-web' });
+  });
+});
+
+describe('/version', () => {
+  it("answers the web app's version and the server's own answer, with the latest migration", async () => {
+    const response = await fetch(`${web.url}/version`);
+
+    expect(response.status).toBe(200);
+    const body = z
+      .object({ web: z.string(), server: z.object({ server: z.string(), common: z.string(), migration: z.string() }) })
+      .parse(await response.json());
+    expect(body.server.migration).toMatch(/_lease_last_seen$/);
   });
 });

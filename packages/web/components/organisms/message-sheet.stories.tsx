@@ -15,6 +15,8 @@ type Story = StoryObj<typeof meta>;
 
 export const TypeAddressed: Story = {};
 export const Direct: Story = { args: { message: DIRECT_MESSAGE } };
+/** Reply answers the sender as argo, through Compose. */
+export const WithReply: Story = { args: { message: DIRECT_MESSAGE, onReply: fn() } };
 export const Undeliverable: Story = {
   args: {
     message: {

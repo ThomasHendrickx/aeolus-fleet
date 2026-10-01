@@ -45,4 +45,11 @@ describe('sendInputOf', () => {
       idempotencyKey: 'compose-1',
     });
   });
+
+  it('names the message a reply answers', () => {
+    const shipId = newId('ship');
+    const inReplyTo = newId('message');
+
+    expect(sendInputOf({ selector: { kind: 'ship', shipId }, payload: 'go', inReplyTo }, 'reply-1')).toMatchObject({ inReplyTo });
+  });
 });

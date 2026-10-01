@@ -15,6 +15,7 @@ import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
 import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
+import { runningVersions } from './version.js';
 
 /** Ten sign-in attempts per client per minute. */
 export const DEFAULT_SIGN_IN_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
@@ -32,6 +33,8 @@ export interface HttpServerOptions {
   fleetEvents?: FleetEventWatches;
   /** Throws when the database is unreachable. */
   checkDatabase: () => Promise<void>;
+  /** The latest migration applied to the database; null before the first. Throws when unreachable. */
+  latestMigration: () => Promise<string | null>;
   clock: Clock;
   logger: FastifyServerOptions['logger'];
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
@@ -143,6 +146,19 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
         .header('access-control-max-age', String(PREFLIGHT_MAX_AGE_S))
         .send();
     }
+  });
+
+  // The versions this process runs and the database's latest migration, for
+  // whoever operates the installation. No authentication, no fleet data.
+  const versions = runningVersions();
+  server.get('/api/version', async () => {
+    let migration: string | null = null;
+    try {
+      migration = await options.latestMigration();
+    } catch (error) {
+      server.log.error(failureForLog(error), 'latest migration unknown');
+    }
+    return { ...versions, migration };
   });
 
   // Server up and database reachable. Nothing about fleets.

@@ -1,4 +1,4 @@
-import type { ListedShip, SendInput } from '@aeolus-fleet/common';
+import type { ListedShip, MessageId, SendInput } from '@aeolus-fleet/common';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import type { SelectorValue } from '../components/molecules/selector-picker';
@@ -14,8 +14,12 @@ export function composeTargets(fleet: readonly ListedShip[]): { ships: ListedShi
 }
 
 /** The send of a composed message: plain text, under the key this compose was opened with. */
-export function sendInputOf(message: { selector: SelectorValue; payload: string }, idempotencyKey: string): SendInput {
-  return { selector: message.selector, payload: message.payload, contentType: 'text/plain', idempotencyKey };
+export function sendInputOf(
+  message: { selector: SelectorValue; payload: string; inReplyTo?: MessageId },
+  idempotencyKey: string,
+): SendInput {
+  const { selector, payload, inReplyTo } = message;
+  return { selector, payload, contentType: 'text/plain', idempotencyKey, ...(inReplyTo === undefined ? {} : { inReplyTo }) };
 }
 
 /** Sends a message as argo from the console. */

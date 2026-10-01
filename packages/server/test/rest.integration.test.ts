@@ -217,3 +217,12 @@ describe('the ship calls at /api/v1', () => {
     await expect(request('whoami', { crewToken: scoutToken, method: 'GET' })).resolves.toMatchObject({ status: 200 });
   });
 });
+
+describe('the API reference page', () => {
+  it('is served at /api/v1/docs, as HTML', async () => {
+    const response = await fetch(`${address}/api/v1/docs`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toMatch(/^text\/html/);
+  });
+});
