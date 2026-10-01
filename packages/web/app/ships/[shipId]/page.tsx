@@ -5,15 +5,13 @@ import { useRouter } from 'next/navigation';
 import { use } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
-import { ShipActions } from '../../../components/molecules/ship-actions';
-import { StartingPromptBlock } from '../../../components/molecules/starting-prompt-block';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
+import { ShipActions } from '../../../components/organisms/ship-actions';
 import { ShipHeader } from '../../../components/organisms/ship-header';
 import { ShipTimeline } from '../../../components/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { trpcErrorCode } from '../../../lib/errors';
-import { useGetStartingPrompt, useReleaseShip } from '../../../lib/fleet';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds, useSignOut } from '../../../lib/session';
@@ -55,8 +53,6 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
-  const getStartingPrompt = useGetStartingPrompt();
-  const releaseShip = useReleaseShip();
   const signOut = useSignOut();
   useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
 
@@ -68,7 +64,6 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   };
 
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND';
-  const issued = getStartingPrompt.data;
 
   return (
     <DetailLayout
@@ -82,21 +77,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           shipId={shipId}
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
-          actions={
-            ship.data ? (
-              <ShipActions
-                ship={ship.data}
-                isIssuing={getStartingPrompt.isPending}
-                onGetStartingPrompt={() => {
-                  getStartingPrompt.mutate({ shipId });
-                }}
-                isReleasing={releaseShip.isPending}
-                onRelease={() => {
-                  releaseShip.mutate({ shipId });
-                }}
-              />
-            ) : undefined
-          }
+          actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
         />
       }
       sheet={
@@ -113,16 +94,6 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         />
       }
     >
-      {issued && ship.data ? (
-        <StartingPromptBlock
-          shipName={ship.data.name}
-          prompt={issued.prompt}
-          crewLine={issued.crewLine}
-          onDone={() => {
-            getStartingPrompt.reset();
-          }}
-        />
-      ) : null}
       {isNotFound ? null : (
         <Tabs
           value={tab}

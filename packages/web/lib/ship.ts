@@ -3,10 +3,14 @@ import { skipToken, useQuery } from '@tanstack/react-query';
 
 import { useTRPC } from './trpc';
 
-/** One ship for its page: the overview's facts, with when it was commissioned, crewed and retired. */
-export function useShip(shipId: ShipId) {
+/**
+ * One ship for its page, or for a dialog's numbers: the overview's facts,
+ * when it was commissioned, crewed and retired, and its deliveries in flight
+ * and open. Idle while no ship is given.
+ */
+export function useShip(shipId: ShipId | undefined) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.ship.queryOptions({ shipId }));
+  return useQuery(trpc.fleet.ship.queryOptions(shipId === undefined ? skipToken : { shipId }));
 }
 
 /** Every change to the ship, newest first. */

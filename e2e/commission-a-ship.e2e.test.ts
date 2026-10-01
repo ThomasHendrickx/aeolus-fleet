@@ -8,7 +8,8 @@ import { createPrismaClient, type PrismaClient } from '../packages/server/src/ad
 import { createApp } from '../packages/server/src/app.js';
 import type { AppRouter } from '../packages/server/src/index.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, OPERATOR, secretIn, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
+import type { Caller } from '../packages/server/src/core/shared/caller.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -23,6 +24,7 @@ const clock = createTestClock('2026-09-29T12:00:00.000Z');
 
 let database: PrismaClient;
 let useCases: UseCases;
+let argo: Caller;
 let server: FastifyInstance;
 let serverUrl: string;
 let web: RunningWeb;
@@ -33,7 +35,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
-  unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
@@ -55,6 +57,8 @@ async function signedInPage(): Promise<Page> {
   const context = await browser.newContext({ baseURL: web.url, permissions: ['clipboard-read', 'clipboard-write'] });
   contexts.push(context);
   const page = await context.newPage();
+  // A new rate-limit window first, so the sign-ins of many tests never hit the limit.
+  clock.advance(60_000);
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
@@ -142,17 +146,17 @@ describe('commissioning a ship in the console', () => {
     const row = shipRow(page, 'lookout');
 
     await row.getByRole('button', { name: 'Get starting prompt' }).click();
-    const confirmation = row.getByRole('group', { name: 'Replace the starting prompt for lookout' });
-    await confirmation.getByText(/is still out\. A new one stops it working\./).waitFor();
-    await confirmation.getByRole('button', { name: 'Cancel' }).click();
+    const dialog = page.getByTestId('starting-prompt-dialog');
+    await dialog.getByText(/A new prompt stops the one issued/).waitFor();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
 
-    await confirmation.waitFor({ state: 'detached' });
+    await dialog.waitFor({ state: 'detached' });
     await expect(isValid(first)).resolves.toBe(true);
 
     await row.getByRole('button', { name: 'Get starting prompt' }).click();
-    await confirmation.getByRole('button', { name: 'Replace prompt' }).click();
+    await dialog.getByRole('button', { name: 'Get new prompt' }).click();
 
-    const second = await promptSecretIn(page, 'lookout');
+    const second = secretIn((await dialog.getByTestId('starting-prompt-text').textContent()) ?? '');
     expect(second).not.toBe(first);
     await expect(isValid(first)).resolves.toBe(false);
     await expect(isValid(second)).resolves.toBe(true);
@@ -228,7 +232,7 @@ describe('releasing a crewed ship', () => {
     const row = shipRow(page, 'coxswain');
 
     await row.getByTestId('fleet-ship-release').click();
-    await row.getByRole('group', { name: 'Release coxswain?' }).getByRole('button', { name: 'Release ship' }).click();
+    await page.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await row.getByText('Awaiting crew').waitFor();
     await row.getByText('No starting prompt issued').waitFor();
@@ -242,8 +246,8 @@ describe('releasing a crewed ship', () => {
     const row = shipRow(page, 'bowman');
 
     await row.getByTestId('fleet-ship-release').click();
-    const confirmation = row.getByRole('group', { name: 'Release bowman?' });
-    await confirmation.getByText(/Its secret stops working/).waitFor();
+    const confirmation = page.getByTestId('release-dialog');
+    await confirmation.getByText(/Its secret and crew token stop working/).waitFor();
     await confirmation.getByRole('button', { name: 'Cancel' }).click();
 
     await confirmation.waitFor({ state: 'detached' });
@@ -259,5 +263,61 @@ describe('releasing a crewed ship', () => {
 
     await expect(shipRow(page, 'argo').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
     await expect(shipRow(page, 'oarsman').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
+  });
+});
+
+describe('re-crewing a crewed ship', () => {
+  it('releases it and shows a fresh starting prompt and crew line once: the old session loses it, the new secret claims it', async () => {
+    const page = await signedInPage();
+    const crewToken = await crewedShip(page, { name: 'helmsman', type: 'reviewer' });
+    const row = shipRow(page, 'helmsman');
+
+    await row.getByTestId('fleet-ship-recrew').click();
+    const confirmation = page.getByTestId('recrew-dialog');
+    await confirmation.getByText(/A new starting prompt and its crew line are shown once/).waitFor();
+    await confirmation.getByRole('button', { name: 'Re-crew ship' }).click();
+
+    const dialog = page.getByTestId('starting-prompt-dialog');
+    const prompt = (await dialog.getByTestId('starting-prompt-text').textContent()) ?? '';
+    await expect(dialog.getByTestId('starting-prompt-crew-line').textContent()).resolves.toBe(
+      `/aeolus:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`,
+    );
+    await expect(isValid(secretIn(prompt))).resolves.toBe(true);
+    await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    await row.getByText('Awaiting crew').waitFor();
+  });
+});
+
+describe('retiring a ship', () => {
+  it('retires it after the typed confirm: gone from the default overview, shown under Show retired', async () => {
+    const page = await signedInPage();
+    await commission(page, { name: 'castaway', type: 'reviewer' });
+    const prompt = await promptTextIn(page, 'castaway');
+    await promptBlock(page, 'castaway').getByRole('button', { name: 'Done' }).click();
+    await sessionClient().ship.register.mutate({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' } });
+    unwrap(
+      await useCases.sendMessage(argo, {
+        selector: { kind: 'ship', name: 'castaway' },
+        payload: 'Last orders',
+        idempotencyKey: 'castaway-1',
+      }),
+    );
+    const row = shipRow(page, 'castaway');
+    await row.getByText('Crewed').waitFor();
+
+    await row.getByTestId('fleet-ship-retire').click();
+    const dialog = page.getByTestId('retire-dialog');
+    const retire = dialog.getByRole('button', { name: 'Retire and abandon 1 delivery' });
+    await expect(retire.isDisabled()).resolves.toBe(true);
+    await dialog.getByTestId('retire-typed-confirm').getByRole('textbox').fill('castaway');
+    await retire.click();
+
+    await row.waitFor({ state: 'detached' });
+    await page.getByTestId('fleet-show-retired').click();
+    await shipRow(page, 'castaway').getByText('Retired').waitFor();
+    await expect(
+      database.delivery.count({ where: { recipientShip: { name: 'castaway' }, state: 'abandoned' } }),
+    ).resolves.toBe(1);
   });
 });
