@@ -35,6 +35,7 @@ import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
+import { createReadInbox } from '../../src/core/shared/read-inbox.js';
 import { createReadMessage } from '../../src/core/shared/read-message.js';
 import { createReadNeedsAttention } from '../../src/core/shared/read-needs-attention.js';
 import { createReadShipMessages } from '../../src/core/shared/read-ship-messages.js';
@@ -114,6 +115,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipMessages: createReadShipMessages({ history: core.history }),
     readMessage: createReadMessage({ history: core.history }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
+    readInbox: createReadInbox({ history: core.history }),
   };
 }
 
