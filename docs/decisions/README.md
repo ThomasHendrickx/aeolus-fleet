@@ -12,7 +12,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0008](0008-packages.md) **Three packages, one repo.** server, web, common; one version. Hosting in private infra repo.
 - [0009](0009-stack.md) **Stack.** Node 26, Fastify, tRPC, Next.js, Prisma, Zod, Vitest, Testcontainers, Playwright.
 - [0010](0010-leases-without-heartbeats.md) **Leases until released.** No heartbeats; second claim fails (except `argo` takeover); release and deregister invalidate the secret; location reported on claim.
-- [0011](0011-release-via-trusted-publishing.md) **Release via trusted publishing.** Only `release.yml` publishes, no tokens, tags `v<version>`.
+- [0011](0011-release-via-trusted-publishing.md) **Release via trusted publishing.** Only `release.yml` publishes, no tokens, tags `v<version>`, and commits the plugin's version to main.
 - [0012](0012-operator-is-a-ship.md) **Operator is the ship `argo`.** Permanent, all scopes, no secret; crewed only by the operator's email and password login; one session at a time.
 - [0013](0013-breaking-changes-before-1-0.md) **Breaking changes before 1.0.0.** Allowed; no compatibility layers.
 - [0014](0014-strict-test-driven-development.md) **Strict TDD.** Server and common test first, `(red)` commit then green; push green only.
