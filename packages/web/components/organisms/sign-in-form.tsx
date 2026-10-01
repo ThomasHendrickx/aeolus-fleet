@@ -2,14 +2,16 @@
 
 import { signInInputSchema } from '@aeolus-fleet/common';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CircleAlert, Timer } from 'lucide-react';
+import { CircleAlert, Info, Timer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { classNames } from '../../lib/class-names';
-import { trpcErrorCode } from '../../lib/errors';
 import { useSignIn } from '../../lib/console';
+import { retryAtOf, trpcErrorCode } from '../../lib/errors';
+import { useHasPassed } from '../../lib/has-passed';
+import { clockTime } from '../../lib/relative-time';
 import { signInRefusal } from '../../lib/sign-in';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
@@ -32,9 +34,11 @@ const FIELD_ERROR = 'text-meta text-destructive-text';
  * Sign in with the operator's email and password, checked with the schema the
  * server uses (docs/design/png/SignInForm.png). Signing in crews argo and opens
  * the fleet; a refusal shows one notice above the fields and keeps what was
- * typed.
+ * typed. Over the rate limit the button waits until the server's retryAt.
+ * A console session that ended because the operator signed in on another
+ * device arrives here with a calm notice: nothing went wrong.
  */
-export function SignInForm() {
+export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewhere?: boolean }) {
   const signIn = useSignIn();
   const router = useRouter();
   // Before hydration a native submit would send the form itself; the button waits for React.
@@ -58,6 +62,8 @@ export function SignInForm() {
 
   // Rate limiting is a wait, not a mistake: it takes the waiting tone (docs/design/conventions.md, "Alert tone").
   const isRateLimited = trpcErrorCode(signIn.error) === 'TOO_MANY_REQUESTS';
+  const retryAt = isRateLimited ? retryAtOf(signIn.error) : undefined;
+  const canTryAgain = useHasPassed(retryAt);
 
   return (
     <div className="flex flex-col gap-5">
@@ -79,9 +85,25 @@ export function SignInForm() {
           ) : (
             <CircleAlert aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
           )}
-          <p role="alert" className="font-medium">
-            {signInRefusal(signIn.error)}
-          </p>
+          <div className="flex flex-col gap-0.5">
+            <p role="alert" className="font-medium">
+              {signInRefusal(signIn.error)}
+            </p>
+            {retryAt ? <p>You can sign in again at {clockTime(retryAt)}.</p> : null}
+          </div>
+        </div>
+      ) : isSignedInElsewhere ? (
+        <div
+          data-testid="sign-in-signed-in-elsewhere"
+          className="flex gap-2.5 rounded-lg border border-border bg-muted px-3.5 py-3 text-meta text-foreground"
+        >
+          <Info aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-muted-foreground" />
+          <div role="status" className="flex flex-col gap-0.5">
+            <p className="font-medium">You signed in somewhere else</p>
+            <p className="text-muted-foreground">
+              This session ended when you signed in on another device. Sign in again to use the console here.
+            </p>
+          </div>
         </div>
       ) : null}
       <form
@@ -132,7 +154,7 @@ export function SignInForm() {
           type="submit"
           variant="primary"
           className="mt-1 w-full max-sm:h-(--size-control-touch)"
-          disabled={!isHydrated}
+          disabled={!isHydrated || !canTryAgain}
           isLoading={signIn.isPending}
         >
           Sign in

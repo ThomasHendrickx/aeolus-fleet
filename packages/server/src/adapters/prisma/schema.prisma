@@ -28,9 +28,13 @@ datasource db {
 
 /// The tenant: one operator's ships, messages and history. Ids start with flt_.
 model Fleet {
-  id        String   @id
-  name      String
-  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  id           String   @id
+  name         String
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+  /// The sequence number of the fleet's last committed event. A unit of work
+  /// takes its numbers from it as its last statements, so the row lock orders
+  /// the numbers as the transactions commit.
+  lastEventSeq BigInt   @default(0) @map("last_event_seq")
 
   ships           Ship[]
   leases          Lease[]
@@ -245,6 +249,10 @@ model Event {
   messageId   String?  @map("message_id")
   deliveryId  String?  @map("delivery_id")
   details     Json
+  /// The event's place in its fleet's stream, in commit order and without
+  /// gaps: where a live subscription resumes. The id is not, since ids are
+  /// taken before their transaction commits.
+  seq         BigInt
 
   fleet     Fleet     @relation(fields: [fleetId], references: [id])
   actorShip Ship?     @relation("EventActorShip", fields: [fleetId, actorShipId], references: [fleetId, id], onDelete: Restrict)
@@ -252,7 +260,18 @@ model Event {
   message   Message?  @relation(fields: [fleetId, messageId], references: [fleetId, id], onDelete: Restrict)
   delivery  Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
 
+  @@unique([fleetId, seq])
   @@map("events")
+}
+
+/// Why a console session ended: a sign-in elsewhere took argo over, the
+/// operator signed out, or the password was reset.
+enum ConsoleSessionEndReason {
+  takenOver
+  signedOut
+  passwordReset
+
+  @@map("console_session_end_reason")
 }
 
 /// The operator's login: email and Argon2id password hash. Ids start with opr_.
@@ -284,6 +303,8 @@ model ConsoleSession {
   lastUsedAt DateTime  @map("last_used_at") @db.Timestamptz(3)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
   endedAt    DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// Why the session ended; null while it has not.
+  endReason  ConsoleSessionEndReason? @map("end_reason")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
   ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])

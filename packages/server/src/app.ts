@@ -5,6 +5,7 @@ import { buildHttpServer } from './adapters/http/server.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
+import { createFleetEventWakeups } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './core/shared/clock.js';
 import { createUseCases, systemClock } from './wiring.js';
@@ -31,16 +32,19 @@ export interface AppOptions {
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
- * The delivery listener starts at once and wakes waiting receives. Closing the
+ * The delivery listener starts at once and wakes waiting receives and live
+ * subscriptions. Closing the
  * server also stops the listener and disconnects the database.
  */
 export function createApp(options: AppOptions): FastifyInstance {
   const prisma = createPrismaClient(options.databaseUrl);
   const clock = options.clock ?? systemClock;
   const wakeups = createReceiverWakeups();
+  const fleetEvents = createFleetEventWakeups();
 
   const server = buildHttpServer({
     useCases: createUseCases({ prisma, clock, fleetUrl: options.publicUrl, wakeups, receiveWaitMs: options.receiveWaitMs }),
+    fleetEvents,
     checkDatabase: () => checkDatabase(prisma),
     clock,
     logger: options.logger,
@@ -56,8 +60,12 @@ export function createApp(options: AppOptions): FastifyInstance {
     onNotice: (notice) => {
       wakeups.deliveryPending(notice);
     },
+    onFleetEvent: (notice) => {
+      fleetEvents.eventCommitted(notice);
+    },
     onListening: () => {
       wakeups.wakeAll();
+      fleetEvents.wakeAll();
     },
     onError: (error) => {
       server.log.warn(failureForLog(error), 'delivery listener lost its connection: listening again shortly');
@@ -65,7 +73,8 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // Before the server stops taking requests and waits for the ones it holds:
-  // a waiting receive answers no deliveries at once instead of holding it up.
+  // a waiting receive answers no deliveries at once instead of holding it up,
+  // and a live subscription ends.
   // Connections idle at that moment close at once (Fastify's default); one
   // whose request ends later is told to close with its answer, or it would
   // stay open, idle, until its keep-alive timeout.
@@ -73,6 +82,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   server.addHook('preClose', (done) => {
     isStopping = true;
     wakeups.endAll();
+    fleetEvents.endAll();
     done();
   });
   server.addHook('onSend', async (_request, reply) => {

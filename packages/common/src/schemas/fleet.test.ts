@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   commissionShipInputSchema,
+  fleetEventsInputSchema,
   fleetListOutputSchema,
+  fleetStreamItemSchema,
   getStartingPromptInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
@@ -163,5 +165,47 @@ describe('fleetListOutputSchema', () => {
     ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
   ])('rejects %s', (_label, listed) => {
     expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);
+  });
+});
+
+describe('fleetEventsInputSchema', () => {
+  it.each([{}, { lastEventId: null }, { lastEventId: '0' }, { lastEventId: '42' }])(
+    'accepts %j: no position, or the number of the last event applied',
+    (input) => {
+      expect(fleetEventsInputSchema.parse(input)).toEqual(input);
+    },
+  );
+
+  it.each(['', '-1', '4.2', 'evt_01', '1e3', '1234567890123456'])('rejects the position %j', (lastEventId) => {
+    expect(fleetEventsInputSchema.safeParse({ lastEventId }).success).toBe(false);
+  });
+});
+
+describe('fleetStreamItemSchema', () => {
+  const event = {
+    seq: 7,
+    id: newId('event'),
+    type: 'ShipClaimed',
+    occurredAt: '2026-10-01T09:00:00.000Z',
+    shipId: newId('ship'),
+    messageId: null,
+    deliveryId: null,
+  };
+
+  it('accepts an event with its number, type, time and what it concerns', () => {
+    expect(fleetStreamItemSchema.parse({ kind: 'event', event })).toEqual({ kind: 'event', event });
+  });
+
+  it('accepts the word to load the fleet again', () => {
+    expect(fleetStreamItemSchema.parse({ kind: 'resync' })).toEqual({ kind: 'resync' });
+  });
+
+  it.each([
+    ['an unknown kind', { kind: 'snapshot' }],
+    ['an event numbered 0', { kind: 'event', event: { ...event, seq: 0 } }],
+    ['an unknown event type', { kind: 'event', event: { ...event, type: 'ShipSank' } }],
+    ['a time that is not ISO 8601', { kind: 'event', event: { ...event, occurredAt: 'now' } }],
+  ])('rejects %s', (_label, item) => {
+    expect(fleetStreamItemSchema.safeParse(item).success).toBe(false);
   });
 });

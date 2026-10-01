@@ -6,6 +6,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - shadcn/ui on Base UI, Lucide, Tailwind v4 with CSS variables; dark = `.dark` on `<html>`.
 - Every value is a token. Arbitrary values only as token references, e.g. `w-(--size-sheet)`.
 - Wrap shadcn atoms; never fork their behaviour. No new atom when shadcn has one.
+- Every clickable control (buttons, links styled as buttons, menu and select items, tabs, checkbox, switch) shows `cursor: pointer`, set once in the base CSS layer; a disabled one shows the default cursor.
 
 ## Colour
 - Brand accent = `--primary`: primary Button, active nav item, open-message counts, active TabBar item. Nothing else.

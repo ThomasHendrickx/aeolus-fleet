@@ -77,7 +77,7 @@ export function createSignIn(deps: {
       const at = deps.clock.now();
       const actor = shipActor(argo.id);
 
-      await tx.consoleSessions.endAll(argo.fleetId, at);
+      await tx.consoleSessions.endAll(argo.fleetId, { at, reason: 'takenOver' });
       const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
         fleetId: argo.fleetId,
         shipId: argo.id,
@@ -103,6 +103,7 @@ export function createSignIn(deps: {
         lastUsedAt: at,
         expiresAt,
         endedAt: null,
+        endReason: null,
       });
 
       const caller: Caller = {

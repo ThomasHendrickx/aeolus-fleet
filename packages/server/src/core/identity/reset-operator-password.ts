@@ -65,7 +65,7 @@ export function createResetOperatorPassword(deps: {
         details: { operatorId: account.id },
       });
 
-      for (const session of await tx.consoleSessions.endAll(fleetId, at)) {
+      for (const session of await tx.consoleSessions.endAll(fleetId, { at, reason: 'passwordReset' })) {
         await endLease(
           { tx, ids: deps.ids },
           { fleetId, leaseId: session.leaseId, actor: SYSTEM, at, reason: 'passwordReset' },

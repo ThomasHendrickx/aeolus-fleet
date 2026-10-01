@@ -4,7 +4,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { SecretHasher } from '../shared/secrets.js';
-import { consoleSessionExpiry } from './console-session.js';
+import { consoleSessionExpiry, type ConsoleSessionEndReason } from './console-session.js';
 import type { CallerLookup } from './ports.js';
 
 export interface ConsoleSessionUse {
@@ -32,6 +32,12 @@ export interface Authenticate {
    * session valid for another 30 days.
    */
   byConsoleSession(token: string): Promise<ConsoleSessionUse | undefined>;
+  /**
+   * Why the console session of this token ended, so the console can say so:
+   * "You signed in somewhere else" is no failure. Undefined while it has not
+   * ended, once it has merely expired, or for a token no session has.
+   */
+  endOfConsoleSession(token: string): Promise<ConsoleSessionEndReason | undefined>;
 }
 
 /** Use case: turns a crew token or a console session token into the caller. */
@@ -50,5 +56,6 @@ export function createAuthenticate(deps: { callers: CallerLookup; hasher: Secret
       const caller = await deps.callers.useConsoleSession({ tokenHash: deps.hasher.hash(token), now, expiresAt });
       return caller ? { caller, expiresAt } : undefined;
     },
+    endOfConsoleSession: (token) => deps.callers.consoleSessionEnding(deps.hasher.hash(token)),
   };
 }

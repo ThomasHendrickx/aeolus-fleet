@@ -1,8 +1,17 @@
 import { SignInForm } from '../../components/organisms/sign-in-form';
 import { AuthLayout } from '../../components/templates/auth-layout';
 
-/** Sign in with the operator's email and password. Only the session cookie stays in the browser. */
-export default function SignInPage() {
+/**
+ * Sign in with the operator's email and password. Only the session cookie
+ * stays in the browser. `?notice=signed-in-elsewhere` says the last session
+ * ended because the operator signed in on another device.
+ */
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { notice } = await searchParams;
   return (
     <AuthLayout
       recovery={
@@ -14,7 +23,7 @@ export default function SignInPage() {
         </>
       }
     >
-      <SignInForm />
+      <SignInForm isSignedInElsewhere={notice === 'signed-in-elsewhere'} />
     </AuthLayout>
   );
 }

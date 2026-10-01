@@ -1,7 +1,7 @@
 import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
-import type { ConsoleSession } from './console-session.js';
+import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { OperatorAccount } from './operator-account.js';
 
@@ -62,9 +62,14 @@ export interface OperatorAccountRepository {
 export interface ConsoleSessionRepository {
   create(session: ConsoleSession): Promise<void>;
   /** Ends the session if it has not ended and returns it; undefined when it had already ended. */
-  end(change: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date }): Promise<ConsoleSession | undefined>;
+  end(change: {
+    fleetId: FleetId;
+    consoleSessionId: ConsoleSessionId;
+    at: Date;
+    reason: ConsoleSessionEndReason;
+  }): Promise<ConsoleSession | undefined>;
   /** Ends every session of the fleet that has not ended, expired ones included, and returns them. */
-  endAll(fleetId: FleetId, at: Date): Promise<ConsoleSession[]>;
+  endAll(fleetId: FleetId, ending: { at: Date; reason: ConsoleSessionEndReason }): Promise<ConsoleSession[]>;
 }
 
 /**
@@ -84,4 +89,6 @@ export interface CallerLookup {
    * and its expiry to `expiresAt`.
    */
   useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Caller | undefined>;
+  /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
+  consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
 }

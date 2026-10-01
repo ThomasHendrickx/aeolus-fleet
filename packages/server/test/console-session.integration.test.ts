@@ -340,3 +340,28 @@ describe('the caller lookups', () => {
     await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject(UNKNOWN_CREW_TOKEN);
   });
 });
+
+describe('why a console session ended, on Postgres', () => {
+  it('records a takeover, a sign-out and a password reset, and nothing for a live session', async () => {
+    const takenOver = unwrap(await core.useCases.signIn(OPERATOR));
+    const signedOut = unwrap(await core.useCases.signIn(OPERATOR));
+    await core.useCases.signOut(signedOut.caller);
+    const reset = unwrap(await core.useCases.signIn(OPERATOR));
+    unwrap(await core.useCases.resetOperatorPassword({ fleetId, password: 'a brand new passphrase' }));
+    const live = unwrap(await core.useCases.signIn({ ...OPERATOR, password: 'a brand new passphrase' }));
+    const endOfConsoleSession = (token: string) => core.useCases.authenticate.endOfConsoleSession(token);
+
+    await expect(endOfConsoleSession(takenOver.token)).resolves.toBe('takenOver');
+    await expect(endOfConsoleSession(signedOut.token)).resolves.toBe('signedOut');
+    await expect(endOfConsoleSession(reset.token)).resolves.toBe('passwordReset');
+    await expect(endOfConsoleSession(live.token)).resolves.toBeUndefined();
+  });
+
+  it('refuses a reason on a session that has not ended', async () => {
+    const { consoleSessionId } = unwrap(await core.useCases.signIn(OPERATOR));
+
+    await expect(
+      core.prisma.consoleSession.update({ where: { id: consoleSessionId }, data: { endReason: 'signedOut' } }),
+    ).rejects.toThrow(/console_sessions_end_reason/);
+  });
+});

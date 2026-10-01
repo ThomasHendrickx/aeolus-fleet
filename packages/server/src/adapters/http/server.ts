@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
+import fastifyWebsocket from '@fastify/websocket';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
+import { getWSConnectionHandler, handleKeepAlive } from '@trpc/server/adapters/ws';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 
 import type { Clock } from '../../core/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
+import { createFleetEventWakeups } from '../prisma/fleet-event-wakeups.js';
 import { failureForLog } from '../prisma/failure-log.js';
 import { registerRestApi } from '../rest/rest-api.js';
-import type { Context, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
+import type { Context, FleetEventWatches, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
@@ -21,6 +24,12 @@ export const DEFAULT_REGISTER_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_
 
 export interface HttpServerOptions {
   useCases: UseCases;
+  /**
+   * Wakes live subscriptions when their fleet commits events. The app feeds
+   * them from the listener; unset, a subscription hears only what it reads
+   * when it starts.
+   */
+  fleetEvents?: FleetEventWatches;
   /** Throws when the database is unreachable. */
   checkDatabase: () => Promise<void>;
   clock: Clock;
@@ -57,6 +66,13 @@ const FASTIFY_REFUSALS: Readonly<Record<string, { httpStatus: number; code: stri
 /** Any other request Fastify cannot read. */
 const UNREADABLE_REQUEST = { httpStatus: 400, code: 'BAD_REQUEST', message: 'The request cannot be read' };
 
+/**
+ * How often the server pings a live subscription's socket, and how long it
+ * waits for the pong before it closes it: a browser that went away without a
+ * word frees its subscription within a minute.
+ */
+const KEEP_ALIVE = { pingMs: 30_000, pongWaitMs: 10_000 };
+
 /** Fastify's own limit on a request body, which its refusal above names: 1 MiB. */
 const BODY_LIMIT_BYTES = 1024 * 1024;
 
@@ -70,8 +86,9 @@ const PREFLIGHT_MAX_AGE_S = 600;
 const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined };
 
 /**
- * The HTTP host: `/trpc` for the API, `/api/v1` (REST) and `/mcp` for ships,
- * and `/health` for monitoring. Every door builds its calls' context the same
+ * The HTTP host: `/trpc` for the API (its subscriptions over a WebSocket on
+ * the same path), `/api/v1` (REST) and `/mcp` for ships, and `/health` for
+ * monitoring. Every door builds its calls' context the same
  * way, so the register limit is one budget per client address across all of
  * them.
  */
@@ -106,6 +123,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const signInLimiter = createRateLimiter(options.signInRateLimit ?? DEFAULT_SIGN_IN_RATE_LIMIT, options.clock);
   const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
   const { consoleOrigin, cookieDomain } = options;
+  const fleetEvents = options.fleetEvents ?? createFleetEventWakeups();
 
   // The console may run on another host under the cookie's domain (ADR 0012).
   // Its origin, and no other, may call with credentials and read the answer.
@@ -140,16 +158,18 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
 
   /** A call's context: who it says it is, how it may say so at this door, and where it came from. */
   const contextFor = (
-    request: FastifyRequest,
+    request: Pick<FastifyRequest, 'headers' | 'ip' | 'id'>,
     caller: { credentials: RequestCredentials; canUseConsoleSession: boolean; sessionCookie: SessionCookie },
   ): Context => ({
     useCases: options.useCases,
+    fleetEvents,
     ...caller,
     origin: request.headers.origin,
     consoleOrigin,
     clientKey: request.ip,
     requestId: request.id,
     takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
+    signInRetryAt: (clientKey) => signInLimiter.retryAt(clientKey),
     registerFailures,
   });
 
@@ -186,6 +206,40 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     },
   };
   void server.register(fastifyTRPCPlugin, trpc);
+
+  // Live subscriptions: one WebSocket per console, opened on /trpc with the
+  // session cookie and the page's Origin, both of which a browser sends on
+  // the upgrade. Nothing can set a cookie on a socket, so the session's
+  // renewal waits for the console's next HTTP call.
+  void server.register(async (scope) => {
+    await scope.register(fastifyWebsocket);
+    const onConnection = getWSConnectionHandler<AppRouter>({
+      router: appRouter,
+      wss: scope.websocketServer,
+      createContext: ({ req }) =>
+        contextFor(
+          {
+            headers: req.headers,
+            ip: req.socket.remoteAddress ?? '',
+            id: randomUUID(),
+          },
+          {
+            credentials: { sessionToken: readSessionToken(req.headers.cookie) },
+            canUseConsoleSession: true,
+            sessionCookie: NO_SESSION_COOKIE,
+          },
+        ),
+      onError: ({ path, error, ctx }) => {
+        if (error.code === 'INTERNAL_SERVER_ERROR') {
+          server.log.error({ reqId: ctx?.requestId, path, ...failureForLog(error) }, 'subscription failed');
+        }
+      },
+    });
+    scope.get('/trpc', { websocket: true }, (socket, request) => {
+      onConnection(socket, request.raw);
+      handleKeepAlive(socket, KEEP_ALIVE.pingMs, KEEP_ALIVE.pongWaitMs);
+    });
+  });
 
   // The doors for ships: the credentials are the ones the call carries, never the console session.
   const shipDoor = {

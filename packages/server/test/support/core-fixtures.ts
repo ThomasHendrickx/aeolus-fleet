@@ -25,6 +25,7 @@ import { createListFleet } from '../../src/core/registry/list-fleet.js';
 import { createReleaseShip } from '../../src/core/registry/release-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
+import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
@@ -71,6 +72,7 @@ export function registryUseCases(core: InMemoryCore) {
     deregister: createDeregister(deps),
     listFleet: createListFleet({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
+    readFleetEvents: createReadFleetEvents({ feed: core.feed }),
   };
 }
 

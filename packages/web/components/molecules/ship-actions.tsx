@@ -3,14 +3,9 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
-import { locationText } from '../../lib/location';
 import { isReleasable } from '../../lib/release';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
-import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
-import { TableCell, TableRow } from '../atoms/table';
-import { ShipName } from './ship-name';
-import { StatusBadge } from './status-badge';
 
 /** An inline confirm in the row: the question, its consequences, then the action and Cancel. */
 const CONFIRM =
@@ -19,17 +14,6 @@ const CONFIRM_ACTIONS = 'flex flex-row-reverse justify-end gap-2';
 
 function IssuedAt({ iso }: { iso: string }) {
   return <time dateTime={iso}>{new Date(iso).toLocaleString()}</time>;
-}
-
-function PromptState({ ship }: { ship: ListedShip }) {
-  if (ship.startingPrompt === null) {
-    return <>None</>;
-  }
-  return (
-    <>
-      {ship.startingPrompt.isClaimed ? 'Claimed' : 'Unclaimed'}, issued <IssuedAt iso={ship.startingPrompt.issuedAt} />
-    </>
-  );
 }
 
 /**
@@ -96,12 +80,13 @@ function ReleaseAction({
 }
 
 /**
- * One ship in the fleet list. A ship awaiting crew offers a new starting
- * prompt; while an unclaimed one is still out, it asks first, because the new
- * prompt stops the old one working. A crewed ship other than argo offers
- * Release, after a confirm.
+ * A ship's actions in the fleet overview. A ship awaiting crew offers a new
+ * starting prompt; while an unclaimed one is still out, it asks first, because
+ * the new prompt stops the old one working. A crewed ship other than argo
+ * offers Release, after a confirm. The confirms stay inline until the
+ * dialogs arrive.
  */
-export function ShipRow({
+export function ShipActions({
   ship,
   isIssuing,
   onGetStartingPrompt,
@@ -128,58 +113,41 @@ export function ShipRow({
   }
 
   return (
-    <TableRow data-testid="fleet-ship">
-      <th scope="row" className="h-(--size-row) px-4 text-left align-middle font-normal">
-        <ShipName name={ship.name} shipId={ship.id} />
-      </th>
-      <TableCell>
-        <Badge variant="type">{ship.type}</Badge>
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={ship.status} />
-      </TableCell>
-      <TableCell data-testid="fleet-ship-location" className="text-meta text-muted-foreground">
-        {locationText(ship)}
-      </TableCell>
-      <TableCell className="text-meta text-muted-foreground">
-        <PromptState ship={ship} />
-      </TableCell>
-      <TableCell className="py-2.5 text-right">
-        {ship.status === 'awaitingCrew' && !promptToReplace ? (
-          <Button size="xs" disabled={isIssuing} onClick={requestPrompt}>
-            Get starting prompt
-          </Button>
-        ) : null}
-        {isReleasable(ship) ? <ReleaseAction ship={ship} isReleasing={isReleasing} onRelease={onRelease} /> : null}
-        {promptToReplace ? (
-          <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`} className={CONFIRM}>
-            <p className="text-muted-foreground">
-              An unclaimed prompt issued <IssuedAt iso={promptToReplace.issuedAt} /> is still out. A new one stops it
-              working.
-            </p>
-            <div className={CONFIRM_ACTIONS}>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setIsConfirming(false);
-                  onGetStartingPrompt();
-                }}
-              >
-                Replace prompt
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setIsConfirming(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
+    <div className="flex flex-col items-end gap-2 max-sm:items-start">
+      {ship.status === 'awaitingCrew' && !promptToReplace ? (
+        <Button size="xs" disabled={isIssuing} onClick={requestPrompt}>
+          Get starting prompt
+        </Button>
+      ) : null}
+      {isReleasable(ship) ? <ReleaseAction ship={ship} isReleasing={isReleasing} onRelease={onRelease} /> : null}
+      {promptToReplace ? (
+        <div role="group" aria-label={`Replace the starting prompt for ${ship.name}`} className={CONFIRM}>
+          <p className="text-muted-foreground">
+            An unclaimed prompt issued <IssuedAt iso={promptToReplace.issuedAt} /> is still out. A new one stops it
+            working.
+          </p>
+          <div className={CONFIRM_ACTIONS}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setIsConfirming(false);
+                onGetStartingPrompt();
+              }}
+            >
+              Replace prompt
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setIsConfirming(false);
+              }}
+            >
+              Cancel
+            </Button>
           </div>
-        ) : null}
-      </TableCell>
-    </TableRow>
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -21,12 +21,32 @@ export interface ProcedureMeta {
 // Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
 // trace into every error it answers. A server failure answers only that it
 // failed and the request's id; a refusal keeps its own code and message.
+/**
+ * What the console reads beside a refusal's code, to say more than "refused":
+ * that the operator signed in somewhere else, or when a rate-limited sign-in
+ * may try again (ISO 8601). Carried as the tRPC error's cause; the error data
+ * holds its fields.
+ */
+export class ConsoleRefusalDetails extends Error {
+  override name = 'ConsoleRefusalDetails';
+  readonly details: { refusal?: 'SIGNED_IN_ELSEWHERE'; retryAt?: string };
+
+  constructor(details: { refusal?: 'SIGNED_IN_ELSEWHERE'; retryAt?: string }) {
+    super('console refusal details');
+    this.details = details;
+  }
+}
+
 const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
   isDev: false,
-  errorFormatter: ({ shape, error, ctx }) =>
-    error.code === 'INTERNAL_SERVER_ERROR'
-      ? { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } }
-      : shape,
+  errorFormatter: ({ shape, error, ctx }) => {
+    if (error.code === 'INTERNAL_SERVER_ERROR') {
+      return { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } };
+    }
+    return error.cause instanceof ConsoleRefusalDetails
+      ? { ...shape, data: { ...shape.data, ...error.cause.details } }
+      : shape;
+  },
 });
 
 export const router = t.router;
@@ -202,10 +222,29 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
     const use = await ctx.useCases.authenticate.byConsoleSession(sessionToken);
     if (use) {
       ctx.sessionCookie.set(sessionToken, use.expiresAt);
+      return use.caller;
     }
-    return use?.caller;
+    // Signing in somewhere else is no failure: the console says so calmly.
+    if ((await ctx.useCases.authenticate.endOfConsoleSession(sessionToken)) === 'takenOver') {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You signed in somewhere else, which ended this console session',
+        cause: new ConsoleRefusalDetails({ refusal: 'SIGNED_IN_ELSEWHERE' }),
+      });
+    }
   }
   return undefined;
+}
+
+/**
+ * Refuses a live subscription whose caller no longer holds: its console
+ * session ended, or its crew's lease did. A subscription outlives the call
+ * that opened it, so it asks again each time it has news.
+ */
+export async function checkCallerStillHolds(ctx: Context): Promise<void> {
+  if (!(await resolveCaller(ctx))) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
+  }
 }
 
 /** What a caller without a valid crew token is told, at a door for ships and for a crew procedure. */
@@ -218,10 +257,13 @@ const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
  */
 export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, next }) => {
   // A mutation on the console session's cookie changes state: checked before
-  // the session is used, so a forged call does not even renew it. A crew token
-  // wins over the cookie, and no browser sends one by itself.
+  // the session is used, so a forged call does not even renew it. A
+  // subscription is checked too: a browser opens a WebSocket from any page
+  // with the cookie, and no CORS rule keeps that page from reading the
+  // answers. A crew token wins over the cookie, and no browser sends one by
+  // itself.
   const { bearer, sessionToken } = ctx.credentials;
-  if (type === 'mutation' && bearer === undefined && sessionToken !== undefined) {
+  if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
     checkConsoleOrigin(ctx);
   }
   const caller = await resolveCaller(ctx);

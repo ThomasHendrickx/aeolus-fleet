@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { locationKindSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { eventTypeSchema, locationKindSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
 /**
  * Inputs and outputs of the fleet procedures: commission a ship, get its
- * starting prompt, release it, list the fleet.
+ * starting prompt, release it, list the fleet, follow its events live.
  */
 
 /** A ship's name and its type are handles (docs/blueprint.md, "Ship"). */
@@ -89,3 +89,46 @@ export type ListedShip = z.infer<typeof listedShipSchema>;
 
 /** Output of `fleet.list`: every ship in the caller's fleet, `argo` included. */
 export const fleetListOutputSchema = z.array(listedShipSchema);
+
+/** Up to 15 digits: every number below 2^53, so it stays an exact JavaScript number. */
+const STREAM_POSITION_PATTERN = /^\d{1,15}$/;
+
+/**
+ * Input of the `fleet.events` subscription: the number of the last event the
+ * browser applied. tRPC sends it back as `lastEventId` when it reconnects;
+ * none means the browser has not loaded the fleet yet.
+ */
+export const fleetEventsInputSchema = z.object({
+  lastEventId: z.string().regex(STREAM_POSITION_PATTERN, 'A position is the number of an event').nullish(),
+});
+
+export type FleetEventsInput = z.infer<typeof fleetEventsInputSchema>;
+
+/**
+ * One committed event as the live fleet view hears it: its number in the
+ * fleet's stream (commit order, without gaps), what happened and when, and
+ * which ship, message and delivery it concerns. Never its details.
+ */
+export const liveFleetEventSchema = z.object({
+  seq: z.number().int().positive(),
+  id: idSchema('event'),
+  type: eventTypeSchema,
+  /** ISO 8601 in UTC. */
+  occurredAt: z.iso.datetime(),
+  shipId: idSchema('ship').nullable(),
+  messageId: idSchema('message').nullable(),
+  deliveryId: idSchema('delivery').nullable(),
+});
+
+export type LiveFleetEvent = z.infer<typeof liveFleetEventSchema>;
+
+/**
+ * What the `fleet.events` subscription sends: the next event, or `resync`,
+ * which tells the browser to load the fleet again and apply what follows.
+ */
+export const fleetStreamItemSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('event'), event: liveFleetEventSchema }),
+  z.object({ kind: z.literal('resync') }),
+]);
+
+export type FleetStreamItem = z.infer<typeof fleetStreamItemSchema>;

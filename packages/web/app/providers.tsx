@@ -2,7 +2,7 @@
 
 import type { AppRouter } from '@aeolus-fleet/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import { createTRPCClient, createWSClient, httpBatchLink, splitLink, wsLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
 
 import { trpcErrorCode } from '../lib/errors';
@@ -23,11 +23,32 @@ function withCredentials(input: RequestInfo | URL, init?: RequestInit): Promise<
   return fetch(input, { ...init, credentials: 'include' });
 }
 
+/**
+ * Subscriptions travel over one WebSocket to /trpc, opened only once a page
+ * subscribes (lazy), so rendering on the server never opens one. The browser
+ * sends the session cookie and the page's origin with the upgrade. A lost
+ * connection is retried; tRPC resends the number of the last event, so the
+ * server replays what was missed.
+ */
+function createClient(serverUrl: string) {
+  const sockets = createWSClient({
+    url: `${serverUrl.replace(/^http/, 'ws')}/trpc`,
+    lazy: { enabled: true, closeMs: 0 },
+  });
+  return createTRPCClient<AppRouter>({
+    links: [
+      splitLink({
+        condition: (operation) => operation.type === 'subscription',
+        true: wsLink({ client: sockets }),
+        false: httpBatchLink({ url: `${serverUrl}/trpc`, fetch: withCredentials }),
+      }),
+    ],
+  });
+}
+
 export function Providers({ serverUrl, children }: { serverUrl: string; children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
-  const [trpcClient] = useState(() =>
-    createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc`, fetch: withCredentials })] }),
-  );
+  const [trpcClient] = useState(() => createClient(serverUrl));
 
   return (
     <QueryClientProvider client={queryClient}>

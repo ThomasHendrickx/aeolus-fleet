@@ -7,7 +7,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 | Path | What |
 | --- | --- |
 | `/sign-in` | Sign in with the operator email and password; the session crews `argo`. Only a session cookie stays in the browser |
-| `/` | The fleet, in a plain column until the app shell: every ship with type, status, where a crewed ship's session runs, and prompt state; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out. Without a session it sends you to `/sign-in` |
+| `/` | The fleet overview, live over a WebSocket: every ship with status, type, and where a crewed ship's session runs or an awaiting ship's prompt status, updated without a reload; search and filters in the URL; commission a ship; get a new starting prompt for a ship awaiting crew (shown once, with a copy button; asks first while an unclaimed one is out); release a crewed ship other than `argo`, after a confirm; sign out from the account menu. Without a session it sends you to `/sign-in`, which says so when you signed in somewhere else |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
 
 ## Running from npm
@@ -27,7 +27,7 @@ Environment variables, read when the app runs, never when it is built:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `AEOLUS_SERVER_URL` | `http://localhost:4000` | The Aeolus server. The browser calls its `/trpc` there, with credentials, and the web app's `/health` asks its `/health`, so both must reach it. Behind one host with the server, it is the server's public URL. On another host, the server needs `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for the console (see the server README) |
+| `AEOLUS_SERVER_URL` | `http://localhost:4000` | The Aeolus server. The browser calls its `/trpc` there, with credentials, and follows the fleet over a WebSocket to the same path (`ws://` or `wss://`), and the web app's `/health` asks its `/health`, so both must reach it. Behind one host with the server, it is the server's public URL. On another host, the server needs `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for the console (see the server README) |
 | `PORT` | `3000` | Port to listen on |
 | `HOST` | `127.0.0.1` | Interface to listen on |
 

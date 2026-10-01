@@ -13,6 +13,8 @@ export interface RateLimiter {
   hasRoom(key: string): boolean;
   /** Counts one for the key, for a limit on some outcomes only, such as failures. */
   count(key: string): void;
+  /** When the key's current window ends, so a key over its limit may try again; now when it has none. */
+  retryAt(key: string): Date;
 }
 
 /**
@@ -45,6 +47,11 @@ export function createRateLimiter(limit: RateLimit, clock: Clock): RateLimiter {
     hasRoom: (key) => countIn(key, clock.now().getTime()) < limit.limit,
     count: (key) => {
       count(key);
+    },
+    retryAt: (key) => {
+      const now = clock.now().getTime();
+      const current = countIn(key, now) === 0 ? undefined : windows.get(key);
+      return new Date(current ? current.startedAt + limit.windowMs : now);
     },
   };
 }

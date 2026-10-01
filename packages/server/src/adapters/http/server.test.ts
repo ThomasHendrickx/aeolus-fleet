@@ -103,7 +103,16 @@ function crewedAgent(scopes?: Scope[]): string {
   return crewShip(core, { fleetId: fleetIdOf(core), shipId: agent.shipId });
 }
 
-const trpcErrorBody = z.object({ error: z.object({ data: z.object({ code: z.string() }) }) });
+const trpcErrorBody = z.object({
+  error: z.object({
+    data: z.object({ code: z.string(), refusal: z.string().optional(), retryAt: z.string().optional() }),
+  }),
+});
+
+/** The error data a refused tRPC call answers with. */
+function errorData(response: { json: () => unknown }) {
+  return trpcErrorBody.parse(response.json()).error.data;
+}
 
 function errorCode(response: { json: () => unknown }): string | undefined {
   return trpcErrorBody.safeParse(response.json()).data?.error.data.code;
@@ -181,6 +190,20 @@ describe('console.signIn', () => {
     expect(limited.headers['set-cookie']).toBeUndefined();
     core.clock.advance(60_000);
     expect((await signIn(OPERATOR)).statusCode).toBe(200);
+  });
+
+  it('says when a client over the rate limit may try again: when its window ends', async () => {
+    start({ signInRateLimit: { limit: 1, windowMs: 60_000 } });
+    const windowStart = core.clock.now().getTime();
+    await signIn({ email: OPERATOR.email, password: 'wrong horse' });
+    core.clock.advance(15_000);
+
+    const limited = await signIn(OPERATOR);
+
+    expect(errorData(limited)).toMatchObject({
+      code: 'TOO_MANY_REQUESTS',
+      retryAt: new Date(windowStart + 60_000).toISOString(),
+    });
   });
 
   it('counts attempts per client address', async () => {
@@ -375,6 +398,28 @@ describe('a procedure that needs a scope', () => {
 
     expect((await ping({ cookie: first })).statusCode).toBe(401);
     expect((await ping({ cookie: second })).statusCode).toBe(200);
+  });
+
+  it('tells a session that a sign-in elsewhere ended that the operator signed in somewhere else', async () => {
+    start();
+    const first = cookieOf(await signIn(OPERATOR));
+    cookieOf(await signIn(OPERATOR));
+
+    const refused = await ping({ cookie: first });
+
+    expect(refused.statusCode).toBe(401);
+    expect(errorData(refused)).toMatchObject({ code: 'UNAUTHORIZED', refusal: 'SIGNED_IN_ELSEWHERE' });
+  });
+
+  it('tells a signed-out session only to sign in', async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+    await signOut(cookie);
+
+    const refused = await ping({ cookie });
+
+    expect(refused.statusCode).toBe(401);
+    expect(errorData(refused).refusal).toBeUndefined();
   });
 
   it('answers 500 when the use case fails', async () => {
