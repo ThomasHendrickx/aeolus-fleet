@@ -171,6 +171,31 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says who retired the ship and how many deliveries that abandoned', () => {
+    expect(onScoutsPage(anEntry('ShipRetired', { actor: argo, details: { abandonedDeliveries: 2 } }))).toEqual({
+      sentence: 'Retired by argo. 2 deliveries abandoned.',
+      tone: 'ended',
+      icon: 'retired',
+    });
+    expect(onScoutsPage(anEntry('ShipRetired', { actor: argo, details: { abandonedDeliveries: 0 } })).sentence).toBe(
+      'Retired by argo.',
+    );
+  });
+
+  it('says a message was abandoned', () => {
+    expect(onScoutsPage(anEntry('DeliveryAbandoned', { actor: argo, message: fromPlanner }))).toEqual({
+      sentence: 'A message from planner was abandoned',
+      tone: 'ended',
+      icon: 'abandoned',
+    });
+  });
+
+  it('says a session ended because the ship was retired', () => {
+    expect(onScoutsPage(anEntry('LeaseRevoked', { actor: argo, details: { reason: 'retired', returnedDeliveries: 0 } })).sentence).toBe(
+      'Its session ended: the ship was retired.',
+    );
+  });
+
   it('keeps each ship as its own part, so it renders as a ShipName', () => {
     const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: planner, message: fromPlanner }), scout.id);
 

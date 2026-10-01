@@ -19,7 +19,9 @@ export type TimelineIcon =
   | 'undeliverable'
   | 'secret'
   | 'fleet'
-  | 'password';
+  | 'password'
+  | 'retired'
+  | 'abandoned';
 
 export interface TimelineSentence {
   parts: SentencePart[];
@@ -55,6 +57,7 @@ const LEASE_ENDS: Readonly<Record<string, string>> = {
   takenOver: 'Taken over by a new console session.',
   signedOut: 'The operator signed out.',
   passwordReset: 'Its session ended with the operator password reset.',
+  retired: 'Its session ended: the ship was retired.',
 };
 
 function leaseEnd(entry: TimelineEntry): SentencePart[] {
@@ -157,5 +160,21 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'attention',
         icon: 'undeliverable',
       };
+    case 'ShipRetired': {
+      const count = entry.details.abandonedDeliveries;
+      const deliveries = { one: 'delivery', many: 'deliveries' };
+      return {
+        parts: [
+          text('Retired'),
+          ...by(entry.actor),
+          text('.'),
+          ...(typeof count === 'number' && count > 0 ? [text(` ${counted(count, deliveries)} abandoned.`)] : []),
+        ],
+        tone: 'ended',
+        icon: 'retired',
+      };
+    }
+    case 'DeliveryAbandoned':
+      return { parts: [...aMessageFromStarting(entry), text(' was abandoned')], tone: 'ended', icon: 'abandoned' };
   }
 }
