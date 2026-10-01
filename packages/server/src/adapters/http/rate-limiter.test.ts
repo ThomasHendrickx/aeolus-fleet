@@ -71,4 +71,14 @@ describe('rate limiter, counting only what its user counts', () => {
 
     expect([limiter.hasRoom('one'), limiter.hasRoom('two')]).toEqual([false, true]);
   });
+
+  it('tells when a key over its limit may try again: when its window ends', () => {
+    const clock = clockAt(0);
+    const limiter = createRateLimiter({ limit: 1, windowMs: 60_000 }, clock);
+    limiter.take('client');
+    clock.advance(20_000);
+    limiter.take('client');
+
+    expect(limiter.retryAt('client')).toEqual(new Date(60_000));
+  });
 });
