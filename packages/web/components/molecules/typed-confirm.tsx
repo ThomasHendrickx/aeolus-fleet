@@ -11,6 +11,7 @@ interface TypedConfirmProps {
   expected: string;
   value: string;
   onValueChange: (value: string) => void;
+  'data-testid'?: string;
 }
 
 /** The hint under the field: the rule while empty, then how far the text matches. Never error styling. */
@@ -24,15 +25,15 @@ function hintOf(expected: string, value: string): string {
 /**
  * Second confirmation for an irreversible action that loses work
  * (docs/design/png/TypedConfirm.png): retiring a ship that still holds open
- * deliveries. The caller keeps its action disabled until `isTypedMatch`; no
+ * deliveries, or renaming one that other ships may address by name. The caller keeps its action disabled until `isTypedMatch`; no
  * error styling while the operator is still typing.
  */
-export function TypedConfirm({ expected, value, onValueChange }: TypedConfirmProps) {
+export function TypedConfirm({ expected, value, onValueChange, 'data-testid': testId = 'retire-typed-confirm' }: TypedConfirmProps) {
   const inputId = useId();
   const hintId = useId();
 
   return (
-    <div data-testid="retire-typed-confirm" className="flex flex-col gap-1.5">
+    <div data-testid={testId} className="flex flex-col gap-1.5">
       <Label htmlFor={inputId} className="text-meta">
         Type <code className="rounded-xs bg-muted px-1 py-0.5 font-mono text-id">{expected}</code> to confirm
       </Label>

@@ -1,0 +1,36 @@
+import { SHIP_HANDLE_MAX_LENGTH, shipHandleSchema } from '@aeolus-fleet/common';
+
+import { OPERATOR_NAME } from './sentence';
+
+/**
+ * A ship name as the operator types it (docs/design/png/CommissionForm.png,
+ * RenameDialog.png): the rule while empty, then available or why not, checked
+ * against the active ships the console knows. The server checks again under
+ * its name lock; this only says early.
+ */
+export type NameCheck =
+  | { kind: 'empty'; message: string }
+  | { kind: 'available'; message: string }
+  | { kind: 'unchanged'; message: string }
+  | { kind: 'invalid' | 'reserved' | 'taken'; message: string };
+
+export const NAME_RULE = `Lowercase letters, digits and hyphens, up to ${String(SHIP_HANDLE_MAX_LENGTH)} characters, unique among active ships.`;
+
+export function checkShipName(name: string, fleet: { activeNames: readonly string[]; current?: string }): NameCheck {
+  if (name === '') {
+    return { kind: 'empty', message: NAME_RULE };
+  }
+  if (!shipHandleSchema.safeParse(name).success) {
+    return { kind: 'invalid', message: `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits or hyphens.` };
+  }
+  if (name === OPERATOR_NAME) {
+    return { kind: 'reserved', message: `${OPERATOR_NAME} is reserved for the operator ship.` };
+  }
+  if (name === fleet.current) {
+    return { kind: 'unchanged', message: 'That is its name now.' };
+  }
+  if (fleet.activeNames.includes(name)) {
+    return { kind: 'taken', message: `${name} is already used by an active ship.` };
+  }
+  return { kind: 'available', message: `${name} is available.` };
+}
