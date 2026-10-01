@@ -15,6 +15,8 @@ export function deliveryHistoryState(entry: Pick<DeliveryHistoryEntry, 'type'>):
       return 'acknowledged';
     case 'DeliveryUndeliverable':
       return 'undeliverable';
+    case 'DeliveryAbandoned':
+      return 'abandoned';
   }
 }
 
@@ -62,5 +64,7 @@ export function deliveryHistorySentence(entry: DeliveryHistoryEntry, recipient: 
             : `Received ${String(entry.attempts)} times, never acknowledged.`,
         ),
       ];
+    case 'DeliveryAbandoned':
+      return [text('Abandoned: '), ...shipOf(entry), text(' was retired before taking it.')];
   }
 }
