@@ -3,7 +3,7 @@ import { counted } from './sentence';
 const JSON_INDENT = 2;
 
 /** Whether a content type is JSON: application/json, or any +json type, parameters aside. */
-function isJson(contentType: string): boolean {
+export function isJson(contentType: string): boolean {
   const essence = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
   return essence === 'application/json' || essence.endsWith('+json');
 }
