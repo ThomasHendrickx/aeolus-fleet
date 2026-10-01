@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
+import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useOpenInboxCount } from '../../lib/inbox';
@@ -39,6 +40,7 @@ export default function NeedsAttentionPage() {
   const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
@@ -85,6 +87,9 @@ export default function NeedsAttentionPage() {
       onCompose={() => {
         setIsComposing(true);
       }}
+      onSearch={() => {
+        setIsSearching(true);
+      }}
       account={accountMenu}
     >
       <NeedsAttentionList
@@ -102,6 +107,13 @@ export default function NeedsAttentionPage() {
         now={now}
       />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ConsoleCommands
+        isOpen={isSearching}
+        onOpenChange={setIsSearching}
+        onCompose={() => {
+          setIsComposing(true);
+        }}
+      />
     </ListLayout>
   );
 }

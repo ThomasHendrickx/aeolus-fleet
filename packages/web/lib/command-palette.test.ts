@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { paletteGroups, paletteKeyOf, SHIPS_BEFORE_QUERY, type PaletteItem } from './command-palette';
+import { paletteGroups, paletteItemsOf, paletteKeyOf, SHIPS_BEFORE_QUERY, type PaletteItem } from './command-palette';
 
 const newId = createIdGenerator();
 
@@ -51,5 +51,24 @@ describe('paletteGroups', () => {
 
   it('ignores spaces around the query', () => {
     expect(labels('  revi ')).toEqual([['Ships', [paletteKeyOf(reviewer)]]]);
+  });
+});
+
+describe('paletteItemsOf', () => {
+  it('offers the actions, the active agent ships, never argo or a retired ship, and the pages', () => {
+    const ships = [
+      { id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null },
+      { id: newId('ship'), name: 'reviewer-01', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null },
+      { id: newId('ship'), name: 'old', type: 'reviewer', kind: 'agent', status: 'retired', startingPrompt: null, location: null },
+    ] as const;
+
+    expect(paletteItemsOf(ships).map((item) => (item.kind === 'ship' ? item.name : item.id))).toEqual([
+      'commission',
+      'compose',
+      'reviewer-01',
+      'overview',
+      'inbox',
+      'attention',
+    ]);
   });
 });

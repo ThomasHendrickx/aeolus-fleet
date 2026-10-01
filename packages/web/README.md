@@ -45,3 +45,5 @@ The console is themed from `app/tokens.css`, the single copy of the design token
 Compose, in the Header (and the root TopBar on phone) of every page, sends a plain-text message as argo to one active ship by name or any ship of a type; each message keeps one idempotency key until it is sent.
 
 The AccountMenu (the Sidebar's account button on desktop, the root TopBar's Avatar as a bottom sheet on phone) shows who is signed in and this session's device, the theme (Light, Dark, System), and Sign out. The theme is stored on the operator's account; the root layout asks the server for it with the session cookie when it renders, so the page never flashes the wrong theme, and the sign-in page follows the system.
+
+The CommandPalette opens on Cmd+K (Ctrl+K) or the Header's search on desktop, and full screen from the root TopBar's search icon on phone: actions (Commission ship, Compose), the active ships by name or type, and the pages. Commission ship lands on the fleet overview with the CommissionDialog open (`/?commission=new`).

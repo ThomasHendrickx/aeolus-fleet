@@ -1,4 +1,4 @@
-import type { ShipId, ShipStatus } from '@aeolus-fleet/common';
+import type { ListedShip, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 /**
  * What the CommandPalette offers (docs/design/png/CommandPalette.png): actions,
@@ -44,4 +44,30 @@ export function paletteGroups(items: readonly PaletteItem[], query: string): Pal
 /** The key an item goes by in the list: its kind and id, unique across groups. */
 export function paletteKeyOf(item: PaletteItem): string {
   return `${item.kind}:${item.id}`;
+}
+
+/**
+ * Everything the palette offers on a console page: the two actions, the
+ * active agent ships by name (never argo, never a retired one) and the pages.
+ */
+export function paletteItemsOf(fleet: readonly ListedShip[]): PaletteItem[] {
+  return [
+    { kind: 'action', id: 'commission', label: 'Commission ship' },
+    { kind: 'action', id: 'compose', label: 'Compose a message' },
+    ...fleet
+      .filter((ship) => ship.kind === 'agent' && ship.status !== 'retired')
+      .map(
+        (ship): PaletteItem => ({
+          kind: 'ship',
+          id: ship.id,
+          name: ship.name,
+          type: ship.type,
+          status: ship.status,
+          href: `/ships/${ship.id}`,
+        }),
+      ),
+    { kind: 'page', id: 'overview', label: 'Fleet overview', href: '/' },
+    { kind: 'page', id: 'inbox', label: 'Operator inbox', href: '/inbox' },
+    { kind: 'page', id: 'attention', label: 'Needs attention', href: '/needs-attention' },
+  ];
 }

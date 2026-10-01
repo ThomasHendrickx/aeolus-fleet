@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../components/organisms/compose-message';
+import { ConsoleCommands } from '../components/organisms/console-commands';
 import { CommissionShip } from '../components/organisms/commission-ship';
 import { FleetOverview } from '../components/organisms/fleet-overview';
 import { ListLayout } from '../components/templates/list-layout';
@@ -37,13 +38,17 @@ function toUrlParams(searchParams: SearchParams): URLSearchParams {
  */
 export default function FleetPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const router = useRouter();
-  const view = readFleetView(toUrlParams(use(searchParams)));
+  const params = toUrlParams(use(searchParams));
+  const view = readFleetView(params);
+  // The command palette's Commission ship lands here with the dialog open.
+  const isCommissionAsked = params.get('commission') === 'new';
   const fleet = useFleetSnapshot();
   const liveFleet = useLiveFleet();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [isCommissioning, setIsCommissioning] = useState(false);
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
@@ -57,16 +62,36 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
     <ListLayout
       title="Fleet overview"
       description="Every ship in the fleet, live."
-      primaryAction={<CommissionShip isOpen={isCommissioning} onOpenChange={setIsCommissioning} />}
+      primaryAction={
+        <CommissionShip
+          isOpen={isCommissioning || isCommissionAsked}
+          onOpenChange={(isOpen) => {
+            setIsCommissioning(isOpen);
+            if (!isOpen && isCommissionAsked) {
+              changeView(view);
+            }
+          }}
+        />
+      }
       live={liveFleet.live}
       nav={{ active: 'overview', inboxCount, attentionCount }}
       onCompose={() => {
         setIsComposing(true);
       }}
+      onSearch={() => {
+        setIsSearching(true);
+      }}
       account={accountMenu}
     >
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ConsoleCommands
+        isOpen={isSearching}
+        onOpenChange={setIsSearching}
+        onCompose={() => {
+          setIsComposing(true);
+        }}
+      />
     </ListLayout>
   );
 }

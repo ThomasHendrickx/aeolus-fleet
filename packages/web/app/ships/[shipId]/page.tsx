@@ -6,6 +6,7 @@ import { use, useState } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
 import { ComposeMessage } from '../../../components/organisms/compose-message';
+import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
 import { ShipActions } from '../../../components/organisms/ship-actions';
@@ -60,6 +61,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
 
@@ -80,6 +82,9 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       nav={{ active: 'overview', inboxCount, attentionCount }}
       onCompose={() => {
         setIsComposing(true);
+      }}
+      onSearch={() => {
+        setIsSearching(true);
       }}
       account={accountMenu}
       header={
@@ -148,6 +153,13 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         </Tabs>
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      <ConsoleCommands
+        isOpen={isSearching}
+        onOpenChange={setIsSearching}
+        onCompose={() => {
+          setIsComposing(true);
+        }}
+      />
       </>
     </DetailLayout>
   );
