@@ -16,10 +16,10 @@ async function messagesOf(shipId = scene.scout.shipId) {
 
 describe("reading a ship's messages", () => {
   it('gives the messages it sent and was sent, newest first, with their parties and delivery now', async () => {
-    const asked = await scene.send(scene.planner, { kind: 'ship', shipId: scene.scout.shipId });
+    const asked = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await scene.receive(scene.scout);
     await scene.ack(scene.scout, asked);
-    const answered = await scene.send(scene.scout, { kind: 'ship', shipId: scene.planner.shipId }, { inReplyTo: asked });
+    const answered = await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId }, inReplyTo: asked });
 
     const messages = await messagesOf();
 
@@ -41,13 +41,13 @@ describe("reading a ship's messages", () => {
   });
 
   it("leaves out other ships' messages", async () => {
-    await scene.send(scene.planner, { kind: 'ship', shipId: scene.lookout.shipId });
+    await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
 
     await expect(messagesOf()).resolves.toEqual([]);
   });
 
   it('shows a message to a type to its sender and to each ship that claimed it, and to no other ship of the type', async () => {
-    const messageId = await scene.send(scene.planner, { kind: 'type', type: 'reviewer' });
+    const messageId = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await expect(messagesOf()).resolves.toEqual([]);
     await scene.receive(scene.scout);
     unwrap(await scene.registry.releaseShip(scene.argo, { shipId: scene.scout.shipId }));
@@ -62,7 +62,7 @@ describe("reading a ship's messages", () => {
 
   it(`previews the payload on one line, at most ${String(PREVIEW_LENGTH)} characters`, async () => {
     const payload = `Review\n\n  the pull request   ${'x'.repeat(PREVIEW_LENGTH)}`;
-    await scene.send(scene.planner, { kind: 'ship', shipId: scene.scout.shipId }, { payload });
+    await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId }, payload });
 
     const [message] = await messagesOf();
 

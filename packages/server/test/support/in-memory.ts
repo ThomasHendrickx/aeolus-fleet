@@ -618,7 +618,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
   const history: ShipHistory = {
-    timeline: (fleetId, shipId, { limit }) =>
+    timeline: (fleetId, { shipId, limit }) =>
       Promise.resolve(
         ship(fleetId, shipId) &&
           numbered(fleetId)
@@ -627,7 +627,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .slice(0, limit)
             .map(timelineEntryOf),
       ),
-    messages: (fleetId, shipId, { limit }) => {
+    messages: (fleetId, { shipId, limit }) => {
       if (!ship(fleetId, shipId)) {
         return Promise.resolve(undefined);
       }

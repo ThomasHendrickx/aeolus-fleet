@@ -18,7 +18,7 @@ async function timelineOf(shipId = scene.scout.shipId) {
 
 describe("reading a ship's timeline", () => {
   it('gives the events that name the ship or that it caused, newest first, each with its number', async () => {
-    await scene.send(scene.scout, { kind: 'ship', shipId: scene.planner.shipId });
+    await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
 
     const timeline = await timelineOf();
 
@@ -28,7 +28,7 @@ describe("reading a ship's timeline", () => {
   });
 
   it("leaves out other ships' events", async () => {
-    await scene.send(scene.planner, { kind: 'ship', shipId: scene.lookout.shipId });
+    await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
 
     const timeline = await timelineOf();
 
@@ -36,7 +36,7 @@ describe("reading a ship's timeline", () => {
   });
 
   it('names who caused it, the ship it concerns, and the message with its sender and recipient', async () => {
-    const messageId = await scene.send(scene.scout, { kind: 'ship', shipId: scene.planner.shipId });
+    const messageId = await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
 
     const [sent] = await timelineOf(scene.planner.shipId);
 
@@ -53,7 +53,7 @@ describe("reading a ship's timeline", () => {
   });
 
   it('shows a message to a type on the page of the ship that sent it', async () => {
-    await scene.send(scene.planner, { kind: 'type', type: 'reviewer' });
+    await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
 
     const [sent] = await timelineOf(scene.planner.shipId);
 

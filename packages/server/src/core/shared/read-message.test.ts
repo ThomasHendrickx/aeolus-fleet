@@ -12,7 +12,7 @@ beforeEach(async () => {
 describe('reading one message', () => {
   it('gives the envelope, the whole payload and the delivery with its history, newest first', async () => {
     const payload = '{"pr":48}';
-    const messageId = await scene.send(scene.planner, { kind: 'ship', shipId: scene.scout.shipId }, { payload });
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId }, payload });
     const sentAt = scene.core.clock.now();
     await scene.receive(scene.scout);
     await scene.ack(scene.scout, messageId);
@@ -36,7 +36,7 @@ describe('reading one message', () => {
   });
 
   it("keeps a type delivery's claims and its return to the queue when the claiming ship was released", async () => {
-    const messageId = await scene.send(scene.planner, { kind: 'type', type: 'reviewer' });
+    const messageId = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await scene.receive(scene.scout);
     unwrap(await scene.registry.releaseShip(scene.argo, { shipId: scene.scout.shipId }));
     await scene.receive(scene.lookout);
@@ -52,7 +52,7 @@ describe('reading one message', () => {
   });
 
   it('knows no message of another fleet', async () => {
-    const messageId = await scene.send(scene.planner, { kind: 'ship', shipId: scene.scout.shipId });
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
 
     await expect(scene.history.readMessage(elsewhere, { messageId })).resolves.toMatchObject({

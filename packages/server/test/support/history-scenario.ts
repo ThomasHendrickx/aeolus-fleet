@@ -27,7 +27,7 @@ export interface HistoryScenario {
   history: ReturnType<typeof historyUseCases>;
   registry: ReturnType<typeof registryUseCases>;
   messaging: ReturnType<typeof messagingUseCases>;
-  send(from: Caller, to: Selector, options?: { payload?: string; inReplyTo?: MessageId }): Promise<MessageId>;
+  send(from: Caller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId>;
   /** The crew's receive, as many as it gets in one call; returns the message ids. */
   receive(crew: Crew): Promise<MessageId[]>;
   ack(crew: Crew, messageId: MessageId): Promise<void>;
@@ -57,7 +57,7 @@ export async function historyScenario(): Promise<HistoryScenario> {
     history: historyUseCases(core),
     registry,
     messaging,
-    send: async (from, to, options = {}) => {
+    send: async (from, { to, ...options }) => {
       core.clock.advance(1_000);
       const { messageId } = unwrap(
         await messaging.sendMessage(from, {
