@@ -322,18 +322,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.consoleSessions.push({ ...session });
         return Promise.resolve();
       },
-      end: ({ fleetId, consoleSessionId, at }) => {
+      end: ({ fleetId, consoleSessionId, at, reason }) => {
         const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === consoleSessionId);
         if (session?.endedAt !== null) {
           return Promise.resolve(undefined);
         }
         session.endedAt = at;
+        session.endReason = reason;
         return Promise.resolve({ ...session });
       },
-      endAll: (fleetId, at) => {
+      endAll: (fleetId, { at, reason }) => {
         const open = state.consoleSessions.filter((held) => held.fleetId === fleetId && held.endedAt === null);
         for (const session of open) {
           session.endedAt = at;
+          session.endReason = reason;
         }
         return Promise.resolve(open.map((session) => ({ ...session })));
       },
@@ -467,6 +469,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       session.expiresAt = expiresAt;
       return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id });
     },
+    consoleSessionEnding: (tokenHash) =>
+      Promise.resolve(state.consoleSessions.find((held) => held.tokenHash === tokenHash)?.endReason ?? undefined),
   };
 
   const accounts: OperatorAccountLookup = {

@@ -141,3 +141,43 @@ describe('authenticating with a console session', () => {
     await expect(useCases.authenticate.byConsoleSession(OPERATOR.password)).resolves.toBeUndefined();
   });
 });
+
+describe('why a console session ended', () => {
+  it('says a session ended by signing in somewhere else was taken over', async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+    unwrap(await useCases.signIn(OPERATOR));
+
+    await expect(useCases.authenticate.endOfConsoleSession(token)).resolves.toBe('takenOver');
+  });
+
+  it('says a signed-out session was signed out', async () => {
+    const { token, caller } = unwrap(await useCases.signIn(OPERATOR));
+    await useCases.signOut(caller);
+
+    await expect(useCases.authenticate.endOfConsoleSession(token)).resolves.toBe('signedOut');
+  });
+
+  it('says a session the password reset ended ended that way', async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+    unwrap(await useCases.resetOperatorPassword({ fleetId, password: 'a brand new passphrase' }));
+
+    await expect(useCases.authenticate.endOfConsoleSession(token)).resolves.toBe('passwordReset');
+  });
+
+  it('says nothing of a live session', async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+
+    await expect(useCases.authenticate.endOfConsoleSession(token)).resolves.toBeUndefined();
+  });
+
+  it('says nothing of an expired session: nothing ended it', async () => {
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+    core.clock.advance(30 * DAY_MS);
+
+    await expect(useCases.authenticate.endOfConsoleSession(token)).resolves.toBeUndefined();
+  });
+
+  it('says nothing of an unknown token', async () => {
+    await expect(useCases.authenticate.endOfConsoleSession('not-a-token')).resolves.toBeUndefined();
+  });
+});
