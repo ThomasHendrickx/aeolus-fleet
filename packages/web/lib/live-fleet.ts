@@ -1,5 +1,5 @@
 import type { EventType, ShipId } from '@aeolus-fleet/common';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
@@ -20,6 +20,22 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'StartingPromptIssued',
   'ShipRetired',
 ]);
+
+/**
+ * Reloads the queries under a key after a live event, so each shows what the
+ * event changed. An invalidation alone joins a first read still in flight,
+ * which may have read before the change, and keeps its answer for good
+ * (TanStack Query reuses a running fetch while a query has no data yet). So a
+ * read in flight without data is cancelled first, and every query under the
+ * key reads again after the event.
+ */
+export async function reloadQueries(queryClient: QueryClient, queryKey: readonly unknown[]): Promise<void> {
+  await queryClient.cancelQueries({
+    queryKey,
+    predicate: (query) => query.state.data === undefined && query.state.fetchStatus === 'fetching',
+  });
+  await queryClient.invalidateQueries({ queryKey });
+}
 
 export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
@@ -68,11 +84,11 @@ export function useLiveFleet(): LiveFleet {
   const queryClient = useQueryClient();
   const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
 
-  const reloadSnapshot = () => {
-    void queryClient.invalidateQueries({ queryKey: trpc.fleet.list.queryKey() });
-  };
   const reload = (queryKey: readonly unknown[]) => {
-    void queryClient.invalidateQueries({ queryKey });
+    void reloadQueries(queryClient, queryKey);
+  };
+  const reloadSnapshot = () => {
+    reload(trpc.fleet.list.queryKey());
   };
 
   const subscription = useSubscription(
