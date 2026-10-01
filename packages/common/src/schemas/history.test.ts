@@ -141,6 +141,14 @@ describe('messageOutputSchema', () => {
     expect(messageOutputSchema.parse(message)).toEqual(message);
   });
 
+  it('accepts an abandoned delivery in the history', () => {
+    const history = [{ seq: 4, type: 'DeliveryAbandoned', occurredAt: AT, ship: scout, location: null, attempts: null }];
+
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'abandoned', history } }).success).toBe(
+      true,
+    );
+  });
+
   it('rejects a history entry of a type that is no delivery change', () => {
     const history = [{ ...message.delivery.history[0], type: 'ShipClaimed' }];
 
