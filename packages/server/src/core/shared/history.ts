@@ -13,9 +13,10 @@ import type { Location } from '../registry/public.js';
 import type { EventDetails } from './events.js';
 
 /**
- * What the ship page reads: a ship's timeline from the event log, its
- * messages, and one message with the history of its delivery. Read models
- * only: they change nothing, so they need no unit of work.
+ * What the console reads: a ship's timeline from the event log, its
+ * messages, one message with the history of its delivery, and the
+ * undeliverable deliveries of Needs attention. Read models only: they change
+ * nothing, so they need no unit of work.
  */
 
 /** A ship as a party to an event or a message. */
@@ -72,6 +73,15 @@ export interface DeliveryChange {
   attempts: number | null;
 }
 
+/** An undeliverable delivery, for Needs attention: its claims, since when, and its whole message. */
+export interface UndeliverableEntry {
+  deliveryId: DeliveryId;
+  attempts: number;
+  /** When it became undeliverable. */
+  since: Date;
+  message: Omit<HistoryMessage, 'delivery'>;
+}
+
 /**
  * Outbound port: the history reads, scoped to one fleet. A ship's timeline is
  * the events naming it or caused by it; its messages are those it sent, was
@@ -88,4 +98,6 @@ export interface ShipHistory {
     fleetId: FleetId,
     messageId: MessageId,
   ): Promise<(HistoryMessage & { history: DeliveryChange[] }) | undefined>;
+  /** Every undeliverable delivery, oldest first by when it became undeliverable. */
+  undeliverable(fleetId: FleetId): Promise<UndeliverableEntry[]>;
 }

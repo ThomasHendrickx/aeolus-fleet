@@ -721,6 +721,34 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .flatMap(changeOf);
       return Promise.resolve({ ...historyMessageOf(message), history: changes });
     },
+    undeliverable: (fleetId) => {
+      const events = numbered(fleetId);
+      return Promise.resolve(
+        state.deliveries
+          .filter((delivery) => delivery.fleetId === fleetId && delivery.state === 'undeliverable')
+          .map((delivery) => {
+            const message = messageOf(fleetId, delivery.messageId);
+            const since = events.findLast(
+              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryUndeliverable',
+            );
+            if (!message || !since) {
+              throw new Error(`undeliverable ${delivery.id} without its message or its event`);
+            }
+            const { id, sender, recipient, inReplyTo, sentAt, contentType, payload } = historyMessageOf(message);
+            return {
+              seq: since.seq,
+              entry: {
+                deliveryId: delivery.id,
+                attempts: delivery.attempts,
+                since: since.occurredAt,
+                message: { id, sender, recipient, inReplyTo, sentAt, contentType, payload },
+              },
+            };
+          })
+          .sort((first, second) => first.seq - second.seq)
+          .map(({ entry }) => entry),
+      );
+    },
   };
 
   return { state, uow, ships: tx.ships, callers, accounts, listing, feed, history, clock, ids, hasher, passwords, random, wakeups };

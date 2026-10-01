@@ -21,8 +21,10 @@ import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './core/messaging/acknowledge-delivery.js';
 import { createCheckInbox, type CheckInbox } from './core/messaging/check-inbox.js';
+import { createDismissDelivery, type DismissDelivery } from './core/messaging/dismiss-delivery.js';
 import type { ReceiverWakeups } from './core/messaging/ports.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './core/messaging/receive-deliveries.js';
+import { createResendDelivery, type ResendDelivery } from './core/messaging/resend-delivery.js';
 import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
 import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
@@ -40,6 +42,7 @@ import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-fleet-events.js';
 import { createReadMessage, type ReadMessage } from './core/shared/read-message.js';
+import { createReadNeedsAttention, type ReadNeedsAttention } from './core/shared/read-needs-attention.js';
 import { createReadShipMessages, type ReadShipMessages } from './core/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './core/shared/read-ship-timeline.js';
 
@@ -61,10 +64,13 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   checkInbox: CheckInbox;
+  dismissDelivery: DismissDelivery;
+  resendDelivery: ResendDelivery;
   readFleetEvents: ReadFleetEvents;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readNeedsAttention: ReadNeedsAttention;
   signIn: SignIn;
   signOut: SignOut;
   resetOperatorPassword: ResetOperatorPassword;
@@ -123,10 +129,13 @@ export function createUseCases(options: {
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     checkInbox: createCheckInbox({ uow, clock, wakeups }),
+    dismissDelivery: createDismissDelivery({ uow, clock, ids }),
+    resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
+    readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

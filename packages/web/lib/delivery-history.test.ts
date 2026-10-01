@@ -67,6 +67,12 @@ describe('deliveryHistorySentence', () => {
   it('says a message was abandoned when its ship was retired', () => {
     expect(sentence(anEntry('DeliveryAbandoned', { ship: planner }))).toBe('Abandoned: planner was retired before taking it.');
   });
+
+  it('says the operator dismissed an undeliverable message', () => {
+    expect(sentence(anEntry('DeliveryDismissed', { ship: planner }))).toBe(
+      'Dismissed by the operator: no ship takes it any more.',
+    );
+  });
 });
 
 describe('deliveryHistoryState', () => {
@@ -76,6 +82,7 @@ describe('deliveryHistoryState', () => {
     ['DeliveryClaimed', 'delivered'],
     ['DeliveryAcknowledged', 'acknowledged'],
     ['DeliveryAbandoned', 'abandoned'],
+    ['DeliveryDismissed', 'dismissed'],
     ['DeliveryUndeliverable', 'undeliverable'],
   ] as const)('shows %s as %s', (type, state) => {
     expect(deliveryHistoryState({ type })).toBe(state);

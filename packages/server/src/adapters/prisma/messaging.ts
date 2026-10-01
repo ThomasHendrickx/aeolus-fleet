@@ -19,6 +19,7 @@ export function createPrismaMessageRepository(db: Db): MessageRepository {
           idempotencyKey: message.idempotencyKey,
           requestHash: message.requestHash,
           inReplyToMessageId: message.inReplyToMessageId,
+          resendOfMessageId: message.resendOfMessageId,
           createdAt: message.createdAt,
         },
       });

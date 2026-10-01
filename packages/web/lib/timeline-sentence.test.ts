@@ -190,6 +190,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says who dismissed an undeliverable message', () => {
+    expect(onScoutsPage(anEntry('DeliveryDismissed', { actor: argo, message: fromPlanner }))).toEqual({
+      sentence: 'A message from planner was dismissed by argo',
+      tone: 'ended',
+      icon: 'dismissed',
+    });
+  });
+
   it('says a session ended because the ship was retired', () => {
     expect(onScoutsPage(anEntry('LeaseRevoked', { actor: argo, details: { reason: 'retired', returnedDeliveries: 0 } })).sentence).toBe(
       'Its session ended: the ship was retired.',

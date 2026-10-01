@@ -17,6 +17,8 @@ export function deliveryHistoryState(entry: Pick<DeliveryHistoryEntry, 'type'>):
       return 'undeliverable';
     case 'DeliveryAbandoned':
       return 'abandoned';
+    case 'DeliveryDismissed':
+      return 'dismissed';
   }
 }
 
@@ -66,5 +68,7 @@ export function deliveryHistorySentence(entry: DeliveryHistoryEntry, recipient: 
       ];
     case 'DeliveryAbandoned':
       return [text('Abandoned: '), ...shipOf(entry), text(' was retired before taking it.')];
+    case 'DeliveryDismissed':
+      return [text('Dismissed by the operator: no ship takes it any more.')];
   }
 }

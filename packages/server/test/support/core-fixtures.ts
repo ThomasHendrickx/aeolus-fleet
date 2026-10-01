@@ -15,7 +15,9 @@ import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
+import { createDismissDelivery } from '../../src/core/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
+import { createResendDelivery } from '../../src/core/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
@@ -31,6 +33,7 @@ import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
 import { createReadMessage } from '../../src/core/shared/read-message.js';
+import { createReadNeedsAttention } from '../../src/core/shared/read-needs-attention.js';
 import { createReadShipMessages } from '../../src/core/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/core/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
@@ -93,6 +96,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipTimeline: createReadShipTimeline({ history: core.history }),
     readShipMessages: createReadShipMessages({ history: core.history }),
     readMessage: createReadMessage({ history: core.history }),
+    readNeedsAttention: createReadNeedsAttention({ history: core.history }),
   };
 }
 
@@ -104,6 +108,8 @@ export function messagingUseCases(core: InMemoryCore) {
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
+    dismissDelivery: createDismissDelivery(deps),
+    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
   };
 }
 
@@ -280,6 +286,7 @@ export function deliveryInFlight(
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
     inReplyToMessageId: null,
+    resendOfMessageId: null,
     createdAt: at,
   });
   core.state.deliveries.push({

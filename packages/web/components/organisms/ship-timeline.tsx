@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   MailCheck,
+  MailMinus,
   MailX,
   PackageX,
   RotateCw,
@@ -42,6 +43,7 @@ const ICONS: Record<TimelineIcon, LucideIcon> = {
   password: ShieldAlert,
   retired: Archive,
   abandoned: PackageX,
+  dismissed: MailMinus,
 };
 
 const TONES: Record<TimelineTone, string> = {

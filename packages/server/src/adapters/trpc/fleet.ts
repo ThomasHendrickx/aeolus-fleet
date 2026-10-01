@@ -1,9 +1,12 @@
 import {
   commissionShipInputSchema,
+  dismissDeliveryInputSchema,
+  dismissDeliveryOutputSchema,
   fleetEventsInputSchema,
   fleetListOutputSchema,
   messageInputSchema,
   messageOutputSchema,
+  needsAttentionOutputSchema,
   shipDetailOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
@@ -13,6 +16,8 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  resendDeliveryInputSchema,
+  resendDeliveryOutputSchema,
   retireShipInputSchema,
   retireShipOutputSchema,
   startingPromptOutputSchema,
@@ -27,9 +32,10 @@ import { checkCallerStillHolds, okOrThrow, router, scopedProcedure } from './trp
 
 /**
  * Fleet procedures: commission ships, hand out their starting prompts, release
- * them, list the fleet and follow it live, and read a ship's page: the ship,
- * its timeline, its messages and one message's delivery history. The caller's fleet and ship come from its credentials, never from
- * the input.
+ * them, list the fleet and follow it live, read a ship's page (the ship, its
+ * timeline, its messages and one message's delivery history), and Needs
+ * attention: the undeliverable deliveries, resent or dismissed. The caller's
+ * fleet and ship come from its credentials, never from the input.
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
@@ -144,6 +150,36 @@ export const fleetRouter = router({
         },
       };
     }),
+
+  /** Needs attention: every undeliverable delivery of the fleet, oldest first, with its whole message. */
+  needsAttention: scopedProcedure('fleet:read')
+    .output(needsAttentionOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.readNeedsAttention(ctx.caller)).map((entry) => ({
+        ...entry,
+        since: entry.since.toISOString(),
+        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+      })),
+    ),
+
+  /** Lets an undeliverable delivery go: dismissed, kept in history. Dismissing it again is OK. */
+  dismiss: scopedProcedure('fleet:manage')
+    .input(dismissDeliveryInputSchema)
+    .output(dismissDeliveryOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.dismissDelivery(ctx.caller, input));
+      return {};
+    }),
+
+  /**
+   * Sends an undeliverable delivery again: a new message from the same sender
+   * to the same recipient that names the original, which is dismissed.
+   * Answers the new message; a second resend of the delivery answers the same.
+   */
+  resend: scopedProcedure('fleet:manage')
+    .input(resendDeliveryInputSchema)
+    .output(resendDeliveryOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
 
   /**
    * The fleet's committed events, live, over the WebSocket: each with its

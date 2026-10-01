@@ -205,6 +205,47 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         history: events.flatMap((event) => changeOf(event, { party, leases })),
       };
     },
+
+    undeliverable: async (fleetId) => {
+      const rows = await db.delivery.findMany({
+        where: { fleetId, state: 'undeliverable' },
+        select: { id: true, attempts: true, message: true },
+      });
+      // When each became undeliverable: its last DeliveryUndeliverable, whose
+      // place in the stream also orders the list, oldest first.
+      const events = (
+        await db.event.findMany({
+          where: { fleetId, type: 'DeliveryUndeliverable', deliveryId: { in: rows.map((row) => row.id) } },
+          orderBy: { seq: 'asc' },
+        })
+      ).map(toSequencedEvent);
+      const since = new Map(events.map((event) => [event.deliveryId, event]));
+      const found = rows.map((row) => {
+        const deliveryId = idSchema('delivery').parse(row.id);
+        const event = since.get(deliveryId);
+        if (!event) {
+          throw new Error(`Undeliverable delivery ${deliveryId} has no DeliveryUndeliverable`);
+        }
+        return { deliveryId, attempts: row.attempts, message: toMessage(row.message), event };
+      });
+      const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message }) => shipsNamedBy(message)) });
+      return found
+        .sort((first, second) => first.event.seq - second.event.seq)
+        .map(({ deliveryId, attempts, message, event }) => ({
+          deliveryId,
+          attempts,
+          since: event.occurredAt,
+          message: {
+            id: message.id,
+            sender: party(message.senderShipId),
+            recipient: recipientOf(message.selector, party),
+            inReplyTo: message.inReplyToMessageId,
+            sentAt: message.createdAt,
+            contentType: message.contentType,
+            payload: message.payload,
+          },
+        }));
+    },
   };
 }
 

@@ -26,6 +26,8 @@ export interface Message {
   requestHash: string;
   /** The message of the same fleet this one replies to. */
   inReplyToMessageId: MessageId | null;
+  /** The message this one resends: an undeliverable one the operator sent again. */
+  resendOfMessageId: MessageId | null;
   createdAt: Date;
 }
 
@@ -62,6 +64,12 @@ export interface MessageToAccept {
   idempotencyKey: string;
   requestHash: string;
   inReplyTo: MessageId | undefined;
+  /**
+   * For a resend: the message it resends and the ship that resent it, the
+   * operator. The sender stays the original one, so an answer goes back to
+   * whoever asked; the operator is the actor of MessageAccepted.
+   */
+  resendOf?: { messageId: MessageId; by: ShipId };
   at: Date;
 }
 
@@ -94,7 +102,7 @@ export function acceptMessage(
   send: MessageToAccept,
 ): Result<{ message: Message; delivery: Delivery; events: NewEvent[] }, AcceptRefusal> {
   const { recipient, repliedTo } = fleet;
-  const { messageId, deliveryId, fleetId, senderShipId, inReplyTo, at } = send;
+  const { messageId, deliveryId, fleetId, senderShipId, inReplyTo, resendOf, at } = send;
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
     return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
   }
@@ -109,6 +117,7 @@ export function acceptMessage(
     idempotencyKey: send.idempotencyKey,
     requestHash: send.requestHash,
     inReplyToMessageId: inReplyTo ?? null,
+    resendOfMessageId: resendOf?.messageId ?? null,
     createdAt: at,
   };
   const delivery: Delivery = {
@@ -130,11 +139,15 @@ export function acceptMessage(
         fleetId,
         type: 'MessageAccepted',
         occurredAt: at,
-        actor: shipActor(senderShipId),
+        actor: shipActor(resendOf?.by ?? senderShipId),
         shipId: recipient.kind === 'ship' ? recipient.shipId : undefined,
         messageId,
         deliveryId,
-        details: { selector: recipient.kind, recipientType: recipient.kind === 'type' ? recipient.type : null },
+        details: {
+          selector: recipient.kind,
+          recipientType: recipient.kind === 'type' ? recipient.type : null,
+          ...(resendOf && { resendOf: resendOf.messageId }),
+        },
       },
     ],
   });
