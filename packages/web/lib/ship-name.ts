@@ -34,3 +34,15 @@ export function checkShipName(name: string, fleet: { activeNames: readonly strin
   }
   return { kind: 'available', message: `${name} is available.` };
 }
+
+/** What the typed type means for the fleet (docs/design/png/CommissionForm.png): a new type, or how many ships use it. */
+export function typeHint(type: string, shipsOfType: number): string {
+  const trimmed = type.trim();
+  if (trimmed === '') {
+    return 'Free text. Pick a type in use or write a new one.';
+  }
+  if (shipsOfType === 0) {
+    return `No ship uses this type yet. ${trimmed} becomes a new type.`;
+  }
+  return shipsOfType === 1 ? '1 ship uses this type.' : `${String(shipsOfType)} ships use this type.`;
+}

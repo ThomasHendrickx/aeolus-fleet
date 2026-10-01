@@ -1,0 +1,40 @@
+import type { ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator } from '@aeolus-fleet/common';
+import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+
+import { CommissionDialog } from './commission-dialog';
+
+const newId = createIdGenerator();
+
+function aShip(name: string, type: string): ListedShip {
+  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null };
+}
+
+const meta = {
+  title: 'Organisms/CommissionDialog',
+  component: CommissionDialog,
+  parameters: { layout: 'fullscreen' },
+  args: {
+    activeShips: [aShip('reviewer-01', 'reviewer'), aShip('reviewer-02', 'reviewer'), aShip('planner', 'planner')],
+    isOpen: true,
+    onOpenChange: () => undefined,
+    isPending: false,
+    onSubmit: () => undefined,
+  },
+  decorators: [
+    (Story) => (
+      <div className="min-h-180">
+        <Story />
+      </div>
+    ),
+  ],
+} satisfies Meta<typeof CommissionDialog>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Empty: the rules under each field. Type a name to see available, taken or why not. */
+export const Empty: Story = {};
+export const Commissioning: Story = { args: { isPending: true } };
+export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
+export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };

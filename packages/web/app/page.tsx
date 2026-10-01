@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../components/organisms/compose-message';
-import { CommissionShipForm } from '../components/organisms/commission-ship-form';
+import { CommissionShip } from '../components/organisms/commission-ship';
 import { FleetOverview } from '../components/organisms/fleet-overview';
 import { ListLayout } from '../components/templates/list-layout';
 import { useFleetSnapshot } from '../lib/fleet';
@@ -44,6 +44,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
+  const [isCommissioning, setIsCommissioning] = useState(false);
   const attentionCount = useAttentionCount();
   useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
 
@@ -56,6 +57,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
     <ListLayout
       title="Fleet overview"
       description="Every ship in the fleet, live."
+      primaryAction={<CommissionShip isOpen={isCommissioning} onOpenChange={setIsCommissioning} />}
       live={liveFleet.live}
       nav={{ active: 'overview', inboxCount, attentionCount }}
       onCompose={() => {
@@ -63,7 +65,6 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       }}
       account={accountMenu}
     >
-      <CommissionShipForm />
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
     </ListLayout>
