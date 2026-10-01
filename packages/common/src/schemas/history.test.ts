@@ -39,6 +39,8 @@ describe('shipDetailOutputSchema', () => {
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,
+    inFlightDeliveries: 1,
+    openDeliveries: 3,
   };
 
   it('accepts a ship with its commissioned date, when its crew came aboard and when it retired', () => {
@@ -48,6 +50,8 @@ describe('shipDetailOutputSchema', () => {
   it.each([
     ['a commissioned date that is not ISO 8601', { ...ship, commissionedAt: 'yesterday' }],
     ['a missing crewed since', { ...ship, crewedSince: undefined }],
+    ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],
+    ['a negative count of open deliveries', { ...ship, openDeliveries: -1 }],
   ])('rejects %s', (_label, detail) => {
     expect(shipDetailOutputSchema.safeParse(detail).success).toBe(false);
   });
