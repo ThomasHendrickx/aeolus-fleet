@@ -19,7 +19,7 @@ import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
 import type { ShipFacts } from '../../core/registry/ports.js';
 import type { Ship } from '../../core/registry/ship.js';
-import type { Caller } from '../../core/shared/caller.js';
+import type { Crew } from '../../core/shared/caller.js';
 import type { Recipient } from '../../core/shared/selector.js';
 
 // Maps database rows to domain objects. A row is outside data: each one is
@@ -238,12 +238,12 @@ export function toCrewTokenLease(row: unknown): CrewTokenLease {
   return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
 }
 
-const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession') });
+const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease') });
 
-/** The caller of a console session: its ship, and the session it came through. */
-export function toConsoleSessionCaller(row: unknown): Caller {
-  const { console_session_id } = consoleSessionCallerSqlRow.parse(row);
-  return { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+/** The caller of a console session: its ship, the session it came through, and the lease the session holds. */
+export function toConsoleSessionCaller(row: unknown): Crew {
+  const { console_session_id, lease_id } = consoleSessionCallerSqlRow.parse(row);
+  return { ...toAuthenticatedShip(row), consoleSessionId: console_session_id, leaseId: lease_id };
 }
 
 const messageRow = z.object({

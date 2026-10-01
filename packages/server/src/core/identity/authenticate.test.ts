@@ -86,8 +86,9 @@ describe('authenticating with a crew token', () => {
 });
 
 describe('authenticating with a console session', () => {
-  it('returns argo with the session id, and the expiry this use moved to', async () => {
+  it('returns argo with the session id and the lease it holds on argo, and the expiry this use moved to', async () => {
     const { token, consoleSessionId } = unwrap(await useCases.signIn(OPERATOR));
+    const leaseId = core.state.consoleSessions.find((session) => session.id === consoleSessionId)?.leaseId;
     core.clock.advance(DAY_MS);
 
     await expect(useCases.authenticate.byConsoleSession(token)).resolves.toEqual({
@@ -97,6 +98,7 @@ describe('authenticating with a console session', () => {
         kind: 'operator',
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
         consoleSessionId,
+        leaseId,
       },
       expiresAt: new Date(core.clock.now().getTime() + 30 * DAY_MS),
     });

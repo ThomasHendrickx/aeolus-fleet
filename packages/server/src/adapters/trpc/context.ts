@@ -6,7 +6,10 @@ import type { SignOut } from '../../core/identity/sign-out.js';
 import type { AcknowledgeDelivery } from '../../core/messaging/acknowledge-delivery.js';
 import type { CheckInbox } from '../../core/messaging/check-inbox.js';
 import type { DismissDelivery } from '../../core/messaging/dismiss-delivery.js';
+import type { MarkDone } from '../../core/messaging/mark-done.js';
+import type { MarkRead } from '../../core/messaging/mark-read.js';
 import type { ReceiveDeliveries } from '../../core/messaging/receive-deliveries.js';
+import type { ReplyToMessage } from '../../core/messaging/reply-to-message.js';
 import type { ResendDelivery } from '../../core/messaging/resend-delivery.js';
 import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
@@ -21,6 +24,7 @@ import type { RetireShip } from '../../core/registry/retire-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
+import type { ReadInbox } from '../../core/shared/read-inbox.js';
 import type { ReadMessage } from '../../core/shared/read-message.js';
 import type { ReadNeedsAttention } from '../../core/shared/read-needs-attention.js';
 import type { ReadShipMessages } from '../../core/shared/read-ship-messages.js';
@@ -48,11 +52,15 @@ export interface UseCases {
   checkInbox: CheckInbox;
   dismissDelivery: DismissDelivery;
   resendDelivery: ResendDelivery;
+  markRead: MarkRead;
+  markDone: MarkDone;
+  replyToMessage: ReplyToMessage;
   readFleetEvents: ReadFleetEvents;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
   readNeedsAttention: ReadNeedsAttention;
+  readInbox: ReadInbox;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

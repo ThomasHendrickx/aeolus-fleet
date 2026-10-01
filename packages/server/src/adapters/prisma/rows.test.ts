@@ -73,18 +73,20 @@ describe('mapping rows to domain objects', () => {
     ).toMatchObject({ location: { kind: 'DEVICE', description: null }, crewTokenHash: 'sha256(aeolus_ct_v1_crew)' });
   });
 
-  it('maps the caller of a console session', () => {
+  it('maps the caller of a console session, with the lease it holds on argo', () => {
     const consoleSessionId = newId('consoleSession');
+    const leaseId = newId('lease');
 
     expect(
       toConsoleSessionCaller({
         console_session_id: consoleSessionId,
+        lease_id: leaseId,
         ship_id: shipId,
         fleet_id: fleetId,
         kind: 'operator',
         scopes: ['fleet:read'],
       }),
-    ).toEqual({ shipId, fleetId, kind: 'operator', scopes: ['fleet:read'], consoleSessionId });
+    ).toEqual({ shipId, fleetId, kind: 'operator', scopes: ['fleet:read'], consoleSessionId, leaseId });
   });
 });
 

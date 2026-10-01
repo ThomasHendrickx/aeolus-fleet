@@ -1,6 +1,6 @@
 import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { OperatorAccount } from './operator-account.js';
@@ -85,10 +85,11 @@ export interface CallerLookup {
   byCrewTokenHash(crewTokenHash: string): Promise<CrewTokenLease | undefined>;
   /**
    * The caller of the console session with this token hash, when the session
-   * has not ended and expires after `now`. Using it moves its last use to `now`
-   * and its expiry to `expiresAt`.
+   * has not ended and expires after `now`: argo, crewed under the lease the
+   * session holds. Using it moves its last use to `now` and its expiry to
+   * `expiresAt`.
    */
-  useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Caller | undefined>;
+  useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Crew | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
   consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
 }

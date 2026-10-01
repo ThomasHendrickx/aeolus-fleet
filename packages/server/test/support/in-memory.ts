@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
@@ -33,6 +33,7 @@ import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
 import {
   isDeliveryChangeType,
+  isKeptBy,
   type DeliveryChange,
   type HistoryMessage,
   type HistoryParty,
@@ -60,6 +61,8 @@ export interface InMemoryState {
   consoleSessions: ConsoleSession[];
   messages: Message[];
   deliveries: Delivery[];
+  /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
+  deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
@@ -131,6 +134,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     consoleSessions: [],
     messages: [],
     deliveries: [],
+    deliveryReads: [],
     events: [],
     notices: [],
   };
@@ -454,6 +458,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.deliveries[index] = structuredClone(delivery);
         return Promise.resolve();
       },
+      markRead: ({ fleetId, deliveryId, at }) => {
+        if (!state.deliveryReads.some((read) => read.fleetId === fleetId && read.deliveryId === deliveryId)) {
+          state.deliveryReads.push({ fleetId, deliveryId, readAt: at });
+        }
+        return Promise.resolve();
+      },
+      markUnread: ({ fleetId, deliveryId }) => {
+        const index = state.deliveryReads.findIndex((read) => read.fleetId === fleetId && read.deliveryId === deliveryId);
+        if (index !== -1) {
+          state.deliveryReads.splice(index, 1);
+        }
+        return Promise.resolve();
+      },
     },
     events: {
       append: (event) => {
@@ -514,7 +531,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       session.lastUsedAt = at;
       session.expiresAt = expiresAt;
-      return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id });
+      return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id, leaseId: session.leaseId });
     },
     consoleSessionEnding: (tokenHash) =>
       Promise.resolve(state.consoleSessions.find((held) => held.tokenHash === tokenHash)?.endReason ?? undefined),
@@ -721,6 +738,37 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .flatMap(changeOf);
       return Promise.resolve({ ...historyMessageOf(message), history: changes });
     },
+    inbox: (fleetId, { shipId, filter }) =>
+      Promise.resolve(
+        state.deliveries
+          .filter(
+            (delivery) =>
+              delivery.fleetId === fleetId &&
+              delivery.recipient.kind === 'ship' &&
+              delivery.recipient.shipId === shipId &&
+              isKeptBy(filter, delivery.state),
+          )
+          .flatMap((delivery) => {
+            const message = messageOf(fleetId, delivery.messageId);
+            return message ? [{ delivery, message }] : [];
+          })
+          .sort((first, second) => newestFirst(first.message, second.message))
+          .map(({ delivery, message }) => {
+            const acknowledged = numbered(fleetId).findLast(
+              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
+            );
+            const reply = acknowledged?.details.reply;
+            const { id, sender, inReplyTo, sentAt, contentType, payload } = historyMessageOf(message);
+            return {
+              deliveryId: delivery.id,
+              state: delivery.state,
+              readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
+              doneAt: acknowledged?.occurredAt ?? null,
+              repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+              message: { id, sender, inReplyTo, sentAt, contentType, payload },
+            };
+          }),
+      ),
     undeliverable: (fleetId) => {
       const events = numbered(fleetId);
       return Promise.resolve(
@@ -763,6 +811,7 @@ const TABLES = [
   'consoleSessions',
   'messages',
   'deliveries',
+  'deliveryReads',
   'events',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];

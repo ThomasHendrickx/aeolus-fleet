@@ -134,5 +134,11 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         },
       });
     },
+    markRead: async ({ fleetId, deliveryId, at }) => {
+      await db.delivery.updateMany({ where: { fleetId, id: deliveryId, readAt: null }, data: { readAt: at } });
+    },
+    markUnread: async ({ fleetId, deliveryId }) => {
+      await db.delivery.updateMany({ where: { fleetId, id: deliveryId }, data: { readAt: null } });
+    },
   };
 }

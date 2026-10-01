@@ -15,6 +15,9 @@ import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
+import { createMarkDone } from '../../src/core/messaging/mark-done.js';
+import { createMarkRead } from '../../src/core/messaging/mark-read.js';
+import { createReplyToMessage } from '../../src/core/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/core/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
 import { createResendDelivery } from '../../src/core/messaging/resend-delivery.js';
@@ -32,6 +35,7 @@ import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
+import { createReadInbox } from '../../src/core/shared/read-inbox.js';
 import { createReadMessage } from '../../src/core/shared/read-message.js';
 import { createReadNeedsAttention } from '../../src/core/shared/read-needs-attention.js';
 import { createReadShipMessages } from '../../src/core/shared/read-ship-messages.js';
@@ -65,6 +69,20 @@ export const FLEET_URL = 'https://fleet.example.com';
 /** The fleet's MCP URL, which starting prompts carry in tests: /mcp under the public URL. */
 export const FLEET_MCP_URL = `${FLEET_URL}/mcp`;
 
+/**
+ * The operator signed in to the console: argo's crew, under the lease its
+ * console session holds, as the session cookie makes it the caller.
+ */
+export async function argoAboard(core: InMemoryCore): Promise<Crew> {
+  const identity = identityUseCases(core);
+  const { token } = unwrap(await identity.signIn(OPERATOR));
+  const use = await identity.authenticate.byConsoleSession(token);
+  if (!use) {
+    throw new Error('The console session the sign-in started does not authenticate');
+  }
+  return use.caller;
+}
+
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
   const deps = {
@@ -97,6 +115,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipMessages: createReadShipMessages({ history: core.history }),
     readMessage: createReadMessage({ history: core.history }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
+    readInbox: createReadInbox({ history: core.history }),
   };
 }
 
@@ -109,6 +128,9 @@ export function messagingUseCases(core: InMemoryCore) {
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
     dismissDelivery: createDismissDelivery(deps),
+    markDone: createMarkDone(deps),
+    markRead: createMarkRead(deps),
+    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
   };
 }

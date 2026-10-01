@@ -207,6 +207,13 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 The operator restarting a session is not a recovery step for messages: nothing was lost and nothing needs to be told which ids to redo. Starting sessions automatically is a later concern.
 
+### Operator inbox
+
+1. A ship sends a message to `argo`: it waits in the operator inbox, Open, unread.
+2. The operator opens it, which marks it read. Read is not done: the delivery stays pending, and no event is written. The operator can mark it unread again.
+3. Mark done acknowledges it: the console never receives, so the delivery is claimed and acknowledged at once under the console session's lease (`DeliveryClaimed`, then `DeliveryAcknowledged`). It moves to Done.
+4. Reply sends a plain-text message from `argo` to the sender, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
+
 ### Needs attention
 
 1. A delivery claimed a fifth time without an acknowledgement becomes undeliverable and shows in Needs attention, oldest first. Abandoned deliveries never do.

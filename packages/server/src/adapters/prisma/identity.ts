@@ -139,7 +139,7 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
         FROM ships s
         WHERE cs.token_hash = ${tokenHash} AND cs.ended_at IS NULL AND cs.expires_at > ${now}
           AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
-        RETURNING cs.id AS console_session_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes`;
+        RETURNING cs.id AS console_session_id, cs.lease_id, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes`;
       return row ? toConsoleSessionCaller(row) : undefined;
     },
     consoleSessionEnding: async (tokenHash) => {
