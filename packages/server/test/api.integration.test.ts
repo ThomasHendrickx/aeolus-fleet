@@ -1186,3 +1186,78 @@ describe('retire and re-crew at the API', () => {
     await expect(codeOf(reader.fleet.recrew.mutate({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
   });
 });
+
+describe('Needs attention at the API', () => {
+  /** A message from argo that a crewed ship received five times without acknowledging it: undeliverable. */
+  async function undeliverableFromArgo(asArgo: TRPCClient<AppRouter>): Promise<{ deliveryId: string; messageId: string }> {
+    const crew = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId } = await crew.ship.whoami.query();
+    const { messageId } = await asArgo.ship.send.mutate({
+      selector: { kind: 'ship', shipId },
+      payload: 'Pause all reviews until 15:00.',
+      idempotencyKey: `pause-${newId('message')}`,
+    });
+    let deliveryId = '';
+    for (let claim = 1; claim < 5; claim += 1) {
+      const { deliveries } = await crew.ship.receive.mutate({});
+      deliveryId = deliveries[0]?.deliveryId ?? '';
+    }
+    await crew.ship.receive.mutate({});
+    return { deliveryId, messageId };
+  }
+
+  it('list the undeliverable deliveries for fleet:read, each with its message', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
+
+    const listed = await asArgo.fleet.needsAttention.query();
+
+    expect(listed).toContainEqual(
+      expect.objectContaining({
+        deliveryId,
+        attempts: 5,
+        message: expect.objectContaining({ id: messageId, sender: { id: argoId, name: 'argo' }, payload: 'Pause all reviews until 15:00.' }),
+      }),
+    );
+  });
+
+  it('dismiss one for fleet:manage; it leaves the list, and a second dismiss is OK', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId } = await undeliverableFromArgo(asArgo);
+
+    await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
+    await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
+    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId }))).resolves.toBe('CONFLICT');
+  });
+
+  it('resend one for fleet:manage, answering the new message, which names the original', async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
+
+    const resent = await asArgo.fleet.resend.mutate({ deliveryId });
+
+    expect(resent.messageId).not.toBe(messageId);
+    await expect(database.message.findUniqueOrThrow({ where: { id: resent.messageId } })).resolves.toMatchObject({
+      senderShipId: argoId,
+      resendOfMessageId: messageId,
+    });
+    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+  });
+
+  it('answer NOT_FOUND for a delivery the fleet does not have', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(codeOf(asArgo.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
+  });
+
+  it('refuse dismiss and resend without fleet:manage, and the list without fleet:read', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(reader.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
+  });
+});
