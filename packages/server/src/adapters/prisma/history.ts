@@ -6,6 +6,7 @@
  */
 import {
   DELIVERY_HISTORY_TYPES,
+  DELIVERY_STATES,
   deliveryStateSchema,
   idSchema,
   locationKindSchema,
@@ -17,6 +18,7 @@ import { z } from 'zod';
 import type { SequencedEvent } from '../../core/shared/events.js';
 import {
   isDeliveryChangeType,
+  isKeptBy,
   type DeliveryChange,
   type HistoryMessage,
   type HistoryParty,
@@ -204,6 +206,51 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         ...historyMessageOf({ message, delivery }, party),
         history: events.flatMap((event) => changeOf(event, { party, leases })),
       };
+    },
+
+    inbox: async (fleetId, { shipId, filter }) => {
+      const rows = await db.delivery.findMany({
+        where: {
+          fleetId,
+          recipientShipId: shipId,
+          state: { in: DELIVERY_STATES.filter((state) => isKeptBy(filter, state)) },
+        },
+        select: { id: true, state: true, readAt: true, message: true },
+        orderBy: [{ message: { createdAt: 'desc' } }, { messageId: 'desc' }],
+      });
+      // When each was done, and by which reply: its last DeliveryAcknowledged.
+      const acknowledged = new Map(
+        (
+          await db.event.findMany({
+            where: { fleetId, type: 'DeliveryAcknowledged', deliveryId: { in: rows.map((row) => row.id) } },
+            orderBy: { seq: 'asc' },
+          })
+        )
+          .map(toSequencedEvent)
+          .map((event) => [event.deliveryId, event]),
+      );
+      const found = rows.map((row) => ({ row, message: toMessage(row.message) }));
+      const party = await partiesOf(db, { fleetId, shipIds: found.map(({ message }) => message.senderShipId) });
+      return found.map(({ row, message }) => {
+        const deliveryId = idSchema('delivery').parse(row.id);
+        const done = acknowledged.get(deliveryId);
+        const reply = done?.details.reply;
+        return {
+          deliveryId,
+          state: deliveryStateSchema.parse(row.state),
+          readAt: row.readAt,
+          doneAt: done?.occurredAt ?? null,
+          repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+          message: {
+            id: message.id,
+            sender: party(message.senderShipId),
+            inReplyTo: message.inReplyToMessageId,
+            sentAt: message.createdAt,
+            contentType: message.contentType,
+            payload: message.payload,
+          },
+        };
+      });
     },
 
     undeliverable: async (fleetId) => {

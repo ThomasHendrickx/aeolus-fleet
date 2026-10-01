@@ -1,5 +1,6 @@
 import {
   DELIVERY_HISTORY_TYPES,
+  type InboxFilter,
   type DeliveryId,
   type DeliveryState,
   type EventId,
@@ -82,6 +83,28 @@ export interface UndeliverableEntry {
   message: Omit<HistoryMessage, 'delivery'>;
 }
 
+/** A message to a ship, as its inbox lists it: its delivery's state, when it was read and done, and the reply that made it done. */
+export interface InboxEntry {
+  deliveryId: DeliveryId;
+  state: DeliveryState;
+  readAt: Date | null;
+  doneAt: Date | null;
+  repliedWith: MessageId | null;
+  message: Omit<HistoryMessage, 'delivery' | 'recipient'>;
+}
+
+/** The delivery states each inbox filter keeps: open is not done yet, done is acknowledged. */
+export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
+  switch (filter) {
+    case 'open':
+      return state === 'pending' || state === 'delivered';
+    case 'done':
+      return state === 'acknowledged';
+    case 'all':
+      return true;
+  }
+}
+
 /**
  * Outbound port: the history reads, scoped to one fleet. A ship's timeline is
  * the events naming it or caused by it; its messages are those it sent, was
@@ -100,4 +123,6 @@ export interface ShipHistory {
   ): Promise<(HistoryMessage & { history: DeliveryChange[] }) | undefined>;
   /** Every undeliverable delivery, oldest first by when it became undeliverable. */
   undeliverable(fleetId: FleetId): Promise<UndeliverableEntry[]>;
+  /** The messages addressed to the ship itself that the filter keeps, newest first. */
+  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }

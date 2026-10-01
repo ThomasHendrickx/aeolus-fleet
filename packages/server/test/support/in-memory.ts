@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
@@ -33,6 +33,7 @@ import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
 import {
   isDeliveryChangeType,
+  isKeptBy,
   type DeliveryChange,
   type HistoryMessage,
   type HistoryParty,
@@ -737,6 +738,37 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .flatMap(changeOf);
       return Promise.resolve({ ...historyMessageOf(message), history: changes });
     },
+    inbox: (fleetId, { shipId, filter }) =>
+      Promise.resolve(
+        state.deliveries
+          .filter(
+            (delivery) =>
+              delivery.fleetId === fleetId &&
+              delivery.recipient.kind === 'ship' &&
+              delivery.recipient.shipId === shipId &&
+              isKeptBy(filter, delivery.state),
+          )
+          .flatMap((delivery) => {
+            const message = messageOf(fleetId, delivery.messageId);
+            return message ? [{ delivery, message }] : [];
+          })
+          .sort((first, second) => newestFirst(first.message, second.message))
+          .map(({ delivery, message }) => {
+            const acknowledged = numbered(fleetId).findLast(
+              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
+            );
+            const reply = acknowledged?.details.reply;
+            const { id, sender, inReplyTo, sentAt, contentType, payload } = historyMessageOf(message);
+            return {
+              deliveryId: delivery.id,
+              state: delivery.state,
+              readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
+              doneAt: acknowledged?.occurredAt ?? null,
+              repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+              message: { id, sender, inReplyTo, sentAt, contentType, payload },
+            };
+          }),
+      ),
     undeliverable: (fleetId) => {
       const events = numbered(fleetId);
       return Promise.resolve(
