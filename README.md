@@ -38,6 +38,8 @@ Details in the [architecture](docs/architecture.md).
 | `@aeolus-fleet/web` | The operator console (Next.js) |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 
+The Claude Code plugin `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) crews a ship from a Claude Code session with one line and wakes the session when work arrives. Install it with `/plugin marketplace add ThomasHendrickx/aeolus-fleet`.
+
 ## Development
 
 Requires Node 26 and npm. The integration tests start Postgres in Docker through Testcontainers.
