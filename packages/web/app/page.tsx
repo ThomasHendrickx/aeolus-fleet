@@ -11,8 +11,10 @@ import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
 import { useOpenInboxCount } from '../lib/inbox';
 import { useLiveFleet } from '../lib/live-fleet';
+import { useNow } from '../lib/now';
 import { useAttentionCount } from '../lib/needs-attention';
-import { useSignInWhenSessionEnds, useSignOut } from '../lib/session';
+import { useAccountMenu } from '../lib/account';
+import { useSignInWhenSessionEnds } from '../lib/session';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,7 +40,8 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const view = readFleetView(toUrlParams(use(searchParams)));
   const fleet = useFleetSnapshot();
   const liveFleet = useLiveFleet();
-  const signOut = useSignOut();
+  const now = useNow();
+  const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const attentionCount = useAttentionCount();
@@ -58,7 +61,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       onCompose={() => {
         setIsComposing(true);
       }}
-      onSignOut={signOut}
+      account={accountMenu}
     >
       <CommissionShipForm />
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />

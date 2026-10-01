@@ -1,4 +1,5 @@
 import {
+  themeSchema,
   deliveryStateSchema,
   eventTypeSchema,
   idSchema,
@@ -161,6 +162,7 @@ const operatorAccountSqlRow = z
     fleet_id: idSchema('fleet'),
     email: z.string(),
     password_hash: z.string(),
+    theme: themeSchema,
     created_at: z.date(),
   })
   .transform(
@@ -169,6 +171,7 @@ const operatorAccountSqlRow = z
       fleetId: row.fleet_id,
       email: row.email,
       passwordHash: row.password_hash,
+      theme: row.theme,
       createdAt: row.created_at,
     }),
   );
@@ -183,6 +186,7 @@ const consoleSessionSqlRow = z
     fleet_id: idSchema('fleet'),
     ship_id: idSchema('ship'),
     lease_id: idSchema('lease'),
+    device: z.string(),
     token_hash: z.string(),
     created_at: z.date(),
     last_used_at: z.date(),
@@ -196,6 +200,7 @@ const consoleSessionSqlRow = z
       fleetId: row.fleet_id,
       shipId: row.ship_id,
       leaseId: row.lease_id,
+      device: row.device,
       tokenHash: row.token_hash,
       createdAt: row.created_at,
       lastUsedAt: row.last_used_at,

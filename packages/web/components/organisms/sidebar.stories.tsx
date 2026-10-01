@@ -6,7 +6,20 @@ import { Sidebar } from './sidebar';
 const meta = {
   title: 'Organisms/Sidebar',
   component: Sidebar,
-  args: { active: 'overview', inboxCount: 3, attentionCount: 2, onSignOut: fn() },
+  args: {
+    active: 'overview',
+    inboxCount: 3,
+    attentionCount: 2,
+    account: {
+      email: 'operator@example.com',
+      session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
+      theme: 'system',
+    },
+    onThemeChange: fn(),
+    onSignOut: fn(),
+    isSigningOut: false,
+    now: new Date('2026-10-01T12:30:00.000Z'),
+  },
   decorators: [
     (Story) => (
       <div className="-m-6 flex min-h-screen">

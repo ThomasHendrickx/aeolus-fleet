@@ -21,7 +21,8 @@ import {
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
-import { useSignInWhenSessionEnds, useSignOut } from '../../lib/session';
+import { useAccountMenu } from '../../lib/account';
+import { useSignInWhenSessionEnds } from '../../lib/session';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -53,7 +54,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
   const reply = useReply();
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
-  const signOut = useSignOut();
+  const accountMenu = useAccountMenu(now);
   useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
   const [isComposing, setIsComposing] = useState(false);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
@@ -79,7 +80,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
       nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount }}
-      onSignOut={signOut}
+      account={accountMenu}
       onCompose={() => {
         setIsComposing(true);
       }}

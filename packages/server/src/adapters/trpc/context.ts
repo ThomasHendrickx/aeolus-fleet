@@ -1,6 +1,8 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Authenticate } from '../../core/identity/authenticate.js';
+import type { ReadAccount } from '../../core/identity/read-account.js';
+import type { SetTheme } from '../../core/identity/set-theme.js';
 import type { SignIn } from '../../core/identity/sign-in.js';
 import type { SignOut } from '../../core/identity/sign-out.js';
 import type { AcknowledgeDelivery } from '../../core/messaging/acknowledge-delivery.js';
@@ -36,6 +38,8 @@ export interface UseCases {
   ping: Ping;
   signIn: SignIn;
   signOut: SignOut;
+  readAccount: ReadAccount;
+  setTheme: SetTheme;
   authenticate: Authenticate;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
@@ -99,6 +103,8 @@ export interface Context {
    */
   canUseConsoleSession: boolean;
   sessionCookie: SessionCookie;
+  /** The User-Agent header the request carried, if any: what a console sign-in names its device by. */
+  userAgent: string | undefined;
   /** The Origin header the request carried, if any. A browser sends one with every POST. */
   origin: string | undefined;
   /** The console's origin: the only one state-changing console calls may come from. */

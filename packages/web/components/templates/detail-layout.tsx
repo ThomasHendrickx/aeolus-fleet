@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
+import type { AccountMenuProps } from '../organisms/account-menu';
 import { Header } from '../organisms/header';
 import { Sidebar, type SidebarDestination } from '../organisms/sidebar';
 import { TabBar } from '../organisms/tab-bar';
@@ -22,7 +23,8 @@ interface DetailLayoutProps {
   nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
-  onSignOut: () => void;
+  /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
+  account: AccountMenuProps;
 }
 
 /**
@@ -41,7 +43,7 @@ export function DetailLayout({
   live,
   nav,
   onCompose,
-  onSignOut,
+  account,
 }: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -49,7 +51,7 @@ export function DetailLayout({
         active={nav.active}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
-        onSignOut={onSignOut}
+        {...account}
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} />

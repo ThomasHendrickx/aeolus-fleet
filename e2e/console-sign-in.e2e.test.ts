@@ -148,7 +148,8 @@ describe('the console sign-in', () => {
     await signIn(page, OPERATOR);
     await expectSignedIn(page);
 
-    await page.getByTestId('account-menu').click();
+    // The Sidebar's account button on desktop; the phone TopBar's Avatar is hidden.
+    await page.locator('[data-testid="account-menu"]:visible').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in`);

@@ -22,3 +22,29 @@ export const signInInputSchema = z.object({
 });
 
 export type SignInInput = z.infer<typeof signInInputSchema>;
+
+/** The console's theme, per operator account: Light, Dark, or System (the browser's setting), the default. */
+export const THEMES = ['light', 'dark', 'system'] as const;
+export const themeSchema = z.enum(THEMES);
+export type Theme = z.infer<typeof themeSchema>;
+
+/** ISO 8601 in UTC. */
+const isoTime = z.iso.datetime();
+
+/**
+ * Output of `console.account`: the signed-in operator, their theme, and this
+ * console session: the device it signed in from and since when.
+ */
+export const accountOutputSchema = z.object({
+  email: z.string(),
+  theme: themeSchema,
+  session: z.object({ device: z.string(), since: isoTime }),
+});
+
+export type Account = z.infer<typeof accountOutputSchema>;
+
+/** Input of `console.setTheme`. */
+export const setThemeInputSchema = z.object({ theme: themeSchema });
+
+/** Output of `console.setTheme`: nothing; the OK is the answer. */
+export const setThemeOutputSchema = z.strictObject({});

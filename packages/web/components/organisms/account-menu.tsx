@@ -1,0 +1,219 @@
+'use client';
+
+import { ChevronsUpDown, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+
+import { classNames } from '../../lib/class-names';
+import { sessionSince, THEME_LABELS, THEMES, type Theme } from '../../lib/theme';
+import { Avatar } from '../atoms/avatar';
+import { Button } from '../atoms/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../atoms/dropdown-menu';
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet';
+import { Tabs, TabsList, TabsTrigger } from '../atoms/tabs';
+
+/** The signed-in person as the account menu shows them. */
+export interface AccountMenuAccount {
+  email: string;
+  /** This console session: the device it signed in from ("Mac · Chrome") and when. */
+  session: { device: string; since: string };
+  theme: Theme;
+}
+
+export interface AccountMenuProps {
+  /** Undefined until known: the trigger shows, the session line and theme check wait. */
+  account: AccountMenuAccount | undefined;
+  onThemeChange: (theme: Theme) => void;
+  onSignOut: () => void;
+  isSigningOut: boolean;
+  now: Date;
+}
+
+const THEME_ICONS: Record<Theme, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
+
+/** The operator's role is the account's name in v1: one operator per fleet. */
+const ROLE = 'Operator';
+
+function isTheme(value: unknown): value is Theme {
+  return THEMES.some((theme) => theme === value);
+}
+
+/** Who is signed in, and this session: the menu's header on desktop and on phone. */
+function AccountHeader({ account, now }: Pick<AccountMenuProps, 'account' | 'now'>) {
+  return (
+    <div className="flex flex-col gap-2 px-2.5 pt-2 pb-2.5">
+      <div className="flex items-center gap-2.5">
+        <Avatar kind="account" size={28} name={ROLE} />
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-body font-medium text-foreground">{ROLE}</span>
+          <span className="truncate text-caption text-muted-foreground">{account?.email ?? ' '}</span>
+        </span>
+      </div>
+      <p data-testid="account-session" className="flex items-start gap-1.5 text-caption text-muted-foreground">
+        <LaptopMinimal aria-hidden className="mt-px size-(--size-icon-sm) shrink-0" />
+        {account ? (
+          <span>
+            This session: <span className="font-medium text-foreground">{sessionSince(account.session, now)}</span>
+          </span>
+        ) : (
+          <span>This session</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** The sign-out row's content: a spinner and "Signing out" while it runs. */
+function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
+  return isSigningOut ? (
+    <>
+      <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" />
+      Signing out
+    </>
+  ) : (
+    <>
+      <LogOut aria-hidden />
+      Sign out
+    </>
+  );
+}
+
+/**
+ * The account menu on desktop (docs/design/png/AccountMenu.png): the Sidebar's
+ * account button opens a DropdownMenu upwards with who is signed in, this
+ * session (signing in elsewhere ends it), Theme and Sign out without a
+ * confirm. On the 64 px rail the button collapses to its avatar.
+ */
+export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now }: AccountMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        data-testid="account-menu"
+        aria-label={`Account menu, ${ROLE}${account ? `, ${account.email}` : ''}`}
+        className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-left transition-colors duration-(--duration-fast) outline-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-accent max-lg:justify-center"
+      >
+        <Avatar kind="account" size={28} name={ROLE} />
+        <span className="flex min-w-0 grow flex-col max-lg:sr-only">
+          <span className="truncate text-body font-medium text-foreground">{ROLE}</span>
+          <span className="truncate text-caption text-muted-foreground">{account?.email ?? ' '}</span>
+        </span>
+        <ChevronsUpDown aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground max-lg:hidden" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-64">
+        <AccountHeader account={account} now={now} />
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={account?.theme}
+            onValueChange={(value: unknown) => {
+              if (isTheme(value)) {
+                onThemeChange(value);
+              }
+            }}
+          >
+            {THEMES.map((theme) => {
+              const Icon = THEME_ICONS[theme];
+              return (
+                <DropdownMenuRadioItem
+                  key={theme}
+                  value={theme}
+                  disabled={account === undefined}
+                  closeOnClick={false}
+                  data-testid={`account-theme-${theme}`}
+                >
+                  <Icon aria-hidden />
+                  {THEME_LABELS[theme]}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          data-testid="account-sign-out"
+          disabled={isSigningOut}
+          closeOnClick={false}
+          onClick={onSignOut}
+        >
+          <SignOutLabel isSigningOut={isSigningOut} />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * The account menu on phone: the Avatar, last in the root TopBar, opens the
+ * same content as a bottom Sheet, with Theme as a segmented control and
+ * Cancel at the bottom.
+ */
+export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now }: AccountMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger
+        data-testid="account-menu"
+        aria-label={`Account menu, ${ROLE}${account ? `, ${account.email}` : ''}`}
+        className="inline-flex size-(--size-control-touch) shrink-0 items-center justify-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <Avatar kind="account" size={28} name={ROLE} />
+      </SheetTrigger>
+      <SheetContent side="bottom" data-testid="account-sheet" className="gap-3">
+        <SheetTitle className="sr-only">Account</SheetTitle>
+        <AccountHeader account={account} now={now} />
+        <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+          <p className="text-caption text-muted-foreground">Theme</p>
+          <Tabs
+            value={account?.theme}
+            onValueChange={(value: unknown) => {
+              if (isTheme(value)) {
+                onThemeChange(value);
+              }
+            }}
+          >
+            <TabsList aria-label="Theme" className="w-full">
+              {THEMES.map((theme) => {
+                const Icon = THEME_ICONS[theme];
+                return (
+                  <TabsTrigger
+                    key={theme}
+                    value={theme}
+                    disabled={account === undefined}
+                    data-testid={`account-theme-${theme}`}
+                    className="grow"
+                  >
+                    <Icon aria-hidden />
+                    {THEME_LABELS[theme]}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
+        <button
+          type="button"
+          data-testid="account-sign-out"
+          disabled={isSigningOut}
+          onClick={onSignOut}
+          className={classNames(
+            'flex h-(--size-control-touch) items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground',
+          )}
+        >
+          <SignOutLabel isSigningOut={isSigningOut} />
+        </button>
+        <SheetClose render={<Button size="touch" className="w-full" />}>Cancel</SheetClose>
+      </SheetContent>
+    </Sheet>
+  );
+}

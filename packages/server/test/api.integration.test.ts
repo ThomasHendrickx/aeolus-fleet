@@ -158,6 +158,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_receive$/),
       expect.stringMatching(/^\d{14}_event_seq$/),
       expect.stringMatching(/^\d{14}_console_session_end_reason$/),
+      expect.stringMatching(/^\d{14}_account_theme_session_device$/),
     ]);
   });
 });
@@ -1360,5 +1361,43 @@ describe('rename at the API', () => {
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId, name: taken }))).resolves.toBe('CONFLICT');
     await expect(codeOf(reader.fleet.rename.mutate({ shipId, name: 'any' }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe("the operator's account at the API", () => {
+  const MAC_CHROME =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
+
+  it("names this session by the sign-in's User-Agent, as argo's location too", async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const response = await fetch(`${address}/trpc/console.signIn`, {
+      method: 'POST',
+      headers: { origin: CONSOLE, 'content-type': 'application/json', 'user-agent': MAC_CHROME },
+      body: JSON.stringify(OPERATOR),
+    });
+    const asArgo = client({ cookie: sessionCookieOf(response), origin: CONSOLE });
+
+    await expect(asArgo.console.account.query()).resolves.toMatchObject({
+      email: OPERATOR.email,
+      session: { device: 'Mac · Chrome', since: clock.now().toISOString() },
+    });
+    const argo = (await asArgo.fleet.list.query()).find((ship) => ship.kind === 'operator');
+    expect(argo?.location).toEqual({ kind: 'OTHER', description: 'Mac · Chrome' });
+  });
+
+  it('keeps the chosen theme on the account, across sign-ins', async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(asArgo.console.setTheme.mutate({ theme: 'dark' })).resolves.toEqual({});
+    const next = await signedInArgo();
+    await expect(next.console.account.query()).resolves.toMatchObject({ theme: 'dark' });
+    await next.console.setTheme.mutate({ theme: 'system' });
+  });
+
+  it('refuses the account to a ship that is no console session', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip([...SCOPES])}` });
+
+    await expect(codeOf(agent.console.account.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.console.setTheme.mutate({ theme: 'dark' }))).resolves.toBe('FORBIDDEN');
   });
 });

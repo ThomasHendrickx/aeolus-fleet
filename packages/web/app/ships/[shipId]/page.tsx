@@ -17,7 +17,8 @@ import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useAttentionCount } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
-import { useSignInWhenSessionEnds, useSignOut } from '../../../lib/session';
+import { useAccountMenu } from '../../../lib/account';
+import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -56,7 +57,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
-  const signOut = useSignOut();
+  const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const attentionCount = useAttentionCount();
@@ -80,7 +81,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       onCompose={() => {
         setIsComposing(true);
       }}
-      onSignOut={signOut}
+      account={accountMenu}
       header={
         <ShipHeader
           ship={ship.data}

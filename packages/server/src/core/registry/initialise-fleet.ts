@@ -78,7 +78,7 @@ export function createInitialiseFleet(deps: {
       await tx.ships.create(argo);
 
       const operatorId = deps.ids('operator');
-      await tx.operatorAccounts.create({ id: operatorId, fleetId, email: email.value, passwordHash, createdAt: at });
+      await tx.operatorAccounts.create({ id: operatorId, fleetId, email: email.value, passwordHash, theme: 'system', createdAt: at });
 
       await recordEvent({ events: tx.events, ids: deps.ids }, {
         fleetId,

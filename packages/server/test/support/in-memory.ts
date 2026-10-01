@@ -353,6 +353,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
         return Promise.resolve(account && { ...account });
       },
+      findForFleet: (fleetId) => {
+        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
+        return Promise.resolve(account && { ...account });
+      },
+      setTheme: ({ fleetId, operatorId, theme }) => {
+        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
+        if (account) {
+          account.theme = theme;
+        }
+        return Promise.resolve();
+      },
       changePassword: ({ fleetId, operatorId, passwordHash }) => {
         const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
         if (account) {
@@ -362,6 +373,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     consoleSessions: {
+      find: (fleetId, consoleSessionId) => {
+        const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === consoleSessionId);
+        return Promise.resolve(session && { ...session });
+      },
       create: (session) => {
         if (state.consoleSessions.some((held) => held.fleetId === session.fleetId && held.endedAt === null)) {
           return Promise.reject(new Error('unique violation: the fleet already has a live console session'));

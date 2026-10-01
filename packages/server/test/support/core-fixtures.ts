@@ -10,8 +10,10 @@ import {
 } from '@aeolus-fleet/common';
 
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
+import { createReadAccount } from '../../src/core/identity/read-account.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/core/identity/sign-in.js';
+import { createSetTheme } from '../../src/core/identity/set-theme.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
@@ -60,6 +62,8 @@ export function identityUseCases(core: InMemoryCore) {
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),
+    readAccount: createReadAccount(deps),
+    setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
   };
 }

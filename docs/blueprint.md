@@ -96,6 +96,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type and a status. The name is a handle (lowercase letters, digits, hyphens, max 48 characters), unique among active ships and reusable after retirement |
 | Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored template later. Used for addressing, never interpreted |
 | Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
+| Console session | The operator's sign-in, crewing `argo`. It records the device it signed in from ("Mac · Chrome"), shown in the AccountMenu and as argo's location. The console's theme belongs to the operator's account, not the session |
 | Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship |
 | Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
 | Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |

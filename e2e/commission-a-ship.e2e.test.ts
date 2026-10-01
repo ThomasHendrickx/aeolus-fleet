@@ -221,7 +221,7 @@ describe('claiming a commissioned ship', () => {
     await row.getByText('Crewed').waitFor();
     await row.getByText('a ci runner', { exact: true }).waitFor();
     await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
-    await shipRow(page, 'argo').getByText('web console', { exact: true }).waitFor();
+    await shipRow(page, 'argo').getByText(/· Chrome/).waitFor();
   });
 });
 

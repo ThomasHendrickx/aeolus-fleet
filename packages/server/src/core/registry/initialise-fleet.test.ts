@@ -54,6 +54,7 @@ describe('initialise fleet', () => {
         fleetId,
         email: 'thomas@example.com',
         passwordHash: await core.passwords.hash(PASSWORD),
+        theme: 'system',
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
       },
     ]);

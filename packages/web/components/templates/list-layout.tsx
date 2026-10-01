@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Button } from '../atoms/button';
 
 import type { LiveState } from '../molecules/live-status';
+import type { AccountMenuProps } from '../organisms/account-menu';
 import { Header } from '../organisms/header';
 import { Sidebar, type SidebarDestination } from '../organisms/sidebar';
 import { TabBar } from '../organisms/tab-bar';
@@ -22,13 +23,15 @@ interface ListLayoutProps {
   nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
-  onSignOut: () => void;
+  /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
+  account: AccountMenuProps;
   children: ReactNode;
 }
 
 /**
  * List pages (docs/design/png/ListLayout.png), single variant: Sidebar and
- * Header on desktop, TopBar (root) and TabBar on phone. The title and the one
+ * Header on desktop, TopBar (root, with the AccountMenu's Avatar last) and
+ * TabBar on phone. The title and the one
  * primary action share the first row, the toolbar sits under it and the list
  * fills the rest. On phone the TopBar carries the title, and the TabBar's
  * height is kept free at the bottom.
@@ -41,7 +44,7 @@ export function ListLayout({
   live,
   nav,
   onCompose,
-  onSignOut,
+  account,
   children,
 }: ListLayoutProps) {
   return (
@@ -50,13 +53,14 @@ export function ListLayout({
         active={nav.active}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
-        onSignOut={onSignOut}
+        {...account}
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={title} live={live} onCompose={onCompose} />
         <TopBar
           title={title}
           live={live}
+          account={account}
           actions={
             onCompose ? (
               <Button

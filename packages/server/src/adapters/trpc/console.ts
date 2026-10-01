@@ -1,7 +1,8 @@
-import { signInInputSchema } from '@aeolus-fleet/common';
+import { accountOutputSchema, setThemeInputSchema, setThemeOutputSchema, signInInputSchema } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { ConsoleRefusalDetails, consoleProcedure, okOrThrow, router } from './trpc.js';
+import { deviceLabelOf } from '../http/device-label.js';
+import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -24,8 +25,23 @@ export const consoleRouter = router({
     })
     .input(signInInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn(input));
+      const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn({ ...input, device: deviceLabelOf(ctx.userAgent) }));
       ctx.sessionCookie.set(token, expiresAt);
+    }),
+
+  /** The signed-in operator: email, theme, and this console session's device and start. */
+  account: authenticatedProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
+    const account = okOrThrow(await ctx.useCases.readAccount(ctx.caller));
+    return { ...account, session: { ...account.session, since: account.session.since.toISOString() } };
+  }),
+
+  /** Stores the operator's theme on their account, so it follows them to any browser. */
+  setTheme: authenticatedProcedure
+    .input(setThemeInputSchema)
+    .output(setThemeOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.setTheme(ctx.caller, input));
+      return {};
     }),
 
   /** Ends the console session in the cookie and releases argo's lease. Always clears the cookie. */
