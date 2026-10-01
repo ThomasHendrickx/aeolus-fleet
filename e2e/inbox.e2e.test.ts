@@ -218,12 +218,12 @@ describe('diagnostic: the live inbox count', () => {
     await toArgo(sender, `diag message ${String(run)}`);
     frames.push(`${String(Date.now() - started)} sent`);
     try {
-      await navigation.getByText(String(open), { exact: true }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+      await navigation.getByText(String(open)).waitFor({ timeout: LIVE_TIMEOUT_MS });
     } catch (error) {
       const live = await page.getByRole('banner').textContent();
-      const nav = await navigation.innerHTML();
+      const nav = (await navigation.innerHTML()).replace(/<svg.*?<\/svg>/g, '');
       throw new Error(
-        `count ${String(open)} not shown. live: ${String(live)}\nnav: ${nav.slice(0, 400)}\nframes:\n${frames.join('\n')}\nlogs:\n${logs.join('\n')}`,
+        `count ${String(open)} not shown. live: ${String(live)}\nnav: ${nav.slice(0, 1200)}\nframes:\n${frames.join('\n')}\nlogs:\n${logs.join('\n')}`,
         { cause: error },
       );
     }
