@@ -1,7 +1,7 @@
 import { signInInputSchema } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
-import { consoleProcedure, okOrThrow, router } from './trpc.js';
+import { ConsoleRefusalDetails, consoleProcedure, okOrThrow, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -14,7 +14,11 @@ export const consoleRouter = router({
   signIn: consoleProcedure
     .use(({ ctx, next }) => {
       if (!ctx.takeSignInAttempt(ctx.clientKey)) {
-        throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Too many sign-in attempts. Wait a minute.' });
+        throw new TRPCError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many sign-in attempts. Wait a minute.',
+          cause: new ConsoleRefusalDetails({ retryAt: ctx.signInRetryAt(ctx.clientKey).toISOString() }),
+        });
       }
       return next();
     })

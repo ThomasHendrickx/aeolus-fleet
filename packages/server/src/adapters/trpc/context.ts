@@ -79,6 +79,8 @@ export interface Context {
   requestId: string;
   /** Counts sign-in attempts per client; false when over the limit. */
   takeSignInAttempt: (clientKey: string) => boolean;
+  /** When a client over the sign-in limit may try again. */
+  signInRetryAt: (clientKey: string) => Date;
   /**
    * Failed register attempts per client, apart from sign-in attempts: only a
    * wrong ship id or secret counts, never a successful claim (ADR 0015).

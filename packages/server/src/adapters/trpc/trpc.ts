@@ -21,12 +21,32 @@ export interface ProcedureMeta {
 // Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
 // trace into every error it answers. A server failure answers only that it
 // failed and the request's id; a refusal keeps its own code and message.
+/**
+ * What the console reads beside a refusal's code, to say more than "refused":
+ * that the operator signed in somewhere else, or when a rate-limited sign-in
+ * may try again (ISO 8601). Carried as the tRPC error's cause; the error data
+ * holds its fields.
+ */
+export class ConsoleRefusalDetails extends Error {
+  override name = 'ConsoleRefusalDetails';
+  readonly details: { refusal?: 'SIGNED_IN_ELSEWHERE'; retryAt?: string };
+
+  constructor(details: { refusal?: 'SIGNED_IN_ELSEWHERE'; retryAt?: string }) {
+    super('console refusal details');
+    this.details = details;
+  }
+}
+
 const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
   isDev: false,
-  errorFormatter: ({ shape, error, ctx }) =>
-    error.code === 'INTERNAL_SERVER_ERROR'
-      ? { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } }
-      : shape,
+  errorFormatter: ({ shape, error, ctx }) => {
+    if (error.code === 'INTERNAL_SERVER_ERROR') {
+      return { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } };
+    }
+    return error.cause instanceof ConsoleRefusalDetails
+      ? { ...shape, data: { ...shape.data, ...error.cause.details } }
+      : shape;
+  },
 });
 
 export const router = t.router;
@@ -202,8 +222,16 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
     const use = await ctx.useCases.authenticate.byConsoleSession(sessionToken);
     if (use) {
       ctx.sessionCookie.set(sessionToken, use.expiresAt);
+      return use.caller;
     }
-    return use?.caller;
+    // Signing in somewhere else is no failure: the console says so calmly.
+    if ((await ctx.useCases.authenticate.endOfConsoleSession(sessionToken)) === 'takenOver') {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You signed in somewhere else, which ended this console session',
+        cause: new ConsoleRefusalDetails({ refusal: 'SIGNED_IN_ELSEWHERE' }),
+      });
+    }
   }
   return undefined;
 }

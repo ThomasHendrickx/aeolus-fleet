@@ -414,7 +414,7 @@ describe('a procedure that needs a scope', () => {
   it('tells a signed-out session only to sign in', async () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
-    await server.inject({ method: 'POST', url: '/trpc/console.signOut', headers: { origin: FLEET_ORIGIN, cookie } });
+    await signOut(cookie);
 
     const refused = await ping({ cookie });
 

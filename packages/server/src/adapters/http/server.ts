@@ -169,6 +169,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     clientKey: request.ip,
     requestId: request.id,
     takeSignInAttempt: (clientKey) => signInLimiter.take(clientKey),
+    signInRetryAt: (clientKey) => signInLimiter.retryAt(clientKey),
     registerFailures,
   });
 
