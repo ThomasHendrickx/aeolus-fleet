@@ -22,6 +22,7 @@ import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
   FleetListing,
+  ShipFacts,
   FleetRepository,
   InFlightDeliveries,
   LeaseRepository,
@@ -480,25 +481,29 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const factsOf = (held: Ship): ShipFacts => {
+    const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
+    const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
+    return {
+      ship: { ...held },
+      openLease: lease ? { location: { ...lease.location }, startedAt: lease.startedAt } : null,
+      validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
+    };
+  };
   const listing: FleetListing = {
     ships: (fleetId) =>
       Promise.resolve(
         state.ships
           .filter((held) => held.fleetId === fleetId)
           .sort((first, second) => first.id.localeCompare(second.id))
-          .map((held) => {
-            const secret = state.credentials.find(
-              (credential) => credential.shipId === held.id && credential.invalidatedAt === null,
-            );
-            const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
-            return {
-              ship: { ...held },
-              openLease: lease ? { location: { ...lease.location } } : null,
-              validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
-            };
-          }),
+          .map(factsOf),
       ),
+    ship: (fleetId, shipId) => {
+      const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
+      return Promise.resolve(held && factsOf(held));
+    },
   };
+
 
   let watches = 0;
   const wakeups: InMemoryWakeups = {
