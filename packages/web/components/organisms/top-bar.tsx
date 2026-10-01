@@ -1,3 +1,5 @@
+import { ChevronLeft } from 'lucide-react';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { LiveStatus, type LiveState } from '../molecules/live-status';
@@ -8,20 +10,40 @@ interface TopBarProps {
   live: LiveState;
   /** Up to two icon-only Buttons, each with its aria-label. */
   actions?: ReactNode;
+  /**
+   * Detail mode: the back link, labelled with the page it returns to. The page
+   * below carries its own title then, so the bar's title is no heading.
+   */
+  back?: { href: string; label: string };
 }
 
 /**
- * Phone top bar (docs/design/png/TopBar.png), 56 px, in root mode: the page
- * title, the live status and up to two icon actions. Detail and modal modes
- * come with the pages that need them.
+ * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the page
+ * title, the live status and up to two icon actions. Detail mode: a back link
+ * labelled with the previous page, the title and the live status. Modal mode
+ * comes with the pages that need it.
  */
-export function TopBar({ title, live, actions }: TopBarProps) {
+export function TopBar({ title, live, actions, back }: TopBarProps) {
   return (
     <header
       data-slot="top-bar"
+      data-mode={back ? 'detail' : 'root'}
       className="sticky top-0 z-30 flex h-(--size-header) items-center gap-2.5 border-b border-border bg-background px-4 sm:hidden"
     >
-      <h1 className="truncate text-title-touch font-semibold tracking-tight text-foreground">{title}</h1>
+      {back ? (
+        <>
+          <Link
+            href={back.href}
+            className="-ml-1.5 inline-flex h-(--size-control-touch) shrink-0 items-center gap-0.5 rounded-md pr-2 text-body-touch text-foreground focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon)"
+          >
+            <ChevronLeft aria-hidden />
+            {back.label}
+          </Link>
+          <p className="min-w-0 flex-1 truncate text-center text-body-touch font-semibold text-foreground">{title}</p>
+        </>
+      ) : (
+        <h1 className="truncate text-title-touch font-semibold tracking-tight text-foreground">{title}</h1>
+      )}
       <LiveStatus state={live} />
       {actions ? <div className="ml-auto flex items-center gap-1">{actions}</div> : null}
     </header>

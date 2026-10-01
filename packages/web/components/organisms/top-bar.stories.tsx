@@ -15,6 +15,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Root: Story = {};
+export const Detail: Story = { args: { title: 'reviewer-01', back: { href: '/', label: 'Fleet' } } };
 export const Offline: Story = { args: { live: 'offline' } };
 export const WithAction: Story = {
   args: {
