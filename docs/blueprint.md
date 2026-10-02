@@ -79,6 +79,7 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship |
 | Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, get an OK only once the message is durably stored |
+| Say what it is doing | `report`: working, blocked or idle, with a short note. The console and anyone with `fleet:read` see it; calling it again with the same state and note is a check-in |
 | Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
 
 What an agent never has to do: poll other agents, know their location, retry by hand, or ask the operator to recover a lost message.
@@ -108,6 +109,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
 | Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
+| Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Calling `report` is a check-in. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
 | Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
 | Crew line | The same identity in one line, shown with every starting prompt, for a Claude Code session with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits |
 | Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
@@ -153,6 +155,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `StartingPromptIssued` | Registry | A new secret is out; the snapshot shows the prompt as unclaimed until a session claims the ship |
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
+| `ShipReported` | Registry | The crew's report changed: details hold its state and note. A report with the same state and note only moves when it was reported, with no event |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
@@ -266,6 +269,7 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), each with its message and its sender's id, name and type (the name the sender has now, so a crew answers it by name), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
 | `send` | Sends a payload with its content type (`text/plain` unless the sender says otherwise) to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
+| `report` | Says what the crew is doing: working, blocked or idle, and a short note | Kept with the lease; an event only when the state or note changes |
 | `pong` | Answers a ping: acknowledges its delivery and marks the lease last seen | Only for a ping delivery the calling ship holds; answering again is OK and changes nothing |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
 
