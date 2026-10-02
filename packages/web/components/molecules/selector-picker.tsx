@@ -6,6 +6,7 @@ import { useId } from 'react';
 
 import { locationKindWord } from '../../lib/location';
 import { counted } from '../../lib/sentence';
+import { asHandle } from '../../lib/ship-name';
 import { Combobox, type ComboboxOption } from '../atoms/combobox';
 import { Label } from '../atoms/label';
 import { Tabs, TabsList, TabsTrigger } from '../atoms/tabs';
@@ -92,6 +93,7 @@ export function SelectorPicker({ mode, onModeChange, value, onChange, ships, typ
             const ship = ships.find((each) => each.id === shipId);
             onChange(ship ? { kind: 'ship', shipId: ship.id } : null);
           }}
+          toQuery={asHandle}
           groupLabel="Ships"
           emptyText={(query) => `No ship matches "${query}". Retired ships are not listed.`}
           leadingIcon={<Search />}
@@ -118,6 +120,7 @@ export function SelectorPicker({ mode, onModeChange, value, onChange, ships, typ
             onChange(type === null || type.trim() === '' ? null : { kind: 'type', type: type.trim() });
           }}
           isFreeText
+          toQuery={asHandle}
           leadingIcon={<Tag />}
           placeholder="Type"
           isInvalid={error !== undefined}
