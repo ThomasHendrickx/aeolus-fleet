@@ -25,7 +25,24 @@ import { registerMcpEndpoint } from './mcp-endpoint.js';
 // failure reads. The whole flow on Postgres is in test/mcp.integration.test.ts.
 
 const FLEET_ORIGIN = 'https://fleet.example.com';
-const SHIP_TOOLS = ['register', 'whoami', 'send', 'receive', 'ack', 'pong', 'inbox', 'deregister'];
+const SHIP_TOOLS = [
+  'register',
+  'whoami',
+  'send',
+  'receive',
+  'ack',
+  'pong',
+  'inbox',
+  'deregister',
+  'fleet_list',
+  'fleet_ship',
+  'fleet_commission',
+  'fleet_getStartingPrompt',
+  'fleet_release',
+  'fleet_recrew',
+  'fleet_retire',
+  'fleet_ping',
+];
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -134,7 +151,7 @@ const toolSchema = z.object({
     properties: z.record(z.string(), z.record(z.string(), z.unknown())),
     required: z.array(z.string()).optional(),
   }),
-  outputSchema: z.object({ type: z.literal('object') }),
+  outputSchema: z.object({ type: z.literal('object') }).optional(),
 });
 
 async function listedTools(): Promise<z.infer<typeof toolSchema>[]> {
@@ -151,7 +168,7 @@ async function tool(name: string): Promise<z.infer<typeof toolSchema>> {
 }
 
 describe('the ship tools at /mcp', () => {
-  it('list one tool per ship procedure: register, whoami, send, receive, ack and deregister', async () => {
+  it('list one tool per ship procedure, then the fleet actions a ship with fleet scopes may call', async () => {
     await start();
 
     await expect(listedTools().then((tools) => tools.map((listed) => listed.name))).resolves.toEqual(SHIP_TOOLS);
@@ -201,6 +218,28 @@ describe('the ship tools at /mcp', () => {
     const { inputSchema } = await tool('ack');
 
     expect(inputSchema.properties.deliveryId).toMatchObject({ pattern: '^dlv_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
+  });
+
+  it.each([
+    ['fleet_list', [/fleet:read/, /every ship/i]],
+    ['fleet_commission', [/fleet:manage/, /fleetScopes/, /starting prompt/i]],
+    ['fleet_release', [/fleet:manage/, /never argo/i]],
+    ['fleet_ping', [/fleet:manage/, /pong/]],
+  ])('state the scope and rules of %s in its description', async (name, rules) => {
+    await start();
+
+    const { description } = await tool(name);
+
+    for (const rule of rules) {
+      expect(description).toMatch(rule);
+    }
+  });
+
+  it('give fleet_list no output schema, since it answers a list, and fleet_ship an object one', async () => {
+    await start();
+
+    await expect(tool('fleet_list')).resolves.not.toHaveProperty('outputSchema');
+    await expect(tool('fleet_ship')).resolves.toMatchObject({ outputSchema: { type: 'object' } });
   });
 
   it("describe pong's input: the ping's delivery id", async () => {
@@ -361,7 +400,7 @@ describe('a ship tool call', () => {
     const client = await connect();
 
     await expect(refusalText(client, { name: 'retire', arguments: {} })).resolves.toBe(
-      `NOT_FOUND: There is no tool named retire. The ship tools are ${SHIP_TOOLS.join(', ')}.`,
+      `NOT_FOUND: There is no tool named retire. The tools are ${SHIP_TOOLS.join(', ')}.`,
     );
   });
 

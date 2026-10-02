@@ -144,7 +144,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(document.info.description.startsWith(`${SHIP_PROTOCOL}\n\n`)).toBe(true);
   });
 
-  it('lists every ship procedure: whoami to GET, the others to POST', async () => {
+  it('lists every ship procedure, then the fleet actions: a query without input to GET, the others to POST', async () => {
     start();
 
     const { paths } = await spec();
@@ -158,6 +158,14 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/pong', ['post']],
       ['/ship/inbox', ['post']],
       ['/ship/deregister', ['post']],
+      ['/fleet/list', ['get']],
+      ['/fleet/ship', ['post']],
+      ['/fleet/commission', ['post']],
+      ['/fleet/getStartingPrompt', ['post']],
+      ['/fleet/release', ['post']],
+      ['/fleet/recrew', ['post']],
+      ['/fleet/retire', ['post']],
+      ['/fleet/ping', ['post']],
     ]);
   });
 
@@ -167,7 +175,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     const { paths } = await spec();
 
     for (const call of SHIP_CALLS) {
-      const described = paths[`/ship/${call.name}`]?.[call.type === 'query' ? 'get' : 'post'];
+      const described = paths[call.route]?.[call.method === 'GET' ? 'get' : 'post'];
       expect(described?.operationId, call.name).toBe(call.name);
       expect(described?.description, call.name).toBe(call.description);
     }

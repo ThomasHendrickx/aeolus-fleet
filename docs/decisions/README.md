@@ -5,7 +5,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0001](0001-ack-on-receipt.md) **Ack on receipt.** Ship acks when it receives. Aeolus owns distribution, not execution.
 - [0002](0002-opaque-ship-secret.md) **Ship secrets and scopes.** Opaque hashed secret, one per ship, used only to register. Four scopes stored server-side with the ship, set at commission and never changed; agents send and receive, and may be given fleet:read and fleet:manage.
 - [0003](0003-postgres-as-broker.md) **Postgres is the broker.** Commit before OK, `SKIP LOCKED` claims, `NOTIFY` after commit.
-- [0004](0004-trpc-single-api.md) **tRPC is the only API door.** REST and MCP map onto the same procedures, no own logic.
+- [0004](0004-trpc-single-api.md) **tRPC is the only API door.** REST and MCP map onto the same procedures (ship calls and the fleet actions for ships with fleet scopes), no own logic.
 - [0005](0005-prefixed-ids.md) **Prefixed ids.** `<prefix>_<lowercase ULID>`: `flt_ shp_ msg_ dlv_ evt_ lse_ crd_ opr_ ses_`.
 - [0006](0006-payload-limit.md) **Payloads max 64 KB.** Carry a reference plus instruction, not content.
 - [0007](0007-tenancy.md) **Every record belongs to a fleet.** `fleet_id` everywhere, scoped queries. Only unscoped: secret hash, token hash, operator email lookup.

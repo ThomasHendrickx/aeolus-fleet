@@ -58,12 +58,24 @@ function pingOutputOf(ping: PingStatus | null) {
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
   commission: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
+        'fleetScopes adds fleet:read and/or fleet:manage to its scopes; they never change later.',
+        'Answers its shipId and its first starting prompt and crew line, shown only this once: they hold its secret.',
+      ].join(' '),
+    })
     .input(commissionShipInputSchema)
     .output(startingPromptOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.commissionShip(ctx.caller, input))),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
   getStartingPrompt: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. A new starting prompt and crew line for a ship awaiting crew; its new secret stops any earlier one working.',
+      ].join(' '),
+    })
     .input(getStartingPromptInputSchema)
     .output(startingPromptOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.getStartingPrompt(ctx.caller, input))),
@@ -74,6 +86,12 @@ export const fleetRouter = router({
    * answers with that one. Never argo, a ship awaiting crew or a retired one.
    */
   ping: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Pings a crewed ship: its session answers with pong, proving it is working.',
+        'Pings never stack: while one waits unanswered, this answers with that one (isNew false). Never argo, a ship awaiting crew or a retired one.',
+      ].join(' '),
+    })
     .input(pingShipInputSchema)
     .output(pingShipOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -87,6 +105,12 @@ export const fleetRouter = router({
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
   release: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
+        'Never argo; a ship awaiting crew gets a new starting prompt instead.',
+      ].join(' '),
+    })
     .input(releaseShipInputSchema)
     .output(releaseShipOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -100,6 +124,12 @@ export const fleetRouter = router({
    * other ships of the type. Answers how many it abandoned.
    */
   retire: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Ends a ship permanently, never argo: its lease and secret end and its direct deliveries are abandoned.',
+        'Answers how many it abandoned.',
+      ].join(' '),
+    })
     .input(retireShipInputSchema)
     .output(retireShipOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
@@ -122,12 +152,22 @@ export const fleetRouter = router({
    * starting prompt in one transaction. Its prompt and crew line are shown once.
    */
   recrew: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. A new crew for a crewed ship whose session is gone: releases it and answers a fresh starting prompt and crew line, shown once. Never argo.',
+      ].join(' '),
+    })
     .input(recrewShipInputSchema)
     .output(startingPromptOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.recrewShip(ctx.caller, input))),
 
   /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
   list: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, where its session runs, when it was last seen, its last ping. Never a secret.',
+      ].join(' '),
+    })
     .output(fleetListOutputSchema)
     .query(async ({ ctx }) =>
       (await ctx.useCases.listFleet(ctx.caller)).map((ship) => ({
@@ -144,6 +184,11 @@ export const fleetRouter = router({
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        'Needs fleet:read. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+      ].join(' '),
+    })
     .input(shipInputSchema)
     .output(shipDetailOutputSchema)
     .query(async ({ ctx, input }) => {

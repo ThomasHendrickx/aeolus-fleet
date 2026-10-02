@@ -63,6 +63,18 @@ async function connect(era: Era = '2025 handshake'): Promise<Client> {
   return client;
 }
 
+/** A new ship commissioned by argo with fleet scopes: its id, name and secret. */
+async function commissionedWithFleetScopes(
+  fleetScopes: ('fleet:read' | 'fleet:manage')[],
+): Promise<{ shipId: ShipId; name: string; secret: string }> {
+  shipCount += 1;
+  const name = `manager-${shipCount}`;
+  const { shipId, prompt } = unwrap(
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'squadron', fleetScopes }),
+  );
+  return { shipId, name, secret: secretIn(prompt) };
+}
+
 /** A new agent ship, commissioned by argo: its id, name and the secret its starting prompt holds. */
 async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
@@ -85,13 +97,18 @@ interface ToolCall<T> {
   arguments: Record<string, unknown>;
 }
 
-/** Calls a tool and parses what it answers. Fails with the tool's own text when it answers with an error. */
+/**
+ * Calls a tool and parses what it answers: its structured content, or the
+ * JSON text of a tool that answers a list. Fails with the tool's own text when
+ * it answers with an error.
+ */
 async function call<T>(client: Client, { tool, arguments: args }: ToolCall<T>): Promise<T> {
   const result = toolResultSchema.parse(await client.callTool({ name: tool.name, arguments: args }));
   if (result.isError) {
     throw new Error(`${tool.name} answered an error: ${result.content.map((block) => block.text).join('\n')}`);
   }
-  return tool.answers.parse(result.structuredContent);
+  const text = result.content.map((block) => block.text).join('');
+  return tool.answers.parse(result.structuredContent ?? JSON.parse(text));
 }
 
 /** The text a tool answers with an error. Fails when the call succeeds. */
@@ -195,6 +212,34 @@ describe('the ship tools at /mcp', () => {
     await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
       state: 'acknowledged',
     });
+  });
+
+  it('lets a ship with fleet:read and fleet:manage list the fleet and commission a ship through the fleet tools', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const session = await connect();
+    const crewToken = await register(session, manager);
+
+    const listed = await call(session, {
+      tool: { name: 'fleet_list', answers: z.array(z.object({ name: z.string() })) },
+      arguments: { crewToken },
+    });
+    const { shipId } = await call(session, {
+      tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string() }) },
+      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron' },
+    });
+
+    expect(listed.map((ship) => ship.name)).toContain(manager.name);
+    expect(shipId).toMatch(/^shp_/);
+  });
+
+  it('refuses a fleet tool to a ship without its scope, with the code first', async () => {
+    const agent = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, agent);
+
+    await expect(refusalOf(session, { name: 'fleet_list', arguments: { crewToken } })).resolves.toBe(
+      'FORBIDDEN: This call needs the fleet:read scope',
+    );
   });
 
   it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {
