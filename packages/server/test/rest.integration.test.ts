@@ -140,6 +140,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/recrew',
       '/fleet/retire',
       '/fleet/ping',
+      '/fleet/follow',
     ]);
   });
 
@@ -274,6 +275,17 @@ describe('the fleet actions at /api/v1/fleet', () => {
     expect(listed.map((ship) => ship.name)).toEqual(expect.arrayContaining([manager.name, mooring.name]));
     expect(commissionedByManager.prompt).toContain(`Ship id: ${commissionedByManager.shipId}`);
     expect(pinged.isNew).toBe(true);
+  });
+
+  it('follow the fleet: the current number without a position, then the events after it', async () => {
+    const reader = await crewedWithFleetScopes(['fleet:read']);
+    const followed = z.object({ events: z.array(z.object({ seq: z.number(), type: z.string() })), lastSeq: z.number() });
+    const { lastSeq } = await ok(request('fleet/follow', { crewToken: reader.crewToken, body: {} }), followed);
+    await commissioned();
+
+    const { events } = await ok(request('fleet/follow', { crewToken: reader.crewToken, body: { afterSeq: lastSeq } }), followed);
+
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
   });
 
   it('refuse the fleet list with 403 to a ship without fleet:read', async () => {
