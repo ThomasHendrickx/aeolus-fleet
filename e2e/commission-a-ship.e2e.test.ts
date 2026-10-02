@@ -166,6 +166,21 @@ describe('commissioning a ship in the console', () => {
     await dialog.getByText('hemmafeature:planner is available.').waitFor();
   });
 
+  it('commissions a ship with fleet access, shown as its scopes on its page', async () => {
+    const page = await signedInPage();
+    await fillCommission(page, { name: 'squad-manager', type: 'squadron' });
+    const dialog = page.getByTestId('commission-dialog');
+    await dialog.getByTestId('commission-fleet-read').click();
+    await dialog.getByTestId('commission-fleet-manage').click();
+
+    await dialog.getByTestId('commission-submit').click();
+
+    await promptBlock(page, 'squad-manager').getByRole('button', { name: 'Done' }).click();
+    await shipRow(page, 'squad-manager').getByRole('link', { name: /squad-manager/ }).click();
+    await page.getByTestId('ship-fleet-scope').getByText('fleet:manage').waitFor();
+    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['fleet:read', 'fleet:manage']);
+  });
+
   it('asks before replacing an unclaimed prompt, and replaces it only once confirmed', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'lookout', type: 'reviewer' });
