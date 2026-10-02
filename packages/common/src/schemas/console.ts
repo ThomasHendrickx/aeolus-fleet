@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { idSchema } from '../ids/index.js';
+
 /** The operator's email: at most 254 characters, the longest address mail carries. */
 export const OPERATOR_EMAIL_MAX_LENGTH = 254;
 /** One @ with something on each side, and no whitespace. */
@@ -30,6 +32,19 @@ export type Theme = z.infer<typeof themeSchema>;
 
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
+
+/**
+ * Output of `console.session`: for another service the operator uses beside
+ * the console, which forwards the browser's session cookie and asks whether
+ * the operator is signed in. The fleet they signed in to, and when the
+ * session expires (ISO 8601 in UTC).
+ */
+export const consoleSessionOutputSchema = z.object({
+  fleetId: idSchema('fleet'),
+  expiresAt: z.iso.datetime(),
+});
+
+export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
 
 /**
  * Output of `console.account`: the signed-in operator, their theme, and this

@@ -1,8 +1,14 @@
-import { accountOutputSchema, setThemeInputSchema, setThemeOutputSchema, signInInputSchema } from '@aeolus-fleet/common';
+import {
+  accountOutputSchema,
+  consoleSessionOutputSchema,
+  setThemeInputSchema,
+  setThemeOutputSchema,
+  signInInputSchema,
+} from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
 import { deviceLabelOf } from '../http/device-label.js';
-import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, router } from './trpc.js';
+import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -33,6 +39,23 @@ export const consoleRouter = router({
   account: authenticatedProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
     const account = okOrThrow(await ctx.useCases.readAccount(ctx.caller));
     return { ...account, session: { ...account.session, since: account.session.since.toISOString() } };
+  }),
+
+  /**
+   * Whether the request carries a signed-in console session: for another
+   * service the operator uses beside the console (decision 0012), which
+   * forwards the browser's cookie from its own server and serves its pages
+   * without a login of its own. Only the cookie counts, never a crew token:
+   * a ship is no operator. Counts as console use, so the session's expiry
+   * moves as on any console call. A query: it comes from any origin.
+   */
+  session: publicProcedure.output(consoleSessionOutputSchema).query(async ({ ctx }) => {
+    const { sessionToken } = ctx.credentials;
+    const use = sessionToken === undefined ? undefined : await ctx.useCases.authenticate.byConsoleSession(sessionToken);
+    if (!use) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
+    }
+    return { fleetId: use.caller.fleetId, expiresAt: use.expiresAt.toISOString() };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */
