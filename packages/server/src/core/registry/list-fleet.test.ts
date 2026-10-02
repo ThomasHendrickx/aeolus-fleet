@@ -79,6 +79,7 @@ describe('listing the fleet', () => {
         startingPrompt: null,
         location: null,
         lastSeenAt: null,
+        ping: null,
       },
       {
         id: scoutId,
@@ -89,6 +90,7 @@ describe('listing the fleet', () => {
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
         lastSeenAt: null,
+        ping: null,
       },
     ]);
   });

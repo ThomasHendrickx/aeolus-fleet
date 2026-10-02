@@ -38,8 +38,14 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 // here; the declarations the build emits need a path to reach it by.
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
+import type { PingStatus } from '../../core/registry/ping-status.js';
 import type { SequencedEvent } from '../../core/shared/events.js';
 import { checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+
+/** A ship's last ping as the API states it: its dates in ISO 8601. */
+function pingOutputOf(ping: PingStatus | null) {
+  return ping && { state: ping.state, sentAt: ping.sentAt.toISOString(), answeredAt: ping.answeredAt?.toISOString() ?? null };
+}
 
 /**
  * Fleet procedures: commission ships, hand out their starting prompts, release
@@ -131,6 +137,7 @@ export const fleetRouter = router({
           isClaimed: ship.startingPrompt.isClaimed,
         },
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
+        ping: pingOutputOf(ship.ping),
       })),
     ),
 
@@ -147,6 +154,7 @@ export const fleetRouter = router({
           isClaimed: ship.startingPrompt.isClaimed,
         },
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
+        ping: pingOutputOf(ship.ping),
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,

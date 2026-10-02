@@ -15,6 +15,7 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
     startingPrompt: null,
     location: null,
     lastSeenAt: null,
+    ping: null,
     ...ship,
   };
 }

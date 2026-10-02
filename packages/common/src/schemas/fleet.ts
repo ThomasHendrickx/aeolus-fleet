@@ -77,6 +77,13 @@ export const retireShipOutputSchema = z.object({ abandonedDeliveries: z.int().mi
  */
 export const recrewShipInputSchema = z.object({ shipId: idSchema('ship') });
 
+/** How a ship's last ping stands: waiting for an answer, answered with pong, or received with a plain ack. */
+export const PING_STATES = ['waiting', 'answered', 'received'] as const;
+
+export const pingStateSchema = z.enum(PING_STATES);
+
+export type PingState = z.infer<typeof pingStateSchema>;
+
 /**
  * One ship in `fleet.list`. `startingPrompt` is the prompt holding the ship's
  * valid secret, when there is one: when it was issued and whether a session
@@ -110,6 +117,18 @@ export const listedShipSchema = z.object({
    * observation only, nothing acts on it. Null while no session crews it.
    */
   lastSeenAt: z.iso.datetime().nullable(),
+  /**
+   * The ship's last ping (ISO 8601 in UTC): when argo sent it, how it stands,
+   * and when pong answered it. Null before any ping, or when the last one went
+   * undeliverable. Observation only.
+   */
+  ping: z
+    .object({
+      state: pingStateSchema,
+      sentAt: z.iso.datetime(),
+      answeredAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

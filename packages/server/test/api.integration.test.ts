@@ -297,6 +297,7 @@ describe('the fleet procedures at the API', () => {
       startingPrompt: { issuedAt: clock.now().toISOString(), isClaimed: false },
       location: null,
       lastSeenAt: null,
+      ping: null,
     });
   });
 
