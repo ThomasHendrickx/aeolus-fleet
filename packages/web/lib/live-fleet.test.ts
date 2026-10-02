@@ -24,6 +24,7 @@ describe('isShipChange', () => {
     'ShipRetired',
     'DeliveryAcknowledged',
     'DeliveryUndeliverable',
+    'ShipReported',
   ] as const)(
     'reloads the snapshot for %s',
     (type) => {

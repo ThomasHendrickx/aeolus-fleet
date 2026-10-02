@@ -45,6 +45,7 @@ import { createRecrewShip, type RecrewShip } from './core/registry/recrew-ship.j
 import { createReleaseShip, type ReleaseShip } from './core/registry/release-ship.js';
 import { createRenameShip, type RenameShip } from './core/registry/rename-ship.js';
 import { createRetireShip, type RetireShip } from './core/registry/retire-ship.js';
+import { createReport, type Report } from './core/registry/report.js';
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
@@ -72,6 +73,7 @@ export interface UseCases {
   getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
+  report: Report;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
@@ -143,6 +145,7 @@ export function createUseCases(options: {
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
+    report: createReport({ uow, clock, ids }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({

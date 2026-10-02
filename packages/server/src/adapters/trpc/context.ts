@@ -26,6 +26,7 @@ import type { RecrewShip } from '../../core/registry/recrew-ship.js';
 import type { ReleaseShip } from '../../core/registry/release-ship.js';
 import type { RenameShip } from '../../core/registry/rename-ship.js';
 import type { RetireShip } from '../../core/registry/retire-ship.js';
+import type { Report } from '../../core/registry/report.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
@@ -54,6 +55,7 @@ export interface UseCases {
   getShip: GetShip;
   claimShip: ClaimShip;
   whoami: Whoami;
+  report: Report;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;

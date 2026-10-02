@@ -160,6 +160,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_console_session_end_reason$/),
       expect.stringMatching(/^\d{14}_account_theme_session_device$/),
       expect.stringMatching(/^\d{14}_lease_last_seen$/),
+      expect.stringMatching(/^\d{14}_lease_report$/),
     ]);
   });
 });
@@ -299,6 +300,7 @@ describe('the fleet procedures at the API', () => {
       lastSeenAt: null,
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
+      report: null,
     });
   });
 
@@ -1433,7 +1435,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_lease_last_seen$/);
+    expect(migration).toMatch(/^\d{14}_lease_report$/);
   });
 });
 

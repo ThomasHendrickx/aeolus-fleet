@@ -1,6 +1,7 @@
 import {
   themeSchema,
   deliveryStateSchema,
+  reportStateSchema,
   eventTypeSchema,
   idSchema,
   locationKindSchema,
@@ -14,6 +15,7 @@ import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../..
 import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
+import type { ShipReport } from '../../core/registry/ship-report.js';
 import type { FleetEventNotice, SequencedEvent } from '../../core/shared/events.js';
 import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
@@ -81,6 +83,18 @@ export function toShipFromSql(row: unknown): Ship {
   return shipSqlRow.parse(row);
 }
 
+const shipReportSqlRow = z.object({
+  report_state: reportStateSchema.nullable(),
+  report_note: z.string().nullable(),
+  reported_at: z.date().nullable(),
+});
+
+/** A lease's report columns as raw SQL reads them; null until its crew reports. */
+export function toShipReport(row: unknown): ShipReport | null {
+  const { report_state, report_note, reported_at } = shipReportSqlRow.parse(row);
+  return report_state && reported_at ? { state: report_state, note: report_note, reportedAt: reported_at } : null;
+}
+
 const shipFactsSqlRow = z.object({
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),
@@ -115,6 +129,7 @@ export function toShipFacts(row: unknown): ShipFacts {
             startedAt: lease_started_at,
             // Its claim until its crew calls again.
             lastSeenAt: lease_last_seen_at ?? lease_started_at,
+            report: toShipReport(row),
           }
         : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },

@@ -4,6 +4,7 @@ import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { FleetListing, ShipFacts } from './ports.js';
+import type { ShipReport } from './ship-report.js';
 import { shipStatus } from './ship.js';
 
 /** A ship as the fleet snapshot shows it. */
@@ -28,6 +29,8 @@ export interface ListedShip {
   ping: PingStatus | null;
   /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes; argo has all. */
   scopes: readonly Scope[];
+  /** The crew's last report; null until it reports, and while no session crews the ship. */
+  report: ShipReport | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -54,5 +57,6 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing }: ShipFac
     lastSeenAt: openLease?.lastSeenAt ?? null,
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
+    report: openLease?.report ?? null,
   };
 }

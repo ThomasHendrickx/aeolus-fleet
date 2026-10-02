@@ -26,6 +26,7 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     ...overrides,
   };
 }

@@ -29,6 +29,7 @@ import type {
   ShipRepository,
 } from '../../src/core/registry/ports.js';
 import type { Ship } from '../../src/core/registry/ship.js';
+import type { ShipReport } from '../../src/core/registry/ship-report.js';
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
 import {
@@ -63,6 +64,8 @@ export interface InMemoryState {
   deliveries: Delivery[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
+  /** Each lease's crew report: the report columns, apart from the Lease. */
+  leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
@@ -138,6 +141,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveries: [],
     deliveryReads: [],
     leaseSeen: [],
+    leaseReports: [],
     events: [],
     notices: [],
   };
@@ -264,6 +268,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.leaseSeen.push({ fleetId, leaseId, at });
         } else if (seen.at < at) {
           seen.at = at;
+        }
+        return Promise.resolve();
+      },
+      findReportForUpdate: (fleetId, leaseId) => {
+        const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
+        const held = state.leaseReports.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        return Promise.resolve(isOpen ? { report: held ? { ...held.report } : null } : undefined);
+      },
+      saveReport: ({ fleetId, leaseId, report }) => {
+        const held = state.leaseReports.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        if (held) {
+          held.report = { ...report };
+        } else {
+          state.leaseReports.push({ fleetId, leaseId, report: { ...report } });
         }
         return Promise.resolve();
       },
@@ -641,6 +659,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             location: { ...lease.location },
             startedAt: lease.startedAt,
             lastSeenAt: state.leaseSeen.find((seen) => seen.leaseId === lease.id)?.at ?? lease.startedAt,
+            report: state.leaseReports.find((held) => held.leaseId === lease.id)?.report ?? null,
           }
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
@@ -908,6 +927,7 @@ const TABLES = [
   'deliveries',
   'deliveryReads',
   'leaseSeen',
+  'leaseReports',
   'events',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];

@@ -39,6 +39,7 @@ describe('shipDetailOutputSchema', () => {
     lastSeenAt: AT,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,

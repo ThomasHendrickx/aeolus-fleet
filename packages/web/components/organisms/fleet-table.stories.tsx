@@ -25,6 +25,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     ...changes,
   };
 }
@@ -38,6 +39,7 @@ const argo = ship('h1aa', {
   lastSeenAt: null,
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
+  report: null,
 });
 
 const FLEET: ListedShip[] = [
@@ -48,6 +50,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
   }),
   ship('h1ac', {
     name: 'builder-web',
@@ -56,6 +59,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     startingPrompt: {
       issuedAt: new Date(NOW.getTime() - 3 * HOUR_MS).toISOString(),
       isClaimed: false,
@@ -69,6 +73,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
   }),
   ship('h1af', {
     name: 'reviewer-01',
@@ -77,6 +82,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
   }),
   ship('h1ag', {
     name: 'triage-bot',
@@ -86,6 +92,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     startingPrompt: null,
   }),
   ship('h1ah', {
@@ -96,6 +103,7 @@ const FLEET: ListedShip[] = [
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     startingPrompt: null,
   }),
 ];
@@ -193,6 +201,30 @@ export const Pinged: Story = {
         name: 'old-bot',
         lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
         ping: { state: 'received', sentAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(), answeredAt: null },
+      }),
+    ],
+  },
+};
+
+/** Crewed ships whose crews reported: working on something, blocked, idle. */
+export const Reported: Story = {
+  args: {
+    ships: [
+      argo,
+      ship('h1bf', {
+        name: 'implementer-01',
+        lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
+        report: { state: 'working', note: 'on PR 89', reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
+      }),
+      ship('h1bg', {
+        name: 'tester-01',
+        lastSeenAt: new Date(NOW.getTime() - 60_000).toISOString(),
+        report: { state: 'blocked', note: 'waiting for implementer-01', reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString() },
+      }),
+      ship('h1bh', {
+        name: 'planner-01',
+        lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
+        report: { state: 'idle', note: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString() },
       }),
     ],
   },

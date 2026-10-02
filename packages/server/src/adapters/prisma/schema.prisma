@@ -89,6 +89,14 @@ model Ship {
 }
 
 /// Where the session crewing a ship runs. OTHER carries a description; the other kinds none.
+enum ReportState {
+  working
+  blocked
+  idle
+
+  @@map("report_state")
+}
+
 enum LocationKind {
   DEVICE
   CLOUD
@@ -113,6 +121,10 @@ model Lease {
   startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
   /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
   lastSeenAt      DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  /// The crew's last report: plain data, nothing acts on it. Null until it reports.
+  reportState         ReportState? @map("report_state")
+  reportNote          String?      @map("report_note")
+  reportedAt          DateTime?    @map("reported_at") @db.Timestamptz(3)
   endedAt             DateTime?    @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
