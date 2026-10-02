@@ -83,8 +83,8 @@ export const RETIRED_SHIP: ShipDetail = {
   retiredAt: '2026-09-28T14:40:00Z',
 };
 
-const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER } };
-const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER } };
+const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain' };
+const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain' };
 
 function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineEntry {
   return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };

@@ -38,7 +38,8 @@ export interface TimelineEntry {
   /** The ship that caused it; null for the system. */
   actor: HistoryParty | null;
   ship: HistoryParty | null;
-  message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient } | null;
+  /** The message it concerns, with its parties and its content type, by which a ping is told. */
+  message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string } | null;
   details: EventDetails;
 }
 

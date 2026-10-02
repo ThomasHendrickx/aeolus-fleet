@@ -29,8 +29,8 @@ function onScoutsPage(entry: TimelineEntry) {
   return { sentence: plainText(parts), tone, icon };
 }
 
-const fromPlanner = { id: newId('message'), sender: planner, recipient: { kind: 'ship' as const, ship: scout } };
-const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner } };
+const fromPlanner = { id: newId('message'), sender: planner, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'text/plain' };
+const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner }, contentType: 'text/plain' };
 
 describe('timelineSentence', () => {
   it('says the fleet was initialised', () => {

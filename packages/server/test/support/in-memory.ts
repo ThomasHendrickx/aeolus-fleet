@@ -743,6 +743,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             id: message.id,
             sender: partyOf(message.fleetId, message.senderShipId),
             recipient: recipientOf(message.fleetId, message.selector),
+            contentType: message.contentType,
           }
         : null,
       details: event.details,
