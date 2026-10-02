@@ -24,8 +24,21 @@ describe('shipHandleSchema', () => {
     expect(shipHandleSchema.parse(handle)).toBe(handle);
   });
 
+  it.each(['hemmafeaturea1b2c3:planner', 'squad:reviewer-2', 'a:b:c', ':'])(
+    'accepts %j: a colon is an ordinary character',
+    (handle) => {
+      expect(shipHandleSchema.parse(handle)).toBe(handle);
+    },
+  );
+
   it('accepts 48 characters', () => {
     expect(shipHandleSchema.safeParse('a'.repeat(48)).success).toBe(true);
+  });
+
+  it('says what a handle may hold', () => {
+    expect(shipHandleSchema.safeParse('Scout').error?.issues[0]?.message).toBe(
+      'Use 1 to 48 lowercase letters, digits, hyphens or colons',
+    );
   });
 
   it.each([
@@ -37,6 +50,7 @@ describe('shipHandleSchema', () => {
     ['an underscore', 'sea_scout'],
     ['a dot', 'sea.scout'],
     ['a letter outside a to z', 'zée'],
+    ['an uppercase letter beside a colon', 'Hemma:planner'],
   ])('rejects %s', (_label, handle) => {
     expect(shipHandleSchema.safeParse(handle).success).toBe(false);
   });
