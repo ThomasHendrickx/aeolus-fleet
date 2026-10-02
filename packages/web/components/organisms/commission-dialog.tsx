@@ -1,6 +1,6 @@
 'use client';
 
-import { SHIP_HANDLE_MAX_LENGTH, shipHandleSchema, type ListedShip } from '@aeolus-fleet/common';
+import { FLEET_SCOPES, SHIP_HANDLE_MAX_LENGTH, shipHandleSchema, type FleetScope, type ListedShip } from '@aeolus-fleet/common';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
@@ -20,6 +20,7 @@ import {
 import { dialogSurface } from '../atoms/dialog-surface';
 import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
+import { Switch } from '../atoms/switch';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from '../molecules/inline-error';
 
@@ -31,8 +32,14 @@ interface CommissionDialogProps {
   isPending: boolean;
   /** Why the last try failed; the dialog stays open with the input kept. */
   error?: string;
-  onSubmit: (ship: { name: string; type: string; note?: string }) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; fleetScopes?: FleetScope[] }) => void;
 }
+
+/** What each fleet scope lets a ship's session do, beside its name. */
+const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
+  'fleet:read': 'Read the fleet',
+  'fleet:manage': 'Manage the fleet',
+};
 
 /** The open dialog's fields: they start empty each time it opens. */
 function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
@@ -44,6 +51,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
   const [name, setName] = useState('');
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
+  const [fleetScopes, setFleetScopes] = useState<readonly FleetScope[]>([]);
   const check = checkShipName(name, { activeNames: activeShips.map((ship) => ship.name) });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
@@ -60,7 +68,12 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
       onSubmit={(event) => {
         event.preventDefault();
         if (canCommission) {
-          onSubmit({ name, type: trimmedType, ...(note.trim() === '' ? {} : { note }) });
+          onSubmit({
+            name,
+            type: trimmedType,
+            ...(note.trim() === '' ? {} : { note }),
+            ...(fleetScopes.length === 0 ? {} : { fleetScopes: [...fleetScopes] }),
+          });
         }
       }}
     >
@@ -143,6 +156,24 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
           }}
         />
       </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1.5 text-body font-medium text-foreground">Fleet access</legend>
+        {FLEET_SCOPES.map((scope) => (
+          <label key={scope} className="flex items-center justify-between gap-3 text-body text-foreground">
+            <span>
+              {FLEET_SCOPE_WORDS[scope]} <span className="font-mono text-id text-muted-foreground">{scope}</span>
+            </span>
+            <Switch
+              checked={fleetScopes.includes(scope)}
+              onCheckedChange={(isChecked) => {
+                setFleetScopes((held) => (isChecked ? [...held, scope] : held.filter((each) => each !== scope)));
+              }}
+              data-testid={`commission-${scope.replace(':', '-')}`}
+            />
+          </label>
+        ))}
+        <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; it cannot be changed later.</p>
+      </fieldset>
       {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
       <DialogFooter>
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
