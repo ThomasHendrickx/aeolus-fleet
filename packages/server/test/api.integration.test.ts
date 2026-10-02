@@ -1629,3 +1629,35 @@ describe('fleet.follow at the API', () => {
     });
   });
 });
+
+describe('console.session for another service', () => {
+  /** A call as a server makes it: the browser's cookie forwarded, no origin. */
+  function fromAnotherService(headers: Record<string, string>) {
+    return fetch(`${address}/trpc/console.session`, { headers });
+  }
+
+  it('answers the fleet and the expiry of a signed-in console session, from its forwarded cookie', async () => {
+    const cookie = sessionCookieOf(await signIn());
+
+    const response = await fromAnotherService({ cookie });
+
+    expect(response.status).toBe(200);
+    const { result } = z.object({ result: z.object({ data: z.object({ fleetId: z.string(), expiresAt: z.string() }) }) }).parse(await response.json());
+    expect(result.data.fleetId).toBe(fleetId);
+    expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(clock.now().getTime());
+  });
+
+  it('refuses without a cookie, with a crew token alone, and once the operator signed out', async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+    await client({ cookie, origin: CONSOLE }).console.signOut.mutate();
+
+    const statuses = await Promise.all([
+      fromAnotherService({}).then((response) => response.status),
+      fromAnotherService({ authorization: `Bearer ${await crewedShip()}` }).then((response) => response.status),
+      fromAnotherService({ cookie }).then((response) => response.status),
+    ]);
+
+    expect(statuses).toEqual([401, 401, 401]);
+  });
+});
