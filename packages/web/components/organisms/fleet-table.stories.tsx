@@ -165,3 +165,27 @@ export const LastSeen: Story = {
     ],
   },
 };
+
+/** Crewed ships after argo pinged them: one waiting for an answer, one answered with pong, one acknowledged without pong. */
+export const Pinged: Story = {
+  args: {
+    ships: [
+      argo,
+      ship('h1bc', {
+        name: 'reviewer-01',
+        lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
+        ping: { state: 'answered', sentAt: new Date(NOW.getTime() - 60_000).toISOString(), answeredAt: new Date(NOW.getTime() - 56_000).toISOString() },
+      }),
+      ship('h1bd', {
+        name: 'quiet-bot',
+        lastSeenAt: new Date(NOW.getTime() - 2 * HOUR_MS).toISOString(),
+        ping: { state: 'waiting', sentAt: new Date(NOW.getTime() - 3 * 60_000).toISOString(), answeredAt: null },
+      }),
+      ship('h1be', {
+        name: 'old-bot',
+        lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
+        ping: { state: 'received', sentAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(), answeredAt: null },
+      }),
+    ],
+  },
+};

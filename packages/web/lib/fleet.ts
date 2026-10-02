@@ -35,6 +35,13 @@ export function useGetStartingPrompt() {
   return useMutation(trpc.fleet.getStartingPrompt.mutationOptions({ onSuccess: refresh }));
 }
 
+/** Pings a crewed ship as argo. While a ping waits unanswered, the server answers with that one. */
+export function usePingShip() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.ping.mutationOptions({ onSuccess: refresh }));
+}
+
 /** Releases a crewed ship: the session crewing it loses it, and the ship awaits a new crew. */
 export function useReleaseShip() {
   const trpc = useTRPC();

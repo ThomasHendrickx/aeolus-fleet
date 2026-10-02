@@ -8,8 +8,9 @@ import { useTRPC } from './trpc';
 
 /**
  * The events that change what the fleet snapshot shows: a ship, its crew,
- * its secret or its starting prompt. Message events leave the snapshot as it
- * is, so they do not reload it.
+ * its secret, its starting prompt, or how its last ping stands. An ack can
+ * answer a ping and an undeliverable ping shows none, so those two reload it;
+ * other message events leave the snapshot as it is.
  */
 const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'FleetInitialised',
@@ -19,6 +20,8 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'CredentialRevoked',
   'StartingPromptIssued',
   'ShipRetired',
+  'DeliveryAcknowledged',
+  'DeliveryUndeliverable',
 ]);
 
 /**
