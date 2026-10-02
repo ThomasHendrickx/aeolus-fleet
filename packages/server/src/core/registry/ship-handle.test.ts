@@ -13,7 +13,7 @@ const notAHandle = [
 ];
 
 describe('a ship name', () => {
-  it.each(['scout', 'reviewer-2', '42', '-'])('takes %j: lowercase letters, digits and hyphens', (name) => {
+  it.each(['scout', 'reviewer-2', '42', '-', 'hemmafeaturea1b2c3:planner', ':'])('takes %j: lowercase letters, digits, hyphens and colons', (name) => {
     expect(shipName(name)).toEqual({ isOk: true, value: name });
   });
 
@@ -24,13 +24,13 @@ describe('a ship name', () => {
   it.each(notAHandle)('refuses %s', (_label, name) => {
     expect(shipName(name)).toEqual({
       isOk: false,
-      error: { kind: 'INVALID_SHIP_NAME', message: 'A ship name is 1 to 48 lowercase letters, digits or hyphens' },
+      error: { kind: 'INVALID_SHIP_NAME', message: 'A ship name is 1 to 48 lowercase letters, digits, hyphens or colons' },
     });
   });
 });
 
 describe('a ship type', () => {
-  it.each(['reviewer', 'code-reviewer', 'v2'])('takes %j, with the same rules as a name', (type) => {
+  it.each(['reviewer', 'code-reviewer', 'v2', 'squad:reviewer'])('takes %j, with the same rules as a name', (type) => {
     expect(shipType(type)).toEqual({ isOk: true, value: type });
   });
 
@@ -41,7 +41,7 @@ describe('a ship type', () => {
   it.each(notAHandle)('refuses %s', (_label, type) => {
     expect(shipType(type)).toEqual({
       isOk: false,
-      error: { kind: 'INVALID_SHIP_TYPE', message: 'A ship type is 1 to 48 lowercase letters, digits or hyphens' },
+      error: { kind: 'INVALID_SHIP_TYPE', message: 'A ship type is 1 to 48 lowercase letters, digits, hyphens or colons' },
     });
   });
 });

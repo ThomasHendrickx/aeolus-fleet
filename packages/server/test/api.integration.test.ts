@@ -1520,3 +1520,37 @@ describe('fleet.ping and ship.pong at the API', () => {
     });
   });
 });
+
+describe('ship names and types with a colon at the API', () => {
+  it('commission, send by name and by type over REST, and rename a ship whose name and type hold a colon', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ name: 'hemma-a1b2:planner', type: 'hemma:planner' });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } });
+    await asArgo.ship.send.mutate({
+      selector: { kind: 'ship', name: 'hemma-a1b2:planner' },
+      payload: 'By name',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+    });
+    await asArgo.ship.send.mutate({
+      selector: { kind: 'type', type: 'hemma:planner' },
+      payload: 'By type',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+    });
+
+    const received = await fetch(`${address}/api/v1/ship/receive`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` },
+      body: JSON.stringify({ max: 10 }),
+    });
+    await asArgo.fleet.rename.mutate({ shipId, name: 'hemma-a1b2:lookout' });
+
+    const { deliveries } = z
+      .object({ deliveries: z.array(z.object({ payload: z.string() })) })
+      .parse(await received.json());
+    expect(deliveries.map((delivery) => delivery.payload).sort()).toEqual(['By name', 'By type']);
+    const listed = await asArgo.fleet.list.query();
+    expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ name: 'hemma-a1b2:lookout', type: 'hemma:planner' });
+  });
+});
