@@ -444,6 +444,16 @@ describe('a send refused', () => {
     await expectRefused(aReview({ contentType: 'json' }), { kind: 'INVALID_CONTENT_TYPE' });
   });
 
+  it.each(['application/vnd.aeolus.ping', 'Application/Vnd.Aeolus.Ping; charset=utf-8'])(
+    'refuses the reserved ping content type %j: only the ping call sends a ping',
+    async (contentType) => {
+      await expectRefused(aReview({ contentType }), {
+        kind: 'RESERVED_CONTENT_TYPE',
+        message: 'application/vnd.aeolus.ping is reserved for pings: ping a ship from the console',
+      });
+    },
+  );
+
   it.each([
     { label: 'an empty idempotency key', idempotencyKey: '' },
     { label: 'an idempotency key over 256 characters', idempotencyKey: 'k'.repeat(257) },
