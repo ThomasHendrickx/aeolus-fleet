@@ -44,6 +44,10 @@ export const PingReceived: Story = {
 export const WithFleetScopes: Story = {
   args: { ship: { ...CREWED_SHIP, scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] } },
 };
+/** A crew that reported it is blocked, with a note. */
+export const Reported: Story = {
+  args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', reportedAt: minutesAgo(3) } } },
+};
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP } };
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };
