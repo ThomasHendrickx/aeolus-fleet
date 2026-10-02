@@ -30,6 +30,7 @@ function onScoutsPage(entry: TimelineEntry) {
 }
 
 const fromPlanner = { id: newId('message'), sender: planner, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'text/plain' };
+const pingFromArgo = { id: newId('message'), sender: argo, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'application/vnd.aeolus.ping' };
 const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner }, contentType: 'text/plain' };
 
 describe('timelineSentence', () => {
@@ -153,6 +154,50 @@ describe('timelineSentence', () => {
       tone: 'ok',
       icon: 'acknowledged',
     });
+  });
+
+  it('says argo pinged the ship, on its page', () => {
+    expect(onScoutsPage(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }))).toEqual({
+      sentence: 'Pinged by argo',
+      tone: 'ended',
+      icon: 'received',
+    });
+  });
+
+  it("says argo pinged the ship, on argo's page", () => {
+    const { parts } = timelineSentence(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }), argo.id);
+
+    expect(plainText(parts)).toBe('Pinged scout');
+  });
+
+  it('says the ship took the ping', () => {
+    expect(onScoutsPage(anEntry('DeliveryClaimed', { actor: scout, message: pingFromArgo })).sentence).toBe(
+      'Took a ping from argo',
+    );
+  });
+
+  it('says the ship answered the ping with pong', () => {
+    expect(
+      onScoutsPage(anEntry('DeliveryAcknowledged', { actor: scout, message: pingFromArgo, details: { answer: 'pong' } })),
+    ).toEqual({ sentence: 'Answered a ping from argo with pong', tone: 'ok', icon: 'acknowledged' });
+  });
+
+  it("says on argo's page that the ship answered its ping with pong", () => {
+    const entry = anEntry('DeliveryAcknowledged', { actor: scout, message: pingFromArgo, details: { answer: 'pong' } });
+
+    expect(plainText(timelineSentence(entry, argo.id).parts)).toBe('scout answered a ping from argo with pong');
+  });
+
+  it('says the ship acknowledged a ping without pong', () => {
+    expect(onScoutsPage(anEntry('DeliveryAcknowledged', { actor: scout, message: pingFromArgo })).sentence).toBe(
+      'Acknowledged a ping from argo',
+    );
+  });
+
+  it('says a ping went back to pending', () => {
+    expect(onScoutsPage(anEntry('DeliveryReturned', { message: pingFromArgo })).sentence).toBe(
+      'A ping from argo went back to pending',
+    );
   });
 
   it('says a message went back to pending', () => {

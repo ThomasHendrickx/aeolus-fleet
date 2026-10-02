@@ -1,4 +1,4 @@
-import type { Party, TimelineEntry } from '@aeolus-fleet/common';
+import { isPingContentType, type Party, type TimelineEntry } from '@aeolus-fleet/common';
 
 import { locationKindWord } from './location';
 import { capitalised, counted, ship, text, type SentencePart } from './sentence';
@@ -78,14 +78,23 @@ function returnedDeliveries(entry: TimelineEntry): SentencePart[] {
     : [];
 }
 
-/** "a message from planner", or "a message" when the event names none. */
+/** Whether the event concerns a ping: a message with the reserved ping content type. */
+function isPing(entry: TimelineEntry): boolean {
+  return entry.message !== null && isPingContentType(entry.message.contentType);
+}
+
+/** "a message from planner", "a ping from argo", or "a message" when the event names none. */
 function aMessageFrom(entry: TimelineEntry): SentencePart[] {
-  return entry.message ? [text('a message from '), ship(entry.message.sender)] : [text('a message')];
+  if (!entry.message) {
+    return [text('a message')];
+  }
+  return [text(isPing(entry) ? 'a ping from ' : 'a message from '), ship(entry.message.sender)];
 }
 
 /** "A message from planner": the same, starting a sentence. */
 function aMessageFromStarting(entry: TimelineEntry): SentencePart[] {
-  return entry.message ? [text('A message from '), ship(entry.message.sender)] : [text('A message')];
+  const [first, ...rest] = aMessageFrom(entry);
+  return first?.kind === 'text' ? [text(capitalised(first.text)), ...rest] : aMessageFrom(entry);
 }
 
 /**
@@ -104,6 +113,9 @@ function messageAccepted(entry: TimelineEntry, shipId: string): SentencePart[] {
   const sent = entry.message;
   if (!sent) {
     return [text('A message was sent')];
+  }
+  if (isPing(entry) && sent.recipient.kind === 'ship') {
+    return sent.sender.id === shipId ? [text('Pinged '), ship(sent.recipient.ship)] : [text('Pinged by '), ship(sent.sender)];
   }
   if (sent.sender.id === shipId) {
     return sent.recipient.kind === 'ship'
@@ -149,7 +161,14 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
     case 'DeliveryClaimed':
       return { parts: deliveryAct(entry, { shipId, verb: 'took' }), tone: 'active', icon: 'received' };
     case 'DeliveryAcknowledged':
-      return { parts: deliveryAct(entry, { shipId, verb: 'acknowledged' }), tone: 'ok', icon: 'acknowledged' };
+      return {
+        parts:
+          stringDetail(entry, 'answer') === 'pong'
+            ? [...deliveryAct(entry, { shipId, verb: 'answered' }), text(' with pong')]
+            : deliveryAct(entry, { shipId, verb: 'acknowledged' }),
+        tone: 'ok',
+        icon: 'acknowledged',
+      };
     case 'DeliveryReturned':
       return {
         parts: [...aMessageFromStarting(entry), text(' went back to pending')],

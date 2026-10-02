@@ -90,6 +90,20 @@ function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineE
   return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };
 }
 
+const pingFromArgo = {
+  id: messageId('0003'),
+  sender: ARGO,
+  recipient: { kind: 'ship' as const, ship: REVIEWER },
+  contentType: 'application/vnd.aeolus.ping',
+};
+
+/** A ping argo sent reviewer-01, which its session took and answered with pong, newest first. */
+export const PING_TIMELINE: TimelineEntry[] = [
+  event(12, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: { answer: 'pong' } }),
+  event(11, { type: 'DeliveryClaimed', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: {} }),
+  event(10, { type: 'MessageAccepted', occurredAt: minutesAgo(3), actor: ARGO, ship: REVIEWER, message: pingFromArgo, details: {} }),
+];
+
 /** reviewer-01's timeline, newest first. */
 export const TIMELINE: TimelineEntry[] = [
   event(9, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(4), actor: REVIEWER, ship: REVIEWER, message: fromPlanner, details: {} }),
