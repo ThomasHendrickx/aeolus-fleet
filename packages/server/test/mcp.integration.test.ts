@@ -255,6 +255,17 @@ describe('the ship tools at /mcp', () => {
     );
   });
 
+  it('report: a crew says it is blocked, shown with its ship', async () => {
+    const skiff = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, skiff);
+
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'blocked', note: 'waiting for review' } });
+
+    const listed = await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).listFleet(argo);
+    expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
+  });
+
   it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {
     const scout = await commissioned();
     const lookout = await commissioned();

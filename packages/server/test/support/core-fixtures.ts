@@ -37,6 +37,7 @@ import { createRecrewShip } from '../../src/core/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/core/registry/release-ship.js';
 import { createRenameShip } from '../../src/core/registry/rename-ship.js';
 import { createRetireShip } from '../../src/core/registry/retire-ship.js';
+import { createReport } from '../../src/core/registry/report.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import type { Caller, Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
@@ -113,6 +114,7 @@ export function registryUseCases(core: InMemoryCore) {
     listFleet: createListFleet({ listing: core.listing }),
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
+    report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed }),
     // Nothing wakes a follow here: it ends at its wait.
     followFleet: createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) } }),

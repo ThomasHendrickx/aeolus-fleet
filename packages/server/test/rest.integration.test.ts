@@ -130,6 +130,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/receive',
       '/ship/ack',
       '/ship/pong',
+      '/ship/report',
       '/ship/inbox',
       '/ship/deregister',
       '/fleet/list',
@@ -225,6 +226,16 @@ describe('the ship calls at /api/v1', () => {
     await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
       state: 'acknowledged',
     });
+  });
+
+  it('report: a crew says it is working and on what, shown with its ship', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+
+    await ok(request('report', { crewToken, body: { state: 'working', note: 'on PR 89' } }), z.strictObject({}));
+
+    const listed = await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).listFleet(argo);
+    expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'working', note: 'on PR 89' });
   });
 
   it('refuse a second register of a ship a session crews with 409, its code and its message', async () => {
