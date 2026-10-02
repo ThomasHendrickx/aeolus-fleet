@@ -15,14 +15,23 @@ describe('liveStateOf', () => {
 });
 
 describe('isShipChange', () => {
-  it.each(['ShipCommissioned', 'ShipClaimed', 'LeaseRevoked', 'CredentialRevoked', 'StartingPromptIssued', 'ShipRetired'] as const)(
+  it.each([
+    'ShipCommissioned',
+    'ShipClaimed',
+    'LeaseRevoked',
+    'CredentialRevoked',
+    'StartingPromptIssued',
+    'ShipRetired',
+    'DeliveryAcknowledged',
+    'DeliveryUndeliverable',
+  ] as const)(
     'reloads the snapshot for %s',
     (type) => {
       expect(isShipChange(type)).toBe(true);
     },
   );
 
-  it.each(['MessageAccepted', 'DeliveryClaimed', 'DeliveryAcknowledged', 'DeliveryReturned'] as const)(
+  it.each(['MessageAccepted', 'DeliveryClaimed', 'DeliveryReturned'] as const)(
     'leaves the snapshot alone for %s',
     (type) => {
       expect(isShipChange(type)).toBe(false);

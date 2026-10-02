@@ -328,6 +328,7 @@ describe('getting one ship on Postgres', () => {
         startingPrompt: { issuedAt: commissionedAt, isClaimed: true },
         location: { kind: 'SERVER', description: null },
         lastSeenAt: crewedAt,
+        ping: null,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -365,6 +366,7 @@ describe('listing the fleet on Postgres', () => {
         startingPrompt: null,
         location: { kind: 'OTHER', description: 'Unknown device' },
         lastSeenAt: signedInAt,
+        ping: null,
       },
       {
         id: shipId,
@@ -375,6 +377,7 @@ describe('listing the fleet on Postgres', () => {
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
         lastSeenAt: null,
+        ping: null,
       },
     ]);
   });

@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewShip,
+  deliveryIdOf,
   identityUseCases,
   initialiseFleet,
+  messagingUseCases,
   OPERATOR,
   operatorCaller,
   registryUseCases,
@@ -77,6 +79,7 @@ describe('listing the fleet', () => {
         startingPrompt: null,
         location: null,
         lastSeenAt: null,
+        ping: null,
       },
       {
         id: scoutId,
@@ -87,6 +90,7 @@ describe('listing the fleet', () => {
         startingPrompt: { issuedAt: commissionedAt, isClaimed: false },
         location: null,
         lastSeenAt: null,
+        ping: null,
       },
     ]);
   });
@@ -157,5 +161,85 @@ describe('listing the fleet', () => {
 
     expect(listed).not.toContain(scoutSecret);
     expect(listed).not.toContain(core.hasher.hash(scoutSecret));
+  });
+});
+
+describe("a ship's last ping", () => {
+  async function crewedScout() {
+    const { crewToken } = unwrap(
+      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }),
+    );
+    return unwrap(await identityUseCases(core).authenticate.byCrewToken(crewToken));
+  }
+
+  it('is null before argo ever pinged the ship', async () => {
+    await crewedScout();
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: null });
+  });
+
+  it('waits for an answer, from when it was sent, while pending', async () => {
+    await crewedScout();
+    const sentAt = core.clock.now();
+    unwrap(await messagingUseCases(core).pingShip(argo, { shipId: scoutId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting', sentAt, answeredAt: null } });
+  });
+
+  it('still waits once the session received it, until it answers', async () => {
+    const scoutCrew = await crewedScout();
+    unwrap(await messagingUseCases(core).pingShip(argo, { shipId: scoutId }));
+    unwrap(await messagingUseCases(core).receiveDeliveries(scoutCrew, {}));
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting' } });
+  });
+
+  it('is answered, with the moment of the pong', async () => {
+    const scoutCrew = await crewedScout();
+    const messaging = messagingUseCases(core);
+    const sentAt = core.clock.now();
+    const { messageId } = unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+    unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
+    core.clock.advance(4_000);
+    unwrap(await messaging.answerPing(scoutCrew, { deliveryId: deliveryIdOf(core, messageId) }));
+
+    await expect(listedScout()).resolves.toMatchObject({
+      ping: { state: 'answered', sentAt, answeredAt: core.clock.now() },
+    });
+  });
+
+  it('is received, not answered with pong, after a plain ack', async () => {
+    const scoutCrew = await crewedScout();
+    const messaging = messagingUseCases(core);
+    const { messageId } = unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+    unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
+    unwrap(await messaging.acknowledgeDelivery(scoutCrew, { deliveryId: deliveryIdOf(core, messageId) }));
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'received', answeredAt: null } });
+  });
+
+  it('is the newest ping: a new one waits again after an answered one', async () => {
+    const scoutCrew = await crewedScout();
+    const messaging = messagingUseCases(core);
+    const { messageId } = unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+    unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
+    unwrap(await messaging.answerPing(scoutCrew, { deliveryId: deliveryIdOf(core, messageId) }));
+    core.clock.advance(60_000);
+    const sentAt = core.clock.now();
+
+    unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting', sentAt } });
+  });
+
+  it('is null when the last ping went to the operator as undeliverable', async () => {
+    const scoutCrew = await crewedScout();
+    const messaging = messagingUseCases(core);
+    unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+    for (let claim = 1; claim <= 5; claim += 1) {
+      unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
+    }
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: null });
   });
 });

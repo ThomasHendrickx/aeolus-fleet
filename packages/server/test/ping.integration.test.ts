@@ -144,3 +144,35 @@ describe('a pong on Postgres', () => {
     await expect(lastSeen()).resolves.toEqual(seenBefore);
   });
 });
+
+describe("a ship's last ping in the listing on Postgres", () => {
+  async function listedScout() {
+    return (await core.useCases.listFleet(argo)).find((ship) => ship.id === scout.shipId);
+  }
+
+  it('waits while the ping is open, then is answered at the moment of the pong', async () => {
+    const sentAt = core.clock.now();
+    const { messageId } = unwrap(await core.useCases.pingShip(argo, { shipId: scout.shipId }));
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting', sentAt, answeredAt: null } });
+    unwrap(await core.useCases.receiveDeliveries(scout, {}));
+    core.clock.advance(4_000);
+
+    unwrap(await core.useCases.answerPing(scout, { deliveryId: await deliveryOf(messageId) }));
+
+    await expect(listedScout()).resolves.toMatchObject({
+      ping: { state: 'answered', sentAt, answeredAt: core.clock.now() },
+    });
+  });
+
+  it('is received, not answered with pong, after a plain ack, and shows on the ship too', async () => {
+    const { messageId } = unwrap(await core.useCases.pingShip(argo, { shipId: scout.shipId }));
+    unwrap(await core.useCases.receiveDeliveries(scout, {}));
+
+    unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(messageId) }));
+
+    await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
+      isOk: true,
+      value: { ping: { state: 'received', answeredAt: null } },
+    });
+  });
+});

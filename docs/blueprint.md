@@ -224,6 +224,13 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. The operator resends it or dismisses it. Either way the delivery becomes dismissed and stays in the timelines.
 3. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 
+### Ping a ship
+
+1. The operator presses Ping on a crewed ship, in its fleet row or on its page. Disabled while the ship awaits crew; never offered for a retired ship or `argo`.
+2. The fleet sends the ship a ping (`MessageAccepted`), unless one already waits unanswered: then Ping shows that one and sends nothing. The ship shows "Pinged 3 min ago, no answer yet".
+3. The session receives the ping and answers with `pong`: the delivery is acknowledged (`DeliveryAcknowledged`, with `answer: pong`) and the lease marked seen. The ship shows "Answered ping in 4 s". A plain `ack` shows "Received, not answered with pong".
+4. The timeline shows the ping and its answer. No timeout and no automatic action: a ping that is never answered waits, and goes undeliverable like any delivery (decision 0016). In Needs attention an undeliverable ping offers only Dismiss: a resend would stack a second ping, so a fresh one goes through Ping.
+
 ### Rename a ship
 
 1. The operator chooses Rename on any ship but `argo` or a retired one, crewed or not, and types the new name, checked as at commissioning while typing.

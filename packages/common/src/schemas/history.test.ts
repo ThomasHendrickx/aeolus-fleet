@@ -37,6 +37,7 @@ describe('shipDetailOutputSchema', () => {
     startingPrompt: { issuedAt: AT, isClaimed: true },
     location: { kind: 'SERVER', description: null },
     lastSeenAt: AT,
+    ping: null,
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,
@@ -66,7 +67,7 @@ describe('shipTimelineOutputSchema', () => {
     occurredAt: AT,
     actor: scout,
     ship: planner,
-    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner } },
+    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain' },
     details: { selector: 'ship', recipientType: null },
   };
 
@@ -79,6 +80,18 @@ describe('shipTimelineOutputSchema', () => {
     const toType = { ...sent, ship: null, message: { ...sent.message, recipient: { kind: 'type', type: 'reviewer' } } };
 
     expect(shipTimelineOutputSchema.parse([system, toType])).toEqual([system, toType]);
+  });
+
+  it('accepts the content type of the message, a ping told by it', () => {
+    const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping' } };
+
+    expect(shipTimelineOutputSchema.parse([ping])).toEqual([ping]);
+  });
+
+  it('rejects a message without its content type', () => {
+    const message = { id: sent.message.id, sender: sent.message.sender, recipient: sent.message.recipient };
+
+    expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
   });
 
   it.each([

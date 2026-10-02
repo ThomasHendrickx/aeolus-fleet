@@ -37,6 +37,7 @@ export const CREWED_SHIP: ShipDetail = {
   startingPrompt: { issuedAt: minutesAgo(15), isClaimed: true },
   location: { kind: 'SERVER', description: 'hetzner-1' },
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
+  ping: null,
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,
@@ -53,6 +54,7 @@ export const AWAITING_SHIP: ShipDetail = {
   startingPrompt: null,
   location: null,
   lastSeenAt: null,
+  ping: null,
   crewedSince: null,
 };
 
@@ -65,6 +67,7 @@ export const ARGO_SHIP: ShipDetail = {
   startingPrompt: null,
   location: { kind: 'OTHER', description: 'web console' },
   lastSeenAt: null,
+  ping: null,
   commissionedAt: '2026-09-18T08:00:00Z',
   crewedSince: minutesAgo(390),
 };
@@ -74,17 +77,32 @@ export const RETIRED_SHIP: ShipDetail = {
   status: 'retired',
   location: null,
   lastSeenAt: null,
+  ping: null,
   crewedSince: null,
   startingPrompt: null,
   retiredAt: '2026-09-28T14:40:00Z',
 };
 
-const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER } };
-const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER } };
+const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain' };
+const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain' };
 
 function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineEntry {
   return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };
 }
+
+const pingFromArgo = {
+  id: messageId('0003'),
+  sender: ARGO,
+  recipient: { kind: 'ship' as const, ship: REVIEWER },
+  contentType: 'application/vnd.aeolus.ping',
+};
+
+/** A ping argo sent reviewer-01, which its session took and answered with pong, newest first. */
+export const PING_TIMELINE: TimelineEntry[] = [
+  event(12, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: { answer: 'pong' } }),
+  event(11, { type: 'DeliveryClaimed', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: {} }),
+  event(10, { type: 'MessageAccepted', occurredAt: minutesAgo(3), actor: ARGO, ship: REVIEWER, message: pingFromArgo, details: {} }),
+];
 
 /** reviewer-01's timeline, newest first. */
 export const TIMELINE: TimelineEntry[] = [

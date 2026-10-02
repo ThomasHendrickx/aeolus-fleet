@@ -24,6 +24,7 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
     startingPrompt: null,
     location: { kind: 'DEVICE', description: null },
     lastSeenAt: null,
+    ping: null,
     ...overrides,
   };
 }

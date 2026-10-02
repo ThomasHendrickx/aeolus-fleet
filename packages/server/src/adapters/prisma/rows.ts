@@ -88,12 +88,24 @@ const shipFactsSqlRow = z.object({
   lease_last_seen_at: z.date().nullable(),
   secret_issued_at: z.date().nullable(),
   secret_claimed_at: z.date().nullable(),
+  ping_sent_at: z.date().nullable(),
+  ping_delivery_state: deliveryStateSchema.nullable(),
+  ping_answered_at: z.date().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
 export function toShipFacts(row: unknown): ShipFacts {
-  const { lease_location, lease_location_description, lease_started_at, lease_last_seen_at, secret_issued_at, secret_claimed_at } =
-    shipFactsSqlRow.parse(row);
+  const {
+    lease_location,
+    lease_location_description,
+    lease_started_at,
+    lease_last_seen_at,
+    secret_issued_at,
+    secret_claimed_at,
+    ping_sent_at,
+    ping_delivery_state,
+    ping_answered_at,
+  } = shipFactsSqlRow.parse(row);
   return {
     ship: toShipFromSql(row),
     openLease:
@@ -106,6 +118,10 @@ export function toShipFacts(row: unknown): ShipFacts {
           }
         : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
+    lastPing:
+      ping_sent_at && ping_delivery_state
+        ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }
+        : null,
   };
 }
 

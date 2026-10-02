@@ -48,6 +48,7 @@ describe("reading a ship's timeline", () => {
         id: messageId,
         sender: { id: scene.scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: scene.planner.shipId, name: 'planner' } },
+        contentType: 'text/plain',
       },
     });
   });

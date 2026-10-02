@@ -2,6 +2,7 @@ import type { ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
+import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import { shipStatus } from './ship.js';
 
@@ -23,6 +24,8 @@ export interface ListedShip {
   location: Location | null;
   /** The last call of the session crewing it; null while no session crews it. Observation only. */
   lastSeenAt: Date | null;
+  /** The ship's last ping and how it stands; null before any ping. Observation only. */
+  ping: PingStatus | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -37,7 +40,7 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */
-export function listedShipOf({ ship, openLease, validSecret }: ShipFacts): ListedShip {
+export function listedShipOf({ ship, openLease, validSecret, lastPing }: ShipFacts): ListedShip {
   return {
     id: ship.id,
     name: ship.name,
@@ -47,5 +50,6 @@ export function listedShipOf({ ship, openLease, validSecret }: ShipFacts): Liste
     startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
     location: openLease?.location ?? null,
     lastSeenAt: openLease?.lastSeenAt ?? null,
+    ping: pingStatusOf(lastPing),
   };
 }

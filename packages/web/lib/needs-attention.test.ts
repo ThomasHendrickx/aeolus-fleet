@@ -1,7 +1,7 @@
 import { createIdGenerator, type UndeliverableDelivery } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast } from './needs-attention';
+import { canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast } from './needs-attention';
 
 const newId = createIdGenerator();
 const builder = { id: newId('ship'), name: 'builder-core' };
@@ -60,5 +60,17 @@ describe('deliveryWithId', () => {
     expect(deliveryWithId([delivery], delivery.deliveryId)).toBe(delivery);
     expect(deliveryWithId([delivery], newId('delivery'))).toBeUndefined();
     expect(deliveryWithId(undefined, delivery.deliveryId)).toBeUndefined();
+  });
+});
+
+describe('canResend', () => {
+  it('offers Resend for an undeliverable message', () => {
+    expect(canResend(anUndeliverable({ kind: 'ship', ship: tester }))).toBe(true);
+  });
+
+  it('offers no Resend for an undeliverable ping: only Dismiss', () => {
+    const ping = anUndeliverable({ kind: 'ship', ship: tester });
+
+    expect(canResend({ ...ping, message: { ...ping.message, contentType: 'application/vnd.aeolus.ping' } })).toBe(false);
   });
 });

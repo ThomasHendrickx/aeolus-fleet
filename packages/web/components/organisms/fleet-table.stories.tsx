@@ -23,6 +23,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     },
     location: { kind: 'DEVICE', description: null },
     lastSeenAt: null,
+    ping: null,
     ...changes,
   };
 }
@@ -34,6 +35,7 @@ const argo = ship('h1aa', {
   startingPrompt: null,
   location: { kind: 'OTHER', description: 'web console' },
   lastSeenAt: null,
+  ping: null,
 });
 
 const FLEET: ListedShip[] = [
@@ -42,12 +44,14 @@ const FLEET: ListedShip[] = [
     name: 'builder-core',
     location: { kind: 'CLOUD', description: null },
     lastSeenAt: null,
+    ping: null,
   }),
   ship('h1ac', {
     name: 'builder-web',
     status: 'awaitingCrew',
     location: null,
     lastSeenAt: null,
+    ping: null,
     startingPrompt: {
       issuedAt: new Date(NOW.getTime() - 3 * HOUR_MS).toISOString(),
       isClaimed: false,
@@ -59,12 +63,14 @@ const FLEET: ListedShip[] = [
     type: 'release',
     location: { kind: 'SERVER', description: null },
     lastSeenAt: null,
+    ping: null,
   }),
   ship('h1af', {
     name: 'reviewer-01',
     type: 'reviewer',
     location: { kind: 'OTHER', description: 'CI runner' },
     lastSeenAt: null,
+    ping: null,
   }),
   ship('h1ag', {
     name: 'triage-bot',
@@ -72,6 +78,7 @@ const FLEET: ListedShip[] = [
     status: 'awaitingCrew',
     location: null,
     lastSeenAt: null,
+    ping: null,
     startingPrompt: null,
   }),
   ship('h1ah', {
@@ -80,6 +87,7 @@ const FLEET: ListedShip[] = [
     status: 'retired',
     location: null,
     lastSeenAt: null,
+    ping: null,
     startingPrompt: null,
   }),
 ];
@@ -154,6 +162,30 @@ export const LastSeen: Story = {
       argo,
       ship('h1ba', { name: 'reviewer-01', type: 'reviewer', lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString() }),
       ship('h1bb', { name: 'quiet-bot', type: 'triage', lastSeenAt: new Date(NOW.getTime() - 2 * HOUR_MS).toISOString() }),
+    ],
+  },
+};
+
+/** Crewed ships after argo pinged them: one waiting for an answer, one answered with pong, one acknowledged without pong. */
+export const Pinged: Story = {
+  args: {
+    ships: [
+      argo,
+      ship('h1bc', {
+        name: 'reviewer-01',
+        lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
+        ping: { state: 'answered', sentAt: new Date(NOW.getTime() - 60_000).toISOString(), answeredAt: new Date(NOW.getTime() - 56_000).toISOString() },
+      }),
+      ship('h1bd', {
+        name: 'quiet-bot',
+        lastSeenAt: new Date(NOW.getTime() - 2 * HOUR_MS).toISOString(),
+        ping: { state: 'waiting', sentAt: new Date(NOW.getTime() - 3 * 60_000).toISOString(), answeredAt: null },
+      }),
+      ship('h1be', {
+        name: 'old-bot',
+        lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
+        ping: { state: 'received', sentAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(), answeredAt: null },
+      }),
     ],
   },
 };

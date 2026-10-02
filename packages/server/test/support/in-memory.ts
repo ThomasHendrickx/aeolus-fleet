@@ -612,6 +612,25 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const lastPingOf = (held: Ship): ShipFacts['lastPing'] => {
+    const pings = state.messages.filter(
+      (message) =>
+        message.fleetId === held.fleetId &&
+        message.contentType === PING_CONTENT_TYPE &&
+        message.selector.kind === 'ship' &&
+        message.selector.shipId === held.id,
+    );
+    const newest = pings.at(-1);
+    const delivery = newest && state.deliveries.find((stored) => stored.messageId === newest.id);
+    if (!newest || !delivery) {
+      return null;
+    }
+    const pong = state.events.find(
+      (event) => event.type === 'DeliveryAcknowledged' && event.deliveryId === delivery.id && event.details.answer === 'pong',
+    );
+    return { sentAt: newest.createdAt, deliveryState: delivery.state, answeredWithPongAt: pong?.occurredAt ?? null };
+  };
+
   const factsOf = (held: Ship): ShipFacts => {
     const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
@@ -625,6 +644,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           }
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
+      lastPing: lastPingOf(held),
     };
   };
   const listing: FleetListing = {
@@ -723,6 +743,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             id: message.id,
             sender: partyOf(message.fleetId, message.senderShipId),
             recipient: recipientOf(message.fleetId, message.selector),
+            contentType: message.contentType,
           }
         : null,
       details: event.details,

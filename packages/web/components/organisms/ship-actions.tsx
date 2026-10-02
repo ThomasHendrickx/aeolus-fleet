@@ -3,10 +3,20 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
-import { useFleetSnapshot, useGetStartingPrompt, useRecrewShip, useReleaseShip, useRenameShip, useRetireShip } from '../../lib/fleet';
+import {
+  useFleetSnapshot,
+  useGetStartingPrompt,
+  usePingShip,
+  useRecrewShip,
+  useReleaseShip,
+  useRenameShip,
+  useRetireShip,
+} from '../../lib/fleet';
+import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { Button } from '../atoms/button';
+import { showToast } from '../atoms/toast';
 import { ReleaseDialog } from './release-dialog';
 import { RenameDialog } from './rename-dialog';
 import { RetireDialog } from './retire-dialog';
@@ -25,8 +35,10 @@ function sessionLocationOf(ship: ListedShip): string | null {
 /**
  * A ship's actions, in a fleet row or on its page, each behind its designed
  * dialog (docs/design/conventions.md, "Confirm"). A ship awaiting crew offers
- * Get starting prompt, Rename and Retire; a crewed ship Re-crew, Release,
- * Rename and Retire; argo and retired ships none. A dialog reads the ship's counts first and
+ * Get starting prompt, Rename and Retire, with Ping disabled; a crewed ship
+ * Ping, Re-crew, Release, Rename and Retire; argo and retired ships none.
+ * Ping needs no confirm: it only asks the session to answer with pong, and
+ * while a ping waits it shows that one instead of sending another. A dialog reads the ship's counts first and
  * opens once it has them, so its numbers are exact and a retire never skips
  * the typed confirm because the open deliveries were not known yet. A new or re-crewed prompt shows once, in the
  * StartingPromptDialog.
@@ -38,6 +50,7 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const retireShip = useRetireShip();
   const recrewShip = useRecrewShip();
   const renameShip = useRenameShip();
+  const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' ? ship.id : undefined);
 
@@ -77,8 +90,29 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
     setDialog(next);
   };
 
+  const ping = () => {
+    pingShip.mutate(
+      { shipId: ship.id },
+      {
+        onSuccess: ({ isNew }) => {
+          showToast(
+            isNew
+              ? { title: `Pinged ${ship.name}`, description: 'Its session answers with pong on its next turn.', tone: 'success' }
+              : { title: `A ping already waits for ${ship.name}`, description: 'Pings never stack: this is the one shown.', tone: 'info' },
+          );
+        },
+        onError: (error) => {
+          showToast({ title: `Couldn't ping ${ship.name}`, description: error.message, tone: 'error' });
+        },
+      },
+    );
+  };
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
+      <Button size="xs" data-testid="fleet-ship-ping" disabled={!canPing(ship)} isLoading={pingShip.isPending} onClick={ping}>
+        Ping
+      </Button>
       {ship.status === 'awaitingCrew' ? (
         <Button size="xs" data-testid="fleet-ship-prompt" onClick={requestPrompt}>
           Get starting prompt

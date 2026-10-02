@@ -1,3 +1,5 @@
+import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
+
 import type {
   FleetListing,
   FleetRepository,
@@ -6,6 +8,7 @@ import type {
   ShipRepository,
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
 import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
@@ -185,6 +188,22 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
   };
 }
 
+/**
+ * The newest ping to the ship `s` of the outer query: when it was sent, its
+ * delivery's state, and when a pong acknowledged it, if one did.
+ */
+const lastPingOfShip = Prisma.sql`
+  SELECT m.created_at AS sent_at, d.state::text AS delivery_state,
+         (SELECT e.occurred_at FROM events e
+          WHERE e.fleet_id = d.fleet_id AND e.delivery_id = d.id
+            AND e.type = 'DeliveryAcknowledged' AND e.details->>'answer' = 'pong'
+          ORDER BY e.seq LIMIT 1) AS answered_at
+  FROM deliveries d
+  JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
+  WHERE d.fleet_id = s.fleet_id AND d.recipient_ship_id = s.id AND m.content_type = ${PING_CONTENT_TYPE}
+  ORDER BY m.created_at DESC, m.id DESC
+  LIMIT 1`;
+
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
     ships: async (fleetId) => {
@@ -194,10 +213,12 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
+               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
+               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+        LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         WHERE s.fleet_id = ${fleetId}
         ORDER BY s.id`;
       return rows.map(toShipFacts);
@@ -214,10 +235,12 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at
+               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
+               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+        LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         WHERE s.fleet_id = ${fleetId} AND s.id = ${shipId}`;
       return row === undefined ? undefined : toShipFacts(row);
     },

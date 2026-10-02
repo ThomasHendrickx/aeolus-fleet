@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
@@ -125,6 +125,11 @@ export interface ShipFacts {
   openLease: { location: Location; startedAt: Date; lastSeenAt: Date } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
+  /**
+   * The newest ping to the ship: when it was sent, its delivery's state, and
+   * when pong answered it, if pong did; null before any ping.
+   */
+  lastPing: { sentAt: Date; deliveryState: DeliveryState; answeredWithPongAt: Date | null } | null;
 }
 
 /**

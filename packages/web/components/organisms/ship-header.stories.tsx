@@ -3,7 +3,7 @@ import { KeyRound } from 'lucide-react';
 
 import { Button } from '../atoms/button';
 import { ShipHeader } from './ship-header';
-import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, NOW, RETIRED_SHIP, UNKNOWN_SHIP_ID } from './ship-page.fixtures';
+import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, RETIRED_SHIP, UNKNOWN_SHIP_ID } from './ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/ShipHeader',
@@ -24,6 +24,21 @@ export const AwaitingCrew: Story = {
       </Button>
     ),
   },
+};
+/** reviewer-01 after argo pinged it: waiting, answered with pong, or acknowledged without pong. */
+export const PingWaiting: Story = {
+  args: { ship: { ...CREWED_SHIP, ping: { state: 'waiting', sentAt: minutesAgo(3), answeredAt: null } } },
+};
+export const PingAnswered: Story = {
+  args: {
+    ship: {
+      ...CREWED_SHIP,
+      ping: { state: 'answered', sentAt: minutesAgo(3), answeredAt: new Date(NOW.getTime() - 3 * 60_000 + 4_000).toISOString() },
+    },
+  },
+};
+export const PingReceived: Story = {
+  args: { ship: { ...CREWED_SHIP, ping: { state: 'received', sentAt: minutesAgo(3), answeredAt: null } } },
 };
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP } };

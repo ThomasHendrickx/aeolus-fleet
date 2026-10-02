@@ -11,6 +11,7 @@ import { CopyButton } from '../atoms/copy-button';
 import { Skeleton } from '../atoms/skeleton';
 import { EmptyState } from '../molecules/empty-state';
 import { LocationTag } from '../molecules/location-tag';
+import { PingStatus } from '../molecules/ping-status';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -64,6 +65,7 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
               {lastSeen(new Date(ship.lastSeenAt), now)}
             </time>
           )}
+          <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">

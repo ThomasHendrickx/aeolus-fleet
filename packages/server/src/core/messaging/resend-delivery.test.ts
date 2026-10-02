@@ -209,6 +209,20 @@ describe('resending an undeliverable delivery', () => {
     },
   );
 
+  it('refuses an undeliverable ping, and leaves it undeliverable: a fresh ping goes through Ping, pings never stack', async () => {
+    const { messageId } = unwrap(await useCases.pingShip(argo, { shipId: scoutId }));
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+      unwrap(await useCases.receiveDeliveries(scout, {}));
+    }
+    const before = structuredClone(core.state);
+
+    await expect(useCases.resendDelivery(argo, { deliveryId: deliveryIdOf(core, messageId) })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'PING_NOT_RESENT', message: 'A ping is not resent: dismiss it, and ping the ship again' },
+    });
+    expect(core.state).toEqual(before);
+  });
+
   it('refuses a delivery the fleet does not have', async () => {
     await expect(useCases.resendDelivery(argo, { deliveryId: core.ids('delivery') })).resolves.toMatchObject({
       isOk: false,

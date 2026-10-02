@@ -58,7 +58,13 @@ export const timelineEntrySchema = z.object({
   ship: partySchema.nullable(),
   /** The message it concerns, with its sender and recipient. */
   message: z
-    .object({ id: idSchema('message'), sender: partySchema, recipient: messageRecipientSchema })
+    .object({
+      id: idSchema('message'),
+      sender: partySchema,
+      recipient: messageRecipientSchema,
+      /** As the sender gave it; a ping has the reserved ping content type. */
+      contentType: z.string(),
+    })
     .nullable(),
   details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
 });

@@ -80,6 +80,7 @@ describe('the history reads on Postgres', () => {
         id: messageId,
         sender: { id: scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner' } },
+        contentType: 'text/plain',
       },
       details: { selector: 'ship' },
     });

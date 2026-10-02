@@ -4,6 +4,7 @@ import type { DeliveryId, MessageRecipient, Party, UndeliverableDelivery } from 
 import { ChevronRight, CircleCheck, RotateCw } from 'lucide-react';
 
 import { classNames } from '../../lib/class-names';
+import { canResend } from '../../lib/needs-attention';
 import { isJson } from '../../lib/payload';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../lib/relative-time';
 import { OPERATOR_NAME } from '../../lib/sentence';
@@ -95,7 +96,7 @@ function Actions({
 }) {
   const isPending = pendingIds.has(delivery.deliveryId);
   const isPhone = layout === 'phone';
-  const resend = (
+  const resend = canResend(delivery) ? (
     <Button
       size={isPhone ? 'touch' : 'sm'}
       variant={isPhone ? 'primary' : 'secondary'}
@@ -110,7 +111,7 @@ function Actions({
     >
       Resend
     </Button>
-  );
+  ) : null;
   const dismiss = (
     <Button
       size={isPhone ? 'touch' : 'sm'}
