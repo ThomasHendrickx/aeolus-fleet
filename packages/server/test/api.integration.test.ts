@@ -1434,3 +1434,88 @@ describe('/api/version', () => {
     expect(migration).toMatch(/^\d{14}_lease_last_seen$/);
   });
 });
+
+describe('fleet.ping and ship.pong at the API', () => {
+  /** A ship commissioned by argo and claimed through register: its id and a client calling with its crew token. */
+  async function crewed(name: string): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'rower' });
+    const { crewToken } = await client().ship.register.mutate({
+      shipId,
+      secret: secretIn(prompt),
+      location: { kind: 'CLOUD' },
+    });
+    return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  it('ping a crewed ship as argo, and answer with the open ping while it waits', async () => {
+    const { shipId } = await crewed('skiff');
+    const asArgo = await signedInArgo();
+
+    const first = await asArgo.fleet.ping.mutate({ shipId });
+    const again = await asArgo.fleet.ping.mutate({ shipId });
+
+    expect(first).toMatchObject({ sentAt: clock.now().toISOString(), isNew: true });
+    expect(first.messageId).toMatch(/^msg_/);
+    expect(again).toEqual({ ...first, isNew: false });
+  });
+
+  it('let the ship answer its ping with pong: the delivery is acknowledged', async () => {
+    const { shipId, asShip } = await crewed('dory');
+    const { messageId } = await (await signedInArgo()).fleet.ping.mutate({ shipId });
+    const { deliveries } = await asShip.ship.receive.mutate({});
+    const deliveryId = idSchema('delivery').parse(deliveries[0]?.deliveryId);
+
+    await expect(asShip.ship.pong.mutate({ deliveryId })).resolves.toEqual({});
+
+    expect(deliveries[0]).toMatchObject({ messageId, contentType: 'application/vnd.aeolus.ping' });
+    await expect(database.delivery.findUniqueOrThrow({ where: { id: deliveryId } })).resolves.toMatchObject({
+      state: 'acknowledged',
+    });
+  });
+
+  it('refuse pong for a delivery that is not a ping with CONFLICT', async () => {
+    const { shipId, asShip } = await crewed('punt');
+    await (await signedInArgo()).ship.send.mutate({
+      selector: { kind: 'ship', shipId },
+      payload: 'Row to the jetty',
+      contentType: 'text/plain',
+      idempotencyKey: `key-${newId('message')}`,
+    });
+    const { deliveries } = await asShip.ship.receive.mutate({});
+
+    const refusal = await refusalOf(
+      asShip.ship.pong.mutate({ deliveryId: idSchema('delivery').parse(deliveries[0]?.deliveryId) }),
+    );
+
+    expect(refusal?.code).toBe('CONFLICT');
+    expect(refusal?.message).toMatch(/is not a ping: pong answers only a ping/);
+  });
+
+  it('refuse fleet.ping to a ship without fleet:manage', async () => {
+    const { shipId } = await crewed('coracle');
+    const crewToken = await crewedShip();
+
+    await expect(refusalOf(client({ authorization: `Bearer ${crewToken}` }).fleet.ping.mutate({ shipId }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:manage scope',
+    });
+  });
+
+  it('refuse a send with the reserved ping content type, even from argo', async () => {
+    const { shipId } = await crewed('kayak');
+
+    await expect(
+      refusalOf(
+        (await signedInArgo()).ship.send.mutate({
+          selector: { kind: 'ship', shipId },
+          payload: 'ping',
+          contentType: 'application/vnd.aeolus.ping',
+          idempotencyKey: `key-${newId('message')}`,
+        }),
+      ),
+    ).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'application/vnd.aeolus.ping is reserved for pings: ping a ship from the console',
+    });
+  });
+});

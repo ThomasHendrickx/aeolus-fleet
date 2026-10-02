@@ -121,6 +121,7 @@ const tools = {
     }),
   },
   ack: { name: 'ack', answers: z.strictObject({}) },
+  pong: { name: 'pong', answers: z.strictObject({}) },
   deregister: { name: 'deregister', answers: z.strictObject({}) },
 };
 
@@ -177,6 +178,23 @@ describe('the ship tools at /mcp', () => {
     await expect(
       refusalOf(mooringSession, { name: 'whoami', arguments: { crewToken: mooringToken } }),
     ).resolves.toBe('LEASE_ENDED: This ship was released; this session no longer crews it.');
+  });
+
+  it('pong: a ship answers the ping argo sent it, and the ping is acknowledged', async () => {
+    const skiff = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, skiff);
+    const { messageId } = unwrap(
+      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).pingShip(argo, { shipId: skiff.shipId }),
+    );
+    const [ping] = (await call(session, { tool: tools.receive, arguments: { crewToken } })).deliveries;
+
+    await call(session, { tool: tools.pong, arguments: { crewToken, deliveryId: ping?.deliveryId } });
+
+    expect(ping).toMatchObject({ messageId });
+    await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
+      state: 'acknowledged',
+    });
   });
 
   it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {
