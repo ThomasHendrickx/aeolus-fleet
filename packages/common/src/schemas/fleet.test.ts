@@ -141,6 +141,7 @@ describe('fleetListOutputSchema', () => {
     startingPrompt: { issuedAt: '2026-09-29T12:00:00.000Z', isClaimed: false },
     location: null,
     lastSeenAt: null,
+    ping: null,
   };
 
   it('accepts ships with their status and prompt state', () => {
@@ -157,6 +158,16 @@ describe('fleetListOutputSchema', () => {
     };
 
     expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
+  });
+
+  it.each([
+    ['waiting for an answer', { state: 'waiting', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null }],
+    ['answered with pong', { state: 'answered', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: '2026-09-29T12:05:04.000Z' }],
+    ['received, not answered with pong', { state: 'received', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null }],
+  ])('accepts a crewed ship whose last ping is %s', (_label, ping) => {
+    const pinged = { ...ship, status: 'crewed', ping };
+
+    expect(fleetListOutputSchema.parse([pinged])).toEqual([pinged]);
   });
 
   it('accepts a ship without a prompt out', () => {
@@ -177,6 +188,8 @@ describe('fleetListOutputSchema', () => {
     ['an unknown kind', { ...ship, kind: 'commander' }],
     ['a missing location', { ...ship, location: undefined }],
     ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
+    ['a missing ping', { ...ship, ping: undefined }],
+    ['an unknown ping state', { ...ship, ping: { state: 'lost', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null } }],
   ])('rejects %s', (_label, listed) => {
     expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);
   });
