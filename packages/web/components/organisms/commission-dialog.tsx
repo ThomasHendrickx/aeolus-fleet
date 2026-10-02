@@ -5,7 +5,7 @@ import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
-import { checkShipName, typeHint } from '../../lib/ship-name';
+import { asHandle, checkShipName, typeHint } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import { Combobox } from '../atoms/combobox';
 import {
@@ -91,7 +91,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
             className="pr-9 max-sm:h-(--size-control-touch) max-sm:text-input-touch"
             value={name}
             onChange={(event) => {
-              setName(event.target.value);
+              setName(asHandle(event.target.value));
             }}
           />
           {check.kind === 'available' ? (
@@ -118,6 +118,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
             setType(value ?? '');
           }}
           isFreeText
+          toQuery={asHandle}
           leadingIcon={<Tag />}
           placeholder="e.g. reviewer"
           isInvalid={isTypeProblem}

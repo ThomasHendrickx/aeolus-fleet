@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkShipName, NAME_RULE, typeHint } from './ship-name';
+import { asHandle, checkShipName, NAME_RULE, typeHint } from './ship-name';
 
 const fleet = { activeNames: ['planner', 'reviewer-01'], current: 'reviewer-01' };
 
@@ -46,5 +46,17 @@ describe('typeHint', () => {
   it('counts the ships of a type in use', () => {
     expect(typeHint('reviewer', 1)).toBe('1 ship uses this type.');
     expect(typeHint('reviewer', 2)).toBe('2 ships use this type.');
+  });
+});
+
+describe('asHandle', () => {
+  it('turns typed uppercase into lowercase, keeping colons, digits and hyphens', () => {
+    expect(asHandle('HemmaFeatureA1B2C3:Planner-2')).toBe('hemmafeaturea1b2c3:planner-2');
+  });
+});
+
+describe('NAME_RULE', () => {
+  it('names colons with the other characters a name may hold', () => {
+    expect(NAME_RULE).toBe('Lowercase letters, digits, hyphens and colons, up to 48 characters, unique among active ships.');
   });
 });

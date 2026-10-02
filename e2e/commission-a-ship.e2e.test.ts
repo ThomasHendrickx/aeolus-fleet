@@ -155,6 +155,17 @@ describe('commissioning a ship in the console', () => {
     await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('hemma:planner');
   });
 
+  it('turns uppercase typed into the name and type into lowercase', async () => {
+    const page = await signedInPage();
+    const dialog = page.getByTestId('commission-dialog');
+
+    await fillCommission(page, { name: 'HemmaFeature:Planner', type: 'Hemma:Planner' });
+
+    await expect(dialog.getByTestId('commission-name').inputValue()).resolves.toBe('hemmafeature:planner');
+    await expect(dialog.getByTestId('commission-type').inputValue()).resolves.toBe('hemma:planner');
+    await dialog.getByText('hemmafeature:planner is available.').waitFor();
+  });
+
   it('asks before replacing an unclaimed prompt, and replaces it only once confirmed', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'lookout', type: 'reviewer' });

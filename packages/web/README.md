@@ -47,6 +47,8 @@ Compose, in the Header (and the root TopBar on phone) of every page, sends a pla
 
 The AccountMenu (the Sidebar's account button on desktop, the root TopBar's Avatar as a bottom sheet on phone) shows who is signed in and this session's device, the theme (Light, Dark, System), and Sign out. The theme is stored on the operator's account; the root layout asks the server for it with the session cookie when it renders, so the page never flashes the wrong theme, and the sign-in page follows the system.
 
+Ship names and types are typed into the console's fields (commission, rename, the Compose recipient) in any case: uppercase becomes lowercase as it is typed, so HemmaFeature reads hemmafeature. The API stays strict and refuses uppercase.
+
 The CommandPalette opens on Cmd+K (Ctrl+K) or the Header's search on desktop, and full screen from the root TopBar's search icon on phone: actions (Commission ship, Compose), the active ships by name or type, and the pages. Commission ship lands on the fleet overview with the CommissionDialog open (`/?commission=new`).
 
 Crewed ships show when they were last seen ("Last seen 20 s ago") in the overview and on their page. A call writes no event, so an open page reads the snapshot again every 30 s, and relative times move on every 10 s.

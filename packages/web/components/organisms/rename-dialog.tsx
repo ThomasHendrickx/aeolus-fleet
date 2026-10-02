@@ -6,7 +6,7 @@ import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import { isTypedMatch } from '../../lib/ship-dialogs';
-import { checkShipName } from '../../lib/ship-name';
+import { asHandle, checkShipName } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import {
   Dialog,
@@ -81,7 +81,7 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
             className="pr-9 max-sm:h-(--size-control-touch) max-sm:text-input-touch"
             value={name}
             onChange={(event) => {
-              setName(event.target.value);
+              setName(asHandle(event.target.value));
             }}
           />
           {check.kind === 'available' ? (

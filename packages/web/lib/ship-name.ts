@@ -14,7 +14,16 @@ export type NameCheck =
   | { kind: 'unchanged'; message: string }
   | { kind: 'invalid' | 'reserved' | 'taken'; message: string };
 
-export const NAME_RULE = `Lowercase letters, digits and hyphens, up to ${String(SHIP_HANDLE_MAX_LENGTH)} characters, unique among active ships.`;
+export const NAME_RULE = `Lowercase letters, digits, hyphens and colons, up to ${String(SHIP_HANDLE_MAX_LENGTH)} characters, unique among active ships.`;
+
+/**
+ * A name or type as the console's fields take it: typed uppercase becomes
+ * lowercase, so HemmaFeature reads hemmafeature. Only the console eases this;
+ * the API rule stays strict and refuses uppercase.
+ */
+export function asHandle(typed: string): string {
+  return typed.toLowerCase();
+}
 
 export function checkShipName(name: string, fleet: { activeNames: readonly string[]; current?: string }): NameCheck {
   if (name === '') {

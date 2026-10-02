@@ -25,6 +25,8 @@ interface ComboboxProps {
   onValueChange: (value: string | null) => void;
   /** The typed text is the value, and the options only suggest (ship type). */
   isFreeText?: boolean;
+  /** Turns what the operator types into the text the field holds, such as lowercase for a ship name or type. */
+  toQuery?: (typed: string) => string;
   /** A label over the suggestions: "Ships". */
   groupLabel?: string;
   /** What the popup says when nothing matches the typed text. */
@@ -59,6 +61,7 @@ export function Combobox({
   value,
   onValueChange,
   isFreeText = false,
+  toQuery,
   groupLabel,
   emptyText,
   leadingIcon,
@@ -95,10 +98,11 @@ export function Combobox({
         if (isFreeText && details.reason !== 'input-change' && details.reason !== 'item-press') {
           return;
         }
-        setQuery(text);
+        const typed = details.reason === 'input-change' && toQuery ? toQuery(text) : text;
+        setQuery(typed);
         if (isFreeText) {
-          onValueChange(text === '' ? null : text);
-        } else if (selected !== undefined && text !== selected.label) {
+          onValueChange(typed === '' ? null : typed);
+        } else if (selected !== undefined && typed !== selected.label) {
           onValueChange(null);
         }
       }}
