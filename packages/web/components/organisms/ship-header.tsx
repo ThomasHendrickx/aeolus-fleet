@@ -167,7 +167,16 @@ export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }
                 operator
               </Badge>
             ) : (
-              <Badge variant="type">{ship.type}</Badge>
+              <>
+                <Badge variant="type">{ship.type}</Badge>
+                {ship.scopes
+                  .filter((scope) => scope === 'fleet:read' || scope === 'fleet:manage')
+                  .map((scope) => (
+                    <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
+                      {scope}
+                    </Badge>
+                  ))}
+              </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
               <span className="inline-flex items-center gap-1.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm)">

@@ -1,4 +1,4 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
+import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { paletteGroups, paletteItemsOf, paletteKeyOf, SHIPS_BEFORE_QUERY, type PaletteItem } from './command-palette';
@@ -56,11 +56,11 @@ describe('paletteGroups', () => {
 
 describe('paletteItemsOf', () => {
   it('offers the actions, the active agent ships, never argo or a retired ship, and the pages', () => {
-    const ships = [
-      { id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null },
-      { id: newId('ship'), name: 'reviewer-01', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null },
-      { id: newId('ship'), name: 'old', type: 'reviewer', kind: 'agent', status: 'retired', startingPrompt: null, location: null, lastSeenAt: null, ping: null },
-    ] as const;
+    const ships: ListedShip[] = [
+      { id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'] },
+      { id: newId('ship'), name: 'reviewer-01', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'] },
+      { id: newId('ship'), name: 'old', type: 'reviewer', kind: 'agent', status: 'retired', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'] },
+    ];
 
     expect(paletteItemsOf(ships).map((item) => (item.kind === 'ship' ? item.name : item.id))).toEqual([
       'commission',

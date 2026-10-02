@@ -40,6 +40,10 @@ export const PingAnswered: Story = {
 export const PingReceived: Story = {
   args: { ship: { ...CREWED_SHIP, ping: { state: 'received', sentAt: minutesAgo(3), answeredAt: null } } },
 };
+/** A ship commissioned with fleet access: its fleet scopes beside its type. */
+export const WithFleetScopes: Story = {
+  args: { ship: { ...CREWED_SHIP, scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] } },
+};
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP } };
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };

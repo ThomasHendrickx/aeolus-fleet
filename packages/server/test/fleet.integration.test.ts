@@ -83,7 +83,7 @@ describe('commissioning a ship on Postgres', () => {
     const credential = await core.prisma.credential.findFirst({ where: { shipId } });
 
     await expect(eventsAbout(shipId)).resolves.toEqual([
-      ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent' }],
+      ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' }],
       ['StartingPromptIssued', argoId, { credentialId: credential?.id }],
     ]);
   });
@@ -226,7 +226,7 @@ describe('getting a starting prompt on Postgres', () => {
 
     const [issued] = await validSecretsOfScout();
     await expect(eventsAbout(scoutId)).resolves.toEqual([
-      ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent' }],
+      ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' }],
       ['StartingPromptIssued', argoId, { credentialId: previous?.id }],
       ['CredentialRevoked', argoId, { credentialId: previous?.id }],
       ['StartingPromptIssued', argoId, { credentialId: issued?.id }],
@@ -329,6 +329,7 @@ describe('getting one ship on Postgres', () => {
         location: { kind: 'SERVER', description: null },
         lastSeenAt: crewedAt,
         ping: null,
+        scopes: ['messages:send', 'messages:receive'],
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -367,6 +368,7 @@ describe('listing the fleet on Postgres', () => {
         location: { kind: 'OTHER', description: 'Unknown device' },
         lastSeenAt: signedInAt,
         ping: null,
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
       },
       {
         id: shipId,
@@ -378,6 +380,7 @@ describe('listing the fleet on Postgres', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
+        scopes: ['messages:send', 'messages:receive'],
       },
     ]);
   });

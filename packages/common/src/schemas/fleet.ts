@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { eventTypeSchema, locationKindSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
 /**
@@ -24,10 +24,15 @@ export const shipHandleSchema = z
 
 export const SHIP_NOTE_MAX_LENGTH = 500;
 
-/** Input of `fleet.commission`. The note is free text for the operator; whitespace around it is dropped. */
+/**
+ * Input of `fleet.commission`. The note is free text for the operator;
+ * whitespace around it is dropped. `fleetScopes` adds fleet:read and/or
+ * fleet:manage to the scopes every agent ship has; none when left out.
+ */
 export const commissionShipInputSchema = z.object({
   name: shipHandleSchema,
   type: shipHandleSchema,
+  fleetScopes: z.array(fleetScopeSchema).optional(),
   note: z
     .string()
     .trim()
@@ -133,6 +138,8 @@ export const listedShipSchema = z.object({
       answeredAt: z.iso.datetime().nullable(),
     })
     .nullable(),
+  /** What the ship may do, checked on every call: every agent ship sends and receives, argo has all. */
+  scopes: z.array(scopeSchema),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

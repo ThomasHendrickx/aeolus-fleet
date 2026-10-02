@@ -38,6 +38,7 @@ export const CREWED_SHIP: ShipDetail = {
   location: { kind: 'SERVER', description: 'hetzner-1' },
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,
@@ -55,6 +56,7 @@ export const AWAITING_SHIP: ShipDetail = {
   location: null,
   lastSeenAt: null,
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
   crewedSince: null,
 };
 
@@ -68,6 +70,7 @@ export const ARGO_SHIP: ShipDetail = {
   location: { kind: 'OTHER', description: 'web console' },
   lastSeenAt: null,
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
   commissionedAt: '2026-09-18T08:00:00Z',
   crewedSince: minutesAgo(390),
 };
@@ -78,6 +81,7 @@ export const RETIRED_SHIP: ShipDetail = {
   location: null,
   lastSeenAt: null,
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
   crewedSince: null,
   startingPrompt: null,
   retiredAt: '2026-09-28T14:40:00Z',

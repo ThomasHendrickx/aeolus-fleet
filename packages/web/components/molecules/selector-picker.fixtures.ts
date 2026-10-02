@@ -11,6 +11,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     location: { kind: 'DEVICE', description: null },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     ...changes,
   };
 }
@@ -21,6 +22,7 @@ export const REVIEWER_01 = ship('r01a', {
   location: { kind: 'SERVER', description: 'hetzner-1' },
   lastSeenAt: null,
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
 });
 
 export const COMPOSE_SHIPS: ListedShip[] = [

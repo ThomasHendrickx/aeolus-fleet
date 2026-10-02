@@ -1,4 +1,4 @@
-import type { IdGenerator } from '@aeolus-fleet/common';
+import type { FleetScope, IdGenerator } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -16,13 +16,15 @@ export interface CommissionShipTx extends StartingPromptTx {
 
 export type CommissionShip = (
   caller: Caller,
-  input: { name: string; type: string; note?: string },
+  input: { name: string; type: string; note?: string; fleetScopes?: readonly FleetScope[] },
 ) => Promise<Result<IssuedStartingPrompt, CommissionRefusal>>;
 
 /**
  * Use case: the caller commissions an agent ship in its own fleet. The ship
  * awaits crew and gets its first starting prompt, all in one transaction. The
- * caller's scope (fleet:manage) is checked before this runs.
+ * caller's scope (fleet:manage) is checked before this runs. The ship gets
+ * the agent scopes and any fleet scopes asked for; any caller with
+ * fleet:manage may give them (ADR 0016).
  */
 export function createCommissionShip(deps: {
   uow: UnitOfWork<CommissionShipTx>;

@@ -24,6 +24,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     location: { kind: 'DEVICE', description: null },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     ...changes,
   };
 }
@@ -36,6 +37,7 @@ const argo = ship('h1aa', {
   location: { kind: 'OTHER', description: 'web console' },
   lastSeenAt: null,
   ping: null,
+  scopes: ['messages:send', 'messages:receive'],
 });
 
 const FLEET: ListedShip[] = [
@@ -45,6 +47,7 @@ const FLEET: ListedShip[] = [
     location: { kind: 'CLOUD', description: null },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
   }),
   ship('h1ac', {
     name: 'builder-web',
@@ -52,6 +55,7 @@ const FLEET: ListedShip[] = [
     location: null,
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     startingPrompt: {
       issuedAt: new Date(NOW.getTime() - 3 * HOUR_MS).toISOString(),
       isClaimed: false,
@@ -64,6 +68,7 @@ const FLEET: ListedShip[] = [
     location: { kind: 'SERVER', description: null },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
   }),
   ship('h1af', {
     name: 'reviewer-01',
@@ -71,6 +76,7 @@ const FLEET: ListedShip[] = [
     location: { kind: 'OTHER', description: 'CI runner' },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
   }),
   ship('h1ag', {
     name: 'triage-bot',
@@ -79,6 +85,7 @@ const FLEET: ListedShip[] = [
     location: null,
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     startingPrompt: null,
   }),
   ship('h1ah', {
@@ -88,6 +95,7 @@ const FLEET: ListedShip[] = [
     location: null,
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     startingPrompt: null,
   }),
 ];

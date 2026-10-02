@@ -63,6 +63,19 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts fleet scopes to add to the ship', () => {
+    const input = { name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'] };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['a message scope, which every agent ship has already', ['messages:send']],
+    ['an unknown scope', ['fleet:own']],
+  ])('rejects %s among the fleet scopes', (_label, fleetScopes) => {
+    expect(commissionShipInputSchema.safeParse({ name: 'manager', type: 'squadron', fleetScopes }).success).toBe(false);
+  });
+
   it('takes the note as optional', () => {
     expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer' })).toEqual({
       name: 'scout',
@@ -156,6 +169,7 @@ describe('fleetListOutputSchema', () => {
     location: null,
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
   };
 
   it('accepts ships with their status and prompt state', () => {
@@ -203,6 +217,8 @@ describe('fleetListOutputSchema', () => {
     ['a missing location', { ...ship, location: undefined }],
     ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
     ['a missing ping', { ...ship, ping: undefined }],
+    ['missing scopes', { ...ship, scopes: undefined }],
+    ['an unknown scope', { ...ship, scopes: ['fleet:own'] }],
     ['an unknown ping state', { ...ship, ping: { state: 'lost', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null } }],
   ])('rejects %s', (_label, listed) => {
     expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);

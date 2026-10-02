@@ -32,7 +32,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
-| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships can only send and receive |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read` and/or `fleet:manage`, so a ship can read or manage the fleet as the console does. Scopes never change after commissioning |
 | Starting prompt | Identity only: the fleet's MCP URL and how to add it, the ship's id and secret, how to pick the location, and "call register". How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
