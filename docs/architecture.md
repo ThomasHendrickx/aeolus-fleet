@@ -27,7 +27,7 @@ The server has exactly one API door: a tRPC router. The web app calls it like an
 
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
-| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, deregister |
+| Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, pong, deregister |
 | Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
@@ -39,7 +39,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | Context | Use cases |
 | --- | --- |
 | Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, re-crew ship (release and a new starting prompt in one transaction), retire ship, issue starting prompt, list fleet, get one ship |
-| Messaging | Send message, receive deliveries, check the inbox (count what the next receive would hand the crew, claiming nothing), acknowledge delivery, resend or dismiss undeliverable, mark a message to `argo` read or done |
+| Messaging | Send message, receive deliveries, check the inbox (count what the next receive would hand the crew, claiming nothing), acknowledge delivery, ping a ship and answer a ping with pong, resend or dismiss undeliverable, mark a message to `argo` read or done |
 | Shared (read models) | Read the fleet's events after a position (live updates); read a ship's timeline (events naming it or caused by it), its messages (sent, sent to it, or claimed by it as a ship of their type) and one message with its delivery's history from the event log |
 | Identity | Verify crew token (returns ship, fleet, kind and scopes), console sign in with email and password (takes `argo`'s lease over), sign out, reset operator password (server command), verify console session |
 
@@ -54,7 +54,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 | `SecretHasher`, `PasswordHasher` | Hash ship secrets, crew tokens and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
-The cross-context calls, Messaging asking Registry to resolve a selector, check that a ship is not retired, name a delivery's sender and hold a crew's lease during a receive, go through a Registry port, never through Registry's tables.
+The cross-context calls, Messaging asking Registry to resolve a selector, check that a ship is not retired, name a delivery's sender, hold a crew's lease during a receive, find a crewed ship to ping and mark a lease seen on pong, go through a Registry port, never through Registry's tables.
 
 ## Deployment
 
@@ -155,6 +155,8 @@ A message is the travelling ticket, not the cargo. The 64 KB limit is deliberate
 Resend and dismiss (operator, from Needs attention) each lock the undeliverable delivery first, so they take turns. A dismiss sets it to dismissed with `DeliveryDismissed`; dismissing it again is OK and changes nothing. A resend then locks its idempotency key (`resend-<delivery id>`, the original sender's) and the ship it is addressed to, as a send does, and in one transaction stores a new message with `resend_of` the original, its pending delivery and `MessageAccepted`, sets the original to dismissed with `DeliveryDismissed` (both events caused by `argo`), and queues the `NOTIFY`. A second resend finds the key and answers the same message.
 
 The operator inbox (argo only, through its console session, whose caller carries the lease the session holds on `argo`): mark read sets the delivery's read date, keeping an earlier one, or clears it, with no event. Mark done holds the session's lease (`FOR SHARE`, as a receive does) and locks the delivery, then claims and acknowledges it at once, one claim counted, writing `DeliveryClaimed` and `DeliveryAcknowledged`; again is OK. Reply sends as a send does (the key, then the sender's ship, held against a retire) and then marks the message done in the same transaction, the acknowledgement naming the reply in its details; any refusal rolls both back.
+
+Ping (`fleet.ping`, `fleet:manage`): in one transaction, lock the ship (`FOR UPDATE`, so two pings of one ship take turns), hold its open lease (`FOR SHARE`), refuse `argo`, a retired ship or one awaiting crew, then look for the ship's open ping (a message with the content type `application/vnd.aeolus.ping` whose delivery is pending or in flight). If there is one, answer with it and store nothing; otherwise send a new one as a send does, with a fresh idempotency key. `send` refuses that content type for every caller, so pings exist only this way. Pong locks the ping delivery, acknowledges it as `ack` does with `answer: pong` in the event's details, and marks the crew's lease last seen, in one transaction.
 
 The same event rows feed three things at once: ship and message timelines, the audit trail, and live updates to the web app (through `NOTIFY` and tRPC subscriptions over WebSocket).
 
