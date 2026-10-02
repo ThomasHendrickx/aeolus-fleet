@@ -29,6 +29,7 @@ import type { RetireShip } from '../../core/registry/retire-ship.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
+import type { FollowFleet } from '../../core/shared/follow-fleet.js';
 import type { ReadInbox } from '../../core/shared/read-inbox.js';
 import type { ReadMessage } from '../../core/shared/read-message.js';
 import type { ReadNeedsAttention } from '../../core/shared/read-needs-attention.js';
@@ -66,6 +67,7 @@ export interface UseCases {
   markDone: MarkDone;
   replyToMessage: ReplyToMessage;
   readFleetEvents: ReadFleetEvents;
+  followFleet: FollowFleet;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;

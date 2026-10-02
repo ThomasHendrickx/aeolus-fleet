@@ -166,6 +166,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/recrew', ['post']],
       ['/fleet/retire', ['post']],
       ['/fleet/ping', ['post']],
+      ['/fleet/follow', ['post']],
     ]);
   });
 

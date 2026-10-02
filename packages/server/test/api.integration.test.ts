@@ -1595,3 +1595,35 @@ describe('ships with fleet scopes at the API', () => {
     });
   });
 });
+
+describe('fleet.follow at the API', () => {
+  async function crewedReader(name: string): Promise<TRPCClient<AppRouter>> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'squadron', fleetScopes: ['fleet:read'] });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } });
+    return client({ authorization: `Bearer ${crewToken}` });
+  }
+
+  it('answers a ship with fleet:read the events after its position, as soon as one commits while it waits', async () => {
+    const reader = await crewedReader('follow-reader');
+    // Signing in writes events of its own: before the position is read.
+    const asArgo = await signedInArgo();
+    const { lastSeq } = await reader.fleet.follow.query({});
+
+    const following = reader.fleet.follow.query({ afterSeq: lastSeq, waitSeconds: 20 });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'follow-new', type: 'squadron' });
+
+    const { events } = await following;
+    expect(events[0]).toMatchObject({ type: 'ShipCommissioned', shipId });
+    expect(events[0]?.seq).toBe(lastSeq + 1);
+  });
+
+  it('refuse follow to a ship without fleet:read', async () => {
+    const crewToken = await crewedShip();
+
+    await expect(refusalOf(client({ authorization: `Bearer ${crewToken}` }).fleet.follow.query({}))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:read scope',
+    });
+  });
+});

@@ -7,7 +7,7 @@
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { FleetEventNotice } from '../../core/shared/events.js';
+import type { FleetEventNotice, FleetEventWakeups } from '../../core/shared/events.js';
 
 export interface FleetEventWatch {
   /**
@@ -101,6 +101,25 @@ export function createFleetEventWakeups(): FleetEventWakeupHub {
       for (const watcher of every()) {
         watcher.settle?.(false);
       }
+    },
+  };
+}
+
+/**
+ * The hub as the core's port for a waiting follow: each wait ends when the
+ * fleet has news, or once its time has passed, or when the server stops,
+ * which reads as the time having passed.
+ */
+export function fleetEventWakeupsOf(hub: Pick<FleetEventWakeupHub, 'watch'>): FleetEventWakeups {
+  return {
+    watch: (fleetId) => {
+      const watch = hub.watch(fleetId);
+      return {
+        next: async (waitMs) => ((await watch.next(AbortSignal.timeout(waitMs))) ? 'woken' : 'timedOut'),
+        stop: () => {
+          watch.stop();
+        },
+      };
     },
   };
 }

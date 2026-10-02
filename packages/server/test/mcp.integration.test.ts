@@ -232,6 +232,19 @@ describe('the ship tools at /mcp', () => {
     expect(shipId).toMatch(/^shp_/);
   });
 
+  it('lets a ship with fleet:read follow the fleet through fleet_follow', async () => {
+    const reader = await commissionedWithFleetScopes(['fleet:read']);
+    const session = await connect();
+    const crewToken = await register(session, reader);
+    const followed = { name: 'fleet_follow', answers: z.object({ events: z.array(z.object({ type: z.string() })), lastSeq: z.number() }) };
+    const { lastSeq } = await call(session, { tool: followed, arguments: { crewToken } });
+    await commissioned();
+
+    const { events } = await call(session, { tool: followed, arguments: { crewToken, afterSeq: lastSeq } });
+
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+  });
+
   it('refuses a fleet tool to a ship without its scope, with the code first', async () => {
     const agent = await commissioned();
     const session = await connect();
