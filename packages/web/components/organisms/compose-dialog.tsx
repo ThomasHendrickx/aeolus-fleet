@@ -4,6 +4,7 @@ import { PAYLOAD_MAX_BYTES, payloadBytes, type ListedShip } from '@aeolus-fleet/
 import { Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../lib/send-shortcut';
 import { Button } from '../atoms/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
 import { dialogSurface } from '../atoms/dialog-surface';
@@ -11,6 +12,7 @@ import { Label } from '../atoms/label';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from '../molecules/inline-error';
 import { SelectorPicker, type SelectorMode, type SelectorValue } from '../molecules/selector-picker';
+import { SendShortcutHint } from '../molecules/send-shortcut-hint';
 
 interface ComposeDialogProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormP
   const isTooLarge = payloadBytes(payload) > PAYLOAD_MAX_BYTES;
   const isSending = state === 'sending';
   const canSend = selector !== null && payload.trim() !== '' && !isTooLarge && !isSending;
+  const platform = useShortcutPlatform();
 
   return (
     <form
@@ -72,6 +75,7 @@ function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormP
           onChange={(event) => {
             setPayload(event.target.value);
           }}
+          onKeyDown={submitOnSendShortcut}
           placeholder="What the ship should do, and where the work lives"
           aria-invalid={isTooLarge}
           aria-describedby={isTooLarge ? sizeErrorId : undefined}
@@ -97,9 +101,11 @@ function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormP
           icon={<Send aria-hidden />}
           disabled={!canSend && !isSending}
           isLoading={isSending}
+          aria-keyshortcuts={platform === null ? undefined : sendShortcutAria(platform)}
           data-testid="compose-send"
         >
           Send
+          {platform === null ? null : <SendShortcutHint platform={platform} />}
         </Button>
       </DialogFooter>
     </form>
