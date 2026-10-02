@@ -68,7 +68,14 @@ export interface LeaseRepository {
    * lease at once.
    */
   findOpenByIdForShare(fleetId: FleetId, leaseId: LeaseId): Promise<Lease | undefined>;
+  /** The ship's open lease, held as {@link findOpenByIdForShare} holds it. */
+  findOpenForShare(fleetId: FleetId, shipId: ShipId): Promise<Lease | undefined>;
   open(lease: Lease): Promise<void>;
+  /**
+   * Marks the lease last seen `at`, as a call by its crew does, keeping a
+   * later mark: two overlapping writes never move it back.
+   */
+  markSeen(seen: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<void>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }

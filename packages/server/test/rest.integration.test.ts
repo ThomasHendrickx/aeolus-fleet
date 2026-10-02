@@ -118,6 +118,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/send',
       '/ship/receive',
       '/ship/ack',
+      '/ship/pong',
       '/ship/inbox',
       '/ship/deregister',
     ]);
@@ -186,6 +187,23 @@ describe('the ship calls at /api/v1', () => {
     await expect(request('whoami', { crewToken: mooringToken, method: 'GET' })).resolves.toMatchObject({
       status: 401,
       body: { code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
+    });
+  });
+
+  it('pong: a ship answers the ping argo sent it, and the ping is acknowledged', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+    const { messageId } = unwrap(
+      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).pingShip(argo, { shipId: skiff.shipId }),
+    );
+    const { deliveries } = await ok(request('receive', { crewToken }), deliveriesSchema);
+    const [ping] = deliveries;
+
+    await ok(request('pong', { crewToken, body: { deliveryId: ping?.deliveryId } }), z.strictObject({}));
+
+    expect(ping).toMatchObject({ messageId });
+    await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
+      state: 'acknowledged',
     });
   });
 

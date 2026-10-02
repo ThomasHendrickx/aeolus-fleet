@@ -2,7 +2,7 @@
 
 `/mcp`: the ship procedures as a remote MCP server, with the official TypeScript SDK (`@modelcontextprotocol/server`) over streamable HTTP. Stateless: a fresh server answers each HTTP request, for clients of the 2026-07-28 revision and, through the SDK's fallback, 2025-era ones.
 
-- One tool per ship procedure (`register`, `whoami`, `send`, `receive`, `ack`, `deregister`), listed and called through the router by `trpc/ship-contract.ts`. It holds no logic of its own (ADR 0004); lint keeps the core out of it.
+- One tool per ship procedure (`register`, `whoami`, `send`, `receive`, `ack`, `pong`, `inbox`, `deregister`), listed and called through the router by `trpc/ship-contract.ts`. It holds no logic of its own (ADR 0004); lint keeps the core out of it.
 - The connection carries no ship (ADR 0015): every tool but `register` takes the crew token as its `crewToken` argument, and no header of the connection is read as a credential.
 - The server instructions, which a client reads when it connects in either protocol era, are the ship protocol (`trpc/ship-protocol.ts`): how to crew a ship, from register to the end of the turn. The OpenAPI spec at `/api/v1` opens with the same text.
 - A tool's description is its procedure's description, which states that call's own rules and none of the protocol's; its input and output schemas are the router's Zod parsers as JSON Schema. The router, not the SDK, validates the arguments.

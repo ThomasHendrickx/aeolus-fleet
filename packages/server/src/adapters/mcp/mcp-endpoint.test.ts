@@ -25,7 +25,7 @@ import { registerMcpEndpoint } from './mcp-endpoint.js';
 // failure reads. The whole flow on Postgres is in test/mcp.integration.test.ts.
 
 const FLEET_ORIGIN = 'https://fleet.example.com';
-const SHIP_TOOLS = ['register', 'whoami', 'send', 'receive', 'ack', 'inbox', 'deregister'];
+const SHIP_TOOLS = ['register', 'whoami', 'send', 'receive', 'ack', 'pong', 'inbox', 'deregister'];
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -203,11 +203,20 @@ describe('the ship tools at /mcp', () => {
     expect(inputSchema.properties.deliveryId).toMatchObject({ pattern: '^dlv_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
   });
 
+  it("describe pong's input: the ping's delivery id", async () => {
+    await start();
+
+    const { inputSchema } = await tool('pong');
+
+    expect(inputSchema.properties.deliveryId).toMatchObject({ pattern: '^dlv_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
+  });
+
   it.each([
     ['register', [/crew token/i, /only (this )?once/i, /secret works only here/i, /CONFLICT/]],
     ['receive', [/about 25 seconds/i, /senderName/, /stays yours/i, /undeliverable/i, /key of the work/i]],
     ['send', [/inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
     ['ack', [/deliveryId/, /not its messageId/i, /again is fine/i]],
+    ['pong', [/ping/i, /deliveryId/, /application\/vnd\.aeolus\.ping/, /do not act on it/i, /instead of ack/i]],
   ])('state the rules of %s in its description', async (name, rules) => {
     await start();
 

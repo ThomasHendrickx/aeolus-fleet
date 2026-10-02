@@ -1,9 +1,9 @@
-import type { LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Delivery } from './message.js';
+import type { Delivery, Message } from './message.js';
 
 /**
  * The Delivery's rules once it is stored (docs/blueprint.md, "Key flows"): a
@@ -115,6 +115,29 @@ export function acknowledgeDelivery(
         `Delivery ${delivery.id} is ${delivery.state}, not in flight: acknowledge a delivery once a receive hands it over`,
       );
   }
+}
+
+export type AnswerPingRefusal = DomainError<'DELIVERY_NOT_A_PING'> | AcknowledgeRefusal;
+
+/**
+ * The ship answers a ping with pong: the ping's delivery is acknowledged as
+ * an ack would, and DeliveryAcknowledged says pong answered it. Pong answers
+ * only a ping. Answering again, or after a plain ack, is harmless: OK, and
+ * nothing changes, so the first answer stands.
+ */
+export function answerPing(
+  delivery: Delivery,
+  pong: { message: Message; crew: CrewOfShip; at: Date },
+): Result<{ delivery: Delivery; events: NewEvent[] }, AnswerPingRefusal> {
+  if (!isPingContentType(pong.message.contentType)) {
+    return refuse('DELIVERY_NOT_A_PING', `Delivery ${delivery.id} is not a ping: pong answers only a ping, ack the others`);
+  }
+  const acknowledged = acknowledgeDelivery(delivery, pong);
+  if (!acknowledged.isOk) {
+    return acknowledged;
+  }
+  const events = acknowledged.value.events.map((event) => ({ ...event, details: { ...event.details, answer: 'pong' } }));
+  return ok({ delivery: acknowledged.value.delivery, events });
 }
 
 export type DismissRefusal = DomainError<'DELIVERY_NOT_UNDELIVERABLE'>;

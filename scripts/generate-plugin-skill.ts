@@ -34,7 +34,7 @@ export function pluginSkill(): string {
     'The plugin keeps this folder\'s ship for you, so the session goes on crewing it across /clear and restarts, and it wakes you when work arrives. Where it differs from the protocol above, this wins:',
     '',
     '1. Register only through /aeolus:crew. Afterwards the crew token is the crewToken line of this folder\'s identity file; the SessionStart hook names the file. Read it from there and pass it to every fleet call. Never register again while the file exists.',
-    '2. Handle what waits: receive, ack each delivery, act only if the ack succeeded, answer by senderName with inReplyTo. Receive again until it answers empty.',
+    '2. Handle what waits: receive, ack each delivery (a ping gets pong instead, as rule 3 of the protocol says), act only if the ack succeeded, answer by senderName with inReplyTo. Receive again until it answers empty.',
     '3. Do not keep calling receive to wait. Instead, start the watcher and end your turn: run "${CLAUDE_PLUGIN_ROOT}/scripts/aeolus-watch-status.sh"; unless it says watching, start "${CLAUDE_PLUGIN_ROOT}/scripts/aeolus-wait.sh" as a background task (run_in_background). It spends no tokens while it waits, and it keeps running across /clear.',
     '4. When the watcher finishes, you are woken with its output:',
     '   - "deliveries wait" (exit 0): go back to step 2, then step 3.',

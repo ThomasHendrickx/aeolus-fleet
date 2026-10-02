@@ -1,9 +1,9 @@
-import type { IdGenerator, MessageId } from '@aeolus-fleet/common';
+import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import type { DomainError } from '../shared/errors.js';
+import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
@@ -39,7 +39,7 @@ export interface MessageSent {
 }
 
 export type SendMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY'>
+  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE'>
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal;
@@ -54,7 +54,8 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * all of it is committed (ADR 0003). A payload over 64 KB, a content type that
  * is no media type or a bad key is refused before the unit of work starts, so
  * nothing is stored. Without a content type the message is text/plain: the
- * same request as one that names text/plain.
+ * same request as one that names text/plain. The ping content type is
+ * reserved: only the ping call sends one, so pings never stack.
  *
  * A repeat, the same sender with the same idempotency key and the same
  * request, returns the original message's id and stores nothing; the same key
@@ -71,6 +72,9 @@ export function createSendMessage(deps: {
   hasher: RequestHasher;
 }): SendMessage {
   return async (caller, input) => {
+    if (input.contentType !== undefined && isPingContentType(input.contentType)) {
+      return refuse('RESERVED_CONTENT_TYPE', `${PING_CONTENT_TYPE} is reserved for pings: ping a ship from the console`);
+    }
     const request = checkedSend(input, deps.hasher);
     if (!request.isOk) {
       return request;

@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
@@ -252,6 +252,21 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.leases.push({ ...lease });
         return Promise.resolve();
       },
+      findOpenForShare: (fleetId, shipId) => {
+        const lease = state.leases.find(
+          (held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null,
+        );
+        return Promise.resolve(lease && { ...lease });
+      },
+      markSeen: ({ fleetId, leaseId, at }) => {
+        const seen = state.leaseSeen.find((held) => held.fleetId === fleetId && held.leaseId === leaseId);
+        if (!seen) {
+          state.leaseSeen.push({ fleetId, leaseId, at });
+        } else if (seen.at < at) {
+          seen.at = at;
+        }
+        return Promise.resolve();
+      },
       findOpenByIdForShare: (fleetId, leaseId) => {
         const lease = state.leases.find(
           (held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null,
@@ -474,6 +489,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findForUpdate: (fleetId, deliveryId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
+      },
+      findOpenPing: (fleetId, shipId) => {
+        const open = state.deliveries.find(
+          (delivery) =>
+            delivery.fleetId === fleetId &&
+            delivery.recipient.kind === 'ship' &&
+            delivery.recipient.shipId === shipId &&
+            (delivery.state === 'pending' || delivery.state === 'delivered') &&
+            state.messages.some((message) => message.id === delivery.messageId && message.contentType === PING_CONTENT_TYPE),
+        );
+        const message = open && state.messages.find((held) => held.id === open.messageId);
+        return Promise.resolve(message && structuredClone(message));
       },
       update: (delivery) => {
         const index = state.deliveries.findIndex((held) => held.fleetId === delivery.fleetId && held.id === delivery.id);

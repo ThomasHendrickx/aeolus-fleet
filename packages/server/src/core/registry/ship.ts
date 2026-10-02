@@ -152,6 +152,26 @@ export function checkCanIssueStartingPrompt(
       );
 }
 
+export type PingRefusal = DomainError<'OPERATOR_SHIP_IS_NOT_PINGED' | 'SHIP_ALREADY_RETIRED' | 'SHIP_NOT_CREWED'>;
+
+/**
+ * A ping goes only to a crewed ship: a session must be there to answer it.
+ * Never to `argo`: the console is no session that answers with pong.
+ */
+export function checkCanBePinged(ship: Ship, lease: { isCrewed: boolean }): Result<void, PingRefusal> {
+  if (ship.kind === 'operator') {
+    return refuse('OPERATOR_SHIP_IS_NOT_PINGED', `${ship.name} is the console: only a ship a session crews is pinged`);
+  }
+  switch (shipStatus(ship, lease)) {
+    case 'crewed':
+      return ok(undefined);
+    case 'retired':
+      return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: only a ship a session crews is pinged`);
+    case 'awaitingCrew':
+      return refuse('SHIP_NOT_CREWED', `${ship.name} is awaiting crew: no session would answer a ping`);
+  }
+}
+
 export type ClaimRefusal = DomainError<'OPERATOR_SHIP_HAS_NO_SECRET' | 'SHIP_NOT_AWAITING_CREW'>;
 
 /**
