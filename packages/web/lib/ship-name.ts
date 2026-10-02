@@ -21,7 +21,7 @@ export function checkShipName(name: string, fleet: { activeNames: readonly strin
     return { kind: 'empty', message: NAME_RULE };
   }
   if (!shipHandleSchema.safeParse(name).success) {
-    return { kind: 'invalid', message: `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits or hyphens.` };
+    return { kind: 'invalid', message: `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits, hyphens or colons.` };
   }
   if (name === OPERATOR_NAME) {
     return { kind: 'reserved', message: `${OPERATOR_NAME} is reserved for the operator ship.` };

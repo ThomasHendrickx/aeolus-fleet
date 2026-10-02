@@ -198,7 +198,7 @@ describe('commissioning a ship in the console', () => {
     const dialog = page.getByTestId('commission-dialog');
 
     await fillCommission(page, { name: 'Harbour Master', type: 'reviewer' });
-    await dialog.getByText('Use 1 to 48 lowercase letters, digits or hyphens.').waitFor();
+    await dialog.getByText('Use 1 to 48 lowercase letters, digits, hyphens or colons.').waitFor();
     await expect(dialog.getByTestId('commission-submit').isDisabled()).resolves.toBe(true);
 
     await dialog.getByTestId('commission-name').fill('dock');

@@ -8,10 +8,14 @@ import { idSchema } from '../ids/index.js';
  * starting prompt, release it, list the fleet, follow its events live.
  */
 
-/** A ship's name and its type are handles (docs/blueprint.md, "Ship"). */
+/**
+ * A ship's name and its type are handles (docs/blueprint.md, "Ship"). A colon
+ * is an ordinary character, so a prefix can group ships (`hemma:planner`); it
+ * carries no meaning for the fleet.
+ */
 export const SHIP_HANDLE_MAX_LENGTH = 48;
-export const SHIP_HANDLE_PATTERN = /^[a-z0-9-]+$/;
-const HANDLE_MESSAGE = `Use 1 to ${SHIP_HANDLE_MAX_LENGTH} lowercase letters, digits or hyphens`;
+export const SHIP_HANDLE_PATTERN = /^[a-z0-9:-]+$/;
+const HANDLE_MESSAGE = `Use 1 to ${SHIP_HANDLE_MAX_LENGTH} lowercase letters, digits, hyphens or colons`;
 
 export const shipHandleSchema = z
   .string()

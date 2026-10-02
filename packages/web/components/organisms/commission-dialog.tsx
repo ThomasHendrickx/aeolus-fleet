@@ -126,7 +126,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
         />
         <p id={typeHintId} className={classNames('text-meta', isTypeProblem ? 'text-destructive-text' : 'text-muted-foreground')}>
           {isTypeProblem
-            ? `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits or hyphens.`
+            ? `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits, hyphens or colons.`
             : typeHint(type, activeShips.filter((ship) => ship.type === trimmedType).length)}
         </p>
       </div>
