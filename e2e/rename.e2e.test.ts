@@ -89,6 +89,19 @@ describe('renaming a ship', () => {
     await page.getByText('Renamed from reviewer-01 to reviewer-web by argo').waitFor();
     await expect(database.ship.findUniqueOrThrow({ where: { id: shipId } })).resolves.toMatchObject({ name: 'reviewer-web' });
   });
+
+  it('turns uppercase typed into the new name into lowercase', async () => {
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'deckhand', type: 'crew' }));
+    const page = await signedInPage();
+    await page.goto(`/ships/${shipId}`);
+    await page.getByTestId('fleet-ship-rename').click();
+    const dialog = page.getByTestId('rename-dialog');
+
+    await dialog.getByTestId('rename-name').fill('Hemma:Deckhand');
+
+    await expect(dialog.getByTestId('rename-name').inputValue()).resolves.toBe('hemma:deckhand');
+    await dialog.getByText('hemma:deckhand is available.').waitFor();
+  });
 });
 
 describe('/version', () => {

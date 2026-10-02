@@ -192,6 +192,20 @@ describe('Compose', () => {
   });
 });
 
+describe('the Compose recipient', () => {
+  it('turns an uppercase search into lowercase and finds the ship by its name', async () => {
+    await crewedOverRest({ name: 'harbour:pilot', type: 'harbour:crew' });
+    const page = await signedInPage();
+    await page.getByTestId('header-compose').click();
+    const dialog = page.getByTestId('compose-dialog');
+
+    await dialog.getByTestId('compose-ship').fill('HARBOUR:PI');
+
+    await expect(dialog.getByTestId('compose-ship').inputValue()).resolves.toBe('harbour:pi');
+    await page.getByRole('option', { name: /harbour:pilot/ }).waitFor();
+  });
+});
+
 describe('the send shortcut', () => {
   it('sends a composed message on Cmd+Enter on a Mac, where Enter alone is a newline and Send hints ⌘↵', async () => {
     const reviewer = await crewedOverRest({ name: 'reviewer-02', type: 'reviewer' });
