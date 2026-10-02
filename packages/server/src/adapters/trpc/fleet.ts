@@ -12,6 +12,8 @@ import {
   needsAttentionOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
+  pingShipInputSchema,
+  pingShipOutputSchema,
   shipDetailOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
@@ -59,6 +61,19 @@ export const fleetRouter = router({
     .input(getStartingPromptInputSchema)
     .output(startingPromptOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.getStartingPrompt(ctx.caller, input))),
+
+  /**
+   * Pings a crewed ship: a message its session answers with pong, proving
+   * its model is working. Pings never stack: while one waits unanswered, this
+   * answers with that one. Never argo, a ship awaiting crew or a retired one.
+   */
+  ping: scopedProcedure('fleet:manage')
+    .input(pingShipInputSchema)
+    .output(pingShipOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const pinged = okOrThrow(await ctx.useCases.pingShip(ctx.caller, input));
+      return { ...pinged, sentAt: pinged.sentAt.toISOString() };
+    }),
 
   /**
    * Frees a crewed ship from the session crewing it: its crew token and secret

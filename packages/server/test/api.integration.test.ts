@@ -1448,7 +1448,7 @@ describe('fleet.ping and ship.pong at the API', () => {
   }
 
   it('ping a crewed ship as argo, and answer with the open ping while it waits', async () => {
-    const { shipId } = await crewed('skiff');
+    const { shipId } = await crewed('ping-skiff');
     const asArgo = await signedInArgo();
 
     const first = await asArgo.fleet.ping.mutate({ shipId });
@@ -1460,7 +1460,7 @@ describe('fleet.ping and ship.pong at the API', () => {
   });
 
   it('let the ship answer its ping with pong: the delivery is acknowledged', async () => {
-    const { shipId, asShip } = await crewed('dory');
+    const { shipId, asShip } = await crewed('ping-dory');
     const { messageId } = await (await signedInArgo()).fleet.ping.mutate({ shipId });
     const { deliveries } = await asShip.ship.receive.mutate({});
     const deliveryId = idSchema('delivery').parse(deliveries[0]?.deliveryId);
@@ -1474,7 +1474,7 @@ describe('fleet.ping and ship.pong at the API', () => {
   });
 
   it('refuse pong for a delivery that is not a ping with CONFLICT', async () => {
-    const { shipId, asShip } = await crewed('punt');
+    const { shipId, asShip } = await crewed('ping-punt');
     await (await signedInArgo()).ship.send.mutate({
       selector: { kind: 'ship', shipId },
       payload: 'Row to the jetty',
@@ -1492,7 +1492,7 @@ describe('fleet.ping and ship.pong at the API', () => {
   });
 
   it('refuse fleet.ping to a ship without fleet:manage', async () => {
-    const { shipId } = await crewed('coracle');
+    const { shipId } = await crewed('ping-coracle');
     const crewToken = await crewedShip();
 
     await expect(refusalOf(client({ authorization: `Bearer ${crewToken}` }).fleet.ping.mutate({ shipId }))).resolves.toEqual({
@@ -1502,7 +1502,7 @@ describe('fleet.ping and ship.pong at the API', () => {
   });
 
   it('refuse a send with the reserved ping content type, even from argo', async () => {
-    const { shipId } = await crewed('kayak');
+    const { shipId } = await crewed('ping-kayak');
 
     await expect(
       refusalOf(

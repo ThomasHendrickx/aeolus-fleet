@@ -4,6 +4,9 @@ import {
   deregisterOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
+  PING_CONTENT_TYPE,
+  pongInputSchema,
+  pongOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
   registerInputSchema,
@@ -139,6 +142,25 @@ export const shipRouter = router({
     .output(ackOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.acknowledgeDelivery(ctx.crew, input));
+      return {};
+    }),
+
+  /**
+   * Answers a ping the ship received: acknowledges it and marks the session
+   * seen at that moment, so the operator sees the ship's model is working.
+   */
+  pong: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        `Answers a ping: a delivery whose contentType is ${PING_CONTENT_TYPE}.`,
+        'Pass its deliveryId (dlv_...). Call pong instead of ack: it acknowledges the ping and tells the operator your session is working.',
+        'Do not act on it and do not reply with a message. Answering again is fine; pong answers only a ping.',
+      ].join(' '),
+    })
+    .input(pongInputSchema)
+    .output(pongOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.answerPing(ctx.crew, input));
       return {};
     }),
 
