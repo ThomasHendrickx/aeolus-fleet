@@ -16,9 +16,11 @@ import { createSignIn } from '../../src/core/identity/sign-in.js';
 import { createSetTheme } from '../../src/core/identity/set-theme.js';
 import { createSignOut } from '../../src/core/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/core/messaging/acknowledge-delivery.js';
+import { createAnswerPing } from '../../src/core/messaging/answer-ping.js';
 import { createCheckInbox } from '../../src/core/messaging/check-inbox.js';
 import { createMarkDone } from '../../src/core/messaging/mark-done.js';
 import { createMarkRead } from '../../src/core/messaging/mark-read.js';
+import { createPingShip } from '../../src/core/messaging/ping-ship.js';
 import { createReplyToMessage } from '../../src/core/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/core/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/core/messaging/receive-deliveries.js';
@@ -138,6 +140,8 @@ export function messagingUseCases(core: InMemoryCore) {
     markRead: createMarkRead(deps),
     replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
+    pingShip: createPingShip({ ...deps, hasher: core.hasher }),
+    answerPing: createAnswerPing(deps),
   };
 }
 
