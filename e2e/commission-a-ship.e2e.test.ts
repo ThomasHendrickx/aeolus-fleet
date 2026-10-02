@@ -144,6 +144,17 @@ describe('commissioning a ship in the console', () => {
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
   });
 
+  it('commissions a ship whose name and type hold a colon, and lists them as typed', async () => {
+    const page = await signedInPage();
+
+    await commission(page, { name: 'hemma-a1b2:planner', type: 'hemma:planner' });
+
+    await promptBlock(page, 'hemma-a1b2:planner').getByRole('button', { name: 'Done' }).click();
+    const row = shipRow(page, 'hemma-a1b2:planner');
+    await row.getByText('Awaiting crew').waitFor();
+    await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('hemma:planner');
+  });
+
   it('asks before replacing an unclaimed prompt, and replaces it only once confirmed', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'lookout', type: 'reviewer' });
