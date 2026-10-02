@@ -61,6 +61,21 @@ export interface SequencedEvent extends FleetEvent {
 }
 
 /**
+ * Outbound port: wakes a waiting follow when its fleet has a new event. A
+ * wake-up is a hint to read again, never the event itself.
+ */
+export interface FleetEventWakeups {
+  /** Starts watching the fleet. A wake-up that comes before the next wait is kept for it. */
+  watch(fleetId: FleetId): FleetNewsWatch;
+}
+
+export interface FleetNewsWatch {
+  /** Settles when the fleet has news, or once `waitMs` has passed. */
+  next(waitMs: number): Promise<'woken' | 'timedOut'>;
+  stop(): void;
+}
+
+/**
  * Outbound port: reads a fleet's committed events by their place in its
  * stream, for live subscriptions to resume without missing one.
  */

@@ -1605,8 +1605,9 @@ describe('fleet.follow at the API', () => {
 
   it('answers a ship with fleet:read the events after its position, as soon as one commits while it waits', async () => {
     const reader = await crewedReader('follow-reader');
-    const { lastSeq } = await reader.fleet.follow.query({});
+    // Signing in writes events of its own: before the position is read.
     const asArgo = await signedInArgo();
+    const { lastSeq } = await reader.fleet.follow.query({});
 
     const following = reader.fleet.follow.query({ afterSeq: lastSeq, waitSeconds: 20 });
     await new Promise((resolve) => setTimeout(resolve, 300));

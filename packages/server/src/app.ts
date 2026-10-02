@@ -5,7 +5,7 @@ import { buildHttpServer } from './adapters/http/server.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
-import { createFleetEventWakeups } from './adapters/prisma/fleet-event-wakeups.js';
+import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './core/shared/clock.js';
 import { createUseCases, systemClock } from './wiring.js';
@@ -43,7 +43,14 @@ export function createApp(options: AppOptions): FastifyInstance {
   const fleetEvents = createFleetEventWakeups();
 
   const server = buildHttpServer({
-    useCases: createUseCases({ prisma, clock, fleetUrl: options.publicUrl, wakeups, receiveWaitMs: options.receiveWaitMs }),
+    useCases: createUseCases({
+      prisma,
+      clock,
+      fleetUrl: options.publicUrl,
+      wakeups,
+      fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
+      receiveWaitMs: options.receiveWaitMs,
+    }),
     fleetEvents,
     checkDatabase: () => checkDatabase(prisma),
     latestMigration: () => latestMigration(prisma),

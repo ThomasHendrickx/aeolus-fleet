@@ -3,6 +3,8 @@ import {
   dismissDeliveryInputSchema,
   dismissDeliveryOutputSchema,
   fleetEventsInputSchema,
+  followFleetInputSchema,
+  followFleetOutputSchema,
   inboxActionOutputSchema,
   markDoneInputSchema,
   markReadInputSchema,
@@ -312,6 +314,28 @@ export const fleetRouter = router({
     .input(replyInputSchema)
     .output(replyOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.replyToMessage(ctx.crew, input))),
+
+  /**
+   * The fleet's committed events after a position, for a client that is no
+   * browser: the same numbers the live stream sends, waiting up to
+   * waitSeconds while none has come. A query: it changes nothing.
+   */
+  follow: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        'Needs fleet:read. The fleet\'s events after afterSeq, oldest first, up to max (1 to 100, 100 when left out):',
+        'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details.',
+        'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects.',
+        'Without afterSeq it answers no events and the current lastSeq to start from.',
+        'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
+      ].join(' '),
+    })
+    .input(followFleetInputSchema)
+    .output(followFleetOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { events, lastSeq } = okOrThrow(await ctx.useCases.followFleet(ctx.caller, input ?? {}));
+      return { events: events.map(liveEventOf), lastSeq };
+    }),
 
   /**
    * The fleet's committed events, live, over the WebSocket: each with its

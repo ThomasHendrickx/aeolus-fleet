@@ -107,11 +107,11 @@ describe('following the fleet', () => {
   });
 
   it.each([
-    ['no event at most', { max: 0 }, 'INVALID_FOLLOW_MAX'],
-    ['more than 100 at most', { max: 101 }, 'INVALID_FOLLOW_MAX'],
-    ['a wait over 25 seconds', { waitSeconds: 26 }, 'INVALID_FOLLOW_WAIT'],
-    ['a negative wait', { waitSeconds: -1 }, 'INVALID_FOLLOW_WAIT'],
-  ])('refuses %s', async (_label, input, kind) => {
+    { label: 'no event at most', input: { max: 0 }, kind: 'INVALID_FOLLOW_MAX' },
+    { label: 'more than 100 at most', input: { max: 101 }, kind: 'INVALID_FOLLOW_MAX' },
+    { label: 'a wait over 25 seconds', input: { waitSeconds: 26 }, kind: 'INVALID_FOLLOW_WAIT' },
+    { label: 'a negative wait', input: { waitSeconds: -1 }, kind: 'INVALID_FOLLOW_WAIT' },
+  ])('refuses $label', async ({ input, kind }) => {
     await expect(followFleet(argo, { afterSeq: 0, ...input })).resolves.toMatchObject({ isOk: false, error: { kind } });
   });
 });

@@ -49,6 +49,9 @@ import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
 import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-fleet-events.js';
+import { createFollowFleet, type FollowFleet } from './core/shared/follow-fleet.js';
+import type { FleetEventWakeups } from './core/shared/events.js';
+import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReadInbox, type ReadInbox } from './core/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './core/shared/read-message.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './core/shared/read-needs-attention.js';
@@ -82,6 +85,7 @@ export interface UseCases {
   markDone: MarkDone;
   replyToMessage: ReplyToMessage;
   readFleetEvents: ReadFleetEvents;
+  followFleet: FollowFleet;
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
@@ -112,6 +116,8 @@ export function createUseCases(options: {
   clock?: Clock;
   ids?: IdGenerator;
   wakeups?: ReceiverWakeups;
+  /** Wake a waiting follow; without them a follow ends only at its wait. */
+  fleetEventWakeups?: FleetEventWakeups;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   receiveWaitMs?: number;
 }): UseCases {
@@ -156,6 +162,11 @@ export function createUseCases(options: {
     markDone: createMarkDone({ uow, clock, ids }),
     replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
+    followFleet: createFollowFleet({
+      feed: createPrismaFleetEventFeed(prisma),
+      clock,
+      wakeups: options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups()),
+    }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
