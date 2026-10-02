@@ -1554,3 +1554,43 @@ describe('ship names and types with a colon at the API', () => {
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ name: 'hemma-a1b2:lookout', type: 'hemma:planner' });
   });
 });
+
+describe('ships with fleet scopes at the API', () => {
+  async function commissionedAndCrewed(
+    name: string,
+    fleetScopes: ('fleet:read' | 'fleet:manage')[],
+  ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ name, type: 'squadron', fleetScopes });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } });
+    return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  it('list the ship with the scopes it was commissioned with', async () => {
+    const { shipId } = await commissionedAndCrewed('scoped-watcher', ['fleet:read']);
+
+    const listed = await (await signedInArgo()).fleet.list.query();
+
+    expect(listed.find((ship) => ship.id === shipId)?.scopes).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
+  });
+
+  it('let a ship with fleet:read read the fleet with its crew token', async () => {
+    const { asShip } = await commissionedAndCrewed('scoped-reader', ['fleet:read']);
+
+    const listed = await asShip.fleet.list.query();
+
+    expect(listed.map((ship) => ship.name)).toContain('scoped-reader');
+  });
+
+  it('let a ship with fleet:manage commission a ship, and refuse it to a ship with only fleet:read', async () => {
+    const { asShip: manager } = await commissionedAndCrewed('scoped-manager', ['fleet:read', 'fleet:manage']);
+    const { asShip: reader } = await commissionedAndCrewed('scoped-onlooker', ['fleet:read']);
+
+    await expect(manager.fleet.commission.mutate({ name: 'scoped-member', type: 'squadron' })).resolves.toMatchObject({
+      shipId: expect.stringMatching(/^shp_/),
+    });
+    await expect(refusalOf(reader.fleet.commission.mutate({ name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:manage scope',
+    });
+  });
+});

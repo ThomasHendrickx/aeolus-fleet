@@ -80,6 +80,7 @@ describe('listing the fleet', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
       },
       {
         id: scoutId,
@@ -91,6 +92,7 @@ describe('listing the fleet', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
+        scopes: ['messages:send', 'messages:receive'],
       },
     ]);
   });

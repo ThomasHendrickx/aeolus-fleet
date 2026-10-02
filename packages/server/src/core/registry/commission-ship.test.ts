@@ -104,7 +104,7 @@ describe('commissioning a ship', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: argoId },
         shipId,
-        details: { name: 'scout', type: 'reviewer', kind: 'agent' },
+        details: { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' },
       }),
       expect.objectContaining({
         fleetId,
@@ -115,6 +115,47 @@ describe('commissioning a ship', () => {
         details: { credentialId: credential?.id },
       }),
     ]);
+  });
+});
+
+describe('the scopes of a new ship', () => {
+  function scopesOf(name: string) {
+    return shipsNamed(name)[0]?.scopes;
+  }
+
+  it('adds fleet:read to the scopes every agent ship has', async () => {
+    unwrap(await commissionShip(argo, { name: 'watcher', type: 'squadron', fleetScopes: ['fleet:read'] }));
+
+    expect(scopesOf('watcher')).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
+  });
+
+  it('adds fleet:read and fleet:manage, in their fixed order, each once', async () => {
+    unwrap(
+      await commissionShip(argo, {
+        name: 'manager',
+        type: 'squadron',
+        fleetScopes: ['fleet:manage', 'fleet:read', 'fleet:manage'],
+      }),
+    );
+
+    expect(scopesOf('manager')).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage']);
+  });
+
+  it('writes the scopes in ShipCommissioned', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+
+    expect(core.state.events.find((event) => event.type === 'ShipCommissioned' && event.shipId === shipId)?.details).toMatchObject({
+      scopes: 'messages:send messages:receive fleet:manage',
+    });
+  });
+
+  it('lets a ship with fleet:manage commission a ship with fleet scopes: no rule beyond the scopes (ADR 0016)', async () => {
+    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
+
+    unwrap(await commissionShip(manager, { name: 'deputy', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+
+    expect(scopesOf('deputy')).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
   });
 });
 
