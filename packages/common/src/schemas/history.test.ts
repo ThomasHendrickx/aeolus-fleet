@@ -38,6 +38,7 @@ describe('shipDetailOutputSchema', () => {
     location: { kind: 'SERVER', description: null },
     lastSeenAt: AT,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,

@@ -11,6 +11,14 @@ export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
 
+/**
+ * The scopes commissioning may add to an agent ship, beside sending and
+ * receiving, which every agent ship has (ADR 0002).
+ */
+export const FLEET_SCOPES = ['fleet:read', 'fleet:manage'] as const;
+export const fleetScopeSchema = z.enum(FLEET_SCOPES);
+export type FleetScope = z.infer<typeof fleetScopeSchema>;
+
 /** `argo` is the one ship of kind `operator` in a fleet; every other ship is an `agent`. */
 export const SHIP_KINDS = ['operator', 'agent'] as const;
 export const shipKindSchema = z.enum(SHIP_KINDS);

@@ -1,6 +1,8 @@
 import {
+  FLEET_SCOPES,
   SCOPES,
   type FleetId,
+  type FleetScope,
   type LeaseId,
   type Scope,
   type ShipId,
@@ -48,7 +50,7 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
   };
 }
 
-/** The scopes every agent ship gets at creation: it can only send and receive (ADR 0002). */
+/** The scopes every agent ship gets at creation: it sends and receives; commissioning may add fleet scopes (ADR 0002). */
 export const AGENT_SCOPES: readonly Scope[] = ['messages:send', 'messages:receive'];
 
 export type CommissionRefusal = DomainError<
@@ -62,7 +64,17 @@ export type CommissionRefusal = DomainError<
  * while the name is locked.
  */
 export function commissionAgentShip(
-  input: { id: ShipId; fleetId: FleetId; name: string; type: string; note?: string; at: Date; actor: Actor },
+  input: {
+    id: ShipId;
+    fleetId: FleetId;
+    name: string;
+    type: string;
+    note?: string;
+    /** fleet:read and/or fleet:manage, added to the agent scopes (ADR 0002). */
+    fleetScopes?: readonly FleetScope[];
+    at: Date;
+    actor: Actor;
+  },
   fleet: { activeShipNamed: Ship | undefined },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const name = shipName(input.name);
@@ -92,7 +104,7 @@ export function commissionAgentShip(
     name: name.value,
     type: type.value,
     kind: 'agent',
-    scopes: [...AGENT_SCOPES],
+    scopes: [...AGENT_SCOPES, ...FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope))],
     note: note.value,
     createdAt: at,
     retiredAt: null,
@@ -106,7 +118,7 @@ export function commissionAgentShip(
         occurredAt: at,
         actor,
         shipId: id,
-        details: { name: ship.name, type: ship.type, kind: ship.kind },
+        details: { name: ship.name, type: ship.type, kind: ship.kind, scopes: ship.scopes.join(' ') },
       },
     ],
   });

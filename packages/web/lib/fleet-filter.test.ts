@@ -25,6 +25,7 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
     location: { kind: 'DEVICE', description: null },
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     ...overrides,
   };
 }

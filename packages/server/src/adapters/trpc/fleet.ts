@@ -138,6 +138,7 @@ export const fleetRouter = router({
         },
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
         ping: pingOutputOf(ship.ping),
+        scopes: [...ship.scopes],
       })),
     ),
 
@@ -155,6 +156,7 @@ export const fleetRouter = router({
         },
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
         ping: pingOutputOf(ship.ping),
+        scopes: [...ship.scopes],
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,

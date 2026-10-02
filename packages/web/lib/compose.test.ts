@@ -16,6 +16,7 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
     location: null,
     lastSeenAt: null,
     ping: null,
+    scopes: ['messages:send', 'messages:receive'],
     ...ship,
   };
 }

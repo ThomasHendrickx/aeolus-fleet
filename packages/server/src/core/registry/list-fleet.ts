@@ -1,4 +1,4 @@
-import type { ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { Scope, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
@@ -26,6 +26,8 @@ export interface ListedShip {
   lastSeenAt: Date | null;
   /** The ship's last ping and how it stands; null before any ping. Observation only. */
   ping: PingStatus | null;
+  /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes; argo has all. */
+  scopes: readonly Scope[];
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -51,5 +53,6 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing }: ShipFac
     location: openLease?.location ?? null,
     lastSeenAt: openLease?.lastSeenAt ?? null,
     ping: pingStatusOf(lastPing),
+    scopes: ship.scopes,
   };
 }

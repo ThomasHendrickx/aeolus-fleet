@@ -298,6 +298,7 @@ describe('the fleet procedures at the API', () => {
       location: null,
       lastSeenAt: null,
       ping: null,
+      scopes: ['messages:send', 'messages:receive'],
     });
   });
 
@@ -1585,9 +1586,9 @@ describe('ships with fleet scopes at the API', () => {
     const { asShip: manager } = await commissionedAndCrewed('scoped-manager', ['fleet:read', 'fleet:manage']);
     const { asShip: reader } = await commissionedAndCrewed('scoped-onlooker', ['fleet:read']);
 
-    await expect(manager.fleet.commission.mutate({ name: 'scoped-member', type: 'squadron' })).resolves.toMatchObject({
-      shipId: expect.stringMatching(/^shp_/),
-    });
+    const { shipId } = await manager.fleet.commission.mutate({ name: 'scoped-member', type: 'squadron' });
+
+    expect(shipId).toMatch(/^shp_/);
     await expect(refusalOf(reader.fleet.commission.mutate({ name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
       message: 'This call needs the fleet:manage scope',
