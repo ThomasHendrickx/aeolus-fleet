@@ -14,9 +14,9 @@ import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// Last seen, end to end: a ship's session calls the fleet over the REST API,
-// and the overview and its page say when it was last seen; when the session
-// stops calling, the time ages.
+// Last seen and the crew's report, end to end: a ship's session calls the
+// fleet over the REST API, and the overview and its page say when it was last
+// seen, and what it reported; when the session stops calling, the time ages.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** A receive returns at once when it has deliveries; an empty one waits no longer than this. */
@@ -64,7 +64,7 @@ afterAll(async () => {
 /** A ship's session on the REST API, as its starting prompt tells it to connect. */
 interface Session {
   shipId: string;
-  call(operation: 'send' | 'receive' | 'ack', body: Record<string, unknown>): Promise<unknown>;
+  call(operation: 'send' | 'receive' | 'ack' | 'report', body: Record<string, unknown>): Promise<unknown>;
 }
 
 async function crewedOverRest(ship: { name: string; type: string }): Promise<Session> {
@@ -117,5 +117,21 @@ describe('last seen', () => {
     await page.clock.setFixedTime(new Date(calledAt.getTime() + 6 * 60_000));
     await page.reload();
     await page.getByTestId('ship-last-seen').getByText('Last seen 6 min ago').waitFor();
+  });
+});
+
+describe("a crew's report", () => {
+  it('shows what the crew reported on its page, live, and in the overview', async () => {
+    const lookout = await crewedOverRest({ name: 'lookout', type: 'reviewer' });
+    const page = await signedInPage();
+    await page.clock.setFixedTime(new Date(clock.now().getTime() + 5_000));
+    await page.goto(`/ships/${lookout.shipId}`);
+    await page.getByTestId('ship-header').waitFor();
+
+    await lookout.call('report', { state: 'blocked', note: 'waiting for review' });
+
+    await page.getByTestId('ship-report').getByText('Blocked · waiting for review · just now').waitFor({ timeout: 20_000 });
+    await page.goto('/');
+    await page.getByTestId('fleet-row-lookout').getByText('Blocked · waiting for review', { exact: false }).waitFor();
   });
 });
