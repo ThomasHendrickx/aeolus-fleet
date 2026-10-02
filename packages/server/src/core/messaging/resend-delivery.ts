@@ -1,4 +1,4 @@
-import type { DeliveryId, IdGenerator, MessageId } from '@aeolus-fleet/common';
+import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -21,7 +21,7 @@ export interface ResendDeliveryTx extends ResolveSelectorTx {
 }
 
 export type ResendDeliveryRefusal =
-  | DomainError<'DELIVERY_NOT_FOUND'>
+  | DomainError<'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT'>
   | DismissRefusal
   | RepeatRefusal
   | UnresolvableSelector
@@ -53,7 +53,8 @@ function resendKey(deliveryId: DeliveryId): string {
  * A second resend of the delivery answers the first one's message and stores
  * nothing. When the selector no longer resolves, a retired ship or no ship of
  * the type left, the resend is refused and the original stays undeliverable,
- * for the operator to dismiss. Locks, in this order: the original delivery,
+ * for the operator to dismiss. A ping is never resent: it is dismissed, and
+ * the ship pinged again through ping, so pings never stack. Locks, in this order: the original delivery,
  * then the resend's key, then the ship the message is addressed to.
  */
 export function createResendDelivery(deps: {
@@ -69,6 +70,9 @@ export function createResendDelivery(deps: {
       const original = delivery && (await tx.messages.find(fleetId, delivery.messageId));
       if (!delivery || !original) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
+      }
+      if (isPingContentType(original.contentType)) {
+        return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
 
       const selector = original.selector;
