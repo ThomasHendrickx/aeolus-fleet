@@ -71,6 +71,11 @@ export interface DeliveryRepository {
   countReceivable(query: Omit<ClaimableDeliveries, 'limit' | 'excluding'>): Promise<number>;
   /** The delivery, locked until the unit of work ends. */
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
+  /**
+   * The ping to the ship whose delivery is still open, pending or in flight:
+   * at most one, since pings never stack. Locks nothing: a ping holds the ship.
+   */
+  findOpenPing(fleetId: FleetId, shipId: ShipId): Promise<Message | undefined>;
   /** Stores the delivery's state, its claim and its attempts. */
   update(delivery: Delivery): Promise<void>;
   /**

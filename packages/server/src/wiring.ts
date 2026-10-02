@@ -22,6 +22,7 @@ import { createSetTheme, type SetTheme } from './core/identity/set-theme.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './core/messaging/acknowledge-delivery.js';
+import { createAnswerPing, type AnswerPing } from './core/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './core/messaging/check-inbox.js';
 import { createDismissDelivery, type DismissDelivery } from './core/messaging/dismiss-delivery.js';
 import { createMarkDone, type MarkDone } from './core/messaging/mark-done.js';
@@ -30,6 +31,7 @@ import type { ReceiverWakeups } from './core/messaging/ports.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './core/messaging/receive-deliveries.js';
 import { createReplyToMessage, type ReplyToMessage } from './core/messaging/reply-to-message.js';
 import { createResendDelivery, type ResendDelivery } from './core/messaging/resend-delivery.js';
+import { createPingShip, type PingShip } from './core/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './core/messaging/send-message.js';
 import { createClaimShip, type ClaimShip } from './core/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './core/registry/commission-ship.js';
@@ -71,6 +73,8 @@ export interface UseCases {
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
+  answerPing: AnswerPing;
+  pingShip: PingShip;
   checkInbox: CheckInbox;
   dismissDelivery: DismissDelivery;
   resendDelivery: ResendDelivery;
@@ -143,6 +147,8 @@ export function createUseCases(options: {
       waitMs: options.receiveWaitMs,
     }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
+    answerPing: createAnswerPing({ uow, clock, ids }),
+    pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
     checkInbox: createCheckInbox({ uow, clock, wakeups }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids }),
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher }),

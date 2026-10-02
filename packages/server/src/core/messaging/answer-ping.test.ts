@@ -106,7 +106,8 @@ describe('answering a ping with pong', () => {
 });
 
 describe('a pong refused', () => {
-  async function expectRefused(crew: Crew, deliveryId: DeliveryId, kind: string): Promise<void> {
+  async function expectRefused(pong: { crew: Crew; deliveryId: DeliveryId }, kind: string): Promise<void> {
+    const { crew, deliveryId } = pong;
     const before = structuredClone(core.state);
 
     await expect(useCases.answerPing(crew, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { kind } });
@@ -124,22 +125,22 @@ describe('a pong refused', () => {
     );
     unwrap(await useCases.receiveDeliveries(scout, {}));
 
-    await expectRefused(scout, deliveryIdOf(core, messageId), 'DELIVERY_NOT_A_PING');
+    await expectRefused({ crew: scout, deliveryId: deliveryIdOf(core, messageId) }, 'DELIVERY_NOT_A_PING');
   });
 
   it("refuses another ship's ping: only the ship holding it answers it", async () => {
     const deliveryId = await pingReceivedBy(scout);
 
-    await expectRefused(lookout, deliveryId, 'DELIVERY_HELD_BY_ANOTHER_SHIP');
+    await expectRefused({ crew: lookout, deliveryId }, 'DELIVERY_HELD_BY_ANOTHER_SHIP');
   });
 
   it('refuses a ping no receive handed over yet', async () => {
     const { messageId } = unwrap(await useCases.pingShip(argo, { shipId: scoutId }));
 
-    await expectRefused(scout, deliveryIdOf(core, messageId), 'DELIVERY_NOT_IN_FLIGHT');
+    await expectRefused({ crew: scout, deliveryId: deliveryIdOf(core, messageId) }, 'DELIVERY_NOT_IN_FLIGHT');
   });
 
   it('refuses a delivery the fleet does not have', async () => {
-    await expectRefused(scout, core.ids('delivery'), 'DELIVERY_NOT_FOUND');
+    await expectRefused({ crew: scout, deliveryId: core.ids('delivery') }, 'DELIVERY_NOT_FOUND');
   });
 });

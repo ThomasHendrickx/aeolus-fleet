@@ -1,3 +1,5 @@
+import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
+
 import type { DeliveryRepository, MessageRepository } from '../../core/messaging/ports.js';
 import type { Db } from './client.js';
 import { toDeliveryFromSql, toMessage } from './rows.js';
@@ -122,6 +124,17 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         WHERE fleet_id = ${fleetId} AND id = ${deliveryId}
         FOR UPDATE`;
       return row ? toDeliveryFromSql(row) : undefined;
+    },
+    findOpenPing: async (fleetId, shipId) => {
+      const row = await db.message.findFirst({
+        where: {
+          fleetId,
+          contentType: PING_CONTENT_TYPE,
+          deliveries: { some: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'delivered'] } } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return row ? toMessage(row) : undefined;
     },
     update: async (delivery) => {
       await db.delivery.updateMany({

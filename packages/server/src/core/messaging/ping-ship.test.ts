@@ -63,7 +63,7 @@ describe('pinging a ship', () => {
   it('answers the new ping, when it was sent, and that this call sent it', async () => {
     const pinged = unwrap(await useCases.pingShip(argo, { shipId: scoutId }));
 
-    expect(pinged).toEqual({ messageId: expect.any(String), sentAt: core.clock.now(), isNew: true });
+    expect(pinged).toEqual({ messageId: core.state.messages.at(-1)?.id, sentAt: core.clock.now(), isNew: true });
   });
 
   it('says the fixed payload: what the session does with a ping', () => {

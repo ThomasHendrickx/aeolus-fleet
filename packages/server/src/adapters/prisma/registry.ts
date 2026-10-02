@@ -101,6 +101,22 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         FOR UPDATE`;
       return row ? toLease(row) : undefined;
     },
+    findOpenForShare: async (fleetId, shipId) => {
+      // FOR SHARE, as findOpenByIdForShare: a release waits for the holder.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+               started_at, ended_at
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
+        FOR SHARE`;
+      return row ? toLease(row) : undefined;
+    },
+    markSeen: async ({ fleetId, leaseId, at }) => {
+      // GREATEST keeps an overlapping call that marked it later from moving it back.
+      await db.$executeRaw`
+        UPDATE leases SET last_seen_at = GREATEST(COALESCE(last_seen_at, ${at}), ${at})
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId}`;
+    },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
