@@ -18,7 +18,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // message over the REST API, it shows in the inbox live with its count, the
 // operator opens it (read), replies (the ship receives the reply, the message
 // is done) and marks another done; and composes a message to a ship, which
-// its session receives.
+// its session receives. On desktop, Cmd+Enter or Ctrl+Enter sends from both,
+// Enter alone is a newline, and the Send button hints the platform's keys.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** A live change shows within this. */
@@ -98,9 +99,14 @@ const receivedSchema = z.object({
   deliveries: z.array(z.object({ messageId: z.string(), payload: z.string(), inReplyTo: z.string().nullable() })),
 });
 
-async function signedInPage(): Promise<Page> {
+const MAC_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+const WINDOWS_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+
+async function signedInPage(userAgent?: string): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
-  const context = await browser.newContext({ baseURL: web.url });
+  const context = await browser.newContext({ baseURL: web.url, ...(userAgent === undefined ? {} : { userAgent }) });
   contexts.push(context);
   const page = await context.newPage();
   await signIn(page, OPERATOR);
@@ -183,5 +189,44 @@ describe('Compose', () => {
     await dialog.waitFor({ state: 'hidden' });
     const { deliveries } = receivedSchema.parse(await reviewer.call('receive', {}));
     expect(deliveries).toEqual([expect.objectContaining({ payload: 'Pause all reviews until 15:00.', inReplyTo: null })]);
+  });
+});
+
+describe('the send shortcut', () => {
+  it('sends a composed message on Cmd+Enter on a Mac, where Enter alone is a newline and Send hints ⌘↵', async () => {
+    const reviewer = await crewedOverRest({ name: 'reviewer-02', type: 'reviewer' });
+    const page = await signedInPage(MAC_USER_AGENT);
+    await page.getByTestId('header-compose').click();
+    const dialog = page.getByTestId('compose-dialog');
+    await dialog.getByTestId('compose-ship').fill('reviewer-02');
+    await page.getByRole('option', { name: /reviewer-02/ }).click();
+    const payload = dialog.getByTestId('compose-payload');
+    await payload.fill('Review PR 75.');
+
+    await payload.press('Enter');
+    await payload.pressSequentially('Then PR 76.');
+    await expect.poll(() => dialog.getByTestId('send-shortcut-hint').textContent()).toBe('⌘↵');
+    await payload.press('Meta+Enter');
+
+    await dialog.waitFor({ state: 'hidden' });
+    const { deliveries } = receivedSchema.parse(await reviewer.call('receive', {}));
+    expect(deliveries).toEqual([expect.objectContaining({ payload: 'Review PR 75.\nThen PR 76.' })]);
+  });
+
+  it('sends a reply on Ctrl+Enter elsewhere, where Send reply hints Ctrl ↵', async () => {
+    const captain = await crewedOverRest({ name: 'release-captain-02', type: 'release' });
+    const asked = await toArgo(captain, 'Release 2.15 is staged. Promote?');
+    const page = await signedInPage(WINDOWS_USER_AGENT);
+    await page.goto('/inbox');
+    await inboxRow(page, 'Release 2.15 is staged.').click();
+    const reply = visible(page, 'inbox-reply');
+    await reply.fill('go');
+
+    await expect.poll(() => visible(page, 'inbox-reply-send').getByTestId('send-shortcut-hint').textContent()).toBe('Ctrl ↵');
+    await reply.press('Control+Enter');
+
+    await inboxRow(page, 'Release 2.15 is staged.').waitFor({ state: 'detached' });
+    const { deliveries } = receivedSchema.parse(await captain.call('receive', {}));
+    expect(deliveries).toEqual([expect.objectContaining({ payload: 'go', inReplyTo: asked })]);
   });
 });
