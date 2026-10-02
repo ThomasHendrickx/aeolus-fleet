@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { accountOutputSchema, setThemeInputSchema, signInInputSchema, THEMES } from './console.js';
+import { createIdGenerator } from '../ids/index.js';
+import {
+  THEMES,
+  accountOutputSchema,
+  consoleSessionOutputSchema,
+  setThemeInputSchema,
+  signInInputSchema,
+} from './console.js';
+
+const newId = createIdGenerator();
 
 describe('signInInputSchema', () => {
   it('accepts an email and a password', () => {
@@ -37,6 +46,18 @@ describe('signInInputSchema', () => {
 describe('THEMES', () => {
   it('knows Light, Dark and System', () => {
     expect(THEMES).toEqual(['light', 'dark', 'system']);
+  });
+});
+
+describe('consoleSessionOutputSchema', () => {
+  it('answers the fleet of the signed-in operator and when the session expires', () => {
+    const output = { fleetId: newId('fleet'), expiresAt: '2026-11-01T19:00:00.000Z' };
+
+    expect(consoleSessionOutputSchema.parse(output)).toEqual(output);
+  });
+
+  it('rejects an expiry that is not ISO 8601', () => {
+    expect(consoleSessionOutputSchema.safeParse({ fleetId: newId('fleet'), expiresAt: 'soon' }).success).toBe(false);
   });
 });
 
