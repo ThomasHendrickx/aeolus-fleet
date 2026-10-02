@@ -1,7 +1,15 @@
-import type { DeliveryId, UndeliverableDelivery } from '@aeolus-fleet/common';
+import { isPingContentType, type DeliveryId, type UndeliverableDelivery } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useTRPC } from './trpc';
+
+/**
+ * Whether Needs attention offers Resend: never for a ping, which pings never
+ * stack. It offers only Dismiss, and a fresh ping goes through Ping.
+ */
+export function canResend(delivery: UndeliverableDelivery): boolean {
+  return !isPingContentType(delivery.message.contentType);
+}
 
 /** Needs attention: every undeliverable delivery of the fleet, oldest first. */
 export function useNeedsAttention() {

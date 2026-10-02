@@ -66,6 +66,18 @@ type Story = StoryObj<typeof meta>;
 /** Oldest first: one from argo to a type, one between two ships. */
 export const Default: Story = {};
 
+/** An undeliverable ping offers only Dismiss: a fresh ping goes through Ping. */
+export const UndeliverablePing: Story = {
+  args: {
+    deliveries: [
+      {
+        ...fromBuilder,
+        message: { ...fromBuilder.message, sender: argo, contentType: 'application/vnd.aeolus.ping', payload: 'Ping from argo: answer with pong(deliveryId).' },
+      },
+    ],
+  },
+};
+
 export const Empty: Story = { args: { deliveries: [] } };
 
 export const Loading: Story = { args: { state: 'loading' } };
