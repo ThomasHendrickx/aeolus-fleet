@@ -1,6 +1,6 @@
 /**
  * `/api/v1`: the ship contract as REST, for ships that are not TypeScript or
- * not MCP-capable (ADR 0004). One route per ship procedure, each a call
+ * not MCP-capable (ADR 0004). One route per ship procedure and fleet action, each a call
  * through the router (see trpc/ship-contract.ts), and the OpenAPI spec
  * generated from the same procedures at `/api/v1/openapi.json`, rendered for
  * people at `/api/v1/docs`.
@@ -28,7 +28,7 @@ export interface RestApiOptions {
   contextFor: (request: FastifyRequest, credentials: RequestCredentials) => Context;
 }
 
-/** Mounts `/api/v1` on the HTTP server: a query as GET, without input; a mutation as POST, with its JSON body. */
+/** Mounts `/api/v1` on the HTTP server: a query without input as GET, the others as POST with a JSON body. */
 export function registerRestApi(server: FastifyInstance, options: RestApiOptions): void {
   server.get(OPENAPI_PATH, () => OPENAPI_DOCUMENT);
 
@@ -50,8 +50,8 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
 
   for (const call of SHIP_CALLS) {
     server.route({
-      method: call.type === 'query' ? 'GET' : 'POST',
-      url: `${PREFIX}/ship/${call.name}`,
+      method: call.method,
+      url: `${PREFIX}${call.route}`,
       handler: async (request, reply) => {
         try {
           const result = await callShip(call, {

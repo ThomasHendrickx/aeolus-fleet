@@ -43,6 +43,8 @@ const CREW_TOKEN_PROPERTY = {
 /** The one credential a tool takes as an argument. Whether it is a valid one is for the router to judge. */
 const crewTokenArgument = z.string();
 
+const objectOutput = z.looseObject({ type: z.literal('object') });
+
 /** A ship call as an MCP tool: every one but `register` asks for the crew token first. */
 function toolOf(call: ShipCall): Tool {
   const input = call.input?.schema ?? { type: 'object', properties: {}, required: [] };
@@ -54,7 +56,13 @@ function toolOf(call: ShipCall): Tool {
           required: ['crewToken', ...input.required],
         }
       : input;
-  return { name: call.name, description: call.description, inputSchema, outputSchema: call.output };
+  // MCP takes an output schema only for an object; fleet_list answers a list, as text.
+  return {
+    name: call.name,
+    description: call.description,
+    inputSchema,
+    ...(call.output.type === 'object' && { outputSchema: objectOutput.parse(call.output) }),
+  };
 }
 
 const TOOLS: Tool[] = SHIP_CALLS.map(toolOf);
@@ -82,7 +90,7 @@ async function callTool(
     const names = SHIP_CALLS.map((known) => known.name).join(', ');
     return refusalResult({
       code: 'NOT_FOUND',
-      message: `There is no tool named ${params.name}. The ship tools are ${names}.`,
+      message: `There is no tool named ${params.name}. The tools are ${names}.`,
     });
   }
 
@@ -98,8 +106,11 @@ async function callTool(
   if (!result.isOk) {
     return refusalResult(result.refusal);
   }
-  const structuredContent = z.record(z.string(), z.unknown()).parse(result.output);
-  return { content: [{ type: 'text', text: JSON.stringify(structuredContent) }], structuredContent };
+  const text = JSON.stringify(result.output);
+  const structuredContent = z.record(z.string(), z.unknown()).safeParse(result.output);
+  return structuredContent.success
+    ? { content: [{ type: 'text', text }], structuredContent: structuredContent.data }
+    : { content: [{ type: 'text', text }] };
 }
 
 /**

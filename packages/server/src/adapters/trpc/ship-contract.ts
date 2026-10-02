@@ -1,6 +1,7 @@
 /**
  * The ship contract as the REST and MCP doors see it (ADR 0004): every
- * procedure under `ship` in the router, read from the router itself. For each
+ * procedure under `ship` in the router, then the fleet actions a ship with
+ * fleet scopes may call, read from the router itself. For each
  * one: its name, what it says about itself, and the JSON Schema of its input
  * and output, generated from the procedure's own Zod parsers. A call goes
  * through the router with the raw input, so its middlewares and its input
@@ -28,8 +29,12 @@ export interface ObjectSchema {
 
 /** One call of the ship contract, as a door offers it. */
 export interface ShipCall {
-  /** The name agents call it by: `register`, `whoami`, `send`, `receive`, `ack`, `deregister`. */
+  /** The name agents call it by, the MCP tool's: `send`, `ack`, or `fleet_list` for a fleet action. */
   name: string;
+  /** Where REST serves it, under `/api/v1`: `/ship/send`, `/fleet/list`. */
+  route: string;
+  /** GET for a query without input, POST with a JSON body for the others. */
+  method: 'GET' | 'POST';
   /** The procedure's path in the router, such as `ship.send`. */
   path: string;
   type: 'query' | 'mutation';
@@ -39,8 +44,12 @@ export interface ShipCall {
   credential: 'secret' | 'crewToken';
   /** What it takes, if anything, and whether it may be left out (`receive`). */
   input?: { schema: ObjectSchema; isRequired: boolean };
-  output: ObjectSchema;
+  /** What it answers: an object, or a list for `fleet_list`. */
+  output: JsonSchema;
 }
+
+/** A JSON Schema of any shape: what a call answers. */
+export type JsonSchema = Record<string, unknown>;
 
 const objectSchema = z.looseObject({
   type: z.literal('object'),
@@ -75,21 +84,50 @@ function inputOf(parser: unknown): ShipCall['input'] {
   return { schema: jsonSchemaOf(input, 'input'), isRequired: !input.safeParse(undefined).success };
 }
 
-/** Every procedure under `ship`, in the router's order. Built once: the router never changes while the server runs. */
-export const SHIP_CALLS: readonly ShipCall[] = Object.entries(appRouter.ship).map(([name, procedure]): ShipCall => {
+/** What a procedure answers, as a JSON Schema of any shape. */
+function outputSchemaOf(parser: z.ZodType): JsonSchema {
+  const schema: JsonSchema = { ...z.toJSONSchema(parser, { io: 'output' }) };
+  delete schema.$schema;
+  return schema;
+}
+
+/**
+ * The fleet actions the doors offer a ship with fleet scopes (#85): reading
+ * the fleet and the actions that manage its ships. The router checks the
+ * scope of each; the other fleet procedures stay the console's.
+ */
+const FLEET_ACTIONS = ['list', 'ship', 'commission', 'getStartingPrompt', 'release', 'recrew', 'retire', 'ping'] as const;
+
+type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof appRouter.fleet)[(typeof FLEET_ACTIONS)[number]];
+
+/** One procedure as a door offers it, under its tool name and REST route. */
+function callOf(procedure: Procedure, at: { name: string; route: string; path: string; credential: ShipCall['credential'] }): ShipCall {
   const { type, inputs, meta } = procedure._def;
   // The output parser is on the procedure at runtime, though tRPC's types leave it out.
   const output = 'output' in procedure._def ? procedure._def.output : undefined;
+  const input = inputOf(inputs[0]);
   return {
-    name,
-    path: `ship.${name}`,
+    ...at,
+    method: type === 'query' && input === undefined ? 'GET' : 'POST',
     type,
     description: metaSchema.parse(meta).description,
-    credential: name === 'register' ? 'secret' : 'crewToken',
-    input: inputOf(inputs[0]),
-    output: jsonSchemaOf(zodParser(output), 'output'),
+    input,
+    output: outputSchemaOf(zodParser(output)),
   };
-});
+}
+
+/**
+ * Every procedure under `ship`, in the router's order, then the fleet actions.
+ * Built once: the router never changes while the server runs.
+ */
+export const SHIP_CALLS: readonly ShipCall[] = [
+  ...Object.entries(appRouter.ship).map(([name, procedure]) =>
+    callOf(procedure, { name, route: `/ship/${name}`, path: `ship.${name}`, credential: name === 'register' ? 'secret' : 'crewToken' }),
+  ),
+  ...FLEET_ACTIONS.map((name) =>
+    callOf(appRouter.fleet[name], { name: `fleet_${name}`, route: `/fleet/${name}`, path: `fleet.${name}`, credential: 'crewToken' }),
+  ),
+];
 
 /**
  * What a caller learns of a call that did not succeed: the code, its HTTP

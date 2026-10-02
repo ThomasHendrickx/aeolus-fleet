@@ -118,7 +118,7 @@ const deliveriesSchema = z.object({
 });
 
 describe('the ship calls at /api/v1', () => {
-  it('serve an OpenAPI spec that lists every ship procedure', async () => {
+  it('serve an OpenAPI spec that lists every ship procedure, then the fleet actions', async () => {
     const response = await fetch(`${address}/api/v1/openapi.json`);
 
     const { paths } = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await response.json());
@@ -132,6 +132,14 @@ describe('the ship calls at /api/v1', () => {
       '/ship/pong',
       '/ship/inbox',
       '/ship/deregister',
+      '/fleet/list',
+      '/fleet/ship',
+      '/fleet/commission',
+      '/fleet/getStartingPrompt',
+      '/fleet/release',
+      '/fleet/recrew',
+      '/fleet/retire',
+      '/fleet/ping',
     ]);
   });
 

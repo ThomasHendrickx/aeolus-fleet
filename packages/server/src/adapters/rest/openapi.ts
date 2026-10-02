@@ -54,14 +54,14 @@ function operationOf(call: ShipCall): Record<string, unknown> {
   };
 }
 
-/** The document for the given ship calls: a query as GET, without input; a mutation as POST, with a JSON body. */
+/** The document for the given ship calls: a query without input as GET, the others as POST with a JSON body. */
 export function openApiDocument(calls: readonly ShipCall[]): Record<string, unknown> {
   return {
     openapi: '3.1.1',
     info: { title: API_TITLE, version: '1', description: API_DESCRIPTION },
     servers: [{ url: '/api/v1' }],
     paths: Object.fromEntries(
-      calls.map((call) => [`/ship/${call.name}`, { [call.type === 'query' ? 'get' : 'post']: operationOf(call) }]),
+      calls.map((call) => [call.route, { [call.method.toLowerCase()]: operationOf(call) }]),
     ),
     components: {
       securitySchemes: {
