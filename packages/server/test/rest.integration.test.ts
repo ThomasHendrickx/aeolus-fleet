@@ -51,6 +51,16 @@ async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: s
   return { shipId, name, secret: secretIn(prompt) };
 }
 
+/** A new ship commissioned by argo with fleet scopes, claimed with its secret: its name and crew token. */
+async function crewedWithFleetScopes(fleetScopes: ('fleet:read' | 'fleet:manage')[]): Promise<{ name: string; crewToken: string }> {
+  shipCount += 1;
+  const name = `rest-manager-${shipCount}`;
+  const { shipId, prompt } = unwrap(
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'squadron', fleetScopes }),
+  );
+  return { name, crewToken: await register({ shipId, secret: secretIn(prompt) }) };
+}
+
 /** A new idempotency key: every message gets its own. */
 function freshKey(): string {
   keyCount += 1;
@@ -70,7 +80,8 @@ async function request(
   if (body !== undefined) {
     headers['content-type'] = 'application/json';
   }
-  const response = await fetch(`${address}/api/v1/ship/${call}`, {
+  // A fleet action is named with its route (fleet/list); a ship call by its name alone.
+  const response = await fetch(`${address}/api/v1/${call.startsWith('fleet/') ? call : `ship/${call}`}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -233,6 +244,38 @@ describe('the ship calls at /api/v1', () => {
     await expect(request('receive', { crewToken: scout.secret })).resolves.toMatchObject({ status: 401 });
     await expect(database.message.count()).resolves.toBe(messagesBefore);
     await expect(request('whoami', { crewToken: scoutToken, method: 'GET' })).resolves.toMatchObject({ status: 200 });
+  });
+});
+
+describe('the fleet actions at /api/v1/fleet', () => {
+  it('let a ship with fleet:read and fleet:manage list the fleet, commission a ship and ping a crewed one', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const mooring = await commissioned();
+    await register(mooring);
+
+    const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'GET' }), z.array(z.object({ name: z.string() })));
+    const commissionedByManager = await ok(
+      request('fleet/commission', { crewToken: manager.crewToken, body: { name: `${manager.name}-member`, type: 'squadron' } }),
+      z.object({ shipId: z.string(), prompt: z.string() }),
+    );
+    const pinged = await ok(
+      request('fleet/ping', { crewToken: manager.crewToken, body: { shipId: mooring.shipId } }),
+      z.object({ messageId: z.string(), isNew: z.boolean() }),
+    );
+
+    expect(listed.map((ship) => ship.name)).toEqual(expect.arrayContaining([manager.name, mooring.name]));
+    expect(commissionedByManager.prompt).toContain(`Ship id: ${commissionedByManager.shipId}`);
+    expect(pinged.isNew).toBe(true);
+  });
+
+  it('refuse the fleet list with 403 to a ship without fleet:read', async () => {
+    const agent = await commissioned();
+    const crewToken = await register(agent);
+
+    await expect(request('fleet/list', { crewToken, method: 'GET' })).resolves.toEqual({
+      status: 403,
+      body: { code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' },
+    });
   });
 });
 

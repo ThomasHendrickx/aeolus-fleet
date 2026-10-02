@@ -144,7 +144,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(document.info.description.startsWith(`${SHIP_PROTOCOL}\n\n`)).toBe(true);
   });
 
-  it('lists every ship procedure: whoami to GET, the others to POST', async () => {
+  it('lists every ship procedure, then the fleet actions: a call without input to GET, the others to POST', async () => {
     start();
 
     const { paths } = await spec();
@@ -158,6 +158,14 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/pong', ['post']],
       ['/ship/inbox', ['post']],
       ['/ship/deregister', ['post']],
+      ['/fleet/list', ['get']],
+      ['/fleet/ship', ['post']],
+      ['/fleet/commission', ['post']],
+      ['/fleet/getStartingPrompt', ['post']],
+      ['/fleet/release', ['post']],
+      ['/fleet/recrew', ['post']],
+      ['/fleet/retire', ['post']],
+      ['/fleet/ping', ['post']],
     ]);
   });
 
