@@ -81,6 +81,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   OPERATOR_SHIP_IS_PERMANENT: 'FORBIDDEN',
   // BAD_REQUEST, as when the schema at the door refuses the same payload.
   PAYLOAD_TOO_LARGE: 'BAD_REQUEST',
+  RESERVED_CONTENT_TYPE: 'FORBIDDEN',
   SHIP_ALREADY_RETIRED: 'CONFLICT',
   SHIP_NAME_RESERVED: 'CONFLICT',
   SHIP_NAME_TAKEN: 'CONFLICT',
