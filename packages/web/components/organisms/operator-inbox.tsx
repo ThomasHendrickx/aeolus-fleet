@@ -7,6 +7,7 @@ import { useId, useState } from 'react';
 import { classNames } from '../../lib/class-names';
 import { formattedPayload, isJson } from '../../lib/payload';
 import { clockTime, fullDateTime, shortDateTime } from '../../lib/relative-time';
+import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../lib/send-shortcut';
 import { Button } from '../atoms/button';
 import { Label } from '../atoms/label';
 import { Tabs, TabsCount, TabsList, TabsTrigger } from '../atoms/tabs';
@@ -14,6 +15,7 @@ import { Textarea } from '../atoms/textarea';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
+import { SendShortcutHint } from '../molecules/send-shortcut-hint';
 import { ShipName } from '../molecules/ship-name';
 
 interface OperatorInboxProps {
@@ -201,6 +203,7 @@ function ReplyBox({
   const fieldId = useId();
   const hintId = useId();
   const [draft, setDraft] = useState('');
+  const platform = useShortcutPlatform();
   const sender = message.message.sender.name;
   return (
     <form
@@ -222,6 +225,7 @@ function ReplyBox({
         onChange={(event) => {
           setDraft(event.target.value);
         }}
+        onKeyDown={submitOnSendShortcut}
         aria-describedby={hintId}
         data-testid="inbox-reply"
       />
@@ -236,9 +240,11 @@ function ReplyBox({
           icon={<Send aria-hidden />}
           isLoading={isPending}
           disabled={draft.trim() === '' && !isPending}
+          aria-keyshortcuts={platform === null ? undefined : sendShortcutAria(platform)}
           data-testid="inbox-reply-send"
         >
           Send reply
+          {platform === null ? null : <SendShortcutHint platform={platform} />}
         </Button>
       </div>
     </form>
