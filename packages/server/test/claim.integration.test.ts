@@ -110,6 +110,9 @@ describe('claiming a ship on Postgres', () => {
         crewTokenHash: sha256Hasher.hash(crewToken),
         startedAt: core.clock.now(),
         lastSeenAt: null,
+        reportState: null,
+        reportNote: null,
+        reportedAt: null,
         endedAt: null,
       },
     ]);

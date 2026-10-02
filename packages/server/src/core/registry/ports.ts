@@ -4,6 +4,14 @@ import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
+import type { ShipReport } from './ship-report.js';
+
+/** The crew a report speaks for: its ship and lease, in its fleet. */
+export interface CrewOfLease {
+  fleetId: FleetId;
+  shipId: ShipId;
+  leaseId: LeaseId;
+}
 
 /** Outbound port: fleets. The only repository whose reads are not scoped to one fleet. */
 export interface FleetRepository {
@@ -76,6 +84,9 @@ export interface LeaseRepository {
    * later mark: two overlapping writes never move it back.
    */
   markSeen(seen: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<void>;
+  /** The lease's report, the lease locked until the unit of work ends; undefined once it has ended. */
+  findReportForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null } | undefined>;
+  saveReport(change: { fleetId: FleetId; leaseId: LeaseId; report: ShipReport }): Promise<void>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }
@@ -122,7 +133,7 @@ export interface ShipFacts {
    * Where the session holding the ship's open lease runs, since when, and its
    * last call (its claim until it calls again); null while no session crews it.
    */
-  openLease: { location: Location; startedAt: Date; lastSeenAt: Date } | null;
+  openLease: { location: Location; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /**

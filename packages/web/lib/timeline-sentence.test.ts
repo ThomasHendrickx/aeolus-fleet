@@ -200,6 +200,21 @@ describe('timelineSentence', () => {
     );
   });
 
+  it('says what the crew reported, with its note, its tone by the state', () => {
+    expect(onScoutsPage(anEntry('ShipReported', { actor: scout, details: { state: 'blocked', note: 'waiting for review' } }))).toEqual({
+      sentence: 'Reported blocked: waiting for review',
+      tone: 'attention',
+      icon: 'reported',
+    });
+  });
+
+  it('says what the crew reported without a note', () => {
+    expect(onScoutsPage(anEntry('ShipReported', { actor: scout, details: { state: 'working', note: null } }))).toMatchObject({
+      sentence: 'Reported working',
+      tone: 'active',
+    });
+  });
+
   it('says a message went back to pending', () => {
     expect(onScoutsPage(anEntry('DeliveryReturned', { message: fromPlanner }))).toEqual({
       sentence: 'A message from planner went back to pending',

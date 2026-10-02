@@ -7,6 +7,8 @@ import {
   PING_CONTENT_TYPE,
   pongInputSchema,
   pongOutputSchema,
+  reportInputSchema,
+  reportOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
   registerInputSchema,
@@ -161,6 +163,25 @@ export const shipRouter = router({
     .output(pongOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.answerPing(ctx.crew, input));
+      return {};
+    }),
+
+  /**
+   * The crew says what it is doing: working, blocked or idle, with a short
+   * note. A check-in: an event only when the state or note changes.
+   */
+  report: crewProcedure
+    .meta({
+      description: [
+        'Says what you are doing, for the operator and anyone who reads the fleet: state working, blocked or idle, and an optional note',
+        '(one line, at most 200 characters) on what you work on or what blocks you.',
+        'Call it whenever your state changes; calling it again with the same state and note is a check-in.',
+      ].join(' '),
+    })
+    .input(reportInputSchema)
+    .output(reportOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.report(ctx.crew, input));
       return {};
     }),
 

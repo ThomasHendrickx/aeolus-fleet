@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { reportStateSchema } from './report.js';
 
 /**
  * Inputs and outputs of the fleet procedures: commission a ship, get its
@@ -140,6 +141,17 @@ export const listedShipSchema = z.object({
     .nullable(),
   /** What the ship may do, checked on every call: every agent ship sends and receives, argo has all. */
   scopes: z.array(scopeSchema),
+  /**
+   * The crew's last report (ISO 8601 in UTC): its state, its note, and when it
+   * last reported. Null until the crew reports, and for a ship no session crews.
+   */
+  report: z
+    .object({
+      state: reportStateSchema,
+      note: z.string().nullable(),
+      reportedAt: z.iso.datetime(),
+    })
+    .nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

@@ -23,7 +23,8 @@ export type TimelineIcon =
   | 'retired'
   | 'abandoned'
   | 'dismissed'
-  | 'renamed';
+  | 'renamed'
+  | 'reported';
 
 export interface TimelineSentence {
   parts: SentencePart[];
@@ -35,6 +36,9 @@ function stringDetail(entry: TimelineEntry, name: string): string | undefined {
   const value = entry.details[name];
   return typeof value === 'string' ? value : undefined;
 }
+
+/** A report's tone by its state: working is active, blocked needs attention, idle waits. */
+const REPORT_TONES: Readonly<Record<string, TimelineTone>> = { working: 'active', blocked: 'attention', idle: 'waiting' };
 
 /** Who caused the event: " by argo"; nothing for the system. */
 function by(actor: Party | null): SentencePart[] {
@@ -197,6 +201,15 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
     }
     case 'DeliveryAbandoned':
       return { parts: [...aMessageFromStarting(entry), text(' was abandoned')], tone: 'ended', icon: 'abandoned' };
+    case 'ShipReported': {
+      const state = stringDetail(entry, 'state') ?? 'in';
+      const note = stringDetail(entry, 'note');
+      return {
+        parts: [text(note === undefined ? `Reported ${state}` : `Reported ${state}: ${note}`)],
+        tone: REPORT_TONES[state] ?? 'ended',
+        icon: 'reported',
+      };
+    }
     case 'ShipRenamed': {
       const from = stringDetail(entry, 'from');
       const to = stringDetail(entry, 'to');

@@ -330,6 +330,7 @@ describe('getting one ship on Postgres', () => {
         lastSeenAt: crewedAt,
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
+        report: null,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -369,6 +370,7 @@ describe('listing the fleet on Postgres', () => {
         lastSeenAt: signedInAt,
         ping: null,
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+        report: null,
       },
       {
         id: shipId,
@@ -381,6 +383,7 @@ describe('listing the fleet on Postgres', () => {
         lastSeenAt: null,
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
+        report: null,
       },
     ]);
   });

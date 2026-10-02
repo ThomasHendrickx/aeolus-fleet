@@ -12,6 +12,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
+    report: null,
     ...changes,
   };
 }
@@ -23,6 +24,7 @@ export const REVIEWER_01 = ship('r01a', {
   lastSeenAt: null,
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
+  report: null,
 });
 
 export const COMPOSE_SHIPS: ListedShip[] = [

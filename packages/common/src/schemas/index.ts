@@ -7,5 +7,6 @@ export * from './message.js';
 export * from './needs-attention.js';
 export * from './operator-inbox.js';
 export * from './ping.js';
+export * from './report.js';
 export * from './ship.js';
 export * from './system.js';

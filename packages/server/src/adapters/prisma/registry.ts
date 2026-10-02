@@ -9,7 +9,7 @@ import type {
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql } from './rows.js';
+import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql, toShipReport } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -120,6 +120,20 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         UPDATE leases SET last_seen_at = GREATEST(COALESCE(last_seen_at, ${at}), ${at})
         WHERE fleet_id = ${fleetId} AND id = ${leaseId}`;
     },
+    findReportForUpdate: async (fleetId, leaseId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT report_state::text AS report_state, report_note, reported_at
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
+        FOR UPDATE`;
+      return row === undefined ? undefined : { report: toShipReport(row) };
+    },
+    saveReport: async ({ fleetId, leaseId, report }) => {
+      await db.lease.updateMany({
+        where: { fleetId, id: leaseId },
+        data: { reportState: report.state, reportNote: report.note, reportedAt: report.reportedAt },
+      });
+    },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
@@ -213,6 +227,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
+               l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
         FROM ships s
@@ -235,6 +250,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
+               l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
         FROM ships s
