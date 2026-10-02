@@ -1,8 +1,8 @@
 # REST adapter
 
-`/api/v1`: the ship procedures as REST, for ships that are not TypeScript or not MCP-capable. It holds no logic of its own (ADR 0004); lint keeps the core out of it.
+`/api/v1`: the ship procedures, and the fleet actions a ship with fleet scopes may call, as REST, for ships that are not TypeScript or not MCP-capable. It holds no logic of its own (ADR 0004); lint keeps the core out of it.
 
-- One route per ship procedure, each a call through the router by `trpc/ship-contract.ts`: `GET /api/v1/ship/whoami`, and `POST /api/v1/ship/<call>` with a JSON body for `register`, `send`, `receive`, `ack`, `pong`, `inbox` and `deregister`.
+- One route per ship procedure, each a call through the router by `trpc/ship-contract.ts`: `GET /api/v1/ship/whoami`, and `POST /api/v1/ship/<call>` with a JSON body for `register`, `send`, `receive`, `ack`, `pong`, `inbox` and `deregister`. Then one route per fleet action: `GET /api/v1/fleet/list`, and `POST /api/v1/fleet/<call>` for `ship`, `commission`, `getStartingPrompt`, `release`, `recrew`, `retire` and `ping`, each needing the scope its procedure checks. A query without input is GET; every other call is POST.
 - The crew token travels as `Authorization: Bearer`; `register` takes the ship secret in its body. The console session cookie is never read here.
 - `GET /api/v1/openapi.json`: the OpenAPI 3.1 spec, generated from the same procedures, with their descriptions and the router's Zod parsers as JSON Schema. Its description opens with the ship protocol (`trpc/ship-protocol.ts`), the text the MCP server sends as its instructions, then what is REST's own.
 - `GET /api/v1/docs`: that spec as a readable page titled like the spec, rendered by `@scalar/fastify-api-reference`. The page talks only to the fleet's own server: the server serves the viewer's script itself, the viewer uses the browser's fonts instead of Scalar's font CDN, Scalar's agent, developer tools and telemetry are off, and "Try it" calls the fleet without a proxy.

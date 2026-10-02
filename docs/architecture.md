@@ -28,7 +28,7 @@ The server has exactly one API door: a tRPC router. The web app calls it like an
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
 | Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, pong, deregister |
-| Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
+| Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC; the fleet actions (list, ship, commission, get starting prompt, release, re-crew, retire, ping) also REST (`/api/v1/fleet/<call>`) and MCP (`fleet_<call>` tools) for a crewed ship with those scopes | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
 
