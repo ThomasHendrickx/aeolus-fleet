@@ -188,4 +188,15 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadrons-row').first().waitFor();
     await expect(page.getByTestId('squadrons-row').first().textContent()).resolves.toMatch(/team-[a-z0-9]{6}team v1Sailing1 member/);
   });
+
+  it('marks the flagship and tags the member with its squadron on the fleet overview', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('nav-overview').click();
+
+    await page.getByTestId('fleet-flagship').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
+    const tag = page.locator('[data-slot="squadron-tag"]').first();
+    await tag.waitFor();
+    await expect(tag.textContent()).resolves.toMatch(/^team-[a-z0-9]{6}· tester$/);
+    await expect(tag.getAttribute('href')).resolves.toMatch(/^\/squadrons\/team-[a-z0-9]{6}$/);
+  });
 });

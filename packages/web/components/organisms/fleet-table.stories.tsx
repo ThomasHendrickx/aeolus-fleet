@@ -229,3 +229,18 @@ export const Reported: Story = {
     ],
   },
 };
+
+/** With squadrons on: the first ship as a flagship, the second as a member of its squadron. */
+export const SquadronsOn: Story = {
+  render: (args) => (
+    <FleetTable
+      {...args}
+      squadronsOf={
+        new Map([
+          [args.ships[1]?.id ?? '', { squadronId: 'aeolus-a1b2c3', role: null }],
+          [args.ships[2]?.id ?? '', { squadronId: 'aeolus-a1b2c3', role: 'implementer' }],
+        ])
+      }
+    />
+  ),
+};

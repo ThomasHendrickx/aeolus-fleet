@@ -127,12 +127,13 @@ const SQUADRONS_KEY = ['squadrons', 'list'];
 /** How often the lists ask again: forming members check in on their own time. */
 const REFRESH_MS = 5_000;
 
-/** Every squadron of the fleet, oldest first, asked again every few seconds. */
-export function useSquadrons() {
+/** Every squadron of the fleet, oldest first, asked again every few seconds; idle when not enabled. */
+export function useSquadrons(options: { isEnabled?: boolean } = {}) {
   return useQuery({
     queryKey: SQUADRONS_KEY,
     queryFn: () => call('squadrons.list', { answers: z.array(squadronSchema) }),
     refetchInterval: REFRESH_MS,
+    enabled: options.isEnabled ?? true,
   });
 }
 
