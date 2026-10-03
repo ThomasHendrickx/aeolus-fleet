@@ -9,6 +9,7 @@ import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
 import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
+import { GetNewCrewLine } from '../../../components/organisms/get-new-crew-line';
 import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
@@ -142,14 +143,38 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
           ships={ships}
           now={now}
-          onRemove={
-            isLosingMembersAllowed
-              ? (member) => {
-                  removeMember.reset();
-                  setRemoving(member);
-                }
-              : undefined
-          }
+          renderActions={(member) => {
+            const ship = ships.get(member.shipId);
+            if (member.crew.status === 'retired' || ship?.status === 'retired') {
+              return null;
+            }
+            return (
+              <>
+                <GetNewCrewLine
+                  squadronId={squadron.id}
+                  member={member}
+                  ship={ship}
+                  template={roles.find((each) => each.role === member.role)?.template}
+                  isPrimary={member.health === 'silent'}
+                  testId="member-new-crew-line"
+                />
+                {isLosingMembersAllowed && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    data-testid="member-remove"
+                    aria-label={`Remove ${member.name} from the squadron`}
+                    onClick={() => {
+                      removeMember.reset();
+                      setRemoving(member);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </>
+            );
+          }}
         />
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
@@ -259,6 +284,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       {added && (
         <CrewLineDialog
           memberName={added.name}
+          state="shown"
           template={roles.find((each) => each.role === added.role)?.template}
           launchNote={added.launchNote}
           crewLine={added.crewLine}

@@ -391,6 +391,21 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
 
+  it('gives a member a new crew line: confirms while its last one is unclaimed, then shows the new one once', async () => {
+    const page = await squadronsPage();
+    await page.goto(`/squadrons/${grownSquadronId}`);
+    const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
+
+    await added.getByTestId('member-new-crew-line').click();
+    await expect(page.getByTestId('crew-line-confirm-text').textContent()).resolves.toBe('The crew line issued earlier is not claimed yet; a new one stops it working.');
+    await page.getByTestId('crew-line-confirm').click();
+
+    await expect(page.getByTestId('crew-line-text').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${grownSquadronId}$`));
+    await expect(page.getByTestId('crew-line-launch-note').textContent()).resolves.toBe('Start in the repository root.');
+    await page.getByTestId('crew-line-done').click();
+    await expect(page.getByTestId('crew-line-text').count()).resolves.toBe(0);
+  });
+
   it('removes a member with a clean inbox after one normal confirm: its ship retires and the squadron keeps sailing', async () => {
     const page = await squadronsPage();
     await page.goto(`${web.url}/squadrons/${grownSquadronId}`);

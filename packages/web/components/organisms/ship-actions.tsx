@@ -22,6 +22,7 @@ import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { Button } from '../atoms/button';
 import { showToast } from '../atoms/toast';
 import { ReleaseDialog } from './release-dialog';
+import { GetNewCrewLine } from './get-new-crew-line';
 import { RemoveMemberDialog } from './remove-member-dialog';
 import { RenameDialog } from './rename-dialog';
 import { RetireDialog } from './retire-dialog';
@@ -50,7 +51,8 @@ function sessionLocationOf(ship: ListedShip): string | null {
  *
  * With squadrons (docs/design/conventions.md, "Squadrons"): a flagship offers
  * only Open squadron, since retiring, releasing or renaming it would break its
- * squadron; a member offers Ping, Release and Remove from squadron, never
+ * squadron; a member offers Ping, Get new crew line (primary when silent),
+ * Release and Remove from squadron, never
  * Rename, Retire, Re-crew or Get starting prompt. Until it is known whether
  * squadrons is set up and, if so, its list, only Ping shows, so a member is
  * never offered Retire.
@@ -69,13 +71,16 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const hasSquadrons = settings.data?.configured === true;
   const squadrons = useSquadrons({ isEnabled: hasSquadrons });
   const removeMember = useRemoveMember();
+  const squadron = squadrons.data?.find(
+    (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
+  );
+  const isMember = squadron !== undefined && squadron.flagship.shipId !== ship.id;
+  // A member's new crew line asks first when it ends a session: that needs its in-flight count.
+  const memberDetail = useShip(isMember && ship.status !== 'retired' ? ship.id : undefined);
 
   if (ship.kind === 'operator' || ship.status === 'retired') {
     return null;
   }
-  const squadron = squadrons.data?.find(
-    (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
-  );
   if (squadron?.flagship.shipId === ship.id) {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
@@ -146,6 +151,7 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
       </Button>
       {isMembershipPending ? null : member ? (
         <>
+          {squadron && <GetNewCrewLine squadronId={squadron.id} member={member} ship={memberDetail.data} isPrimary={member.health === 'silent'} testId="fleet-ship-new-crew-line" />}
           {ship.status === 'crewed' && (
             <Button size="xs" data-testid="fleet-ship-release" onClick={open('release')}>
               Release
