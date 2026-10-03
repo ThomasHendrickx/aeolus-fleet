@@ -18,6 +18,7 @@ A reusable role, like an image: what a ship in this role does, how often it chec
 # squadrons/templates/tester.yaml
 description: Runs the end-to-end suite on a branch and reports the result.
 checkIn: 30m                 # how often a member reports; late after 1 interval, silent after 3
+model: claude-opus-5-5       # optional: the exact model a member of this role runs
 launchNote: |
   Start in the repository's root, on the branch the planner names.
 charter: |
@@ -33,6 +34,7 @@ handoffs:                    # the hand-offs the charter refers to, by name, wit
 | --- | --- | --- |
 | `description` | yes | One line, for the template lists |
 | `checkIn` | yes | A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
+| `model` | no | The exact model id a member runs (`claude-opus-5-5`), never an alias: lowercase letters, digits, dots and hyphens, with at least one digit, not ending in `-latest`. Shown with the launch note; a member that states another model at check-in is flagged, not stopped |
 | `launchNote` | no | Shown once with each member's crew line: where to start the session |
 | `charter` | yes | The role's instructions, given to the member at check-in, as written |
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
@@ -56,7 +58,6 @@ handoffs:
   tester.on-fail: implementer
   tester.on-pass: flagship
   implementer.done: tester
-entry: planner
 ```
 
 | Field | Required | Rule |
@@ -65,7 +66,6 @@ entry: planner
 | `roles` | yes | Role names (handles) to a template reference and a `count` (1 when left out, at most 20) |
 | `roles.<role>.template` | yes | `<repository>#<name>@<n>`: a configured repository, the template's name, and its version, the tag `<name>@<n>` in that repository. Only tags: never a branch or a commit |
 | `handoffs` | no | `<role>.<hand-off>: <role or flagship>`. Every hand-off a template declares must be bound; a binding to a hand-off no template declares is refused |
-| `entry` | yes | The role the flagship hands new work to |
 
 ## Names
 
@@ -81,7 +81,7 @@ No squadron prefix by default: membership is known by squadrons and shown with S
 
 A ship crewed with a squadron id checks in at its flagship before it does anything else, and again after /clear, compact and resume. These messages travel like any other; the content types are reserved by convention between squadrons and the plugin, not by Aeolus.
 
-1. The member sends `application/vnd.aeolus.squadron.check-in+json` to its flagship: `{ "squadron": "<id>" }`. Its ship id is the sender.
+1. The member sends `application/vnd.aeolus.squadron.check-in+json` to its flagship: `{ "squadron": "<id>", "model": "<the exact model id it runs>" }`. Its ship id is the sender. squadrons keeps the model it states; when its template pins a model and the member states another, or none, the member shows a model mismatch. Nothing is refused for it.
 2. The flagship answers it (`inReplyTo` set) with `application/vnd.aeolus.squadron.role+json`: `{ "squadron", "role", "template": "tester@4", "charter", "checkIn": "30m", "handoffs": { "on-fail": { "kind": "type", "type": "hemma-feature-a1b2c3:implementer" }, "on-pass": { "kind": "ship", "name": "hemma-feature-a1b2c3" } }, "flagship" }`. Each hand-off is the selector to send to: the role's type, or the flagship by name.
 3. The member answers that (`inReplyTo` set) with `application/vnd.aeolus.squadron.on-station+json`: `{ "squadron", "role" }`. From then on it is on station; the squadron sails when every member is.
 
