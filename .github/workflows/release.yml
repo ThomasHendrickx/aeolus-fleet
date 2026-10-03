@@ -97,10 +97,10 @@ jobs:
           npm publish --dry-run --access public --workspace @aeolus-fleet/web
           npm publish --dry-run --access public --workspace @aeolus-fleet/squadrons
 
-      # Each step skips a package whose version is on npm already, so re-running a
-      # release that failed partway publishes only what is missing, then tags and
-      # sets the plugin. Re-run that run (Re-run jobs), not a new dispatch, so the
-      # tag lands on the commit the packages were built from.
+      # Each step skips a package whose version is on npm already, so releasing a
+      # version again after it failed partway publishes only what is missing, then
+      # tags and sets the plugin. Dispatch it again from main: Re-run jobs replays
+      # the failed run's own copy of this file.
       - name: Publish @aeolus-fleet/common
         env:
           PACKAGE: '@aeolus-fleet/common'
