@@ -10,12 +10,8 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
 import { InlineError } from '../molecules/inline-error';
 
-/**
- * confirm: a new crew line ends something (a session, or an unclaimed line),
- * so the operator asks for it; issuing: squadrons is issuing it; shown: the
- * line, once; error: nothing was issued.
- */
-export type CrewLineDialogState = 'confirm' | 'issuing' | 'shown' | 'error';
+/** issuing: squadrons is issuing it; shown: the line, once; error: nothing was issued. */
+export type CrewLineDialogState = 'issuing' | 'shown' | 'error';
 
 interface CrewLineDialogProps {
   /** The member it crews, as named in the fleet. */
@@ -26,13 +22,13 @@ interface CrewLineDialogProps {
   /** The launch note and crew line, once issued: shown only now. */
   launchNote?: string | null;
   crewLine?: string;
-  /** What a new line ends (confirm): "Ends the session in its worktree. ..." */
-  confirmText?: string;
+  /** What the new line ended: a session, or an unclaimed line. */
+  replacedText?: string;
   /** Why issuing failed (error). */
   error?: string;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  /** Get new crew line (confirm) or Try again (error). */
+  /** Try again (error). */
   onConfirm?: () => void;
 }
 
@@ -62,11 +58,11 @@ function IssuedLine({ memberName, template, launchNote, crewLine }: { memberName
 /**
  * One member's launch note and crew line, shown once
  * (docs/design/png/CrewLineDialog.png): after Add member, and from Get new
- * crew line, which first confirms when it ends a session or an unclaimed
- * line. Follows the StartingPromptDialog: the line holds a secret, so it is
+ * crew line, issued at once; the dialog says what the new line ended, a
+ * session or an unclaimed line. Follows the StartingPromptDialog: the line holds a secret, so it is
  * never shown again. Desktop: a dialog; phone: full screen.
  */
-export function CrewLineDialog({ memberName, state, template, launchNote = null, crewLine, confirmText, error, isOpen, onOpenChange, onConfirm }: CrewLineDialogProps) {
+export function CrewLineDialog({ memberName, state, template, launchNote = null, crewLine, replacedText, error, isOpen, onOpenChange, onConfirm }: CrewLineDialogProps) {
   const [hasCopyFailed, setHasCopyFailed] = useState(false);
   const isIssuing = state === 'issuing';
   const copyAndClose = async () => {
@@ -92,9 +88,9 @@ export function CrewLineDialog({ memberName, state, template, launchNote = null,
           <DialogTitle>Crew line for {memberName}</DialogTitle>
           <DialogDescription>Start Claude Code where the launch note says, then paste the crew line. The member is on station once its session checks in.</DialogDescription>
         </DialogHeader>
-        {state === 'confirm' && confirmText !== undefined && (
-          <p data-testid="crew-line-confirm-text" className="rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg">
-            {confirmText}
+        {state !== 'error' && replacedText !== undefined && (
+          <p data-testid="crew-line-replaced" className="rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg">
+            {replacedText}
           </p>
         )}
         {isIssuing && (
@@ -118,14 +114,6 @@ export function CrewLineDialog({ memberName, state, template, launchNote = null,
           </p>
         )}
         <DialogFooter>
-          {state === 'confirm' && (
-            <>
-              <DialogClose render={<Button />}>Cancel</DialogClose>
-              <Button variant="primary" data-testid="crew-line-confirm" onClick={onConfirm}>
-                Get new crew line
-              </Button>
-            </>
-          )}
           {(state === 'shown' || isIssuing) && (
             <>
               <DialogClose render={<Button data-testid="crew-line-done" disabled={isIssuing} />}>Done</DialogClose>

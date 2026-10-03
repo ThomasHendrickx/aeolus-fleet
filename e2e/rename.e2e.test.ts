@@ -69,7 +69,7 @@ async function signedInPage(): Promise<Page> {
 }
 
 describe('renaming a ship', () => {
-  it('renames a ship from its page after the name check and the typed confirm; the page shows the new name', async () => {
+  it('renames a ship from its page after the name check, the dialog being the confirm; the page shows the new name', async () => {
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-01', type: 'reviewer' }));
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'planner', type: 'planner' }));
     const page = await signedInPage();
@@ -81,8 +81,7 @@ describe('renaming a ship', () => {
     await dialog.getByText('planner is already used by an active ship.').waitFor();
     await dialog.getByTestId('rename-name').fill('reviewer-web');
     await dialog.getByText('reviewer-web is available.').waitFor();
-    expect(await dialog.getByTestId('rename-submit').isDisabled()).toBe(true);
-    await dialog.getByTestId('rename-typed-confirm').getByRole('textbox').fill('reviewer-01');
+    // The dialog is the confirm: no typed name.
     await dialog.getByTestId('rename-submit').click();
 
     await dialog.waitFor({ state: 'hidden' });

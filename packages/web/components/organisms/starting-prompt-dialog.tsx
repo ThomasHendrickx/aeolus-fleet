@@ -11,12 +11,8 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
 import { InlineError } from '../molecules/inline-error';
 
-/**
- * confirm: an unclaimed prompt is out, and the operator asks for a new one;
- * issuing: the server is issuing it; shown: the prompt, once; error: nothing
- * was issued.
- */
-export type StartingPromptDialogState = 'confirm' | 'issuing' | 'shown' | 'error';
+/** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
+export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
 
 interface StartingPromptDialogProps {
   shipName: string;
@@ -24,13 +20,13 @@ interface StartingPromptDialogProps {
   /** The prompt and its crew line, once issued: shown only now. */
   prompt?: string;
   crewLine?: string;
-  /** The unclaimed prompt still out, which a new one stops working (confirm). */
+  /** The unclaimed prompt that was out, which this one stops working. */
   replacesUnclaimed?: { issuedAt: string };
   /** Why issuing failed (error). */
   error?: string;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  /** Get new prompt (confirm) or Try again (error). */
+  /** Try again (error). */
   onConfirm: () => void;
 }
 
@@ -114,9 +110,9 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {state === 'confirm' && replacesUnclaimed ? (
+        {state !== 'error' && replacesUnclaimed ? (
           <p className="rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg">
-            A new prompt stops the one issued{' '}
+            This prompt stops the one issued{' '}
             <time dateTime={replacesUnclaimed.issuedAt}>{shortDateTime(new Date(replacesUnclaimed.issuedAt))}</time>{' '}
             working.
           </p>
@@ -139,14 +135,6 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         ) : null}
 
         <DialogFooter>
-          {state === 'confirm' ? (
-            <>
-              <DialogClose render={<Button />}>Cancel</DialogClose>
-              <Button variant="primary" onClick={onConfirm}>
-                Get new prompt
-              </Button>
-            </>
-          ) : null}
           {state === 'issuing' || state === 'shown' ? (
             <DialogClose render={<Button variant="primary" disabled={isIssuing} />}>Done</DialogClose>
           ) : null}

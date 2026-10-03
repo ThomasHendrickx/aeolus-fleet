@@ -40,7 +40,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Shown: Story = {};
 export const ReplacesUnclaimed: Story = {
-  args: { state: 'confirm', prompt: undefined, crewLine: undefined, replacesUnclaimed: { issuedAt: '2026-10-01T09:12:00.000Z' } },
+  args: { replacesUnclaimed: { issuedAt: '2026-10-01T09:12:00.000Z' } },
 };
 export const Issuing: Story = { args: { state: 'issuing', prompt: undefined, crewLine: undefined } };
 export const Failed: Story = {

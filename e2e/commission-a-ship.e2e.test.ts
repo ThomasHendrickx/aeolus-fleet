@@ -182,23 +182,19 @@ describe('commissioning a ship in the console', () => {
     await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['fleet:read', 'fleet:manage']);
   });
 
-  it('asks before replacing an unclaimed prompt, and replaces it only once confirmed', async () => {
+  it('replaces an unclaimed prompt at once, saying the old one stops working', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'lookout', type: 'reviewer' });
     const first = await promptSecretIn(page, 'lookout');
     await promptBlock(page, 'lookout').getByRole('button', { name: 'Done' }).click();
     const row = shipRow(page, 'lookout');
 
-    await row.getByRole('button', { name: 'Get starting prompt' }).click();
-    const dialog = page.getByTestId('starting-prompt-dialog');
-    await dialog.getByText(/A new prompt stops the one issued/).waitFor();
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
-
-    await dialog.waitFor({ state: 'detached' });
     await expect(isValid(first)).resolves.toBe(true);
 
+    // No confirm: the new prompt is issued at once, and the dialog says the old one stops working.
     await row.getByRole('button', { name: 'Get starting prompt' }).click();
-    await dialog.getByRole('button', { name: 'Get new prompt' }).click();
+    const dialog = page.getByTestId('starting-prompt-dialog');
+    await dialog.getByText(/This prompt stops the one issued/).waitFor();
 
     const second = secretIn((await dialog.getByTestId('starting-prompt-text').textContent()) ?? '');
     expect(second).not.toBe(first);

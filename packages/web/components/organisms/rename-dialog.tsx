@@ -5,7 +5,6 @@ import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
-import { isTypedMatch } from '../../lib/ship-dialogs';
 import { asHandle, checkShipName } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import {
@@ -21,7 +20,6 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
 import { InlineError } from '../molecules/inline-error';
-import { TypedConfirm } from '../molecules/typed-confirm';
 
 interface RenameDialogProps {
   shipName: string;
@@ -40,10 +38,9 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
   const nameId = useId();
   const statusId = useId();
   const [name, setName] = useState('');
-  const [typed, setTyped] = useState('');
   const check = checkShipName(name, { activeNames, current: shipName });
   const isProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
-  const canRename = check.kind === 'available' && isTypedMatch(shipName, typed);
+  const canRename = check.kind === 'available';
 
   return (
     <form
@@ -105,7 +102,6 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
           <p className="text-meta text-foreground">Messages already sent are unaffected, because they are stored by ship id.</p>
         </div>
       </div>
-      <TypedConfirm expected={shipName} value={typed} onValueChange={setTyped} data-testid="rename-typed-confirm" />
       {error === undefined ? null : (
         <InlineError title="Couldn’t rename the ship" description={`${error} Nothing changed.`} />
       )}
@@ -122,8 +118,8 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
 /**
  * Rename a ship (docs/design/png/RenameDialog.png), any but argo or a retired
  * one: the same live name check as commissioning, the fact that ships
- * addressing the old name stop reaching it, and the TypedConfirm of its
- * current name (docs/design/conventions.md, "Destructive actions"). Desktop:
+ * addressing the old name stop reaching it. The dialog is the confirm
+ * (docs/design/conventions.md, "Confirm"): a normal confirm. Desktop:
  * a dialog; phone: full screen.
  */
 export function RenameDialog(props: RenameDialogProps) {
