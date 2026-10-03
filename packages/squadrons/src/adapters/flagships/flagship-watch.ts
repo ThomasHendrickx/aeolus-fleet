@@ -3,10 +3,9 @@
  * or sailing, each delivery handed to the flagship's rule with the squadron
  * as it is stored then. A rescan, every interval and after each forming,
  * starts the receive of a new squadron. A flagship whose lease ended (the
- * operator released it) is no longer watched, and says so in the log.
+ * operator released it) is no longer watched, says so in the log, and argo is
+ * told once.
  */
-import { randomUUID } from 'node:crypto';
-
 import type { FleetId } from '@aeolus-fleet/common';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -35,6 +34,8 @@ export function watchFlagships(deps: {
 }): FlagshipWatch {
   const stopping = new AbortController();
   const watched = new Set<string>();
+  // Squadrons whose flagship's lease ended: a rescan does not receive on them again.
+  const ended = new Set<string>();
   // What runs in the background, so stop can wait for it.
   const running = new Set<Promise<void>>();
   const track = (work: Promise<void>): Promise<void> => {
@@ -64,10 +65,11 @@ export function watchFlagships(deps: {
         if (!received.isOk) {
           if (received.error.code === 'LEASE_ENDED') {
             deps.log.warn({ squadron: squadronId }, 'the flagship was released: squadrons no longer receives on it');
+            ended.add(squadronId);
             await deps.operator.tell({
               text: `The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`,
-              // Each release is its own notice: a flagship crewed again and released again is told again.
-              key: `released-${squadronId}-${randomUUID()}`,
+              // A released flagship is never crewed again, so one key per squadron tells argo once, across restarts too.
+              key: `released-${squadronId}`,
             });
             break;
           }
@@ -99,7 +101,7 @@ export function watchFlagships(deps: {
       return;
     }
     for (const squadron of await deps.squadrons.list(crew.fleetId)) {
-      if ((squadron.state === 'forming' || squadron.state === 'sailing') && !watched.has(squadron.id)) {
+      if ((squadron.state === 'forming' || squadron.state === 'sailing') && !watched.has(squadron.id) && !ended.has(squadron.id)) {
         watched.add(squadron.id);
         void track(watch(crew.fleetId, squadron.id));
       }
