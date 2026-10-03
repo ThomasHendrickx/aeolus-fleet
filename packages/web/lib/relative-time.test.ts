@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, secondsTime, shortDateTime } from './relative-time';
+import { clockTime, dayDate, dayMonth, duration, fullDateTime, lastSeen, relativeTime, secondsTime, shortDateTime } from './relative-time';
 
 const NOW = new Date(2026, 8, 28, 14, 21, 5);
 
@@ -82,5 +82,11 @@ describe('lastSeen', () => {
 
   it('reads as other relative times from a minute on', () => {
     expect(lastSeen(new Date('2026-10-01T13:54:00.000Z'), now)).toBe('Last seen 6 min ago');
+  });
+});
+
+describe('dayMonth', () => {
+  it('says the day and month', () => {
+    expect(dayMonth(new Date(2026, 9, 1, 12))).toBe('1 Oct');
   });
 });

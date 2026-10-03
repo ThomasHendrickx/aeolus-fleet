@@ -64,8 +64,8 @@ export function BlueprintView({ blueprint, version, onVersionChange, templates, 
             ))}
           </SelectContent>
         </Select>
-        <span className="text-meta text-muted-foreground">
-          <span className="font-mono">{shown.repository}</span> at <span className="font-mono">{shown.commit.slice(0, 7)}</span>, {dayDate(new Date(shown.committedAt))}
+        <span data-testid="blueprint-source" className="text-meta text-muted-foreground">
+          <span className="font-mono">{shown.file}</span> at <span className="font-mono">{shown.commit.slice(0, 7)}</span>, {dayDate(new Date(shown.committedAt))}
         </span>
         <Button variant="primary" icon={<Plus aria-hidden />} onClick={onForm} className="ml-auto" data-testid="blueprint-form">
           Form squadron

@@ -9,9 +9,9 @@ const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = '2026-10-03T09:12:00.000Z';
 
 export const templates: Catalogue['templates'] = [
-  { repository: REPO, name: 'planner', version: 2, commit: 'p2', committedAt: AT, description: 'Plans.', checkInMinutes: 30, model: null, launchNote: 'Start in the repository root.' },
-  { repository: REPO, name: 'implementer', version: 3, commit: 'i3', committedAt: AT, description: 'Builds.', checkInMinutes: 15, model: 'claude-opus-5-5', launchNote: null },
-  { repository: REPO, name: 'tester', version: 4, commit: 't4', committedAt: AT, description: 'Tests.', checkInMinutes: 10, model: null, launchNote: 'Start in a worktree with Docker running.' },
+  { repository: REPO, name: 'planner', version: 2, commit: 'p2', committedAt: AT, description: 'Plans.', checkInMinutes: 30, model: null, launchNote: 'Start in the repository root.', charter: '# planner\n\nYou plan one slice. Hand the plan to on-task.', handoffs: [{ name: 'on-task', carries: 'The plan for one slice' }], file: 'squadrons/templates/planner.yaml' },
+  { repository: REPO, name: 'implementer', version: 3, commit: 'i3', committedAt: AT, description: 'Builds.', checkInMinutes: 15, model: 'claude-opus-5-5', launchNote: null, charter: '# implementer\n\nYou build what the planner hands you. Hand the branch to on-done.', handoffs: [{ name: 'on-done', carries: 'The branch and its PR' }], file: 'squadrons/templates/implementer.yaml' },
+  { repository: REPO, name: 'tester', version: 4, commit: 't4', committedAt: AT, description: 'Tests.', checkInMinutes: 10, model: null, launchNote: 'Start in a worktree with Docker running.', charter: '# tester\n\nYou test what implementers hand you. You never change product code.\n\n1. Run the e2e suite.\n2. Pass: hand off on-pass. Fail: hand off on-fail with the first error.', handoffs: [{ name: 'on-fail', carries: 'The failing tests and the first error' }, { name: 'on-pass', carries: 'The run that passed' }], file: 'squadrons/templates/tester.yaml' },
 ];
 
 export const blueprints: Catalogue['blueprints'] = [
@@ -29,6 +29,7 @@ export const blueprints: Catalogue['blueprints'] = [
     ],
     handoffs: [],
     memberNames: 'plain',
+    file: 'squadrons/blueprints/aeolus.yaml',
   },
   {
     repository: REPO,
@@ -40,8 +41,9 @@ export const blueprints: Catalogue['blueprints'] = [
     roles: [{ name: 'planner', template: { repository: REPO, name: 'planner', version: 2 }, count: 1 }],
     handoffs: [],
     memberNames: 'plain',
+    file: 'squadrons/blueprints/aeolus.yaml',
   },
-  { repository: REPO, name: 'docs', version: 1, commit: 'd1', committedAt: AT, description: '2 writers', roles: [], handoffs: [], memberNames: 'plain' },
+  { repository: REPO, name: 'docs', version: 1, commit: 'd1', committedAt: AT, description: '2 writers', roles: [], handoffs: [], memberNames: 'plain', file: 'squadrons/blueprints/docs.yaml' },
 ];
 
 const noModel = { pinned: null, stated: null, isMismatch: false };

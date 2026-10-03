@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -32,6 +32,7 @@ function blueprint(name: string, version: number): BlueprintVersion {
     ],
     handoffs: [],
     memberNames: 'plain',
+    file: `squadrons/blueprints/${name}.yaml`,
   };
 }
 
@@ -45,6 +46,9 @@ const planner: TemplateVersion = {
   checkInMinutes: 30,
   model: null,
   launchNote: null,
+  charter: 'You plan.',
+  handoffs: [],
+  file: 'squadrons/templates/planner.yaml',
 };
 
 describe('the blueprints to form from', () => {
@@ -198,5 +202,46 @@ describe('otherMembersOfRole', () => {
     };
 
     expect(otherMembersOfRole(squadron, 'a')).toEqual(['tester-b']);
+  });
+});
+
+describe('the templates in the catalogue', () => {
+  it('groups each template with its versions, newest first, in name order', () => {
+    const tester = (version: number): TemplateVersion => ({ ...planner, name: 'tester', version, file: 'squadrons/templates/tester.yaml' });
+
+    expect(templateChoices({ templates: [tester(1), planner, tester(4)] }).map((choice) => [choice.name, choice.versions.map((each) => each.version)])).toEqual([
+      ['planner', [2]],
+      ['tester', [4, 1]],
+    ]);
+  });
+
+  it("opens a template's page by name, with its repository and version in the query", () => {
+    expect(templatePath({ repository: REPO, name: 'tester', version: 4 })).toBe('/squadrons/templates/tester?repository=example.com%2Ftemplates&version=4');
+  });
+
+  it('finds the blueprint versions that run a template, any version or the one given', () => {
+    const blueprints = [blueprint('aeolus', 3), { ...blueprint('docs', 1), roles: [] }];
+
+    expect(blueprintsUsing(blueprints, { repository: REPO, name: 'planner' }).map((each) => each.name)).toEqual(['aeolus']);
+    expect(blueprintsUsing(blueprints, { repository: REPO, name: 'planner', version: 1 })).toEqual([]);
+  });
+});
+
+describe('the Blueprints tab', () => {
+  it('says the roles with their counts', () => {
+    expect(rolesText(blueprint('aeolus', 3))).toBe('planner, implementer ×2');
+  });
+
+  it('says the squadrons not disbanded, by state', () => {
+    expect(squadronsText([{ state: 'sailing' }, { state: 'disbanded' }, { state: 'forming' }, { state: 'standing-down' }])).toBe('1 forming, 1 sailing, 1 standing down');
+    expect(squadronsText([{ state: 'disbanded' }])).toBe('');
+  });
+});
+
+describe('the late and silent thresholds', () => {
+  it('says them from the check-in interval: late after one, silent after three', () => {
+    expect(thresholdsText(10)).toBe('Late after 10 min, silent after 30 min');
+    expect(thresholdsText(30)).toBe('Late after 30 min, silent after 1 h 30 min');
+    expect(thresholdsText(60)).toBe('Late after 1 h, silent after 3 h');
   });
 });

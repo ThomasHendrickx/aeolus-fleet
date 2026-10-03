@@ -34,6 +34,10 @@ export const catalogueSchema = z.object({
       checkInMinutes: z.number(),
       model: z.string().nullable(),
       launchNote: z.string().nullable(),
+      charter: z.string(),
+      handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
+      /** Its path within its repository at its commit. */
+      file: z.string(),
     }),
   ),
   blueprints: z.array(
@@ -53,6 +57,8 @@ export const catalogueSchema = z.object({
       ),
       handoffs: z.array(z.object({ role: z.string(), handoff: z.string(), to: z.string() })),
       memberNames: z.enum(['plain', 'prefixed']),
+      /** Its path within its repository at its commit. */
+      file: z.string(),
     }),
   ),
 });
