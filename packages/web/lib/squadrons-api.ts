@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { useSquadronsConnection } from './squadrons';
+
 /**
  * The squadrons API as the console reads it, through the web app's server
  * (`/api/squadrons/<procedure>`): the catalogue, the squadrons, and forming.
@@ -147,31 +149,35 @@ const SQUADRONS_KEY = ['squadrons', 'list'];
 /** How often the lists ask again: forming members check in on their own time. */
 const REFRESH_MS = 5_000;
 
-/** Every squadron of the fleet, oldest first, asked again every few seconds; idle when not enabled. */
-export function useSquadrons(options: { isEnabled?: boolean } = {}) {
+/** Every squadron of the fleet, oldest first, asked again every few seconds; asked only while squadrons is connected. */
+export function useSquadrons() {
+  const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: SQUADRONS_KEY,
     queryFn: () => call('squadrons.list', { answers: z.array(squadronSchema) }),
     refetchInterval: REFRESH_MS,
-    enabled: options.isEnabled ?? true,
+    enabled: isConnected,
   });
 }
 
 /** The messages a squadron's flagship kept because it does not handle them, oldest first, asked again every few seconds. */
 export function useKeptMessages(squadronId: string) {
+  const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'messages', squadronId],
     queryFn: () => call('squadrons.messages', { input: { squadronId }, answers: z.array(keptMessageSchema) }),
     refetchInterval: REFRESH_MS,
+    enabled: isConnected,
   });
 }
 
-/** The templates and blueprints tagged in git; idle when not enabled. */
-export function useCatalogue(options: { isEnabled?: boolean } = {}) {
+/** The templates and blueprints tagged in git; asked only while squadrons is connected. */
+export function useCatalogue() {
+  const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'catalogue'],
     queryFn: () => call('catalogue.list', { answers: catalogueSchema }),
-    enabled: options.isEnabled ?? true,
+    enabled: isConnected,
   });
 }
 
