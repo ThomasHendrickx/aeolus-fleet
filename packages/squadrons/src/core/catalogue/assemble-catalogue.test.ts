@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { assembleCatalogue } from './assemble-catalogue.js';
+import { CHARTER_MAX_BYTES } from './catalogue.js';
 import type { SourceFile } from './ports.js';
 
 const REPO = 'github.com/thomashendrickx/squadron-templates';
@@ -67,7 +68,13 @@ describe('a ship template', () => {
     expect(read).toMatchObject({ model: null, launchNote: null, handoffs: [], checkInMinutes: 120 });
   });
 
+  it('takes a charter of exactly 48 KB', () => {
+    expect(assembleCatalogue([template({ name: 'tester', version: 4 }, { ...tester, charter: 'x'.repeat(CHARTER_MAX_BYTES) })]).templates).toHaveLength(1);
+  });
+
   it.each([
+    { label: 'a charter one byte over 48 KB', content: { ...tester, charter: 'x'.repeat(CHARTER_MAX_BYTES + 1) }, field: 'charter' },
+    { label: 'a charter over 48 KB in UTF-8, though under it in characters', content: { ...tester, charter: 'é'.repeat(CHARTER_MAX_BYTES / 2 + 1) }, field: 'charter' },
     { label: 'no charter', content: { ...tester, charter: undefined }, field: 'charter' },
     { label: 'a check-in under a minute', content: { ...tester, checkIn: '0m' }, field: 'checkIn' },
     { label: 'a check-in over 24 hours', content: { ...tester, checkIn: '25h' }, field: 'checkIn' },
