@@ -160,7 +160,7 @@ export function createSquadronsApp(options: {
   let refresher: ReturnType<typeof setInterval> | undefined;
   server.addHook('onClose', async () => {
     clearInterval(refresher);
-    flagships?.stop();
+    await flagships?.stop();
     await prisma.$disconnect();
   });
 

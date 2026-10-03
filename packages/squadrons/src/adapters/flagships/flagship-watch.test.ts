@@ -1,4 +1,5 @@
 import type { DeliveryId, MessageId, ShipId } from '@aeolus-fleet/common';
+import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
 import { FLEET_ID, SHIP_ID, fakeManagementFleet, memoryManagementStore } from '../../../test/support/management-fakes.js';
@@ -23,7 +24,8 @@ const forming: Squadron = {
   sailedAt: null,
 };
 
-const silentLog = { error: () => undefined, warn: () => undefined, info: () => undefined };
+// A logger that writes nothing: the watch logs only what goes wrong.
+const silentLog = Fastify({ logger: false }).log;
 
 describe('stopping the flagship watch', () => {
   it('waits for a delivery being handled, so nothing touches the database once the app closes', async () => {
