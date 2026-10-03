@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
 import type { Squadron } from '../../lib/squadrons-api';
@@ -13,14 +14,17 @@ interface SquadronHeaderProps {
   /** The id the page was opened with, named when no such squadron exists. */
   squadronId: string;
   state: 'ready' | 'loading' | 'not-found';
+  /** The actions its state allows: Stand down while Sailing; none once Disbanded. */
+  actions?: ReactNode;
 }
 
 /**
  * Top of the squadron page (docs/design/png/SquadronHeader.png): its name,
  * state and blueprint version, and a meta strip with the flagship, members
- * and when it was formed. While Forming, how many members are on station.
+ * and when it was formed, and the actions its state allows. While Forming,
+ * how many members are on station; while Standing down, how many retired.
  */
-export function SquadronHeader({ squadron, squadronId, state }: SquadronHeaderProps) {
+export function SquadronHeader({ squadron, squadronId, state, actions }: SquadronHeaderProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the squadron" />;
   }
@@ -36,6 +40,7 @@ export function SquadronHeader({ squadron, squadronId, state }: SquadronHeaderPr
         <Link href={blueprintPath(squadron.blueprint)} className="text-meta text-muted-foreground hover:underline" data-testid="squadron-blueprint">
           <span className="font-mono">{squadron.blueprint.name}</span> v{squadron.blueprint.version}
         </Link>
+        {actions && <div className="ml-auto flex gap-2">{actions}</div>}
       </div>
       <dl className="flex flex-wrap gap-x-6 gap-y-1 text-meta text-muted-foreground">
         <div className="flex gap-1.5">
@@ -52,6 +57,9 @@ export function SquadronHeader({ squadron, squadronId, state }: SquadronHeaderPr
         </div>
       </dl>
       {squadron.state === 'forming' && <StationProgress done={onStation} total={total} variant="forming" className="max-w-md" />}
+      {squadron.state === 'standing-down' && (
+        <StationProgress done={squadron.members.filter((member) => member.crew.status === 'retired').length} total={total} variant="standdown" className="max-w-md" />
+      )}
     </header>
   );
 }

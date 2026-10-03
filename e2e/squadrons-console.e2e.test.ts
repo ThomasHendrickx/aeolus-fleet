@@ -49,6 +49,8 @@ let squadrons: SquadronsApp;
 let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
+/** The first test's member session, kept so the last test can stand it down. */
+let memberCall: Awaited<ReturnType<typeof crewed>> | undefined;
 
 async function inOrigin(origin: string, ...args: string[]): Promise<void> {
   await run('git', ['-C', origin, ...args], {
@@ -152,6 +154,7 @@ describe('the first squadron in the console', () => {
     const squadronId = crewLine.split(' ')[4] ?? '';
 
     const call = await crewed(crewLine);
+    memberCall = call;
     await call('send', { selector: { kind: 'ship', name: squadronId }, contentType: CHECK_IN, payload: JSON.stringify({ squadron: squadronId }), idempotencyKey: 'check-in' });
     let role: { deliveryId: string; messageId: string } | undefined;
     await expect
@@ -289,6 +292,54 @@ describe('the first squadron in the console', () => {
     await page.getByRole('heading', { name: 'Silent members (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('silent-member').textContent()).resolves.toMatch(/tester-[a-z0-9]{4}team-[a-z0-9]{6}· tester/);
     await expect(page.getByTestId('nav-attention-count').textContent()).resolves.toMatch(/^1/);
+  });
+
+  it('stands the squadron down: the member stands down, retires, and the squadron is disbanded', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
+    await page.getByTestId('squadron-stand-down').click();
+    await page.getByTestId('stand-down-dialog').waitFor();
+    await page.getByTestId('stand-down-confirm').click();
+    await page.getByTestId('squadron-header').getByText('Standing down').waitFor({ timeout: LIVE_TIMEOUT_MS });
+
+    let standDown: { deliveryId: string; messageId: string } | undefined;
+    await expect
+      .poll(
+        async () => {
+          const { deliveries } = z
+            .object({ deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string(), contentType: z.string() })) })
+            .parse(await memberCall?.('receive', {}));
+          standDown = deliveries.find((delivery) => delivery.contentType === 'application/vnd.aeolus.squadron.stand-down+json') ?? standDown;
+          return standDown !== undefined;
+        },
+        { timeout: LIVE_TIMEOUT_MS },
+      )
+      .toBe(true);
+    await memberCall?.('ack', { deliveryId: standDown?.deliveryId });
+    const squadronId = (await page.getByTestId('squadron-header').getByRole('heading').textContent()) ?? '';
+    await memberCall?.('send', {
+      selector: { kind: 'ship', name: squadronId },
+      contentType: 'application/vnd.aeolus.squadron.stood-down+json',
+      payload: JSON.stringify({ squadron: squadronId }),
+      inReplyTo: standDown?.messageId,
+      idempotencyKey: 'stood-down',
+    });
+
+    await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
+
+  it('forces the stand down of a forming squadron: with no open work a normal confirm, and it is disbanded at once', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-form').click();
+    await page.getByTestId('form-squadron-preview').click();
+    await page.getByTestId('form-squadron-submit').click();
+    await page.getByTestId('squadron-header').getByText('Forming').waitFor({ timeout: LIVE_TIMEOUT_MS });
+
+    await page.getByTestId('squadron-force-stand-down').click();
+    await page.getByTestId('force-stand-down-dialog').waitFor();
+    await page.getByTestId('force-stand-down-confirm').click();
+
+    await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
 });
 

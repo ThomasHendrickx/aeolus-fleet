@@ -4,7 +4,9 @@ import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
+import { Button } from '../../../components/atoms/button';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
+import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
@@ -17,7 +19,7 @@ import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useHasSquadrons } from '../../../lib/squadrons';
-import { useCatalogue, useIssuedCrewLines, useKeptMessages, useSquadrons } from '../../../lib/squadrons-api';
+import { useCatalogue, useIssuedCrewLines, useForceStandDown, useKeptMessages, useSquadrons, useStandDown } from '../../../lib/squadrons-api';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -38,11 +40,17 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const catalogue = useCatalogue();
   const crewLines = useIssuedCrewLines(squadronId);
   const kept = useKeptMessages(squadronId);
+  const standDown = useStandDown();
+  const [isStandingDown, setIsStandingDown] = useState(false);
+  const forceStandDown = useForceStandDown();
+  const [isForcing, setIsForcing] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const squadron = squadrons.data?.find((each) => each.id === squadronId);
   const ships = useShips(squadron?.members.map((member) => member.shipId) ?? []);
+  const openDeliveries = [...ships.values()].reduce((total, ship) => total + ship.openDeliveries, 0);
+  const inFlightDeliveries = [...ships.values()].reduce((total, ship) => total + ship.inFlightDeliveries, 0);
   const blueprint = catalogue.data?.blueprints.find(
     (each) => each.repository === squadron?.blueprint.repository && each.name === squadron.blueprint.name && each.version === squadron.blueprint.version,
   );
@@ -51,7 +59,35 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
     <DetailLayout
       title={squadronId}
       parent={{ href: '/squadrons', label: 'Squadrons' }}
-      header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'} />}
+      header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
+          actions={
+            squadron && squadron.state !== 'disbanded' ? (
+              <>
+                {squadron.state === 'sailing' && (
+                  <Button
+                    variant="destructive"
+                    data-testid="squadron-stand-down"
+                    onClick={() => {
+                      standDown.reset();
+                      setIsStandingDown(true);
+                    }}
+                  >
+                    Stand down
+                  </Button>
+                )}
+                <Button
+                  data-testid="squadron-force-stand-down"
+                  onClick={() => {
+                    forceStandDown.reset();
+                    setIsForcing(true);
+                  }}
+                >
+                  Force stand down
+                </Button>
+              </>
+            ) : undefined
+          }
+        />}
       live={liveFleet.live}
       nav={{
         active: 'squadrons',
@@ -82,6 +118,45 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           }}
           flagshipId={squadron.flagship.shipId}
           now={now}
+        />
+      )}
+      {squadron && (
+        <StandDownDialog
+          squadronId={squadron.id}
+          memberCount={squadron.members.length}
+          openDeliveries={openDeliveries}
+          inFlightDeliveries={inFlightDeliveries}
+          isOpen={isStandingDown}
+          onOpenChange={setIsStandingDown}
+          isPending={standDown.isPending}
+          error={standDown.error?.message}
+          onConfirm={() => {
+            standDown.mutate(squadron.id, {
+              onSuccess: () => {
+                setIsStandingDown(false);
+              },
+            });
+          }}
+        />
+      )}
+      {squadron && (
+        <StandDownDialog
+          isForced
+          squadronId={squadron.id}
+          memberCount={squadron.members.length}
+          openDeliveries={openDeliveries}
+          inFlightDeliveries={inFlightDeliveries}
+          isOpen={isForcing}
+          onOpenChange={setIsForcing}
+          isPending={forceStandDown.isPending}
+          error={forceStandDown.error?.message}
+          onConfirm={() => {
+            forceStandDown.mutate(squadron.id, {
+              onSuccess: () => {
+                setIsForcing(false);
+              },
+            });
+          }}
         />
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
