@@ -367,6 +367,19 @@ describe('getting one ship on Postgres', () => {
 });
 
 describe('listing the fleet on Postgres', () => {
+  it('shows the harness of the session crewing a ship and the last model its sessions stated', async () => {
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    core.clock.advance(60_000);
+    unwrap(
+      await core.useCases.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', model: 'claude-opus-5-5', idempotencyKey: newKey() }),
+    );
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    expect(listed).toMatchObject({ harness: 'claude-code', model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
+  });
+
   it('lists argo and a commissioned ship with their status and prompt state', async () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -387,6 +400,8 @@ describe('listing the fleet on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
         report: null,
+        harness: null,
+        model: null,
       },
       {
         id: shipId,
@@ -400,6 +415,8 @@ describe('listing the fleet on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
         report: null,
+        harness: null,
+        model: null,
       },
     ]);
   });

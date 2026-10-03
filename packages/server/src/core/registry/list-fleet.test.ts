@@ -2,6 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  agentCaller,
   crewShip,
   deliveryIdOf,
   identityUseCases,
@@ -68,6 +69,42 @@ describe('when a crewed ship was last seen', () => {
   });
 });
 
+describe('the model and harness a ship shows', () => {
+  async function sendAs(shipId: ShipId, model: string): Promise<void> {
+    unwrap(
+      await messagingUseCases(core).sendMessage(agentCaller({ fleetId, shipId }), {
+        selector: { kind: 'ship', name: 'argo' },
+        payload: 'Done with PR 48',
+        model,
+        idempotencyKey: newKey(),
+      }),
+    );
+  }
+
+  it('shows the harness of the session crewing it, read with its location; none while no session crews it', async () => {
+    await expect(listedScout()).resolves.toMatchObject({ harness: null });
+
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'codex' }));
+
+    await expect(listedScout()).resolves.toMatchObject({ location: { kind: 'CLOUD', description: null }, harness: 'codex' });
+  });
+
+  it('shows the last model its sessions stated on a send, and when', async () => {
+    await sendAs(scoutId, 'claude-sonnet-5-5');
+    core.clock.advance(60_000);
+    await sendAs(scoutId, 'claude-opus-5-5');
+
+    await expect(listedScout()).resolves.toMatchObject({ model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
+  });
+
+  it('shows no model before a send, and none for argo', async () => {
+    const [listedArgo] = await useCases.listFleet(argo);
+
+    expect(listedArgo?.model).toBeNull();
+    await expect(listedScout()).resolves.toMatchObject({ model: null });
+  });
+});
+
 describe('listing the fleet', () => {
   it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, kind, status, prompt state and no location while awaiting crew', async () => {
     await expect(useCases.listFleet(argo)).resolves.toEqual([
@@ -83,6 +120,8 @@ describe('listing the fleet', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
         report: null,
+        harness: null,
+        model: null,
       },
       {
         id: scoutId,
@@ -96,6 +135,8 @@ describe('listing the fleet', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
         report: null,
+        harness: null,
+        model: null,
       },
     ]);
   });
