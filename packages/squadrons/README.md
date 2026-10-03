@@ -6,6 +6,80 @@ So far: its own process and database, the connection the operator makes in the c
 
 squadrons receives on every forming or sailing squadron's flagship. A member's check-in is kept with the model it states and answered with its role (template, charter, check-in interval, hand-offs as selectors); its on-station marks it, and the squadron sails once every member is on station. A flagship supports only the squadron's messages: any other message, from outside or from a member, is acknowledged and kept (`squadrons.messages`), never forwarded, and argo is told in its inbox, so no message disappears or goes unseen. The flagship acks each delivery only after handling it, and handling one that comes again (after a crash or a failed ack) gives the same answer and changes nothing twice. When a flagship is released, squadrons stops receiving on it and tells argo.
 
+## Lifecycle
+
+### Squadron states
+
+- **Forming**: its flagship and members are commissioned; not every member has been on station yet.
+- **Sailing**: every member has been on station; the squadron works.
+- **Standing down**: its members finish their work and are retired one by one.
+- **Disbanded**: every member and the flagship are retired. The end state; the squadron, its members and its flagship's kept messages stay as history.
+
+| From | To | When |
+| --- | --- | --- |
+| (none) | Forming | The operator forms a squadron from a blueprint version |
+| Forming | Sailing | Every member is on station for the first time |
+| Sailing | Standing down | The operator stands it down |
+| Standing down | Disbanded | Every member is retired: squadrons retires the flagship |
+| Forming, Sailing, Standing down | Disbanded | The operator forces the stand down |
+
+- Forming has no timeout. A member that never checks in keeps the squadron Forming; force stand down is the way out.
+- Sailing is reached once and stays until the squadron stands down. A member that drops off station (released, a new crew, silent) never moves the squadron back; its health shows it.
+- There is no disband action: Disbanded is only where standing down ends.
+
+### Member states
+
+- **Not on station**: its current crew has not confirmed its role at check-in.
+- **On station**: its current crew confirmed its role; its health is on time, late or silent.
+- **Standing down**: its squadron stands down and its flagship sent it its stand-down.
+- **Retired**: squadrons retired its ship.
+
+| From | To | When |
+| --- | --- | --- |
+| (none) | Not on station | Forming or adding commissions it |
+| Not on station | On station | Its crew checks in and confirms its role (on-station) |
+| On station | Not on station | Its ship awaits crew (released) or a new crew holds it, until that crew checks in |
+| On station | Standing down | Its squadron stands down: the flagship sends it its stand-down |
+| Standing down | Retired | It sent stood-down and holds no open deliveries |
+| Not on station | Retired | Its squadron stands down: a member never on station holds no work |
+| Any but Retired | Retired | The operator removes it, or forces the stand down |
+
+**Health** comes from each member's last report (`report`): late after one check-in interval, silent after three. Before its first report the clock runs from when it came on station. Health is observation only: silence or a missed check-in never retires or stops a member.
+
+### Stand down
+
+The operator stands down a Sailing squadron. It goes Standing down and takes no new members.
+
+1. A member that never came on station holds no work: squadrons retires it at once.
+2. The flagship sends every other member `application/vnd.aeolus.squadron.stand-down+json`: `{ "squadron" }`, once each.
+3. The member acknowledges it on receipt, as any delivery: an ack means received, never done. It finishes its open work, then sends its flagship `application/vnd.aeolus.squadron.stood-down+json`: `{ "squadron" }`, with `inReplyTo` set to the stand-down.
+4. The flagship handles a stood-down as it handles an on-station: it records it, then acks it. A member that stood down and holds no open deliveries is retired then; one that still holds some is retired at the first rescan (every 30 seconds) where it holds none.
+5. Once every member is retired, squadrons retires the flagship and the squadron is Disbanded.
+
+A member that checks in while its squadron stands down gets its role message with `"standingDown": true`: it finishes its open work and sends stood-down, as in step 3. A member is never retired before it sent stood-down: a stand-down that goes undeliverable, or a member that never answers, retires nobody. The operator removes that member or forces the stand down. The flagship receives until the squadron is Disbanded, so no message to it goes unseen while members finish.
+
+Sending stood-down is the aeolus plugin's part: when a stand-down arrives, or a role message says `"standingDown": true`, the member finishes its work and sends stood-down to its flagship.
+
+### Force stand down
+
+The operator forces the stand down of a Forming, Sailing or Standing down squadron. squadrons retires every member that is not retired yet, then the flagship, at once, and the squadron is Disbanded. Each retire abandons the ship's direct deliveries, as any retire does. Only this explicit operator action retires a member that did not stand down.
+
+### Members while the squadron serves
+
+- **Add**, only while Sailing: squadrons commissions one member of a role from the squadron's own snapshot (the same template version), with forming's machinery as it is (a formation attempt, an idempotency key, recovery after a crash). Its crew line, launch note and pinned model are answered once. It checks in like any member and is Not on station until it does; the squadron stays Sailing.
+- **Remove**, while Sailing or Standing down: squadrons retires the member's ship at once. Its direct deliveries are abandoned, as on any retire; a delivery to its type goes to another member of the role. Removing the last member of a role is allowed, and a hand-off to that role then fails at send ("no ship of that type").
+- **New crew line**: squadrons releases the member's ship if a session crews it, gets it a new starting prompt, and answers its crew line with the squadron id, its launch note and pinned model, once. The new crew checks in like any member. A recrew from the console gives a crew line without the squadron id, so that crew never checks in.
+
+### The flagship's messages
+
+The flagship handles check-in, on-station and stood-down from its own members. Any other message, from outside or from a member, is acknowledged and kept for the squadron page (`squadrons.messages`), never forwarded, and argo is told, so none disappears or goes unseen. Each delivery is acked only after it is handled, and handling one that comes again changes nothing twice. When the flagship is released or retired other than by its squadron disbanding, squadrons stops receiving on it and tells argo once.
+
+### Not handled
+
+- A ship changed outside its squadron (the operator releases, recrews or retires a member in the console) stays listed as a member; only its health and crew status show it. squadrons is not told (#105, after a first real squadron has sailed).
+- A released flagship is not crewed again: check-ins to it go unanswered.
+- While squadrons is not connected, flagships already receiving go on with their own crew tokens, but no new squadron starts receiving and no stand down advances.
+
 ## Running
 
 1. Give squadrons its own database and set its environment. No management ship and no secret: the operator connects squadrons in the console.
