@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_FLEET_VIEW,
   filterFleet,
+  fleetSquadrons,
   fleetTypes,
   fleetViewParams,
   readFleetView,
@@ -78,6 +79,25 @@ describe('filterFleet', () => {
   });
 });
 
+describe('the squadron filter', () => {
+  const squadronsOf = new Map([
+    [reviewer.id, { squadronId: 'team-a1b2c3', role: null }],
+    [builder.id, { squadronId: 'team-a1b2c3', role: 'builder' }],
+  ]);
+
+  it("keeps the squadron's flagship and members only", () => {
+    expect(names(filterFleet(fleet, { ...view({ squadron: 'team-a1b2c3' }), squadronsOf }))).toEqual(['builder-web', 'reviewer-01']);
+  });
+
+  it('keeps every ship while it is all', () => {
+    expect(names(filterFleet(fleet, { ...DEFAULT_FLEET_VIEW, squadronsOf }))).toEqual(['argo', 'builder-web', 'reviewer-01']);
+  });
+
+  it('lists each squadron once, sorted', () => {
+    expect(fleetSquadrons(new Map([...squadronsOf, [argo.id, { squadronId: 'docs-x7q2w9', role: 'writer' }]]))).toEqual(['docs-x7q2w9', 'team-a1b2c3']);
+  });
+});
+
 describe('fleetTypes', () => {
   it('lists each type once, sorted, without retired ships unless they are shown', () => {
     expect(fleetTypes(fleet, false)).toEqual(['builder', 'operator', 'reviewer']);
@@ -97,7 +117,7 @@ describe('the view in the URL', () => {
   });
 
   it('reads back what it wrote', () => {
-    const written = view({ query: 'rev', status: 'crewed', type: 'reviewer', isRetiredShown: true });
+    const written = view({ query: 'rev', status: 'crewed', type: 'reviewer', squadron: 'team-a1b2c3', isRetiredShown: true });
     expect(readFleetView(fleetViewParams(written))).toEqual(written);
   });
 
