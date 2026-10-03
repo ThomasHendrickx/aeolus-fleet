@@ -10,6 +10,7 @@ import type { Caller } from '../packages/server/src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
+import { newKey } from '../packages/server/test/support/keys.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
@@ -25,6 +26,9 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 const clock = createTestClock('2026-10-03T12:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
+/** Longer than three refresh cycles of the squadrons list (5 s each), with its retries. */
+const STEADY_FOR_MS = 16_000;
+const SAMPLE_EVERY_MS = 250;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -78,6 +82,33 @@ async function squadronsHealth(): Promise<string> {
 }
 
 describe('Settings, Squadrons', () => {
+  it("asks squadrons only for its connection while it is configured but not connected, and keeps a ship's plain actions steady", async () => {
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-02', type: 'reviewer' }));
+    clock.advance(SIGN_IN_WINDOW_MS);
+    const context = await browser.newContext({ baseURL: web.url });
+    contexts.push(context);
+    const page = await context.newPage();
+    const squadronsCalls: string[] = [];
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (pathname.startsWith('/api/squadrons/') || pathname.startsWith('/squadrons/')) {
+        squadronsCalls.push(`${request.method()} ${pathname}`);
+      }
+    });
+    await signIn(page, OPERATOR);
+    const row = page.getByTestId('fleet-row-reviewer-02');
+    await row.getByTestId('fleet-ship-retire').waitFor();
+
+    const shown: number[] = [];
+    for (const started = Date.now(); Date.now() - started < STEADY_FOR_MS; ) {
+      shown.push(await row.getByTestId('fleet-ship-retire').count());
+      await page.waitForTimeout(SAMPLE_EVERY_MS);
+    }
+
+    expect(shown.every((count) => count === 1)).toBe(true);
+    expect(new Set(squadronsCalls)).toEqual(new Set(['GET /squadrons/connection']));
+  });
+
   it('connects squadrons as a new management ship with fleet read and manage, and the browser never gets the secret', async () => {
     const page = await settingsPage();
     await expect(page.getByTestId('settings-squadrons-state').textContent()).resolves.toContain('Not connected');
