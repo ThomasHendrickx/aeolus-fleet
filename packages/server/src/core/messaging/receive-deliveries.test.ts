@@ -146,6 +146,7 @@ describe('claiming a delivery', () => {
           recipient: { kind: 'ship', shipId: scoutId },
           payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
           contentType: 'text/plain',
+          model: null,
           inReplyTo: null,
           sentAt: message?.createdAt,
           attempts: 1,

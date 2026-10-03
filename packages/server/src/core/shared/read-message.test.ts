@@ -25,13 +25,14 @@ describe('reading one message', () => {
       recipient: { kind: 'ship', ship: { name: 'scout' } },
       sentAt,
       contentType: 'text/plain',
+      model: 'claude-opus-5-5',
       payload,
       delivery: { state: 'acknowledged', attempts: 1, claimedBy: { name: 'scout' } },
     });
     expect(message.delivery.history).toMatchObject([
-      { type: 'DeliveryAcknowledged', ship: { name: 'scout' }, location: null },
-      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, attempts: 1 },
-      { type: 'MessageAccepted', ship: null, location: null, attempts: null },
+      { type: 'DeliveryAcknowledged', ship: { name: 'scout' }, location: null, harness: null },
+      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
+      { type: 'MessageAccepted', ship: null, location: null, harness: null, attempts: null },
     ]);
   });
 

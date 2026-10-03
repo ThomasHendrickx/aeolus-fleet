@@ -67,6 +67,7 @@ describe("reading argo's inbox", () => {
         inReplyTo: null,
         sentAt: core.clock.now(),
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
         payload: 'Release 2.14 is staged. Promote to production?',
       },
     });

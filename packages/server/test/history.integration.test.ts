@@ -82,6 +82,7 @@ describe('the history reads on Postgres', () => {
         sender: { id: scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner' } },
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
       },
       details: { selector: 'ship' },
     });
@@ -133,9 +134,9 @@ describe('the history reads on Postgres', () => {
     });
     expect(message.delivery.history).toMatchObject([
       { type: 'DeliveryAcknowledged', ship: { name: 'lookout' }, location: null, attempts: null },
-      { type: 'DeliveryClaimed', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, attempts: 2 },
+      { type: 'DeliveryClaimed', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, harness: 'claude-code', attempts: 2 },
       { type: 'DeliveryReturned', ship: { name: 'scout' }, location: null, attempts: 1 },
-      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, attempts: 1 },
+      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
       { type: 'MessageAccepted', ship: null, location: null, attempts: null },
     ]);
   });

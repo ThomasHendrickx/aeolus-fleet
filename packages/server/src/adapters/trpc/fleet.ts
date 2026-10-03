@@ -174,7 +174,7 @@ export const fleetRouter = router({
   list: scopedProcedure('fleet:read')
     .meta({
       description: [
-        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, where its session runs, when it was last seen, its last ping. Never a secret.',
+        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
       ].join(' '),
     })
     .output(fleetListOutputSchema)
@@ -189,6 +189,7 @@ export const fleetRouter = router({
         ping: pingOutputOf(ship.ping),
         scopes: [...ship.scopes],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
+        model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
       })),
     ),
 
@@ -213,6 +214,7 @@ export const fleetRouter = router({
         ping: pingOutputOf(ship.ping),
         scopes: [...ship.scopes],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
+        model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,

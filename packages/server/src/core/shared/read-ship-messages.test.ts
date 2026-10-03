@@ -29,6 +29,7 @@ describe("reading a ship's messages", () => {
         sender: { id: scene.scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: scene.planner.shipId, name: 'planner' } },
         inReplyTo: asked,
+        model: 'claude-opus-5-5',
         delivery: { state: 'pending', claimedBy: null },
       },
       {

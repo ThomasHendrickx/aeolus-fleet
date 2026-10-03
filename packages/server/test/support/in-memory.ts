@@ -656,6 +656,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     return { sentAt: newest.createdAt, deliveryState: delivery.state, answeredWithPongAt: pong?.occurredAt ?? null };
   };
 
+  const lastModelOf = (held: Ship): ShipFacts['lastModel'] => {
+    const stated = state.messages.filter((message) => message.fleetId === held.fleetId && message.senderShipId === held.id && message.model !== null);
+    const newest = stated.at(-1);
+    return newest?.model ? { id: newest.model, statedAt: newest.createdAt } : null;
+  };
+
   const factsOf = (held: Ship): ShipFacts => {
     const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
@@ -664,6 +670,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       openLease: lease
         ? {
             location: { ...lease.location },
+            harness: lease.harness,
             startedAt: lease.startedAt,
             lastSeenAt: state.leaseSeen.find((seen) => seen.leaseId === lease.id)?.at ?? lease.startedAt,
             report: state.leaseReports.find((held) => held.leaseId === lease.id)?.report ?? null,
@@ -671,6 +678,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       lastPing: lastPingOf(held),
+      lastModel: lastModelOf(held),
     };
   };
   const listing: FleetListing = {

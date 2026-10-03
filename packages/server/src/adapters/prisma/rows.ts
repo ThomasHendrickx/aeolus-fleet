@@ -113,6 +113,7 @@ export function toShipReport(row: unknown): ShipReport | null {
 const shipFactsSqlRow = z.object({
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),
+  lease_harness: z.string().nullable(),
   lease_started_at: z.date().nullable(),
   lease_last_seen_at: z.date().nullable(),
   secret_issued_at: z.date().nullable(),
@@ -120,6 +121,8 @@ const shipFactsSqlRow = z.object({
   ping_sent_at: z.date().nullable(),
   ping_delivery_state: deliveryStateSchema.nullable(),
   ping_answered_at: z.date().nullable(),
+  last_model: z.string().nullable(),
+  last_model_stated_at: z.date().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -127,6 +130,7 @@ export function toShipFacts(row: unknown): ShipFacts {
   const {
     lease_location,
     lease_location_description,
+    lease_harness,
     lease_started_at,
     lease_last_seen_at,
     secret_issued_at,
@@ -134,6 +138,8 @@ export function toShipFacts(row: unknown): ShipFacts {
     ping_sent_at,
     ping_delivery_state,
     ping_answered_at,
+    last_model,
+    last_model_stated_at,
   } = shipFactsSqlRow.parse(row);
   return {
     ship: toShipFromSql(row),
@@ -141,6 +147,7 @@ export function toShipFacts(row: unknown): ShipFacts {
       lease_location && lease_started_at
         ? {
             location: { kind: lease_location, description: lease_location_description },
+            harness: lease_harness,
             startedAt: lease_started_at,
             // Its claim until its crew calls again.
             lastSeenAt: lease_last_seen_at ?? lease_started_at,
@@ -152,6 +159,7 @@ export function toShipFacts(row: unknown): ShipFacts {
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }
         : null,
+    lastModel: last_model && last_model_stated_at ? { id: last_model, statedAt: last_model_stated_at } : null,
   };
 }
 
