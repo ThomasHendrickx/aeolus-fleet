@@ -1,5 +1,5 @@
 /**
- * Sets one version on the three published packages and pins their dependencies
+ * Sets one version on the four published packages and pins their dependencies
  * on each other to exactly that version, because they are released together
  * (ADR 0011). The aeolus Claude Code plugin carries the same version. Used by the release workflow and the publish dry run in CI.
  *
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-export const PUBLISHED_PACKAGES = ['common', 'server', 'web'] as const;
+export const PUBLISHED_PACKAGES = ['common', 'server', 'web', 'squadrons'] as const;
 
 /** The aeolus Claude Code plugin's manifest, released with the packages. */
 export const PLUGIN_MANIFEST = 'plugins/aeolus/.claude-plugin/plugin.json';
@@ -32,7 +32,7 @@ const manifestSchema = z.object({
   devDependencies: dependenciesSchema,
 });
 
-/** The dependencies, with the three packages pinned to the version. */
+/** The dependencies, with the published packages pinned to the version. */
 function pinned(dependencies: Dependencies | undefined, version: string): Dependencies | undefined {
   return (
     dependencies &&

@@ -120,3 +120,4 @@ jobs:
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/server
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/web
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/squadrons

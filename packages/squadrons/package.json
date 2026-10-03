@@ -1,7 +1,6 @@
 {
   "name": "@aeolus-fleet/squadrons",
   "version": "0.0.0",
-  "private": true,
   "description": "Aeolus squadrons: forms squadrons of ships from blueprints and leads them, as a ship of the fleet with fleet scopes.",
   "license": "Apache-2.0",
   "type": "module",
