@@ -31,4 +31,24 @@ describe('webHealth', () => {
 
     expect(Object.keys(body)).toEqual(['web', 'server', 'database']);
   });
+
+  it('adds squadrons, up with its connection, when the console has squadrons', async () => {
+    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(200, { status: 'ok', connection: 'not-connected' }))).resolves.toEqual({
+      isHealthy: true,
+      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'up', connection: 'not-connected' } },
+    });
+  });
+
+  it('shows squadrons down as its own part and stays healthy when squadrons does not answer', async () => {
+    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), () => Promise.reject(new TypeError('fetch failed')))).resolves.toEqual({
+      isHealthy: true,
+      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'down' } },
+    });
+  });
+
+  it("shows squadrons down when its database is unreachable", async () => {
+    const { body } = await webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(503, { status: 'unavailable' }));
+
+    expect(body.squadrons).toEqual({ status: 'down' });
+  });
 });
