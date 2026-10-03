@@ -48,6 +48,10 @@ describe('pingLine', () => {
     ).toBe('Answered ping in 4 s');
   });
 
+  it('says a ping that went undeliverable was not answered', () => {
+    expect(pingLine({ state: 'undeliverable', sentAt: minutesAgo(90), answeredAt: null }, NOW)).toBe('Ping not answered: undeliverable');
+  });
+
   it('says a ping acknowledged without pong was received, not answered', () => {
     expect(pingLine({ state: 'received', sentAt: minutesAgo(3), answeredAt: null }, NOW)).toBe(
       'Received, not answered with pong',
