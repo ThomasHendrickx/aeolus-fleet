@@ -51,6 +51,8 @@ let browser: Browser;
 const contexts: BrowserContext[] = [];
 /** The first test's member session, kept so the last test can stand it down. */
 let memberCall: Awaited<ReturnType<typeof crewed>> | undefined;
+/** The squadron the add-member test grew to two testers, kept so the next test can remove one. */
+let grownSquadronId = '';
 
 async function inOrigin(origin: string, ...args: string[]): Promise<void> {
   await run('git', ['-C', origin, ...args], {
@@ -354,6 +356,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('form-squadron-submit').click();
     const crewLine = (await page.getByTestId('member-crew-line').textContent()) ?? '';
     const squadronId = crewLine.split(' ')[4] ?? '';
+    grownSquadronId = squadronId;
     await bringOnStation({ call: await crewed(crewLine), squadronId });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
@@ -368,5 +371,22 @@ describe('the first squadron in the console', () => {
     await expect(page.getByTestId('crew-line-text').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${squadronId}$`));
     await page.getByTestId('crew-line-done').click();
     await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
+
+  it('removes a member with a clean inbox after one normal confirm: its ship retires and the squadron keeps sailing', async () => {
+    const page = await squadronsPage();
+    await page.goto(`${web.url}/squadrons/${grownSquadronId}`);
+    await expect.poll(() => page.getByTestId('member-row').count(), { timeout: LIVE_TIMEOUT_MS }).toBe(2);
+    const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
+    const name = (await added.locator('span.font-medium').first().textContent()) ?? '';
+
+    await added.getByTestId('member-remove').click();
+    await page.getByTestId('remove-member-dialog').getByText('Its inbox is empty, so no deliveries are affected.').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('remove-member-confirm').click();
+
+    const removed = page.getByTestId('member-row').filter({ hasText: name });
+    await removed.getByText('Retired').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(removed.getByTestId('member-remove').count()).resolves.toBe(0);
+    await page.getByTestId('squadron-header').getByText('Sailing').waitFor();
   });
 });

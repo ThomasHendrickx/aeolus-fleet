@@ -9,6 +9,7 @@ import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
 import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
+import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
@@ -28,10 +29,12 @@ import {
   useIssuedCrewLines,
   useForceStandDown,
   useKeptMessages,
+  useRemoveMember,
+  type Squadron,
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
-import { roleOptions } from '../../../lib/squadrons-view';
+import { otherMembersOfRole, roleOptions } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -59,6 +62,8 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const addMember = useAddMember();
   const [isAdding, setIsAdding] = useState(false);
   const [added, setAdded] = useState<AddedMember | undefined>(undefined);
+  const removeMember = useRemoveMember();
+  const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -70,6 +75,9 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
     (each) => each.repository === squadron?.blueprint.repository && each.name === squadron.blueprint.name && each.version === squadron.blueprint.version,
   );
   const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
+  const removingShip = removing ? ships.get(removing.shipId) : undefined;
+  const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
+  const isLosingMembersAllowed = squadron?.state === 'sailing' || squadron?.state === 'standing-down';
 
   return (
     <DetailLayout
@@ -131,7 +139,18 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       account={accountMenu}
     >
       {squadron ? (
-        <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines} ships={ships} now={now} />
+        <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
+          ships={ships}
+          now={now}
+          onRemove={
+            isLosingMembersAllowed
+              ? (member) => {
+                  removeMember.reset();
+                  setRemoving(member);
+                }
+              : undefined
+          }
+        />
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
       )}
@@ -202,6 +221,35 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
                 onSuccess: (member) => {
                   setIsAdding(false);
                   setAdded(member);
+                },
+              },
+            );
+          }}
+        />
+      )}
+      {squadron && removing && (
+        <RemoveMemberDialog
+          squadronId={squadron.id}
+          member={removing}
+          othersOfRole={otherMembersOfRole(squadron, removing.shipId)}
+          blueprint={removingRole ? { label: `${squadron.blueprint.name} v${String(squadron.blueprint.version)}`, count: removingRole.inBlueprint } : undefined}
+          openDeliveries={removingShip?.openDeliveries ?? 0}
+          inFlightDeliveries={removingShip?.inFlightDeliveries ?? 0}
+          // Opens once its ship's inbox is known, so a removal never skips the typed confirm.
+          isOpen={removingShip !== undefined}
+          onOpenChange={(isNowOpen) => {
+            if (!isNowOpen) {
+              setRemoving(undefined);
+            }
+          }}
+          isPending={removeMember.isPending}
+          error={removeMember.error?.message}
+          onConfirm={() => {
+            removeMember.mutate(
+              { squadronId: squadron.id, shipId: removing.shipId },
+              {
+                onSuccess: () => {
+                  setRemoving(undefined);
                 },
               },
             );
