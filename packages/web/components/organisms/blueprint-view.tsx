@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Flag, Lock, Plus } from 'lucide-react';
+import { Lock, Plus } from 'lucide-react';
 
 import { dayDate } from '../../lib/relative-time';
 import type { Squadron, TemplateVersion } from '../../lib/squadrons-api';
@@ -10,6 +10,7 @@ import { Button } from '../atoms/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { SquadronTag } from '../molecules/squadron-tag';
+import { HandoffWiring } from './handoff-wiring';
 import { StatusBadge } from '../molecules/status-badge';
 
 interface BlueprintViewProps {
@@ -21,20 +22,6 @@ interface BlueprintViewProps {
   /** The squadrons formed from this blueprint, any version. */
   squadrons: readonly Squadron[];
   onForm: () => void;
-}
-
-const FLAGSHIP = 'flagship';
-
-/** A hand-off's end: a role chip, or the flagship's kind chip. */
-function HandoffEnd({ name }: { name: string }) {
-  return name === FLAGSHIP ? (
-    <Badge variant="kind">
-      <Flag aria-hidden />
-      flagship
-    </Badge>
-  ) : (
-    <Badge variant="type">{name}</Badge>
-  );
 }
 
 /**
@@ -122,25 +109,7 @@ export function BlueprintView({ blueprint, version, onVersionChange, templates, 
               </TableBody>
             </Table>
           </section>
-          <section aria-labelledby="blueprint-handoffs" className="flex flex-col gap-2">
-            <h2 id="blueprint-handoffs" className="text-body font-semibold">
-              Hand-offs
-            </h2>
-            {shown.handoffs.length === 0 ? (
-              <p className="text-meta text-muted-foreground">No hand-offs: members hand nothing to each other.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 rounded-lg border border-border p-3">
-                {shown.handoffs.map((handoff) => (
-                  <li key={`${handoff.role}.${handoff.handoff}`} className="flex items-center gap-2 text-meta">
-                    <HandoffEnd name={handoff.role} />
-                    <span className="font-mono text-muted-foreground">{handoff.handoff}</span>
-                    <ArrowRight aria-label="goes to" className="size-(--size-icon-sm) text-muted-foreground" />
-                    <HandoffEnd name={handoff.to} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <HandoffWiring blueprint={shown} />
         </div>
         <div className="flex flex-col gap-5">
           <section aria-labelledby="blueprint-versions" className="flex flex-col gap-2">

@@ -5,6 +5,7 @@ import { use, useState } from 'react';
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { Button } from '../../../components/atoms/button';
+import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
@@ -183,6 +184,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
       )}
+      {blueprint && <HandoffWiring blueprint={blueprint} />}
       {squadron && (
         <KeptMessages
           messages={kept.data ?? []}
