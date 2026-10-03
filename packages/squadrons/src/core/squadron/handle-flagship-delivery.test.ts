@@ -5,7 +5,7 @@ import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
 import { CHECK_IN, ON_STATION, ROLE } from './check-in.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
-import type { SquadronRepository } from './ports.js';
+import type { FlagshipMessageLog, KeptMessage, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
@@ -102,7 +102,23 @@ const squadrons: SquadronRepository = {
   },
 };
 
-const handle = createHandleFlagshipDelivery({ door, squadrons, clock: { now: () => NOW } });
+const kept: KeptMessage[] = [];
+const told: string[] = [];
+const messages: FlagshipMessageLog = {
+  keep: (message) => {
+    kept.push(message);
+    return Promise.resolve();
+  },
+  list: () => Promise.resolve(kept),
+};
+const operator: OperatorNotices = {
+  tell: (text) => {
+    told.push(text);
+    return Promise.resolve();
+  },
+};
+
+const handle = createHandleFlagshipDelivery({ door, squadrons, messages, operator, clock: { now: () => NOW } });
 
 let next = 0;
 function delivery(from: ShipId, message: { contentType: string; payload: unknown; inReplyTo?: MessageId }): FlagshipDelivery {
@@ -111,6 +127,7 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
     deliveryId: `dlv_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     messageId: `msg_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     senderShipId: from,
+    senderName: from === STRANGER ? 'reviewer-01' : 'a-member',
     contentType: message.contentType,
     payload: typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload),
     inReplyTo: message.inReplyTo ?? null,
@@ -121,6 +138,8 @@ beforeEach(() => {
   held = squadron();
   acked.length = 0;
   sent.length = 0;
+  kept.length = 0;
+  told.length = 0;
   isAckRefused = false;
 });
 
@@ -183,17 +202,39 @@ describe('on station', () => {
   });
 });
 
-describe('a delivery the flagship leaves alone', () => {
+describe('a delivery the flagship does not handle', () => {
   it.each([
     ['a check-in from a ship that is no member', delivery(STRANGER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } })],
-    ["a check-in for another squadron", delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'other-squadron' } })],
+    ['a check-in for another squadron', delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'other-squadron' } })],
     ['a check-in that is no JSON', delivery(TESTER, { contentType: CHECK_IN, payload: 'hello' })],
-    ['any other message, until Thomas says what the flagship does with it', delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' })],
-  ])('leaves %s unacknowledged and unanswered', async (_label, unknown) => {
-    await expect(handle(held, unknown)).resolves.toEqual({ isOk: true, value: 'unhandled' });
+    ['any other message: the flagship supports only the squadron messages', delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' })],
+  ])('acknowledges and keeps %s for the squadron page, answering nothing', async (_label, unknown) => {
+    await expect(handle(held, unknown)).resolves.toEqual({ isOk: true, value: 'kept' });
 
-    expect(acked).toEqual([]);
+    expect(acked).toEqual([unknown.deliveryId]);
     expect(sent).toEqual([]);
+    expect(kept).toEqual([
+      {
+        fleetId: FLEET,
+        squadronId: 'team-a1b2c3',
+        deliveryId: unknown.deliveryId,
+        messageId: unknown.messageId,
+        senderShipId: unknown.senderShipId,
+        senderName: unknown.senderName,
+        contentType: unknown.contentType,
+        payload: unknown.payload,
+        inReplyTo: null,
+        receivedAt: NOW,
+      },
+    ]);
+  });
+
+  it('tells argo, so a kept message is not left unseen', async () => {
+    await handle(held, delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' }));
+
+    expect(told).toEqual([
+      'The flagship of the squadron team-a1b2c3 got a message it does not handle, from reviewer-01 (text/plain). squadrons keeps it for the squadron page; nothing was forwarded.',
+    ]);
   });
 
   it('answers nothing when the ack is refused: act only on an acknowledged delivery', async () => {
