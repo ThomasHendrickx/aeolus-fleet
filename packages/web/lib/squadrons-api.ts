@@ -102,6 +102,19 @@ export const formedSquadronSchema = z.object({
 
 export type FormedSquadron = z.infer<typeof formedSquadronSchema>;
 
+export const keptMessageSchema = z.object({
+  deliveryId: z.string(),
+  messageId: z.string(),
+  senderShipId: z.string(),
+  senderName: z.string(),
+  contentType: z.string(),
+  payload: z.string(),
+  inReplyTo: z.string().nullable(),
+  receivedAt: z.string(),
+});
+
+export type KeptMessage = z.infer<typeof keptMessageSchema>;
+
 const answerSchema = z.union([z.object({ result: z.object({ data: z.unknown() }) }), z.object({ error: z.object({ message: z.string() }) })]);
 
 async function call<T>(procedure: string, request: { input?: unknown; isMutation?: boolean; answers: z.ZodType<T> }): Promise<T> {
@@ -134,6 +147,15 @@ export function useSquadrons(options: { isEnabled?: boolean } = {}) {
     queryFn: () => call('squadrons.list', { answers: z.array(squadronSchema) }),
     refetchInterval: REFRESH_MS,
     enabled: options.isEnabled ?? true,
+  });
+}
+
+/** The messages a squadron's flagship kept because it does not handle them, oldest first, asked again every few seconds. */
+export function useKeptMessages(squadronId: string) {
+  return useQuery({
+    queryKey: ['squadrons', 'messages', squadronId],
+    queryFn: () => call('squadrons.messages', { input: { squadronId }, answers: z.array(keptMessageSchema) }),
+    refetchInterval: REFRESH_MS,
   });
 }
 

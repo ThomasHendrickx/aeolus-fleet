@@ -199,4 +199,25 @@ describe('the first squadron in the console', () => {
     await expect(tag.textContent()).resolves.toMatch(/^team-[a-z0-9]{6}· tester$/);
     await expect(tag.getAttribute('href')).resolves.toMatch(/^\/squadrons\/team-[a-z0-9]{6}$/);
   });
+
+  it('shows a message the flagship kept, and opens it whole on the flagship page', async () => {
+    const flagship = await database.ship.findFirstOrThrow({ where: { type: 'flagship' } });
+    unwrap(
+      await useCases.sendMessage(argo, {
+        selector: { kind: 'ship', name: flagship.name },
+        payload: 'Build login for issue #42',
+        contentType: 'text/plain',
+        idempotencyKey: newKey(),
+      }),
+    );
+    const page = await squadronsPage();
+    await page.getByRole('link', { name: flagship.name }).first().click();
+
+    const kept = page.getByTestId('kept-message').first();
+    await kept.waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(kept.textContent()).resolves.toContain('Build login for issue #42');
+    await kept.getByRole('link').click();
+    await page.waitForURL(new RegExp(`/ships/${flagship.id}\\?tab=messages&message=msg_`));
+  });
 });
+
