@@ -14,6 +14,7 @@ import type { AuthenticateOperator } from '../../core/operator/authenticate-oper
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
 import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
 import type { StandDown } from '../../core/squadron/stand-down.js';
+import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
@@ -30,6 +31,7 @@ export interface Context {
   formSquadron: FormSquadron;
   listSquadrons: ListSquadrons;
   standDown: StandDown;
+  forceStandDown: ForceStandDown;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -91,6 +93,14 @@ const LIST_CODES = {
 const STAND_DOWN_CODES = {
   SQUADRON_NOT_FOUND: 'NOT_FOUND',
   NOT_SAILING: 'CONFLICT',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of forcing a stand down, as the API states them. */
+const FORCE_CODES = {
+  MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
+  SQUADRON_NOT_FOUND: 'NOT_FOUND',
+  ALREADY_DISBANDED: 'CONFLICT',
+  FLEET_UNAVAILABLE: 'BAD_GATEWAY',
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -255,6 +265,21 @@ export const squadronsRouter = t.router({
         const stood = await ctx.standDown({ fleetId: ctx.fleetId, squadronId: input.squadronId });
         if (!stood.isOk) {
           throw new TRPCError({ code: STAND_DOWN_CODES[stood.error.kind], message: stood.error.message });
+        }
+        return {};
+      }),
+    /**
+     * Forces the stand down of a Forming, Sailing or Standing down squadron:
+     * every member not retired yet and the flagship are retired at once, their
+     * direct deliveries abandoned, and the squadron is Disbanded.
+     */
+    forceStandDown: connectedProcedure
+      .input(z.object({ squadronId: z.string() }))
+      .output(z.strictObject({}))
+      .mutation(async ({ ctx, input }) => {
+        const forced = await ctx.forceStandDown({ fleetId: ctx.fleetId, squadronId: input.squadronId });
+        if (!forced.isOk) {
+          throw new TRPCError({ code: FORCE_CODES[forced.error.kind], message: forced.error.message });
         }
         return {};
       }),

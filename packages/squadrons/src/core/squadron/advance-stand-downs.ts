@@ -2,9 +2,10 @@ import type { ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
-import { err, ok, type Result } from '../shared/result.js';
+import type { Result } from '../shared/result.js';
 import { STAND_DOWN } from './check-in.js';
 import type { SquadronRepository } from './ports.js';
+import { retireShip } from './retire-ship.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type AdvanceStandDowns = () => Promise<void>;
@@ -29,15 +30,7 @@ export function createAdvanceStandDowns(deps: { door: FleetDoor; management: Man
     }
     const managementToken = crew.crewToken;
 
-    /** Retires a ship; a ship retired already is fine. */
-    const retire = async (shipId: ShipId): Promise<Result<undefined, FleetRefusal>> => {
-      const retired = await deps.door.retire(managementToken, { shipId });
-      if (retired.isOk) {
-        return retired;
-      }
-      const ship = await deps.door.getShip(managementToken, { shipId });
-      return ship.isOk && ship.value.status === 'retired' ? ok(undefined) : err(retired.error);
-    };
+    const retire = (shipId: ShipId): Promise<Result<undefined, FleetRefusal>> => retireShip(deps.door, { crewToken: managementToken, shipId });
 
     /** The member one step further, or as it is when it waits on its crew or on the fleet. */
     const advanceMember = async (squadron: Squadron, member: Member): Promise<Member> => {
