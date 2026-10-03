@@ -6,8 +6,8 @@ import { idempotencyKeySchema } from './idempotency-key.js';
 
 /**
  * Inputs and outputs of sending a message (`ship.send`): who it is for, its
- * payload and content type, the sender's idempotency key, and the message it
- * replies to.
+ * payload and content type, the model the sender runs, the sender's
+ * idempotency key, and the message it replies to.
  */
 
 /**
@@ -57,6 +57,21 @@ export const contentTypeSchema = z
   .max(CONTENT_TYPE_MAX_LENGTH, CONTENT_TYPE_MESSAGE)
   .refine(isMediaType, CONTENT_TYPE_MESSAGE);
 
+/** The longest model id a session may state. */
+export const MODEL_MAX_LENGTH = 100;
+
+/**
+ * The model a session runs, as it states it on each send (docs/blueprint.md,
+ * "Model"): its exact id, such as claude-opus-5-5, trimmed, without spaces.
+ * Self-reported: the fleet stores it and never verifies it.
+ */
+export const modelSchema = z
+  .string()
+  .trim()
+  .min(1, 'A model is the exact model id the session runs, such as claude-opus-5-5')
+  .max(MODEL_MAX_LENGTH, `A model is at most ${String(MODEL_MAX_LENGTH)} characters`)
+  .regex(/^\S+$/, 'A model id has no spaces');
+
 /**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
  * name, or any ship of a type. A name is resolved to the ship's id at send time.
@@ -80,6 +95,8 @@ export const sendInputSchema = z.object({
     ),
   /** Without it, the payload is text/plain. */
   contentType: contentTypeSchema.optional(),
+  /** The exact model the sending session runs now. Every ship states it; argo states none. */
+  model: modelSchema.optional(),
   idempotencyKey: idempotencyKeySchema,
   /** The id of the message, in the same fleet, that this one replies to. */
   inReplyTo: idSchema('message').optional(),

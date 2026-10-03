@@ -36,11 +36,31 @@ export const locationSchema = z.discriminatedUnion('kind', [
 
 export type LocationInput = z.infer<typeof locationSchema>;
 
-/** Input of `ship.register`: the ship id and secret from the starting prompt, and where the session runs. */
+/** The harnesses the console names; any other is free text. */
+export const KNOWN_HARNESSES = ['claude-code', 'claude-chat', 'codex'] as const;
+
+/** The longest harness a session may state. */
+export const HARNESS_MAX_LENGTH = 50;
+
+/**
+ * The harness a session runs in (docs/blueprint.md, "Harness"), such as
+ * claude-code, claude-chat or codex: free text, trimmed and in lower case.
+ * Stated once when the session crews the ship, read together with its
+ * location; never interpreted.
+ */
+export const harnessSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, `A harness names what the session runs in, such as ${KNOWN_HARNESSES.join(', ')}`)
+  .max(HARNESS_MAX_LENGTH, `A harness is at most ${String(HARNESS_MAX_LENGTH)} characters`);
+
+/** Input of `ship.register`: the ship id and secret from the starting prompt, where the session runs and in which harness. */
 export const registerInputSchema = z.object({
   shipId: idSchema('ship'),
   secret: z.string().min(1).max(SHIP_SECRET_MAX_LENGTH),
   location: locationSchema,
+  harness: harnessSchema,
 });
 
 export type RegisterInput = z.infer<typeof registerInputSchema>;
