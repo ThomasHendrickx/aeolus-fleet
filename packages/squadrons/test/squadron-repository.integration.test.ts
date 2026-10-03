@@ -126,3 +126,22 @@ describe('updating a squadron', () => {
     ]);
   });
 });
+
+describe('adding a member', () => {
+  it('stores the new member and finishes its formation attempt together', async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-a1b2c3@2', fleetId: FLEET, squadronId: formed.id, startedAt: LATER });
+    const [snapshot] = await squadrons.list(FLEET);
+    if (!snapshot) {
+      expect.fail('the squadron was not stored');
+    }
+    const added = { shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null } as const;
+
+    await squadrons.update({ before: snapshot, after: { ...snapshot, members: [...snapshot.members, added] }, finishesAttempt: 'team-a1b2c3@2' });
+
+    const [stored] = await squadrons.list(FLEET);
+    expect(stored?.members.map((member) => member.name)).toEqual(['planner-k3x9', 'tester-m4p7', 'tester-q8r2']);
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([]);
+  });
+});
