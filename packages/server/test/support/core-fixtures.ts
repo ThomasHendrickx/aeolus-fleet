@@ -170,8 +170,8 @@ export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): Delivery
 }
 
 /** The ship secret a starting prompt holds. */
-export function secretIn(prompt: string): string {
-  const secret = /^Ship secret: (\S+)$/m.exec(prompt)?.[1];
+export function secretIn(prompt: string | null): string {
+  const secret = /^Ship secret: (\S+)$/m.exec(prompt ?? '')?.[1];
   if (secret === undefined) {
     throw new Error(`No ship secret in the starting prompt:\n${prompt}`);
   }
@@ -234,6 +234,7 @@ export function addAgentShip(
     note: null,
     createdAt: at,
     retiredAt,
+    commission: null,
   });
   core.state.credentials.push({
     id: core.ids('credential'),

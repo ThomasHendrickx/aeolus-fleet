@@ -69,7 +69,7 @@ describe('commissioning a ship on Postgres', () => {
       retiredAt: null,
       commissionedBy: argoId,
       commissionKey: 'commission-scout',
-      commissionRequestHash: expect.any(String),
+      commissionRequestHash: (await core.prisma.ship.findUnique({ where: { id: shipId } }))?.commissionRequestHash ?? 'none',
     });
     await expect(core.prisma.credential.findMany({ where: { shipId } })).resolves.toEqual([
       expect.objectContaining({

@@ -226,7 +226,7 @@ describe('the ship tools at /mcp', () => {
     });
     const { shipId } = await call(session, {
       tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string() }) },
-      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron' },
+      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' },
     });
 
     expect(listed.map((ship) => ship.name)).toContain(manager.name);

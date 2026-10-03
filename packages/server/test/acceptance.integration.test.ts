@@ -229,8 +229,8 @@ describe('the v1 acceptance test, over MCP', () => {
     ]);
 
     // Each session connects to the fleet its prompt names, reads the protocol, and registers.
-    const scout = await sessionFrom(scoutShip.prompt, { kind: 'DEVICE' });
-    const lookout = await sessionFrom(lookoutShip.prompt, { kind: 'CLOUD' });
+    const scout = await sessionFrom(scoutShip.prompt ?? '', { kind: 'DEVICE' });
+    const lookout = await sessionFrom(lookoutShip.prompt ?? '', { kind: 'CLOUD' });
     expect(scout.instructions).toMatch(/^Aeolus carries messages between ships\./);
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('ShipClaimed', { actorShipId: scoutId, shipId: scoutId }),
@@ -285,7 +285,7 @@ describe('the v1 acceptance test, over MCP', () => {
       logged('StartingPromptIssued', { actorShipId: argoId, shipId: lookoutId }),
     ]);
     const staleClient = new Client({ name: 'ship-session', version: '1.0.0' });
-    await staleClient.connect(new StreamableHTTPClientTransport(new URL(mcpUrlIn(lookoutShip.prompt))));
+    await staleClient.connect(new StreamableHTTPClientTransport(new URL(mcpUrlIn(lookoutShip.prompt ?? ''))));
     clients.push(staleClient);
     await expect(
       refusalOf(staleClient, {

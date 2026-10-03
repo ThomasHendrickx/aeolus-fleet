@@ -207,6 +207,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
       lockName: () => Promise.resolve(),
+      lockCommissionKey: () => Promise.resolve(),
+      findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
+        Promise.resolve(
+          state.ships.find(
+            (found) => found.fleetId === fleetId && found.commission?.by === by && found.commission.idempotencyKey === idempotencyKey,
+          ),
+        ),
       findActiveByName: (fleetId, name) =>
         Promise.resolve(
           state.ships.find((found) => found.fleetId === fleetId && found.name === name && found.retiredAt === null),

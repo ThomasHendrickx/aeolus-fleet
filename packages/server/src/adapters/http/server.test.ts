@@ -722,7 +722,7 @@ describe("state-changing console calls come from the console's origin", () => {
     return server.inject({
       method: 'POST',
       url: '/trpc/fleet.commission',
-      payload: { name: 'stowaway', type: 'reviewer' },
+      payload: { name: 'stowaway', type: 'reviewer', idempotencyKey: 'commission-stowaway' },
       headers,
     });
   }
@@ -815,7 +815,7 @@ describe('text input holding the character U+0000', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/trpc/fleet.commission',
-      payload: { name: 'scout', type: 'reviewer', note: 'reviews\u0000 pull requests' },
+      payload: { name: 'scout', type: 'reviewer', note: 'reviews\u0000 pull requests', idempotencyKey: 'commission-scout' },
       headers: { cookie, origin: FLEET_ORIGIN },
     });
 

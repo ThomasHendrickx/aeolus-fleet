@@ -275,9 +275,14 @@ describe('the fleet actions at /api/v1/fleet', () => {
     await register(mooring);
 
     const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'GET' }), z.array(z.object({ name: z.string() })));
+    const commission = { name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' };
     const commissionedByManager = await ok(
-      request('fleet/commission', { crewToken: manager.crewToken, body: { name: `${manager.name}-member`, type: 'squadron' } }),
+      request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
       z.object({ shipId: z.string(), prompt: z.string() }),
+    );
+    const repeated = await ok(
+      request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
+      z.object({ shipId: z.string(), prompt: z.null(), crewLine: z.null(), startingPrompt: z.object({ isClaimed: z.boolean() }) }),
     );
     const pinged = await ok(
       request('fleet/ping', { crewToken: manager.crewToken, body: { shipId: mooring.shipId } }),
@@ -286,6 +291,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
 
     expect(listed.map((ship) => ship.name)).toEqual(expect.arrayContaining([manager.name, mooring.name]));
     expect(commissionedByManager.prompt).toContain(`Ship id: ${commissionedByManager.shipId}`);
+    expect(repeated).toMatchObject({ shipId: commissionedByManager.shipId, startingPrompt: { isClaimed: false } });
     expect(pinged.isNew).toBe(true);
   });
 

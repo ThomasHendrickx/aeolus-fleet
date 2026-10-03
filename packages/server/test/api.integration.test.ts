@@ -162,6 +162,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_account_theme_session_device$/),
       expect.stringMatching(/^\d{14}_lease_last_seen$/),
       expect.stringMatching(/^\d{14}_lease_report$/),
+      expect.stringMatching(/^\d{14}_commission_key$/),
     ]);
   });
 });
@@ -252,7 +253,7 @@ describe('the fleet procedures at the API', () => {
   it('refuse every fleet procedure without a caller', async () => {
     const shipId = newId('ship');
 
-    await expect(codeOf(client().fleet.commission.mutate(scout))).resolves.toBe('UNAUTHORIZED');
+    await expect(codeOf(client().fleet.commission.mutate({ ...scout, idempotencyKey: newKey() }))).resolves.toBe('UNAUTHORIZED');
     await expect(codeOf(client().fleet.getStartingPrompt.mutate({ shipId }))).resolves.toBe('UNAUTHORIZED');
     await expect(codeOf(client().fleet.list.query())).resolves.toBe('UNAUTHORIZED');
   });
@@ -343,7 +344,7 @@ describe('the fleet procedures at the API', () => {
     },
   ])('refuse a commission with $label', async ({ input, code }) => {
     const asArgo = await signedInArgo();
-    await expect(codeOf(asArgo.fleet.commission.mutate(input))).resolves.toBe(code);
+    await expect(codeOf(asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), ...input }))).resolves.toBe(code);
   });
 
   it('refuse a starting prompt for a ship that does not exist', async () => {
@@ -1436,7 +1437,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_lease_report$/);
+    expect(migration).toMatch(/^\d{14}_commission_key$/);
   });
 });
 

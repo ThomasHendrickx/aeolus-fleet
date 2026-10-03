@@ -22,7 +22,7 @@ beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-  scout = await crewed(shipId, prompt);
+  scout = await crewed(shipId, prompt ?? '');
   core.clock.advance(60_000);
 });
 

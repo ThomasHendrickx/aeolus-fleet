@@ -81,11 +81,11 @@ beforeEach(async () => {
   const { shipId: scoutId, prompt: scoutPrompt } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }),
   );
-  scout = await register(scoutId, scoutPrompt);
+  scout = await register(scoutId, scoutPrompt ?? '');
   const { shipId: lookoutId, prompt: lookoutPrompt } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }),
   );
-  lookout = await register(lookoutId, lookoutPrompt);
+  lookout = await register(lookoutId, lookoutPrompt ?? '');
 });
 
 afterEach(async () => {

@@ -68,6 +68,10 @@ model Ship {
   note      String?
   createdAt DateTime  @map("created_at") @db.Timestamptz(3)
   retiredAt DateTime? @map("retired_at") @db.Timestamptz(3)
+  /// The ship that commissioned it, its idempotency key and the request's hash; null for argo.
+  commissionedBy        String? @map("commissioned_by")
+  commissionKey         String? @map("commission_key")
+  commissionRequestHash String? @map("commission_request_hash")
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
   leases            Lease[]
@@ -81,6 +85,8 @@ model Ship {
   events            Event[]          @relation("EventShip")
 
   @@unique([fleetId, id])
+  /// An idempotency key is used once per commissioning ship.
+  @@unique([fleetId, commissionedBy, commissionKey])
   /// A name is unique among ships that are not retired, and reusable after retirement.
   @@unique([fleetId, name], map: "ships_fleet_id_name_active_key", where: { retiredAt: null })
   /// Exactly one operator ship per fleet.

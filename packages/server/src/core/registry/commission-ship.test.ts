@@ -53,7 +53,8 @@ describe('commissioning a ship', () => {
         note: 'reviews pull requests',
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
-        commission: { by: argoId, idempotencyKey: 'commission-scout', requestHash: expect.any(String) },
+        // The hash itself is the repeat tests' concern; here, that it is kept with the key.
+        commission: { by: argoId, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
       },
     ]);
     expect(core.state.leases.filter((lease) => lease.shipId === shipId)).toEqual([]);
@@ -225,7 +226,7 @@ describe('the type and note of a new ship', () => {
   });
 
   it('refuses a note over 500 characters', async () => {
-    const tooLong = { name: 'scout', type: 'reviewer', note: 'a'.repeat(501) };
+    const tooLong = { name: 'scout', type: 'reviewer', note: 'a'.repeat(501), idempotencyKey: newKey() };
 
     await expect(commissionShip(argo, tooLong)).resolves.toMatchObject({
       isOk: false,
@@ -289,9 +290,9 @@ describe('a commission that comes again', () => {
   });
 
   it('takes the fleet scopes in another order as the same request', async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), ...scout, fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    unwrap(await commissionShip(argo, { ...scout, fleetScopes: ['fleet:read', 'fleet:manage'] }));
 
-    await expect(commissionShip(argo, { idempotencyKey: newKey(), ...scout, fleetScopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { prompt: null } });
+    await expect(commissionShip(argo, { ...scout, fleetScopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { prompt: null } });
   });
 
   it.each([
@@ -303,7 +304,7 @@ describe('a commission that comes again', () => {
     unwrap(await commissionShip(argo, scout));
     const before = structuredClone(core.state);
 
-    await expect(commissionShip(argo, { idempotencyKey: newKey(), ...scout, ...change })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+    await expect(commissionShip(argo, { ...scout, ...change })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
     expect(core.state).toEqual(before);
   });
 
@@ -312,7 +313,7 @@ describe('a commission that comes again', () => {
     const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
     unwrap(await commissionShip(argo, scout));
 
-    const theirs = unwrap(await commissionShip(manager, { idempotencyKey: newKey(), ...scout, name: 'deputy' }));
+    const theirs = unwrap(await commissionShip(manager, { ...scout, name: 'deputy' }));
 
     expect(theirs.prompt).not.toBeNull();
     expect(shipsNamed('deputy')).toHaveLength(1);

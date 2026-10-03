@@ -58,13 +58,13 @@ describe('shipHandleSchema', () => {
 
 describe('commissionShipInputSchema', () => {
   it('accepts a name, a type and a note', () => {
-    const input = { name: 'scout', type: 'reviewer', note: 'reviews pull requests' };
+    const input = { name: 'scout', type: 'reviewer', note: 'reviews pull requests', idempotencyKey: 'commission-scout' };
 
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
   it('accepts fleet scopes to add to the ship', () => {
-    const input = { name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'] };
+    const input = { name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'], idempotencyKey: 'commission-manager' };
 
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
@@ -77,21 +77,26 @@ describe('commissionShipInputSchema', () => {
   });
 
   it('takes the note as optional', () => {
-    expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer' })).toEqual({
+    expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer', idempotencyKey: 'commission-scout' })).toEqual({
       name: 'scout',
       type: 'reviewer',
+      idempotencyKey: 'commission-scout',
     });
   });
 
   it('drops whitespace around the note', () => {
-    expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer', note: ' ahoy \n' })).toMatchObject({
+    expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer', note: ' ahoy \n', idempotencyKey: 'commission-scout' })).toMatchObject({
       note: 'ahoy',
     });
   });
 
+  it('accepts an idempotency key of 256 characters', () => {
+    expect(commissionShipInputSchema.safeParse({ name: 'scout', type: 'reviewer', idempotencyKey: 'k'.repeat(256) }).success).toBe(true);
+  });
+
   it('accepts a note of 500 characters', () => {
     expect(
-      commissionShipInputSchema.safeParse({ name: 'scout', type: 'reviewer', note: 'a'.repeat(500) }).success,
+      commissionShipInputSchema.safeParse({ name: 'scout', type: 'reviewer', note: 'a'.repeat(500), idempotencyKey: 'commission-scout' }).success,
     ).toBe(true);
   });
 
@@ -100,6 +105,9 @@ describe('commissionShipInputSchema', () => {
     ['a missing type', { name: 'scout' }],
     ['a type that is not a handle', { name: 'scout', type: 'Code Reviewer' }],
     ['a name that is not a handle', { name: 'Scout', type: 'reviewer' }],
+    ['no idempotency key', { name: 'scout', type: 'reviewer' }],
+    ['an empty idempotency key', { name: 'scout', type: 'reviewer', idempotencyKey: '' }],
+    ['an idempotency key over 256 characters', { name: 'scout', type: 'reviewer', idempotencyKey: 'k'.repeat(257) }],
   ])('rejects %s', (_label, input) => {
     expect(commissionShipInputSchema.safeParse(input).success).toBe(false);
   });
