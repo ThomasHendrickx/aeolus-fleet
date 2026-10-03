@@ -1,6 +1,6 @@
 'use client';
 
-import type { MessageId, Party } from '@aeolus-fleet/common';
+import type { MessageId, Party, ShipId } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { composeTargets, sendInputOf, useSendMessage } from '../../lib/compose';
@@ -13,6 +13,8 @@ interface ComposeMessageProps {
   onOpenChange: (isOpen: boolean) => void;
   /** A reply: the message it answers and its sender, who the reply goes to. */
   replyTo?: { messageId: MessageId; sender: Party };
+  /** Message this ship, from its row menu: the recipient is set. */
+  toShipId?: ShipId;
 }
 
 /**
@@ -22,7 +24,7 @@ interface ComposeMessageProps {
  * sends it twice. A refusal keeps what the operator wrote. A reply starts
  * with its recipient set and names the message it answers.
  */
-export function ComposeMessage({ isOpen, onOpenChange, replyTo }: ComposeMessageProps) {
+export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: ComposeMessageProps) {
   const fleet = useFleetSnapshot();
   const send = useSendMessage();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
@@ -41,7 +43,7 @@ export function ComposeMessage({ isOpen, onOpenChange, replyTo }: ComposeMessage
       types={types}
       state={send.isPending ? 'sending' : send.isError ? 'failed' : 'editing'}
       error={send.error?.message}
-      draft={replyTo && { selector: { kind: 'ship', shipId: replyTo.sender.id }, payload: '' }}
+      draft={replyTo ? { selector: { kind: 'ship', shipId: replyTo.sender.id }, payload: '' } : toShipId && { selector: { kind: 'ship', shipId: toShipId }, payload: '' }}
       onSend={(message) => {
         send.mutate(sendInputOf({ ...message, inReplyTo: replyTo?.messageId }, idempotencyKey), {
           onSuccess: () => {
