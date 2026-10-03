@@ -14,6 +14,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -31,7 +32,7 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   messaging = messagingUseCases(core);
-  const commissioned = unwrap(await registry.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const commissioned = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
   firstSecret = secretIn(commissioned.prompt);
   scout = crewAboard(core, { fleetId, shipId: scoutId });

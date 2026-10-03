@@ -6,6 +6,7 @@ import type { Selector } from '../src/core/shared/selector.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The history reads on a real Postgres through the Prisma adapter: a ship's
 // timeline and messages and one message's delivery history, within the
@@ -20,7 +21,7 @@ let planner: Crew;
 
 async function crewed(ship: { name: string; type: string; location: { kind: 'DEVICE' | 'SERVER' } }): Promise<Crew> {
   const { name, type, location } = ship;
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name, type }));
+  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }

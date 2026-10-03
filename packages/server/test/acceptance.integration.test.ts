@@ -11,6 +11,7 @@ import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, shipIdIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The v1 acceptance test (docs/architecture.md, "Testing"): two ships
 // exchange messages back and forth over MCP, each session knowing only its
@@ -216,8 +217,8 @@ describe('the v1 acceptance test, over MCP', () => {
     const argoId = argo.shipId;
 
     // The operator commissions two ships, and each session gets only its starting prompt.
-    const scoutShip = unwrap(await operator.commissionShip(argo, { name: 'scout', type: 'navigator' }));
-    const lookoutShip = unwrap(await operator.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    const scoutShip = unwrap(await operator.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'navigator' }));
+    const lookoutShip = unwrap(await operator.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     const scoutId: ShipId = scoutShip.shipId;
     const lookoutId: ShipId = lookoutShip.shipId;
     await expect(eventsSinceLastStep()).resolves.toEqual([

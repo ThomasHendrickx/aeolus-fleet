@@ -8,6 +8,7 @@ import type { Caller } from './caller.js';
 import { ok } from './result.js';
 import { SYSTEM, recordEvent } from './events.js';
 import { createReadFleetEvents, REPLAY_LIMIT, type ReadFleetEvents } from './read-fleet-events.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -46,7 +47,7 @@ describe('reading the fleet events', () => {
 
   it('gives the events after the position, oldest first, each with its number', async () => {
     const position = eventCount();
-    unwrap(await registryUseCases(core).commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     const read = await readFleetEvents(argo, position);
 

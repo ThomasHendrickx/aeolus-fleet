@@ -9,6 +9,7 @@ import type { Caller } from '../src/core/shared/caller.js';
 import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The fleet use cases on a real Postgres through the Prisma adapters: what a
 // commission stores, which events it writes, the name rules under concurrency,
@@ -53,7 +54,7 @@ async function shipsNamed(name: string) {
 describe('commissioning a ship on Postgres', () => {
   it('stores an agent ship awaiting crew and the hash of its first secret', async () => {
     const { shipId, prompt } = unwrap(
-      await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer', note: 'reviews pull requests' }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: 'commission-scout', name: 'scout', type: 'reviewer', note: 'reviews pull requests' }),
     );
 
     await expect(core.prisma.ship.findUnique({ where: { id: shipId } })).resolves.toEqual({
@@ -66,6 +67,9 @@ describe('commissioning a ship on Postgres', () => {
       note: 'reviews pull requests',
       createdAt: core.clock.now(),
       retiredAt: null,
+      commissionedBy: argoId,
+      commissionKey: 'commission-scout',
+      commissionRequestHash: expect.any(String),
     });
     await expect(core.prisma.credential.findMany({ where: { shipId } })).resolves.toEqual([
       expect.objectContaining({
@@ -79,7 +83,7 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('writes ShipCommissioned and StartingPromptIssued in the same transaction, caused by argo', async () => {
-    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const credential = await core.prisma.credential.findFirst({ where: { shipId } });
 
     await expect(eventsAbout(shipId)).resolves.toEqual([
@@ -89,7 +93,7 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('keeps the secret out of every table', async () => {
-    const { prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     const rows = await everyRow(core.prisma);
 
@@ -98,9 +102,9 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('refuses a name an active ship holds', async () => {
-    unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
-    await expect(core.useCases.commissionShip(argo, { name: 'scout', type: 'lookout' })).resolves.toMatchObject({
+    await expect(core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'lookout' })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'SHIP_NAME_TAKEN' },
     });
@@ -108,11 +112,11 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it("reuses a retired ship's name", async () => {
-    const first = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const first = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: first.shipId }, data: { retiredAt: core.clock.now() } });
 
-    const second = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const second = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     await expect(shipsNamed('scout')).resolves.toEqual([
       expect.objectContaining({ id: first.shipId, retiredAt: core.clock.now() }),
@@ -121,7 +125,7 @@ describe('commissioning a ship on Postgres', () => {
   });
 
   it('refuses argo as a name', async () => {
-    await expect(core.useCases.commissionShip(argo, { name: 'argo', type: 'reviewer' })).resolves.toMatchObject({
+    await expect(core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'argo', type: 'reviewer' })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'SHIP_NAME_RESERVED' },
     });
@@ -147,7 +151,7 @@ describe('commissioning a ship on Postgres', () => {
     });
 
     const results = await Promise.all(
-      Array.from({ length: 5 }, () => commissionShip(argo, { name: 'scout', type: 'reviewer' })),
+      Array.from({ length: 5 }, () => commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })),
     );
 
     expect(results.map((result) => (result.isOk ? 'commissioned' : result.error.kind)).sort()).toEqual([
@@ -161,11 +165,23 @@ describe('commissioning a ship on Postgres', () => {
     await expect(core.prisma.credential.count({ where: { shipId: scout?.id } })).resolves.toBe(1);
   });
 
+  it('makes one ship of five commissions with one key at once, each answered with its id', async () => {
+    const request = { idempotencyKey: 'commission-scout', name: 'scout', type: 'reviewer' };
+
+    const results = await Promise.all(Array.from({ length: 5 }, () => core.useCases.commissionShip(argo, request)));
+
+    const shipIds = results.map((result) => unwrap(result).shipId);
+    expect(new Set(shipIds).size).toBe(1);
+    expect(results.filter((result) => result.isOk && result.value.prompt !== null)).toHaveLength(1);
+    await expect(shipsNamed('scout')).resolves.toHaveLength(1);
+    await expect(core.prisma.credential.count({ where: { shipId: shipIds[0] } })).resolves.toBe(1);
+  });
+
   it('commissions different names concurrently', async () => {
     const names = ['scout', 'lookout', 'pilot'];
 
     const results = await Promise.all(
-      names.map((name) => core.useCases.commissionShip(argo, { name, type: 'reviewer' })),
+      names.map((name) => core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' })),
     );
 
     expect(results.map((result) => result.isOk)).toEqual([true, true, true]);
@@ -188,7 +204,7 @@ describe('commissioning a ship on Postgres', () => {
       fleetUrl: FLEET_URL,
     });
 
-    await expect(commissionShip(argo, { name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
 
     await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
@@ -199,7 +215,7 @@ describe('getting a starting prompt on Postgres', () => {
   let firstSecret: string;
 
   beforeEach(async () => {
-    const commissioned = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     scoutId = commissioned.shipId;
     firstSecret = secretIn(commissioned.prompt);
     core.clock.advance(60_000);
@@ -312,7 +328,7 @@ describe('getting a starting prompt on Postgres', () => {
 describe('getting one ship on Postgres', () => {
   it('gives the ship with when it was commissioned, since when its crew has held it, and no retirement', async () => {
     const commissionedAt = core.clock.now();
-    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
     const crewedAt = core.clock.now();
     unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } }));
@@ -341,7 +357,7 @@ describe('getting one ship on Postgres', () => {
   });
 
   it('knows no ship of another fleet', async () => {
-    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     await expect(core.useCases.getShip({ ...argo, fleetId: newId('fleet') }, { shipId })).resolves.toMatchObject({
       isOk: false,
@@ -353,7 +369,7 @@ describe('getting one ship on Postgres', () => {
 describe('listing the fleet on Postgres', () => {
   it('lists argo and a commissioned ship with their status and prompt state', async () => {
     const commissionedAt = core.clock.now();
-    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
     const signedInAt = core.clock.now();
     unwrap(await core.useCases.signIn(OPERATOR));
@@ -389,7 +405,7 @@ describe('listing the fleet on Postgres', () => {
   });
 
   it('shows the newest prompt after a new one replaced the first', async () => {
-    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
 
     unwrap(await core.useCases.getStartingPrompt(argo, { shipId }));
@@ -402,8 +418,8 @@ describe('listing the fleet on Postgres', () => {
   });
 
   it('shows a crewed ship and a retired one, the retired one without a prompt once its secret is gone', async () => {
-    const crewed = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
-    const retired = unwrap(await core.useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    const crewed = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const retired = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     unwrap(
       await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' } }),
     );
@@ -444,7 +460,7 @@ describe('listing the fleet on Postgres', () => {
   });
 
   it('never carries a secret or its hash', async () => {
-    const { prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     const listed = JSON.stringify(await core.useCases.listFleet(argo));
 

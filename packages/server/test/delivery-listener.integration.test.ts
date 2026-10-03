@@ -13,6 +13,7 @@ import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The delivery listener losing its database connection: it never throws,
 // listens again, and wakes every waiting receive when it does, so a delivery
@@ -62,7 +63,7 @@ beforeEach(async () => {
   const useCases = wired(SHORT_WAIT_MS);
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   argo = operatorCaller(fleet);
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }));
   scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });

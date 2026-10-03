@@ -13,6 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fi
 import { createMigratedDatabase } from './support/database.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The live fleet view's subscription over a WebSocket, from Postgres to the
 // browser: each committed event arrives with its number in commit order, a
@@ -130,7 +131,7 @@ function lastSeq(following: Following): number {
 }
 
 async function commissionScout(name: string): Promise<{ shipId: ShipId; secret: string }> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { name, type: 'reviewer' }));
+  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   return { shipId, secret: secretIn(prompt) };
 }
 

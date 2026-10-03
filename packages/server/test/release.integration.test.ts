@@ -19,6 +19,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fi
 import { createMigratedDatabase } from './support/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -78,11 +79,11 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const { shipId: scoutId, prompt: scoutPrompt } = unwrap(
-    await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }),
   );
   scout = await register(scoutId, scoutPrompt);
   const { shipId: lookoutId, prompt: lookoutPrompt } = unwrap(
-    await useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }),
   );
   lookout = await register(lookoutId, lookoutPrompt);
 });

@@ -11,6 +11,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { newKey } from '../../server/test/support/keys.js';
 
 // squadrons against a real fleet: it crews its management ship with the
 // secret once, keeps the crew token in its own database, crews it again with
@@ -30,7 +31,7 @@ beforeEach(async () => {
   const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   shipId = commissioned.shipId;
   secret = secretIn(commissioned.prompt);

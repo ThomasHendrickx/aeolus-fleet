@@ -12,6 +12,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 
@@ -27,7 +28,7 @@ beforeEach(async () => {
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
   useCases = registryUseCases(core);
-  scoutId = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })).shipId;
+  scoutId = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).shipId;
   core.clock.advance(60_000);
 });
 

@@ -9,6 +9,7 @@ import type { Selector } from '../src/core/shared/selector.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Retire and re-crew on a real Postgres: a crewed ship's lease ends first,
 // its direct deliveries are abandoned and its type deliveries stay, a
@@ -27,10 +28,10 @@ let lookout: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const scout = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const scout = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = scout.shipId;
   scoutSecret = secretIn(scout.prompt);
-  const lookoutShip = unwrap(await core.useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+  const lookoutShip = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
   lookout = await crew(lookoutShip.shipId, secretIn(lookoutShip.prompt));
 });
 
@@ -96,7 +97,7 @@ describe('retiring a ship on Postgres', () => {
     await expect(
       core.useCases.sendMessage(argo, { selector: { kind: 'ship', name: 'scout' }, payload: 'Hi', idempotencyKey: 'by-name' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'UNRESOLVABLE_SELECTOR' } });
-    await expect(core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
+    await expect(core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
 
   it('keeps an undeliverable direct delivery undeliverable', async () => {

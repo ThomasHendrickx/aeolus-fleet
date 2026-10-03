@@ -12,6 +12,7 @@ import {
 } from './core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from './in-memory.js';
 import { unwrap } from './result.js';
+import { newKey } from './keys.js';
 
 /**
  * A fleet for the history reads: argo, scout and lookout of type reviewer and
@@ -40,7 +41,7 @@ export async function historyScenario(): Promise<HistoryScenario> {
   const argo = operatorCaller(fleet);
   const registry = registryUseCases(core);
   const commission = async (name: string, type: string): Promise<ShipId> =>
-    unwrap(await registry.commissionShip(argo, { name, type })).shipId;
+    unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type })).shipId;
   const scout = crewAboard(core, { fleetId, shipId: await commission('scout', 'reviewer') });
   const lookout = crewAboard(core, { fleetId, shipId: await commission('lookout', 'reviewer') });
   const planner = crewAboard(core, { fleetId, shipId: await commission('planner', 'planner') });

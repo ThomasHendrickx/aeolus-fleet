@@ -5,6 +5,7 @@ import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '.
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -19,7 +20,7 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   useCases = registryUseCases(core);
-  ({ shipId: scoutId } = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   core.clock.advance(60_000);
   core.state.events.length = 0;

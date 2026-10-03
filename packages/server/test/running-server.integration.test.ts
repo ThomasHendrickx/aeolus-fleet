@@ -14,6 +14,7 @@ import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The server as it runs, from HTTP to Postgres: its listener wakes a waiting
 // receive as soon as a send commits, and a delivery survives a stop and a
@@ -65,7 +66,7 @@ async function stop(server: FastifyInstance): Promise<void> {
 /** A ship commissioned by argo and claimed through register at the server: its id and crew token. */
 async function crewed(address: string, name: string): Promise<{ shipId: ShipId; crewToken: string }> {
   const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'reviewer' }),
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
   const { crewToken } = await client(address).ship.register.mutate({
     shipId,

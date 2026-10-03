@@ -12,6 +12,7 @@ import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The identity use cases on a real Postgres through the Prisma adapters:
 // takeover, sign-out, resetting the password, rollback, concurrency and restart.
@@ -295,7 +296,7 @@ describe('the caller lookups', () => {
 
   async function claimedScout(): Promise<{ shipId: ShipId; secret: string; crewToken: string }> {
     const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
-    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const secret = secretIn(prompt);
     const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' } }));
     return { shipId, secret, crewToken };

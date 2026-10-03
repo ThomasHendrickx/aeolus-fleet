@@ -18,6 +18,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { newKey } from '../../server/test/support/keys.js';
 
 // Forming killed midway, then squadrons started again on the same database: the
 // start retires every ship the killed forming commissioned, the one whose id it
@@ -125,7 +126,7 @@ beforeEach(async () => {
   const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, prompt } = unwrap(
-    await useCases.commissionShip(argo, { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   managementShip = { shipId, secret: secretIn(prompt) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });

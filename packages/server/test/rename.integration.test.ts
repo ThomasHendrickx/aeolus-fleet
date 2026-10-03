@@ -8,6 +8,7 @@ import type { Caller } from '../src/core/shared/caller.js';
 import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Renaming on a real Postgres: the new name and ShipRenamed in one
 // transaction, and the name lock that keeps a rename and a commission, or two
@@ -22,7 +23,7 @@ let scoutId: ShipId;
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
 });
 
 afterEach(async () => {
@@ -54,7 +55,7 @@ describe('renaming a ship on Postgres', () => {
   });
 
   it('lets one of two concurrent renames to one name take it; the other is refused', async () => {
-    const { shipId: otherId } = unwrap(await core.useCases.commissionShip(argo, { name: 'other', type: 'reviewer' }));
+    const { shipId: otherId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'other', type: 'reviewer' }));
     const renameShip = createRenameShip({ uow: racingShips(2), clock: core.clock, ids: newId });
 
     const results = await Promise.all([
@@ -81,7 +82,7 @@ describe('renaming a ship on Postgres', () => {
 
     const [renamed, commissioned] = await Promise.all([
       createRenameShip(deps)(argo, { shipId: scoutId, name: 'lookout' }),
-      commissionShip(argo, { name: 'lookout', type: 'reviewer' }),
+      commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }),
     ]);
 
     expect([renamed.isOk, commissioned.isOk].filter(Boolean)).toHaveLength(1);

@@ -11,6 +11,7 @@ import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { agentCaller, OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Sending a message on a real Postgres through the Prisma adapters: what a
 // send stores, that nothing stays and nobody is woken when it fails, that a
@@ -35,7 +36,7 @@ beforeEach(async () => {
   const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
-  ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = agentCaller({ fleetId, shipId: scoutId });
   core.clock.advance(60_000);
   notices = [];
