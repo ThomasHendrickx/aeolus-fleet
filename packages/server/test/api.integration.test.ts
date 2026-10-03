@@ -305,6 +305,8 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      harness: null,
+      model: null,
     });
   });
 
@@ -767,6 +769,7 @@ describe('ship.receive and ship.ack at the API', () => {
         recipient: { kind: 'ship', shipId: receiver.shipId },
         payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
         inReplyTo: null,
         sentAt: clock.now().toISOString(),
         attempts: 1,

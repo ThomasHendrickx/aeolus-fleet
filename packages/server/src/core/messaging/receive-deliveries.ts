@@ -29,6 +29,8 @@ export interface ReceivedDelivery {
   recipient: Recipient;
   payload: string;
   contentType: string;
+  /** The model the sender's session stated; none from argo. */
+  model: string | null;
   inReplyTo: MessageId | null;
   sentAt: Date;
   /** How many times the delivery has been claimed, this time included. */
@@ -110,6 +112,7 @@ async function claimForCrew(
           recipient: changed.recipient,
           payload: message.payload,
           contentType: message.contentType,
+          model: message.model,
           inReplyTo: message.inReplyToMessageId,
           sentAt: message.createdAt,
           attempts: changed.attempts,

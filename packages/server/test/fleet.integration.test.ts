@@ -347,6 +347,8 @@ describe('getting one ship on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
         report: null,
+        harness: 'claude-code',
+        model: null,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,

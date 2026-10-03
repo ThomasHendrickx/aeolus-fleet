@@ -778,6 +778,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             sender: partyOf(message.fleetId, message.senderShipId),
             recipient: recipientOf(message.fleetId, message.selector),
             contentType: message.contentType,
+            model: message.model,
           }
         : null,
       details: event.details,
@@ -792,6 +793,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       inReplyTo: message.inReplyToMessageId,
       sentAt: message.createdAt,
       contentType: message.contentType,
+      model: message.model,
       payload: message.payload,
       delivery: {
         id: delivery.id,
@@ -816,6 +818,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         occurredAt: event.occurredAt,
         ship: type === 'MessageAccepted' || event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
         location: lease ? { ...lease.location } : null,
+        harness: lease?.harness ?? null,
         attempts: typeof attempts === 'number' ? attempts : null,
       },
     ];
@@ -887,14 +890,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
             );
             const reply = acknowledged?.details.reply;
-            const { id, sender, inReplyTo, sentAt, contentType, payload } = historyMessageOf(message);
+            const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
             return {
               deliveryId: delivery.id,
               state: delivery.state,
               readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
               doneAt: acknowledged?.occurredAt ?? null,
               repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
-              message: { id, sender, inReplyTo, sentAt, contentType, payload },
+              message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
             };
           }),
       ),
@@ -911,14 +914,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             if (!message || !since) {
               throw new Error(`undeliverable ${delivery.id} without its message or its event`);
             }
-            const { id, sender, recipient, inReplyTo, sentAt, contentType, payload } = historyMessageOf(message);
+            const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
             return {
               seq: since.seq,
               entry: {
                 deliveryId: delivery.id,
                 attempts: delivery.attempts,
                 since: since.occurredAt,
-                message: { id, sender, recipient, inReplyTo, sentAt, contentType, payload },
+                message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
               },
             };
           })

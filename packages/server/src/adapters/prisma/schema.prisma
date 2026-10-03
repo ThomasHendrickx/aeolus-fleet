@@ -209,6 +209,8 @@ model Message {
   /// A sender uses an idempotency key once: a repeat of the same request, told by its
   /// request hash, returns the original message; another request with the key is refused.
   @@unique([fleetId, senderShipId, idempotencyKey])
+  /// A ship's current model is its newest message with a model.
+  @@index([fleetId, senderShipId, createdAt])
   @@map("messages")
 }
 

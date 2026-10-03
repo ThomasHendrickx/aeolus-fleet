@@ -76,6 +76,7 @@ function historyMessageOf(
     inReplyTo: message.inReplyToMessageId,
     sentAt: message.createdAt,
     contentType: message.contentType,
+    model: message.model,
     payload: message.payload,
     delivery: {
       id: delivery.id,
@@ -145,6 +146,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
                 sender: party(message.senderShipId),
                 recipient: recipientOf(message.selector, party),
                 contentType: message.contentType,
+                model: message.model,
               }
             : null,
           details: event.details,
@@ -252,6 +254,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             inReplyTo: message.inReplyToMessageId,
             sentAt: message.createdAt,
             contentType: message.contentType,
+            model: message.model,
             payload: message.payload,
           },
         };
@@ -294,6 +297,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             inReplyTo: message.inReplyToMessageId,
             sentAt: message.createdAt,
             contentType: message.contentType,
+            model: message.model,
             payload: message.payload,
           },
         }));
@@ -309,33 +313,34 @@ async function claimingLeases(db: Db, of: { fleetId: FleetId; events: SequencedE
   });
   const leases = await db.lease.findMany({
     where: { fleetId: of.fleetId, id: { in: leaseIds } },
-    select: { id: true, location: true, locationDescription: true },
+    select: { id: true, location: true, locationDescription: true, harness: true },
   });
   return new Map(
-    leases.map((lease): [string, Location] => [
+    leases.map((lease): [string, { location: Location; harness: string | null }] => [
       lease.id,
-      { kind: locationKindSchema.parse(lease.location), description: lease.locationDescription },
+      { location: { kind: locationKindSchema.parse(lease.location), description: lease.locationDescription }, harness: lease.harness },
     ]),
   );
 }
 
 function changeOf(
   event: SequencedEvent,
-  read: { party: (id: ShipId) => HistoryParty; leases: Map<string, Location> },
+  read: { party: (id: ShipId) => HistoryParty; leases: Map<string, { location: Location; harness: string | null }> },
 ): DeliveryChange[] {
   const { type } = event;
   if (!isDeliveryChangeType(type)) {
     return [];
   }
   const { leaseId, attempts } = event.details;
-  const location = event.type === 'DeliveryClaimed' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
+  const claiming = event.type === 'DeliveryClaimed' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
   return [
     {
       seq: event.seq,
       type,
       occurredAt: event.occurredAt,
       ship: type === 'MessageAccepted' || event.shipId === undefined ? null : read.party(event.shipId),
-      location: location ?? null,
+      location: claiming?.location ?? null,
+      harness: claiming?.harness ?? null,
       attempts: typeof attempts === 'number' ? attempts : null,
     },
   ];

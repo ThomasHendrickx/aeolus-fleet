@@ -136,6 +136,7 @@ describe('receiving on Postgres', () => {
           recipient: { kind: 'ship', shipId: scout.shipId },
           payload: message.payload,
           contentType: 'text/plain',
+          model: null,
           inReplyTo: null,
           sentAt: message.createdAt,
           attempts: 1,

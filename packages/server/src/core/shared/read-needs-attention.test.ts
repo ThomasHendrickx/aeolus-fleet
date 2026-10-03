@@ -46,6 +46,7 @@ describe('reading Needs attention', () => {
           inReplyTo: null,
           sentAt,
           contentType: 'text/plain',
+          model: 'claude-opus-5-5',
           payload,
         },
       },

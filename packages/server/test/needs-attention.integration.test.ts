@@ -100,6 +100,7 @@ describe('Needs attention on Postgres', () => {
         inReplyTo: null,
         sentAt: new Date(since.getTime() - UNDELIVERABLE_AT_CLAIM * 1_000 - 1_000),
         contentType: 'application/json',
+        model: 'claude-opus-5-5',
         payload: '{"run":"e2e","ref":"pr-320"}',
       },
     });
