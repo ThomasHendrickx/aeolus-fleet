@@ -1,11 +1,11 @@
-import { Inbox, Ship, TriangleAlert } from 'lucide-react';
+import { Inbox, Shapes, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'inbox' | 'attention';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'inbox' | 'attention';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
@@ -14,6 +14,8 @@ interface TabBarProps {
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
+  /** Whether the console has squadrons: Squadrons then comes second. */
+  hasSquadrons?: boolean;
 }
 
 const TAB =
@@ -61,10 +63,11 @@ function Tab({
  * Phone navigation (docs/design/png/TabBar.png): 68 px including the safe
  * area, the same destinations and counts as Sidebar: Fleet; Inbox with the
  * open messages to argo counted on its icon in --primary; and Attention with
- * the undeliverable deliveries counted in the attention tone. The active tab
- * uses --primary for icon and label.
+ * the undeliverable deliveries counted in the attention tone. With squadrons
+ * on, Squadrons is the second of five tabs. The active tab uses --primary for
+ * icon and label.
  */
-export function TabBar({ active, inboxCount, attentionCount }: TabBarProps) {
+export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
@@ -72,6 +75,7 @@ export function TabBar({ active, inboxCount, attentionCount }: TabBarProps) {
       className="fixed inset-x-0 bottom-0 z-40 flex min-h-(--size-tabbar) border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       <Tab href="/" label="Fleet" icon={<Ship aria-hidden />} isActive={active === 'fleet'} testId="tab-fleet" />
+      {hasSquadrons && <Tab href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="tab-squadrons" />}
       <Tab
         href="/inbox"
         label="Inbox"

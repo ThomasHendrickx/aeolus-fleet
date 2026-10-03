@@ -23,6 +23,7 @@ import {
 import { useNow } from '../../lib/now';
 import { useAccountMenu } from '../../lib/account';
 import { useSignInWhenSessionEnds } from '../../lib/session';
+import { useHasSquadrons } from '../../lib/squadrons';
 
 /**
  * Needs attention, live: every undeliverable delivery, oldest first. Resend
@@ -38,6 +39,7 @@ export default function NeedsAttentionPage() {
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
+  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -83,7 +85,7 @@ export default function NeedsAttentionPage() {
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', inboxCount, attentionCount: attention.data?.length }}
+      nav={{ active: 'attention', inboxCount, attentionCount: attention.data?.length , hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

@@ -31,3 +31,7 @@ export const AllStates: Story = {
     </div>
   ),
 };
+export const Forming: Story = { args: { status: 'forming' } };
+export const Sailing: Story = { args: { status: 'sailing' } };
+export const StandingDown: Story = { args: { status: 'standing-down' } };
+export const Disbanded: Story = { args: { status: 'disbanded' } };

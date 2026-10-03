@@ -1,0 +1,90 @@
+import type { Catalogue, Squadron } from '../../lib/squadrons-api';
+
+/** Squadrons, blueprints and templates for the stories. */
+
+const REPO = 'github.com/thomashendrickx/squadron-templates';
+const AT = '2026-10-03T09:12:00.000Z';
+
+export const templates: Catalogue['templates'] = [
+  { repository: REPO, name: 'planner', version: 2, commit: 'p2', committedAt: AT, description: 'Plans.', checkInMinutes: 30, model: null, launchNote: 'Start in the repository root.' },
+  { repository: REPO, name: 'implementer', version: 3, commit: 'i3', committedAt: AT, description: 'Builds.', checkInMinutes: 15, model: 'claude-opus-5-5', launchNote: null },
+  { repository: REPO, name: 'tester', version: 4, commit: 't4', committedAt: AT, description: 'Tests.', checkInMinutes: 10, model: null, launchNote: 'Start in a worktree with Docker running.' },
+];
+
+export const blueprints: Catalogue['blueprints'] = [
+  {
+    repository: REPO,
+    name: 'aeolus',
+    version: 4,
+    commit: 'a4',
+    committedAt: AT,
+    description: 'Planner, 2 implementers, tester',
+    roles: [
+      { name: 'planner', template: { repository: REPO, name: 'planner', version: 2 }, count: 1 },
+      { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 3 }, count: 2 },
+      { name: 'tester', template: { repository: REPO, name: 'tester', version: 4 }, count: 1 },
+    ],
+    handoffs: [],
+    memberNames: 'plain',
+  },
+  {
+    repository: REPO,
+    name: 'aeolus',
+    version: 3,
+    commit: 'a3',
+    committedAt: AT,
+    description: 'Planner, implementer, tester',
+    roles: [{ name: 'planner', template: { repository: REPO, name: 'planner', version: 2 }, count: 1 }],
+    handoffs: [],
+    memberNames: 'plain',
+  },
+  { repository: REPO, name: 'docs', version: 1, commit: 'd1', committedAt: AT, description: '2 writers', roles: [], handoffs: [], memberNames: 'plain' },
+];
+
+const noModel = { pinned: null, stated: null, isMismatch: false };
+
+export const forming: Squadron = {
+  id: 'aeolus-a1b2c3',
+  state: 'forming',
+  blueprint: { repository: REPO, name: 'aeolus', version: 4, commit: 'a4' },
+  flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'aeolus-a1b2c3' },
+  members: [
+    { shipId: 'shp_01m3tbfspe96yf1rnr4ank0001', name: 'planner-k3x9', role: 'planner', type: 'aeolus-a1b2c3:planner', onStationAt: AT, model: noModel },
+    {
+      shipId: 'shp_01m3tbfspe96yf1rnr4ank0002',
+      name: 'implementer-m4p7',
+      role: 'implementer',
+      type: 'aeolus-a1b2c3:implementer',
+      onStationAt: null,
+      model: { pinned: 'claude-opus-5-5', stated: null, isMismatch: false },
+    },
+    {
+      shipId: 'shp_01m3tbfspe96yf1rnr4ank0003',
+      name: 'implementer-q8r2',
+      role: 'implementer',
+      type: 'aeolus-a1b2c3:implementer',
+      onStationAt: AT,
+      model: { pinned: 'claude-opus-5-5', stated: 'claude-sonnet-5-5', isMismatch: true },
+    },
+    { shipId: 'shp_01m3tbfspe96yf1rnr4ank0004', name: 'tester-w5t1', role: 'tester', type: 'aeolus-a1b2c3:tester', onStationAt: null, model: noModel },
+  ],
+  formedAt: AT,
+  sailedAt: null,
+};
+
+export const sailing: Squadron = {
+  ...forming,
+  id: 'docs-x7q2w9',
+  state: 'sailing',
+  blueprint: { repository: REPO, name: 'docs', version: 1, commit: 'd1' },
+  members: forming.members.map((member) => ({ ...member, onStationAt: AT })),
+  sailedAt: AT,
+};
+
+export const crewLines = new Map([
+  ['shp_01m3tbfspe96yf1rnr4ank0002', { crewLine: '/aeolus:crew https://fleet.example.dev shp_01m3tbfspe96yf1rnr4ank0002 aeolus_sk_v1_example aeolus-a1b2c3', launchNote: null }],
+  [
+    'shp_01m3tbfspe96yf1rnr4ank0004',
+    { crewLine: '/aeolus:crew https://fleet.example.dev shp_01m3tbfspe96yf1rnr4ank0004 aeolus_sk_v1_example aeolus-a1b2c3', launchNote: 'Start in a worktree with Docker running.' },
+  ],
+]);
