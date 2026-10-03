@@ -44,7 +44,7 @@ export function BlueprintTable({ blueprints, squadrons, state, error, onRetry }:
       <EmptyState
         icon={<DraftingCompass aria-hidden />}
         title="No blueprints in git"
-        description="The squadron manager reads blueprints from squadrons/blueprints. Commit one there; it shows up here on its own."
+        description="The squadron manager reads blueprints from .aeolus/squadrons/blueprints. Commit one there; it shows up here on its own."
       />
     );
   }
