@@ -20,6 +20,7 @@ const door: FleetDoor = {
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   getStartingPrompt: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  release: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),
   ack: () => Promise.resolve(ok(undefined)),
   send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),

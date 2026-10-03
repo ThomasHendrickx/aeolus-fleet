@@ -107,6 +107,7 @@ function fakeFleet() {
       }
       return Promise.resolve(ok({ shipId, crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` }));
     },
+    release: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     getStartingPrompt: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId && !held.isCrewed);
       if (!ship) {

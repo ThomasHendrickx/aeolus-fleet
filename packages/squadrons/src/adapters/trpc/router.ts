@@ -17,6 +17,7 @@ import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
 import type { AddMember } from '../../core/squadron/add-member.js';
 import type { RemoveMember } from '../../core/squadron/remove-member.js';
+import type { NewCrewLine } from '../../core/squadron/new-crew-line.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
@@ -36,6 +37,7 @@ export interface Context {
   forceStandDown: ForceStandDown;
   addMember: AddMember;
   removeMember: RemoveMember;
+  newCrewLine: NewCrewLine;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -122,6 +124,15 @@ const REMOVE_CODES = {
   SQUADRON_NOT_FOUND: 'NOT_FOUND',
   SQUADRON_NOT_SERVING: 'CONFLICT',
   MEMBER_NOT_FOUND: 'NOT_FOUND',
+  FLEET_UNAVAILABLE: 'BAD_GATEWAY',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of a new crew line, as the API states them. */
+const NEW_CREW_LINE_CODES = {
+  MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
+  SQUADRON_NOT_FOUND: 'NOT_FOUND',
+  MEMBER_NOT_FOUND: 'NOT_FOUND',
+  MEMBER_RETIRED: 'CONFLICT',
   FLEET_UNAVAILABLE: 'BAD_GATEWAY',
 } as const satisfies Record<string, TRPCError['code']>;
 
@@ -333,6 +344,21 @@ export const squadronsRouter = t.router({
           throw new TRPCError({ code: REMOVE_CODES[removed.error.kind], message: removed.error.message });
         }
         return {};
+      }),
+    /**
+     * Gives a member a new session while keeping its check-in: releases its
+     * ship if crewed and answers a new crew line with the squadron id, its
+     * launch note and pinned model, once.
+     */
+    newCrewLine: connectedProcedure
+      .input(z.object({ squadronId: z.string(), shipId: idSchema('ship') }))
+      .output(z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }))
+      .mutation(async ({ ctx, input }) => {
+        const answered = await ctx.newCrewLine({ fleetId: ctx.fleetId, ...input });
+        if (!answered.isOk) {
+          throw new TRPCError({ code: NEW_CREW_LINE_CODES[answered.error.kind], message: answered.error.message });
+        }
+        return answered.value;
       }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by

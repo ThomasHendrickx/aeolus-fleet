@@ -60,6 +60,7 @@ export function fakeManagementFleet() {
     },
     commission: notUsed,
     getStartingPrompt: notUsed,
+    release: notUsed,
     retire: notUsed,
     receive: notUsed,
     ack: notUsed,

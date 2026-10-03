@@ -20,6 +20,7 @@ export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore
     whoami: (crewToken) => watched(crewToken, door.whoami(crewToken)),
     commission: (crewToken, ship) => watched(crewToken, door.commission(crewToken, ship)),
     getShip: (crewToken, ship) => watched(crewToken, door.getShip(crewToken, ship)),
+    release: (crewToken, ship) => watched(crewToken, door.release(crewToken, ship)),
     deregister: (crewToken) => watched(crewToken, door.deregister(crewToken)),
     getStartingPrompt: (crewToken, ship) => watched(crewToken, door.getStartingPrompt(crewToken, ship)),
     listShips: (crewToken) => watched(crewToken, door.listShips(crewToken)),
