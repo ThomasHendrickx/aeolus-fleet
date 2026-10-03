@@ -15,6 +15,10 @@ export interface FleetRefusal {
 export interface FleetDoor {
   register(claim: { shipId: ShipId; secret: string }): Promise<Result<{ crewToken: string }, FleetRefusal>>;
   whoami(crewToken: string): Promise<Result<{ shipId: ShipId; fleetId: FleetId; name: string; type: string }, FleetRefusal>>;
+  /** Commissions an agent ship as the crew token's ship (fleet:manage); answers its id and its crew line, which holds its secret. */
+  commission(crewToken: string, ship: { name: string; type: string }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>>;
+  /** Retires a ship as the crew token's ship (fleet:manage). */
+  retire(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
 }
 
 /** The crew token squadrons holds for its management ship, and when it got it. */

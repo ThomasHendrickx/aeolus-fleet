@@ -32,6 +32,8 @@ function fakeFleet() {
           ? ok({ shipId: SHIP_ID, fleetId: FLEET_ID, name: 'squadrons', type: 'squadrons' })
           : err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }),
       ),
+    commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    retire: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
   };
   return { state, door };
 }

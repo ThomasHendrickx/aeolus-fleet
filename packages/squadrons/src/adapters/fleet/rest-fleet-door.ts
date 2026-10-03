@@ -50,5 +50,17 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         crewToken,
         answers: z.object({ shipId: idSchema('ship'), fleetId: idSchema('fleet'), name: z.string(), type: z.string() }),
       }),
+    commission: (crewToken, ship) =>
+      call(fleetUrl, {
+        path: '/fleet/commission',
+        method: 'POST',
+        crewToken,
+        body: ship,
+        answers: z.object({ shipId: idSchema('ship'), crewLine: z.string() }),
+      }),
+    retire: async (crewToken, ship) => {
+      const retired = await call(fleetUrl, { path: '/fleet/retire', method: 'POST', crewToken, body: ship, answers: z.unknown() });
+      return retired.isOk ? ok(undefined) : retired;
+    },
   };
 }
