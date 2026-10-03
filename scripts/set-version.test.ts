@@ -41,6 +41,10 @@ function manifest(name: string): z.infer<typeof manifestSchema> {
   return manifestSchema.parse(JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')));
 }
 
+function pluginManifest(path: string): Record<string, unknown> {
+  return z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, path), 'utf8')));
+}
+
 describe('setVersion', () => {
   it('sets the same version on both aeolus plugin manifests, keeping their other fields', () => {
     const before = PLUGIN_MANIFESTS.map((path) =>
@@ -49,7 +53,7 @@ describe('setVersion', () => {
 
     setVersion(copy, '0.3.0');
 
-    expect(PLUGIN_MANIFESTS.map((path) => JSON.parse(readFileSync(join(copy, path), 'utf8')))).toEqual(
+    expect(PLUGIN_MANIFESTS.map(pluginManifest)).toEqual(
       before.map((manifest) => ({ ...manifest, version: '0.3.0' })),
     );
   });
@@ -132,7 +136,7 @@ describe('setPluginVersion', () => {
 
     setPluginVersion(copy, '0.4.0');
 
-    expect(PLUGIN_MANIFESTS.map((path) => JSON.parse(readFileSync(join(copy, path), 'utf8')))).toEqual([
+    expect(PLUGIN_MANIFESTS.map(pluginManifest)).toEqual([
       expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
       expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
     ]);

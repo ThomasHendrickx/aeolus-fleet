@@ -28,7 +28,14 @@ function json(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function runScript(script: string, args: string[] = [], input = '', extraEnv: Record<string, string> = {}) {
+interface ScriptOptions {
+  args?: string[];
+  input?: string;
+  env?: Record<string, string>;
+}
+
+function runScript(script: string, options: ScriptOptions = {}) {
+  const { args = [], input = '', env = {} } = options;
   return spawnSync(script.endsWith('.py') ? 'python3' : 'bash', [join(SCRIPTS, script), ...args], {
     cwd: folder,
     input,
@@ -41,7 +48,7 @@ function runScript(script: string, args: string[] = [], input = '', extraEnv: Re
       CLAUDE_PROJECT_DIR: '',
       PLUGIN_DATA: data,
       PLUGIN_ROOT: PLUGIN,
-      ...extraEnv,
+      ...env,
     },
   });
 }
@@ -90,41 +97,32 @@ describe('the Codex plugin package', () => {
 
 describe('Codex plugin state', () => {
   it('keeps one identity per working folder in the Codex plugin data directory', () => {
-    const written = runScript('aeolus-identity.sh', [
-      'write',
-      'https://fleet.example.com',
-      'shp_01m3tbfspe96yf1rnr4ank9h1a',
-      'scout',
-      'aeolus_ct_v1_crew',
-    ]);
+    const written = runScript('aeolus-identity.sh', {
+      args: ['write', 'https://fleet.example.com', 'shp_01m3tbfspe96yf1rnr4ank9h1a', 'scout', 'aeolus_ct_v1_crew'],
+    });
 
     expect(written.status).toBe(0);
-    expect(runScript('aeolus-identity.sh', ['show']).stdout).toContain(`folder: ${realpathSync(folder)}`);
-    expect(runScript('aeolus-identity.sh', ['path']).stdout).toContain(data);
+    expect(runScript('aeolus-identity.sh', { args: ['show'] }).stdout).toContain(`folder: ${realpathSync(folder)}`);
+    expect(runScript('aeolus-identity.sh', { args: ['path'] }).stdout).toContain(data);
   });
 
   it('adds the plugin paths and restored ship to Codex context at session start without exposing its token', () => {
     expect(
-      runScript('aeolus-identity.sh', [
-        'write',
-        'https://fleet.example.com',
-        'shp_01m3tbfspe96yf1rnr4ank9h1a',
-        'scout',
-        'aeolus_ct_v1_crew',
-      ], '', { AEOLUS_FOLDER: folder }).status,
+      runScript('aeolus-identity.sh', {
+        args: ['write', 'https://fleet.example.com', 'shp_01m3tbfspe96yf1rnr4ank9h1a', 'scout', 'aeolus_ct_v1_crew'],
+        env: { AEOLUS_FOLDER: folder },
+      }).status,
     ).toBe(0);
 
-    const hook = runScript(
-      'aeolus-session-start.sh',
-      [],
-      JSON.stringify({
+    const hook = runScript('aeolus-session-start.sh', {
+      input: JSON.stringify({
         session_id: '01a10348-c3ff-7951-9962-349fca3538e8',
         cwd: folder,
         hook_event_name: 'SessionStart',
         source: 'resume',
         model: 'gpt-6-astra',
       }),
-    );
+    });
     const output = z
       .object({ hookSpecificOutput: z.object({ additionalContext: z.string() }) })
       .parse(JSON.parse(hook.stdout)).hookSpecificOutput.additionalContext;
@@ -138,17 +136,15 @@ describe('Codex plugin state', () => {
   });
 
   it('tells an uncrewed Codex session that its trusted hook is active', () => {
-    const hook = runScript(
-      'aeolus-session-start.sh',
-      [],
-      JSON.stringify({
+    const hook = runScript('aeolus-session-start.sh', {
+      input: JSON.stringify({
         session_id: '01a10348-c3ff-7951-9962-349fca3538e8',
         cwd: folder,
         hook_event_name: 'SessionStart',
         source: 'startup',
         model: 'gpt-6-astra',
       }),
-    );
+    });
 
     expect(hook.stdout).toContain('Aeolus Codex hooks are active.');
     expect(hook.stdout).toContain('This folder crews no Aeolus ship.');
@@ -164,16 +160,14 @@ describe('Codex fleet calls', () => {
       contentType: 'text/plain',
       idempotencyKey: 'send-1',
     };
-    const hook = runScript(
-      'aeolus-codex-send-model.py',
-      [],
-      JSON.stringify({
+    const hook = runScript('aeolus-codex-send-model.py', {
+      input: JSON.stringify({
         hook_event_name: 'PreToolUse',
         tool_name: 'mcp__aeolus__send',
         model: 'gpt-6-astra',
         tool_input: toolInput,
       }),
-    );
+    });
     const output = z
       .object({
         hookSpecificOutput: z.object({
@@ -188,7 +182,10 @@ describe('Codex fleet calls', () => {
   });
 
   it('shows the Codex MCP command when a Codex session has no fleet tools', () => {
-    const hinted = runScript('aeolus-mcp-hint.sh', ['https://fleet.example.com/'], '', { AEOLUS_HARNESS: 'codex' });
+    const hinted = runScript('aeolus-mcp-hint.sh', {
+      args: ['https://fleet.example.com/'],
+      env: { AEOLUS_HARNESS: 'codex' },
+    });
 
     expect(hinted.stdout).toContain('codex mcp add aeolus --url https://fleet.example.com/mcp');
     expect(hinted.stdout).toContain('start a new Codex task');
