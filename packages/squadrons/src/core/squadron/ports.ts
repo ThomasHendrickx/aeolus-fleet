@@ -10,7 +10,8 @@ export interface SquadronRepository {
   /** The fleet's squadrons, oldest first. */
   list(fleetId: FleetId): Promise<Squadron[]>;
   /** Stores the squadron's state, when it sailed, and when each member came on station. */
-  update(squadron: Squadron): Promise<void>;
+  /** Stores what changed from `before` to `after`, and only that, in one unit of work. */
+  update(change: { before: Squadron; after: Squadron }): Promise<void>;
 }
 
 /** A forming in progress: every ship it is about to commission, by name, and its id once commissioned. */

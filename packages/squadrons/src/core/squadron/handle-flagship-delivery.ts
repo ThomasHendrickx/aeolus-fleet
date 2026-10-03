@@ -114,7 +114,10 @@ export function createHandleFlagshipDelivery(deps: {
         return keep();
       }
       const checkedIn = { at: deps.clock.now(), model: checkIn.model ?? null };
-      await deps.squadrons.update({ ...squadron, members: squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, checkIn: checkedIn } : each)) });
+      await deps.squadrons.update({
+        before: squadron,
+        after: { ...squadron, members: squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, checkIn: checkedIn } : each)) },
+      });
       const answered = await deps.door.send(crewToken, roleMessage(squadron, { member, checkIn: delivery }));
       return answered.isOk ? acked('answered') : err(answered.error);
     }
@@ -128,7 +131,10 @@ export function createHandleFlagshipDelivery(deps: {
       const members = squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, onStationAt: each.onStationAt ?? at } : each));
       const isAllOnStation = members.every((each) => each.onStationAt !== null);
       const isSailing = squadron.state === 'forming' && isAllOnStation;
-      await deps.squadrons.update({ ...squadron, members, state: isSailing ? 'sailing' : squadron.state, sailedAt: isSailing ? at : squadron.sailedAt });
+      await deps.squadrons.update({
+        before: squadron,
+        after: { ...squadron, members, state: isSailing ? 'sailing' : squadron.state, sailedAt: isSailing ? at : squadron.sailedAt },
+      });
       return acked('on-station');
     }
 

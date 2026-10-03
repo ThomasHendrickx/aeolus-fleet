@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { BlueprintVersion, TemplateVersion } from '../../core/catalogue/catalogue.js';
 import type { SquadronRepository } from '../../core/squadron/ports.js';
-import type { Squadron } from '../../core/squadron/squadron.js';
+import type { Member, Squadron } from '../../core/squadron/squadron.js';
 import type { PrismaClient } from './client.js';
 
 const reference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -62,6 +62,10 @@ function squadronOf(row: Row): Squadron {
   };
 }
 
+function isSameCheckIn(first: Member['checkIn'], second: Member['checkIn']): boolean {
+  return first?.at.getTime() === second?.at.getTime() && first?.model === second?.model;
+}
+
 export function createPrismaSquadronRepository(db: PrismaClient, clock: { now(): Date }): SquadronRepository {
   return {
     exists: async (fleetId, id) => (await db.squadron.count({ where: { fleetId, id } })) > 0,
@@ -97,17 +101,23 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
       // The squadron and the end of its attempt commit together: a crash leaves both or neither.
       await db.$transaction([create, db.formationAttempt.updateMany({ where: { id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } })]);
     },
-    update: async (squadron) => {
-      await db.squadron.updateMany({
-        where: { fleetId: squadron.fleetId, id: squadron.id },
-        data: { state: squadron.state, sailedAt: squadron.sailedAt },
-      });
-      for (const member of squadron.members) {
-        await db.member.updateMany({
-          where: { fleetId: squadron.fleetId, shipId: member.shipId },
-          data: { onStationAt: member.onStationAt, checkInAt: member.checkIn?.at ?? null, checkInModel: member.checkIn?.model ?? null },
-        });
+    update: async ({ before, after }) => {
+      const { fleetId, id } = after;
+      const writes = [];
+      if (after.state !== before.state || after.sailedAt?.getTime() !== before.sailedAt?.getTime()) {
+        writes.push(db.squadron.updateMany({ where: { fleetId, id }, data: { state: after.state, sailedAt: after.sailedAt } }));
       }
+      for (const member of after.members) {
+        const was = before.members.find((each) => each.shipId === member.shipId);
+        const data = {
+          ...(member.onStationAt?.getTime() === was?.onStationAt?.getTime() ? {} : { onStationAt: member.onStationAt }),
+          ...(isSameCheckIn(member.checkIn, was?.checkIn ?? null) ? {} : { checkInAt: member.checkIn?.at ?? null, checkInModel: member.checkIn?.model ?? null }),
+        };
+        if (Object.keys(data).length > 0) {
+          writes.push(db.member.updateMany({ where: { fleetId, shipId: member.shipId }, data }));
+        }
+      }
+      await db.$transaction(writes);
     },
     list: async (fleetId) =>
       (await db.squadron.findMany({ where: { fleetId }, include: { members: true }, orderBy: { formedAt: 'asc' } })).map(squadronOf),
