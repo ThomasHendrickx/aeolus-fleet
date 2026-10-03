@@ -223,4 +223,4 @@ Lint and CI enforce these rules (slice 1b).
 | Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra`. The three packages stay in one repo while they share one version |
 | Operator | The ship `argo`, crewed only through the operator's email and password login; scopes on the server |
 
-Still open, deliberately later: heartbeats and wake-ups (likely a ship template concern), and operator-editable scopes.
+Still open, deliberately later: heartbeats and wake-ups (likely a ship class concern), and operator-editable scopes.

@@ -5,6 +5,6 @@
 - A lost `register` reply leaves the ship crewed by an unheld token; the operator releases. Accepted for v1.
 - The session reports its location on claim: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` plus description. Stored, never interpreted.
 
-Why: Turn-based agents cannot heartbeat reliably; that is a ship template concern.
+Why: Turn-based agents cannot heartbeat reliably; that is a ship class concern.
 
 Rejected: Heartbeats with expiry (deferred).

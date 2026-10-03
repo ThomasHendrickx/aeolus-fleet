@@ -16,7 +16,7 @@ What Aeolus deliberately is not:
 - **Not an orchestrator.** It never decides who does what. Coordination is done by ships.
 - **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's.
 - **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them.
-- **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's template and the session crewing it.
+- **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's class and the session crewing it.
 - **Harness-agnostic.** Claude Code, Codex or any other agent runtime can crew a ship, as long as it speaks the ship contract.
 - **Not tied to Tiphys or any other workload.** Zero dependencies on any ship type.
 
@@ -63,7 +63,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 | Know what is sailing right now | Live fleet view: every ship with name, type, location, uptime, last activity and inbox depth |
 | Put a new ship to sea without setup work | Create a ship in the web app, get a ready-to-paste starting prompt with the ship's id and secret, paste it into any session anywhere |
 | Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue, never a manual recovery step (alerts for silent ships come later, with heartbeats) |
-| Talk to any ship, template or group | Send a message from the web app, exactly as a ship would |
+| Talk to any ship, type or group | Send a message from the web app, exactly as a ship would |
 | Answer what agents escalate | Personal inbox: questions and approvals addressed to the operator, with the thread to decide from. Opening marks a message read; Reply or Mark done acknowledges it |
 | Understand what happened | Timeline per ship and per message thread: every send, delivery, acknowledgement and state change |
 | Stay in control | Release a ship (the session loses it and its secret stops working), get a fresh starting prompt whenever you are ready to crew it, re-crew a crewed ship whose session is gone (release it and get a fresh starting prompt in one step), retire a ship (confirm for a clean inbox, type the ship's name when unprocessed messages remain) |
@@ -79,7 +79,7 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship |
 | Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, get an OK only once the message is durably stored |
-| Say what it is doing | `report`: working, blocked or idle, with a short note. The console and anyone with `fleet:read` see it; calling it again with the same state and note is a check-in |
+| Say what it is doing | `report`: working, blocked or idle, with a short note. The console and anyone with `fleet:read` see it; calling it again with the same state and note still counts as a report |
 | Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
 
 What an agent never has to do: poll other agents, know their location, retry by hand, or ask the operator to recover a lost message.
@@ -95,7 +95,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
 | Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage` |
 | Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type and a status. The name is a handle (lowercase letters, digits, hyphens, colons, max 48 characters; a colon is an ordinary character, so a prefix can group ships, as in `hemma:planner`), unique among active ships and reusable after retirement |
-| Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored template later. Used for addressing, never interpreted |
+| Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored ship class later. Used for addressing, never interpreted |
 | Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
 | Console session | The operator's sign-in, crewing `argo`. It records the device it signed in from ("Mac · Chrome"), shown in the AccountMenu and as argo's location. The console's theme belongs to the operator's account, not the session |
 | Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship. Every call its crew makes marks it last seen, which the console shows ("Last seen 20 s ago") so the operator can judge whether a session is alive before re-crewing; observation only, nothing acts on it |
@@ -109,7 +109,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
 | Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
-| Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Calling `report` is a check-in. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
+| Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Every call of `report` sets when it last reported, even with the same state and note. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
 | Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
 | Crew line | The same identity in one line, shown with every starting prompt, for a Claude Code session with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits |
 | Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
@@ -296,8 +296,8 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 
 | Later | Hook already in v1 |
 | --- | --- |
-| Stored ship templates and orders: the fleet prepares a ship from a blueprint, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
-| Commanding ships: a type used as a template (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:manage` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
+| Stored ship classes and orders: the fleet prepares a ship from its class, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
+| Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:manage` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
 | Operator-editable scopes per ship, finer scopes | v1 has four fixed scopes, stored with the ship on the server |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
@@ -309,6 +309,6 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 ## Open decisions
 
 - **Timeouts.** Only relevant once heartbeats exist. Proposed defaults: heartbeat every 30 seconds, lease expires after 90 seconds, dead-letter after 5 failed attempts.
-- **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship template concern, not fleet core.
+- **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship class concern, not fleet core.
 
 Decided since: the operator is the ship `argo`, crewed only through the operator's email and password login; scopes stored on the server; npm organisation `aeolus-fleet` with three packages; public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
