@@ -38,6 +38,7 @@ const formed: Squadron = {
     ],
     handoffs: [],
     memberNames: 'plain',
+    file: 'squadrons/blueprints/team.yaml',
   },
   templates: [],
   flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
@@ -175,3 +176,13 @@ describe('formation attempts begun in the same instant', () => {
 function unused(): never {
   throw new Error('not used: an attempt begins without the fleet');
 }
+
+describe('a squadron formed before versions kept their file', () => {
+  it('is read with no file for its blueprint', async () => {
+    await prisma.$executeRaw`UPDATE squadrons SET blueprint = blueprint - 'file'`;
+
+    const [stored] = await createPrismaSquadronRepository(prisma, clock).list(FLEET);
+
+    expect(stored?.blueprint.file).toBe('');
+  });
+});

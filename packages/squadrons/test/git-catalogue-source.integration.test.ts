@@ -69,6 +69,7 @@ describe('the git catalogue source', () => {
     ]);
     expect(files.find((file) => file.name === 'tester' && file.version === 2)).toMatchObject({
       repository: 'example.com/templates',
+      file: 'squadrons/templates/tester.yaml',
       commit,
       content: { description: 'Tests well.', checkIn: '15m', charter: 'You test.' },
     });
@@ -90,7 +91,7 @@ describe('the git catalogue source', () => {
     await git('commit', '--quiet', '-m', 'tester');
     await git('tag', 'tester@1');
 
-    await expect(source('ops/fleet').files()).resolves.toMatchObject([{ name: 'tester', version: 1 }]);
+    await expect(source('ops/fleet').files()).resolves.toMatchObject([{ name: 'tester', version: 1, file: 'ops/fleet/templates/tester.yaml' }]);
   });
 
   it('says why a file is no valid YAML', async () => {

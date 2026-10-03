@@ -19,7 +19,7 @@ function templateVersion(name: string, handoffs: string[] = []): TemplateVersion
     repository: REPO,
     name,
     version: 1,
-    commit: `c-${name}`,
+    file: 'squadrons/fixture.yaml', commit: `c-${name}`,
     committedAt: AT,
     description: `${name} template`,
     checkInMinutes: 30,
@@ -34,7 +34,7 @@ const blueprintVersion: BlueprintVersion = {
   repository: REPO,
   name: 'hemma-feature',
   version: 4,
-  commit: 'b-4',
+  file: 'squadrons/fixture.yaml', commit: 'b-4',
   committedAt: AT,
   description: 'One feature.',
   roles: [

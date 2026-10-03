@@ -16,7 +16,7 @@ const forming: Squadron = {
   id: 'team-a1b2c3',
   fleetId: FLEET_ID,
   state: 'forming',
-  blueprint: { repository: 'example.com/templates', name: 'team', version: 1, commit: 'b1', committedAt: AT, description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' },
+  blueprint: { repository: 'example.com/templates', name: 'team', version: 1, file: 'squadrons/fixture.yaml', commit: 'b1', committedAt: AT, description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' },
   templates: [],
   flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
   members: [],

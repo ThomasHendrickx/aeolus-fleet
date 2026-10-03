@@ -27,7 +27,7 @@ function squadron(): Squadron {
       repository: REPO,
       name: 'team',
       version: 2,
-      commit: 'b2',
+      file: 'squadrons/fixture.yaml', commit: 'b2',
       committedAt: FORMED,
       description: 'A team.',
       roles: [
@@ -41,12 +41,12 @@ function squadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
+      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
       {
         repository: REPO,
         name: 'tester',
         version: 4,
-        commit: 't4',
+        file: 'squadrons/fixture.yaml', commit: 't4',
         committedAt: FORMED,
         description: 'Tests.',
         checkInMinutes: 30,

@@ -25,7 +25,7 @@ function aSquadron(): Squadron {
       repository: REPO,
       name: 'team',
       version: 1,
-      commit: 'b1',
+      file: 'squadrons/fixture.yaml', commit: 'b1',
       committedAt: FORMED,
       description: 'A team.',
       roles: [
@@ -36,8 +36,8 @@ function aSquadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
-      { repository: REPO, name: 'tester', version: 4, commit: 't4', committedAt: FORMED, description: 'Tests.', checkInMinutes: 30, model: null, launchNote: null, charter: 'You test.', handoffs: [] },
+      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
+      { repository: REPO, name: 'tester', version: 4, file: 'squadrons/fixture.yaml', commit: 't4', committedAt: FORMED, description: 'Tests.', checkInMinutes: 30, model: null, launchNote: null, charter: 'You test.', handoffs: [] },
     ],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
