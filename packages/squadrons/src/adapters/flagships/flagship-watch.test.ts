@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FLEET_ID, SHIP_ID, fakeManagementFleet, memoryManagementStore } from '../../../test/support/management-fakes.js';
 import type { FleetDoor } from '../../core/management/ports.js';
-import { ok, type Result } from '../../core/shared/result.js';
+import { err, ok, type Result } from '../../core/shared/result.js';
 import type { FlagshipOutcome } from '../../core/squadron/handle-flagship-delivery.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
 import { watchFlagships } from './flagship-watch.js';
@@ -82,5 +82,70 @@ describe('stopping the flagship watch', () => {
     finishHandling();
     await stopped;
     expect(isHandlingDone).toBe(true);
+  });
+});
+
+describe('a released flagship', () => {
+  it('is told to argo once: later rescans neither receive on it again nor tell argo again', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    let receives = 0;
+    const told: { text: string; key: string }[] = [];
+    const watch = watchFlagships({
+      door: {
+        ...fakeManagementFleet().door,
+        receive: () => {
+          receives += 1;
+          return Promise.resolve(err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }));
+        },
+      },
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      operator: {
+        tell: (notice) => {
+          told.push(notice);
+          return Promise.resolve();
+        },
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await expect.poll(() => told).toHaveLength(1);
+    await watch.rescan();
+    await watch.rescan();
+    await watch.stop();
+
+    expect(receives).toBe(1);
+    expect(told).toHaveLength(1);
+  });
+
+  it('is told under a key of its squadron, so a restart of squadrons tells argo no second time', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    const keys: string[] = [];
+    for (let start = 0; start < 2; start += 1) {
+      const watch = watchFlagships({
+        door: { ...fakeManagementFleet().door, receive: () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'released' })) },
+        management: store,
+        squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
+        handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+        operator: {
+          tell: (notice) => {
+            keys.push(notice.key);
+            return Promise.resolve();
+          },
+        },
+        log: silentLog,
+        rescanMs: 60_000,
+      });
+      await watch.rescan();
+      await expect.poll(() => keys).toHaveLength(start + 1);
+      await watch.stop();
+    }
+
+    expect(keys).toEqual(['released-team-a1b2c3', 'released-team-a1b2c3']);
   });
 });
