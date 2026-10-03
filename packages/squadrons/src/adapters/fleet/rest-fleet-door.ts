@@ -69,7 +69,7 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         signal: until?.signal,
       });
       return received.isOk
-        ? ok(received.value.deliveries.map(({ deliveryId, messageId, senderShipId, contentType, payload, inReplyTo }) => ({ deliveryId, messageId, senderShipId, contentType, payload, inReplyTo })))
+        ? ok(received.value.deliveries.map(({ deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo }) => ({ deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo })))
         : received;
     },
     ack: async (crewToken, deliveryId) => {

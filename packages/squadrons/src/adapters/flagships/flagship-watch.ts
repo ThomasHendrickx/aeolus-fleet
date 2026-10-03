@@ -10,7 +10,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
-import type { SquadronRepository } from '../../core/squadron/ports.js';
+import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
 
 /** How long a flagship waits before it receives again after a failure. */
 const RETRY_MS = 1_000;
@@ -26,6 +26,7 @@ export function watchFlagships(deps: {
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   handle: HandleFlagshipDelivery;
+  operator: OperatorNotices;
   log: FastifyBaseLogger;
   rescanMs: number;
 }): FlagshipWatch {
@@ -53,6 +54,7 @@ export function watchFlagships(deps: {
         if (!received.isOk) {
           if (received.error.code === 'LEASE_ENDED') {
             deps.log.warn({ squadron: squadronId }, 'the flagship was released: squadrons no longer receives on it');
+            await deps.operator.tell(`The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`);
             break;
           }
           deps.log.error({ squadron: squadronId, refusal: received.error }, 'the flagship could not receive');

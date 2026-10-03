@@ -63,3 +63,21 @@ model Member {
   @@index([fleetId, squadronId])
   @@map("members")
 }
+
+/// A message a flagship received and does not handle: acknowledged and kept, so
+/// none disappears, for the squadron page.
+model FlagshipMessage {
+  fleetId      String   @map("fleet_id")
+  deliveryId   String   @id @map("delivery_id")
+  squadronId   String   @map("squadron_id")
+  messageId    String   @map("message_id")
+  senderShipId String   @map("sender_ship_id")
+  senderName   String   @map("sender_name")
+  contentType  String   @map("content_type")
+  payload      String
+  inReplyTo    String?  @map("in_reply_to")
+  receivedAt   DateTime @map("received_at") @db.Timestamptz(3)
+
+  @@index([fleetId, squadronId, receivedAt])
+  @@map("flagship_messages")
+}

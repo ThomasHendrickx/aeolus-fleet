@@ -5,13 +5,13 @@ import type { FleetDoor, FleetRefusal, OutgoingMessage, ReceivedMessage } from '
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { CHECK_IN, checkInText, ON_STATION, ROLE } from './check-in.js';
-import type { SquadronRepository } from './ports.js';
+import type { FlagshipMessageLog, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, or left the delivery for later. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'unhandled';
+/** What the flagship did: answered a check-in, took a member on station, or kept a message it does not handle. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'kept';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
@@ -64,19 +64,49 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
  * "Check-in"). A member's check-in for this squadron is acknowledged and
  * answered with its role, every time it checks in. A member's on-station is
  * acknowledged and the member marked on station; the squadron sails when every
- * member is. Anything else is left unacknowledged for now, so it is not lost:
- * what the flagship does with other messages is not decided yet. Nothing is
- * answered unless the ack succeeded.
+ * member is. A flagship supports only the squadron's messages: anything else,
+ * from outside or from a member, is acknowledged and kept for the squadron
+ * page, never forwarded, and argo is told, so no message disappears or goes
+ * unseen. Nothing is done unless the ack succeeded.
  */
-export function createHandleFlagshipDelivery(deps: { door: FleetDoor; squadrons: SquadronRepository; clock: Clock }): HandleFlagshipDelivery {
+export function createHandleFlagshipDelivery(deps: {
+  door: FleetDoor;
+  squadrons: SquadronRepository;
+  messages: FlagshipMessageLog;
+  operator: OperatorNotices;
+  clock: Clock;
+}): HandleFlagshipDelivery {
   return async (squadron, delivery) => {
     const member = squadron.members.find((each) => each.shipId === delivery.senderShipId);
     const crewToken = squadron.flagship.crewToken;
+    const keep = async (): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+      const acked = await deps.door.ack(crewToken, delivery.deliveryId);
+      if (!acked.isOk) {
+        return err(acked.error);
+      }
+      const { deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo } = delivery;
+      await deps.messages.keep({
+        fleetId: squadron.fleetId,
+        squadronId: squadron.id,
+        deliveryId,
+        messageId,
+        senderShipId,
+        senderName,
+        contentType,
+        payload,
+        inReplyTo,
+        receivedAt: deps.clock.now(),
+      });
+      await deps.operator.tell(
+        `The flagship of the squadron ${squadron.id} got a message it does not handle, from ${senderName} (${contentType}). squadrons keeps it for the squadron page; nothing was forwarded.`,
+      );
+      return ok('kept');
+    };
 
     if (delivery.contentType === CHECK_IN) {
       const checkIn = parsedPayload(checkInPayload, delivery.payload);
       if (!member || checkIn?.squadron !== squadron.id) {
-        return ok('unhandled');
+        return keep();
       }
       const acked = await deps.door.ack(crewToken, delivery.deliveryId);
       if (!acked.isOk) {
@@ -89,7 +119,7 @@ export function createHandleFlagshipDelivery(deps: { door: FleetDoor; squadrons:
     if (delivery.contentType === ON_STATION) {
       const onStation = parsedPayload(onStationPayload, delivery.payload);
       if (!member || onStation?.squadron !== squadron.id) {
-        return ok('unhandled');
+        return keep();
       }
       const acked = await deps.door.ack(crewToken, delivery.deliveryId);
       if (!acked.isOk) {
@@ -103,6 +133,6 @@ export function createHandleFlagshipDelivery(deps: { door: FleetDoor; squadrons:
       return ok('on-station');
     }
 
-    return ok('unhandled');
+    return keep();
   };
 }

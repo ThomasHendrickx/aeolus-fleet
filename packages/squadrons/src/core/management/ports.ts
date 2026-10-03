@@ -30,6 +30,7 @@ export interface ReceivedMessage {
   deliveryId: DeliveryId;
   messageId: MessageId;
   senderShipId: ShipId;
+  senderName: string;
   contentType: string;
   payload: string;
   inReplyTo: MessageId | null;

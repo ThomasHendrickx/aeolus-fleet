@@ -9,6 +9,8 @@ import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
+import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-message-log.js';
+import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
@@ -82,6 +84,8 @@ export function createSquadronsApp(options: {
   const store = createPrismaManagementCrewStore(prisma);
   const squadrons = createPrismaSquadronRepository(prisma);
   const door = createRestFleetDoor(options.fleetUrl);
+  const keptMessages = createPrismaFlagshipMessageLog(prisma);
+  const operator = createOperatorNotices({ door, management: store });
   const clock = options.clock ?? systemClock;
   let flagships: FlagshipWatch | undefined;
   const formSquadron = createFormSquadron({ door, management: store, squadrons, catalogue: () => catalogue, random: cryptoRandomNames, clock });
@@ -119,6 +123,7 @@ export function createSquadronsApp(options: {
         refreshCatalogue,
         formSquadron: formAndWatch,
         listSquadrons: (fleetId) => squadrons.list(fleetId),
+        keptMessages: (fleetId, squadronId) => keptMessages.list(fleetId, squadronId),
       }),
     },
   };
@@ -144,7 +149,8 @@ export function createSquadronsApp(options: {
         door,
         management: store,
         squadrons,
-        handle: createHandleFlagshipDelivery({ door, squadrons, clock }),
+        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, clock }),
+        operator,
         log: server.log,
         rescanMs,
       });
