@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -182,5 +182,21 @@ describe('the roles a member can be added to', () => {
       { role: 'planner', template: 'planner@2', checkInMinutes: 30, now: 1, inBlueprint: 1 },
       { role: 'implementer', template: 'implementer@3', checkInMinutes: undefined, now: 1, inBlueprint: 2 },
     ]);
+  });
+});
+
+describe('otherMembersOfRole', () => {
+  it('names the members a removal leaves in the role, retired ones and other roles left out', () => {
+    const member = (shipId: string, { role, status }: { role: string; status: string }) => ({ shipId, name: `${role}-${shipId}`, role, crew: { status } });
+    const squadron = {
+      members: [
+        member('a', { role: 'tester', status: 'crewed' }),
+        member('b', { role: 'tester', status: 'crewed' }),
+        member('c', { role: 'tester', status: 'retired' }),
+        member('d', { role: 'planner', status: 'crewed' }),
+      ],
+    };
+
+    expect(otherMembersOfRole(squadron, 'a')).toEqual(['tester-b']);
   });
 });

@@ -158,3 +158,9 @@ export function roleOptions(
     inBlueprint: role.count,
   }));
 }
+
+/** The members of the removed member's role that stay: none means it is the last of its role. */
+export function otherMembersOfRole(squadron: { members: readonly { shipId: string; name: string; role: string; crew: { status: string } }[] }, shipId: string): string[] {
+  const role = squadron.members.find((member) => member.shipId === shipId)?.role;
+  return squadron.members.filter((member) => member.role === role && member.shipId !== shipId && member.crew.status !== 'retired').map((member) => member.name);
+}
