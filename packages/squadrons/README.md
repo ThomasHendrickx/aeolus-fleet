@@ -68,7 +68,7 @@ The operator forces the stand down of a Forming, Sailing or Standing down squadr
 
 - **Add**, only while Sailing: squadrons commissions one member of a role from the squadron's own snapshot (the same template version), with forming's machinery as it is (a formation attempt, an idempotency key, recovery after a crash). Its crew line, launch note and pinned model are answered once. It checks in like any member and is Not on station until it does; the squadron stays Sailing.
 - **Remove**, while Sailing or Standing down: squadrons retires the member's ship at once. Its direct deliveries are abandoned, as on any retire; a delivery to its type goes to another member of the role. Removing the last member of a role is allowed, and a hand-off to that role then fails at send ("no ship of that type").
-- **New crew line**: squadrons releases the member's ship if a session crews it, gets it a new starting prompt, and answers its crew line with the squadron id, its launch note and pinned model, once. The new crew checks in like any member. A recrew from the console gives a crew line without the squadron id, so that crew never checks in.
+- **New crew line** (`squadrons.newCrewLine`): the way to give a member a new session while keeping its check-in. squadrons releases the member's ship if a session crews it, gets it a new starting prompt, and answers its crew line with the squadron id, its launch note and pinned model, once. The new crew checks in like any member.
 
 ### The flagship's messages
 
@@ -77,6 +77,7 @@ The flagship handles check-in, on-station and stood-down from its own members. A
 ### Not handled
 
 - A ship changed outside its squadron (the operator releases, recrews or retires a member in the console) stays listed as a member; only its health and crew status show it. squadrons is not told (#105, after a first real squadron has sailed).
+- Until `squadrons.newCrewLine` exists, the console's Recrew gives a member a crew line without the squadron id, so its new crew never checks in.
 - A released flagship is not crewed again: check-ins to it go unanswered.
 - While squadrons is not connected, flagships already receiving go on with their own crew tokens, but no new squadron starts receiving and no stand down advances.
 
