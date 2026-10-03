@@ -123,6 +123,8 @@ model Lease {
   shipId              String       @map("ship_id")
   location            LocationKind
   locationDescription String?      @map("location_description")
+  /// The harness the session stated when it claimed the ship; none for argo's console lease and for leases from before harnesses were stated.
+  harness             String?
   crewTokenHash       String?      @unique @map("crew_token_hash")
   startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
   /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
@@ -185,6 +187,8 @@ model Message {
   selectorType       String?      @map("selector_type")
   payload            String
   contentType        String       @map("content_type")
+  /// The model the sender's session stated; none from argo and on messages from before models were stated.
+  model              String?
   idempotencyKey     String       @map("idempotency_key")
   requestHash        String       @map("request_hash")
   inReplyToMessageId String?      @map("in_reply_to_message_id")
@@ -205,6 +209,8 @@ model Message {
   /// A sender uses an idempotency key once: a repeat of the same request, told by its
   /// request hash, returns the original message; another request with the key is refused.
   @@unique([fleetId, senderShipId, idempotencyKey])
+  /// A ship's current model is its newest message with a model.
+  @@index([fleetId, senderShipId, createdAt])
   @@map("messages")
 }
 

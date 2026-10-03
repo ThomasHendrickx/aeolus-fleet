@@ -7,7 +7,7 @@ import { createDismissDelivery } from '../src/core/messaging/dismiss-delivery.js
 import { createResendDelivery } from '../src/core/messaging/resend-delivery.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -27,7 +27,7 @@ let planner: Crew;
 async function crewed(ship: { name: string; type: string }): Promise<Crew> {
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const { crewToken } = unwrap(
-    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   );
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
@@ -46,7 +46,7 @@ afterEach(async () => {
 async function sendTo(selector: Selector, payload = '{"run":"e2e","ref":"pr-320"}'): Promise<MessageId> {
   core.clock.advance(1_000);
   return unwrap(
-    await core.useCases.sendMessage(planner, {
+    await core.useCases.sendMessage(planner, { ...modelOf(planner),
       selector,
       payload,
       contentType: 'application/json',
@@ -100,6 +100,7 @@ describe('Needs attention on Postgres', () => {
         inReplyTo: null,
         sentAt: new Date(since.getTime() - UNDELIVERABLE_AT_CLAIM * 1_000 - 1_000),
         contentType: 'application/json',
+        model: 'claude-opus-5-5',
         payload: '{"run":"e2e","ref":"pr-320"}',
       },
     });
@@ -145,7 +146,7 @@ describe('Needs attention on Postgres', () => {
       expect.objectContaining({
         type: 'MessageAccepted',
         actorShipId: argo.shipId,
-        details: { selector: 'ship', recipientType: null, resendOf: original.messageId },
+        details: { selector: 'ship', recipientType: null, model: 'claude-opus-5-5', resendOf: original.messageId },
       }),
       expect.objectContaining({ type: 'DeliveryDismissed', actorShipId: argo.shipId, deliveryId: original.deliveryId }),
     ]);

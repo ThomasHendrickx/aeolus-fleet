@@ -64,6 +64,8 @@ export const timelineEntrySchema = z.object({
       recipient: messageRecipientSchema,
       /** As the sender gave it; a ping has the reserved ping content type. */
       contentType: z.string(),
+      /** The model the sender's session stated. */
+      model: z.string().nullable(),
     })
     .nullable(),
   details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
@@ -82,6 +84,8 @@ export const listedMessageSchema = z.object({
   inReplyTo: idSchema('message').nullable(),
   sentAt: isoTime,
   contentType: z.string(),
+  /** The model the sender's session stated it runs; null from argo and on messages from before models were stated. */
+  model: z.string().nullable(),
   /** The start of the payload, for the list; the whole payload comes with `fleet.message`. */
   preview: z.string(),
   delivery: z.object({
@@ -120,6 +124,8 @@ export const deliveryHistoryEntrySchema = z.object({
   ship: partySchema.nullable(),
   /** Where the claiming session ran, for a claim. */
   location: z.object({ kind: locationKindSchema, description: z.string().nullable() }).nullable(),
+  /** The harness the claiming session ran in, for a claim. */
+  harness: z.string().nullable(),
   /** The claims counted so far, where the event records them. */
   attempts: z.number().int().nonnegative().nullable(),
 });

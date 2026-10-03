@@ -180,6 +180,8 @@ describe('fleetListOutputSchema', () => {
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
+    model: null,
+    harness: null,
   };
 
   it('accepts ships with their status and prompt state', () => {
@@ -193,6 +195,18 @@ describe('fleetListOutputSchema', () => {
       startingPrompt: { ...ship.startingPrompt, isClaimed: true },
       location: { kind: 'OTHER', description: 'a ci runner' },
       lastSeenAt: '2026-09-29T12:05:00.000Z',
+    };
+
+    expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
+  });
+
+  it('accepts a crewed ship with its current model, stated when, and the harness its session runs in', () => {
+    const crewed = {
+      ...ship,
+      status: 'crewed',
+      location: { kind: 'DEVICE', description: null },
+      harness: 'claude-code',
+      model: { id: 'claude-opus-5-5', statedAt: '2026-09-29T12:05:00.000Z' },
     };
 
     expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
@@ -233,6 +247,9 @@ describe('fleetListOutputSchema', () => {
     ['a missing location', { ...ship, location: undefined }],
     ['an unknown location kind', { ...ship, location: { kind: 'LAPTOP', description: null } }],
     ['a missing ping', { ...ship, ping: undefined }],
+    ['a missing model', { ...ship, model: undefined }],
+    ['a model stated at a time that is not ISO 8601', { ...ship, model: { id: 'claude-opus-5-5', statedAt: 'today' } }],
+    ['a missing harness', { ...ship, harness: undefined }],
     ['missing scopes', { ...ship, scopes: undefined }],
     ['a missing report', { ...ship, report: undefined }],
     ['a report in an unknown state', { ...ship, report: { state: 'sleeping', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],

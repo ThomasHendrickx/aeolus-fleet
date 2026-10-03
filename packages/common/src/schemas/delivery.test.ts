@@ -57,6 +57,7 @@ describe('receivedDeliverySchema', () => {
     recipient: { kind: 'ship', shipId: newId('ship') },
     payload: '{"review":"https://github.com/ThomasHendrickx/aeolus-fleet/pull/22"}',
     contentType: 'application/json',
+    model: 'claude-opus-5-5',
     inReplyTo: null,
     sentAt: '2026-09-30T12:00:00.000Z',
     attempts: 1,
@@ -64,6 +65,12 @@ describe('receivedDeliverySchema', () => {
 
   it("accepts a delivery to the ship, with its message and its sender's id, name and type", () => {
     expect(receivedDeliverySchema.parse(delivery)).toEqual(delivery);
+  });
+
+  it('accepts a delivery from argo, which states no model', () => {
+    const fromArgo = { ...delivery, model: null };
+
+    expect(receivedDeliverySchema.parse(fromArgo)).toEqual(fromArgo);
   });
 
   it('accepts a delivery to a type, replying to a message', () => {

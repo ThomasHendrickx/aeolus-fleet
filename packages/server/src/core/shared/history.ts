@@ -39,7 +39,7 @@ export interface TimelineEntry {
   actor: HistoryParty | null;
   ship: HistoryParty | null;
   /** The message it concerns, with its parties and its content type, by which a ping is told. */
-  message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string } | null;
+  message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string; model: string | null } | null;
   details: EventDetails;
 }
 
@@ -51,6 +51,8 @@ export interface HistoryMessage {
   inReplyTo: MessageId | null;
   sentAt: Date;
   contentType: string;
+  /** The model the sender's session stated; none from argo and on messages from before models were stated. */
+  model: string | null;
   payload: string;
   delivery: { id: DeliveryId; state: DeliveryState; attempts: number; claimedBy: HistoryParty | null };
 }
@@ -71,6 +73,8 @@ export interface DeliveryChange {
   ship: HistoryParty | null;
   /** Where the claiming session ran, for a claim. */
   location: Location | null;
+  /** The harness the claiming session ran in, for a claim. */
+  harness: string | null;
   /** The claims counted by then, where the event records them. */
   attempts: number | null;
 }

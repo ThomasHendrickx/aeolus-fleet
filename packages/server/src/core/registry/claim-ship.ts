@@ -11,7 +11,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { CREW_TOKEN_PREFIX, location } from './lease.js';
+import { CREW_TOKEN_PREFIX, harness, location } from './lease.js';
 import type { LeaseRepository, ShipRepository } from './ports.js';
 import { claimShip, type ClaimRefusal } from './ship.js';
 
@@ -27,17 +27,19 @@ export interface ShipCrewed {
   crewToken: string;
 }
 
-export type ClaimShipRefusal = DomainError<'INVALID_LOCATION' | 'WRONG_SHIP_ID_OR_SECRET'> | ClaimRefusal;
+export type ClaimShipRefusal = DomainError<'INVALID_LOCATION' | 'INVALID_HARNESS' | 'WRONG_SHIP_ID_OR_SECRET'> | ClaimRefusal;
 
 export type ClaimShip = (input: {
   shipId: ShipId;
   secret: string;
   location: { kind: LocationKind; description?: string };
+  harness: string;
 }) => Promise<Result<ShipCrewed, ClaimShipRefusal>>;
 
 /**
  * Use case: a session claims a ship with the id and secret from its starting
- * prompt (`register`), reports where it runs, and becomes the ship's crew. The
+ * prompt (`register`), reports where it runs and in which harness, and
+ * becomes the ship's crew. The
  * ship's own secret is the credential, so no caller is resolved first.
  *
  * Lock order: the secret first, then the lease. The ship is read, never locked:
@@ -60,6 +62,10 @@ export function createClaimShip(deps: {
     if (!reported.isOk) {
       return reported;
     }
+    const stated = harness(input.harness);
+    if (!stated.isOk) {
+      return stated;
+    }
 
     return deps.uow.run(async (tx): Promise<Result<ShipCrewed, ClaimShipRefusal>> => {
       const secret = await findValidShipSecret({ tx, hasher }, { shipId: input.shipId, secret: input.secret });
@@ -78,7 +84,7 @@ export function createClaimShip(deps: {
       const at = deps.clock.now();
       const claimed = claimShip(
         { ship, heldLease },
-        { leaseId: deps.ids('lease'), location: reported.value, crewTokenHash: hasher.hash(crewToken), at },
+        { leaseId: deps.ids('lease'), location: reported.value, harness: stated.value, crewTokenHash: hasher.hash(crewToken), at },
       );
       if (!claimed.isOk) {
         return claimed;

@@ -261,19 +261,19 @@ describe('console.signIn', () => {
 
 describe('ship.register', () => {
   /** Like the tRPC client: a JSON body, and no credentials but the secret in it. */
-  function register(input: { shipId: string; secret: string; location: Record<string, string> }, remoteAddress?: string) {
+  function register(input: { shipId: string; secret: string; location: Record<string, string>; harness: string }, remoteAddress?: string) {
     return server.inject({ method: 'POST', url: '/trpc/ship.register', payload: input, remoteAddress });
   }
 
   function aWrongClaim() {
-    return { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } };
+    return { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' }, harness: 'claude-code' };
   }
 
   it('returns the crew token for the secret, and whoami answers with that token', async () => {
     start();
     const agent = addAgentShip(core, { fleetId: fleetIdOf(core), name: 'scout' });
 
-    const registered = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } });
+    const registered = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' });
     const { crewToken } = z
       .object({ result: z.object({ data: z.object({ crewToken: z.string() }) }) })
       .parse(registered.json()).result.data;
@@ -306,14 +306,14 @@ describe('ship.register', () => {
       expect((await register(aWrongClaim())).statusCode).toBe(401);
     }
 
-    const limited = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } });
+    const limited = await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     expect(limited.statusCode).toBe(429);
     expect(errorCode(limited)).toBe('TOO_MANY_REQUESTS');
     expect(core.state.leases.filter((lease) => lease.shipId === agent.shipId)).toEqual([]);
     core.clock.advance(60_000);
     expect(
-      (await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } })).statusCode,
+      (await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' }, harness: 'claude-code' })).statusCode,
     ).toBe(200);
   });
 
@@ -323,7 +323,7 @@ describe('ship.register', () => {
 
     const statuses: number[] = [];
     for (const agent of agents) {
-      statuses.push((await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } })).statusCode);
+      statuses.push((await register({ shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' })).statusCode);
     }
 
     expect(statuses).toEqual([200, 200, 200]);
@@ -333,13 +333,13 @@ describe('ship.register', () => {
     start({ registerRateLimit: { limit: 1, windowMs: 60_000 } });
     const crewed = addAgentShip(core, { fleetId: fleetIdOf(core) });
     const other = addAgentShip(core, { fleetId: fleetIdOf(core) });
-    const claimCrewed = () => register({ shipId: crewed.shipId, secret: crewed.secret, location: { kind: 'DEVICE' } });
+    const claimCrewed = () => register({ shipId: crewed.shipId, secret: crewed.secret, location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     const statuses = [
       (await claimCrewed()).statusCode,
       (await claimCrewed()).statusCode,
       (await claimCrewed()).statusCode,
-      (await register({ shipId: other.shipId, secret: other.secret, location: { kind: 'OTHER' } })).statusCode,
+      (await register({ shipId: other.shipId, secret: other.secret, location: { kind: 'OTHER' }, harness: 'claude-code' })).statusCode,
       (await register(aWrongClaim())).statusCode,
       (await register(aWrongClaim())).statusCode,
     ];
@@ -531,7 +531,7 @@ describe('error responses', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/trpc/ship.register',
-      payload: { shipId: 'not a ship id', secret: '', location: { kind: 'MOON' } },
+      payload: { shipId: 'not a ship id', secret: '', location: { kind: 'MOON' }, harness: 'claude-code' },
     });
 
     expect(response.statusCode).toBe(400);
@@ -831,7 +831,7 @@ describe('text input holding the character U+0000', () => {
     const response = await server.inject({
       method: 'POST',
       url: '/trpc/ship.register',
-      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'OTHER', description: 'ci\u0000runner' } },
+      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'OTHER', description: 'ci\u0000runner' }, harness: 'claude-code' },
     });
 
     expect(response.statusCode).toBe(400);

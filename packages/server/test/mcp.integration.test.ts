@@ -145,7 +145,7 @@ const tools = {
 
 /** Claims the ship through the register tool, from a DEVICE. Returns the crew token. */
 async function register(client: Client, ship: { shipId: ShipId; secret: string }): Promise<string> {
-  const { crewToken } = await call(client, { tool: tools.register, arguments: { ...ship, location: { kind: 'DEVICE' } } });
+  const { crewToken } = await call(client, { tool: tools.register, arguments: { ...ship, location: { kind: 'DEVICE' }, harness: 'claude-code' } });
   return crewToken;
 }
 
@@ -162,6 +162,7 @@ describe('the ship tools at /mcp', () => {
       tool: tools.send,
       arguments: {
         crewToken: harbourToken,
+        model: 'claude-opus-5-5',
         selector: { kind: 'ship', name: mooring.name },
         payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/32',
         idempotencyKey: freshKey(),
@@ -177,6 +178,7 @@ describe('the ship tools at /mcp', () => {
       tool: tools.send,
       arguments: {
         crewToken: mooringToken,
+        model: 'claude-opus-5-5',
         selector: { kind: 'ship', name: delivery.senderName },
         payload: 'Reviewed: approved',
         idempotencyKey: freshKey(),
@@ -278,6 +280,7 @@ describe('the ship tools at /mcp', () => {
       tool: tools.send,
       arguments: {
         crewToken: scoutToken,
+        model: 'claude-opus-5-5',
         selector: { kind: 'ship', name: lookout.name },
         payload: 'Land ho',
         idempotencyKey: freshKey(),
@@ -306,7 +309,7 @@ describe('the ship tools at /mcp', () => {
 
     const text = await refusalOf(await connect(), {
       name: 'register',
-      arguments: { shipId: scout.shipId, secret: scout.secret, location: { kind: 'CLOUD' } },
+      arguments: { shipId: scout.shipId, secret: scout.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
     });
 
     expect(text).toBe(`CONFLICT: ${scout.name} is crewed: a session claims a ship only while it awaits crew`);
@@ -319,6 +322,7 @@ describe('the ship tools at /mcp', () => {
     const sending = {
       selector: { kind: 'ship', name: scout.name },
       payload: 'Anyone aboard?',
+      model: 'claude-opus-5-5',
       idempotencyKey: freshKey(),
     };
     const messagesBefore = await database.message.count();

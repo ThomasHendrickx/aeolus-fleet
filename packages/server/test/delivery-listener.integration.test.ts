@@ -64,7 +64,7 @@ beforeEach(async () => {
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   argo = operatorCaller(fleet);
   const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });
 

@@ -116,7 +116,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     findOpenForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
@@ -126,7 +126,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     findOpenForShare: async (fleetId, shipId) => {
       // FOR SHARE, as findOpenByIdForShare: a release waits for the holder.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
@@ -157,7 +157,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
@@ -172,6 +172,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           shipId: lease.shipId,
           location: lease.location.kind,
           locationDescription: lease.location.description,
+          harness: lease.harness,
           crewTokenHash: lease.crewTokenHash,
           startedAt: lease.startedAt,
           endedAt: lease.endedAt,
@@ -182,7 +183,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE leases SET ended_at = ${endedAt}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                   started_at, ended_at`;
       return row ? toLease(row) : undefined;
     },
@@ -221,6 +222,14 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
   };
 }
 
+/** The last model the ship `s` of the outer query stated on a send, and when: its newest message with a model. */
+const lastModelOfShip = Prisma.sql`
+  SELECT m.model, m.created_at
+  FROM messages m
+  WHERE m.fleet_id = s.fleet_id AND m.sender_ship_id = s.id AND m.model IS NOT NULL
+  ORDER BY m.created_at DESC, m.id DESC
+  LIMIT 1`;
+
 /**
  * The newest ping to the ship `s` of the outer query: when it was sent, its
  * delivery's state, and when a pong acknowledged it, if one did.
@@ -246,14 +255,16 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                s.commissioned_by, s.commission_key, s.commission_request_hash,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
-               l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
+               l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
-               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
+               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
+               lm.model AS last_model, lm.created_at AS last_model_stated_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
+        LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId}
         ORDER BY s.id`;
       return rows.map(toShipFacts);
@@ -270,14 +281,16 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
                s.commissioned_by, s.commission_key, s.commission_request_hash,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
-               l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
+               l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
-               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at
+               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
+               lm.model AS last_model, lm.created_at AS last_model_stated_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
+        LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId} AND s.id = ${shipId}`;
       return row === undefined ? undefined : toShipFacts(row);
     },

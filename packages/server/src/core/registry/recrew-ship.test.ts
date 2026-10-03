@@ -63,11 +63,11 @@ describe('re-crewing a ship', () => {
   it('lets the new secret claim the ship, and never the old one', async () => {
     const issued = unwrap(await registry.recrewShip(argo, { shipId: scoutId }));
 
-    await expect(registry.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'CLOUD' } })).resolves.toMatchObject({
+    await expect(registry.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' })).resolves.toMatchObject({
       isOk: false,
     });
     await expect(
-      registry.claimShip({ shipId: scoutId, secret: secretIn(issued.prompt), location: { kind: 'CLOUD' } }),
+      registry.claimShip({ shipId: scoutId, secret: secretIn(issued.prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: true });
   });
 

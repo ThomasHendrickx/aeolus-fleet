@@ -12,7 +12,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -73,7 +73,7 @@ afterEach(async () => {
 async function crewedReviewer(name: string): Promise<Crew> {
   const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   const { crewToken } = unwrap(
-    await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }),
+    await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
   );
   return unwrap(await useCases.authenticate.byCrewToken(crewToken));
 }
@@ -136,6 +136,7 @@ describe('receiving on Postgres', () => {
           recipient: { kind: 'ship', shipId: scout.shipId },
           payload: message.payload,
           contentType: 'text/plain',
+          model: null,
           inReplyTo: null,
           sentAt: message.createdAt,
           attempts: 1,
@@ -162,7 +163,7 @@ describe('receiving on Postgres', () => {
 
   it("hands over the sender's name as it is now: renamed after the send, by its new name, with its type", async () => {
     const { messageId } = unwrap(
-      await useCases.sendMessage(lookout, {
+      await useCases.sendMessage(lookout, { ...modelOf(lookout),
         selector: toShip(scout),
         payload: 'Can you take https://github.com/ThomasHendrickx/aeolus-fleet/pull/25?',
         idempotencyKey: 'ask-scout',

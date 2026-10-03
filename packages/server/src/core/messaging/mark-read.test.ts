@@ -9,6 +9,7 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
+  modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -37,7 +38,7 @@ beforeEach(async () => {
 
 async function toArgo(): Promise<DeliveryId> {
   const { messageId } = unwrap(
-    await useCases.sendMessage(captain, {
+    await useCases.sendMessage(captain, { ...modelOf(captain),
       selector: { kind: 'ship', shipId: argoId },
       payload: 'checkout-e2e failed 3 of 5 runs since 12:00.',
       idempotencyKey: `failed-${core.ids('message')}`,

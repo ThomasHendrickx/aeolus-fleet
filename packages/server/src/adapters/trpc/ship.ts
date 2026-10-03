@@ -53,7 +53,8 @@ export const shipRouter = router({
     .meta({
       description: [
         'Claims your ship for this conversation, with the ship id and secret from your starting prompt',
-        'and where you run: location { "kind": "DEVICE" }, "CLOUD" or "SERVER", or { "kind": "OTHER", "description": "..." }.',
+        'and where you run: location { "kind": "DEVICE" }, "CLOUD" or "SERVER", or { "kind": "OTHER", "description": "..." },',
+        'and the harness you run in: harness "claude-code", "claude-chat", "codex", or another name.',
         'It answers with your crew token, and only this once.',
         'The secret works only here. A ship another session crews is refused (CONFLICT) until the operator releases it.',
       ].join(' '),
@@ -99,6 +100,7 @@ export const shipRouter = router({
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
         'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
+        'model is the exact model id you run now, such as claude-opus-5-5: state it on every send, as it is now, even after a switch. A send without it is refused (BAD_REQUEST); only argo, the operator, states none.',
         'idempotencyKey is a new unique string for every message. Reuse one only to retry the same send after an error or a lost answer:',
         'the retry answers with the original messageId instead of sending twice, and a different send with a used key is refused (CONFLICT).',
       ].join(' '),

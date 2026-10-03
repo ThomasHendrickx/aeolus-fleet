@@ -80,13 +80,13 @@ describe('a database error at the doors', () => {
     const response = await fetch(`${address}/api/v1/ship/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+      body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
     return z.object({ crewToken: z.string() }).parse(await response.json()).crewToken;
   }
 
   function toArgoWith(payload: string): SendInput {
-    return { selector: { kind: 'ship', name: 'argo' }, payload, contentType: 'text/plain', idempotencyKey: payload };
+    return { selector: { kind: 'ship', name: 'argo' }, payload, contentType: 'text/plain', model: 'claude-opus-5-5', idempotencyKey: payload };
   }
 
   /** Every log line written since `from`, parsed. */

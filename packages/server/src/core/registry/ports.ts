@@ -140,7 +140,7 @@ export interface ShipFacts {
    * Where the session holding the ship's open lease runs, since when, and its
    * last call (its claim until it calls again); null while no session crews it.
    */
-  openLease: { location: Location; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
+  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /**
@@ -148,6 +148,8 @@ export interface ShipFacts {
    * when pong answered it, if pong did; null before any ping.
    */
   lastPing: { sentAt: Date; deliveryState: DeliveryState; answeredWithPongAt: Date | null } | null;
+  /** The last model the ship's sessions stated on a send, and when; null before any. */
+  lastModel: { id: string; statedAt: Date } | null;
 }
 
 /**

@@ -6,6 +6,8 @@ import {
   CONTENT_TYPE_MAX_LENGTH,
   contentTypeSchema,
   isMediaType,
+  MODEL_MAX_LENGTH,
+  modelSchema,
   PAYLOAD_MAX_BYTES,
   payloadBytes,
   selectorSchema,
@@ -113,6 +115,25 @@ describe('selectorSchema', () => {
   });
 });
 
+describe('modelSchema', () => {
+  it('takes the exact model id a session states, trimmed', () => {
+    expect(modelSchema.parse('  claude-opus-5-5 ')).toBe('claude-opus-5-5');
+  });
+
+  it('accepts an id of exactly 100 characters', () => {
+    expect(modelSchema.safeParse('m'.repeat(MODEL_MAX_LENGTH)).success).toBe(true);
+  });
+
+  it.each([
+    ['an empty model', ''],
+    ['only spaces', '   '],
+    ['a model with a space inside', 'claude opus'],
+    ['a model over 100 characters', 'm'.repeat(MODEL_MAX_LENGTH + 1)],
+  ])('rejects %s', (_label, candidate) => {
+    expect(modelSchema.safeParse(candidate).success).toBe(false);
+  });
+});
+
 describe('sendInputSchema', () => {
   const input = {
     selector: { kind: 'ship', name: 'scout' },
@@ -135,6 +156,14 @@ describe('sendInputSchema', () => {
     const withoutContentType = { selector: input.selector, payload: input.payload, idempotencyKey: input.idempotencyKey };
 
     expect(sendInputSchema.parse(withoutContentType)).toEqual(withoutContentType);
+  });
+
+  it('accepts the model the sending session runs', () => {
+    expect(sendInputSchema.parse({ ...input, model: 'claude-opus-5-5' })).toEqual({ ...input, model: 'claude-opus-5-5' });
+  });
+
+  it('accepts a send without a model: argo states none, and the fleet refuses it from any other ship', () => {
+    expect(sendInputSchema.parse(input)).toEqual(input);
   });
 
   it('accepts the message it replies to', () => {

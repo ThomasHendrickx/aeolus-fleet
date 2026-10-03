@@ -8,6 +8,8 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
+  modelOf,
+  SESSION_MODEL,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -44,7 +46,7 @@ async function undeliverable(
   sent: { selector?: Selector; inReplyTo?: MessageId } = {},
 ): Promise<{ deliveryId: DeliveryId; messageId: MessageId }> {
   const { messageId } = unwrap(
-    await useCases.sendMessage(planner, {
+    await useCases.sendMessage(planner, { ...modelOf(planner),
       selector: sent.selector ?? { kind: 'ship', shipId: scoutId },
       payload: '{"run":"e2e","ref":"pr-320"}',
       contentType: 'application/json',
@@ -124,7 +126,7 @@ describe('resending an undeliverable delivery', () => {
         shipId: scoutId,
         messageId,
         deliveryId: deliveryOf(messageId)?.id,
-        details: { selector: 'ship', recipientType: null, resendOf: original.messageId },
+        details: { selector: 'ship', recipientType: null, model: SESSION_MODEL, resendOf: original.messageId },
       }),
       expect.objectContaining({
         type: 'DeliveryDismissed',
@@ -154,7 +156,7 @@ describe('resending an undeliverable delivery', () => {
 
   it('keeps the message the original replied to', async () => {
     const { messageId: question } = unwrap(
-      await useCases.sendMessage(scout, {
+      await useCases.sendMessage(scout, { ...modelOf(scout),
         selector: { kind: 'ship', shipId: planner.shipId },
         payload: 'Which ref?',
         idempotencyKey: 'which-ref',

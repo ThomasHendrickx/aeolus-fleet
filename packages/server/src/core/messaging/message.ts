@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -20,6 +20,8 @@ export interface Message {
   payload: string;
   /** A media type, exactly as the sender gave it. */
   contentType: string;
+  /** The model the sender's session stated it runs; none from argo, and none on messages from before models were stated. */
+  model: string | null;
   /** Unique per sender: a repeat of the same request returns this message instead of storing a new one. */
   idempotencyKey: string;
   /** The hash of the request the message was sent with: what a repeat of its key must match. */
@@ -61,6 +63,10 @@ export interface MessageToAccept {
   senderShipId: ShipId;
   payload: string;
   contentType: string;
+  /** The model the sender states; a resend carries the original's. */
+  model: string | undefined;
+  /** Whether the sender is argo or an agent ship, for the model rule; a resend carries none, as it keeps the original's model. */
+  senderKind?: ShipKind;
   idempotencyKey: string;
   requestHash: string;
   inReplyTo: MessageId | undefined;
@@ -89,13 +95,16 @@ export function repeatOf(original: Message, requestHash: string): Result<Message
       );
 }
 
-export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND'>;
+export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRED' | 'MODEL_FROM_ARGO'>;
 
 /**
  * Accepts a message: the message, its one pending delivery to the recipient
  * its selector resolved to, and MessageAccepted, caused by the sender. A reply
  * names a message of the same fleet: `repliedTo` is that message as the fleet
- * holds it, if it does.
+ * holds it, if it does. Every ship but argo states the model its session
+ * runs (docs/blueprint.md, "Model"); argo states none. A resend carries the
+ * original message's model as it was, so it is not asked again; a ping is the
+ * fleet's question, not a session's message, so it carries none.
  */
 export function acceptMessage(
   fleet: { recipient: Recipient; repliedTo: Message | undefined },
@@ -106,6 +115,13 @@ export function acceptMessage(
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
     return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
   }
+  const isStated = resendOf === undefined && !isPingContentType(send.contentType);
+  if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
+    return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
+  }
+  if (isStated && send.senderKind !== 'operator' && send.model === undefined) {
+    return refuse('MODEL_REQUIRED', 'send needs model: the exact model id this session runs, such as claude-opus-5-5');
+  }
 
   const message: Message = {
     id: messageId,
@@ -114,6 +130,7 @@ export function acceptMessage(
     selector: recipient,
     payload: send.payload,
     contentType: send.contentType,
+    model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,
     requestHash: send.requestHash,
     inReplyToMessageId: inReplyTo ?? null,
@@ -146,6 +163,7 @@ export function acceptMessage(
         details: {
           selector: recipient.kind,
           recipientType: recipient.kind === 'type' ? recipient.type : null,
+          model: send.model ?? null,
           ...(resendOf && { resendOf: resendOf.messageId }),
         },
       },

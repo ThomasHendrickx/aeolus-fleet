@@ -163,6 +163,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_lease_last_seen$/),
       expect.stringMatching(/^\d{14}_lease_report$/),
       expect.stringMatching(/^\d{14}_commission_key$/),
+      expect.stringMatching(/^\d{14}_message_model$/),
+      expect.stringMatching(/^\d{14}_lease_harness$/),
     ]);
   });
 });
@@ -303,6 +305,8 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      harness: null,
+      model: null,
     });
   });
 
@@ -315,12 +319,12 @@ describe('the fleet procedures at the API', () => {
 
     expect(secretIn(prompt)).not.toBe(secretIn(first));
     await expect(
-      codeOf(client().ship.register.mutate({ shipId, secret: secretIn(first), location: { kind: 'DEVICE' } })),
+      codeOf(client().ship.register.mutate({ shipId, secret: secretIn(first), location: { kind: 'DEVICE' }, harness: 'claude-code' })),
     ).resolves.toBe('UNAUTHORIZED');
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
-      location: { kind: 'DEVICE' },
+      location: { kind: 'DEVICE' }, harness: 'claude-code',
     });
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
   });
@@ -416,18 +420,19 @@ describe('the fleet procedures at the API', () => {
       const { crewToken } = await asShipThere({}).ship.register.mutate({
         shipId,
         secret: secretIn(again.prompt),
-        location: { kind: 'DEVICE' },
+        location: { kind: 'DEVICE' }, harness: 'claude-code',
       });
       await asShipThere({ authorization: `Bearer ${crewToken}` }).ship.whoami.query();
       await asShipThere({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
         selector: { kind: 'ship', name: 'argo' },
         payload: 'the logbook payload',
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
         idempotencyKey: 'logbook-1',
       });
       // A refused register logs its error path too.
       await expect(
-        asShipThere({}).ship.register.mutate({ shipId, secret: secretIn(again.prompt), location: { kind: 'DEVICE' } }),
+        asShipThere({}).ship.register.mutate({ shipId, secret: secretIn(again.prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
       ).rejects.toThrow('logbook is crewed');
       // A refused commission logs its error path too.
       await expect(asArgoThere.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'logbook', type: 'reviewer' })).rejects.toThrow(
@@ -462,7 +467,7 @@ describe('the ship procedures at the API', () => {
   it('register a ship with the secret from its prompt: whoami answers with the crew token', async () => {
     const { shipId, secret } = await commissioned('navigator');
 
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' });
 
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
     await expect(asShip(crewToken).ship.whoami.query()).resolves.toEqual({
@@ -476,7 +481,7 @@ describe('the ship procedures at the API', () => {
   it('register: the fleet list shows the ship crewed where its session runs, its prompt claimed', async () => {
     const { shipId, secret } = await commissioned('rigger');
 
-    await client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: 'a ci runner' } });
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: 'a ci runner' }, harness: 'claude-code' });
 
     const listed = await (await signedInArgo()).fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({
@@ -488,7 +493,7 @@ describe('the ship procedures at the API', () => {
 
   it('refuse whoami with the ship secret: it works only for register', async () => {
     const { shipId, secret } = await commissioned('bosun');
-    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' } });
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     await expect(codeOf(asShip(secret).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
   });
@@ -510,16 +515,16 @@ describe('the ship procedures at the API', () => {
     const { shipId } = await commissioned('purser');
 
     await expect(
-      refusalOf(client().ship.register.mutate({ shipId, secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } })),
+      refusalOf(client().ship.register.mutate({ shipId, secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' }, harness: 'claude-code' })),
     ).resolves.toEqual({ code: 'UNAUTHORIZED', message: 'Wrong ship id or secret' });
   });
 
   it('refuse a second register while the ship is crewed', async () => {
     const { shipId, secret } = await commissioned('helmsman');
-    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' } });
+    await client().ship.register.mutate({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     await expect(
-      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'SERVER' } })),
+      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'SERVER' }, harness: 'claude-code' })),
     ).resolves.toEqual({
       code: 'CONFLICT',
       message: 'helmsman is crewed: a session claims a ship only while it awaits crew',
@@ -530,7 +535,7 @@ describe('the ship procedures at the API', () => {
     const { shipId, secret } = await commissioned('cook');
 
     await expect(
-      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' } })),
+      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' }, harness: 'claude-code' })),
     ).resolves.toBe('BAD_REQUEST');
   });
 });
@@ -542,7 +547,7 @@ describe('ship.send at the API', () => {
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
-      location: { kind: 'CLOUD' },
+      location: { kind: 'CLOUD' }, harness: 'claude-code',
     });
     return { shipId, crewToken };
   }
@@ -553,6 +558,7 @@ describe('ship.send at the API', () => {
       selector: { kind: 'ship', name: 'argo' },
       payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/22',
       contentType: 'text/plain',
+      model: 'claude-opus-5-5',
       idempotencyKey: `key-${newId('message')}`,
       ...overrides,
     };
@@ -579,7 +585,7 @@ describe('ship.send at the API', () => {
     const { shipId } = await crewedByRegister('relay');
 
     const { messageId } = await (await signedInArgo()).ship.send.mutate(
-      toArgo({ selector: { kind: 'ship', shipId } }),
+      toArgo({ selector: { kind: 'ship', shipId }, model: undefined }),
     );
 
     await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
@@ -615,7 +621,7 @@ describe('ship.send at the API', () => {
     const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
     const { selector, payload, idempotencyKey } = toArgo();
 
-    const { messageId } = await asShip.ship.send.mutate({ selector, payload, idempotencyKey });
+    const { messageId } = await asShip.ship.send.mutate({ selector, payload, model: 'claude-opus-5-5', idempotencyKey });
 
     await expect(database.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
       contentType: 'text/plain',
@@ -729,7 +735,7 @@ describe('ship.receive and ship.ack at the API', () => {
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
-      location: { kind: 'SERVER' },
+      location: { kind: 'SERVER' }, harness: 'claude-code',
     });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -740,6 +746,7 @@ describe('ship.receive and ship.ack at the API', () => {
       selector: { kind: 'ship', name },
       payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
       contentType: 'text/plain',
+      model: 'claude-opus-5-5',
       idempotencyKey: `key-${newId('message')}`,
     };
   }
@@ -762,6 +769,7 @@ describe('ship.receive and ship.ack at the API', () => {
         recipient: { kind: 'ship', shipId: receiver.shipId },
         payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
         inReplyTo: null,
         sentAt: clock.now().toISOString(),
         attempts: 1,
@@ -845,7 +853,7 @@ describe('fleet.release and ship.deregister at the API', () => {
   ): Promise<{ shipId: ShipId; secret: string; crewToken: string; asShip: TRPCClient<AppRouter> }> {
     const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'rower' });
     const secret = secretIn(prompt);
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' });
     return { shipId, secret, crewToken, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
 
@@ -858,6 +866,7 @@ describe('fleet.release and ship.deregister at the API', () => {
           selector: { kind: 'ship', shipId },
           payload: 'still here?',
           contentType: 'text/plain',
+          model: 'claude-opus-5-5',
           idempotencyKey: `key-${newId('message')}`,
         }),
       ),
@@ -877,7 +886,7 @@ describe('fleet.release and ship.deregister at the API', () => {
 
     await expect(codesOfEveryShipCall(asShip, shipId)).resolves.toEqual(EVERY_CALL_REFUSED);
     await expect(
-      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } })),
+      refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' })),
     ).resolves.toEqual({ code: 'UNAUTHORIZED', message: 'Wrong ship id or secret' });
     const listed = await asArgo.fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
@@ -890,7 +899,7 @@ describe('fleet.release and ship.deregister at the API', () => {
 
     await expect(codesOfEveryShipCall(asShip, shipId)).resolves.toEqual(EVERY_CALL_REFUSED);
     await expect(
-      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' } })),
+      codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' })),
     ).resolves.toBe('UNAUTHORIZED');
     const listed = await (await signedInArgo()).fleet.list.query();
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
@@ -913,7 +922,7 @@ describe('fleet.release and ship.deregister at the API', () => {
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
-      location: { kind: 'DEVICE' },
+      location: { kind: 'DEVICE' }, harness: 'claude-code',
     });
 
     await expect(client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({})).resolves.toMatchObject({
@@ -984,7 +993,7 @@ describe('text input holding U+0000 at the API', () => {
         client().ship.register.mutate({
           shipId,
           secret: secretIn(prompt),
-          location: { kind: 'OTHER', description: 'ci\u0000runner' },
+          location: { kind: 'OTHER', description: 'ci\u0000runner' }, harness: 'claude-code',
         }),
       ),
     ).resolves.toEqual({
@@ -1123,10 +1132,11 @@ describe('the ship page reads at the API', () => {
   it('serve a ship, its timeline and messages, and one message with its delivery history, to argo', async () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `pager-${newId('ship').slice(-6)}`, type: 'reviewer' });
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
       selector: { kind: 'ship', name: 'argo' },
       payload: 'Done with PR 48',
+      model: 'claude-opus-5-5',
       idempotencyKey: `done-${newId('message')}`,
     });
 
@@ -1179,7 +1189,7 @@ describe('retire and re-crew at the API', () => {
   it('re-crew a crewed ship for fleet:manage, answering a new starting prompt and crew line', async () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `recrew-${newId('ship').slice(-6)}`, type: 'reviewer' });
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
 
     const issued = await asArgo.fleet.recrew.mutate({ shipId });
 
@@ -1275,6 +1285,7 @@ describe("argo's inbox at the API", () => {
     const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
       selector: { kind: 'ship', shipId: argoId },
       payload,
+      model: 'claude-opus-5-5',
       idempotencyKey: `ask-${newId('message')}`,
     });
     const { id } = await database.delivery.findFirstOrThrow({ where: { messageId } });
@@ -1437,7 +1448,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_commission_key$/);
+    expect(migration).toMatch(/^\d{14}_lease_harness$/);
   });
 });
 
@@ -1448,7 +1459,7 @@ describe('fleet.ping and ship.pong at the API', () => {
     const { crewToken } = await client().ship.register.mutate({
       shipId,
       secret: secretIn(prompt),
-      location: { kind: 'CLOUD' },
+      location: { kind: 'CLOUD' }, harness: 'claude-code',
     });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -1530,7 +1541,7 @@ describe('ship names and types with a colon at the API', () => {
   it('commission, send by name and by type over REST, and rename a ship whose name and type hold a colon', async () => {
     const asArgo = await signedInArgo();
     const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'hemma-a1b2:planner', type: 'hemma:planner' });
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' });
     await asArgo.ship.send.mutate({
       selector: { kind: 'ship', name: 'hemma-a1b2:planner' },
       payload: 'By name',
@@ -1566,7 +1577,7 @@ describe('ships with fleet scopes at the API', () => {
     fleetScopes: ('fleet:read' | 'fleet:manage')[],
   ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
     const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes });
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
 
@@ -1603,7 +1614,7 @@ describe('ships with fleet scopes at the API', () => {
 describe('fleet.follow at the API', () => {
   async function crewedReader(name: string): Promise<TRPCClient<AppRouter>> {
     const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes: ['fleet:read'] });
-    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return client({ authorization: `Bearer ${crewToken}` });
   }
 

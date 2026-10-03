@@ -99,7 +99,7 @@ async function ok<T>(answer: Promise<{ status: number; body: unknown }>, schema:
 
 async function register(ship: { shipId: ShipId; secret: string }): Promise<string> {
   const { crewToken } = await ok(
-    request('register', { body: { shipId: ship.shipId, secret: ship.secret, location: { kind: 'SERVER' } } }),
+    request('register', { body: { shipId: ship.shipId, secret: ship.secret, location: { kind: 'SERVER' }, harness: 'claude-code' } }),
     z.object({ crewToken: z.string() }),
   );
   return crewToken;
@@ -156,7 +156,7 @@ describe('the ship calls at /api/v1', () => {
     await ok(
       request('send', {
         crewToken: harbourToken,
-        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', idempotencyKey: freshKey() },
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
       }),
       z.object({ messageId: z.string() }),
     );
@@ -178,7 +178,7 @@ describe('the ship calls at /api/v1', () => {
     const { messageId } = await ok(
       request('send', {
         crewToken: harbourToken,
-        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', idempotencyKey: freshKey() },
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
       }),
       z.object({ messageId: z.string() }),
     );
@@ -191,6 +191,7 @@ describe('the ship calls at /api/v1', () => {
         body: {
           selector: { kind: 'ship', name: delivery?.senderName },
           payload: 'Moored',
+          model: 'claude-opus-5-5',
           idempotencyKey: freshKey(),
           inReplyTo: delivery?.messageId,
         },
@@ -244,7 +245,7 @@ describe('the ship calls at /api/v1', () => {
     await register(scout);
 
     const second = await request('register', {
-      body: { shipId: scout.shipId, secret: scout.secret, location: { kind: 'CLOUD' } },
+      body: { shipId: scout.shipId, secret: scout.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
     });
 
     expect(second).toEqual({
@@ -256,7 +257,7 @@ describe('the ship calls at /api/v1', () => {
   it('refuse a call without a crew token, or with one that is not valid, with 401', async () => {
     const scout = await commissioned();
     const scoutToken = await register(scout);
-    const sending = { selector: { kind: 'ship', name: scout.name }, payload: 'Anyone aboard?', idempotencyKey: freshKey() };
+    const sending = { selector: { kind: 'ship', name: scout.name }, payload: 'Anyone aboard?', model: 'claude-opus-5-5', idempotencyKey: freshKey() };
     const messagesBefore = await database.message.count();
 
     const refused = { status: 401, body: { code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' } };

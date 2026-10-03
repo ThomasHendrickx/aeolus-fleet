@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/core/messaging/mark-done.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -23,7 +23,7 @@ beforeEach(async () => {
   core = await createPostgresCore();
   operator = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'release-captain', type: 'release' }));
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   captain = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   const { token } = unwrap(await core.useCases.signIn(OPERATOR));
   const use = await core.useCases.authenticate.byConsoleSession(token);
@@ -40,7 +40,7 @@ afterEach(async () => {
 async function toArgo(payload: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   core.clock.advance(1_000);
   const { messageId } = unwrap(
-    await core.useCases.sendMessage(captain, {
+    await core.useCases.sendMessage(captain, { ...modelOf(captain),
       selector: { kind: 'ship', shipId: argo.shipId },
       payload,
       idempotencyKey: `key-${newId('message')}`,

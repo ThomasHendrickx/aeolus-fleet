@@ -68,7 +68,7 @@ describe('retiring a ship', () => {
 
     expect((await registry.listFleet(argo)).find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
     await expect(
-      registry.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }),
+      registry.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false });
     expect(eventsOfType('ShipRetired')).toMatchObject([
       { shipId: scoutId, actor: { kind: 'ship', shipId: argo.shipId }, details: { abandonedDeliveries: 0 } },

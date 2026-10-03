@@ -206,7 +206,7 @@ export type ClaimRefusal = DomainError<'OPERATOR_SHIP_HAS_NO_SECRET' | 'SHIP_NOT
  */
 export function claimShip(
   crew: { ship: Ship; heldLease: Lease | undefined },
-  claim: { leaseId: LeaseId; location: Location; crewTokenHash: string; at: Date },
+  claim: { leaseId: LeaseId; location: Location; harness: string; crewTokenHash: string; at: Date },
 ): Result<{ lease: Lease; events: NewEvent[] }, ClaimRefusal> {
   const { ship, heldLease } = crew;
   if (ship.kind === 'operator') {
@@ -226,6 +226,7 @@ export function claimShip(
     fleetId: ship.fleetId,
     shipId: ship.id,
     location,
+    harness: claim.harness,
     crewTokenHash,
     startedAt: at,
     endedAt: null,
@@ -239,7 +240,7 @@ export function claimShip(
         occurredAt: at,
         actor: shipActor(ship.id),
         shipId: ship.id,
-        details: { leaseId, location: location.kind, locationDescription: location.description },
+        details: { leaseId, location: location.kind, locationDescription: location.description, harness: claim.harness },
       },
     ],
   });

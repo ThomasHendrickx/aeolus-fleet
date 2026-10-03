@@ -149,7 +149,7 @@ describe('following the fleet live', () => {
     const start = lastSeq(following);
 
     const { shipId, secret } = await commissionScout('scout');
-    unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' } }));
+    unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
     unwrap(await useCases.releaseShip(argo, { shipId }));
 
     await expect.poll(() => heard(following)).toEqual([

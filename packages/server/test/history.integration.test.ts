@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -22,7 +22,7 @@ let planner: Crew;
 async function crewed(ship: { name: string; type: string; location: { kind: 'DEVICE' | 'SERVER' } }): Promise<Crew> {
   const { name, type, location } = ship;
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
@@ -42,7 +42,7 @@ async function send(from: Caller, message: { to: Selector; payload?: string; inR
   core.clock.advance(1_000);
   const { to, payload = 'Review PR 48', inReplyTo } = message;
   return unwrap(
-    await core.useCases.sendMessage(from, {
+    await core.useCases.sendMessage(from, { ...modelOf(from),
       selector: to,
       payload,
       contentType: 'text/plain',
@@ -82,6 +82,7 @@ describe('the history reads on Postgres', () => {
         sender: { id: scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner' } },
         contentType: 'text/plain',
+        model: 'claude-opus-5-5',
       },
       details: { selector: 'ship' },
     });
@@ -133,9 +134,9 @@ describe('the history reads on Postgres', () => {
     });
     expect(message.delivery.history).toMatchObject([
       { type: 'DeliveryAcknowledged', ship: { name: 'lookout' }, location: null, attempts: null },
-      { type: 'DeliveryClaimed', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, attempts: 2 },
+      { type: 'DeliveryClaimed', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, harness: 'claude-code', attempts: 2 },
       { type: 'DeliveryReturned', ship: { name: 'scout' }, location: null, attempts: 1 },
-      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, attempts: 1 },
+      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
       { type: 'MessageAccepted', ship: null, location: null, attempts: null },
     ]);
   });

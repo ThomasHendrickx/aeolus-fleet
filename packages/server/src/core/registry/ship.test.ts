@@ -43,6 +43,7 @@ function aClaim() {
   return {
     leaseId: newId('lease'),
     location: { kind: 'CLOUD' as const, description: null },
+    harness: 'claude-code',
     crewTokenHash: 'sha256(aeolus_ct_v1_crew)',
     at: claimedAt,
   };
@@ -54,6 +55,7 @@ function aLeaseOn(ship: Ship): Lease {
     fleetId,
     shipId: ship.id,
     location: { kind: 'DEVICE', description: null },
+    harness: 'claude-code',
     crewTokenHash: 'sha256(aeolus_ct_v1_first)',
     startedAt: createdAt,
     endedAt: null,
@@ -218,6 +220,7 @@ describe('claiming a ship with its secret', () => {
           fleetId,
           shipId: scout.id,
           location: { kind: 'CLOUD', description: null },
+          harness: 'claude-code',
           crewTokenHash: 'sha256(aeolus_ct_v1_crew)',
           startedAt: claimedAt,
           endedAt: null,
@@ -229,7 +232,7 @@ describe('claiming a ship with its secret', () => {
             occurredAt: claimedAt,
             actor: { kind: 'ship', shipId: scout.id },
             shipId: scout.id,
-            details: { leaseId: claim.leaseId, location: 'CLOUD', locationDescription: null },
+            details: { leaseId: claim.leaseId, location: 'CLOUD', locationDescription: null, harness: 'claude-code' },
           },
         ],
       }),

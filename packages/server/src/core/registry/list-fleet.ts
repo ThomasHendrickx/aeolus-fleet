@@ -31,6 +31,10 @@ export interface ListedShip {
   scopes: readonly Scope[];
   /** The crew's last report; null until it reports, and while no session crews the ship. */
   report: ShipReport | null;
+  /** The harness the crewing session stated, read together with its location; null while no session crews the ship. */
+  harness: string | null;
+  /** The ship's current model: the last its sessions stated on a send, and when; null before any. */
+  model: { id: string; statedAt: Date } | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -45,7 +49,7 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */
-export function listedShipOf({ ship, openLease, validSecret, lastPing }: ShipFacts): ListedShip {
+export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel }: ShipFacts): ListedShip {
   return {
     id: ship.id,
     name: ship.name,
@@ -58,5 +62,7 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing }: ShipFac
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
     report: openLease?.report ?? null,
+    harness: openLease?.harness ?? null,
+    model: lastModel,
   };
 }

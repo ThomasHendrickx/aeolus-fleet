@@ -112,7 +112,7 @@ async function sessionFrom(prompt: string, location: LocationInput): Promise<Ses
   const { crewToken } = await call(client, {
     name: 'register',
     answers: answers.register,
-    arguments: { shipId: shipIdIn(prompt), secret: secretIn(prompt), location },
+    arguments: { shipId: shipIdIn(prompt), secret: secretIn(prompt), location, harness: 'claude-code' },
   });
   return { client, crewToken, instructions: client.getInstructions() };
 }
@@ -129,6 +129,7 @@ async function send(from: Session, message: { to: string; payload: string; inRep
       crewToken: from.crewToken,
       selector: { kind: 'ship', name: message.to },
       payload: message.payload,
+      model: 'claude-opus-5-5',
       idempotencyKey: `acceptance-${keyCount}`,
       ...(message.inReplyTo === undefined ? {} : { inReplyTo: message.inReplyTo }),
     },
@@ -290,7 +291,7 @@ describe('the v1 acceptance test, over MCP', () => {
     await expect(
       refusalOf(staleClient, {
         name: 'register',
-        arguments: { shipId: lookoutId, secret: secretIn(lookoutShip.prompt), location: { kind: 'CLOUD' } },
+        arguments: { shipId: lookoutId, secret: secretIn(lookoutShip.prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' },
       }),
     ).resolves.toBe('UNAUTHORIZED: Wrong ship id or secret');
     const relief = await sessionFrom(newPrompt, { kind: 'SERVER' });

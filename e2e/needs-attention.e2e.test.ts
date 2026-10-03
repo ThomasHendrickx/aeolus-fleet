@@ -78,7 +78,7 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
   const registered = await fetch(`${serverUrl}/api/v1/ship/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+    body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   });
   const { crewToken } = z.object({ crewToken: z.string() }).parse(await registered.json());
   return {
@@ -87,7 +87,7 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
       const response = await fetch(`${serverUrl}/api/v1/ship/${operation}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify(operation === 'send' ? { model: 'claude-opus-5-5', ...body } : body),
       });
       expect(response.status).toBe(200);
       return response.json();

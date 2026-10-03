@@ -10,7 +10,7 @@ const toPlanner: MessageRecipient = { kind: 'ship', ship: planner };
 const toReviewers: MessageRecipient = { kind: 'type', type: 'reviewer' };
 
 function anEntry(type: DeliveryHistoryEntry['type'], overrides: Partial<DeliveryHistoryEntry> = {}): DeliveryHistoryEntry {
-  return { seq: 1, type, occurredAt: '2026-10-01T09:00:00.000Z', ship: null, location: null, attempts: null, ...overrides };
+  return { seq: 1, type, occurredAt: '2026-10-01T09:00:00.000Z', ship: null, location: null, harness: null, attempts: null, ...overrides };
 }
 
 function sentence(entry: DeliveryHistoryEntry, recipient: MessageRecipient = toPlanner): string {

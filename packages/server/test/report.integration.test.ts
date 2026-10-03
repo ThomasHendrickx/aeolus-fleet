@@ -14,7 +14,7 @@ let argo: Caller;
 let scout: Crew;
 
 async function crewed(shipId: Crew['shipId'], prompt: string): Promise<Crew> {
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 

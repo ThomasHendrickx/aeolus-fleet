@@ -8,6 +8,7 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
+  modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -145,6 +146,7 @@ describe('claiming a delivery', () => {
           recipient: { kind: 'ship', shipId: scoutId },
           payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
           contentType: 'text/plain',
+          model: null,
           inReplyTo: null,
           sentAt: message?.createdAt,
           attempts: 1,
@@ -209,7 +211,7 @@ describe('claiming a delivery', () => {
 describe('the sender of a delivery', () => {
   it('goes by the name it has now: renamed after the send, it is handed over with its new name and its type', async () => {
     const { messageId } = unwrap(
-      await useCases.sendMessage(lookout, {
+      await useCases.sendMessage(lookout, { ...modelOf(lookout),
         selector: toScout(),
         payload: 'Can you take https://github.com/ThomasHendrickx/aeolus-fleet/pull/25?',
         idempotencyKey: 'ask-scout',

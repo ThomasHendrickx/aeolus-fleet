@@ -111,7 +111,7 @@ async function crewedShip(page: Page, ship: { name: string; type: string }): Pro
   const { crewToken } = await sessionClient().ship.register.mutate({
     shipId: shipIdIn(prompt),
     secret: secretIn(prompt),
-    location: { kind: 'CLOUD' },
+    location: { kind: 'CLOUD' }, harness: 'claude-code',
   });
   await shipRow(page, ship.name).getByText('Crewed').waitFor();
   return crewToken;
@@ -263,7 +263,7 @@ describe('claiming a commissioned ship', () => {
     await session.ship.register.mutate({
       shipId: shipIdIn(prompt),
       secret: secretIn(prompt),
-      location: { kind: 'OTHER', description: 'a ci runner' },
+      location: { kind: 'OTHER', description: 'a ci runner' }, harness: 'claude-code',
     });
 
     await row.getByText('Crewed').waitFor();
@@ -343,7 +343,7 @@ describe('retiring a ship', () => {
     await commission(page, { name: 'castaway', type: 'reviewer' });
     const prompt = await promptTextIn(page, 'castaway');
     await promptBlock(page, 'castaway').getByRole('button', { name: 'Done' }).click();
-    await sessionClient().ship.register.mutate({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' } });
+    await sessionClient().ship.register.mutate({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' });
     unwrap(
       await useCases.sendMessage(argo, {
         selector: { kind: 'ship', name: 'castaway' },

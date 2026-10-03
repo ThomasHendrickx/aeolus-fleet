@@ -11,6 +11,7 @@ import { CopyButton } from '../atoms/copy-button';
 import { Skeleton } from '../atoms/skeleton';
 import { EmptyState } from '../molecules/empty-state';
 import { LocationTag } from '../molecules/location-tag';
+import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportLine } from '../molecules/report-line';
 import { ShipName } from '../molecules/ship-name';
@@ -56,6 +57,7 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
       <MetaCell label="Location">
         <span className="inline-flex min-w-0 flex-col gap-0.5">
           <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size="md" />
+          <ModelLine harness={ship.harness} model={ship.model?.id ?? null} testId="ship-model" />
           {ship.lastSeenAt === null ? null : (
             <time
               dateTime={ship.lastSeenAt}

@@ -256,7 +256,7 @@ describe('getting a starting prompt on Postgres', () => {
   });
 
   it('is refused while a session crews the ship', async () => {
-    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' } }));
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
     await expect(core.useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toMatchObject({
       isOk: false,
@@ -331,7 +331,7 @@ describe('getting one ship on Postgres', () => {
     const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
     const crewedAt = core.clock.now();
-    unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } }));
+    unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }));
 
     await expect(core.useCases.getShip(argo, { shipId })).resolves.toEqual({
       isOk: true,
@@ -347,6 +347,8 @@ describe('getting one ship on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
         report: null,
+        harness: 'claude-code',
+        model: null,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -367,6 +369,19 @@ describe('getting one ship on Postgres', () => {
 });
 
 describe('listing the fleet on Postgres', () => {
+  it('shows the harness of the session crewing a ship and the last model its sessions stated', async () => {
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    core.clock.advance(60_000);
+    unwrap(
+      await core.useCases.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', model: 'claude-opus-5-5', idempotencyKey: newKey() }),
+    );
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    expect(listed).toMatchObject({ harness: 'claude-code', model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
+  });
+
   it('lists argo and a commissioned ship with their status and prompt state', async () => {
     const commissionedAt = core.clock.now();
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -387,6 +402,8 @@ describe('listing the fleet on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
         report: null,
+        harness: null,
+        model: null,
       },
       {
         id: shipId,
@@ -400,6 +417,8 @@ describe('listing the fleet on Postgres', () => {
         ping: null,
         scopes: ['messages:send', 'messages:receive'],
         report: null,
+        harness: null,
+        model: null,
       },
     ]);
   });
@@ -421,7 +440,7 @@ describe('listing the fleet on Postgres', () => {
     const crewed = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const retired = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     unwrap(
-      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' } }),
+      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }),
     );
     // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });

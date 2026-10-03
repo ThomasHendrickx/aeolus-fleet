@@ -48,6 +48,9 @@ function aReview(overrides: Partial<Parameters<SendMessage>[1]> = {}): Parameter
   };
 }
 
+/** The model the scout's session runs, as it states it on every send. */
+const SCOUT_MODEL = 'claude-opus-5-5';
+
 async function sent(caller: Caller, input: Parameters<SendMessage>[1]): Promise<MessageId> {
   return unwrap(await sendMessage(caller, input)).messageId;
 }
@@ -71,6 +74,7 @@ describe('sending a message to a ship', () => {
         contentType: 'application/json',
         idempotencyKey: input.idempotencyKey,
         requestHash: message?.requestHash,
+        model: null,
         inReplyToMessageId: null,
         resendOfMessageId: null,
         createdAt: core.clock.now(),
@@ -116,8 +120,8 @@ describe('sending a message to a ship', () => {
   });
 
   it('reaches argo from an agent ship, by name and by id', async () => {
-    await sent(scout, aReview({ selector: { kind: 'ship', name: 'argo' } }));
-    await sent(scout, aReview({ selector: { kind: 'ship', shipId: argoId } }));
+    await sent(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: SCOUT_MODEL }));
+    await sent(scout, aReview({ selector: { kind: 'ship', shipId: argoId }, model: SCOUT_MODEL }));
 
     expect(core.state.deliveries.map((delivery) => delivery.recipient)).toEqual([
       { kind: 'ship', shipId: argoId },
@@ -174,7 +178,7 @@ describe('sending a message to a ship', () => {
         shipId: scoutId,
         messageId,
         deliveryId: core.state.deliveries[0]?.id,
-        details: { selector: 'ship', recipientType: null },
+        details: { selector: 'ship', recipientType: null, model: null },
       },
     ]);
   });
@@ -208,7 +212,7 @@ describe('sending a message to a type', () => {
   });
 
   it('writes MessageAccepted naming the type, on no ship', async () => {
-    await sent(scout, aReview({ selector: { kind: 'type', type: 'reviewer' } }));
+    await sent(scout, aReview({ selector: { kind: 'type', type: 'reviewer' }, model: SCOUT_MODEL }));
 
     const [event] = core.state.events;
     expect(event).toMatchObject({
@@ -230,7 +234,7 @@ describe('sending a message to a type', () => {
 
 describe('a reply', () => {
   it('names the message it replies to', async () => {
-    const question = await sent(scout, aReview({ selector: { kind: 'ship', name: 'argo' } }));
+    const question = await sent(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: SCOUT_MODEL }));
 
     const answer = await sent(argo, aReview({ inReplyTo: question }));
 
@@ -307,7 +311,7 @@ describe('an idempotent repeat', () => {
     const idempotencyKey = 'review-22';
 
     const fromArgo = await sent(argo, aReview({ idempotencyKey }));
-    const fromScout = await sent(scout, aReview({ idempotencyKey, selector: { kind: 'ship', name: 'argo' } }));
+    const fromScout = await sent(scout, aReview({ idempotencyKey, selector: { kind: 'ship', name: 'argo' }, model: SCOUT_MODEL }));
 
     expect(fromScout).not.toBe(fromArgo);
     expect(core.state.messages).toHaveLength(2);
@@ -323,6 +327,30 @@ describe('an idempotent repeat', () => {
     const messageId = await sent(argo, aReview({ idempotencyKey, selector: { kind: 'ship', name: 'lookout' } }));
 
     expect(core.state.messages.map((message) => message.id)).toEqual([messageId]);
+  });
+});
+
+describe('the model a session states', () => {
+  it('keeps the model an agent ship states with its message, and in MessageAccepted', async () => {
+    const messageId = await sent(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: SCOUT_MODEL }));
+
+    expect(core.state.messages.find((message) => message.id === messageId)?.model).toBe(SCOUT_MODEL);
+    expect(core.state.events.find((event) => event.type === 'MessageAccepted')?.details).toMatchObject({ model: SCOUT_MODEL });
+  });
+
+  it('refuses a send from an agent ship that states no model, and stores nothing', async () => {
+    const refused = await sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' } }));
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'MODEL_REQUIRED' } });
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses a model from argo, which states none, and stores nothing', async () => {
+    const refused = await sendMessage(argo, aReview({ model: SCOUT_MODEL }));
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'MODEL_FROM_ARGO' } });
+    expect(core.state.messages).toEqual([]);
   });
 });
 
@@ -431,6 +459,7 @@ describe('a send refused', () => {
       selector: { kind: 'type', type: 'reviewer' },
       payload: 'elsewhere',
       contentType: 'text/plain',
+      model: null,
       idempotencyKey: 'elsewhere',
       requestHash: 'elsewhere',
       inReplyToMessageId: null,

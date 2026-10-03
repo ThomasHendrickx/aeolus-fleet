@@ -96,6 +96,7 @@ describe('claiming a ship on Postgres', () => {
         shipId: scoutId,
         secret: scoutSecret,
         location: { kind: 'OTHER', description: 'a ci runner' },
+        harness: 'claude-code',
       }),
     );
 
@@ -108,6 +109,7 @@ describe('claiming a ship on Postgres', () => {
         shipId: scoutId,
         location: 'OTHER',
         locationDescription: 'a ci runner',
+        harness: 'claude-code',
         crewTokenHash: sha256Hasher.hash(crewToken),
         startedAt: core.clock.now(),
         lastSeenAt: null,
@@ -123,7 +125,7 @@ describe('claiming a ship on Postgres', () => {
   });
 
   it('writes ShipClaimed with the location, caused by the ship itself', async () => {
-    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }));
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }));
 
     const [lease] = await openLeasesOfScout();
     const claimed = await core.prisma.event.findMany({ where: { type: 'ShipClaimed', shipId: scoutId } });
@@ -132,14 +134,14 @@ describe('claiming a ship on Postgres', () => {
         fleetId,
         occurredAt: core.clock.now(),
         actorShipId: scoutId,
-        details: { leaseId: lease?.id, location: 'DEVICE', locationDescription: null },
+        details: { leaseId: lease?.id, location: 'DEVICE', locationDescription: null, harness: 'claude-code' },
       }),
     ]);
   });
 
   it('keeps the crew token out of every table', async () => {
     const { crewToken } = unwrap(
-      await core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }),
+      await core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }),
     );
 
     const rows = await everyRow(core.prisma);
@@ -152,7 +154,7 @@ describe('claiming a ship on Postgres', () => {
     unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
     await expect(
-      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }),
+      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
   });
 
@@ -161,7 +163,7 @@ describe('claiming a ship on Postgres', () => {
     await core.prisma.ship.update({ where: { id: scoutId }, data: { retiredAt: core.clock.now() } });
 
     await expect(
-      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }),
+      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_AWAITING_CREW' } });
     await expect(openLeasesOfScout()).resolves.toEqual([]);
   });
@@ -172,7 +174,7 @@ describe('claiming a ship on Postgres', () => {
       data: { id: newId('credential'), fleetId, shipId: argoId, secretHash: sha256Hasher.hash(secret), issuedAt: core.clock.now() },
     });
 
-    await expect(core.useCases.claimShip({ shipId: argoId, secret, location: onDevice })).resolves.toMatchObject({
+    await expect(core.useCases.claimShip({ shipId: argoId, secret, location: onDevice, harness: 'claude-code' })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'OPERATOR_SHIP_HAS_NO_SECRET' },
     });
@@ -193,7 +195,7 @@ describe('claiming a ship on Postgres', () => {
     );
 
     const results = await Promise.all(
-      Array.from({ length: 5 }, () => claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice })),
+      Array.from({ length: 5 }, () => claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' })),
     );
 
     expect(results.map((result) => (result.isOk ? 'claimed' : result.error.kind)).sort()).toEqual([
@@ -211,7 +213,7 @@ describe('claiming a ship on Postgres', () => {
 
   it('lets a claim that holds the secret first win over a new starting prompt, which is refused', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, holdingAtTheLease);
-    const claim = claimShipWith(uow)({ shipId: scoutId, secret: scoutSecret, location: onDevice });
+    const claim = claimShipWith(uow)({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' });
     await reached;
 
     const prompt = core.useCases.getStartingPrompt(argo, { shipId: scoutId });
@@ -229,7 +231,7 @@ describe('claiming a ship on Postgres', () => {
     const prompt = getStartingPromptWith(uow)(argo, { shipId: scoutId });
     await reached;
 
-    const claim = core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice });
+    const claim = core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' });
 
     await expect(prompt).resolves.toMatchObject({ isOk: true });
     await expect(claim).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
@@ -257,7 +259,7 @@ describe('claiming a ship on Postgres', () => {
     const prompt = getStartingPromptWith(uow)(argo, { shipId: scoutId });
     await reached;
 
-    const claim = core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice });
+    const claim = core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' });
 
     await expect(claim).resolves.toMatchObject({ isOk: true });
     await expect(prompt).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_AWAITING_CREW' } });
@@ -271,7 +273,7 @@ describe('claiming a ship on Postgres', () => {
       run: (work) => uow.run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')), flush: () => Promise.resolve() } })),
     });
 
-    await expect(claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice })).rejects.toThrow('disk full');
+    await expect(claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' })).rejects.toThrow('disk full');
 
     await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
