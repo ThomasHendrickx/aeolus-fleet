@@ -85,6 +85,7 @@ beforeAll(async () => {
     fleetUrl: serverUrl,
     repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
+    clock,
     logger: false,
   });
   unwrap(await squadrons.connect({ operatorFleetId: argo.fleetId, shipId: management.shipId, secret: secretIn(management.prompt) }));
@@ -174,7 +175,7 @@ describe('the first squadron in the console', () => {
       idempotencyKey: 'on-station',
     });
 
-    await page.getByTestId('member-station').getByText('On station').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('On time').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('member-crew-line').count()).resolves.toBe(0);
     // From the fleet: where the member's session runs, and its open deliveries.
@@ -259,6 +260,21 @@ describe('the first squadron in the console', () => {
     await page.getByRole('option', { name: 'Forming' }).click();
     await page.getByText('No squadrons match').waitFor();
     expect(page.url()).toContain('state=forming');
+  });
+
+  // Last: it moves the clock past three check-in intervals.
+  it('sends a member silent for three check-in intervals to Needs attention, and counts it', async () => {
+    const THREE_INTERVALS_AND_MORE_MS = 2 * 60 * 60 * 1000;
+    clock.advance(THREE_INTERVALS_AND_MORE_MS);
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
+    await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('Silent').waitFor({ timeout: LIVE_TIMEOUT_MS });
+
+    await page.getByTestId('nav-attention').click();
+
+    await page.getByRole('heading', { name: 'Silent members (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(page.getByTestId('silent-member').textContent()).resolves.toMatch(/tester-[a-z0-9]{4}team-[a-z0-9]{6}· tester/);
+    await expect(page.getByTestId('nav-attention-count').textContent()).resolves.toMatch(/^1/);
   });
 });
 

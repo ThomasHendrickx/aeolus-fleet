@@ -1,4 +1,4 @@
-import type { BlueprintVersion, Catalogue, Squadron, TemplateVersion } from './squadrons-api';
+import type { BlueprintVersion, Catalogue, MemberHealth, Squadron, TemplateVersion } from './squadrons-api';
 
 /** A ship's place in a squadron: a member with its role, or the flagship (role null). */
 export interface ShipInSquadron {
@@ -117,4 +117,19 @@ export function blueprintPath(blueprint: { repository: string; name: string; ver
 /** The squadrons formed from a blueprint, any version, oldest first as listed. */
 export function squadronsFromBlueprint<S extends Pick<Squadron, 'blueprint'>>(squadrons: readonly S[], blueprint: { repository: string; name: string }): S[] {
   return squadrons.filter((squadron) => squadron.blueprint.repository === blueprint.repository && squadron.blueprint.name === blueprint.name);
+}
+
+/** How many members have each health, in the order the summary says them; healths no member has are left out. */
+export function healthCounts(members: readonly { health: MemberHealth }[]): { health: MemberHealth; count: number }[] {
+  const order: MemberHealth[] = ['on-time', 'late', 'silent', 'not-on-station'];
+  return order.map((health) => ({ health, count: members.filter((member) => member.health === health).length })).filter((each) => each.count > 0);
+}
+
+/** The silent members of every squadron not disbanded: they go to Needs attention. */
+export function silentMembers<M extends { health: MemberHealth }>(
+  squadrons: readonly { id: string; state: Squadron['state']; members: readonly M[] }[],
+): { squadronId: string; member: M }[] {
+  return squadrons
+    .filter((squadron) => squadron.state !== 'disbanded')
+    .flatMap((squadron) => squadron.members.filter((member) => member.health === 'silent').map((member) => ({ squadronId: squadron.id, member })));
 }

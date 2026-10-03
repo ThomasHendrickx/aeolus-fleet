@@ -14,7 +14,7 @@ import { DetailLayout } from '../../../../components/templates/detail-layout';
 import { useAccountMenu } from '../../../../lib/account';
 import { useOpenInboxCount } from '../../../../lib/inbox';
 import { useLiveFleet } from '../../../../lib/live-fleet';
-import { useNeedsAttention } from '../../../../lib/needs-attention';
+import { useAttentionCount, useNeedsAttention } from '../../../../lib/needs-attention';
 import { useNow } from '../../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useHasSquadrons } from '../../../../lib/squadrons';
@@ -40,6 +40,7 @@ export default function BlueprintPage({
   const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
+  const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const catalogue = useCatalogue();
   const squadrons = useSquadrons();
@@ -59,7 +60,7 @@ export default function BlueprintPage({
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
-      nav={{ active: 'squadrons', inboxCount, attentionCount: attention.data?.length, hasSquadrons }}
+      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

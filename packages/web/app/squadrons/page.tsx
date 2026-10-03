@@ -13,7 +13,7 @@ import { ListLayout } from '../../components/templates/list-layout';
 import { useAccountMenu } from '../../lib/account';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
-import { useNeedsAttention } from '../../lib/needs-attention';
+import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useHasSquadrons } from '../../lib/squadrons';
@@ -39,6 +39,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
+  const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
@@ -61,7 +62,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
       nav={{
         active: 'squadrons',
         inboxCount,
-        attentionCount: attention.data?.length,
+        attentionCount,
         hasSquadrons,
       }}
       primaryAction={

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BlueprintVersion, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, checkInText, memberCount, membersByRole, rolePreviews, shipsInSquadrons, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
+import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
+const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
+  health: 'not-on-station',
+  checkInMinutes: 30,
+  crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null },
+};
 
 function blueprint(name: string, version: number): BlueprintVersion {
   return {
@@ -97,6 +102,7 @@ describe('a squadron', () => {
           name: `m${String(index)}`,
           type: 't',
           model: { pinned: null, stated: null, isMismatch: false },
+          ...awaitingFacts,
         })),
       }),
     ).toEqual({
@@ -118,7 +124,7 @@ describe('the ships in squadrons', () => {
     id,
     state,
     flagship: { shipId: `shp_${id}-flagship`, name: id },
-    members: [{ shipId: `shp_${id}-tester`, name: 'tester-k3x9', role: 'tester', type: `${id}:tester`, onStationAt: null, model: { pinned: null, stated: null, isMismatch: false } }],
+    members: [{ shipId: `shp_${id}-tester`, name: 'tester-k3x9', role: 'tester', type: `${id}:tester`, onStationAt: null, model: { pinned: null, stated: null, isMismatch: false }, ...awaitingFacts }],
   });
 
   it('names the squadron of each flagship and member, and each member\'s role', () => {
@@ -145,5 +151,24 @@ describe('a blueprint page', () => {
     const formed = (id: string, blueprint: { name: string; version: number }) => ({ id, blueprint: { repository: REPO, ...blueprint, commit: 'c' } });
 
     expect(squadronsFromBlueprint([formed('a', { name: 'aeolus', version: 3 }), formed('b', { name: 'docs', version: 1 }), formed('c', { name: 'aeolus', version: 4 })], { repository: REPO, name: 'aeolus' }).map((each) => each.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('member health', () => {
+  const healths: Squadron['members'][number]['health'][] = ['silent', 'on-time', 'on-time', 'not-on-station'];
+  const members = healths.map((health) => ({ health }));
+
+  it('counts members per health, on time first, leaving out healths no member has', () => {
+    expect(healthCounts(members)).toEqual([
+      { health: 'on-time', count: 2 },
+      { health: 'silent', count: 1 },
+      { health: 'not-on-station', count: 1 },
+    ]);
+  });
+
+  it('finds the silent members of squadrons not disbanded', () => {
+    const squadron = (id: string, state: Squadron['state']) => ({ id, state, members: members.map((member, index) => ({ ...member, name: `m${String(index)}` })) });
+
+    expect(silentMembers([squadron('team-a', 'sailing'), squadron('team-b', 'disbanded')]).map((each) => [each.squadronId, each.member.name])).toEqual([['team-a', 'm0']]);
   });
 });

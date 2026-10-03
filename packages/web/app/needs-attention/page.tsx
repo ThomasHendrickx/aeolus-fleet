@@ -8,6 +8,7 @@ import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
+import { SilentMembers } from '../../components/organisms/silent-members';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
@@ -16,6 +17,7 @@ import {
   DISMISSED_TOAST,
   messagePathOf,
   resentToast,
+  useAttentionCount,
   useDismissDelivery,
   useNeedsAttention,
   useResendDelivery,
@@ -23,7 +25,10 @@ import {
 import { useNow } from '../../lib/now';
 import { useAccountMenu } from '../../lib/account';
 import { useSignInWhenSessionEnds } from '../../lib/session';
+import { useFleetSnapshot } from '../../lib/fleet';
 import { useHasSquadrons } from '../../lib/squadrons';
+import { useSquadrons } from '../../lib/squadrons-api';
+import { silentMembers } from '../../lib/squadrons-view';
 
 /**
  * Needs attention, live: every undeliverable delivery, oldest first. Resend
@@ -40,6 +45,11 @@ export default function NeedsAttentionPage() {
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
+  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const silent = silentMembers(squadrons.data ?? []);
+  const fleet = useFleetSnapshot();
+  const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
+  const attentionCount = useAttentionCount();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -80,12 +90,29 @@ export default function NeedsAttentionPage() {
     });
   };
 
+  const deliveriesList = (
+    <NeedsAttentionList
+      deliveries={attention.data ?? []}
+      state={attention.isError ? 'error' : attention.data ? 'ready' : 'loading'}
+      onRetry={() => {
+        void attention.refetch();
+      }}
+      onResend={onResend}
+      onDismiss={onDismiss}
+      onOpen={(delivery) => {
+        router.push(messagePathOf(delivery));
+      }}
+      pendingIds={pendingIds}
+      now={now}
+    />
+  );
+
   return (
     <ListLayout
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', inboxCount, attentionCount: attention.data?.length , hasSquadrons }}
+      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}
@@ -94,20 +121,27 @@ export default function NeedsAttentionPage() {
       }}
       account={accountMenu}
     >
-      <NeedsAttentionList
-        deliveries={attention.data ?? []}
-        state={attention.isError ? 'error' : attention.data ? 'ready' : 'loading'}
-        onRetry={() => {
-          void attention.refetch();
-        }}
-        onResend={onResend}
-        onDismiss={onDismiss}
-        onOpen={(delivery) => {
-          router.push(messagePathOf(delivery));
-        }}
-        pendingIds={pendingIds}
-        now={now}
-      />
+      {silent.length > 0 ? (
+        <div className="flex flex-col gap-6">
+          <section aria-labelledby="attention-undeliverable" className="flex flex-col gap-2">
+            <h2 id="attention-undeliverable" className="text-body font-semibold">
+              Undeliverable deliveries ({attention.data?.length ?? 0})
+            </h2>
+            {attention.data?.length === 0 ? <p className="text-meta text-muted-foreground">None.</p> : deliveriesList}
+          </section>
+          <section aria-labelledby="attention-silent" className="flex flex-col gap-2 max-sm:order-first">
+            <h2 id="attention-silent" className="text-body font-semibold">
+              Silent members ({silent.length})
+            </h2>
+            <SilentMembers members={silent} ships={shipsById} now={now} />
+            <p className="text-meta text-muted-foreground">
+              A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.
+            </p>
+          </section>
+        </div>
+      ) : (
+        deliveriesList
+      )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands
         isOpen={isSearching}

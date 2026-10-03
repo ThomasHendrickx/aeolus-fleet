@@ -1,6 +1,9 @@
 import { isPingContentType, type DeliveryId, type UndeliverableDelivery } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useHasSquadrons } from './squadrons';
+import { useSquadrons } from './squadrons-api';
+import { silentMembers } from './squadrons-view';
 import { useTRPC } from './trpc';
 
 /**
@@ -17,9 +20,15 @@ export function useNeedsAttention() {
   return useQuery(trpc.fleet.needsAttention.queryOptions());
 }
 
-/** How many deliveries need attention, for the navigation; undefined until known. */
+/**
+ * How many things need attention, for the navigation: the undeliverable
+ * deliveries and, with squadrons on, the silent members. Undefined until the
+ * deliveries are known.
+ */
 export function useAttentionCount(): number | undefined {
-  return useNeedsAttention().data?.length;
+  const deliveries = useNeedsAttention().data?.length;
+  const squadrons = useSquadrons({ isEnabled: useHasSquadrons() });
+  return deliveries === undefined ? undefined : deliveries + silentMembers(squadrons.data ?? []).length;
 }
 
 /** Refreshes Needs attention, and every ship page read, after a resend or a dismiss. */

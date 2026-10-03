@@ -8,7 +8,7 @@ import { SquadronsConnection } from '../../components/organisms/squadrons-connec
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccountMenu } from '../../lib/account';
 import { useOpenInboxCount } from '../../lib/inbox';
-import { useNeedsAttention } from '../../lib/needs-attention';
+import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useLiveFleet } from '../../lib/live-fleet';
@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
+  const attentionCount = useAttentionCount();
   const settings = useSquadronsSettings();
   const connect = useConnectSquadrons();
   const liveFleet = useLiveFleet();
@@ -33,7 +34,7 @@ export default function SettingsPage() {
       title="Settings"
       description="How this installation runs. Only argo, the operator, sees this page."
       live={liveFleet.live}
-      nav={{ active: 'settings', inboxCount, attentionCount: attention.data?.length , hasSquadrons }}
+      nav={{ active: 'settings', inboxCount, attentionCount, hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}
