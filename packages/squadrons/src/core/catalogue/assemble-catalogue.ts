@@ -2,7 +2,7 @@ import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN } from '@aeolus-fleet/commo
 import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
-import { FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { CHARTER_MAX_BYTES, FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import type { SourceFile } from './ports.js';
 
 const MINUTES_PER_HOUR = 60;
@@ -29,7 +29,10 @@ const templateSchema = z.object({
   checkIn,
   model: model.optional(),
   launchNote: z.string().optional(),
-  charter: z.string().min(1),
+  charter: z
+    .string()
+    .min(1)
+    .refine((text) => new TextEncoder().encode(text).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
   handoffs: z.record(handle, z.string().min(1)).optional(),
 });
 

@@ -5,6 +5,8 @@
  * starts the receive of a new squadron. A flagship whose lease ended (the
  * operator released it) is no longer watched, and says so in the log.
  */
+import { randomUUID } from 'node:crypto';
+
 import type { FleetId } from '@aeolus-fleet/common';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -54,7 +56,11 @@ export function watchFlagships(deps: {
         if (!received.isOk) {
           if (received.error.code === 'LEASE_ENDED') {
             deps.log.warn({ squadron: squadronId }, 'the flagship was released: squadrons no longer receives on it');
-            await deps.operator.tell(`The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`);
+            await deps.operator.tell({
+              text: `The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`,
+              // Each release is its own notice: a flagship crewed again and released again is told again.
+              key: `released-${squadronId}-${randomUUID()}`,
+            });
             break;
           }
           deps.log.error({ squadron: squadronId, refusal: received.error }, 'the flagship could not receive');

@@ -68,7 +68,8 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
  * member is. A flagship supports only the squadron's messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
  * page, never forwarded, and argo is told, so no message disappears or goes
- * unseen. Nothing is done unless the ack succeeded.
+ * unseen. A delivery is acked only after it is handled; the delivery id keys
+ * every step, so one that comes again gets the same answer and no second change.
  */
 export function createHandleFlagshipDelivery(deps: {
   door: FleetDoor;
@@ -80,11 +81,13 @@ export function createHandleFlagshipDelivery(deps: {
   return async (squadron, delivery) => {
     const member = squadron.members.find((each) => each.shipId === delivery.senderShipId);
     const crewToken = squadron.flagship.crewToken;
+    // Every step is safe to repeat, so the delivery is acked only once it is handled: a crash or a
+    // failed ack in between hands it to the flagship again, and handling it again changes nothing.
+    const acked = async (outcome: FlagshipOutcome): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+      const ack = await deps.door.ack(crewToken, delivery.deliveryId);
+      return ack.isOk ? ok(outcome) : err(ack.error);
+    };
     const keep = async (): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
-      const acked = await deps.door.ack(crewToken, delivery.deliveryId);
-      if (!acked.isOk) {
-        return err(acked.error);
-      }
       const { deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo } = delivery;
       await deps.messages.keep({
         fleetId: squadron.fleetId,
@@ -98,10 +101,11 @@ export function createHandleFlagshipDelivery(deps: {
         inReplyTo,
         receivedAt: deps.clock.now(),
       });
-      await deps.operator.tell(
-        `The flagship of the squadron ${squadron.id} got a message it does not handle, from ${senderName} (${contentType}). squadrons keeps it for the squadron page; nothing was forwarded.`,
-      );
-      return ok('kept');
+      await deps.operator.tell({
+        text: `The flagship of the squadron ${squadron.id} got a message it does not handle, from ${senderName} (${contentType}). squadrons keeps it for the squadron page; nothing was forwarded.`,
+        key: `kept-${deliveryId}`,
+      });
+      return acked('kept');
     };
 
     if (delivery.contentType === CHECK_IN) {
@@ -109,14 +113,10 @@ export function createHandleFlagshipDelivery(deps: {
       if (!member || checkIn?.squadron !== squadron.id) {
         return keep();
       }
-      const acked = await deps.door.ack(crewToken, delivery.deliveryId);
-      if (!acked.isOk) {
-        return err(acked.error);
-      }
       const checkedIn = { at: deps.clock.now(), model: checkIn.model ?? null };
       await deps.squadrons.update({ ...squadron, members: squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, checkIn: checkedIn } : each)) });
       const answered = await deps.door.send(crewToken, roleMessage(squadron, { member, checkIn: delivery }));
-      return answered.isOk ? ok('answered') : err(answered.error);
+      return answered.isOk ? acked('answered') : err(answered.error);
     }
 
     if (delivery.contentType === ON_STATION) {
@@ -124,16 +124,12 @@ export function createHandleFlagshipDelivery(deps: {
       if (!member || onStation?.squadron !== squadron.id) {
         return keep();
       }
-      const acked = await deps.door.ack(crewToken, delivery.deliveryId);
-      if (!acked.isOk) {
-        return err(acked.error);
-      }
       const at = deps.clock.now();
       const members = squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, onStationAt: each.onStationAt ?? at } : each));
       const isAllOnStation = members.every((each) => each.onStationAt !== null);
       const isSailing = squadron.state === 'forming' && isAllOnStation;
       await deps.squadrons.update({ ...squadron, members, state: isSailing ? 'sailing' : squadron.state, sailedAt: isSailing ? at : squadron.sailedAt });
-      return ok('on-station');
+      return acked('on-station');
     }
 
     return keep();

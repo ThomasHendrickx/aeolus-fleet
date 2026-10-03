@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
+import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
 import { CHECK_IN, ON_STATION, ROLE } from './check-in.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
 import type { FlagshipMessageLog, KeptMessage, OperatorNotices, SquadronRepository } from './ports.js';
@@ -104,22 +105,26 @@ const squadrons: SquadronRepository = {
 };
 
 const kept: KeptMessage[] = [];
-const told: string[] = [];
+const told: { text: string; key: string }[] = [];
 const messages: FlagshipMessageLog = {
   keep: (message) => {
-    kept.push(message);
+    // As the port promises: keeping the same delivery again changes nothing.
+    if (!kept.some((each) => each.deliveryId === message.deliveryId)) {
+      kept.push(message);
+    }
     return Promise.resolve();
   },
   list: () => Promise.resolve(kept),
 };
 const operator: OperatorNotices = {
-  tell: (text) => {
-    told.push(text);
+  tell: (notice) => {
+    told.push(notice);
     return Promise.resolve();
   },
 };
 
-const handle = createHandleFlagshipDelivery({ door, squadrons, messages, operator, clock: { now: () => NOW } });
+let now = NOW;
+const handle = createHandleFlagshipDelivery({ door, squadrons, messages, operator, clock: { now: () => now } });
 
 let next = 0;
 function delivery(from: ShipId, message: { contentType: string; payload: unknown; inReplyTo?: MessageId }): FlagshipDelivery {
@@ -142,6 +147,7 @@ beforeEach(() => {
   kept.length = 0;
   told.length = 0;
   isAckRefused = false;
+  now = NOW;
 });
 
 describe("a member's check-in", () => {
@@ -171,6 +177,15 @@ describe("a member's check-in", () => {
         }),
       },
     ]);
+  });
+
+  it('stays within the 64 KB payload limit with the longest charter a template may have', async () => {
+    const PAYLOAD_MAX_BYTES = 64 * 1024;
+    held = { ...held, templates: held.templates.map((template) => ({ ...template, charter: 'x'.repeat(CHARTER_MAX_BYTES) })) };
+
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(Buffer.byteLength(sent[0]?.payload ?? '')).toBeLessThanOrEqual(PAYLOAD_MAX_BYTES);
   });
 
   it('says the check-in interval in hours when it is whole hours', async () => {
@@ -245,15 +260,66 @@ describe('a delivery the flagship does not handle', () => {
   it('tells argo, so a kept message is not left unseen', async () => {
     await handle(held, delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' }));
 
-    expect(told).toEqual([
+    expect(told.map((notice) => notice.text)).toEqual([
       'The flagship of the squadron team-a1b2c3 got a message it does not handle, from reviewer-01 (text/plain). squadrons keeps it for the squadron page; nothing was forwarded.',
     ]);
   });
 
-  it('answers nothing when the ack is refused: act only on an acknowledged delivery', async () => {
+});
+
+describe('handling before the ack', () => {
+  it('answers and keeps a check-in before it acks it, so an ack that fails leaves the delivery to come again', async () => {
     isAckRefused = true;
 
-    await expect(handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }))).resolves.toMatchObject({ isOk: false });
-    expect(sent).toEqual([]);
+    await expect(handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3', model: 'claude-opus-5-5' } }))).resolves.toMatchObject({
+      isOk: false,
+    });
+
+    expect(sent.map((message) => message.contentType)).toEqual([ROLE]);
+    expect(held.members.find((member) => member.shipId === TESTER)?.checkIn).toEqual({ at: NOW, model: 'claude-opus-5-5' });
+  });
+
+  it('answers a check-in that comes again with the same role message, under the same idempotency key', async () => {
+    const checkIn = delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } });
+    isAckRefused = true;
+    await handle(held, checkIn);
+    isAckRefused = false;
+
+    await expect(handle(held, checkIn)).resolves.toEqual({ isOk: true, value: 'answered' });
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toEqual(sent[0]);
+    expect(acked).toEqual([checkIn.deliveryId]);
+  });
+
+  it('marks a member on station before it acks, and an on-station that comes again changes nothing', async () => {
+    held = { ...held, members: held.members.map((member) => (member.shipId === PLANNER ? { ...member, onStationAt: FORMED } : member)) };
+    const onStation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: 'team-a1b2c3', role: 'tester' } });
+    isAckRefused = true;
+    await expect(handle(held, onStation)).resolves.toMatchObject({ isOk: false });
+    expect(held).toMatchObject({ state: 'sailing', sailedAt: NOW });
+    isAckRefused = false;
+    now = new Date('2026-10-03T09:20:00.000Z');
+
+    await expect(handle(held, onStation)).resolves.toEqual({ isOk: true, value: 'on-station' });
+
+    expect(held.members.find((member) => member.shipId === TESTER)?.onStationAt).toEqual(NOW);
+    expect(held).toMatchObject({ state: 'sailing', sailedAt: NOW });
+    expect(acked).toEqual([onStation.deliveryId]);
+  });
+
+  it('keeps a message and tells argo before it acks, and a message that comes again is kept once and told under the same key', async () => {
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+    isAckRefused = true;
+    await expect(handle(held, unknown)).resolves.toMatchObject({ isOk: false });
+    expect(kept).toHaveLength(1);
+    isAckRefused = false;
+
+    await expect(handle(held, unknown)).resolves.toEqual({ isOk: true, value: 'kept' });
+
+    expect(kept).toHaveLength(1);
+    expect(told).toHaveLength(2);
+    expect(told[1]).toEqual(told[0]);
+    expect(told[0]?.key).toBe(`kept-${unknown.deliveryId}`);
   });
 });
