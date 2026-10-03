@@ -5,6 +5,8 @@ export interface SourceFile {
   kind: 'template' | 'blueprint';
   name: string;
   version: number;
+  /** Its path within its repository at that commit: `squadrons/templates/tester.yaml`. */
+  file: string;
   /** The commit the tag points at. */
   commit: string;
   committedAt: Date;

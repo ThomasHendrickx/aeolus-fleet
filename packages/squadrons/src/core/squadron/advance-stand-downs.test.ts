@@ -26,7 +26,7 @@ function aSquadron(state: SquadronState = 'standing-down'): Squadron {
     id: 'team-a1b2c3',
     fleetId: FLEET,
     state,
-    blueprint: { repository: REPO, name: 'team', version: 1, commit: 'b1', committedAt: FORMED, description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' },
+    blueprint: { repository: REPO, name: 'team', version: 1, file: 'squadrons/fixture.yaml', commit: 'b1', committedAt: FORMED, description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' },
     templates: [],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [aMember(PLANNER, { role: 'planner', onStationAt: FORMED }), aMember(TESTER, { role: 'tester', onStationAt: FORMED })],

@@ -145,6 +145,8 @@ export const catalogueOutputSchema = z.object({
       repository: z.string(),
       name: z.string(),
       version: z.number(),
+      /** Its path within its repository at its commit, honouring the repository's path setting. */
+      file: z.string(),
       commit: z.string(),
       committedAt: z.iso.datetime(),
       description: z.string(),
@@ -160,6 +162,7 @@ export const catalogueOutputSchema = z.object({
       repository: z.string(),
       name: z.string(),
       version: z.number(),
+      file: z.string(),
       commit: z.string(),
       committedAt: z.iso.datetime(),
       description: z.string(),

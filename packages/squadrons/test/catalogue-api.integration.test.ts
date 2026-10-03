@@ -98,8 +98,8 @@ afterEach(async () => {
 const listed = z.object({
   result: z.object({
     data: z.object({
-      templates: z.array(z.object({ name: z.string(), version: z.number(), checkInMinutes: z.number(), model: z.string().nullable() })),
-      blueprints: z.array(z.object({ name: z.string(), version: z.number() })),
+      templates: z.array(z.object({ name: z.string(), version: z.number(), checkInMinutes: z.number(), model: z.string().nullable(), file: z.string() })),
+      blueprints: z.array(z.object({ name: z.string(), version: z.number(), file: z.string() })),
       problems: z.array(z.unknown()),
     }),
   }),
@@ -115,8 +115,8 @@ describe('the catalogue at the squadrons API', () => {
 
     expect(response.status).toBe(200);
     const { data } = listed.parse(await response.json()).result;
-    expect(data.templates).toEqual([expect.objectContaining({ name: 'tester', version: 1, checkInMinutes: 30, model: 'claude-opus-5-5' })]);
-    expect(data.blueprints).toEqual([expect.objectContaining({ name: 'team', version: 1 })]);
+    expect(data.templates).toEqual([expect.objectContaining({ name: 'tester', version: 1, checkInMinutes: 30, model: 'claude-opus-5-5', file: 'squadrons/templates/tester.yaml' })]);
+    expect(data.blueprints).toEqual([expect.objectContaining({ name: 'team', version: 1, file: 'squadrons/blueprints/team.yaml' })]);
   });
 
   it('refuses without a signed-in console session', async () => {

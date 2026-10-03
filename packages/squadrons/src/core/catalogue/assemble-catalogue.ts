@@ -68,11 +68,12 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
     return err(firstIssue('template', parsed.error));
   }
   const { description, checkIn: checkInMinutes, model: pinned, launchNote, charter, handoffs } = parsed.data;
-  const { repository, name, version, commit, committedAt } = file;
+  const { repository, name, version, file: path, commit, committedAt } = file;
   return ok({
     repository,
     name,
     version,
+    file: path,
     commit,
     committedAt,
     description,
@@ -131,8 +132,8 @@ function blueprintOf(
     return err(`handoffs: ${unbound.join(', ')} must be bound to a role or the flagship`);
   }
 
-  const { repository, name, version, commit, committedAt } = file;
-  return ok({ repository, name, version, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
+  const { repository, name, version, file: path, commit, committedAt } = file;
+  return ok({ repository, name, version, file: path, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
 }
 
 /**

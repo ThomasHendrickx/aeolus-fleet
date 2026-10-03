@@ -3,6 +3,8 @@ export interface TemplateVersion {
   repository: string;
   name: string;
   version: number;
+  /** Its path within its repository at its commit. */
+  file: string;
   commit: string;
   committedAt: Date;
   description: string;
@@ -28,6 +30,8 @@ export interface BlueprintVersion {
   repository: string;
   name: string;
   version: number;
+  /** Its path within its repository at its commit. */
+  file: string;
   commit: string;
   committedAt: Date;
   description: string;

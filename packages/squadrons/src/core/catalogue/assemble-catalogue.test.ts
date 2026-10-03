@@ -8,11 +8,11 @@ const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = new Date('2026-10-03T08:00:00.000Z');
 
 function template(tagged: { name: string; version: number }, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'template', ...tagged, commit: `c0ffee${String(tagged.version)}`, committedAt: AT, content };
+  return { repository: REPO, kind: 'template', ...tagged, file: `squadrons/templates/${tagged.name}.yaml`, commit: `c0ffee${String(tagged.version)}`, committedAt: AT, content };
 }
 
 function blueprint(tagged: { name: string; version: number }, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'blueprint', ...tagged, commit: `b1ue${String(tagged.version)}`, committedAt: AT, content };
+  return { repository: REPO, kind: 'blueprint', ...tagged, file: `squadrons/blueprints/${tagged.name}.yaml`, commit: `b1ue${String(tagged.version)}`, committedAt: AT, content };
 }
 
 const tester = {
@@ -38,6 +38,15 @@ const hemmaFeature = {
 
 const templates = [template({ name: 'tester', version: 4 }, tester), template({ name: 'implementer', version: 1 }, implementer), template({ name: 'planner', version: 1 }, planner)];
 
+describe('a version in the catalogue', () => {
+  it('keeps the path of its file within its repository, for the template and the blueprint alike', () => {
+    const { templates: held, blueprints } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
+
+    expect(held.find((each) => each.name === 'tester')?.file).toBe('squadrons/templates/tester.yaml');
+    expect(blueprints[0]?.file).toBe('squadrons/blueprints/hemma-feature.yaml');
+  });
+});
+
 describe('a ship template', () => {
   it('reads its description, check-in interval in minutes, pinned model, launch note, charter and hand-offs', () => {
     const { templates: read } = assembleCatalogue([template({ name: 'tester', version: 4 }, tester)]);
@@ -47,6 +56,7 @@ describe('a ship template', () => {
         repository: REPO,
         name: 'tester',
         version: 4,
+        file: 'squadrons/templates/tester.yaml',
         commit: 'c0ffee4',
         committedAt: AT,
         description: tester.description,
@@ -103,6 +113,7 @@ describe('a squadron blueprint', () => {
         repository: REPO,
         name: 'hemma-feature',
         version: 4,
+        file: 'squadrons/blueprints/hemma-feature.yaml',
         commit: 'b1ue4',
         committedAt: AT,
         description: hemmaFeature.description,
