@@ -101,7 +101,7 @@ describe('the git catalogue source', () => {
 
     const [file] = await source().files();
 
-    expect(file?.parseError).toEqual(expect.any(String));
+    expect(typeof file?.parseError).toBe('string');
   });
 
   it('shows a new tag on the next read: it fetches again', async () => {
