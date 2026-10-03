@@ -8,6 +8,7 @@ import { classNames } from '../../lib/class-names';
 import {
   DEFAULT_FLEET_VIEW,
   filterFleet,
+  fleetSquadrons,
   fleetTypes,
   retiredCount,
   type FleetFilters,
@@ -157,7 +158,8 @@ function FilterControls({
   view,
   onViewChange,
   size,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange'> & { size: 'sm' | 'touch' }) {
+  squadronsOf,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { size: 'sm' | 'touch' }) {
   const { filters } = view;
   const types = fleetTypes(ships, filters.isRetiredShown);
   const typeItems: Record<string, string> = { all: 'All', ...Object.fromEntries(types.map((type) => [type, type])) };
@@ -215,6 +217,32 @@ function FilterControls({
           ))}
         </SelectContent>
       </Select>
+      {squadronsOf && (
+        <Select
+          items={{ all: 'All', ...Object.fromEntries(fleetSquadrons(squadronsOf).map((squadron) => [squadron, squadron])) }}
+          value={filters.squadron}
+          onValueChange={(value) => {
+            if (value !== null) {
+              change({ squadron: value });
+            }
+          }}
+        >
+          <SelectTrigger size={size} aria-label="Squadron" data-testid={isTouch ? undefined : 'fleet-filter-squadron'}>
+            <span className="flex gap-1.5">
+              <span className="text-muted-foreground">Squadron</span>
+              <SelectValue className="font-medium" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            {fleetSquadrons(squadronsOf).map((squadron) => (
+              <SelectItem key={squadron} value={squadron}>
+                {squadron}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <div className={classNames('inline-flex items-center gap-2', isTouch ? 'py-2' : 'sm:ml-auto')}>
         <Switch
           id={switchId}
@@ -240,7 +268,8 @@ function Toolbar({
   view,
   onViewChange,
   shownCount,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange'> & { shownCount: number }) {
+  squadronsOf,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { shownCount: number }) {
   return (
     <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2">
       <div className="w-60 max-sm:min-w-0 max-sm:flex-1">
@@ -258,7 +287,7 @@ function Toolbar({
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 max-sm:hidden sm:flex-1">
-        <FilterControls ships={ships} view={view} onViewChange={onViewChange} size="sm" />
+        <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} size="sm" />
       </div>
       <Sheet>
         <SheetTrigger
@@ -271,7 +300,7 @@ function Toolbar({
             <SheetTitle>Filters</SheetTitle>
           </SheetHeader>
           <SheetBody className="flex flex-col gap-3 pb-4 [&_[data-slot=select-trigger]]:w-full">
-            <FilterControls ships={ships} view={view} onViewChange={onViewChange} size="touch" />
+            <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} size="touch" />
           </SheetBody>
         </SheetContent>
       </Sheet>
@@ -429,11 +458,11 @@ export function FleetTable({
     );
   }
 
-  const shown = filterFleet(ships, view);
+  const shown = filterFleet(ships, { ...view, squadronsOf });
   const query = view.query.trim();
   return (
     <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">
-      <Toolbar ships={ships} view={view} onViewChange={onViewChange} shownCount={shown.length} />
+      <Toolbar ships={ships} view={view} onViewChange={onViewChange} shownCount={shown.length} squadronsOf={squadronsOf} />
       {shown.length === 0 ? (
         <EmptyState
           variant="no-results"

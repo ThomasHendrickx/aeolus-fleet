@@ -1,10 +1,14 @@
 import { shipStatusSchema, type ListedShip, type ShipStatus } from '@aeolus-fleet/common';
 
-/** The overview filters (docs/design/png/FleetTable.png): status, type and Show retired. */
+import type { ShipInSquadron } from './squadrons-view';
+
+/** The overview filters (docs/design/png/FleetTable.png): status, type, squadron (with squadrons on) and Show retired. */
 export interface FleetFilters {
   status: Exclude<ShipStatus, 'retired'> | 'all';
   /** A ship type, or `all`. */
   type: string;
+  /** A squadron's id: its flagship and members only; or `all`. */
+  squadron: string;
   isRetiredShown: boolean;
 }
 
@@ -16,11 +20,14 @@ export interface FleetView {
 
 export const DEFAULT_FLEET_VIEW: FleetView = {
   query: '',
-  filters: { status: 'all', type: 'all', isRetiredShown: false },
+  filters: { status: 'all', type: 'all', squadron: 'all', isRetiredShown: false },
 };
 
+/** The view as filtering reads it: with squadrons on, which squadron each ship belongs to. */
+export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron> };
+
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-const PARAMS = { query: 'q', status: 'status', type: 'type', isRetiredShown: 'retired' } as const;
+const PARAMS = { query: 'q', status: 'status', type: 'type', squadron: 'squadron', isRetiredShown: 'retired' } as const;
 const RETIRED_SHOWN = '1';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
@@ -28,8 +35,12 @@ function matchesQuery(ship: ListedShip, query: string): boolean {
   return needle === '' || ship.name.toLowerCase().includes(needle) || ship.type.toLowerCase().includes(needle);
 }
 
-function matchesFilters(ship: ListedShip, filters: FleetFilters): boolean {
+function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | 'squadronsOf'>): boolean {
+  const { filters, squadronsOf } = view;
   if (ship.status === 'retired' && !filters.isRetiredShown) {
+    return false;
+  }
+  if (filters.squadron !== 'all' && squadronsOf?.get(ship.id)?.squadronId !== filters.squadron) {
     return false;
   }
   if (filters.status !== 'all' && ship.status !== filters.status) {
@@ -42,11 +53,12 @@ function matchesFilters(ship: ListedShip, filters: FleetFilters): boolean {
  * The ships the overview shows, in its order: argo first, then by name. The
  * order depends on the ships alone, so a live update changes a row in place
  * and never reorders the rows under the pointer. Search and filters apply to
- * argo like any ship.
+ * argo like any ship. The squadron filter keeps a squadron's flagship and
+ * members, as `squadronsOf` names them.
  */
-export function filterFleet(ships: readonly ListedShip[], view: FleetView): ListedShip[] {
+export function filterFleet(ships: readonly ListedShip[], view: FilteredView): ListedShip[] {
   return ships
-    .filter((ship) => matchesQuery(ship, view.query) && matchesFilters(ship, view.filters))
+    .filter((ship) => matchesQuery(ship, view.query) && matchesFilters(ship, view))
     .toSorted((first, second) => {
       if (first.kind !== second.kind) {
         return first.kind === 'operator' ? -1 : 1;
@@ -78,6 +90,7 @@ export function readFleetView(params: URLSearchParams): FleetView {
     filters: {
       status: readStatus(params.get(PARAMS.status)),
       type: params.get(PARAMS.type) ?? 'all',
+      squadron: params.get(PARAMS.squadron) ?? 'all',
       isRetiredShown: params.get(PARAMS.isRetiredShown) === RETIRED_SHOWN,
     },
   };
@@ -95,8 +108,16 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
   if (view.filters.type !== 'all') {
     params.set(PARAMS.type, view.filters.type);
   }
+  if (view.filters.squadron !== 'all') {
+    params.set(PARAMS.squadron, view.filters.squadron);
+  }
   if (view.filters.isRetiredShown) {
     params.set(PARAMS.isRetiredShown, RETIRED_SHOWN);
   }
   return params;
+}
+
+/** The squadrons ships belong to, for the squadron filter, sorted. */
+export function fleetSquadrons(squadronsOf: ReadonlyMap<string, ShipInSquadron>): string[] {
+  return [...new Set([...squadronsOf.values()].map((ship) => ship.squadronId))].toSorted((first, second) => first.localeCompare(second));
 }

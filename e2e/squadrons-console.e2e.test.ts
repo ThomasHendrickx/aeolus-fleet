@@ -232,5 +232,18 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('form-squadron-preview').click();
     await expect(page.getByRole('heading', { name: 'Form a squadron from team v1' }).count()).resolves.toBe(1);
   });
+
+  it("filters the fleet overview to one squadron: its flagship and members only", async () => {
+    const flagship = await database.ship.findFirstOrThrow({ where: { type: 'flagship' } });
+    const page = await squadronsPage();
+    await page.getByTestId('nav-overview').click();
+
+    await page.getByTestId('fleet-filter-squadron').click();
+    await page.getByRole('option', { name: flagship.name }).click();
+
+    await expect.poll(() => page.locator('[data-testid^="fleet-row-"]').count()).toBe(2);
+    await page.getByTestId(`fleet-row-${flagship.name}`).waitFor();
+    expect(page.url()).toContain(`squadron=${flagship.name}`);
+  });
 });
 
