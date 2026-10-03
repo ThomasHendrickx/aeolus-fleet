@@ -6,6 +6,8 @@ import type { Squadron } from './squadron.js';
 export interface SquadronRepository {
   exists(fleetId: FleetId, id: string): Promise<boolean>;
   create(squadron: Squadron): Promise<void>;
+  /** The fleet's squadrons, oldest first. */
+  list(fleetId: FleetId): Promise<Squadron[]>;
 }
 
 /** Outbound port: random lowercase alphanumerics, for squadron ids and member names. */

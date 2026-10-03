@@ -109,6 +109,7 @@ function memorySquadrons(): SquadronRepository & { held: Squadron[] } {
       repository.held.push(structuredClone(squadron));
       return Promise.resolve();
     },
+    list: (fleetId) => Promise.resolve(repository.held.filter((squadron) => squadron.fleetId === fleetId)),
   };
   return repository;
 }

@@ -116,7 +116,7 @@ async function formTeam(squadronId?: string) {
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, ...(squadronId === undefined ? {} : { squadronId }) }),
   });
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   return formedSchema.parse(await response.json()).result.data;
 }
 

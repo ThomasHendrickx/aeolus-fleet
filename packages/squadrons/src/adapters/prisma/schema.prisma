@@ -28,3 +28,38 @@ model ManagementCrew {
 
   @@map("management_crew")
 }
+
+/// A squadron (#79): the blueprint and templates it formed from, kept as they
+/// were then, its state, and its flagship, whose crew token squadrons holds.
+model Squadron {
+  fleetId           String    @map("fleet_id")
+  id                String
+  state             String
+  blueprint         Json
+  templates         Json
+  flagshipShipId    String    @map("flagship_ship_id")
+  flagshipName      String    @map("flagship_name")
+  flagshipCrewToken String    @map("flagship_crew_token")
+  formedAt          DateTime  @map("formed_at") @db.Timestamptz(3)
+  sailedAt          DateTime? @map("sailed_at") @db.Timestamptz(3)
+  members           Member[]
+
+  @@id([fleetId, id])
+  @@map("squadrons")
+}
+
+/// A member: a ship of the fleet and its role in its squadron.
+model Member {
+  fleetId     String    @map("fleet_id")
+  shipId      String    @id @map("ship_id")
+  squadronId  String    @map("squadron_id")
+  position    Int
+  name        String
+  role        String
+  type        String
+  onStationAt DateTime? @map("on_station_at") @db.Timestamptz(3)
+  squadron    Squadron  @relation(fields: [fleetId, squadronId], references: [fleetId, id])
+
+  @@index([fleetId, squadronId])
+  @@map("members")
+}

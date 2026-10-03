@@ -8,11 +8,14 @@ import { createGitCatalogueSource, type GitRepository } from './adapters/git/git
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
+import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
+import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { assembleCatalogue } from './core/catalogue/assemble-catalogue.js';
 import type { Catalogue } from './core/catalogue/catalogue.js';
 import { createCrewManagementShip, type CrewManagementShip } from './core/management/crew-management-ship.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
+import { createFormSquadron } from './core/squadron/form-squadron.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -73,6 +76,9 @@ export function createSquadronsApp(options: {
   });
 
   const store = createPrismaManagementCrewStore(prisma);
+  const squadrons = createPrismaSquadronRepository(prisma);
+  const door = createRestFleetDoor(options.fleetUrl);
+  const clock = options.clock ?? systemClock;
   const source = createGitCatalogueSource({ repositories: options.repositories, cacheDir: options.cacheDir });
   let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
   const refreshCatalogue = async (): Promise<void> => {
@@ -87,11 +93,18 @@ export function createSquadronsApp(options: {
     prefix: '/trpc',
     trpcOptions: {
       router: squadronsRouter,
+      onError: ({ error, path }) => {
+        if (error.code === 'INTERNAL_SERVER_ERROR') {
+          server.log.error({ err: error.cause ?? error, path }, 'procedure failed');
+        }
+      },
       createContext: ({ req }) => ({
         cookie: req.headers.cookie,
         authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl), store }),
         catalogue: () => catalogue,
         refreshCatalogue,
+        formSquadron: createFormSquadron({ door, management: store, squadrons, catalogue: () => catalogue, random: cryptoRandomNames, clock }),
+        listSquadrons: (fleetId) => squadrons.list(fleetId),
       }),
     },
   };
@@ -105,12 +118,7 @@ export function createSquadronsApp(options: {
 
   return {
     server,
-    crewManagementShip: createCrewManagementShip({
-      door: createRestFleetDoor(options.fleetUrl),
-      store,
-      clock: options.clock ?? systemClock,
-      ship: options.managementShip,
-    }),
+    crewManagementShip: createCrewManagementShip({ door, store, clock, ship: options.managementShip }),
     refreshCatalogue,
     startRefreshing: async (intervalMs) => {
       await refreshCatalogue();
