@@ -196,6 +196,17 @@ export function useFormSquadron() {
   });
 }
 
+/** Stands a sailing squadron down: its members finish their open work, then retire, and it disbands. */
+export function useStandDown() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (squadronId: string) => call('squadrons.standDown', { input: { squadronId }, isMutation: true, answers: z.object({}) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
+    },
+  });
+}
+
 function crewLinesKey(squadronId: string): string[] {
   return ['squadrons', 'crew-lines', squadronId];
 }
