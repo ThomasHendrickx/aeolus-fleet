@@ -39,7 +39,7 @@ export async function reserveWebUrl(): Promise<string> {
 
 /**
  * Starts the web app with `next dev` at the reserved URL, with the given
- * server as its AEOLUS_SERVER_URL, and waits until the sign-in page answers
+ * server as its AEOLUS_SERVER_URL (and squadrons as its AEOLUS_SQUADRONS_URL, when given), and waits until the sign-in page answers
  * (the first request compiles it). The console bundles common's built
  * package, as `npm run dev` does, so common is built first.
  *
@@ -47,7 +47,7 @@ export async function reserveWebUrl(): Promise<string> {
  * like the console: one site, or the SameSite=Strict session cookie would
  * stay behind.
  */
-export async function startWeb(web: { url: string; serverUrl: string }): Promise<RunningWeb> {
+export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = new URL(url).port;
@@ -56,7 +56,12 @@ export async function startWeb(web: { url: string; serverUrl: string }): Promise
   const nextBin = createRequire(`${webRoot}/package.json`).resolve('next/dist/bin/next');
   const child = spawn(process.execPath, [nextBin, 'dev', '--port', port], {
     cwd: webRoot,
-    env: { ...process.env, AEOLUS_SERVER_URL: sameSiteServer.origin, NEXT_TELEMETRY_DISABLED: '1' },
+    env: {
+      ...process.env,
+      AEOLUS_SERVER_URL: sameSiteServer.origin,
+      ...(web.squadronsUrl === undefined ? {} : { AEOLUS_SQUADRONS_URL: web.squadronsUrl }),
+      NEXT_TELEMETRY_DISABLED: '1',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
