@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { BlueprintVersion, TemplateVersion } from '../../core/catalogue/catalogue.js';
 import type { SquadronRepository } from '../../core/squadron/ports.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
-import type { Db, PrismaClient } from './client.js';
+import type { PrismaClient } from './client.js';
 
 const reference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
 const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
@@ -61,11 +61,11 @@ function squadronOf(row: Row): Squadron {
   };
 }
 
-export function createPrismaSquadronRepository(db: Db): SquadronRepository {
+export function createPrismaSquadronRepository(db: PrismaClient, clock: { now(): Date }): SquadronRepository {
   return {
     exists: async (fleetId, id) => (await db.squadron.count({ where: { fleetId, id } })) > 0,
-    create: async (squadron) => {
-      await db.squadron.create({
+    create: async (squadron, attemptId) => {
+      const create = db.squadron.create({
         data: {
           fleetId: squadron.fleetId,
           id: squadron.id,
@@ -91,6 +91,8 @@ export function createPrismaSquadronRepository(db: Db): SquadronRepository {
           },
         },
       });
+      // The squadron and the end of its attempt commit together: a crash leaves both or neither.
+      await db.$transaction([create, db.formationAttempt.updateMany({ where: { id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } })]);
     },
     update: async (squadron) => {
       await db.squadron.updateMany({

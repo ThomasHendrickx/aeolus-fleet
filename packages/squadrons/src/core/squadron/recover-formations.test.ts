@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
-import { memoryAttempts } from './form-squadron.test.js';
+import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import { createRecoverFormations } from './recover-formations.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';

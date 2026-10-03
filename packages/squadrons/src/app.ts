@@ -10,6 +10,7 @@ import { checkDatabase, createPrismaClient, latestMigration } from './adapters/p
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
 import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-message-log.js';
+import { createPrismaFormationAttempts } from './adapters/prisma/formation-attempts.js';
 import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
@@ -20,6 +21,7 @@ import { createCrewManagementShip, type CrewManagementShip } from './core/manage
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
+import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -33,6 +35,8 @@ export interface SquadronsApp {
   refreshCatalogue: () => Promise<void>;
   /** Refreshes the catalogue now and then every interval, until the app closes. */
   startRefreshing: (intervalMs: number) => Promise<void>;
+  /** Retires what formations a crash left unfinished commissioned: run at start, before anything else forms. */
+  recoverFormations: RecoverFormations;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
   startFlagships: (rescanMs: number) => void;
   /** Stops the server and disconnects the database. */
@@ -82,13 +86,14 @@ export function createSquadronsApp(options: {
   });
 
   const store = createPrismaManagementCrewStore(prisma);
-  const squadrons = createPrismaSquadronRepository(prisma);
+  const clock = options.clock ?? systemClock;
+  const squadrons = createPrismaSquadronRepository(prisma, clock);
+  const attempts = createPrismaFormationAttempts(prisma, clock);
   const door = createRestFleetDoor(options.fleetUrl);
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
-  const clock = options.clock ?? systemClock;
   let flagships: FlagshipWatch | undefined;
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, catalogue: () => catalogue, random: cryptoRandomNames, clock });
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: () => catalogue, random: cryptoRandomNames, clock });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -144,6 +149,7 @@ export function createSquadronsApp(options: {
       await refreshCatalogue();
       refresher = setInterval(() => void refreshCatalogue(), intervalMs);
     },
+    recoverFormations: createRecoverFormations({ door, management: store, attempts }),
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({
         door,

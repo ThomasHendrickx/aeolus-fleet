@@ -5,7 +5,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { err, ok, type Result } from '../shared/result.js';
-import type { RandomNames, SquadronRepository } from './ports.js';
+import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import type { Member } from './squadron.js';
 
 const SQUADRON_SUFFIX_LENGTH = 6;
@@ -48,12 +48,17 @@ function secretIn(crewLine: string): string {
  * the squadron id and goes back once with its template's launch note;
  * squadrons keeps no member secret. The squadron is stored Forming, with the
  * blueprint and templates as they were. A step the fleet refuses retires every
- * ship this attempt commissioned and forms nothing.
+ * ship this attempt commissioned and forms nothing. Because forming calls the
+ * fleet several times, it is no single transaction: the attempt, and each ship
+ * by name before it is commissioned, are recorded first, so that a start after
+ * a crash retires what an unfinished attempt commissioned (recover-formations).
+ * The squadron is stored and its attempt finished together.
  */
 export function createFormSquadron(deps: {
   door: FleetDoor;
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
+  attempts: FormationAttempts;
   catalogue: () => Catalogue;
   random: RandomNames;
   clock: Clock;
@@ -80,20 +85,27 @@ export function createFormSquadron(deps: {
       templates.find((held) => held.repository === role.template.repository && held.name === role.template.name && held.version === role.template.version),
     );
 
+    // One attempt per squadron id at a time: its id and its start tell attempts apart.
+    const startedAt = deps.clock.now();
+    const attemptId = `${squadronId}@${startedAt.toISOString()}`;
+    await deps.attempts.begin({ id: attemptId, fleetId: crew.fleetId, squadronId, startedAt });
     const commissioned: ShipId[] = [];
     const failed = async (refusal: FleetRefusal): Promise<Result<never, FormRefusal>> => {
       for (const shipId of commissioned) {
         await deps.door.retire(crew.crewToken, { shipId });
       }
+      await deps.attempts.finish(attemptId);
       return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${refusal.message}`);
     };
     const commission = async (names: () => string, type: string): Promise<Result<{ shipId: ShipId; name: string; crewLine: string }, FleetRefusal>> => {
       let refusal: FleetRefusal = { code: 'CONFLICT', message: 'no free name' };
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
         const shipName = names();
+        await deps.attempts.plan(attemptId, shipName);
         const made = await deps.door.commission(crew.crewToken, { name: shipName, type });
         if (made.isOk) {
           commissioned.push(made.value.shipId);
+          await deps.attempts.commissioned(attemptId, { name: shipName, shipId: made.value.shipId });
           return ok({ ...made.value, name: shipName });
         }
         refusal = made.error;
@@ -142,7 +154,7 @@ export function createFormSquadron(deps: {
       members,
       formedAt: deps.clock.now(),
       sailedAt: null,
-    });
+    }, attemptId);
     return ok({ squadronId, flagship: { shipId: flagship.value.shipId, name: squadronId }, members: lines });
   };
 }

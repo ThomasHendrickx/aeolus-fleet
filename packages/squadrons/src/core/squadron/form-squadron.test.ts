@@ -6,7 +6,8 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import type { Squadron } from './squadron.js';
-import type { FormationAttempt, FormationAttempts, SquadronRepository } from './ports.js';
+import { memoryAttempts } from '../../../test/support/memory-attempts.js';
+import type { SquadronRepository } from './ports.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -103,37 +104,6 @@ function fakeFleet() {
     },
   };
   return { state, door };
-}
-
-/** Formation attempts in memory, finished when the squadron is created with them. */
-export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt & { isFinished: boolean })[] } {
-  const attempts: FormationAttempts & { held: (FormationAttempt & { isFinished: boolean })[] } = {
-    held: [],
-    begin: (attempt) => {
-      attempts.held.push({ ...attempt, ships: [], isFinished: false });
-      return Promise.resolve();
-    },
-    plan: (attemptId, name) => {
-      attempts.held.find((held) => held.id === attemptId)?.ships.push({ name, shipId: null });
-      return Promise.resolve();
-    },
-    commissioned: (attemptId, ship) => {
-      const planned = attempts.held.find((held) => held.id === attemptId)?.ships.find((each) => each.name === ship.name);
-      if (planned) {
-        planned.shipId = ship.shipId;
-      }
-      return Promise.resolve();
-    },
-    finish: (attemptId) => {
-      const held = attempts.held.find((each) => each.id === attemptId);
-      if (held) {
-        held.isFinished = true;
-      }
-      return Promise.resolve();
-    },
-    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished)),
-  };
-  return attempts;
 }
 
 function memorySquadrons(attempts: ReturnType<typeof memoryAttempts>): SquadronRepository & { held: Squadron[] } {

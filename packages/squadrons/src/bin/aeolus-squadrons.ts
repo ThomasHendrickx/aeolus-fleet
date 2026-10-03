@@ -40,6 +40,10 @@ async function start(): Promise<void> {
     throw new ConfigError(crewed.error.message);
   }
   app.server.log.info({ ship: crewed.value.name }, 'crewing the management ship');
+  const recovered = await app.recoverFormations();
+  if (recovered.isOk && recovered.value.recovered > 0) {
+    app.server.log.warn(recovered.value, 'retired what formations a crash left unfinished had commissioned');
+  }
   await app.startRefreshing(refreshMinutes * 60_000);
   app.startFlagships(FLAGSHIP_RESCAN_MS);
 

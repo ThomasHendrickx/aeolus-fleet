@@ -81,3 +81,31 @@ model FlagshipMessage {
   @@index([fleetId, squadronId, receivedAt])
   @@map("flagship_messages")
 }
+
+/// A forming in progress, recorded before forming changes the fleet: its ships by
+/// name, and their ids once commissioned. A start after a crash retires what an
+/// unfinished one commissioned.
+model FormationAttempt {
+  id         String    @id
+  fleetId    String    @map("fleet_id")
+  squadronId String    @map("squadron_id")
+  startedAt  DateTime  @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  ships      FormationShip[]
+
+  @@index([fleetId, finishedAt])
+  @@map("formation_attempts")
+}
+
+/// A ship a formation attempt was about to commission, and its id once it did.
+model FormationShip {
+  attemptId String           @map("attempt_id")
+  name      String
+  fleetId   String           @map("fleet_id")
+  shipId    String?          @map("ship_id")
+  position  Int
+  attempt   FormationAttempt @relation(fields: [attemptId], references: [id])
+
+  @@id([attemptId, name])
+  @@map("formation_ships")
+}
