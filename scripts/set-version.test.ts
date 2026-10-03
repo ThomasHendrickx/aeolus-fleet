@@ -48,10 +48,18 @@ describe('setVersion', () => {
     expect(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8'))).toEqual({ ...before, version: '0.3.0' });
   });
 
-  it('sets the same version on all three packages', () => {
+  it('sets the same version on all four packages, squadrons included', () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'server', 'web', 'squadrons']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+  });
+
+  it('pins squadrons to common and the server at that version', () => {
+    setVersion(copy, '0.1.0');
+
+    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
+    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/server']).toBe('0.1.0');
   });
 
   it('pins the packages to each other at that version', () => {
