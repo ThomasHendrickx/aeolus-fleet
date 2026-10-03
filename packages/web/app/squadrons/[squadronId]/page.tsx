@@ -14,6 +14,7 @@ import { RemoveMemberDialog } from '../../../components/organisms/remove-member-
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
 import { useAccountMenu } from '../../../lib/account';
 import { useOpenInboxCount } from '../../../lib/inbox';
@@ -22,7 +23,7 @@ import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attenti
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
-import { useHasSquadrons } from '../../../lib/squadrons';
+import { useHasSquadrons, useSquadronsConnection } from '../../../lib/squadrons';
 import {
   type AddedMember,
   useAddMember,
@@ -53,6 +54,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const squadrons = useSquadrons();
+  const connection = useSquadronsConnection();
   const catalogue = useCatalogue();
   const crewLines = useIssuedCrewLines(squadronId);
   const kept = useKeptMessages(squadronId);
@@ -139,7 +141,9 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       }}
       account={accountMenu}
     >
-      {squadron ? (
+      {connection === 'not-connected' ? (
+        <SquadronsNotConnected />
+      ) : squadron ? (
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
           ships={ships}
           now={now}

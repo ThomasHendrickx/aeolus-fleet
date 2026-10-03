@@ -15,7 +15,7 @@ import {
 } from '../../lib/fleet';
 import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
-import { useSquadronsSettings } from '../../lib/squadrons';
+import { useSquadronsConnection } from '../../lib/squadrons';
 import { useRemoveMember, useSquadrons } from '../../lib/squadrons-api';
 import { otherMembersOfRole } from '../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
@@ -53,9 +53,11 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * only Open squadron, since retiring, releasing or renaming it would break its
  * squadron; a member offers Ping, Get new crew line (primary when silent),
  * Release and Remove from squadron, never
- * Rename, Retire, Re-crew or Get starting prompt. Until it is known whether
- * squadrons is set up and, if so, its list, only Ping shows, so a member is
- * never offered Retire.
+ * Rename, Retire, Re-crew or Get starting prompt. Not configured or not
+ * connected, squadrons adds nothing: the plain actions. While a configured
+ * squadrons' connection is not yet known, and when connected until its list
+ * first answers, only Ping shows, so a member is never offered Retire; a
+ * refetch never hides the actions again.
  */
 export function ShipActions({ ship }: { ship: ListedShip }) {
   const [dialog, setDialog] = useState<OpenDialog>();
@@ -67,9 +69,8 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
-  const settings = useSquadronsSettings();
-  const hasSquadrons = settings.data?.configured === true;
-  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const connection = useSquadronsConnection();
+  const squadrons = useSquadrons();
   const removeMember = useRemoveMember();
   const squadron = squadrons.data?.find(
     (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
@@ -91,7 +92,8 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
     );
   }
   const member = squadron?.members.find((each) => each.shipId === ship.id);
-  const isMembershipPending = (settings.data === undefined && !settings.isError) || (hasSquadrons && squadrons.data === undefined && !squadrons.isError);
+  // Pending only until the connection is known and, when connected, until the list first answers: a refetch never hides known actions.
+  const isMembershipPending = connection === 'unknown' || (connection === 'connected' && !squadrons.isFetched);
 
   const close = () => {
     setDialog(undefined);

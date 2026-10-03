@@ -47,7 +47,7 @@ export default function NeedsAttentionPage() {
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
-  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const squadrons = useSquadrons();
   const silent = silentMembers(squadrons.data ?? []);
   const silentShips = useShips(silent.map(({ member }) => member.shipId));
   const fleet = useFleetSnapshot();

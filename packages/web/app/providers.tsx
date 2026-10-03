@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 
 import { Toaster } from '../components/atoms/toast';
 import { trpcErrorCode } from '../lib/errors';
+import { SquadronsConfiguredContext } from '../lib/squadrons';
 import { TRPCProvider } from '../lib/trpc';
 
 /** Retrying cannot fix a missing session or a missing scope. */
@@ -47,15 +48,18 @@ function createClient(serverUrl: string) {
   });
 }
 
-export function Providers({ serverUrl, children }: { serverUrl: string; children: ReactNode }) {
+/** isSquadronsConfigured: whether AEOLUS_SQUADRONS_URL is set, read on the server per request; without it the console makes no squadrons call. */
+export function Providers({ serverUrl, isSquadronsConfigured, children }: { serverUrl: string; isSquadronsConfigured: boolean; children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
   const [trpcClient] = useState(() => createClient(serverUrl));
 
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        {children}
-        <Toaster />
+        <SquadronsConfiguredContext value={isSquadronsConfigured}>
+          {children}
+          <Toaster />
+        </SquadronsConfiguredContext>
       </TRPCProvider>
     </QueryClientProvider>
   );

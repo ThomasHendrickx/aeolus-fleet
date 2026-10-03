@@ -29,8 +29,8 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
   const router = useRouter();
   const fleet = useFleetSnapshot();
   const hasSquadrons = useHasSquadrons();
-  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
-  const catalogue = useCatalogue({ isEnabled: hasSquadrons });
+  const squadrons = useSquadrons();
+  const catalogue = useCatalogue();
 
   useEffect(() => {
     const openOnShortcut = (event: KeyboardEvent) => {

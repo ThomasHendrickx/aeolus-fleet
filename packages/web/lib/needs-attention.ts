@@ -1,7 +1,6 @@
 import { isPingContentType, type DeliveryId, type UndeliverableDelivery } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useHasSquadrons } from './squadrons';
 import { useSquadrons } from './squadrons-api';
 import { silentMembers } from './squadrons-view';
 import { useTRPC } from './trpc';
@@ -27,7 +26,7 @@ export function useNeedsAttention() {
  */
 export function useAttentionCount(): number | undefined {
   const deliveries = useNeedsAttention().data?.length;
-  const squadrons = useSquadrons({ isEnabled: useHasSquadrons() });
+  const squadrons = useSquadrons();
   return deliveries === undefined ? undefined : deliveries + silentMembers(squadrons.data ?? []).length;
 }
 

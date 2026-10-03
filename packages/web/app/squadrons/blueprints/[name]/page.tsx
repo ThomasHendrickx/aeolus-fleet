@@ -11,13 +11,14 @@ import { ComposeMessage } from '../../../../components/organisms/compose-message
 import { ConsoleCommands } from '../../../../components/organisms/console-commands';
 import { FormSquadronDialog } from '../../../../components/organisms/form-squadron-dialog';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
+import { SquadronsNotConnected } from '../../../../components/molecules/squadrons-not-connected';
 import { useAccountMenu } from '../../../../lib/account';
 import { useOpenInboxCount } from '../../../../lib/inbox';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useAttentionCount, useNeedsAttention } from '../../../../lib/needs-attention';
 import { useNow } from '../../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
-import { useHasSquadrons } from '../../../../lib/squadrons';
+import { useHasSquadrons, useSquadronsConnection } from '../../../../lib/squadrons';
 import { useCatalogue, useFormSquadron, useSquadrons } from '../../../../lib/squadrons-api';
 import { blueprintChoices, blueprintPath, squadronsFromBlueprint } from '../../../../lib/squadrons-view';
 
@@ -43,6 +44,7 @@ export default function BlueprintPage({
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const catalogue = useCatalogue();
+  const connection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
@@ -69,7 +71,9 @@ export default function BlueprintPage({
       }}
       account={accountMenu}
     >
-      {catalogue.isError ? (
+      {connection === 'not-connected' ? (
+        <SquadronsNotConnected />
+      ) : catalogue.isError ? (
         <InlineError
           title="Couldn't read the blueprint"
           description="The squadron manager couldn't read the catalogue. Squadrons formed from it keep sailing."

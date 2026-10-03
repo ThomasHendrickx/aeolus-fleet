@@ -10,13 +10,14 @@ import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { FormSquadronDialog } from '../../components/organisms/form-squadron-dialog';
 import { SquadronTable } from '../../components/organisms/squadron-table';
 import { ListLayout } from '../../components/templates/list-layout';
+import { SquadronsNotConnected } from '../../components/molecules/squadrons-not-connected';
 import { useAccountMenu } from '../../lib/account';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
-import { useHasSquadrons } from '../../lib/squadrons';
+import { useHasSquadrons, useSquadronsConnection } from '../../lib/squadrons';
 import { useCatalogue, useFormSquadron, useSquadrons } from '../../lib/squadrons-api';
 import { readSquadronView, squadronViewParams, type SquadronView } from '../../lib/squadron-filter';
 import { blueprintChoices } from '../../lib/squadrons-view';
@@ -44,6 +45,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const squadrons = useSquadrons();
+  const connection = useSquadronsConnection();
   const catalogue = useCatalogue();
   const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
@@ -82,6 +84,9 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
       }}
       account={accountMenu}
     >
+      {connection === 'not-connected' ? (
+        <SquadronsNotConnected />
+      ) : (
       <SquadronTable
         squadrons={squadrons.data ?? []}
         state={squadrons.isError ? 'error' : squadrons.data ? 'ready' : 'loading'}
@@ -94,6 +99,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         view={view}
         onViewChange={changeView}
       />
+      )}
       {blueprints.length > 0 && (
         <FormSquadronDialog
           blueprints={blueprints}

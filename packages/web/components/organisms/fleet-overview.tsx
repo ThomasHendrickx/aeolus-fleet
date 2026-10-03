@@ -5,7 +5,6 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { useFleetSnapshot } from '../../lib/fleet';
 import type { FleetView } from '../../lib/fleet-filter';
 import { useNow } from '../../lib/now';
-import { useHasSquadrons } from '../../lib/squadrons';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../lib/squadrons-view';
 import { FleetTable } from './fleet-table';
@@ -29,8 +28,7 @@ export function FleetOverview({
 }) {
   const fleet = useFleetSnapshot();
   const now = useNow();
-  const hasSquadrons = useHasSquadrons();
-  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const squadrons = useSquadrons();
 
   return (
     <section aria-label="Fleet" className="flex flex-col gap-3">
