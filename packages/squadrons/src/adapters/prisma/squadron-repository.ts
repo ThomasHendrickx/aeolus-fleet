@@ -12,6 +12,8 @@ const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
     repository: z.string(),
     name: z.string(),
     version: z.number(),
+    // Snapshots stored before versions kept their file have none.
+    file: z.string().default(''),
     commit: z.string(),
     committedAt: z.coerce.date(),
     description: z.string(),
@@ -26,6 +28,7 @@ const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
   repository: z.string(),
   name: z.string(),
   version: z.number(),
+  file: z.string().default(''),
   commit: z.string(),
   committedAt: z.coerce.date(),
   description: z.string(),

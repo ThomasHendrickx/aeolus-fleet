@@ -109,9 +109,10 @@ export function createGitCatalogueSource(options: { repositories: readonly GitRe
           }
           const [, name = '', number = ''] = version;
           for (const { kind, folder: kindFolder } of KINDS) {
-            const text = await fileAt(mirror, { commit, path: `${folder}/${kindFolder}/${name}.yaml` });
+            const file = `${folder}/${kindFolder}/${name}.yaml`;
+            const text = await fileAt(mirror, { commit, path: file });
             if (text !== undefined) {
-              files.push({ repository: repository.name, kind, name, version: Number(number), commit, committedAt, ...parsed(text) });
+              files.push({ repository: repository.name, kind, name, version: Number(number), file, commit, committedAt, ...parsed(text) });
             }
           }
         }
