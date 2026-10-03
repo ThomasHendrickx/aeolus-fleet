@@ -98,8 +98,8 @@ const squadrons: SquadronRepository = {
   exists: () => Promise.resolve(true),
   create: () => Promise.resolve(),
   list: () => Promise.resolve([held]),
-  update: (squadron) => {
-    held = structuredClone(squadron);
+  update: ({ after }) => {
+    held = structuredClone(after);
     return Promise.resolve();
   },
 };
