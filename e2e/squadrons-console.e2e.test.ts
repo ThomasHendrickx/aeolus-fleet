@@ -263,11 +263,29 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadron-blueprint').click();
 
     await page.getByTestId('blueprint-view').waitFor();
+    await expect(page.getByTestId('blueprint-source').textContent()).resolves.toMatch(/^squadrons\/blueprints\/team\.yaml at [0-9a-f]{7}, /);
     await expect(page.getByTestId('blueprint-role').first().textContent()).resolves.toMatch(/^testertester@11every 30 minStart in the repository root\.$/);
     await page.getByRole('heading', { name: 'Squadrons from this blueprint' }).waitFor();
     await page.getByTestId('blueprint-form').click();
     await page.getByTestId('form-squadron-preview').click();
     await expect(page.getByRole('heading', { name: 'Form a squadron from team v1' }).count()).resolves.toBe(1);
+  });
+
+  it('lists the blueprints and templates in git on their tabs, and opens a template read only with its file, charter and hand-offs', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-tab-blueprints').click();
+    await expect(page.getByTestId('blueprint-row').first().textContent()).resolves.toMatch(/^teamv1testerNone|^teamv1tester\d/);
+    await page.getByTestId('squadrons-tab-templates').click();
+    await page.waitForURL(/\/squadrons\?tab=templates$/);
+    await expect(page.getByTestId('template-row').first().textContent()).resolves.toMatch(/^testerv1every 30 minteam/);
+
+    await page.getByTestId('template-row').first().getByRole('link', { name: 'tester' }).click();
+
+    await page.getByTestId('template-view').waitFor();
+    await expect(page.getByTestId('template-source').textContent()).resolves.toMatch(/^squadrons\/templates\/tester\.yaml at [0-9a-f]{7}, /);
+    await expect(page.getByTestId('template-charter-text').textContent()).resolves.toBe('You test.');
+    await expect(page.getByTestId('template-check-in').textContent()).resolves.toBe('Every 30 min');
+    await expect(page.getByTestId('template-handoff').textContent()).resolves.toBe('on-passThe run that passed');
   });
 
   it("filters the fleet overview to one squadron: its flagship and members only", async () => {

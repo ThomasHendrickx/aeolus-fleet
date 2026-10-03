@@ -24,6 +24,7 @@ const aeolus: BlueprintVersion = {
     { role: 'tester', handoff: 'on-pass', to: 'flagship' },
   ],
   memberNames: 'plain',
+  file: 'squadrons/blueprints/aeolus.yaml',
 };
 
 const meta = {

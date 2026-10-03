@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/atoms/tabs';
+import { BlueprintTable } from '../../components/organisms/blueprint-table';
+import { TemplateTable } from '../../components/organisms/template-table';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { FormSquadronDialog } from '../../components/organisms/form-squadron-dialog';
@@ -20,12 +23,21 @@ import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useHasSquadrons, useSquadronsConnection } from '../../lib/squadrons';
 import { useCatalogue, useFormSquadron, useSquadrons } from '../../lib/squadrons-api';
 import { readSquadronView, squadronViewParams, type SquadronView } from '../../lib/squadron-filter';
-import { blueprintChoices } from '../../lib/squadrons-view';
+import { blueprintChoices, templateChoices } from '../../lib/squadrons-view';
+
+/** The page's sections, in the URL as `tab`; Squadrons when none. */
+const TABS = ['squadrons', 'blueprints', 'templates'] as const;
+type Tab = (typeof TABS)[number];
+
+function tabOf(value: unknown): Tab {
+  return TABS.find((each) => each === value) ?? 'squadrons';
+}
 
 /**
  * Squadrons: every squadron of the fleet, searched and filtered in the URL,
  * and Form squadron, which opens the new squadron's page with each member's
- * crew line and launch note.
+ * crew line and launch note. Tabs (in the URL) show the blueprints and the
+ * templates in git, read only.
  */
 export default function SquadronsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const router = useRouter();
@@ -33,6 +45,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const view = readSquadronView(new URLSearchParams(Object.entries(query).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))));
   // The command palette's Form squadron lands here with the dialog open.
   const isFormAsked = query.form === 'new';
+  const tab = tabOf(query.tab);
   const changeView = (next: SquadronView) => {
     const params = squadronViewParams(next).toString();
     router.replace(params === '' ? '/squadrons' : `/squadrons?${params}`, { scroll: false });
@@ -87,6 +100,25 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />
       ) : (
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          const next = tabOf(value);
+          router.replace(next === 'squadrons' ? '/squadrons' : `/squadrons?tab=${next}`, { scroll: false });
+        }}
+      >
+        <TabsList variant="line" aria-label="Squadrons sections">
+          <TabsTrigger variant="line" value="squadrons" data-testid="squadrons-tab-squadrons">
+            Squadrons
+          </TabsTrigger>
+          <TabsTrigger variant="line" value="blueprints" data-testid="squadrons-tab-blueprints">
+            Blueprints
+          </TabsTrigger>
+          <TabsTrigger variant="line" value="templates" data-testid="squadrons-tab-templates">
+            Templates
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="squadrons" className="pt-4">
       <SquadronTable
         squadrons={squadrons.data ?? []}
         state={squadrons.isError ? 'error' : squadrons.data ? 'ready' : 'loading'}
@@ -99,6 +131,30 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         view={view}
         onViewChange={changeView}
       />
+        </TabsContent>
+        <TabsContent value="blueprints" className="pt-4">
+          <BlueprintTable
+            blueprints={blueprints}
+            squadrons={squadrons.data ?? []}
+            state={catalogue.isError ? 'error' : catalogue.data ? 'ready' : 'loading'}
+            error={catalogue.error?.message}
+            onRetry={() => {
+              void catalogue.refetch();
+            }}
+          />
+        </TabsContent>
+        <TabsContent value="templates" className="pt-4">
+          <TemplateTable
+            templates={templateChoices(catalogue.data ?? { templates: [] })}
+            blueprints={catalogue.data?.blueprints ?? []}
+            state={catalogue.isError ? 'error' : catalogue.data ? 'ready' : 'loading'}
+            error={catalogue.error?.message}
+            onRetry={() => {
+              void catalogue.refetch();
+            }}
+          />
+        </TabsContent>
+      </Tabs>
       )}
       {blueprints.length > 0 && (
         <FormSquadronDialog
