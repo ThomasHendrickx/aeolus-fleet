@@ -64,10 +64,10 @@ beforeEach(async () => {
   origin = join(work, 'templates');
   mkdirSync(origin);
   await git('init', '--quiet', '--initial-branch=main');
-  write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
+  write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
   write(
     'squadrons/blueprints/team.yaml',
-    `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nentry: tester\n`,
+    `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`,
   );
   await git('add', '.');
   await git('commit', '--quiet', '-m', 'team');
@@ -111,7 +111,7 @@ const formedSchema = z.object({
     data: z.object({
       squadronId: z.string(),
       flagship: z.object({ shipId: z.string(), name: z.string() }),
-      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable() })),
+      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() })),
     }),
   }),
 });
@@ -195,6 +195,31 @@ describe('the check-in at the flagship', () => {
     });
 
     await expect.poll(() => squadronState('team-one'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+  });
+
+  it('shows a model mismatch on a member that checks in stating another model than its template pins', async () => {
+    const formed = await formTeam('team-two');
+    expect(formed.members[0]?.model).toBe('claude-opus-5-5');
+    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-two' },
+      contentType: CHECK_IN,
+      payload: JSON.stringify({ squadron: 'team-two', model: 'claude-sonnet-5-5' }),
+      idempotencyKey: 'check-in-2',
+    });
+
+    await expect
+      .poll(
+        async () => {
+          const listed = z
+            .object({ result: z.object({ data: z.array(z.object({ id: z.string(), members: z.array(z.object({ model: z.unknown() })) })) }) })
+            .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json());
+          return listed.result.data.find((squadron) => squadron.id === 'team-two')?.members[0]?.model;
+        },
+        { timeout: LIVE_TIMEOUT_MS },
+      )
+      .toEqual({ pinned: 'claude-opus-5-5', stated: 'claude-sonnet-5-5', isMismatch: true });
   });
 });
 

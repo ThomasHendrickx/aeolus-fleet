@@ -23,6 +23,7 @@ function templateVersion(name: string, handoffs: string[] = []): TemplateVersion
     committedAt: AT,
     description: `${name} template`,
     checkInMinutes: 30,
+    model: name === 'planner' ? 'claude-opus-5-5' : null,
     launchNote: `Start the ${name} in the repository root.`,
     charter: `You are the ${name}.`,
     handoffs: handoffs.map((handoff) => ({ name: handoff, carries: 'work' })),
@@ -41,7 +42,6 @@ const blueprintVersion: BlueprintVersion = {
     { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 1 }, count: 2 },
   ],
   handoffs: [{ role: 'implementer', handoff: 'done', to: 'flagship' }],
-  entry: 'planner',
   memberNames: 'plain',
 };
 
@@ -177,7 +177,7 @@ describe('forming a squadron', () => {
     ]);
   });
 
-  it("answers each member's crew line with the squadron id, and its template's launch note, once", async () => {
+  it("answers each member's crew line with the squadron id, and its template's launch note and pinned model, once", async () => {
     const { members } = unwrapped(await form(fromHemmaFeature));
 
     expect(members[0]).toEqual({
@@ -186,6 +186,7 @@ describe('forming a squadron', () => {
       role: 'planner',
       crewLine: `/aeolus:crew https://fleet.example.com ${String(fleet.state.ships[1]?.shipId)} aeolus_sk_v1_planner-k3x9 hemma-feature-a1b2c3`,
       launchNote: 'Start the planner in the repository root.',
+      model: 'claude-opus-5-5',
     });
   });
 
@@ -202,10 +203,10 @@ describe('forming a squadron', () => {
       formedAt: AT,
       sailedAt: null,
     });
-    expect(stored?.members.map(({ name, role, type, onStationAt }) => ({ name, role, type, onStationAt }))).toEqual([
-      { name: 'planner-k3x9', role: 'planner', type: 'hemma-feature-a1b2c3:planner', onStationAt: null },
-      { name: 'implementer-m4p7', role: 'implementer', type: 'hemma-feature-a1b2c3:implementer', onStationAt: null },
-      { name: 'implementer-q8r2', role: 'implementer', type: 'hemma-feature-a1b2c3:implementer', onStationAt: null },
+    expect(stored?.members.map(({ name, role, type, onStationAt, checkIn }) => ({ name, role, type, onStationAt, checkIn }))).toEqual([
+      { name: 'planner-k3x9', role: 'planner', type: 'hemma-feature-a1b2c3:planner', onStationAt: null, checkIn: null },
+      { name: 'implementer-m4p7', role: 'implementer', type: 'hemma-feature-a1b2c3:implementer', onStationAt: null, checkIn: null },
+      { name: 'implementer-q8r2', role: 'implementer', type: 'hemma-feature-a1b2c3:implementer', onStationAt: null, checkIn: null },
     ]);
     expect(JSON.stringify(stored)).not.toContain('aeolus_sk_v1_planner');
   });

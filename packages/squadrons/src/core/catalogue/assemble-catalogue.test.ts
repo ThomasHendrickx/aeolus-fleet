@@ -17,6 +17,7 @@ function blueprint(tagged: { name: string; version: number }, content: unknown):
 const tester = {
   description: 'Runs the end-to-end suite on a branch and reports the result.',
   checkIn: '30m',
+  model: 'claude-opus-5-5',
   launchNote: 'Start in the repository root.',
   charter: 'You test the branch you are given.',
   handoffs: { 'on-fail': 'The failing tests and their output', 'on-pass': 'The branch and the run that passed' },
@@ -32,13 +33,12 @@ const hemmaFeature = {
     tester: { template: `${REPO}#tester@4` },
   },
   handoffs: { 'tester.on-fail': 'implementer', 'tester.on-pass': 'flagship', 'implementer.done': 'tester' },
-  entry: 'planner',
 };
 
 const templates = [template({ name: 'tester', version: 4 }, tester), template({ name: 'implementer', version: 1 }, implementer), template({ name: 'planner', version: 1 }, planner)];
 
 describe('a ship template', () => {
-  it('reads its description, check-in interval in minutes, launch note, charter and hand-offs', () => {
+  it('reads its description, check-in interval in minutes, pinned model, launch note, charter and hand-offs', () => {
     const { templates: read } = assembleCatalogue([template({ name: 'tester', version: 4 }, tester)]);
 
     expect(read).toEqual([
@@ -50,6 +50,7 @@ describe('a ship template', () => {
         committedAt: AT,
         description: tester.description,
         checkInMinutes: 30,
+        model: 'claude-opus-5-5',
         launchNote: tester.launchNote,
         charter: tester.charter,
         handoffs: [
@@ -60,10 +61,10 @@ describe('a ship template', () => {
     ]);
   });
 
-  it('has no launch note and no hand-offs when it gives none', () => {
+  it('has no model, no launch note and no hand-offs when it gives none', () => {
     const [read] = assembleCatalogue([template({ name: 'planner', version: 1 }, planner)]).templates;
 
-    expect(read).toMatchObject({ launchNote: null, handoffs: [], checkInMinutes: 120 });
+    expect(read).toMatchObject({ model: null, launchNote: null, handoffs: [], checkInMinutes: 120 });
   });
 
   it.each([
@@ -73,6 +74,9 @@ describe('a ship template', () => {
     { label: 'a check-in that is no duration', content: { ...tester, checkIn: 'often' }, field: 'checkIn' },
     { label: 'a hand-off name that is no handle', content: { ...tester, handoffs: { 'On Fail': 'x' } }, field: 'handoffs' },
     { label: 'content that is no mapping', content: 'just text', field: 'template' },
+    { label: 'a model alias, not an exact model id', content: { ...tester, model: 'opus' }, field: 'model' },
+    { label: 'a model that follows the latest release', content: { ...tester, model: 'claude-opus-latest' }, field: 'model' },
+    { label: 'a model id with capitals', content: { ...tester, model: 'Claude-Opus-5-5' }, field: 'model' },
   ])('is left out with a problem when it has $label', ({ content, field }) => {
     const { templates: read, problems } = assembleCatalogue([template({ name: 'tester', version: 4 }, content)]);
 
@@ -83,7 +87,7 @@ describe('a ship template', () => {
 });
 
 describe('a squadron blueprint', () => {
-  it('reads its roles with their template versions and counts, hand-offs, entry, and plain member names', () => {
+  it('reads its roles with their template versions and counts, hand-offs, and plain member names', () => {
     const { blueprints, problems } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
 
     expect(problems).toEqual([]);
@@ -105,7 +109,6 @@ describe('a squadron blueprint', () => {
           { role: 'tester', handoff: 'on-pass', to: 'flagship' },
           { role: 'implementer', handoff: 'done', to: 'tester' },
         ],
-        entry: 'planner',
         memberNames: 'plain',
       },
     ]);
@@ -130,7 +133,6 @@ describe('a squadron blueprint', () => {
     { label: 'a hand-off a template declares left unbound', content: { ...hemmaFeature, handoffs: { 'tester.on-fail': 'implementer', 'tester.on-pass': 'flagship' } }, message: /implementer\.done/ },
     { label: 'a binding of a hand-off no template declares', content: { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'planner.done': 'tester' } }, message: /planner\.done/ },
     { label: 'a hand-off to a role it does not have', content: { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'tester.on-pass': 'reviewer' } }, message: /reviewer/ },
-    { label: 'an entry role it does not have', content: { ...hemmaFeature, entry: 'reviewer' }, message: /entry/ },
     { label: 'a count over 20', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, implementer: { template: `${REPO}#implementer@1`, count: 21 } } }, message: /count/ },
     { label: 'no roles', content: { ...hemmaFeature, roles: {} }, message: /roles/ },
   ])('is left out with a problem when it has $label', ({ content, message }) => {

@@ -62,7 +62,7 @@ beforeEach(async () => {
   write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
   write(
     'squadrons/blueprints/team.yaml',
-    `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 2\nentry: tester\n`,
+    `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 2\n`,
   );
   await git('add', '.');
   await git('commit', '--quiet', '-m', 'team');
