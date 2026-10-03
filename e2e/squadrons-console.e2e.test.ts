@@ -66,8 +66,8 @@ beforeAll(async () => {
   mkdirSync(join(origin, 'squadrons', 'templates'), { recursive: true });
   mkdirSync(join(origin, 'squadrons', 'blueprints'), { recursive: true });
   await inOrigin(origin, 'init', '--quiet', '--initial-branch=main');
-  writeFileSync(join(origin, 'squadrons/templates/tester.yaml'), 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
-  writeFileSync(join(origin, 'squadrons/blueprints/team.yaml'), `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`);
+  writeFileSync(join(origin, 'squadrons/templates/tester.yaml'), 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\nhandoffs:\n  on-pass: The run that passed\n');
+  writeFileSync(join(origin, 'squadrons/blueprints/team.yaml'), `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nhandoffs:\n  tester.on-pass: flagship\n`);
   await inOrigin(origin, 'add', '.');
   await inOrigin(origin, 'commit', '--quiet', '-m', 'team');
   await inOrigin(origin, 'tag', 'tester@1');
@@ -227,6 +227,14 @@ describe('the first squadron in the console', () => {
     for (const action of ['fleet-ship-retire', 'fleet-ship-rename', 'fleet-ship-recrew', 'fleet-ship-prompt']) {
       await expect(member.getByTestId(action).count()).resolves.toBe(0);
     }
+  });
+
+  it('shows who hands off to whom on the squadron page, read from its blueprint', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
+
+    await page.getByTestId('handoff-wiring').getByText('from blueprint team v1').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(page.getByTestId('handoff-row').textContent()).resolves.toBe('testeron-passflagship');
   });
 
   it('shows a message the flagship kept, and opens it whole on the flagship page', async () => {
