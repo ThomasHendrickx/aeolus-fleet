@@ -60,7 +60,7 @@ export function TemplateTable({ templates, blueprints, state, error, onRetry }: 
       <EmptyState
         icon={<LayoutTemplate aria-hidden />}
         title="No templates in git"
-        description="The squadron manager reads templates from squadrons/templates. Commit one there; it shows up here on its own."
+        description="The squadron manager reads templates from .aeolus/squadrons/templates. Commit one there; it shows up here on its own."
       />
     );
   }
