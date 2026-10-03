@@ -10,6 +10,7 @@ import { z } from 'zod';
 import type { Catalogue } from '../../core/catalogue/catalogue.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
+import type { KeptMessage } from '../../core/squadron/ports.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
 import type { FleetId } from '@aeolus-fleet/common';
 
@@ -21,6 +22,7 @@ export interface Context {
   refreshCatalogue: () => Promise<void>;
   formSquadron: FormSquadron;
   listSquadrons: (fleetId: FleetId) => Promise<Squadron[]>;
+  keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
 /** What a caller reads of a failure: nothing of it, so no crew token or query ever leaves; the log holds it whole. */
@@ -112,6 +114,35 @@ function squadronOutputOf(squadron: Squadron): z.infer<typeof squadronOutputSche
 
 export const squadronsRouter = t.router({
   squadrons: t.router({
+    /** The messages a squadron's flagship kept because it does not handle them, oldest first. */
+    messages: operatorProcedure
+      .input(z.object({ squadronId: z.string() }))
+      .output(
+        z.array(
+          z.object({
+            deliveryId: z.string(),
+            messageId: z.string(),
+            senderShipId: z.string(),
+            senderName: z.string(),
+            contentType: z.string(),
+            payload: z.string(),
+            inReplyTo: z.string().nullable(),
+            receivedAt: z.iso.datetime(),
+          }),
+        ),
+      )
+      .query(async ({ ctx, input }) =>
+        (await ctx.keptMessages(ctx.fleetId, input.squadronId)).map((message) => ({
+          deliveryId: message.deliveryId,
+          messageId: message.messageId,
+          senderShipId: message.senderShipId,
+          senderName: message.senderName,
+          contentType: message.contentType,
+          payload: message.payload,
+          inReplyTo: message.inReplyTo,
+          receivedAt: message.receivedAt.toISOString(),
+        })),
+      ),
     /** The fleet's squadrons, oldest first, with their members and whether each is on station. */
     list: operatorProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => (await ctx.listSquadrons(ctx.fleetId)).map(squadronOutputOf)),
     /**

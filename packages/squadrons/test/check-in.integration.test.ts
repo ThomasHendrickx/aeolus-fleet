@@ -197,3 +197,28 @@ describe('the check-in at the flagship', () => {
     await expect.poll(() => squadronState('team-one'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
   });
 });
+
+describe('a message the flagship does not handle', () => {
+  it('is kept for the squadron page, and argo is told of it in its inbox', async () => {
+    const formed = await formTeam('team-two');
+    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+
+    await member.call('send', { selector: { kind: 'ship', name: 'team-two' }, payload: 'Can I take the login task?', idempotencyKey: 'plain-1' });
+
+    const keptSchema = z.object({ result: z.object({ data: z.array(z.object({ payload: z.string(), contentType: z.string(), senderName: z.string() })) }) });
+    await expect
+      .poll(
+        async () =>
+          keptSchema.parse(await (await fetch(`${address}/trpc/squadrons.messages?input=${encodeURIComponent(JSON.stringify({ squadronId: 'team-two' }))}`, { headers: { cookie } })).json())
+            .result.data.map((message) => message.payload),
+        { timeout: LIVE_TIMEOUT_MS },
+      )
+      .toEqual(['Can I take the login task?']);
+    const argo = await fleetDatabase.ship.findFirstOrThrow({ where: { kind: 'operator' } });
+    await expect
+      .poll(async () => (await fleetDatabase.message.findMany({ where: { selectorShipId: argo.id } })).map((message) => message.payload).join('\n'), {
+        timeout: LIVE_TIMEOUT_MS,
+      })
+      .toContain('The flagship of the squadron team-two got a message it does not handle');
+  });
+});

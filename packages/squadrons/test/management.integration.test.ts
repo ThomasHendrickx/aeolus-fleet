@@ -92,6 +92,6 @@ describe('the squadrons API', () => {
 
     expect(health.status).toBe(200);
     expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
-    expect(version.migration).toMatch(/^\d{14}_squadrons$/);
+    expect(version.migration).toMatch(/^\d{14}_flagship_messages$/);
   });
 });
