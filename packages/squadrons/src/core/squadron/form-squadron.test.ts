@@ -156,6 +156,8 @@ const managementStore: ManagementCrewStore = {
 let fleet: ReturnType<typeof fakeFleet>;
 let attempts: ReturnType<typeof memoryAttempts>;
 let squadrons: ReturnType<typeof memorySquadrons>;
+/** The longest name suffix, a squadron's. */
+const SQUADRON_SUFFIX_LENGTH = 6;
 let suffixes: string[];
 let form: FormSquadron;
 
@@ -166,7 +168,8 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     squadrons,
     attempts,
     catalogue: () => overrides.catalogue ?? catalogue,
-    random: { suffix: (length) => (suffixes.shift() ?? 'zzzzzz').slice(0, length) },
+    // The names come from the list; an attempt's longer suffix only tells attempts apart.
+    random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
   });
 }
