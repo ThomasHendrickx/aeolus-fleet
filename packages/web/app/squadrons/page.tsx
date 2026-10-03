@@ -2,7 +2,7 @@
 
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
 import { ComposeMessage } from '../../components/organisms/compose-message';
@@ -18,14 +18,22 @@ import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useHasSquadrons } from '../../lib/squadrons';
 import { useCatalogue, useFormSquadron, useSquadrons } from '../../lib/squadrons-api';
+import { readSquadronView, squadronViewParams, type SquadronView } from '../../lib/squadron-filter';
 import { blueprintChoices } from '../../lib/squadrons-view';
 
 /**
- * Squadrons: every squadron of the fleet, and Form squadron, which opens the
- * new squadron's page with each member's crew line and launch note.
+ * Squadrons: every squadron of the fleet, searched and filtered in the URL,
+ * and Form squadron, which opens the new squadron's page with each member's
+ * crew line and launch note.
  */
-export default function SquadronsPage() {
+export default function SquadronsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const router = useRouter();
+  const query = use(searchParams);
+  const view = readSquadronView(new URLSearchParams(Object.entries(query).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))));
+  const changeView = (next: SquadronView) => {
+    const params = squadronViewParams(next).toString();
+    router.replace(params === '' ? '/squadrons' : `/squadrons?${params}`, { scroll: false });
+  };
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
@@ -80,6 +88,8 @@ export default function SquadronsPage() {
           void squadrons.refetch();
         }}
         onForm={openForm}
+        view={view}
+        onViewChange={changeView}
       />
       {blueprints.length > 0 && (
         <FormSquadronDialog

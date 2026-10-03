@@ -245,5 +245,20 @@ describe('the first squadron in the console', () => {
     await page.getByTestId(`fleet-row-${flagship.name}`).waitFor();
     expect(page.url()).toContain(`squadron=${flagship.name}`);
   });
+
+  it('searches and filters the Squadrons list, keeping the view in the URL', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().waitFor();
+
+    await page.getByTestId('squadrons-search').fill('no-such-squadron');
+    await page.getByText('No squadrons match').waitFor();
+    await page.getByRole('button', { name: 'Clear filters' }).click();
+    await page.getByTestId('squadrons-row').first().waitFor();
+
+    await page.getByTestId('squadrons-filter-state').click();
+    await page.getByRole('option', { name: 'Forming' }).click();
+    await page.getByText('No squadrons match').waitFor();
+    expect(page.url()).toContain('state=forming');
+  });
 });
 
