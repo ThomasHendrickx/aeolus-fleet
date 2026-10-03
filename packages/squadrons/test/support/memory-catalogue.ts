@@ -42,14 +42,27 @@ export function fakeCatalogueSource(): RepositoryReader & {
   failing: Map<string, string>;
   fetches: string[];
   tokens: Map<string, string | null>;
+  /** Holds the next read back until the answered function is called. */
+  holdNextRead: () => () => void;
 } {
   const mirrored = new Map<string, SourceFile[]>();
+  let held: Promise<void> | undefined;
   const source = {
     files: new Map<string, SourceFile[]>(),
     failing: new Map<string, string>(),
     fetches: new Array<string>(),
     tokens: new Map<string, string | null>(),
-    read: (repositories: readonly RepositoryToRead[], options: { fetch: (name: string) => boolean }) => {
+    holdNextRead: () => {
+      let release = (): void => undefined;
+      held = new Promise((resolve) => {
+        release = resolve;
+      });
+      return release;
+    },
+    read: async (repositories: readonly RepositoryToRead[], options: { fetch: (name: string) => boolean }) => {
+      const hold = held;
+      held = undefined;
+      await hold;
       const files: SourceFile[] = [];
       const fetched: { name: string; error: string | null }[] = [];
       for (const repository of repositories) {
@@ -64,7 +77,7 @@ export function fakeCatalogueSource(): RepositoryReader & {
         }
         files.push(...(mirrored.get(repository.name) ?? []));
       }
-      return Promise.resolve({ files, fetched });
+      return { files, fetched };
     },
   };
   return source;

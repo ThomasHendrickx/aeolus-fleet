@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -148,6 +148,20 @@ describe('the git repository reader', () => {
     rmSync(origin, { recursive: true, force: true });
 
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
+  });
+
+  it('gives nothing from a mirror it cannot read, rather than failing the read', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+    for (const mirror of readdirSync(join(work, 'cache'))) {
+      rmSync(join(work, 'cache', mirror, 'HEAD'));
+    }
+
+    await expect(reading.unfetched()).resolves.toEqual([]);
   });
 
   it("never gives another fleet's mirror: the same repository read by a second fleet holds nothing before that fleet fetches it", async () => {
