@@ -74,11 +74,11 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
-| Come aboard and be reachable | `register`: claim a ship with its id and secret, get the inbox that belongs to it |
+| Come aboard and be reachable | `register`: claim a ship with its id and secret, saying where the session runs and in which harness, get the inbox that belongs to it |
 | Prove it is still alive (later, not v1) | `heartbeat`: keeps the ship's lease and its entry in the fleet snapshot fresh |
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship |
 | Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
-| Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, get an OK only once the message is durably stored |
+| Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, stating the model the session runs, get an OK only once the message is durably stored |
 | Say what it is doing | `report`: working, blocked or idle, with a short note. The console and anyone with `fleet:read` see it; calling it again with the same state and note still counts as a report |
 | Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
 
@@ -100,6 +100,8 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Console session | The operator's sign-in, crewing `argo`. It records the device it signed in from ("Mac · Chrome"), shown in the AccountMenu and as argo's location. The console's theme belongs to the operator's account, not the session |
 | Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship. Every call its crew makes marks it last seen, which the console shows ("Last seen 20 s ago") so the operator can judge whether a session is alive before re-crewing; observation only, nothing acts on it |
 | Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
+| Harness | What the current session runs in, stated when it claims the ship: free text, with the known values `claude-code`, `claude-chat` and `codex`. Read together with the location: Claude Code on a device is not Claude Code in the cloud. Metadata of the session, never interpreted |
+| Model | The exact model id a session runs, such as `claude-opus-5-5`, stated on every send, since a session can switch model mid-session. Every ship states it except `argo`, which states none; a ping and a resend state none of their own. The message keeps it; a ship's current model is the last one its sessions stated. Self-reported, never verified, no policy |
 | Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |
 | Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship. Used only to `register` |
 | Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease; a call with it afterwards is refused as lease ended, so the session knows its ship was released |
@@ -153,13 +155,13 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | --- | --- | --- |
 | `ShipCommissioned` | Registry | Starting prompt generated, ship appears in the snapshot |
 | `StartingPromptIssued` | Registry | A new secret is out; the snapshot shows the prompt as unclaimed until a session claims the ship |
-| `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable |
+| `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable; details hold the session's location and harness |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `ShipReported` | Registry | The crew's report changed: details hold its state and note. A report with the same state and note only moves when it was reported, with no event |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
-| `MessageAccepted` | Messaging | Deliveries created, receivers woken |
+| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated |
 | `DeliveryClaimed` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more claim counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it. Its details say `answer: pong` when a pong answered a ping |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
