@@ -1,6 +1,7 @@
-import { isPingContentType, type Party, type TimelineEntry } from '@aeolus-fleet/common';
+import { isPingContentType, REPORT_STATES, type Party, type ReportState, type TimelineEntry } from '@aeolus-fleet/common';
 
 import { locationKindWord } from './location';
+import { REPORT_TONES } from './report';
 import { capitalised, counted, ship, text, type SentencePart } from './sentence';
 
 /** The tone family of a timeline row's tile (docs/design/conventions.md, "Colour"). */
@@ -37,8 +38,11 @@ function stringDetail(entry: TimelineEntry, name: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-/** A report's tone by its state: working is active, blocked needs attention, idle waits. */
-const REPORT_TONES: Readonly<Record<string, TimelineTone>> = { working: 'active', blocked: 'attention', idle: 'waiting' };
+
+/** Whether a detail names a report state. */
+function isReportState(value: string): value is ReportState {
+  return REPORT_STATES.some((state) => state === value);
+}
 
 /** Who caused the event: " by argo"; nothing for the system. */
 function by(actor: Party | null): SentencePart[] {
@@ -206,7 +210,7 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       const note = stringDetail(entry, 'note');
       return {
         parts: [text(note === undefined ? `Reported ${state}` : `Reported ${state}: ${note}`)],
-        tone: REPORT_TONES[state] ?? 'ended',
+        tone: isReportState(state) ? REPORT_TONES[state] : 'ended',
         icon: 'reported',
       };
     }

@@ -27,7 +27,7 @@ import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { LocationTag } from '../molecules/location-tag';
 import { PingStatus } from '../molecules/ping-status';
-import { ReportStatus } from '../molecules/report-status';
+import { ReportLine } from '../molecules/report-line';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -99,7 +99,7 @@ function Whereabouts({ ship, now, size }: { ship: ListedShip; now: Date; size: '
           </time>
         )}
         <PingStatus ping={ship.ping} now={now} testId="fleet-ping-status" />
-        <ReportStatus report={ship.report} now={now} testId="fleet-report" />
+        <ReportLine report={ship.report} now={now} variant="row" testId="fleet-report" />
       </span>
     );
   }

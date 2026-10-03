@@ -203,7 +203,7 @@ describe('timelineSentence', () => {
   it('says what the crew reported, with its note, its tone by the state', () => {
     expect(onScoutsPage(anEntry('ShipReported', { actor: scout, details: { state: 'blocked', note: 'waiting for review' } }))).toEqual({
       sentence: 'Reported blocked: waiting for review',
-      tone: 'attention',
+      tone: 'waiting',
       icon: 'reported',
     });
   });
