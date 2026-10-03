@@ -363,3 +363,34 @@ describe('adding a member', () => {
     expect(listed?.members.find((each) => each.name === added.name)?.health).toBe('not-on-station');
   });
 });
+
+describe('removing a member', () => {
+  it('retires the member of a sailing squadron at once, and the list shows its ship retired', async () => {
+    const formed = await formTeam('team-seven');
+    const [first] = formed.members;
+    const member = await crewedMember(first?.crewLine ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-seven' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-seven', role: 'tester' }),
+      idempotencyKey: 'on-station-7',
+    });
+    await expect.poll(() => squadronState('team-seven'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const response = await fetch(`${address}/trpc/squadrons.removeMember`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-seven', shipId: first?.shipId }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const ship = await fleetDatabase.ship.findUniqueOrThrow({ where: { id: first?.shipId } });
+    expect(ship.retiredAt).not.toBeNull();
+    const listed = z
+      .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ crew: z.object({ status: z.string() }) })) })) }) })
+      .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json())
+      .result.data.find((squadron) => squadron.id === 'team-seven');
+    expect(listed?.state).toBe('sailing');
+    expect(listed?.members.map((each) => each.crew.status)).toEqual(['retired']);
+  });
+});
