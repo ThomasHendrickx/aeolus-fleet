@@ -54,7 +54,7 @@ describe('when a crewed ship was last seen', () => {
 
   it('is when its session claimed it, until it calls again', async () => {
     const claimedAt = core.clock.now();
-    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }));
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
     await expect(listedScout()).resolves.toMatchObject({ lastSeenAt: claimedAt });
   });
@@ -121,7 +121,7 @@ describe('listing the fleet', () => {
       await useCases.claimShip({
         shipId: scoutId,
         secret: scoutSecret,
-        location: { kind: 'OTHER', description: 'a ci runner' },
+        location: { kind: 'OTHER', description: 'a ci runner' }, harness: 'claude-code',
       }),
     );
 
@@ -172,7 +172,7 @@ describe('listing the fleet', () => {
 describe("a ship's last ping", () => {
   async function crewedScout() {
     const { crewToken } = unwrap(
-      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }),
+      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     );
     return unwrap(await identityUseCases(core).authenticate.byCrewToken(crewToken));
   }

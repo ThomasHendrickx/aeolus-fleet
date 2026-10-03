@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 async function crew(shipId: ShipId, secret: string): Promise<Crew> {
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' } }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
@@ -92,7 +92,7 @@ describe('retiring a ship on Postgres', () => {
     unwrap(await core.useCases.retireShip(argo, { shipId: scoutId }));
 
     await expect(
-      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' } }),
+      core.useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false });
     await expect(
       core.useCases.sendMessage(argo, { selector: { kind: 'ship', name: 'scout' }, payload: 'Hi', idempotencyKey: 'by-name' }),

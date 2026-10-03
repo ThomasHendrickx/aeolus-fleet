@@ -213,7 +213,7 @@ describe('claiming a ship on Postgres', () => {
 
   it('lets a claim that holds the secret first win over a new starting prompt, which is refused', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, holdingAtTheLease);
-    const claim = claimShipWith(uow)({ shipId: scoutId, secret: scoutSecret, location: onDevice });
+    const claim = claimShipWith(uow)({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' });
     await reached;
 
     const prompt = core.useCases.getStartingPrompt(argo, { shipId: scoutId });

@@ -26,7 +26,7 @@ beforeEach(async () => {
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(
-    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   );
   scout = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   core.clock.advance(60_000);

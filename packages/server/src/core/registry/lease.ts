@@ -1,4 +1,5 @@
 import {
+  HARNESS_MAX_LENGTH,
   LOCATION_DESCRIPTION_MAX_LENGTH,
   type FleetId,
   type LeaseId,
@@ -37,6 +38,20 @@ export function location(kind: LocationKind, description?: string): Result<Locat
   return ok({ kind, description: trimmed });
 }
 
+/**
+ * The harness the session crewing a ship runs in (docs/blueprint.md,
+ * "Harness"), stated when it claims the ship: free text such as claude-code,
+ * claude-chat or codex, trimmed and in lower case. Read together with the
+ * location; never interpreted.
+ */
+export function harness(value: string): Result<string, DomainError<'INVALID_HARNESS'>> {
+  const stated = value.trim().toLowerCase();
+  if (stated.length === 0 || stated.length > HARNESS_MAX_LENGTH) {
+    return refuse('INVALID_HARNESS', `A harness names what the session runs in, such as claude-code, in 1 to ${String(HARNESS_MAX_LENGTH)} characters`);
+  }
+  return ok(stated);
+}
+
 /** Versioned prefix of every crew token (ADR 0015). */
 export const CREW_TOKEN_PREFIX = 'aeolus_ct_v1_';
 
@@ -46,6 +61,8 @@ export interface Lease {
   fleetId: FleetId;
   shipId: ShipId;
   location: Location;
+  /** The harness the session stated; none for argo's console lease and for leases from before harnesses were stated. */
+  harness: string | null;
   /**
    * The hash of the crew token `register` gave the session: every later ship
    * call carries the token (ADR 0015). Null for a console session's lease on

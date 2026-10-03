@@ -27,7 +27,7 @@ let planner: Crew;
 async function crewed(ship: { name: string; type: string }): Promise<Crew> {
   const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const { crewToken } = unwrap(
-    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   );
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }

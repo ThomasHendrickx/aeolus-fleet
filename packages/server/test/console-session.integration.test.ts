@@ -298,7 +298,7 @@ describe('the caller lookups', () => {
     const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
     const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const secret = secretIn(prompt);
-    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' } }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
     return { shipId, secret, crewToken };
   }
 

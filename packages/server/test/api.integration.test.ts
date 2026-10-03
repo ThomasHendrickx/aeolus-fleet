@@ -164,6 +164,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_lease_report$/),
       expect.stringMatching(/^\d{14}_commission_key$/),
       expect.stringMatching(/^\d{14}_message_model$/),
+      expect.stringMatching(/^\d{14}_lease_harness$/),
     ]);
   });
 });
@@ -1444,7 +1445,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_message_model$/);
+    expect(migration).toMatch(/^\d{14}_lease_harness$/);
   });
 });
 

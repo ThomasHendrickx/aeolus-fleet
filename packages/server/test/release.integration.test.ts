@@ -96,7 +96,7 @@ afterEach(async () => {
 /** A session claims the ship with the secret its starting prompt holds. */
 async function register(shipId: Crew['shipId'], prompt: string): Promise<Crewed> {
   const secret = secretIn(prompt);
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'CLOUD' } }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   const crew = unwrap(await useCases.authenticate.byCrewToken(crewToken));
   return { crew, crewToken, secret };
 }
@@ -202,7 +202,7 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
       error: { kind: 'LEASE_ENDED' },
     });
     await expect(
-      useCases.claimShip({ shipId: scout.crew.shipId, secret: scout.secret, location: { kind: 'CLOUD' } }),
+      useCases.claimShip({ shipId: scout.crew.shipId, secret: scout.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
     await expect(prisma.credential.count({ where: { shipId: scout.crew.shipId, invalidatedAt: null } })).resolves.toBe(0);
   });

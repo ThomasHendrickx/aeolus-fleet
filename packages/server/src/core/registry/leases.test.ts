@@ -46,6 +46,7 @@ describe('taking over the operator lease', () => {
         fleetId,
         shipId: argoId,
         location: { kind: 'OTHER', description: 'web console' },
+        harness: null,
         // The console session holds the token; the lease holds none.
         crewTokenHash: null,
         startedAt: core.clock.now(),
@@ -57,7 +58,7 @@ describe('taking over the operator lease', () => {
         type: 'ShipClaimed',
         actor: { kind: 'ship', shipId: argoId },
         shipId: argoId,
-        details: { leaseId, location: 'OTHER', locationDescription: 'web console' },
+        details: { leaseId, location: 'OTHER', locationDescription: 'web console', harness: null },
       }),
     ]);
   });
@@ -80,7 +81,7 @@ describe('taking over the operator lease', () => {
     expect(core.state.events.map((event) => [event.type, event.details])).toEqual([
       ['LeaseRevoked', { leaseId: first, reason: 'takenOver', returnedDeliveries: 1 }],
       ['DeliveryReturned', { leaseId: first, attempts: 2 }],
-      ['ShipClaimed', { leaseId: second, location: 'OTHER', locationDescription: 'web console' }],
+      ['ShipClaimed', { leaseId: second, location: 'OTHER', locationDescription: 'web console', harness: null }],
     ]);
   });
 

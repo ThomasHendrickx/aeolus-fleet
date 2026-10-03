@@ -73,7 +73,7 @@ afterEach(async () => {
 async function crewedReviewer(name: string): Promise<Crew> {
   const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   const { crewToken } = unwrap(
-    await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }),
+    await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
   );
   return unwrap(await useCases.authenticate.byCrewToken(crewToken));
 }

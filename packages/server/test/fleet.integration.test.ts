@@ -256,7 +256,7 @@ describe('getting a starting prompt on Postgres', () => {
   });
 
   it('is refused while a session crews the ship', async () => {
-    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' } }));
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret: firstSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
     await expect(core.useCases.getStartingPrompt(argo, { shipId: scoutId })).resolves.toMatchObject({
       isOk: false,
@@ -331,7 +331,7 @@ describe('getting one ship on Postgres', () => {
     const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     core.clock.advance(60_000);
     const crewedAt = core.clock.now();
-    unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' } }));
+    unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }));
 
     await expect(core.useCases.getShip(argo, { shipId })).resolves.toEqual({
       isOk: true,
@@ -421,7 +421,7 @@ describe('listing the fleet on Postgres', () => {
     const crewed = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const retired = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     unwrap(
-      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' } }),
+      await core.useCases.claimShip({ shipId: crewed.shipId, secret: secretIn(crewed.prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }),
     );
     // Retiring arrives with a later slice.
     await core.prisma.ship.update({ where: { id: retired.shipId }, data: { retiredAt: core.clock.now() } });

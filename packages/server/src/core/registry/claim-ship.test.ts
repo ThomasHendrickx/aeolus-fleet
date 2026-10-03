@@ -216,7 +216,7 @@ describe('a claim refused', () => {
     ['OTHER with only spaces', { kind: 'OTHER' as const, description: '   ' }],
     ['a description on DEVICE', { kind: 'DEVICE' as const, description: 'my laptop' }],
   ])('refuses %s', async (_label, location) => {
-    await expectRefused({ shipId: scoutId, secret: scoutSecret, location }, { kind: 'INVALID_LOCATION' });
+    await expectRefused({ shipId: scoutId, secret: scoutSecret, location, harness: 'claude-code' }, { kind: 'INVALID_LOCATION' });
   });
 });
 

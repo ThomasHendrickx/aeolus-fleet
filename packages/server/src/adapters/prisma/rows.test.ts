@@ -48,6 +48,7 @@ describe('mapping rows to domain objects', () => {
         ship_id: shipId,
         location: 'OTHER',
         location_description: 'web console',
+        harness: null,
         crew_token_hash: null,
         started_at: at,
         ended_at: null,
@@ -57,6 +58,7 @@ describe('mapping rows to domain objects', () => {
       fleetId,
       shipId,
       location: { kind: 'OTHER', description: 'web console' },
+      harness: null,
       crewTokenHash: null,
       startedAt: at,
       endedAt: null,
@@ -71,11 +73,12 @@ describe('mapping rows to domain objects', () => {
         ship_id: shipId,
         location: 'DEVICE',
         location_description: null,
+        harness: 'claude-code',
         crew_token_hash: 'sha256(aeolus_ct_v1_crew)',
         started_at: at,
         ended_at: null,
       }),
-    ).toMatchObject({ location: { kind: 'DEVICE', description: null }, crewTokenHash: 'sha256(aeolus_ct_v1_crew)' });
+    ).toMatchObject({ location: { kind: 'DEVICE', description: null }, harness: 'claude-code', crewTokenHash: 'sha256(aeolus_ct_v1_crew)' });
   });
 
   it('maps the caller of a console session, with the lease it holds on argo', () => {

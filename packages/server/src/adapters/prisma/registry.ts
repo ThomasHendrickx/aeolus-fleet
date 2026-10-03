@@ -116,7 +116,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
   return {
     findOpenForUpdate: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
@@ -126,7 +126,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     findOpenForShare: async (fleetId, shipId) => {
       // FOR SHARE, as findOpenByIdForShare: a release waits for the holder.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
@@ -157,7 +157,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        SELECT id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                started_at, ended_at
         FROM leases
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
@@ -172,6 +172,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           shipId: lease.shipId,
           location: lease.location.kind,
           locationDescription: lease.location.description,
+          harness: lease.harness,
           crewTokenHash: lease.crewTokenHash,
           startedAt: lease.startedAt,
           endedAt: lease.endedAt,
@@ -182,7 +183,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE leases SET ended_at = ${endedAt}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, crew_token_hash,
+        RETURNING id, fleet_id, ship_id, location::text AS location, location_description, harness, crew_token_hash,
                   started_at, ended_at`;
       return row ? toLease(row) : undefined;
     },

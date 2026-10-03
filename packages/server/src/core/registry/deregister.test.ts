@@ -46,7 +46,7 @@ beforeEach(async () => {
   scoutId = commissioned.shipId;
   scoutSecret = secretIn(commissioned.prompt);
   ({ crewToken: scoutCrewToken } = unwrap(
-    await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' } }),
+    await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
   ));
   scout = await crewOfToken(core, scoutCrewToken);
   ({ shipId: lookoutId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' })));
@@ -57,7 +57,7 @@ beforeEach(async () => {
 /** A new starting prompt for the ship and a session claiming it: the next crew. */
 async function nextCrewOf(shipId: ShipId): Promise<Crew> {
   const { prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return crewOfToken(core, crewToken);
 }
 
@@ -100,7 +100,7 @@ describe('deregistering', () => {
     unwrap(await deregister(scout));
 
     await expect(
-      useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' } }),
+      useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
     await expect(listed(scoutId)).resolves.toMatchObject({ startingPrompt: null });
   });

@@ -282,7 +282,7 @@ describe('a commission that comes again', () => {
 
   it('says the starting prompt is claimed once a session claimed it', async () => {
     const { shipId, prompt } = unwrap(await commissionShip(argo, scout));
-    unwrap(await registryUseCases(core).claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }));
+    unwrap(await registryUseCases(core).claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
     const repeat = unwrap(await commissionShip(argo, scout));
 
