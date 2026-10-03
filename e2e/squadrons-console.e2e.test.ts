@@ -219,5 +219,18 @@ describe('the first squadron in the console', () => {
     await kept.getByRole('link').click();
     await page.waitForURL(new RegExp(`/ships/${flagship.id}\\?tab=messages&message=msg_`));
   });
+
+  it("opens the squadron's blueprint, with its role and the squadron formed from it, and forms from that version", async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
+    await page.getByTestId('squadron-blueprint').click();
+
+    await page.getByTestId('blueprint-view').waitFor();
+    await expect(page.getByTestId('blueprint-role').first().textContent()).resolves.toMatch(/^testertester@11every 30 minStart in the repository root\.$/);
+    await page.getByRole('heading', { name: 'Squadrons from this blueprint' }).waitFor();
+    await page.getByTestId('blueprint-form').click();
+    await page.getByTestId('form-squadron-preview').click();
+    await expect(page.getByRole('heading', { name: 'Form a squadron from team v1' }).count()).resolves.toBe(1);
+  });
 });
 

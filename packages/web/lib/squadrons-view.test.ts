@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, checkInText, memberCount, membersByRole, rolePreviews, shipsInSquadrons, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, checkInText, memberCount, membersByRole, rolePreviews, shipsInSquadrons, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 
@@ -130,5 +130,20 @@ describe('the ships in squadrons', () => {
 
   it('leaves out the ships of a disbanded squadron', () => {
     expect(shipsInSquadrons([squadron('team-old', 'disbanded')]).size).toBe(0);
+  });
+});
+
+describe('a blueprint page', () => {
+  it('is at its name, with its repository and version in the query', () => {
+    expect(blueprintPath({ repository: 'github.com/acme/templates', name: 'hemma-feature', version: 4 })).toBe(
+      '/squadrons/blueprints/hemma-feature?repository=github.com%2Facme%2Ftemplates&version=4',
+    );
+    expect(blueprintPath({ repository: 'github.com/acme/templates', name: 'hemma-feature' })).toBe('/squadrons/blueprints/hemma-feature?repository=github.com%2Facme%2Ftemplates');
+  });
+
+  it('lists the squadrons formed from the blueprint, any version, and no other', () => {
+    const formed = (id: string, blueprint: { name: string; version: number }) => ({ id, blueprint: { repository: REPO, ...blueprint, commit: 'c' } });
+
+    expect(squadronsFromBlueprint([formed('a', { name: 'aeolus', version: 3 }), formed('b', { name: 'docs', version: 1 }), formed('c', { name: 'aeolus', version: 4 })], { repository: REPO, name: 'aeolus' }).map((each) => each.id)).toEqual(['a', 'c']);
   });
 });

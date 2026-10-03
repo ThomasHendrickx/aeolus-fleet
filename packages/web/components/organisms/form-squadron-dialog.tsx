@@ -22,13 +22,15 @@ interface FormSquadronDialogProps {
   /** Why forming failed, as the squadron manager said it. */
   error?: string;
   onSubmit: (blueprint: { repository: string; name: string; version: number }) => void;
+  /** The blueprint and version picked when the dialog opens, as from a blueprint's page; the latest of the first otherwise. */
+  initial?: { key: string; version: number };
 }
 
-function FormSquadronBody({ blueprints, templates, isPending, error, onSubmit }: Omit<FormSquadronDialogProps, 'isOpen' | 'onOpenChange'>) {
+function FormSquadronBody({ blueprints, templates, isPending, error, onSubmit, initial }: Omit<FormSquadronDialogProps, 'isOpen' | 'onOpenChange'>) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [key, setKey] = useState(blueprints[0]?.key);
+  const [key, setKey] = useState(initial?.key ?? blueprints[0]?.key);
   const choice = blueprints.find((each) => each.key === key) ?? blueprints[0];
-  const [version, setVersion] = useState(choice?.versions[0]?.version);
+  const [version, setVersion] = useState(initial?.version ?? choice?.versions[0]?.version);
   const picked = choice?.versions.find((each) => each.version === version) ?? choice?.versions[0];
 
   if (!choice || !picked) {

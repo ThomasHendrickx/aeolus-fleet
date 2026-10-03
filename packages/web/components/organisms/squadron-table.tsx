@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { shortDateTime } from '../../lib/relative-time';
 import type { Squadron } from '../../lib/squadrons-api';
-import { stationCount } from '../../lib/squadrons-view';
+import { blueprintPath, stationCount } from '../../lib/squadrons-view';
 import { Button } from '../atoms/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
@@ -91,7 +91,9 @@ export function SquadronTable({ squadrons, state, hasBlueprints, error, onRetry,
               </Link>
             </TableCell>
             <TableCell>
-              <span className="font-mono">{squadron.blueprint.name}</span> <span className="text-muted-foreground">v{squadron.blueprint.version}</span>
+              <Link href={blueprintPath(squadron.blueprint)} className="hover:underline">
+                <span className="font-mono">{squadron.blueprint.name}</span> <span className="text-muted-foreground">v{squadron.blueprint.version}</span>
+              </Link>
             </TableCell>
             <TableCell>
               <StatusBadge status={squadron.state} />
