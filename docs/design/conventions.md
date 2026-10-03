@@ -11,8 +11,8 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Colour
 - Brand accent = `--primary`: primary Button, active nav item, open-message counts, active TabBar item. Nothing else.
 - `--accent` = neutral hover and selected surface (shadcn meaning), never brand.
-- Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, alerts and count badges. Never on buttons, text blocks or layout.
-- Mapping: Awaiting crew, Pending, Forming, Blocked, Late → waiting. In flight, Standing down, Working → active. Crewed, Acknowledged, Sailing, On time → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring, no tone.
+- Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, alerts and count badges. Never on buttons, text blocks or layout.
+- Mapping: Awaiting crew, Pending, Forming, Blocked, Late, seen long ago → waiting. In flight, Standing down, Working → active. Crewed, Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
 - Status is never colour alone: icon + label always; the live dot always has its word.
 - Alert tone: error → attention; warning or rate limit → waiting; neutral fact → ended; calm notice (signed in elsewhere) → `--muted` panel.
 - `--destructive` fills only the final confirm Button. Destructive menu items and field errors use `--destructive-text`.
@@ -35,7 +35,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Body `--text-body` desktop, `--text-body-touch` phone; phone inputs `--text-input-touch`.
 - Metadata, help, timestamps: `--text-meta` in `--muted-foreground`.
 - Badges, column headers, counters: `--text-caption`. Counts, Kbd, TabBar labels: `--text-micro`.
-- Ids, id suffixes, types, roles, scopes, template refs (`tester@4`), commands: `--text-id` (mono). Payloads, prompts, crew lines, charters: `--text-code`.
+- Ids, id suffixes, types, roles, scopes, template refs (`tester@4`), model ids and packages (ModelTag), commands: `--text-id` (mono). Payloads, prompts, crew lines, charters: `--text-code`.
 - Overview numbers `--text-metric`; phone `--text-title-touch`.
 - Weights: 400 body, 500 labels, names, buttons; 600 titles. No italics, no all caps.
 - Tabular numbers for counts, times and durations.
@@ -54,8 +54,13 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Button order: desktop footers right-aligned, Cancel left of the action; phone stacked full width, action on top, Cancel last.
 - AccountMenu is the only home for the signed-in person: identity, this session, Account settings, Theme, Sign out. Future account features go here, never into page chrome. Desktop: Sidebar foot, DropdownMenu opening upwards. Phone: Avatar last in TopBar on every root page, bottom Sheet.
 - Theme switch lives only in AccountMenu: Light, Dark, System (default System).
-- argo: first in FleetTable; operator kind chip; row opens OperatorInbox; menu only Open inbox and Copy ship id; never Release, Rename, Retire, starting prompt or report; excluded from SelectorPicker, CommandPalette ships and overview metrics; as a party "argo (you)".
+- argo: first in FleetTable; operator kind chip; row opens OperatorInbox; menu only Open inbox and Copy ship id; never Release, Rename, Retire, starting prompt, report or model; runs on "Console · Device"; excluded from SelectorPicker, CommandPalette ships and overview metrics; as a party "argo (you)".
 - ReportLine on every other ship: FleetTable Report column, ShipHeader under the title. No report: "No report yet". Retired ships: none.
+- FleetTable row: one 48 px line. Columns: name (ShipName plus operator chip, flagship chip or SquadronTag), Status, Report (ReportLine, time in title), Runs on (LocationTag with harness), Model (ModelTag), Seen (LastSeen), row menu. No Type, Inbox, Crewed since or last ping column: Type is a filter, open deliveries live on the ship page, the last ping answer on the ship page.
+- FleetTable actions: all in the row menu. At most one next-step Button (secondary, xs; phone full width) in the Report cell, only: Awaiting crew → Get starting prompt, silent member → Get new crew line.
+- Row menu: crewed: Message this ship…, Copy ship id, Ping, Re-crew…, Release ship…, Rename…, Retire ship…. Awaiting crew: Get starting prompt… in place of Ping, Re-crew, Release. Member: Ping, Get new crew line…, Release ship…, Remove from squadron…, no Rename or Retire. Flagship: Open squadron only. Retired: Copy ship id.
+- ModelTag: the value exactly as the session stated it, stated time in title. Starts with @ or ends in @x.y.z → software (package mark, dashed outline); otherwise a model (sparkles mark). Empty for argo and ships without a session; "Not stated yet" for a crewed ship that has not stated one.
+- LastSeen: icon only, "Last seen 25 s ago" as title and accessible name. Under 1 min fresh, 1 to 15 min a while, over 15 min long ago; same for squadron members. No icon without a session.
 - FleetScopes: edit in CommissionForm, both off; read-only in the ShipHeader meta strip, "None" when empty.
 - StartingPromptBlock always shows CrewLineBlock under the prompt.
 
@@ -82,23 +87,23 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.
 
 ## Destructive actions
-- No confirm: Mark done, Mark as unread, Resend, Dismiss, Get new prompt or Get new crew line when none is outstanding, Sign out.
-- Normal confirm (Dialog, phone bottom Sheet): Get new prompt or Get new crew line while an unclaimed one is out (it stops working); Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button).
-- TypedConfirm when an action discards pending work or breaks what other ships hold: Retire with open deliveries (type the ship's current name); Rename (ships addressing the old name stop reaching it; type the current name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
+- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt, Get new crew line (the dialog states the old one stops working), Sign out.
+- Normal confirm (Dialog, phone bottom Sheet): Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
+- TypedConfirm only when an irreversible action discards pending work: Retire with open deliveries (type the ship name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
 - No other protective rules.
 
 ## Copy
 - Plain, direct, present tense, "you" for the operator. Short sentences.
 - Sentence case everywhere: titles, buttons, menu items, tabs. Ship names, types and ids exactly as stored.
-- Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, crew line, report, fleet scope, delivery, pending, in flight, acknowledged, undeliverable, dismissed, abandoned, operator, argo. Squadrons: squadron, flagship, member, role, blueprint, template, charter, launch note, check-in, form, on station, sailing, stand down, disbanded, hand-off. Not: lease, revoke, rotate, user, agent (except "agent session"), team, deploy.
+- Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, crew line, re-crew, ping, report, harness, model, last seen, fleet scope, delivery, pending, in flight, acknowledged, undeliverable, dismissed, abandoned, operator, argo. Squadrons: squadron, flagship, member, role, blueprint, template, charter, launch note, check-in, form, on station, sailing, stand down, disbanded, hand-off. Not: lease, revoke, rotate, user, agent (except "agent session"), team, deploy.
 - ShipName: add ` · XXXX` (last 4 id characters) in ShipTimeline, DeliveryHistory, retired ships and message parties. Never for argo.
 - Type address: Badge type chip in mono; prose "Any ship of type reviewer"; short "any reviewer".
 - Ids: mono, shortened in the middle (`shp_01J8XK4T…YB4C`), full value in `title`; CopyButton copies the full id.
 - Times: relative under 24 h ("6 min ago"); durations "1 d 2 h", "11 min"; otherwise "28 Sep, 14:21" (24 h clock); envelopes and meta strips "28 Sep 2026, 14:05:51"; seconds only in DeliveryHistory and envelopes; relative times carry the absolute in `title`.
 - Numbers as digits: "1 open", "3 deliveries".
 - Buttons: verb + object, max 4 words ("Commission ship", "Send reply"); "Try again" for retries; "Cancel" before anything is done, "Close" after.
-- LocationTag text: `<Kind> · <description>`; kinds Device, Cloud, Server, Other. FleetTable uses it compact.
+- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, claude-chat, codex and console show icon plus Claude Code, Claude chat, Codex, Console; any other harness plain text as stored.
 - Versions: blueprints "v4", templates "tester@4", commits short (`4f2a91c`).
 - No em dashes; use a colon, comma or full stop. Curly quotes and apostrophes.
 
@@ -110,7 +115,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 
 ## Responsive
 - Below `--breakpoint-sm`: phone. From `--breakpoint-sm`: desktop layout, Sidebar as rail (`--size-rail`). From `--breakpoint-lg`: full Sidebar (`--size-sidebar`).
-- Phone swaps: MemberList → role groups of cards; Sidebar → TabBar; Sidebar account button → TopBar Avatar opening AccountMenu; Header → TopBar; Table → list rows; DropdownMenu → bottom Sheet; form Dialog → full-screen page; confirm Dialog → bottom Sheet; side Sheet → pushed page, delivery first; two-pane OperatorInbox → list + page with pinned reply, TabBar hidden; filters → bottom Sheet; Toast above TabBar.
+- Phone swaps: MemberList → role groups of cards; Sidebar → TabBar; Sidebar account button → TopBar Avatar opening AccountMenu; Header → TopBar; Table → list rows (FleetTable: name, chip, status and menu; report or next step; runs on, model, seen); DropdownMenu → bottom Sheet; form Dialog → full-screen page; confirm Dialog → bottom Sheet; side Sheet → pushed page, delivery first; two-pane OperatorInbox → list + page with pinned reply, TabBar hidden; filters → bottom Sheet; Toast above TabBar.
 - Never drop an action on phone; move it into the TopBar menu or a bottom Sheet.
 - Pages use AuthLayout, ListLayout or DetailLayout; no other skeleton.
 

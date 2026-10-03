@@ -112,7 +112,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
 | Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
 | Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Every call of `report` sets when it last reported, even with the same state and note. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
-| Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out asks for confirmation first, because the outstanding one stops working |
+| Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out needs no confirmation; the dialog states that the outstanding one stops working |
 | Crew line | The same identity in one line, shown with every starting prompt, for a Claude Code session with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits |
 | Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
 | Retire | End a ship for good. Its id can never be claimed or addressed again |
@@ -239,7 +239,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 ### Rename a ship
 
 1. The operator chooses Rename on any ship but `argo` or a retired one, crewed or not, and types the new name, checked as at commissioning while typing.
-2. The dialog states as a fact that ships addressing the old name stop reaching it, and the operator types the ship's current name to confirm.
+2. The dialog states as a fact that ships addressing the old name stop reaching it; confirming the dialog renames.
 3. The ship goes by its new name (`ShipRenamed`). Its id, history and session stay; messages already sent store its id, so none is redirected.
 
 ### Retire a ship
