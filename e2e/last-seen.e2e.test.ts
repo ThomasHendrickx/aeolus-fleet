@@ -130,8 +130,11 @@ describe("a crew's report", () => {
 
     await lookout.call('report', { state: 'blocked', note: 'waiting for review' });
 
-    await page.getByTestId('ship-report').getByText('Blocked · waiting for review · just now').waitFor({ timeout: 20_000 });
+    const report = page.getByTestId('ship-report');
+    await report.getByText('waiting for review').waitFor({ timeout: 20_000 });
+    await expect(report.getAttribute('title')).resolves.toBe('Blocked: waiting for review');
+    await report.getByText('· reported just now').waitFor();
     await page.goto('/');
-    await page.getByTestId('fleet-row-lookout').getByText('Blocked · waiting for review', { exact: false }).waitFor();
+    await page.getByTestId('fleet-row-lookout').getByTestId('fleet-report').getByText('waiting for review').waitFor();
   });
 });
