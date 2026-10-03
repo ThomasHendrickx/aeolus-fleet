@@ -21,6 +21,7 @@ import { useNow } from '../../../lib/now';
 import { useAccountMenu } from '../../../lib/account';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
+import { useHasSquadrons } from '../../../lib/squadrons';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -59,6 +60,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
+  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -80,7 +82,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       title={ship.data?.name ?? 'Ship'}
       parent={{ href: '/', label: 'Fleet overview' }}
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount }}
+      nav={{ active: 'overview', inboxCount, attentionCount , hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

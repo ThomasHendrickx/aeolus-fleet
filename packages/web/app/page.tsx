@@ -16,6 +16,7 @@ import { useNow } from '../lib/now';
 import { useAttentionCount } from '../lib/needs-attention';
 import { useAccountMenu } from '../lib/account';
 import { useSignInWhenSessionEnds } from '../lib/session';
+import { useHasSquadrons } from '../lib/squadrons';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -46,6 +47,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const liveFleet = useLiveFleet();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
+  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -74,7 +76,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
         />
       }
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount }}
+      nav={{ active: 'overview', inboxCount, attentionCount , hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

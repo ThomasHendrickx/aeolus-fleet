@@ -44,3 +44,8 @@ export function useConnectSquadrons() {
     },
   });
 }
+
+/** Whether this console has squadrons: AEOLUS_SQUADRONS_URL is set. The navigation shows Squadrons only then. */
+export function useHasSquadrons(): boolean {
+  return useSquadronsSettings().data?.configured === true;
+}

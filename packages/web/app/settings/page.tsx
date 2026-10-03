@@ -12,12 +12,13 @@ import { useNeedsAttention } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useLiveFleet } from '../../lib/live-fleet';
-import { useConnectSquadrons, useSquadronsSettings } from '../../lib/squadrons';
+import { useConnectSquadrons, useSquadronsSettings, useHasSquadrons } from '../../lib/squadrons';
 
 /** Settings: the installation's own settings, argo's alone. So far, connecting squadrons. */
 export default function SettingsPage() {
   const now = useNow();
   const accountMenu = useAccountMenu(now);
+  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
   const settings = useSquadronsSettings();
@@ -32,7 +33,7 @@ export default function SettingsPage() {
       title="Settings"
       description="How this installation runs. Only argo, the operator, sees this page."
       live={liveFleet.live}
-      nav={{ active: 'settings', inboxCount, attentionCount: attention.data?.length }}
+      nav={{ active: 'settings', inboxCount, attentionCount: attention.data?.length , hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

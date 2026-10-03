@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, Settings, Ship, TriangleAlert } from 'lucide-react';
+import { Inbox, Settings, Shapes, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -9,7 +9,7 @@ import { Badge } from '../atoms/badge';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'inbox' | 'attention' | 'settings';
+export type SidebarDestination = 'overview' | 'squadrons' | 'inbox' | 'attention' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
@@ -18,6 +18,8 @@ interface SidebarProps extends AccountMenuProps {
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
+  /** Whether the console has squadrons: Squadrons then comes second. */
+  hasSquadrons?: boolean;
 }
 
 const ITEM =
@@ -93,10 +95,10 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
- * tone. A count simply hides until it is known. Settings sits above the
- * account menu.
+ * tone. A count simply hides until it is known. With squadrons on, Squadrons
+ * comes second. Settings sits above the account menu.
  */
-export function Sidebar({ active, inboxCount, attentionCount, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -117,6 +119,9 @@ export function Sidebar({ active, inboxCount, attentionCount, ...account }: Side
           isActive={active === 'overview'}
           testId="nav-overview"
         />
+        {hasSquadrons && (
+          <NavItem href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="nav-squadrons" />
+        )}
         <NavItem
           href="/inbox"
           label="Operator inbox"

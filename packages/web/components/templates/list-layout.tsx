@@ -20,7 +20,8 @@ interface ListLayoutProps {
   toolbar?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number };
+  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation. */
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
@@ -56,6 +57,7 @@ export function ListLayout({
         active={nav.active}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
+        hasSquadrons={nav.hasSquadrons}
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
@@ -96,6 +98,7 @@ export function ListLayout({
       </div>
       <TabBar
         active={nav.active === 'overview' ? 'fleet' : nav.active === 'settings' ? undefined : nav.active}
+        hasSquadrons={nav.hasSquadrons}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
       />
