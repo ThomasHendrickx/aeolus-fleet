@@ -315,3 +315,20 @@ describe('standing a squadron down', () => {
     expect(stood.status).toBe(409);
   });
 });
+
+describe('forcing a stand down', () => {
+  it('retires every member and the flagship of a forming squadron at once: the squadron is disbanded', async () => {
+    const formed = await formTeam('team-five');
+
+    const forced = await fetch(`${address}/trpc/squadrons.forceStandDown`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-five' }),
+    });
+
+    expect(forced.status, await forced.clone().text()).toBe(200);
+    expect(await squadronState('team-five')).toBe('disbanded');
+    const ships = await fleetDatabase.ship.findMany({ where: { id: { in: [formed.flagship.shipId, formed.members[0]?.shipId ?? ''] } } });
+    expect(ships.map((ship) => ship.retiredAt !== null)).toEqual([true, true]);
+  });
+});
