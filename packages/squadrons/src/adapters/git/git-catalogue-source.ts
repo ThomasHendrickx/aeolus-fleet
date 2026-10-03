@@ -1,7 +1,8 @@
 /**
  * Templates and blueprints from git (docs/squadrons.md, "Files in git"), with
  * the git command line. Each fleet's repository is kept as its own bare
- * mirror in the cache folder, so one fleet never reads what another fetched.
+ * mirror in the cache folder, so one fleet never reads what another fetched,
+ * and the folder opens to squadrons' own user only.
  * Fetching brings a mirror up to date with its tags; a repository read
  * without fetching gives what its mirror holds, and nothing before its first
  * fetch or when git cannot read its mirror. A version is a tag `<name>@<n>`;
@@ -13,7 +14,7 @@
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -75,8 +76,9 @@ function mirrorOf(repository: RepositoryToRead, cacheDir: string): string {
 /** Brings the repository's mirror up to date with its tags, cloning it the first time. */
 async function fetchMirror(repository: RepositoryToRead, cacheDir: string): Promise<void> {
   const mirror = mirrorOf(repository, cacheDir);
+  mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+  chmodSync(cacheDir, 0o700);
   if (!existsSync(mirror)) {
-    mkdirSync(cacheDir, { recursive: true });
     await run('git', ['clone', '--bare', '--quiet', repository.url, mirror], { env: fetchEnvironment(repository.token) });
   }
   await run('git', ['-C', mirror, 'fetch', '--quiet', '--prune', 'origin', '+refs/tags/*:refs/tags/*'], { env: fetchEnvironment(repository.token) });
