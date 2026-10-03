@@ -657,7 +657,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const lastModelOf = (held: Ship): ShipFacts['lastModel'] => {
-    const stated = state.messages.filter((message) => message.fleetId === held.fleetId && message.senderShipId === held.id && message.model !== null);
+    const stated = state.messages.filter(
+      (message) => message.fleetId === held.fleetId && message.senderShipId === held.id && message.model !== null && message.resendOfMessageId === null,
+    );
     const newest = stated.at(-1);
     return newest?.model ? { id: newest.model, statedAt: newest.createdAt } : null;
   };

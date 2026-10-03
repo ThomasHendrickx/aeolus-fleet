@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -380,6 +380,26 @@ describe('listing the fleet on Postgres', () => {
 
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
     expect(listed).toMatchObject({ harness: 'claude-code', model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
+  });
+
+  it("keeps the last model a ship's sessions stated when the operator resends an older message of the ship's", async () => {
+    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    const send = async (model: string) =>
+      unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', model, idempotencyKey: newKey() })).messageId;
+    const older = await send('claude-sonnet-5-5');
+    await core.prisma.delivery.updateMany({ where: { messageId: older }, data: { state: 'undeliverable' } });
+    const { id: deliveryId } = await core.prisma.delivery.findFirstOrThrow({ where: { messageId: older } });
+    core.clock.advance(60_000);
+    await send('claude-opus-5-5');
+    const statedAt = core.clock.now();
+    core.clock.advance(60_000);
+
+    unwrap(await core.useCases.resendDelivery(argo, { deliveryId: idSchema('delivery').parse(deliveryId) }));
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    expect(listed?.model).toEqual({ id: 'claude-opus-5-5', statedAt });
   });
 
   it('lists argo and a commissioned ship with their status and prompt state', async () => {

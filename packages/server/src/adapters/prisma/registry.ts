@@ -222,11 +222,15 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
   };
 }
 
-/** The last model the ship `s` of the outer query stated on a send, and when: its newest message with a model. */
+/**
+ * The last model the ship `s` of the outer query stated on a send, and when:
+ * its newest message with a model that its sessions sent. A resend is the
+ * operator's, under the original sender, so it never counts.
+ */
 const lastModelOfShip = Prisma.sql`
   SELECT m.model, m.created_at
   FROM messages m
-  WHERE m.fleet_id = s.fleet_id AND m.sender_ship_id = s.id AND m.model IS NOT NULL
+  WHERE m.fleet_id = s.fleet_id AND m.sender_ship_id = s.id AND m.model IS NOT NULL AND m.resend_of_message_id IS NULL
   ORDER BY m.created_at DESC, m.id DESC
   LIMIT 1`;
 
