@@ -18,9 +18,16 @@ const checkIn = z
   .transform((raw) => Number(raw.slice(0, -1)) * (raw.endsWith('h') ? MINUTES_PER_HOUR : 1))
   .refine((minutes) => minutes <= CHECK_IN_MAX_MINUTES, 'must be at most 24h');
 
+/** An exact model id, never an alias: `claude-opus-5-5`, not `opus` or `claude-opus-latest`. */
+const model = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9.-]*$/, 'must be an exact model id: lowercase letters, digits, dots and hyphens')
+  .refine((id) => /\d/.test(id) && !id.endsWith('-latest'), 'must be an exact model id, not an alias');
+
 const templateSchema = z.object({
   description: z.string().min(1),
   checkIn,
+  model: model.optional(),
   launchNote: z.string().optional(),
   charter: z.string().min(1),
   handoffs: z.record(handle, z.string().min(1)).optional(),
@@ -42,7 +49,6 @@ const blueprintSchema = z.object({
     .record(handle, z.object({ template: templateReference, count: z.int().min(1).max(COUNT_MAX).optional() }))
     .refine((roles) => Object.keys(roles).length > 0, 'must name at least one role'),
   handoffs: z.record(z.string().regex(/^[a-z0-9:-]+\.[a-z0-9:-]+$/, 'must be <role>.<hand-off>'), handle).optional(),
-  entry: handle,
   memberNames: z.enum(['plain', 'prefixed']).optional(),
 });
 
@@ -58,7 +64,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
   if (!parsed.success) {
     return err(firstIssue('template', parsed.error));
   }
-  const { description, checkIn: checkInMinutes, launchNote, charter, handoffs } = parsed.data;
+  const { description, checkIn: checkInMinutes, model: pinned, launchNote, charter, handoffs } = parsed.data;
   const { repository, name, version, commit, committedAt } = file;
   return ok({
     repository,
@@ -68,6 +74,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
     committedAt,
     description,
     checkInMinutes,
+    model: pinned ?? null,
     launchNote: launchNote ?? null,
     charter,
     handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
@@ -86,7 +93,7 @@ function blueprintOf(
   if (!parsed.success) {
     return err(firstIssue('blueprint', parsed.error));
   }
-  const { description, entry, memberNames } = parsed.data;
+  const { description, memberNames } = parsed.data;
   const roles = Object.entries(parsed.data.roles).map(([role, { template, count }]) => ({ name: role, template, count: count ?? 1 }));
   const roleNames = new Set(roles.map((role) => role.name));
 
@@ -120,12 +127,9 @@ function blueprintOf(
   if (unbound.length > 0) {
     return err(`handoffs: ${unbound.join(', ')} must be bound to a role or the flagship`);
   }
-  if (!roleNames.has(entry)) {
-    return err(`entry: ${entry} is a role the blueprint does not have`);
-  }
 
   const { repository, name, version, commit, committedAt } = file;
-  return ok({ repository, name, version, commit, committedAt, description, roles, handoffs, entry, memberNames: memberNames ?? 'plain' });
+  return ok({ repository, name, version, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
 }
 
 /**
