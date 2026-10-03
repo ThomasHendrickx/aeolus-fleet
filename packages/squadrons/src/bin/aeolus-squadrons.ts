@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * `aeolus-squadrons start`: takes the process lock (one squadrons process per
- * database), migrates squadrons' database, crews the management ship, then
- * serves until SIGINT or SIGTERM. `aeolus-squadrons
+ * database), migrates squadrons' database, connects again with the kept crew
+ * token if it has one (otherwise it serves not connected, until the operator
+ * connects it in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -40,21 +41,19 @@ async function start(): Promise<void> {
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
-    managementShip: config.managementShip,
     repositories,
     cacheDir: config.cacheDir ?? join(tmpdir(), 'aeolus-squadrons'),
     logger: { level: config.logLevel },
   });
-  const crewed = await app.crewManagementShip();
-  if (!crewed.isOk) {
-    await app.close();
-    await lock.release();
-    throw new ConfigError(crewed.error.message);
-  }
-  app.server.log.info({ ship: crewed.value.name }, 'crewing the management ship');
-  const recovered = await app.recoverFormations();
-  if (recovered.isOk && recovered.value.recovered > 0) {
-    app.server.log.warn(recovered.value, 'retired what formations a crash left unfinished had commissioned');
+  const connection = await app.readConnection();
+  if (connection.state === 'connected') {
+    app.server.log.info({ ship: connection.ship?.name }, 'connected as the management ship');
+    const recovered = await app.recoverFormations();
+    if (recovered.isOk && recovered.value.recovered > 0) {
+      app.server.log.warn(recovered.value, 'retired what formations a crash left unfinished had commissioned');
+    }
+  } else {
+    app.server.log.warn('not connected: connect squadrons in the console (Settings, Connect squadrons)');
   }
   await app.startRefreshing(refreshMinutes * 60_000);
   app.startFlagships(FLAGSHIP_RESCAN_MS);

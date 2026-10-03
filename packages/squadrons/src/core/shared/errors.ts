@@ -2,9 +2,10 @@ import { err, type Err } from './result.js';
 
 /** Every reason squadrons' core refuses a request. */
 export type DomainErrorKind =
-  | 'MANAGEMENT_SECRET_MISSING'
-  | 'MANAGEMENT_SECRET_REFUSED'
-  | 'MANAGEMENT_SHIP_CREWED_ELSEWHERE'
+  | 'ALREADY_CONNECTED'
+  | 'SECRET_REFUSED'
+  | 'OTHER_FLEET'
+  | 'MISSING_SCOPES'
   | 'NOT_THE_OPERATOR'
   | 'BLUEPRINT_NOT_FOUND'
   | 'INVALID_SQUADRON_ID'

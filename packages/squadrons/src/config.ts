@@ -1,11 +1,8 @@
-import { idSchema, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 const environmentSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// or postgresql:// URL' }),
   FLEET_URL: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }),
-  MANAGEMENT_SHIP_ID: idSchema('ship'),
-  MANAGEMENT_SHIP_SECRET: z.string().min(1).optional(),
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(0).max(65_535).default(4100),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -19,10 +16,13 @@ const databaseEnvironmentSchema = environmentSchema.pick({ DATABASE_URL: true })
 export interface Config {
   /** squadrons' own database (decision 0017), which may share the fleet's Postgres server. */
   databaseUrl: string;
-  /** The fleet's public URL, where squadrons calls the ship API as its management ship. */
+  /**
+   * The fleet's public URL, where squadrons calls the ship API as its
+   * management ship and checks console sessions. Not a secret; fixed here, so
+   * no caller can point squadrons at another fleet. The management ship's
+   * secret is never configured: the operator connects squadrons in the console.
+   */
   fleetUrl: string;
-  /** The ship with fleet:read and fleet:manage that squadrons crews; its secret only until squadrons holds a crew token. */
-  managementShip: { shipId: ShipId; secret: string | undefined };
   host: string;
   port: number;
   logLevel: string;
@@ -50,7 +50,6 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
   return {
     databaseUrl: variables.DATABASE_URL,
     fleetUrl: variables.FLEET_URL.replace(/\/$/, ''),
-    managementShip: { shipId: variables.MANAGEMENT_SHIP_ID, secret: variables.MANAGEMENT_SHIP_SECRET },
     host: variables.HOST,
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,

@@ -21,10 +21,14 @@ const sessions: ConsoleSessions = {
     ),
 };
 
-function storeFor(crew: { fleetId: FleetId } | undefined): ManagementCrewStore {
+/** A store bound to a fleet, connected or with its crew token dropped; or never connected. */
+function storeFor(bound: { fleetId: FleetId; isConnected?: boolean } | undefined): ManagementCrewStore {
   return {
-    find: () => Promise.resolve(crew && { ...crew, shipId: SHIP, crewToken: 'aeolus_ct_v1_x', crewedAt: new Date(0) }),
+    find: () =>
+      Promise.resolve(bound && bound.isConnected !== false ? { fleetId: bound.fleetId, shipId: SHIP, name: 'squadrons', crewToken: 'aeolus_ct_v1_x', crewedAt: new Date(0) } : undefined),
+    binding: () => Promise.resolve(bound && { fleetId: bound.fleetId, shipId: SHIP }),
     save: () => Promise.resolve(),
+    drop: () => Promise.resolve(),
   };
 }
 
@@ -45,9 +49,16 @@ describe('the operator', () => {
     await expect(authenticate(cookie)).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR' } });
   });
 
-  it('is refused while squadrons crews no management ship: it serves no fleet yet', async () => {
+  it('is any signed-in operator of the fleet at its FLEET_URL before squadrons was ever connected: who may connect it', async () => {
     const authenticate = createAuthenticateOperator({ sessions, store: storeFor(undefined) });
 
-    await expect(authenticate('aeolus_session=ours')).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR' } });
+    await expect(authenticate('aeolus_session=theirs')).resolves.toMatchObject({ isOk: true });
+  });
+
+  it("stays the operator of the fleet squadrons was connected to once its crew token was dropped: another fleet's is refused", async () => {
+    const authenticate = createAuthenticateOperator({ sessions, store: storeFor({ fleetId: FLEET, isConnected: false }) });
+
+    await expect(authenticate('aeolus_session=ours')).resolves.toMatchObject({ isOk: true });
+    await expect(authenticate('aeolus_session=theirs')).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR' } });
   });
 });

@@ -1,8 +1,8 @@
-import type { ShipId } from '@aeolus-fleet/common';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
+import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { createGitCatalogueSource, type GitRepository } from './adapters/git/git-catalogue-source.js';
 import { runningVersion } from './adapters/http/version.js';
@@ -17,7 +17,8 @@ import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagshi
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { assembleCatalogue } from './core/catalogue/assemble-catalogue.js';
 import type { Catalogue } from './core/catalogue/catalogue.js';
-import { createCrewManagementShip, type CrewManagementShip } from './core/management/crew-management-ship.js';
+import { createConnect, type Connect } from './core/management/connect.js';
+import { createReadConnection, type ReadConnection } from './core/management/read-connection.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
@@ -29,13 +30,15 @@ export const systemClock: Clock = { now: () => new Date() };
 export interface SquadronsApp {
   /** The HTTP server: `/api/health` and `/api/version` for whoever operates the installation. */
   server: FastifyInstance;
-  /** Crews the management ship, from the kept crew token or with the secret. */
-  crewManagementShip: CrewManagementShip;
+  /** Whether squadrons is connected; a kept crew token the fleet no longer takes is dropped. Read at start. */
+  readConnection: ReadConnection;
+  /** Connects squadrons as the operator's management ship, then recovers formations and starts the flagships. */
+  connect: Connect;
   /** Reads the repositories again; on failure the catalogue stays as it was and the failure is logged. */
   refreshCatalogue: () => Promise<void>;
   /** Refreshes the catalogue now and then every interval, until the app closes. */
   startRefreshing: (intervalMs: number) => Promise<void>;
-  /** Retires what formations a crash left unfinished commissioned: run at start, before anything else forms. */
+  /** Retires what formations a crash left unfinished commissioned: run once connected, before anything else forms. */
   recoverFormations: RecoverFormations;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
   startFlagships: (rescanMs: number) => void;
@@ -51,7 +54,6 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  managementShip: { shipId: ShipId; secret: string | undefined };
   /** The repositories of templates and blueprints (docs/squadrons.md, "Configuration"). */
   repositories: readonly GitRepository[];
   /** Where the repositories' mirrors are kept. */
@@ -61,6 +63,9 @@ export function createSquadronsApp(options: {
 }): SquadronsApp {
   const prisma = createPrismaClient(options.databaseUrl);
   const server = Fastify({ logger: options.logger ?? true });
+  const store = createPrismaManagementCrewStore(prisma);
+  // From what squadrons holds, without asking the fleet: health and version stay quick.
+  const connectionOf = async (): Promise<'connected' | 'not-connected'> => ((await store.find()) ? 'connected' : 'not-connected');
 
   // The version this process runs and its database's latest migration. No authentication, no fleet data.
   const version = runningVersion();
@@ -71,25 +76,24 @@ export function createSquadronsApp(options: {
     } catch (error) {
       server.log.error({ err: error }, 'latest migration unknown');
     }
-    return { squadrons: version, migration };
+    return { squadrons: version, migration, connection: await connectionOf() };
   });
 
   // Up and its database reachable.
   server.get('/api/health', async (_request, reply) => {
     try {
       await checkDatabase(prisma);
-      return { status: 'ok' };
+      return { status: 'ok', connection: await connectionOf() };
     } catch (error) {
       server.log.error({ err: error }, 'database unreachable');
       return reply.code(503).send({ status: 'unavailable' });
     }
   });
 
-  const store = createPrismaManagementCrewStore(prisma);
   const clock = options.clock ?? systemClock;
   const squadrons = createPrismaSquadronRepository(prisma, clock);
   const attempts = createPrismaFormationAttempts(prisma, clock);
-  const door = createRestFleetDoor(options.fleetUrl);
+  const door = watchManagementLease(createRestFleetDoor(options.fleetUrl), store);
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
   let flagships: FlagshipWatch | undefined;
@@ -112,6 +116,22 @@ export function createSquadronsApp(options: {
     }
   };
 
+  const recoverFormations = createRecoverFormations({ door, management: store, attempts });
+  const readConnection = createReadConnection({ door, store });
+  const connectOnly = createConnect({ door, store, clock });
+  // Once connected, what waited for it: formations a crash left unfinished, then the flagships.
+  const connect: Connect = async (input) => {
+    const connected = await connectOnly(input);
+    if (connected.isOk) {
+      const recovered = await recoverFormations();
+      if (!recovered.isOk) {
+        server.log.error({ refusal: recovered.error }, 'formations a crash left unfinished could not be recovered');
+      }
+      await flagships?.rescan();
+    }
+    return connected;
+  };
+
   const trpc: FastifyTRPCPluginOptions<SquadronsRouter> = {
     prefix: '/trpc',
     trpcOptions: {
@@ -124,6 +144,9 @@ export function createSquadronsApp(options: {
       createContext: ({ req }) => ({
         cookie: req.headers.cookie,
         authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl), store }),
+        isConnected: async () => (await connectionOf()) === 'connected',
+        readConnection,
+        connect,
         catalogue: () => catalogue,
         refreshCatalogue,
         formSquadron: formAndWatch,
@@ -137,19 +160,20 @@ export function createSquadronsApp(options: {
   let refresher: ReturnType<typeof setInterval> | undefined;
   server.addHook('onClose', async () => {
     clearInterval(refresher);
-    flagships?.stop();
+    await flagships?.stop();
     await prisma.$disconnect();
   });
 
   return {
     server,
-    crewManagementShip: createCrewManagementShip({ door, store, clock, ship: options.managementShip }),
+    readConnection,
+    connect,
     refreshCatalogue,
     startRefreshing: async (intervalMs) => {
       await refreshCatalogue();
       refresher = setInterval(() => void refreshCatalogue(), intervalMs);
     },
-    recoverFormations: createRecoverFormations({ door, management: store, attempts }),
+    recoverFormations,
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({
         door,

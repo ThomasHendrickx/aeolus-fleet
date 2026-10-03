@@ -16,6 +16,8 @@ let attempts: ReturnType<typeof memoryAttempts>;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   getStartingPrompt: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),
@@ -33,8 +35,10 @@ const door: FleetDoor = {
 };
 
 const management: ManagementCrewStore = {
-  find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+  find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+  binding: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT }),
   save: () => Promise.resolve(),
+  drop: () => Promise.resolve(),
 };
 
 beforeEach(async () => {

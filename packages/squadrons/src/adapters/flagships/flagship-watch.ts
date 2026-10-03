@@ -20,7 +20,8 @@ const RETRY_MS = 1_000;
 export interface FlagshipWatch {
   /** Starts the receive of every forming or sailing squadron not watched yet. */
   rescan(): Promise<void>;
-  stop(): void;
+  /** Stops receiving, and resolves once every receive, delivery and rescan in flight is done: the database may close then. */
+  stop(): Promise<void>;
 }
 
 export function watchFlagships(deps: {
@@ -34,6 +35,13 @@ export function watchFlagships(deps: {
 }): FlagshipWatch {
   const stopping = new AbortController();
   const watched = new Set<string>();
+  // What runs in the background, so stop can wait for it.
+  const running = new Set<Promise<void>>();
+  const track = (work: Promise<void>): Promise<void> => {
+    running.add(work);
+    void work.finally(() => running.delete(work));
+    return work;
+  };
   const pause = (ms: number) =>
     new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, ms);
@@ -93,17 +101,20 @@ export function watchFlagships(deps: {
     for (const squadron of await deps.squadrons.list(crew.fleetId)) {
       if ((squadron.state === 'forming' || squadron.state === 'sailing') && !watched.has(squadron.id)) {
         watched.add(squadron.id);
-        void watch(crew.fleetId, squadron.id);
+        void track(watch(crew.fleetId, squadron.id));
       }
     }
   };
 
-  const timer = setInterval(() => void rescan(), deps.rescanMs);
+  const timer = setInterval(() => void track(rescan()), deps.rescanMs);
   return {
-    rescan,
-    stop: () => {
+    rescan: () => track(rescan()),
+    stop: async () => {
       clearInterval(timer);
       stopping.abort();
+      while (running.size > 0) {
+        await Promise.allSettled([...running]);
+      }
     },
   };
 }
