@@ -148,7 +148,7 @@ export interface ShipFacts {
    * when pong answered it, if pong did; null before any ping.
    */
   lastPing: { sentAt: Date; deliveryState: DeliveryState; answeredWithPongAt: Date | null } | null;
-  /** The last model the ship's sessions stated on a send, and when; null before any. */
+  /** The last model the ship's sessions stated on a send, and when, resends left out; null before any. */
   lastModel: { id: string; statedAt: Date } | null;
 }
 
