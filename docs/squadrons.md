@@ -83,9 +83,11 @@ A ship crewed with a squadron id checks in at its flagship before it does anythi
 
 1. The member sends `application/vnd.aeolus.squadron.check-in+json` to its flagship: `{ "squadron": "<id>", "model": "<the exact model id it runs>" }`. Its ship id is the sender. squadrons keeps the model it states; when its template pins a model and the member states another, or none, the member shows a model mismatch. Nothing is refused for it.
 2. The flagship answers it (`inReplyTo` set) with `application/vnd.aeolus.squadron.role+json`: `{ "squadron", "role", "template": "tester@4", "charter", "checkIn": "30m", "handoffs": { "on-fail": { "kind": "type", "type": "hemma-feature-a1b2c3:implementer" }, "on-pass": { "kind": "ship", "name": "hemma-feature-a1b2c3" } }, "flagship" }`. Each hand-off is the selector to send to: the role's type, or the flagship by name.
-3. The member answers that (`inReplyTo` set) with `application/vnd.aeolus.squadron.on-station+json`: `{ "squadron", "role" }`. From then on it is on station; the squadron sails when every member is.
+3. The member answers that (`inReplyTo` set) with `application/vnd.aeolus.squadron.on-station+json`: `{ "squadron", "role" }`. From then on it is on station; a Forming squadron sails when every member is.
 
-Standing down: the flagship sends each member `application/vnd.aeolus.squadron.stand-down+json` (`{ "squadron" }`); the member finishes its open work and acks it as any delivery. Health comes from each member's last report (`report`): late after one check-in interval, silent after three. Before its first report the clock runs from when it came on station. A member is on station only with the crew that confirmed its role: while its ship awaits crew, and once a new crew holds it, it is not on station until it checks in again. Health is observation only: nothing retires or stops a member for it.
+## Lifecycle
+
+The lifecycle of a squadron and its members (states, transitions, stand down, force stand down, adding and removing members, a new crew line, health, and what squadrons does not handle) is described once, in [the squadrons package README](../packages/squadrons/README.md#lifecycle).
 
 ## Connection
 
