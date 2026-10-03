@@ -1,7 +1,7 @@
 'use client';
 
 import type { ListedShip, ShipId } from '@aeolus-fleet/common';
-import { KeyRound, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Flag, KeyRound, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -14,6 +14,7 @@ import {
   type FleetView,
 } from '../../lib/fleet-filter';
 import { fullDateTime, lastSeen, relativeTime } from '../../lib/relative-time';
+import type { ShipInSquadron } from '../../lib/squadrons-view';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
@@ -28,6 +29,7 @@ import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { LocationTag } from '../molecules/location-tag';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportLine } from '../molecules/report-line';
+import { SquadronTag } from '../molecules/squadron-tag';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -51,6 +53,8 @@ interface FleetTableProps {
   renderRowActions?: (ship: ListedShip, layout: RowActionsLayout) => ReactNode;
   /** The empty state's one action: Commission your first ship. */
   emptyAction?: ReactNode;
+  /** With squadrons on, each flagship's and member's squadron, by ship id. */
+  squadronsOf?: ReadonlyMap<string, ShipInSquadron>;
 }
 
 const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
@@ -68,15 +72,32 @@ function isOnlyArgo(ships: readonly ListedShip[]): boolean {
   return ships.every((ship) => ship.kind === 'operator' || ship.status === 'retired');
 }
 
-function TypeChip({ ship }: { ship: ListedShip }) {
-  return ship.kind === 'operator' ? (
-    <Badge variant="kind">
-      <UserRound aria-hidden />
-      operator
-    </Badge>
-  ) : (
-    <Badge variant="type">{ship.type}</Badge>
-  );
+/**
+ * The ship's type: argo's operator kind chip; with squadrons on, a flagship's
+ * flagship kind chip and a member's SquadronTag (its squadron and role, in
+ * place of the `<squadron>:<role>` type); otherwise the type chip.
+ */
+function TypeChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadron | undefined }) {
+  if (ship.kind === 'operator') {
+    return (
+      <Badge variant="kind">
+        <UserRound aria-hidden />
+        operator
+      </Badge>
+    );
+  }
+  if (squadron?.role === null) {
+    return (
+      <Badge variant="kind" data-testid="fleet-flagship">
+        <Flag aria-hidden />
+        flagship
+      </Badge>
+    );
+  }
+  if (squadron) {
+    return <SquadronTag squadronId={squadron.squadronId} role={squadron.role} size="sm" />;
+  }
+  return <Badge variant="type">{ship.type}</Badge>;
 }
 
 /** A crewed ship's LocationTag, or an awaiting ship's starting prompt status. */
@@ -272,7 +293,8 @@ function DesktopTable({
   highlightedShipIds,
   now,
   renderRowActions,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions'> & { ships: readonly ListedShip[] }) {
+  squadronsOf,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
   return (
     <div className="max-sm:hidden">
       <Table aria-label="Ships">
@@ -298,7 +320,7 @@ function DesktopTable({
                 <ShipNameCell ship={ship} />
               </TableCell>
               <TableCell>
-                <TypeChip ship={ship} />
+                <TypeChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
               </TableCell>
               <TableCell>
                 <StatusBadge status={ship.status} />
@@ -320,7 +342,8 @@ function PhoneList({
   highlightedShipIds,
   now,
   renderRowActions,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions'> & { ships: readonly ListedShip[] }) {
+  squadronsOf,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
       {ships.map((ship) => {
@@ -337,7 +360,7 @@ function PhoneList({
               <StatusBadge status={ship.status} />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <TypeChip ship={ship} />
+              <TypeChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
               <Whereabouts ship={ship} now={now} size="sm" />
             </div>
             {actions ? <div className="flex flex-wrap gap-2 pt-1">{actions}</div> : null}
@@ -366,6 +389,7 @@ export function FleetTable({
   now,
   renderRowActions,
   emptyAction,
+  squadronsOf,
 }: FleetTableProps) {
   if (state === 'loading') {
     return (
@@ -388,7 +412,7 @@ export function FleetTable({
     );
   }
 
-  const rows = { highlightedShipIds, now, renderRowActions };
+  const rows = { highlightedShipIds, now, renderRowActions, squadronsOf };
   if (isOnlyArgo(ships)) {
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (

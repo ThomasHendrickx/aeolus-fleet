@@ -1,5 +1,11 @@
 import type { BlueprintVersion, Catalogue, Squadron, TemplateVersion } from './squadrons-api';
 
+/** A ship's place in a squadron: a member with its role, or the flagship (role null). */
+export interface ShipInSquadron {
+  squadronId: string;
+  role: string | null;
+}
+
 /** A blueprint with its versions, newest first: the first is the latest. */
 export interface BlueprintChoice {
   key: string;
@@ -82,4 +88,19 @@ export function membersByRole<M extends { role: string }>(members: readonly M[])
     role,
     members: grouped,
   }));
+}
+
+/** Which squadron each ship belongs to, by ship id: its flagship and its members. Disbanded squadrons hold no ships. */
+export function shipsInSquadrons(squadrons: readonly Pick<Squadron, 'id' | 'state' | 'flagship' | 'members'>[]): ReadonlyMap<string, ShipInSquadron> {
+  const byShip = new Map<string, ShipInSquadron>();
+  for (const squadron of squadrons) {
+    if (squadron.state === 'disbanded') {
+      continue;
+    }
+    byShip.set(squadron.flagship.shipId, { squadronId: squadron.id, role: null });
+    for (const member of squadron.members) {
+      byShip.set(member.shipId, { squadronId: squadron.id, role: member.role });
+    }
+  }
+  return byShip;
 }

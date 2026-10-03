@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, checkInText, memberCount, membersByRole, rolePreviews, stationCount } from './squadrons-view';
+import { blueprintChoices, checkInText, memberCount, membersByRole, rolePreviews, shipsInSquadrons, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 
@@ -110,5 +110,25 @@ describe('a squadron', () => {
       ['planner', 1],
       ['implementer', 2],
     ]);
+  });
+});
+
+describe('the ships in squadrons', () => {
+  const squadron = (id: string, state: 'forming' | 'disbanded') => ({
+    id,
+    state,
+    flagship: { shipId: `shp_${id}-flagship`, name: id },
+    members: [{ shipId: `shp_${id}-tester`, name: 'tester-k3x9', role: 'tester', type: `${id}:tester`, onStationAt: null, model: { pinned: null, stated: null, isMismatch: false } }],
+  });
+
+  it('names the squadron of each flagship and member, and each member\'s role', () => {
+    const ships = shipsInSquadrons([squadron('team-a1b2c3', 'forming')]);
+
+    expect(ships.get('shp_team-a1b2c3-flagship')).toEqual({ squadronId: 'team-a1b2c3', role: null });
+    expect(ships.get('shp_team-a1b2c3-tester')).toEqual({ squadronId: 'team-a1b2c3', role: 'tester' });
+  });
+
+  it('leaves out the ships of a disbanded squadron', () => {
+    expect(shipsInSquadrons([squadron('team-old', 'disbanded')]).size).toBe(0);
   });
 });
