@@ -1,7 +1,7 @@
 /**
  * Templates and blueprints from git (docs/squadrons.md, "Files in git"), with
- * the git command line. Each repository is kept as a bare mirror in the cache
- * folder; fetching brings it up to date with its tags, and a repository read
+ * the git command line. Each fleet's repository is kept as its own bare mirror
+ * in the cache folder, so one fleet never reads what another fetched; fetching brings it up to date with its tags, and a repository read
  * without fetching gives what its mirror holds, nothing before its first
  * fetch. A version is a tag `<name>@<n>`; its file is
  * `<path>/templates/<name>.yaml` or `<path>/blueprints/<name>.yaml` at the
@@ -58,7 +58,7 @@ async function git(mirror: string, ...args: string[]): Promise<string> {
 }
 
 function mirrorOf(repository: RepositoryToRead, cacheDir: string): string {
-  return join(cacheDir, createHash('sha256').update(repository.url).digest('hex').slice(0, 16));
+  return join(cacheDir, createHash('sha256').update(`${repository.fleetId} ${repository.url}`).digest('hex').slice(0, 16));
 }
 
 /** Brings the repository's mirror up to date with its tags, cloning it the first time. */

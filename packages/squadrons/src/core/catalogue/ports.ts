@@ -21,14 +21,15 @@ import type { FleetId } from '@aeolus-fleet/common';
 import type { Catalogue } from './catalogue.js';
 import type { TemplateRepository } from './template-repository.js';
 
-/** A repository to read: what reading it needs. */
-export type RepositoryToRead = Pick<TemplateRepository, 'name' | 'url' | 'path' | 'token'>;
+/** A repository to read: what reading it needs, and the fleet whose it is. */
+export type RepositoryToRead = Pick<TemplateRepository, 'fleetId' | 'name' | 'url' | 'path' | 'token'>;
 
 /**
  * Outbound port: the template and blueprint versions of the given
  * repositories (docs/squadrons.md, "Files in git"). A repository `fetch`
  * picks is fetched first, and answers whether that worked; every other is
  * read from what it last fetched, and holds nothing before its first fetch.
+ * What one fleet fetched is never read for another.
  */
 export interface RepositoryReader {
   read(
