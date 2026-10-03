@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -17,7 +17,8 @@ const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 // annotated, read at their commits from the .aeolus/squadrons/ folder or the
 // repository's path; a new tag shows after a fetch, a repository read without
 // fetching gives what it last fetched, within its own fleet only, and a
-// failed fetch says why without its token.
+// failed fetch says why without its token. A token never shows in git's
+// command line, where any local process could read it.
 
 const run = promisify(execFile);
 let work: string;
@@ -190,5 +191,41 @@ describe('the git repository reader', () => {
     const error = fetched[0]?.error ?? '';
     expect(error).not.toContain(token);
     expect(error).not.toContain(Buffer.from(`x-access-token:${token}`).toString('base64'));
+  });
+});
+
+describe('a private repository', () => {
+  let path: string | undefined;
+
+  afterEach(() => {
+    process.env.PATH = path;
+  });
+
+  it("hands git its token outside the command line: never in any git process's arguments", async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
+    const bin = join(work, 'bin');
+    const log = join(work, 'git.log');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf 'argv %s\\n' "$*" >> '${log}'\nenv | grep '^GIT_CONFIG_VALUE' >> '${log}'\nexec '${realGit}' "$@"\n`);
+    chmodSync(join(bin, 'git'), 0o755);
+    path = process.env.PATH;
+    process.env.PATH = `${bin}:${path ?? ''}`;
+    const token = 'ghp_secret_token_value';
+    const credentials = Buffer.from(`x-access-token:${token}`).toString('base64');
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+
+    const { files } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token }], { fetch: () => true });
+
+    expect(files.map((file) => file.name)).toEqual(['tester']);
+    const lines = readFileSync(log, 'utf8').split('\n');
+    const argv = lines.filter((line) => line.startsWith('argv '));
+    expect(argv.length).toBeGreaterThan(0);
+    expect(argv.join('\n')).not.toContain(token);
+    expect(argv.join('\n')).not.toContain(credentials);
+    expect(lines).toContain(`GIT_CONFIG_VALUE_0=Authorization: Basic ${credentials}`);
   });
 });
