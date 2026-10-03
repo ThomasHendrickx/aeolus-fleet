@@ -16,6 +16,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../server/test/support/keys.js';
 
 // The catalogue at squadrons' tRPC door: only the fleet's signed-in operator,
@@ -76,10 +77,11 @@ beforeEach(async () => {
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
+  const squadronsDatabaseUrl = await createSquadronsDatabase();
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
   app = createSquadronsApp({
-    databaseUrl: await createSquadronsDatabase(),
+    databaseUrl: squadronsDatabaseUrl,
     fleetUrl,
-    repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     logger: false,
   });
@@ -137,5 +139,66 @@ describe('the catalogue at the squadrons API', () => {
     expect(refreshed.status).toBe(200);
     const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;
     expect(data.templates.map((template) => template.version).sort()).toEqual([1, 2]);
+  });
+});
+
+const repositoriesListed = z.object({
+  result: z.object({
+    data: z.array(z.object({ name: z.string(), url: z.string(), path: z.string(), hasToken: z.boolean(), addedAt: z.string(), lastFetch: z.object({ at: z.string(), error: z.string().nullable() }).nullable() })),
+  }),
+});
+
+async function call(cookie: string, request: { procedure: string; body: unknown }): Promise<Response> {
+  const { procedure, body } = request;
+  return fetch(`${address}/trpc/${procedure}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+describe('the template repositories at the squadrons API', () => {
+  it('adds a repository by its https URL and a write-only token, keeps it with why its first fetch failed, and lists it without the token', async () => {
+    const cookie = await signIn();
+    const token = 'ghp_api_secret_value';
+
+    const added = await call(cookie, { procedure: 'repositories.add', body: { url: 'https://127.0.0.1:1/acme/private.git', token } });
+
+    expect(added.status, await added.clone().text()).toBe(200);
+    const addedText = await added.text();
+    expect(addedText).not.toContain(token);
+    const listedRepositories = await (await fetch(`${address}/trpc/repositories.list`, { headers: { cookie } })).text();
+    expect(listedRepositories).not.toContain(token);
+    const listed = repositoriesListed.parse(JSON.parse(listedRepositories)).result.data;
+    expect(listed.map(({ name, path, hasToken }) => ({ name, path, hasToken }))).toEqual([
+      { name: REPO, path: '.aeolus/squadrons', hasToken: false },
+      { name: '127.0.0.1:1/acme/private', path: '.aeolus/squadrons', hasToken: true },
+    ]);
+    expect(listed[1]?.lastFetch?.error).toEqual(expect.any(String));
+    expect(listed[1]?.lastFetch?.error).not.toContain(token);
+  });
+
+  it('refuses a URL that is no https URL of a repository', async () => {
+    const response = await call(await signIn(), { procedure: 'repositories.add', body: { url: `file://${origin}` } });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('refuses a repository added already', async () => {
+    const cookie = await signIn();
+    await call(cookie, { procedure: 'repositories.add', body: { url: 'https://127.0.0.1:1/acme/twice' } });
+
+    await expect(call(cookie, { procedure: 'repositories.add', body: { url: 'https://127.0.0.1:1/acme/twice.git' } }).then((response) => response.status)).resolves.toBe(409);
+  });
+
+  it('removes a repository, and its versions leave the catalogue at once', async () => {
+    const cookie = await signIn();
+
+    const removed = await call(cookie, { procedure: 'repositories.remove', body: { name: REPO } });
+
+    expect(removed.status).toBe(200);
+    const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;
+    expect(data.templates).toEqual([]);
+    await expect(call(cookie, { procedure: 'repositories.remove', body: { name: REPO } }).then((response) => response.status)).resolves.toBe(404);
+  });
+
+  it('refuses the repositories without a signed-in console session', async () => {
+    await expect(fetch(`${address}/trpc/repositories.list`).then((response) => response.status)).resolves.toBe(401);
   });
 });

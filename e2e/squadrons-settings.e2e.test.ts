@@ -49,7 +49,7 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, repositories: [], cacheDir: '/tmp/aeolus-squadrons-e2e', logger: false });
+  squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, cacheDir: '/tmp/aeolus-squadrons-e2e', logger: false });
   await squadrons.readConnection();
   squadronsUrl = await squadrons.server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl, squadronsUrl });

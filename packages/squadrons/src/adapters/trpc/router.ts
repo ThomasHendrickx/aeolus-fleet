@@ -7,7 +7,11 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import type { AddRepository } from '../../core/catalogue/add-repository.js';
 import type { Catalogue } from '../../core/catalogue/catalogue.js';
+import type { ListRepositories } from '../../core/catalogue/list-repositories.js';
+import type { RemoveRepository } from '../../core/catalogue/remove-repository.js';
+import type { ListedRepository } from '../../core/catalogue/template-repository.js';
 import type { Connect } from '../../core/management/connect.js';
 import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
@@ -30,7 +34,10 @@ export interface Context {
   readConnection: ReadConnection;
   connect: Connect;
   catalogue: () => Catalogue;
-  refreshCatalogue: () => Promise<void>;
+  refreshCatalogue: (fleetId: FleetId) => Promise<void>;
+  listRepositories: ListRepositories;
+  addRepository: AddRepository;
+  removeRepository: RemoveRepository;
   formSquadron: FormSquadron;
   listSquadrons: ListSquadrons;
   standDown: StandDown;
@@ -137,6 +144,31 @@ const NEW_CREW_LINE_CODES = {
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
+
+/** The refusals of the template repositories, as the API states them. */
+const REPOSITORY_CODES = {
+  INVALID_REPOSITORY: 'BAD_REQUEST',
+  REPOSITORY_TAKEN: 'CONFLICT',
+  REPOSITORY_NOT_FOUND: 'NOT_FOUND',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** A template repository as the API states it: whether it has a token, never the token. */
+const repositoryOutputSchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  path: z.string(),
+  hasToken: z.boolean(),
+  addedAt: z.iso.datetime(),
+  lastFetch: z.object({ at: z.iso.datetime(), error: z.string().nullable() }).nullable(),
+});
+
+function repositoryOutputOf(repository: ListedRepository): z.infer<typeof repositoryOutputSchema> {
+  return {
+    ...repository,
+    addedAt: repository.addedAt.toISOString(),
+    lastFetch: repository.lastFetch && { at: repository.lastFetch.at.toISOString(), error: repository.lastFetch.error },
+  };
+}
 
 /** The catalogue as the API states it, its times in ISO 8601. */
 export const catalogueOutputSchema = z.object({
@@ -385,6 +417,37 @@ export const squadronsRouter = t.router({
         return formed.value;
       }),
   }),
+  repositories: t.router({
+    /** The template repositories squadrons reads, oldest first, each with whether it has a token and its last fetch. */
+    list: connectedProcedure.output(z.array(repositoryOutputSchema)).query(async ({ ctx }) => (await ctx.listRepositories(ctx.fleetId)).map(repositoryOutputOf)),
+    /**
+     * Adds a template repository: its https URL, an optional path
+     * (.aeolus/squadrons when left out) and an optional read token, which is
+     * never answered again. It is fetched at once; one whose first fetch fails
+     * is kept, with why.
+     */
+    add: connectedProcedure
+      .input(z.object({ url: z.string(), path: z.string().optional(), token: z.string().optional() }))
+      .output(repositoryOutputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const added = await ctx.addRepository({ fleetId: ctx.fleetId, ...input });
+        if (!added.isOk) {
+          throw new TRPCError({ code: REPOSITORY_CODES[added.error.kind], message: added.error.message });
+        }
+        return repositoryOutputOf(added.value);
+      }),
+    /** Removes a template repository: its versions leave the catalogue at once. */
+    remove: connectedProcedure
+      .input(z.object({ name: z.string() }))
+      .output(z.strictObject({}))
+      .mutation(async ({ ctx, input }) => {
+        const removed = await ctx.removeRepository({ fleetId: ctx.fleetId, name: input.name });
+        if (!removed.isOk) {
+          throw new TRPCError({ code: REPOSITORY_CODES[removed.error.kind], message: removed.error.message });
+        }
+        return {};
+      }),
+  }),
   catalogue: t.router({
     /** Every template and blueprint version tagged in git, and every version left out with its problem. */
     list: connectedProcedure.output(catalogueOutputSchema).query(({ ctx }) => {
@@ -395,9 +458,9 @@ export const squadronsRouter = t.router({
         problems,
       };
     }),
-    /** Fetches the repositories again now, rather than at the next interval. */
+    /** Fetches every template repository now and rebuilds the catalogue: nothing fetches by itself. */
     refresh: connectedProcedure.output(z.strictObject({})).mutation(async ({ ctx }) => {
-      await ctx.refreshCatalogue();
+      await ctx.refreshCatalogue(ctx.fleetId);
       return {};
     }),
   }),

@@ -6,11 +6,14 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createGitCatalogueSource } from '../src/adapters/git/git-catalogue-source.js';
+import { createGitRepositoryReader } from '../src/adapters/git/git-catalogue-source.js';
+import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
 
-// The git source on real repositories: tags <name>@<n>, lightweight or
-// annotated, read at their commits from the squadrons/ folder or a configured
-// path; a new tag shows after a refresh.
+// The git reader on real repositories: tags <name>@<n>, lightweight or
+// annotated, read at their commits from the .aeolus/squadrons/ folder or the
+// repository's path; a new tag shows after a fetch, a repository read without
+// fetching gives what it last fetched, and a failed fetch says why without
+// its token.
 
 const run = promisify(execFile);
 let work: string;
@@ -39,14 +42,17 @@ afterEach(() => {
   rmSync(work, { recursive: true, force: true });
 });
 
-function source(path?: string) {
-  return createGitCatalogueSource({
-    repositories: [{ url: `file://${origin}`, name: 'example.com/templates', path, token: undefined }],
-    cacheDir: join(work, 'cache'),
-  });
+function source(path = DEFAULT_PATH) {
+  const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+  const repository = { url: `file://${origin}`, name: 'example.com/templates', path, token: null };
+  return {
+    files: async () => (await reader.read([repository], { fetch: () => true })).files,
+    unfetched: async () => (await reader.read([repository], { fetch: () => false })).files,
+    reader,
+  };
 }
 
-describe('the git catalogue source', () => {
+describe('the git repository reader', () => {
   it('reads each tagged template and blueprint at its tag, parsed, with its commit and its time', async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n');
     await git('add', '.');
@@ -124,5 +130,44 @@ describe('the git catalogue source', () => {
     await git('tag', 'tester@2');
 
     await expect(reading.files().then((files) => files.length)).resolves.toBe(2);
+  });
+
+  it('gives what a repository last fetched when it reads without fetching, and nothing before its first fetch', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await expect(reading.unfetched()).resolves.toEqual([]);
+    await reading.files();
+    rmSync(origin, { recursive: true, force: true });
+
+    await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
+  });
+
+  it('says why a repository could not be fetched, never with its token, and reads the others', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const token = 'ghp_secret_token_value';
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+
+    const { files, fetched } = await reader.read(
+      [
+        { url: `file://${join(work, 'missing')}`, name: 'example.com/missing', path: DEFAULT_PATH, token },
+        { url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null },
+      ],
+      { fetch: () => true },
+    );
+
+    expect(files.map((file) => file.repository)).toEqual(['example.com/templates']);
+    expect(fetched.map((each) => ({ name: each.name, isFailed: each.error !== null }))).toEqual([
+      { name: 'example.com/missing', isFailed: true },
+      { name: 'example.com/templates', isFailed: false },
+    ]);
+    const error = fetched[0]?.error ?? '';
+    expect(error).not.toContain(token);
+    expect(error).not.toContain(Buffer.from(`x-access-token:${token}`).toString('base64'));
   });
 });

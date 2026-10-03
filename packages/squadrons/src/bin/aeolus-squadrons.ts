@@ -6,7 +6,6 @@
  * connects it in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
-import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +13,6 @@ import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
 import { acquireProcessLock } from '../adapters/prisma/process-lock.js';
 import { createSquadronsApp } from '../app.js';
 import { ConfigError, loadConfig, loadDatabaseUrl } from '../config.js';
-import { readSquadronsFile } from '../squadrons-file.js';
 
 const USAGE = 'Usage: aeolus-squadrons start | migrate';
 
@@ -23,11 +21,6 @@ const FLAGSHIP_RESCAN_MS = 30_000;
 
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
-  // Without the file, squadrons runs with no repositories: nothing to form yet.
-  const { repositories, refreshMinutes } = readSquadronsFile(
-    existsSync(config.squadronsFile) ? readFileSync(config.squadronsFile, 'utf8') : '',
-    process.env,
-  );
   const lock = await acquireProcessLock(config.databaseUrl, {
     onLost: (error) => {
       process.stderr.write(`squadrons lost its process lock, so another process could start: stopping. ${error.message}\n`);
@@ -41,7 +34,6 @@ async function start(): Promise<void> {
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
-    repositories,
     cacheDir: config.cacheDir ?? join(tmpdir(), 'aeolus-squadrons'),
     logger: { level: config.logLevel },
   });
@@ -55,7 +47,8 @@ async function start(): Promise<void> {
   } else {
     app.server.log.warn('not connected: connect squadrons in the console (Settings, Connect squadrons)');
   }
-  await app.startRefreshing(refreshMinutes * 60_000);
+  // The template repositories the operator set, as each last fetched: a fetch happens only on add and on Refresh.
+  await app.loadCatalogue();
   app.startFlagships(FLAGSHIP_RESCAN_MS);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

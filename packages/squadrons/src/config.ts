@@ -6,7 +6,6 @@ const environmentSchema = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(0).max(65_535).default(4100),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  SQUADRONS_CONFIG: z.string().min(1).default('squadrons.yaml'),
   SQUADRONS_CACHE_DIR: z.string().min(1).optional(),
 });
 
@@ -26,8 +25,6 @@ export interface Config {
   host: string;
   port: number;
   logLevel: string;
-  /** The file naming the repositories of templates and blueprints. */
-  squadronsFile: string;
   /** Where the repositories' mirrors are kept; under the system's temporary folder when unset. */
   cacheDir: string | undefined;
 }
@@ -53,7 +50,6 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     host: variables.HOST,
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,
-    squadronsFile: variables.SQUADRONS_CONFIG,
     cacheDir: variables.SQUADRONS_CACHE_DIR,
   };
 }

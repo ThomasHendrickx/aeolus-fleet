@@ -20,7 +20,10 @@ export type DomainErrorKind =
   | 'ADDING_FAILED'
   | 'SQUADRON_NOT_SERVING'
   | 'MEMBER_NOT_FOUND'
-  | 'MEMBER_RETIRED';
+  | 'MEMBER_RETIRED'
+  | 'INVALID_REPOSITORY'
+  | 'REPOSITORY_TAKEN'
+  | 'REPOSITORY_NOT_FOUND';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {

@@ -18,6 +18,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../server/test/support/keys.js';
 
 // Forming killed midway, then squadrons started again on the same database: the
@@ -106,7 +107,6 @@ function squadronsApp(through: string): SquadronsApp {
   return createSquadronsApp({
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl: through,
-    repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     logger: false,
   });
@@ -136,6 +136,7 @@ beforeEach(async () => {
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();
   squadronsDatabaseUrl = await createSquadronsDatabase();
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
 });
 
 afterEach(async () => {

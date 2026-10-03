@@ -45,7 +45,7 @@ AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-web start   # the console on 
 
 Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [server](packages/server/README.md) and [web](packages/web/README.md) READMEs.
 
-**Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, write a `squadrons.yaml` naming the git repositories of templates and blueprints, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, and connect squadrons under Settings. See the [squadrons README](packages/squadrons/README.md).
+**Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, connect squadrons under Settings, and add the git repositories of your templates and blueprints there. See the [squadrons README](packages/squadrons/README.md).
 
 ## Crew a ship from Claude Code
 
