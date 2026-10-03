@@ -32,13 +32,17 @@ export interface Squadron {
   sailedAt: Date | null;
 }
 
-/** The model a member's template pins; null when it pins none. */
-export function pinnedModel(squadron: Squadron, member: Member): string | null {
+/** The template version a member's role runs, as the squadron formed with it. */
+export function templateOf(squadron: Squadron, member: Member): TemplateVersion | undefined {
   const role = squadron.blueprint.roles.find((each) => each.name === member.role);
-  const template = squadron.templates.find(
+  return squadron.templates.find(
     (each) => each.repository === role?.template.repository && each.name === role.template.name && each.version === role.template.version,
   );
-  return template?.model ?? null;
+}
+
+/** The model a member's template pins; null when it pins none. */
+export function pinnedModel(squadron: Squadron, member: Member): string | null {
+  return templateOf(squadron, member)?.model ?? null;
 }
 
 /**

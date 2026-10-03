@@ -12,8 +12,9 @@ import type { Connect } from '../../core/management/connect.js';
 import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
+import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
-import { isModelMismatch, pinnedModel, type Squadron } from '../../core/squadron/squadron.js';
+import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
@@ -26,7 +27,7 @@ export interface Context {
   catalogue: () => Catalogue;
   refreshCatalogue: () => Promise<void>;
   formSquadron: FormSquadron;
-  listSquadrons: (fleetId: FleetId) => Promise<Squadron[]>;
+  listSquadrons: ListSquadrons;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -76,6 +77,12 @@ const FORM_CODES = {
   SQUADRON_ID_TAKEN: 'CONFLICT',
   MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
   FORMING_FAILED: 'BAD_GATEWAY',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of listing, as the API states them. */
+const LIST_CODES = {
+  MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
+  FLEET_UNAVAILABLE: 'BAD_GATEWAY',
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -129,6 +136,12 @@ const squadronOutputSchema = z.object({
       onStationAt: z.iso.datetime().nullable(),
       /** The model its template pins, the model it stated at its last check-in, and whether they differ. */
       model: z.object({ pinned: z.string().nullable(), stated: z.string().nullable(), isMismatch: z.boolean() }),
+      /** Not on station until it comes on station with its current crew; then on time, late or silent by its last report. */
+      health: z.enum(['not-on-station', 'on-time', 'late', 'silent']),
+      /** How often it reports, in minutes, from its template. */
+      checkInMinutes: z.number(),
+      /** Its ship's crew as the fleet shows it now: its status, when its session last called, since when its crew holds it. */
+      crew: z.object({ status: z.enum(['awaitingCrew', 'crewed', 'retired']), lastSeenAt: z.iso.datetime().nullable(), crewedSince: z.iso.datetime().nullable() }),
     }),
   ),
   formedAt: z.iso.datetime(),
@@ -136,7 +149,7 @@ const squadronOutputSchema = z.object({
 });
 
 /** A squadron as the API states it: never the flagship's crew token. */
-function squadronOutputOf(squadron: Squadron): z.infer<typeof squadronOutputSchema> {
+function squadronOutputOf(squadron: ListedSquadron): z.infer<typeof squadronOutputSchema> {
   const { repository, name, version, commit } = squadron.blueprint;
   return {
     id: squadron.id,
@@ -150,6 +163,13 @@ function squadronOutputOf(squadron: Squadron): z.infer<typeof squadronOutputSche
       type: member.type,
       onStationAt: member.onStationAt?.toISOString() ?? null,
       model: { pinned: pinnedModel(squadron, member), stated: member.checkIn?.model ?? null, isMismatch: isModelMismatch(squadron, member) },
+      health: member.health,
+      checkInMinutes: member.checkInMinutes,
+      crew: {
+        status: member.ship.status,
+        lastSeenAt: member.ship.lastSeenAt?.toISOString() ?? null,
+        crewedSince: member.ship.crewedSince?.toISOString() ?? null,
+      },
     })),
     formedAt: squadron.formedAt.toISOString(),
     sailedAt: squadron.sailedAt?.toISOString() ?? null,
@@ -206,8 +226,14 @@ export const squadronsRouter = t.router({
           receivedAt: message.receivedAt.toISOString(),
         })),
       ),
-    /** The fleet's squadrons, oldest first, with their members and whether each is on station. */
-    list: connectedProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => (await ctx.listSquadrons(ctx.fleetId)).map(squadronOutputOf)),
+    /** The fleet's squadrons, oldest first, with their members, each with its health and crew as the fleet shows them now. */
+    list: connectedProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => {
+      const listed = await ctx.listSquadrons(ctx.fleetId);
+      if (!listed.isOk) {
+        throw new TRPCError({ code: LIST_CODES[listed.error.kind], message: listed.error.message });
+      }
+      return listed.value.map(squadronOutputOf);
+    }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
      * squadrons, its members commissioned. Each member's crew line, launch
