@@ -14,6 +14,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -31,10 +32,10 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   messaging = messagingUseCases(core);
-  const scout = unwrap(await registry.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const scout = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = scout.shipId;
   scoutSecret = secretIn(scout.prompt);
-  const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+  const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
   core.clock.advance(60_000);
 });
@@ -132,7 +133,7 @@ describe('retiring a ship', () => {
   it('frees its name for a new ship', async () => {
     unwrap(await retireScout());
 
-    await expect(registry.commissionShip(argo, { name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
+    await expect(registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
 
   it('refuses argo, which is permanent', async () => {

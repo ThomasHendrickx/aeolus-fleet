@@ -14,6 +14,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -29,8 +30,8 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const { commissionShip } = registryUseCases(core);
-  ({ shipId: scoutId } = unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' })));
-  const { shipId: lookoutId } = unwrap(await commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+  ({ shipId: scoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
+  const { shipId: lookoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
   useCases = messagingUseCases(core);

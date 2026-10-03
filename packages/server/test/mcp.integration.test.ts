@@ -11,6 +11,7 @@ import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The ship contract as MCP tools, from the official MCP client over HTTP to
 // Postgres and back. A conversation registers with its ship's id and secret
@@ -70,7 +71,7 @@ async function commissionedWithFleetScopes(
   shipCount += 1;
   const name = `manager-${shipCount}`;
   const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'squadron', fleetScopes }),
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
   );
   return { shipId, name, secret: secretIn(prompt) };
 }
@@ -80,7 +81,7 @@ async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: s
   shipCount += 1;
   const name = `ship-${shipCount}`;
   const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'reviewer' }),
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
   return { shipId, name, secret: secretIn(prompt) };
 }
@@ -225,7 +226,7 @@ describe('the ship tools at /mcp', () => {
     });
     const { shipId } = await call(session, {
       tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string() }) },
-      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron' },
+      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' },
     });
 
     expect(listed.map((ship) => ship.name)).toContain(manager.name);

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { shipHandleSchema } from './fleet.js';
+import { idempotencyKeySchema } from './idempotency-key.js';
 
 /**
  * Inputs and outputs of sending a message (`ship.send`): who it is for, its
@@ -56,9 +57,6 @@ export const contentTypeSchema = z
   .max(CONTENT_TYPE_MAX_LENGTH, CONTENT_TYPE_MESSAGE)
   .refine(isMediaType, CONTENT_TYPE_MESSAGE);
 
-/** The longest idempotency key a sender may give. It is opaque: any text of 1 to this many characters. */
-export const IDEMPOTENCY_KEY_MAX_LENGTH = 256;
-
 /**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
  * name, or any ship of a type. A name is resolved to the ship's id at send time.
@@ -82,7 +80,7 @@ export const sendInputSchema = z.object({
     ),
   /** Without it, the payload is text/plain. */
   contentType: contentTypeSchema.optional(),
-  idempotencyKey: z.string().min(1).max(IDEMPOTENCY_KEY_MAX_LENGTH),
+  idempotencyKey: idempotencyKeySchema,
   /** The id of the message, in the same fleet, that this one replies to. */
   inReplyTo: idSchema('message').optional(),
 });

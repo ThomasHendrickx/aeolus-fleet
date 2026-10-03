@@ -11,6 +11,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -25,7 +26,7 @@ beforeEach(async () => {
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
@@ -80,7 +81,7 @@ describe('renaming a ship', () => {
   });
 
   it('refuses a name another active ship holds', async () => {
-    unwrap(await registry.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
 
     await expect(registry.renameShip(argo, { shipId: scoutId, name: 'lookout' })).resolves.toMatchObject({
       isOk: false,
@@ -90,7 +91,7 @@ describe('renaming a ship', () => {
   });
 
   it('takes the name of a retired ship: names are reusable after retirement', async () => {
-    const { shipId: oldId } = unwrap(await registry.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    const { shipId: oldId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     unwrap(await registry.retireShip(argo, { shipId: oldId }));
 
     unwrap(await registry.renameShip(argo, { shipId: scoutId, name: 'lookout' }));

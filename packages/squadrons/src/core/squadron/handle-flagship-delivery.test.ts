@@ -81,6 +81,7 @@ const door: FleetDoor = {
   retire: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),
   listShips: () => Promise.resolve(ok([])),
+  getStartingPrompt: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   ack: (crewToken, deliveryId) => {
     if (isAckRefused || crewToken !== 'aeolus_ct_v1_flagship') {
       return Promise.resolve(err({ code: 'CONFLICT', message: 'not in flight' }));

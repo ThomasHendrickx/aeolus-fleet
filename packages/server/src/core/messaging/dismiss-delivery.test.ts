@@ -14,6 +14,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -27,7 +28,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   useCases = messagingUseCases(core);
   core.clock.advance(60_000);

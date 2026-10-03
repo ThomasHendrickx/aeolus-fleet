@@ -10,6 +10,7 @@ import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // The ship contract as REST under /api/v1, from plain HTTP requests (as curl
 // makes them) to Postgres and back: register with the ship's id and secret,
@@ -46,7 +47,7 @@ async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: s
   shipCount += 1;
   const name = `rest-ship-${shipCount}`;
   const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'reviewer' }),
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
   return { shipId, name, secret: secretIn(prompt) };
 }
@@ -56,7 +57,7 @@ async function crewedWithFleetScopes(fleetScopes: ('fleet:read' | 'fleet:manage'
   shipCount += 1;
   const name = `rest-manager-${shipCount}`;
   const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'squadron', fleetScopes }),
+    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
   );
   return { name, crewToken: await register({ shipId, secret: secretIn(prompt) }) };
 }
@@ -274,9 +275,14 @@ describe('the fleet actions at /api/v1/fleet', () => {
     await register(mooring);
 
     const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'GET' }), z.array(z.object({ name: z.string() })));
+    const commission = { name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' };
     const commissionedByManager = await ok(
-      request('fleet/commission', { crewToken: manager.crewToken, body: { name: `${manager.name}-member`, type: 'squadron' } }),
+      request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
       z.object({ shipId: z.string(), prompt: z.string() }),
+    );
+    const repeated = await ok(
+      request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
+      z.object({ shipId: z.string(), prompt: z.null(), crewLine: z.null(), startingPrompt: z.object({ isClaimed: z.boolean() }) }),
     );
     const pinged = await ok(
       request('fleet/ping', { crewToken: manager.crewToken, body: { shipId: mooring.shipId } }),
@@ -285,6 +291,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
 
     expect(listed.map((ship) => ship.name)).toEqual(expect.arrayContaining([manager.name, mooring.name]));
     expect(commissionedByManager.prompt).toContain(`Ship id: ${commissionedByManager.shipId}`);
+    expect(repeated).toMatchObject({ shipId: commissionedByManager.shipId, startingPrompt: { isClaimed: false } });
     expect(pinged.isNew).toBe(true);
   });
 

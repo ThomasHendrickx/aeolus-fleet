@@ -13,6 +13,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { newKey } from '../packages/server/test/support/keys.js';
 
 // The ship page, end to end: two ships exchange messages over the REST API
 // as their sessions would, and the page of one shows the thread and each
@@ -69,7 +70,7 @@ interface Session {
 }
 
 async function crewedOverRest(ship: { name: string; type: string }): Promise<Session> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, ship));
+  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const registered = await fetch(`${serverUrl}/api/v1/ship/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

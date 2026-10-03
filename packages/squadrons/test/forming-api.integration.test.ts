@@ -16,6 +16,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { newKey } from '../../server/test/support/keys.js';
 
 // Forming a squadron at squadrons' API against a real fleet: its flagship and
 // members become ships of the fleet, the flagship crewed by squadrons, each
@@ -74,7 +75,7 @@ beforeEach(async () => {
   const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, prompt } = unwrap(
-    await useCases.commissionShip(argo, { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });

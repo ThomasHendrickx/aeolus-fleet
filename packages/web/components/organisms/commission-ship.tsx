@@ -40,7 +40,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         isPending={commission.isPending}
         error={commission.error?.message}
         onSubmit={(ship) => {
-          commission.mutate(ship, {
+          // A new key for every submission: the server's guard against a retried request, not a way to resubmit.
+          commission.mutate({ ...ship, idempotencyKey: crypto.randomUUID() }, {
             onSuccess: () => {
               onOpenChange(false);
               setIsPromptOpen(true);
@@ -51,8 +52,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
       <StartingPromptDialog
         shipName={commission.variables?.name ?? ''}
         state="shown"
-        prompt={commission.data?.prompt}
-        crewLine={commission.data?.crewLine}
+        prompt={commission.data?.prompt ?? undefined}
+        crewLine={commission.data?.crewLine ?? undefined}
         isOpen={isPromptOpen && commission.data !== undefined}
         onOpenChange={(isNowOpen) => {
           if (!isNowOpen) {

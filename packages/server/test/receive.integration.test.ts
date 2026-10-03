@@ -16,6 +16,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fi
 import { createMigratedDatabase } from './support/database.js';
 import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Receiving and acknowledging on a real Postgres, with the listener and the
 // wake-ups the server runs: what a claim stores, the order and the limit of a
@@ -70,7 +71,7 @@ afterEach(async () => {
 
 /** A reviewer commissioned by argo and claimed with its secret: its crew, as its crew token makes it. */
 async function crewedReviewer(name: string): Promise<Crew> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { name, type: 'reviewer' }));
+  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   const { crewToken } = unwrap(
     await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' } }),
   );

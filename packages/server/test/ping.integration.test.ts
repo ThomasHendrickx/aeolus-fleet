@@ -9,6 +9,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Ping and pong on a real Postgres: what a ping stores, that pings racing for
 // one ship store one, and that a pong acknowledges the ping and marks the
@@ -23,7 +24,7 @@ let scout: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(
     await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
   );

@@ -12,6 +12,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { newKey } from '../packages/server/test/support/keys.js';
 
 // The CommandPalette, end to end: Cmd+K or the Header's search opens it on
 // desktop, the TopBar's search icon full screen on phone; a ship opens its
@@ -74,7 +75,7 @@ function palette(page: Page) {
 
 describe('the CommandPalette', () => {
   it('opens on Cmd+K and opens a ship found by name', async () => {
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'reviewer-01', type: 'reviewer' }));
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-01', type: 'reviewer' }));
     const page = await signedInPage();
     await page.getByTestId('header-search').waitFor();
 

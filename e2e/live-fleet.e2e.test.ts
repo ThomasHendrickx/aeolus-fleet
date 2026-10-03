@@ -12,6 +12,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { newKey } from '../packages/server/test/support/keys.js';
 
 // The fleet overview follows the fleet live, end to end: what happens in one
 // browser, or through the API, shows in another browser of the same console
@@ -138,8 +139,8 @@ describe('the live fleet overview', () => {
     await context.setOffline(true);
     await Promise.all(sockets.splice(0).map((socket) => socket.close()));
     await page.getByRole('banner').getByText(/^(Reconnecting|Offline)$/).waitFor({ timeout: LIVE_TIMEOUT_MS });
-    unwrap(await useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
-    const pilot = unwrap(await useCases.commissionShip(argo, { name: 'pilot', type: 'navigator' }));
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+    const pilot = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
     unwrap(await useCases.claimShip({ shipId: pilot.shipId, secret: secretIn(pilot.prompt), location: { kind: 'SERVER' } }));
     await context.setOffline(false);
 

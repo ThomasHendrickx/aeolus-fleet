@@ -5,6 +5,7 @@ import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -22,7 +23,7 @@ beforeEach(async () => {
 
 describe('who am I', () => {
   it('tells a crewed ship its id, fleet, name and type', async () => {
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const scout: Caller = { shipId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 
     await expect(useCases.whoami(scout)).resolves.toEqual({

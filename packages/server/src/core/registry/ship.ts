@@ -29,6 +29,12 @@ export interface Ship {
   note: string | null;
   createdAt: Date;
   retiredAt: Date | null;
+  /**
+   * How an agent ship was commissioned: by which ship, under which of its
+   * idempotency keys, and the hash of the request, so a repeat is known.
+   * Null for the operator ship, which the fleet's initialisation creates.
+   */
+  commission: { by: ShipId; idempotencyKey: string; requestHash: string } | null;
 }
 
 /** The operator ship's name. Reserved: no other ship can take it. */
@@ -47,6 +53,7 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
     scopes: [...SCOPES],
     note: null,
     retiredAt: null,
+    commission: null,
   };
 }
 
@@ -74,6 +81,7 @@ export function commissionAgentShip(
     fleetScopes?: readonly FleetScope[];
     at: Date;
     actor: Actor;
+    commission: { by: ShipId; idempotencyKey: string; requestHash: string };
   },
   fleet: { activeShipNamed: Ship | undefined },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
@@ -108,6 +116,7 @@ export function commissionAgentShip(
     note: note.value,
     createdAt: at,
     retiredAt: null,
+    commission: input.commission,
   };
   return ok({
     ship,

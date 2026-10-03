@@ -7,6 +7,7 @@ import {
   locationKindSchema,
   scopeSchema,
   shipKindSchema,
+  type ShipId,
 } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
@@ -46,10 +47,20 @@ const shipRow = z.object({
   note: z.string().nullable(),
   createdAt: z.date(),
   retiredAt: z.date().nullable(),
+  commissionedBy: idSchema('ship').nullable(),
+  commissionKey: z.string().nullable(),
+  commissionRequestHash: z.string().nullable(),
 });
 
+/** The commission's three columns, set together for an agent ship and null for argo. */
+function commissionOf(columns: { by: ShipId | null; idempotencyKey: string | null; requestHash: string | null }): Ship['commission'] {
+  const { by, idempotencyKey, requestHash } = columns;
+  return by === null || idempotencyKey === null || requestHash === null ? null : { by, idempotencyKey, requestHash };
+}
+
 export function toShip(row: unknown): Ship {
-  return shipRow.parse(row);
+  const { commissionedBy, commissionKey, commissionRequestHash, ...ship } = shipRow.parse(row);
+  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }) };
 }
 
 const shipSqlRow = z
@@ -63,6 +74,9 @@ const shipSqlRow = z
     note: z.string().nullable(),
     created_at: z.date(),
     retired_at: z.date().nullable(),
+    commissioned_by: idSchema('ship').nullable(),
+    commission_key: z.string().nullable(),
+    commission_request_hash: z.string().nullable(),
   })
   .transform(
     (row): Ship => ({
@@ -75,6 +89,7 @@ const shipSqlRow = z
       note: row.note,
       createdAt: row.created_at,
       retiredAt: row.retired_at,
+      commission: commissionOf({ by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
     }),
   );
 

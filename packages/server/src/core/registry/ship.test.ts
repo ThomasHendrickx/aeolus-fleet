@@ -31,6 +31,7 @@ const scout: Ship = {
   note: null,
   createdAt,
   retiredAt: null,
+  commission: null,
 };
 
 const allowed = { isOk: true, value: undefined };

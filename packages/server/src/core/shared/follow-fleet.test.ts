@@ -6,6 +6,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from './caller.js';
 import type { FleetNewsWatch } from './events.js';
 import { createFollowFleet, type FollowFleet } from './follow-fleet.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let argo: Caller;
@@ -33,7 +34,7 @@ beforeEach(async () => {
 });
 
 async function commission(name: string): Promise<void> {
-  unwrap(await registryUseCases(core).commissionShip(argo, { name, type: 'reviewer' }));
+  unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
 }
 
 async function lastSeq(): Promise<number> {

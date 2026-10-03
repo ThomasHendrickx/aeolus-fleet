@@ -16,6 +16,7 @@ import {
   type PostgresCore,
 } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Claiming a ship on a real Postgres through the Prisma adapters: what a claim
 // stores and writes, its lock order against concurrent claims and against a
@@ -36,7 +37,7 @@ beforeEach(async () => {
   const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
-  const commissioned = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
   scoutSecret = secretIn(commissioned.prompt);
   core.clock.advance(60_000);

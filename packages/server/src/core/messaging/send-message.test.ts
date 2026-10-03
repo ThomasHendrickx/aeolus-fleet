@@ -13,6 +13,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { SendMessage } from './send-message.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let sendMessage: SendMessage;
@@ -28,7 +29,7 @@ beforeEach(async () => {
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   ({ shipId: scoutId } = unwrap(
-    await registryUseCases(core).commissionShip(argo, { name: 'scout', type: 'reviewer' }),
+    await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }),
   ));
   scout = agentCaller({ fleetId, shipId: scoutId });
   sendMessage = messagingUseCases(core).sendMessage;
@@ -99,7 +100,7 @@ describe('sending a message to a ship', () => {
       retired.retiredAt = core.clock.now();
     }
     const { shipId: newScoutId } = unwrap(
-      await registryUseCases(core).commissionShip(argo, { name: 'scout', type: 'reviewer' }),
+      await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }),
     );
 
     const laterId = await sent(argo, aReview({ selector: { kind: 'ship', name: 'scout' } }));

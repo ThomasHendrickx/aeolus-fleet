@@ -13,6 +13,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { newKey } from '../packages/server/test/support/keys.js';
 
 // Rename, end to end: the operator renames a ship from its page with the
 // live name check and the typed confirm; the page and its timeline show the
@@ -69,8 +70,8 @@ async function signedInPage(): Promise<Page> {
 
 describe('renaming a ship', () => {
   it('renames a ship from its page after the name check and the typed confirm; the page shows the new name', async () => {
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'reviewer-01', type: 'reviewer' }));
-    unwrap(await useCases.commissionShip(argo, { name: 'planner', type: 'planner' }));
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-01', type: 'reviewer' }));
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'planner', type: 'planner' }));
     const page = await signedInPage();
     await page.goto(`/ships/${shipId}`);
 
@@ -91,7 +92,7 @@ describe('renaming a ship', () => {
   });
 
   it('turns uppercase typed into the new name into lowercase', async () => {
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { name: 'deckhand', type: 'crew' }));
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'deckhand', type: 'crew' }));
     const page = await signedInPage();
     await page.goto(`/ships/${shipId}`);
     await page.getByTestId('fleet-ship-rename').click();
@@ -112,6 +113,6 @@ describe('/version', () => {
     const body = z
       .object({ web: z.string(), server: z.object({ server: z.string(), common: z.string(), migration: z.string() }) })
       .parse(await response.json());
-    expect(body.server.migration).toMatch(/_lease_report$/);
+    expect(body.server.migration).toMatch(/_commission_key$/);
   });
 });

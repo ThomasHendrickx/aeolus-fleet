@@ -10,6 +10,7 @@ import type { Selector } from '../src/core/shared/selector.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // Needs attention on a real Postgres: the undeliverable deliveries listed
 // oldest first, a dismiss, and a resend that stores a new message naming the
@@ -24,7 +25,7 @@ let scout: Crew;
 let planner: Crew;
 
 async function crewed(ship: { name: string; type: string }): Promise<Crew> {
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, ship));
+  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const { crewToken } = unwrap(
     await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
   );

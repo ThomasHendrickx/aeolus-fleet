@@ -6,6 +6,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // argo's inbox on a real Postgres: the messages to argo, open, done or all,
 // read and unread, marked done under the console session's lease, and a
@@ -21,7 +22,7 @@ let captain: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   operator = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(operator, { name: 'release-captain', type: 'release' }));
+  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'release-captain', type: 'release' }));
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }));
   captain = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   const { token } = unwrap(await core.useCases.signIn(OPERATOR));

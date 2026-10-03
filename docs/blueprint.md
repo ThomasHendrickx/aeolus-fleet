@@ -193,7 +193,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 ### Launch a ship
 
 1. The operator creates a ship in the web app: name, type, optional note.
-2. Aeolus generates the ship id and secret, and shows the starting prompt once: the fleet's MCP URL, the ship's id and secret, how to pick the location, and to call register. Beside it, the crew line for a Claude Code session with the `aeolus` plugin. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one.
+2. Aeolus generates the ship id and secret, and shows the starting prompt once: the fleet's MCP URL, the ship's id and secret, how to pick the location, and to call register. Beside it, the crew line for a Claude Code session with the `aeolus` plugin. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew line, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
 3. The operator pastes that prompt into a new session on any machine, or the crew line into Claude Code with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.

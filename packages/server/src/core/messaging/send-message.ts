@@ -10,7 +10,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
-import { idempotencyKey } from './idempotency-key.js';
+import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';

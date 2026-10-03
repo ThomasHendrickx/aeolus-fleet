@@ -1,5 +1,6 @@
 import {
   commissionShipInputSchema,
+  commissionShipOutputSchema,
   dismissDeliveryInputSchema,
   dismissDeliveryOutputSchema,
   fleetEventsInputSchema,
@@ -65,11 +66,17 @@ export const fleetRouter = router({
         'Needs fleet:manage. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'fleetScopes adds fleet:read and/or fleet:manage to its scopes; they never change later.',
         'Answers its shipId and its first starting prompt and crew line, shown only this once: they hold its secret.',
+        'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
+        'the retry answers the same shipId with prompt and crewLine null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
       ].join(' '),
     })
     .input(commissionShipInputSchema)
-    .output(startingPromptOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.commissionShip(ctx.caller, input))),
+    .output(commissionShipOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const commissioned = okOrThrow(await ctx.useCases.commissionShip(ctx.caller, input));
+      const { startingPrompt } = commissioned;
+      return { ...commissioned, startingPrompt: startingPrompt && { ...startingPrompt, issuedAt: startingPrompt.issuedAt.toISOString() } };
+    }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
   getStartingPrompt: scopedProcedure('fleet:manage')

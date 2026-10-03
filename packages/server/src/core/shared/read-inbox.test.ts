@@ -13,6 +13,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let messaging: ReturnType<typeof messagingUseCases>;
@@ -29,8 +30,8 @@ beforeEach(async () => {
   ({ fleetId, operatorShipId: argoId } = fleet);
   const registry = registryUseCases(core);
   const operator = operatorCaller(fleet);
-  captain = crewAboard(core, { fleetId, shipId: unwrap(await registry.commissionShip(operator, { name: 'release-captain', type: 'release' })).shipId });
-  tester = crewAboard(core, { fleetId, shipId: unwrap(await registry.commissionShip(operator, { name: 'tester-01', type: 'tester' })).shipId });
+  captain = crewAboard(core, { fleetId, shipId: unwrap(await registry.commissionShip(operator, { idempotencyKey: newKey(), name: 'release-captain', type: 'release' })).shipId });
+  tester = crewAboard(core, { fleetId, shipId: unwrap(await registry.commissionShip(operator, { idempotencyKey: newKey(), name: 'tester-01', type: 'tester' })).shipId });
   argo = await argoAboard(core);
   messaging = messagingUseCases(core);
   history = historyUseCases(core);

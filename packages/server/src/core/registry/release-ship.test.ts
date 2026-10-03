@@ -18,6 +18,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { createReleaseShip } from './release-ship.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -41,14 +42,14 @@ beforeEach(async () => {
   messaging = messagingUseCases(core);
   releaseShip = createReleaseShip({ uow: core.uow, clock: core.clock, ids: core.ids });
 
-  const commissioned = unwrap(await useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
+  const commissioned = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
   scoutSecret = secretIn(commissioned.prompt);
   ({ crewToken: scoutCrewToken } = unwrap(
     await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' } }),
   ));
   scout = await crewOfToken(core, scoutCrewToken);
-  ({ shipId: lookoutId } = unwrap(await useCases.commissionShip(argo, { name: 'lookout', type: 'reviewer' })));
+  ({ shipId: lookoutId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' })));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });

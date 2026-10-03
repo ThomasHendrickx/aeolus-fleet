@@ -4,6 +4,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // A crew's report on a real Postgres: stored with its lease, shown with the
 // ship, an event only when it changes, and none for the ship's next crew.
@@ -20,8 +21,8 @@ async function crewed(shipId: Crew['shipId'], prompt: string): Promise<Crew> {
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { name: 'scout', type: 'reviewer' }));
-  scout = await crewed(shipId, prompt);
+  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  scout = await crewed(shipId, prompt ?? '');
   core.clock.advance(60_000);
 });
 

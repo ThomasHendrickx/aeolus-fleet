@@ -15,6 +15,7 @@ import { runServerCommand } from './support/commands.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
 import { createEmptyDatabase, createMigratedDatabase, prisma } from './support/database.js';
 import { unwrap } from './support/result.js';
+import { newKey } from './support/keys.js';
 
 // A database error's message can carry what the request held: Postgres
 // quotes values back. The log holds such an error by its codes only, so no
@@ -74,7 +75,7 @@ describe('a database error at the doors', () => {
   /** A ship commissioned by argo and crewed through REST: its crew token. */
   async function crewToken(name: string): Promise<string> {
     const { shipId, prompt } = unwrap(
-      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { name, type: 'reviewer' }),
+      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
     );
     const response = await fetch(`${address}/api/v1/ship/register`, {
       method: 'POST',

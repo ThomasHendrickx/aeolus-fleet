@@ -2,7 +2,11 @@ import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/commo
 
 import type { Result } from '../shared/result.js';
 
-/** Why the fleet refused a ship call: its code (CONFLICT, UNAUTHORIZED, LEASE_ENDED, ...) and its message. */
+/**
+ * Why the fleet refused a ship call: its code (CONFLICT, UNAUTHORIZED,
+ * LEASE_ENDED, ...) and its message. UNAVAILABLE: no answer came, so the call
+ * may or may not have been carried out.
+ */
 export interface FleetRefusal {
   code: string;
   message: string;
@@ -16,7 +20,13 @@ export interface FleetDoor {
   register(claim: { shipId: ShipId; secret: string }): Promise<Result<{ crewToken: string }, FleetRefusal>>;
   whoami(crewToken: string): Promise<Result<{ shipId: ShipId; fleetId: FleetId; name: string; type: string }, FleetRefusal>>;
   /** Commissions an agent ship as the crew token's ship (fleet:manage); answers its id and its crew line, which holds its secret. */
-  commission(crewToken: string, ship: { name: string; type: string }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>>;
+  /**
+   * Commissions a ship under squadrons' own idempotency key. A repeat under the
+   * same key answers the same ship with no crew line: its secret was shown once.
+   */
+  commission(crewToken: string, ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>>;
+  /** A new starting prompt's crew line for a ship awaiting crew; the earlier secret stops working. */
+  getStartingPrompt(crewToken: string, ship: { shipId: ShipId }): Promise<Result<{ crewLine: string }, FleetRefusal>>;
   /** The fleet's ships that are not retired, by id and name (fleet:read). */
   listShips(crewToken: string): Promise<Result<{ shipId: ShipId; name: string }[], FleetRefusal>>;
   /** Retires a ship as the crew token's ship (fleet:manage). */

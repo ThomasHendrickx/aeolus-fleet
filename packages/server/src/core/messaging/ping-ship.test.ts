@@ -13,6 +13,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import { PING_PAYLOAD } from './ping-ship.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -26,7 +27,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { name: 'scout', type: 'reviewer' })));
+  ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   useCases = messagingUseCases(core);
   core.clock.advance(60_000);
@@ -146,7 +147,7 @@ describe('at most one open ping per ship', () => {
   it("keeps one ship's open ping from holding back a ping to another", async () => {
     unwrap(await useCases.pingShip(argo, { shipId: scoutId }));
     const { shipId: lookoutId } = unwrap(
-      await registryUseCases(core).commissionShip(argo, { name: 'lookout', type: 'reviewer' }),
+      await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }),
     );
     crewAboard(core, { fleetId, shipId: lookoutId });
 
@@ -164,7 +165,7 @@ describe('a ping refused', () => {
   }
 
   it('refuses a ship awaiting crew: no session would answer', async () => {
-    const { shipId } = unwrap(await registryUseCases(core).commissionShip(argo, { name: 'lookout', type: 'reviewer' }));
+    const { shipId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
 
     await expectRefused(shipId, 'SHIP_NOT_CREWED');
   });

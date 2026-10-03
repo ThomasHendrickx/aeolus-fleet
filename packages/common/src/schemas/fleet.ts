@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { idempotencyKeySchema } from './idempotency-key.js';
 import { reportStateSchema } from './report.js';
 
 /**
@@ -29,6 +30,8 @@ export const SHIP_NOTE_MAX_LENGTH = 500;
  * Input of `fleet.commission`. The note is free text for the operator;
  * whitespace around it is dropped. `fleetScopes` adds fleet:read and/or
  * fleet:manage to the scopes every agent ship has; none when left out.
+ * `idempotencyKey` is the caller's own key, as for a send: a retry with the
+ * same key and the same request commissions no second ship.
  */
 export const commissionShipInputSchema = z.object({
   name: shipHandleSchema,
@@ -39,6 +42,7 @@ export const commissionShipInputSchema = z.object({
     .trim()
     .max(SHIP_NOTE_MAX_LENGTH, `A note is at most ${SHIP_NOTE_MAX_LENGTH} characters`)
     .optional(),
+  idempotencyKey: idempotencyKeySchema,
 });
 
 export type CommissionShipInput = z.infer<typeof commissionShipInputSchema>;
@@ -60,6 +64,22 @@ export const startingPromptOutputSchema = z.object({
 });
 
 export type StartingPromptOutput = z.infer<typeof startingPromptOutputSchema>;
+
+/**
+ * Output of `fleet.commission`: the ship, and on the first commission its
+ * starting prompt and crew line, shown once. A repeat under the same key
+ * answers neither (the secret is never readable again), and says how its
+ * starting prompt stands; get a new one with `fleet.getStartingPrompt`.
+ */
+export const commissionShipOutputSchema = z.object({
+  shipId: idSchema('ship'),
+  prompt: z.string().nullable(),
+  crewLine: z.string().nullable(),
+  /** When its valid secret was issued (ISO 8601 in UTC) and whether a session claimed it; null when it has none. */
+  startingPrompt: z.object({ issuedAt: z.iso.datetime(), isClaimed: z.boolean() }).nullable(),
+});
+
+export type CommissionShipOutput = z.infer<typeof commissionShipOutputSchema>;
 
 /** Input of `fleet.release`: the crewed ship whose session loses it. */
 export const releaseShipInputSchema = z.object({ shipId: idSchema('ship') });

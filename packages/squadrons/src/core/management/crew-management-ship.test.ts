@@ -38,6 +38,7 @@ function fakeFleet() {
     ack: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     listShips: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    getStartingPrompt: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
   };
   return { state, door };
 }

@@ -17,6 +17,7 @@ import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import { RECEIVE_WAIT_MS } from './receive-deliveries.js';
+import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -33,9 +34,9 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const { commissionShip } = registryUseCases(core);
-  ({ shipId: scoutId } = unwrap(await commissionShip(argo, { name: 'scout', type: 'reviewer' })));
-  ({ shipId: lookoutId } = unwrap(await commissionShip(argo, { name: 'lookout', type: 'reviewer' })));
-  unwrap(await commissionShip(argo, { name: 'builder', type: 'builder' }));
+  ({ shipId: scoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
+  ({ shipId: lookoutId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' })));
+  unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
   useCases = messagingUseCases(core);

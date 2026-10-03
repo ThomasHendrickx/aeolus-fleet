@@ -18,6 +18,9 @@ const shipRow = {
   note: null,
   createdAt: at,
   retiredAt: null,
+  commissionedBy: null,
+  commissionKey: null,
+  commissionRequestHash: null,
 };
 
 describe('mapping rows to domain objects', () => {
@@ -30,7 +33,9 @@ describe('mapping rows to domain objects', () => {
   });
 
   it('maps a ship row, leaving out columns the domain does not know', () => {
-    expect(toShip({ ...shipRow, unknownColumn: 1 })).toEqual(shipRow);
+    const { commissionedBy, commissionKey, commissionRequestHash, ...columns } = shipRow;
+    expect([commissionedBy, commissionKey, commissionRequestHash]).toEqual([null, null, null]);
+    expect(toShip({ ...shipRow, unknownColumn: 1 })).toEqual({ ...columns, commission: null });
   });
 
   it('maps a lease as raw SQL returns it, in snake_case', () => {
