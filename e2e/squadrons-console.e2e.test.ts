@@ -378,8 +378,6 @@ describe('the first squadron in the console', () => {
     await bringOnStation({ call: await crewed(crewLine), squadronId });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
-    // Adding is a later attempt than forming; the test clock stands still unless moved.
-    clock.advance(1000);
     await page.getByTestId('squadron-add-member').click();
     await page.getByTestId('add-member-dialog').getByText('Blueprint team v1 has 1 tester; the squadron then has 2.').waitFor();
     await page.getByTestId('add-member-submit').click();
