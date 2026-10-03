@@ -29,6 +29,8 @@ export interface FleetDoor {
   getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<FleetShip, FleetRefusal>>;
   /** Ends this session's crew of its ship: the lease and the secret it claimed with. */
   deregister(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
+  /** Releases a crewed ship (fleet:manage): its session's lease ends, and what it held in flight goes back to pending. */
+  release(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
   /** A new starting prompt's crew line for a ship awaiting crew; the earlier secret stops working. */
   getStartingPrompt(crewToken: string, ship: { shipId: ShipId }): Promise<Result<{ crewLine: string }, FleetRefusal>>;
   /** The fleet's ships that are not retired, by id and name (fleet:read). */

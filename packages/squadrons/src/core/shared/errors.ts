@@ -19,7 +19,8 @@ export type DomainErrorKind =
   | 'ROLE_NOT_FOUND'
   | 'ADDING_FAILED'
   | 'SQUADRON_NOT_SERVING'
-  | 'MEMBER_NOT_FOUND';
+  | 'MEMBER_NOT_FOUND'
+  | 'MEMBER_RETIRED';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
