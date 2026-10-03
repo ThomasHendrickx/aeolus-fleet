@@ -7,6 +7,8 @@ import { ConsoleCommands } from '../../../components/organisms/console-commands'
 import { Button } from '../../../components/atoms/button';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
+import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
+import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
@@ -19,7 +21,17 @@ import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useHasSquadrons } from '../../../lib/squadrons';
-import { useCatalogue, useIssuedCrewLines, useForceStandDown, useKeptMessages, useSquadrons, useStandDown } from '../../../lib/squadrons-api';
+import {
+  type AddedMember,
+  useAddMember,
+  useCatalogue,
+  useIssuedCrewLines,
+  useForceStandDown,
+  useKeptMessages,
+  useSquadrons,
+  useStandDown,
+} from '../../../lib/squadrons-api';
+import { roleOptions } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -44,6 +56,9 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [isStandingDown, setIsStandingDown] = useState(false);
   const forceStandDown = useForceStandDown();
   const [isForcing, setIsForcing] = useState(false);
+  const addMember = useAddMember();
+  const [isAdding, setIsAdding] = useState(false);
+  const [added, setAdded] = useState<AddedMember | undefined>(undefined);
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -54,6 +69,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const blueprint = catalogue.data?.blueprints.find(
     (each) => each.repository === squadron?.blueprint.repository && each.name === squadron.blueprint.name && each.version === squadron.blueprint.version,
   );
+  const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
 
   return (
     <DetailLayout
@@ -63,6 +79,17 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           actions={
             squadron && squadron.state !== 'disbanded' ? (
               <>
+                {squadron.state === 'sailing' && roles.length > 0 && (
+                  <Button
+                    data-testid="squadron-add-member"
+                    onClick={() => {
+                      addMember.reset();
+                      setIsAdding(true);
+                    }}
+                  >
+                    Add member
+                  </Button>
+                )}
                 {squadron.state === 'sailing' && (
                   <Button
                     variant="destructive"
@@ -156,6 +183,42 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
                 setIsForcing(false);
               },
             });
+          }}
+        />
+      )}
+      {squadron && roles.length > 0 && (
+        <AddMemberDialog
+          squadronId={squadron.id}
+          blueprint={`${squadron.blueprint.name} v${String(squadron.blueprint.version)}`}
+          roles={roles}
+          isOpen={isAdding}
+          onOpenChange={setIsAdding}
+          isPending={addMember.isPending}
+          error={addMember.error?.message}
+          onSubmit={(role) => {
+            addMember.mutate(
+              { squadronId: squadron.id, role },
+              {
+                onSuccess: (member) => {
+                  setIsAdding(false);
+                  setAdded(member);
+                },
+              },
+            );
+          }}
+        />
+      )}
+      {added && (
+        <CrewLineDialog
+          memberName={added.name}
+          template={roles.find((each) => each.role === added.role)?.template}
+          launchNote={added.launchNote}
+          crewLine={added.crewLine}
+          isOpen
+          onOpenChange={(isNowOpen) => {
+            if (!isNowOpen) {
+              setAdded(undefined);
+            }
           }}
         />
       )}

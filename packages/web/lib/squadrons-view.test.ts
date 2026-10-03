@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, checkInText, healthCounts, memberCount, membersByRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -170,5 +170,17 @@ describe('member health', () => {
     const squadron = (id: string, state: Squadron['state']) => ({ id, state, members: members.map((member, index) => ({ ...member, name: `m${String(index)}` })) });
 
     expect(silentMembers([squadron('team-a', 'sailing'), squadron('team-b', 'disbanded')]).map((each) => [each.squadronId, each.member.name])).toEqual([['team-a', 'm0']]);
+  });
+});
+
+describe('the roles a member can be added to', () => {
+  it('names each role of the blueprint with its template, interval, members now (not retired) and in the blueprint', () => {
+    const member = (role: string, status: string) => ({ role, crew: { status } });
+    const squadron = { members: [member('implementer', 'crewed'), member('implementer', 'retired'), member('planner', 'crewed')] };
+
+    expect(roleOptions(squadron, { blueprint: blueprint('aeolus', 3), templates: [planner] })).toEqual([
+      { role: 'planner', template: 'planner@2', checkInMinutes: 30, now: 1, inBlueprint: 1 },
+      { role: 'implementer', template: 'implementer@3', checkInMinutes: undefined, now: 1, inBlueprint: 2 },
+    ]);
   });
 });

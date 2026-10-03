@@ -218,6 +218,28 @@ export function useForceStandDown() {
   });
 }
 
+export const addedMemberSchema = z.object({
+  shipId: z.string(),
+  name: z.string(),
+  role: z.string(),
+  crewLine: z.string(),
+  launchNote: z.string().nullable(),
+  model: z.string().nullable(),
+});
+
+export type AddedMember = z.infer<typeof addedMemberSchema>;
+
+/** Adds one member of a role to a sailing squadron; the answer holds its crew line and launch note, shown once. */
+export function useAddMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (member: { squadronId: string; role: string }) => call('squadrons.addMember', { input: member, isMutation: true, answers: addedMemberSchema }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
+    },
+  });
+}
+
 function crewLinesKey(squadronId: string): string[] {
   return ['squadrons', 'crew-lines', squadronId];
 }
