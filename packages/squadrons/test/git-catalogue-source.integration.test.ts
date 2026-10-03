@@ -4,16 +4,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import type { FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createGitRepositoryReader } from '../src/adapters/git/git-catalogue-source.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
 
+const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
+const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
+
 // The git reader on real repositories: tags <name>@<n>, lightweight or
 // annotated, read at their commits from the .aeolus/squadrons/ folder or the
 // repository's path; a new tag shows after a fetch, a repository read without
-// fetching gives what it last fetched, and a failed fetch says why without
-// its token.
+// fetching gives what it last fetched, within its own fleet only, and a
+// failed fetch says why without its token.
 
 const run = promisify(execFile);
 let work: string;
@@ -44,7 +48,7 @@ afterEach(() => {
 
 function source(path = DEFAULT_PATH) {
   const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
-  const repository = { url: `file://${origin}`, name: 'example.com/templates', path, token: null };
+  const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path, token: null };
   return {
     files: async () => (await reader.read([repository], { fetch: () => true })).files,
     unfetched: async () => (await reader.read([repository], { fetch: () => false })).files,
@@ -145,6 +149,23 @@ describe('the git repository reader', () => {
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
   });
 
+  it("never gives another fleet's mirror: the same repository read by a second fleet holds nothing before that fleet fetches it", async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+    const repository = { fleetId: OTHER_FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: 'ghp_wrong' };
+    rmSync(origin, { recursive: true, force: true });
+
+    const fetchedByOther = await reading.reader.read([repository], { fetch: () => true });
+    const unfetchedByOther = await reading.reader.read([repository], { fetch: () => false });
+
+    expect(fetchedByOther.files).toEqual([]);
+    expect(unfetchedByOther.files).toEqual([]);
+  });
+
   it('says why a repository could not be fetched, never with its token, and reads the others', async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
     await git('add', '.');
@@ -155,8 +176,8 @@ describe('the git repository reader', () => {
 
     const { files, fetched } = await reader.read(
       [
-        { url: `file://${join(work, 'missing')}`, name: 'example.com/missing', path: DEFAULT_PATH, token },
-        { url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null },
+        { fleetId: FLEET, url: `file://${join(work, 'missing')}`, name: 'example.com/missing', path: DEFAULT_PATH, token },
+        { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null },
       ],
       { fetch: () => true },
     );
