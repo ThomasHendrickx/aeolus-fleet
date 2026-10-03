@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Catalogue } from '../../src/core/catalogue/catalogue.js';
-import type { CatalogueHolder, CatalogueSource, RepositoryStore, RepositoryToRead, SourceFile } from '../../src/core/catalogue/ports.js';
+import type { CatalogueHolder, RepositoryReader, RepositoryStore, RepositoryToRead, SourceFile } from '../../src/core/catalogue/ports.js';
 import type { TemplateRepository } from '../../src/core/catalogue/template-repository.js';
 
 /** The repository store in memory, one row per fleet and name. */
@@ -21,10 +21,10 @@ export function memoryRepositoryStore(): RepositoryStore & { held: TemplateRepos
       store.held = store.held.filter((each) => !(each.fleetId === fleetId && each.name === name));
       return Promise.resolve(store.held.length < before);
     },
-    recordFetch: (fleetId, name, fetch) => {
+    recordFetch: (fleetId, { name, at, error }) => {
       const held = store.held.find((each) => each.fleetId === fleetId && each.name === name);
       if (held) {
-        held.lastFetch = fetch;
+        held.lastFetch = { at, error };
       }
       return Promise.resolve();
     },
@@ -37,7 +37,7 @@ export function memoryRepositoryStore(): RepositoryStore & { held: TemplateRepos
  * cannot be fetched; a repository read without fetching gives what its last
  * fetch gave, and nothing before its first.
  */
-export function fakeCatalogueSource(): CatalogueSource & {
+export function fakeCatalogueSource(): RepositoryReader & {
   files: Map<string, SourceFile[]>;
   failing: Map<string, string>;
   fetches: string[];
@@ -70,10 +70,12 @@ export function fakeCatalogueSource(): CatalogueSource & {
   return source;
 }
 
+const EMPTY: Catalogue = { templates: [], blueprints: [], problems: [] };
+
 /** Holds the catalogue squadrons serves, in memory. */
 export function memoryCatalogueHolder(): CatalogueHolder & { catalogue: Catalogue } {
   const holder = {
-    catalogue: { templates: [], blueprints: [], problems: [] } as Catalogue,
+    catalogue: EMPTY,
     get: () => holder.catalogue,
     set: (catalogue: Catalogue) => {
       holder.catalogue = catalogue;
