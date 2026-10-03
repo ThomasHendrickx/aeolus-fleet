@@ -18,6 +18,8 @@ describe('loadConfig', () => {
       host: '127.0.0.1',
       port: 4100,
       logLevel: 'info',
+      squadronsFile: 'squadrons.yaml',
+      cacheDir: undefined,
     });
   });
 

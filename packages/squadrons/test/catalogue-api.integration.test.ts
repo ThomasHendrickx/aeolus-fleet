@@ -129,7 +129,11 @@ describe('the catalogue at the squadrons API', () => {
     const cookie = await signIn();
     await git('tag', 'tester@2');
 
-    const refreshed = await fetch(`${address}/trpc/catalogue.refresh`, { method: 'POST', headers: { cookie } });
+    const refreshed = await fetch(`${address}/trpc/catalogue.refresh`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: '{}',
+    });
 
     expect(refreshed.status).toBe(200);
     const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;

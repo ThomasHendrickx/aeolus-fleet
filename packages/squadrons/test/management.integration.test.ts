@@ -50,6 +50,8 @@ function squadrons(managementSecret: string | undefined): SquadronsApp {
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl,
     managementShip: { shipId, secret: managementSecret },
+    repositories: [],
+    cacheDir: '/tmp/aeolus-squadrons-unused',
     logger: false,
   });
   apps.push(app);

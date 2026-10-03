@@ -1,11 +1,18 @@
 import type { ShipId } from '@aeolus-fleet/common';
+import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
+import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
+import { createGitCatalogueSource, type GitRepository } from './adapters/git/git-catalogue-source.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
+import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
+import { assembleCatalogue } from './core/catalogue/assemble-catalogue.js';
+import type { Catalogue } from './core/catalogue/catalogue.js';
 import { createCrewManagementShip, type CrewManagementShip } from './core/management/crew-management-ship.js';
+import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -15,6 +22,10 @@ export interface SquadronsApp {
   server: FastifyInstance;
   /** Crews the management ship, from the kept crew token or with the secret. */
   crewManagementShip: CrewManagementShip;
+  /** Reads the repositories again; on failure the catalogue stays as it was and the failure is logged. */
+  refreshCatalogue: () => Promise<void>;
+  /** Refreshes the catalogue now and then every interval, until the app closes. */
+  startRefreshing: (intervalMs: number) => Promise<void>;
   /** Stops the server and disconnects the database. */
   close(): Promise<void>;
 }
@@ -28,6 +39,10 @@ export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
   managementShip: { shipId: ShipId; secret: string | undefined };
+  /** The repositories of templates and blueprints (docs/squadrons.md, "Configuration"). */
+  repositories: readonly GitRepository[];
+  /** Where the repositories' mirrors are kept. */
+  cacheDir: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
 }): SquadronsApp {
@@ -57,7 +72,34 @@ export function createSquadronsApp(options: {
     }
   });
 
+  const store = createPrismaManagementCrewStore(prisma);
+  const source = createGitCatalogueSource({ repositories: options.repositories, cacheDir: options.cacheDir });
+  let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
+  const refreshCatalogue = async (): Promise<void> => {
+    try {
+      catalogue = assembleCatalogue(await source.files());
+    } catch (error) {
+      server.log.error({ err: error }, 'the repositories could not be read; the catalogue stays as it was');
+    }
+  };
+
+  const trpc: FastifyTRPCPluginOptions<SquadronsRouter> = {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: squadronsRouter,
+      createContext: ({ req }) => ({
+        cookie: req.headers.cookie,
+        authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl), store }),
+        catalogue: () => catalogue,
+        refreshCatalogue,
+      }),
+    },
+  };
+  void server.register(fastifyTRPCPlugin, trpc);
+
+  let refresher: ReturnType<typeof setInterval> | undefined;
   server.addHook('onClose', async () => {
+    clearInterval(refresher);
     await prisma.$disconnect();
   });
 
@@ -65,10 +107,15 @@ export function createSquadronsApp(options: {
     server,
     crewManagementShip: createCrewManagementShip({
       door: createRestFleetDoor(options.fleetUrl),
-      store: createPrismaManagementCrewStore(prisma),
+      store,
       clock: options.clock ?? systemClock,
       ship: options.managementShip,
     }),
+    refreshCatalogue,
+    startRefreshing: async (intervalMs) => {
+      await refreshCatalogue();
+      refresher = setInterval(() => void refreshCatalogue(), intervalMs);
+    },
     close: () => server.close(),
   };
 }
