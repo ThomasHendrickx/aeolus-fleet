@@ -4,19 +4,31 @@
  * management ship, then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
 import { createSquadronsApp } from '../app.js';
 import { ConfigError, loadConfig, loadDatabaseUrl } from '../config.js';
+import { readSquadronsFile } from '../squadrons-file.js';
 
 const USAGE = 'Usage: aeolus-squadrons start | migrate';
 
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
+  // Without the file, squadrons runs with no repositories: nothing to form yet.
+  const { repositories, refreshMinutes } = readSquadronsFile(
+    existsSync(config.squadronsFile) ? readFileSync(config.squadronsFile, 'utf8') : '',
+    process.env,
+  );
   await migrateDatabase(config.databaseUrl);
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
     managementShip: config.managementShip,
+    repositories,
+    cacheDir: config.cacheDir ?? join(tmpdir(), 'aeolus-squadrons'),
     logger: { level: config.logLevel },
   });
   const crewed = await app.crewManagementShip();
@@ -25,6 +37,7 @@ async function start(): Promise<void> {
     throw new ConfigError(crewed.error.message);
   }
   app.server.log.info({ ship: crewed.value.name }, 'crewing the management ship');
+  await app.startRefreshing(refreshMinutes * 60_000);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
