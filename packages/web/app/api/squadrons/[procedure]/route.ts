@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * connection has its own route, which keeps the management secret server side.
  */
 const QUERIES = new Set(['catalogue.list', 'squadrons.list', 'squadrons.messages']);
-const MUTATIONS = new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'catalogue.refresh']);
+const MUTATIONS = new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'squadrons.removeMember', 'catalogue.refresh']);
 
 async function forward(request: Request, init: { procedure: string; method: 'GET' | 'POST'; search: string; body?: string }): Promise<Response> {
   const { procedure } = init;

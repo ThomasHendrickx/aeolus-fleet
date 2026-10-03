@@ -240,6 +240,17 @@ export function useAddMember() {
   });
 }
 
+/** Removes one member: its ship retires at once, abandoning what its inbox holds. */
+export function useRemoveMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (member: { squadronId: string; shipId: string }) => call('squadrons.removeMember', { input: member, isMutation: true, answers: z.strictObject({}) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
+    },
+  });
+}
+
 function crewLinesKey(squadronId: string): string[] {
   return ['squadrons', 'crew-lines', squadronId];
 }
