@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
+import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
@@ -16,11 +17,11 @@ import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useHasSquadrons } from '../../../lib/squadrons';
-import { useCatalogue, useIssuedCrewLines, useSquadrons } from '../../../lib/squadrons-api';
+import { useCatalogue, useIssuedCrewLines, useKeptMessages, useSquadrons } from '../../../lib/squadrons-api';
 
 /**
- * A squadron's page: its header and its members by role, each on station or
- * not. Right after forming, members not on station show their crew line and
+ * A squadron's page: its header, its members by role, each on station or
+ * not, and the messages its flagship kept because it does not handle them. Right after forming, members not on station show their crew line and
  * launch note once. It asks again every few seconds, so members show on
  * station as they check in.
  */
@@ -35,6 +36,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
   const crewLines = useIssuedCrewLines(squadronId);
+  const kept = useKeptMessages(squadronId);
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -68,6 +70,18 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines} ships={ships} now={now} />
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
+      )}
+      {squadron && (
+        <KeptMessages
+          messages={kept.data ?? []}
+          state={kept.isError ? 'error' : kept.data ? 'ready' : 'loading'}
+          error={kept.error?.message}
+          onRetry={() => {
+            void kept.refetch();
+          }}
+          flagshipId={squadron.flagship.shipId}
+          now={now}
+        />
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands
