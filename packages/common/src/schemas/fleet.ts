@@ -122,8 +122,10 @@ export type PingState = z.infer<typeof pingStateSchema>;
  * One ship in `fleet.list`. `startingPrompt` is the prompt holding the ship's
  * valid secret, when there is one: when it was issued and whether a session
  * has claimed the ship with it. `location` is where the session crewing the
- * ship runs, as it reported on claim; null while no session crews it.
- * `lastSeenAt` is its session's last call.
+ * ship runs, as it reported on claim, and `harness` what it runs in; both
+ * null while no session crews it. `lastSeenAt` is its session's last call.
+ * `model` is the ship's current model: the last one its sessions stated on a
+ * send, with when; null before any.
  */
 export const listedShipSchema = z.object({
   id: idSchema('ship'),
@@ -163,6 +165,10 @@ export const listedShipSchema = z.object({
       answeredAt: z.iso.datetime().nullable(),
     })
     .nullable(),
+  /** The harness the crewing session stated, read together with `location`; null while none crews it. */
+  harness: z.string().nullable(),
+  /** The last model the ship's sessions stated on a send, and when (ISO 8601 in UTC); null before any, and for argo. */
+  model: z.object({ id: z.string(), statedAt: z.iso.datetime() }).nullable(),
   /** What the ship may do, checked on every call: every agent ship sends and receives, argo has all. */
   scopes: z.array(scopeSchema),
   /**

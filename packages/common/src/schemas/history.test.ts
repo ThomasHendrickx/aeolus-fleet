@@ -40,6 +40,8 @@ describe('shipDetailOutputSchema', () => {
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
+    harness: 'claude-code',
+    model: { id: 'claude-opus-5-5', statedAt: AT },
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,
@@ -164,7 +166,7 @@ describe('messageOutputSchema', () => {
   });
 
   it('accepts an abandoned delivery in the history', () => {
-    const history = [{ seq: 4, type: 'DeliveryAbandoned', occurredAt: AT, ship: scout, location: null, attempts: null }];
+    const history = [{ seq: 4, type: 'DeliveryAbandoned', occurredAt: AT, ship: scout, location: null, harness: null, attempts: null }];
 
     expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'abandoned', history } }).success).toBe(
       true,
@@ -172,7 +174,7 @@ describe('messageOutputSchema', () => {
   });
 
   it('accepts a dismissed delivery in the history', () => {
-    const history = [{ seq: 6, type: 'DeliveryDismissed', occurredAt: AT, ship: null, location: null, attempts: null }];
+    const history = [{ seq: 6, type: 'DeliveryDismissed', occurredAt: AT, ship: null, location: null, harness: null, attempts: null }];
 
     expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'dismissed', history } }).success).toBe(
       true,

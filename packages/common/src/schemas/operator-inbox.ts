@@ -38,6 +38,8 @@ export const inboxMessageSchema = z.object({
     inReplyTo: idSchema('message').nullable(),
     sentAt: isoTime,
     contentType: z.string(),
+    /** The model the sender's session stated it runs. */
+    model: z.string().nullable(),
     payload: z.string(),
   }),
 });

@@ -49,6 +49,8 @@ export const receivedDeliverySchema = z.object({
   recipient: recipientSchema,
   payload: z.string(),
   contentType: z.string(),
+  /** The model the sender's session stated it runs; null from argo. */
+  model: z.string().nullable(),
   /** The message this one replies to, if any. */
   inReplyTo: idSchema('message').nullable(),
   /** When the message was sent. ISO 8601 in UTC. */
