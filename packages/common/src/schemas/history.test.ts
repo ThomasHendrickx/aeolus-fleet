@@ -71,7 +71,7 @@ describe('shipTimelineOutputSchema', () => {
     occurredAt: AT,
     actor: scout,
     ship: planner,
-    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain' },
+    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', model: 'claude-opus-5-5' },
     details: { selector: 'ship', recipientType: null },
   };
 
