@@ -1,5 +1,5 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Catalogue, TemplateVersion } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
@@ -51,11 +51,18 @@ const catalogue: Catalogue = {
 };
 
 /** A fleet that commissions, registers and retires ships, refusing a name an active ship holds. */
+interface FleetShip {
+  shipId: ShipId;
+  name: string;
+  type: string;
+  secret: string;
+  isRetired: boolean;
+  isCrewed: boolean;
+}
+
 function fakeFleet() {
-  const state = {
-    ships: [] as { shipId: ShipId; name: string; type: string; secret: string; isRetired: boolean; isCrewed: boolean }[],
-    refuseCommissionAfter: Number.POSITIVE_INFINITY,
-  };
+  const ships: FleetShip[] = [];
+  const state = { ships, refuseCommissionAfter: Number.POSITIVE_INFINITY };
   let next = 0;
   const door: FleetDoor = {
     register: ({ shipId, secret }) => {
@@ -243,7 +250,8 @@ describe('a squadron not formed', () => {
 
     const formed = await form(fromHemmaFeature);
 
-    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED', message: expect.stringContaining('Internal error') as unknown } });
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    expect(formed.isOk ? '' : formed.error.message).toContain('Internal error');
     expect(fleet.state.ships.every((ship) => ship.isRetired)).toBe(true);
     expect(squadrons.held).toEqual([]);
   });
@@ -257,7 +265,7 @@ describe('a squadron not formed', () => {
 
 function unwrapped<T>(result: Result<T, unknown>): T {
   if (!result.isOk) {
-    throw new Error(`Expected ok, got ${JSON.stringify(result.error)}`);
+    assert.fail(`Expected ok, got ${JSON.stringify(result.error)}`);
   }
   return result.value;
 }

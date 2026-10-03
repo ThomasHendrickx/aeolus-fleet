@@ -5,7 +5,12 @@ export type DomainErrorKind =
   | 'MANAGEMENT_SECRET_MISSING'
   | 'MANAGEMENT_SECRET_REFUSED'
   | 'MANAGEMENT_SHIP_CREWED_ELSEWHERE'
-  | 'NOT_THE_OPERATOR';
+  | 'NOT_THE_OPERATOR'
+  | 'BLUEPRINT_NOT_FOUND'
+  | 'INVALID_SQUADRON_ID'
+  | 'SQUADRON_ID_TAKEN'
+  | 'MANAGEMENT_SHIP_NOT_CREWED'
+  | 'FORMING_FAILED';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
