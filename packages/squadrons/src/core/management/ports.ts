@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -19,6 +19,30 @@ export interface FleetDoor {
   commission(crewToken: string, ship: { name: string; type: string }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>>;
   /** Retires a ship as the crew token's ship (fleet:manage). */
   retire(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  /** The crew token's next deliveries, waiting briefly when there are none. */
+  receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<ReceivedMessage[], FleetRefusal>>;
+  ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
+  send(crewToken: string, message: OutgoingMessage): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
+}
+
+/** A delivery as a receive hands it over: what squadrons reads of it. */
+export interface ReceivedMessage {
+  deliveryId: DeliveryId;
+  messageId: MessageId;
+  senderShipId: ShipId;
+  contentType: string;
+  payload: string;
+  inReplyTo: MessageId | null;
+}
+
+/** A message squadrons sends from one of its ships. */
+export interface OutgoingMessage {
+  selector: { kind: 'ship'; shipId: ShipId } | { kind: 'ship'; name: string } | { kind: 'type'; type: string };
+  payload: string;
+  contentType: string;
+  inReplyTo?: MessageId;
+  /** New per message; the same only to retry the same send. */
+  idempotencyKey: string;
 }
 
 /** The crew token squadrons holds for its management ship, and when it got it. */

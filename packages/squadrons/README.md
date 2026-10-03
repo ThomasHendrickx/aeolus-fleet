@@ -2,7 +2,9 @@
 
 Forms squadrons of ships from blueprints and leads them (decision 0017). Optional: a fleet works with individual ships only. Aeolus knows nothing about squadrons; squadrons is a ship of the fleet with `fleet:read` and `fleet:manage`, its management ship, and reaches the fleet only through its public API.
 
-So far: its own process and database, the management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), forming squadrons, `/api/health` and `/api/version`. The check-in arrives in the next slice of #86.
+So far: its own process and database, the management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), forming squadrons, the check-in at each flagship (docs/squadrons.md, "Check-in"), `/api/health` and `/api/version`.
+
+squadrons receives on every forming or sailing squadron's flagship. A member's check-in is answered with its role (template, charter, check-in interval, hand-offs as selectors); its on-station marks it, and the squadron sails once every member is on station. Other messages to a flagship are left unacknowledged for now, until it is decided what the flagship does with them, so they end in Needs attention rather than vanish.
 
 ## Running
 

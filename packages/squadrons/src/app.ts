@@ -10,12 +10,14 @@ import { checkDatabase, createPrismaClient, latestMigration } from './adapters/p
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
+import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { assembleCatalogue } from './core/catalogue/assemble-catalogue.js';
 import type { Catalogue } from './core/catalogue/catalogue.js';
 import { createCrewManagementShip, type CrewManagementShip } from './core/management/crew-management-ship.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
-import { createFormSquadron } from './core/squadron/form-squadron.js';
+import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
+import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -29,6 +31,8 @@ export interface SquadronsApp {
   refreshCatalogue: () => Promise<void>;
   /** Refreshes the catalogue now and then every interval, until the app closes. */
   startRefreshing: (intervalMs: number) => Promise<void>;
+  /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
+  startFlagships: (rescanMs: number) => void;
   /** Stops the server and disconnects the database. */
   close(): Promise<void>;
 }
@@ -79,6 +83,16 @@ export function createSquadronsApp(options: {
   const squadrons = createPrismaSquadronRepository(prisma);
   const door = createRestFleetDoor(options.fleetUrl);
   const clock = options.clock ?? systemClock;
+  let flagships: FlagshipWatch | undefined;
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, catalogue: () => catalogue, random: cryptoRandomNames, clock });
+  // A new squadron's flagship starts receiving at once, not at the next rescan.
+  const formAndWatch: FormSquadron = async (input) => {
+    const formed = await formSquadron(input);
+    if (formed.isOk) {
+      await flagships?.rescan();
+    }
+    return formed;
+  };
   const source = createGitCatalogueSource({ repositories: options.repositories, cacheDir: options.cacheDir });
   let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
   const refreshCatalogue = async (): Promise<void> => {
@@ -103,7 +117,7 @@ export function createSquadronsApp(options: {
         authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl), store }),
         catalogue: () => catalogue,
         refreshCatalogue,
-        formSquadron: createFormSquadron({ door, management: store, squadrons, catalogue: () => catalogue, random: cryptoRandomNames, clock }),
+        formSquadron: formAndWatch,
         listSquadrons: (fleetId) => squadrons.list(fleetId),
       }),
     },
@@ -113,6 +127,7 @@ export function createSquadronsApp(options: {
   let refresher: ReturnType<typeof setInterval> | undefined;
   server.addHook('onClose', async () => {
     clearInterval(refresher);
+    flagships?.stop();
     await prisma.$disconnect();
   });
 
@@ -123,6 +138,17 @@ export function createSquadronsApp(options: {
     startRefreshing: async (intervalMs) => {
       await refreshCatalogue();
       refresher = setInterval(() => void refreshCatalogue(), intervalMs);
+    },
+    startFlagships: (rescanMs) => {
+      flagships = watchFlagships({
+        door,
+        management: store,
+        squadrons,
+        handle: createHandleFlagshipDelivery({ door, squadrons, clock }),
+        log: server.log,
+        rescanMs,
+      });
+      void flagships.rescan();
     },
     close: () => server.close(),
   };

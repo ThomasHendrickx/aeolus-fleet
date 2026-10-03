@@ -3,7 +3,7 @@
  * not TypeScript-bound may make them: squadrons uses the public API like any
  * client (decision 0017). A refusal reads as the fleet's code and message.
  */
-import { idSchema } from '@aeolus-fleet/common';
+import { idSchema, receivedDeliverySchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -16,7 +16,7 @@ const LOCATION = { kind: 'SERVER' } as const;
 
 async function call<T>(
   fleetUrl: string,
-  request: { path: string; method: 'GET' | 'POST'; crewToken?: string; body?: unknown; answers: z.ZodType<T> },
+  request: { path: string; method: 'GET' | 'POST'; crewToken?: string; body?: unknown; answers: z.ZodType<T>; signal?: AbortSignal },
 ): Promise<Result<T, FleetRefusal>> {
   const headers: Record<string, string> = {};
   if (request.crewToken !== undefined) {
@@ -29,6 +29,7 @@ async function call<T>(
     method: request.method,
     headers,
     body: request.body === undefined ? undefined : JSON.stringify(request.body),
+    signal: request.signal,
   });
   const body: unknown = await response.json();
   return response.ok ? ok(request.answers.parse(body)) : err(refusalSchema.parse(body));
@@ -58,6 +59,25 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         body: ship,
         answers: z.object({ shipId: idSchema('ship'), crewLine: z.string() }),
       }),
+    receive: async (crewToken, until) => {
+      const received = await call(fleetUrl, {
+        path: '/ship/receive',
+        method: 'POST',
+        crewToken,
+        body: { max: 10 },
+        answers: z.object({ deliveries: z.array(receivedDeliverySchema) }),
+        signal: until?.signal,
+      });
+      return received.isOk
+        ? ok(received.value.deliveries.map(({ deliveryId, messageId, senderShipId, contentType, payload, inReplyTo }) => ({ deliveryId, messageId, senderShipId, contentType, payload, inReplyTo })))
+        : received;
+    },
+    ack: async (crewToken, deliveryId) => {
+      const acked = await call(fleetUrl, { path: '/ship/ack', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
+      return acked.isOk ? ok(undefined) : acked;
+    },
+    send: (crewToken, message) =>
+      call(fleetUrl, { path: '/ship/send', method: 'POST', crewToken, body: message, answers: z.object({ messageId: idSchema('message') }) }),
     retire: async (crewToken, ship) => {
       const retired = await call(fleetUrl, { path: '/fleet/retire', method: 'POST', crewToken, body: ship, answers: z.unknown() });
       return retired.isOk ? ok(undefined) : retired;
