@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -70,8 +70,8 @@ describe('when a crewed ship was last seen', () => {
 });
 
 describe('the model and harness a ship shows', () => {
-  async function sendAs(shipId: ShipId, model: string): Promise<void> {
-    unwrap(
+  async function sendAs(shipId: ShipId, model: string): Promise<string> {
+    const { messageId } = unwrap(
       await messagingUseCases(core).sendMessage(agentCaller({ fleetId, shipId }), {
         selector: { kind: 'ship', name: 'argo' },
         payload: 'Done with PR 48',
@@ -79,6 +79,7 @@ describe('the model and harness a ship shows', () => {
         idempotencyKey: newKey(),
       }),
     );
+    return messageId;
   }
 
   it('shows the harness of the session crewing it, read with its location; none while no session crews it', async () => {
@@ -95,6 +96,23 @@ describe('the model and harness a ship shows', () => {
     await sendAs(scoutId, 'claude-opus-5-5');
 
     await expect(listedScout()).resolves.toMatchObject({ model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
+  });
+
+  it("keeps the last model its sessions stated when the operator resends an older message of the ship's", async () => {
+    const older = await sendAs(scoutId, 'claude-sonnet-5-5');
+    const deliveryId = deliveryIdOf(core, idSchema('message').parse(older));
+    const delivery = core.state.deliveries.find((stored) => stored.id === deliveryId);
+    if (delivery) {
+      delivery.state = 'undeliverable';
+    }
+    core.clock.advance(60_000);
+    await sendAs(scoutId, 'claude-opus-5-5');
+    const statedAt = core.clock.now();
+    core.clock.advance(60_000);
+
+    unwrap(await messagingUseCases(core).resendDelivery(argo, { deliveryId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ model: { id: 'claude-opus-5-5', statedAt } });
   });
 
   it('shows no model before a send, and none for argo', async () => {
