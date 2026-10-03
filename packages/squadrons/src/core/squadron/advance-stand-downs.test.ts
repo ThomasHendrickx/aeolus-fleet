@@ -55,6 +55,7 @@ const door: FleetDoor = {
   deregister: notUsed,
   commission: notUsed,
   getStartingPrompt: notUsed,
+  release: notUsed,
   listShips: notUsed,
   receive: notUsed,
   ack: notUsed,

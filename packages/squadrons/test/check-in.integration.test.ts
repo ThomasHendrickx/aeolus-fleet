@@ -394,3 +394,29 @@ describe('removing a member', () => {
     expect(listed?.members.map((each) => each.crew.status)).toEqual(['retired']);
   });
 });
+
+describe("a member's new crew line", () => {
+  it('releases the member from its session and answers a crew line with the squadron id, which claims the ship', async () => {
+    const formed = await formTeam('team-eight');
+    const [first] = formed.members;
+    await crewedMember(first?.crewLine ?? '');
+
+    const response = await fetch(`${address}/trpc/squadrons.newCrewLine`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-eight', shipId: first?.shipId }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const answered = z.object({ result: z.object({ data: z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }) }) }).parse(await response.json()).result.data;
+    const [, , shipId = '', secret = '', squadronId] = answered.crewLine.split(' ');
+    expect(squadronId).toBe('team-eight');
+    expect(answered).toMatchObject({ launchNote: 'Start in the repository root.', model: 'claude-opus-5-5' });
+    const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+    });
+    expect(registered.status).toBe(200);
+  });
+});
