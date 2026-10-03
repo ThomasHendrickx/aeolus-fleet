@@ -62,7 +62,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Squadrons (only when enabled)
 - Off: no Squadrons destination, Squadron filter, flagship chip, squadron states, health or silent members. Nothing else changes.
 - On: Squadrons second in Sidebar and TabBar (TabBar gets 5 tabs); Squadron filter in the FleetTable toolbar and phone filter Sheet; CommandPalette adds squadrons, blueprints and squadron actions.
-- Member name: full name, squadron prefix in `--muted-foreground`, everywhere except its own squadron page (SquadronHeader, MemberList, HandoffWiring): the part after the colon. Full name always in `title` and copy.
+- Member name: the ship name as is; a squadron may prefix names but the console never parses them. Membership shows as SquadronTag, from the squadrons API.
 - Flagship: like argo, never Release, Rename or Retire; actions Open squadron, Message, Copy ship id; retires when its squadron disbands. Message on a squadron goes to its flagship.
 - Member: no Rename. Retire → Remove from squadron (RemoveMemberDialog). Get starting prompt → Get new crew line (CrewLineDialog). Silent: Get new crew line is the primary action.
 - Crew lines carry the secret: CrewLineBlock shows them once, with the template's launch note; afterwards only "Crew line issued … not claimed yet".
@@ -84,7 +84,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Destructive actions
 - No confirm: Mark done, Mark as unread, Resend, Dismiss, Get new prompt or Get new crew line when none is outstanding, Sign out.
 - Normal confirm (Dialog, phone bottom Sheet): Get new prompt or Get new crew line while an unclaimed one is out (it stops working); Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button).
-- TypedConfirm when an action discards pending work or breaks what other ships hold: Retire with open deliveries (type the ship's current name); Rename (ships addressing the old name stop reaching it; type the current name); Remove from squadron with open deliveries (type the name after the colon); Force stand down with open work (type the squadron id).
+- TypedConfirm when an action discards pending work or breaks what other ships hold: Retire with open deliveries (type the ship's current name); Rename (ships addressing the old name stop reaching it; type the current name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
 - No other protective rules.
 
