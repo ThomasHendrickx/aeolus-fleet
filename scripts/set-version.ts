@@ -1,7 +1,8 @@
 /**
  * Sets one version on the four published packages and pins their dependencies
  * on each other to exactly that version, because they are released together
- * (ADR 0011). The aeolus Claude Code plugin carries the same version. Used by the release workflow and the publish dry run in CI.
+ * (ADR 0011). Both manifests of the aeolus plugin carry the same version. Used
+ * by the release workflow and the publish dry run in CI.
  *
  * Usage: npm run set-version -- <version>
  *        npm run set-version -- --plugin-only <version>
@@ -14,8 +15,11 @@ import { z } from 'zod';
 
 export const PUBLISHED_PACKAGES = ['common', 'server', 'web', 'squadrons'] as const;
 
-/** The aeolus Claude Code plugin's manifest, released with the packages. */
-export const PLUGIN_MANIFEST = 'plugins/aeolus/.claude-plugin/plugin.json';
+/** The aeolus plugin's Claude Code and Codex manifests, released together. */
+export const PLUGIN_MANIFESTS = [
+  'plugins/aeolus/.claude-plugin/plugin.json',
+  'plugins/aeolus/.codex-plugin/plugin.json',
+] as const;
 
 const SCOPE = '@aeolus-fleet/';
 const SEMVER =
@@ -66,8 +70,8 @@ export function setVersion(repositoryRoot: string, version: string): void {
 }
 
 /**
- * Sets the version of the aeolus Claude Code plugin alone. The release commits
- * it back to main, where the plugin marketplace installs from, so the
+ * Sets the version of both aeolus plugin manifests alone. The release commits
+ * them back to main, where the plugin marketplaces install from, so the
  * installed plugin shows the version just released; the packages on main keep
  * 0.0.0, as only the published packages carry their version.
  */
@@ -75,9 +79,11 @@ export function setPluginVersion(repositoryRoot: string, version: string): void 
   if (!SEMVER.test(version)) {
     throw new Error(`Not a semantic version: "${version}"`);
   }
-  const pluginPath = join(repositoryRoot, PLUGIN_MANIFEST);
-  const plugin = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(pluginPath, 'utf8')));
-  writeFileSync(pluginPath, `${JSON.stringify({ ...plugin, version }, null, 2)}\n`);
+  for (const manifest of PLUGIN_MANIFESTS) {
+    const pluginPath = join(repositoryRoot, manifest);
+    const plugin = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(pluginPath, 'utf8')));
+    writeFileSync(pluginPath, `${JSON.stringify({ ...plugin, version }, null, 2)}\n`);
+  }
 }
 
 if (import.meta.main) {
