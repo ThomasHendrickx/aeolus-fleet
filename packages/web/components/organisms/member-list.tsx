@@ -1,10 +1,10 @@
 import type { ShipDetail } from '@aeolus-fleet/common';
 import { FileText, Info, Inbox } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
 import { lastSeen } from '../../lib/relative-time';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
-import { Button } from '../atoms/button';
 import { CodeBlock } from '../atoms/code-block';
 import { EmptyState } from '../molecules/empty-state';
 import { HealthIndicator } from '../molecules/health-indicator';
@@ -29,8 +29,8 @@ interface MemberListProps {
   ships: ReadonlyMap<string, ShipDetail>;
   /** The time reports are measured from. */
   now: Date;
-  /** Remove from squadron, while the squadron may lose members; none hides the action. A member retired in either the squadron or the fleet has none. */
-  onRemove?: (member: Squadron['members'][number]) => void;
+  /** A member's actions at the end of its row: Get new crew line, Remove from squadron. */
+  renderActions?: (member: Squadron['members'][number]) => ReactNode;
 }
 
 /** For a late or silent member, when its session last called the fleet. */
@@ -95,10 +95,10 @@ function RoleHeading({
  * each group headed by its template version and check-in interval. Each
  * member shows its health (on time, late, silent or not on station), and from the fleet its report, where
  * its session runs and its open deliveries. Right after forming, a member not on
- * station shows its crew line and launch note in its row: once. While the
- * squadron may lose members, each row offers Remove.
+ * station shows its crew line and launch note in its row: once. Each row ends
+ * with the actions the page gives it.
  */
-export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, onRemove }: MemberListProps) {
+export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, renderActions }: MemberListProps) {
   if (squadron.members.length === 0) {
     return <EmptyState variant="section" title="No members" description="This squadron has no members." />;
   }
@@ -121,19 +121,7 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
                       </span>
                     )}
                     <FleetFacts ship={ships.get(member.shipId)} now={now} />
-                    {onRemove && member.crew.status !== 'retired' && ships.get(member.shipId)?.status !== 'retired' && (
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        data-testid="member-remove"
-                        aria-label={`Remove ${member.name} from the squadron`}
-                        onClick={() => {
-                          onRemove(member);
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    )}
+                    {renderActions?.(member)}
                   </div>
                   {issued && (
                     <div className="flex flex-col gap-2">

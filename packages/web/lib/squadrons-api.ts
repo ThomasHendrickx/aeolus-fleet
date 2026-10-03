@@ -251,6 +251,19 @@ export function useRemoveMember() {
   });
 }
 
+export const newCrewLineSchema = z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() });
+
+/** A member's new crew line: releases its ship if crewed; the answer, with its launch note, is shown once. */
+export function useNewCrewLine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (member: { squadronId: string; shipId: string }) => call('squadrons.newCrewLine', { input: member, isMutation: true, answers: newCrewLineSchema }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
+    },
+  });
+}
+
 function crewLinesKey(squadronId: string): string[] {
   return ['squadrons', 'crew-lines', squadronId];
 }

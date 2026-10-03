@@ -8,6 +8,7 @@ import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
+import { GetNewCrewLine } from '../../components/organisms/get-new-crew-line';
 import { SilentMembers } from '../../components/organisms/silent-members';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useOpenInboxCount } from '../../lib/inbox';
@@ -27,6 +28,7 @@ import { useAccountMenu } from '../../lib/account';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useFleetSnapshot } from '../../lib/fleet';
 import { useHasSquadrons } from '../../lib/squadrons';
+import { useShips } from '../../lib/ship';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { silentMembers } from '../../lib/squadrons-view';
 
@@ -47,6 +49,7 @@ export default function NeedsAttentionPage() {
   const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons({ isEnabled: hasSquadrons });
   const silent = silentMembers(squadrons.data ?? []);
+  const silentShips = useShips(silent.map(({ member }) => member.shipId));
   const fleet = useFleetSnapshot();
   const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
   const attentionCount = useAttentionCount();
@@ -133,7 +136,14 @@ export default function NeedsAttentionPage() {
             <h2 id="attention-silent" className="text-body font-semibold">
               Silent members ({silent.length})
             </h2>
-            <SilentMembers members={silent} ships={shipsById} now={now} />
+            <SilentMembers
+              members={silent}
+              ships={shipsById}
+              now={now}
+              renderAction={({ squadronId, member }) => (
+                <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
+              )}
+            />
             <p className="text-meta text-muted-foreground">
               A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.
             </p>
