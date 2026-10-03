@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { abandonedLine, inFlightLine, isTypedMatch, retireButtonLabel } from './ship-dialogs';
+import { abandonedLine, inFlightLine, isTypedMatch, retireButtonLabel, newCrewLineConfirm } from './ship-dialogs';
 
 describe('isTypedMatch', () => {
   it('matches the ship name exactly', () => {
@@ -44,5 +44,23 @@ describe('abandonedLine', () => {
   it('counts the deliveries a retire abandons', () => {
     expect(abandonedLine(1)).toBe('1 delivery will be abandoned');
     expect(abandonedLine(3)).toBe('3 deliveries will be abandoned');
+  });
+});
+
+describe('newCrewLineConfirm', () => {
+  const awaiting = { status: 'awaitingCrew', location: null, startingPrompt: null, inFlightDeliveries: 0 };
+
+  it('says a crewed member loses its session, and what happens to its in-flight deliveries', () => {
+    expect(newCrewLineConfirm({ ...awaiting, status: 'crewed', location: { kind: 'DEVICE', description: 'mac mini' }, inFlightDeliveries: 1 })).toBe(
+      'Ends the session on mac mini. 1 in-flight delivery returns to pending. Nothing is lost.',
+    );
+  });
+
+  it('says an unclaimed crew line stops working', () => {
+    expect(newCrewLineConfirm({ ...awaiting, startingPrompt: { isClaimed: false } })).toBe('The crew line issued earlier is not claimed yet; a new one stops it working.');
+  });
+
+  it('asks nothing for a member awaiting crew with no unclaimed line out', () => {
+    expect(newCrewLineConfirm({ ...awaiting, startingPrompt: { isClaimed: true } })).toBeUndefined();
   });
 });

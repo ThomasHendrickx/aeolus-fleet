@@ -30,3 +30,23 @@ export function retireButtonLabel(openDeliveries: number): string {
 export function abandonedLine(openDeliveries: number): string {
   return `${counted(openDeliveries, DELIVERIES)} will be abandoned`;
 }
+
+/**
+ * What a new crew line for a member ends, for its confirm; none when it ends
+ * nothing (awaiting crew, no unclaimed line out), so it issues at once.
+ */
+export function newCrewLineConfirm(ship: {
+  status: string;
+  location: { kind: string; description: string | null } | null;
+  startingPrompt: { isClaimed: boolean } | null;
+  inFlightDeliveries: number;
+}): string | undefined {
+  if (ship.status === 'crewed') {
+    const where = ship.location === null ? 'the session crewing it' : `the session on ${ship.location.description ?? ship.location.kind.toLowerCase()}`;
+    return `Ends ${where}. ${inFlightLine(ship.inFlightDeliveries)}`;
+  }
+  if (ship.startingPrompt !== null && !ship.startingPrompt.isClaimed) {
+    return 'The crew line issued earlier is not claimed yet; a new one stops it working.';
+  }
+  return undefined;
+}
