@@ -177,6 +177,9 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('member-station').getByText('On station').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('member-crew-line').count()).resolves.toBe(0);
+    // From the fleet: where the member's session runs, and its open deliveries.
+    await page.getByTestId('member-row').getByText('Device').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(page.getByTestId('member-inbox').textContent()).resolves.toMatch(/^\d+ open$/);
   });
 
   it('lists the squadron with its blueprint version and state', async () => {

@@ -1,9 +1,13 @@
-import { CircleCheck, CircleDashed, FileText, Info } from 'lucide-react';
+import type { ShipDetail } from '@aeolus-fleet/common';
+import { CircleCheck, CircleDashed, FileText, Info, Inbox } from 'lucide-react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
 import { CodeBlock } from '../atoms/code-block';
 import { EmptyState } from '../molecules/empty-state';
+import { LocationTag } from '../molecules/location-tag';
+import { ReportLine } from '../molecules/report-line';
+import { StatusBadge } from '../molecules/status-badge';
 
 /** A member's crew line and launch note, from the forming answer: shown once, never stored. */
 export interface IssuedCrewLine {
@@ -18,6 +22,36 @@ interface MemberListProps {
   templates: readonly TemplateVersion[];
   /** The crew lines forming handed out, by ship id, while this browser still holds them. */
   crewLines: ReadonlyMap<string, IssuedCrewLine>;
+  /** Each member's ship as the fleet has it, by ship id, once loaded: report, location and open deliveries. */
+  ships: ReadonlyMap<string, ShipDetail>;
+  /** The time reports are measured from. */
+  now: Date;
+}
+
+/** A member's ship from the fleet: awaiting crew, or its report, and where its session runs and its open deliveries. */
+function FleetFacts({ ship, now }: { ship: ShipDetail | undefined; now: Date }) {
+  if (!ship) {
+    return null;
+  }
+  return (
+    <div className="flex grow flex-wrap items-center justify-end gap-x-4 gap-y-1 text-meta">
+      {ship.status === 'crewed' ? (
+        <ReportLine report={ship.report} now={now} variant="row" testId="member-report" />
+      ) : (
+        <StatusBadge status={ship.status} />
+      )}
+      {ship.location ? (
+        <LocationTag kind={ship.location.kind} description={ship.location.description} isCompact size="sm" />
+      ) : (
+        <span className="text-muted-foreground">No session</span>
+      )}
+      <span className="flex items-center gap-1 text-muted-foreground" data-testid="member-inbox">
+        <Inbox aria-hidden className="size-(--size-icon-sm)" />
+        {ship.openDeliveries}
+        <span className="sr-only"> open</span>
+      </span>
+    </div>
+  );
 }
 
 function RoleHeading({
@@ -48,10 +82,11 @@ function RoleHeading({
 /**
  * The squadron's members grouped by role (docs/design/png/MemberList.png),
  * each group headed by its template version and check-in interval. Each
- * member says whether it is on station. Right after forming, a member not on
+ * member says whether it is on station, and from the fleet its report, where
+ * its session runs and its open deliveries. Right after forming, a member not on
  * station shows its crew line and launch note in its row: once.
  */
-export function MemberList({ squadron, blueprint, templates, crewLines }: MemberListProps) {
+export function MemberList({ squadron, blueprint, templates, crewLines, ships, now }: MemberListProps) {
   if (squadron.members.length === 0) {
     return <EmptyState variant="section" title="No members" description="This squadron has no members." />;
   }
@@ -83,6 +118,7 @@ export function MemberList({ squadron, blueprint, templates, crewLines }: Member
                         Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}
                       </span>
                     )}
+                    <FleetFacts ship={ships.get(member.shipId)} now={now} />
                   </div>
                   {issued && (
                     <div className="flex flex-col gap-2">

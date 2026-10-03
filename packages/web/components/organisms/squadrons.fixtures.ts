@@ -1,4 +1,7 @@
+import { idSchema, type ShipDetail } from '@aeolus-fleet/common';
+
 import type { Catalogue, Squadron } from '../../lib/squadrons-api';
+import { AWAITING_SHIP, CREWED_SHIP } from './ship-page.fixtures';
 
 /** Squadrons, blueprints and templates for the stories. */
 
@@ -88,3 +91,14 @@ export const crewLines = new Map([
     { crewLine: '/aeolus:crew https://fleet.example.dev shp_01m3tbfspe96yf1rnr4ank0004 aeolus_sk_v1_example aeolus-a1b2c3', launchNote: 'Start in a worktree with Docker running.' },
   ],
 ]);
+
+export { NOW } from './ship-page.fixtures';
+
+/** The members' ships as the fleet has them: on-station members crewed and reporting, the others awaiting crew. */
+export const memberShips: ReadonlyMap<string, ShipDetail> = new Map(
+  forming.members.map((member) => {
+    const id = idSchema('ship').parse(member.shipId);
+    const ship: ShipDetail = member.onStationAt === null ? { ...AWAITING_SHIP, id, name: member.name } : { ...CREWED_SHIP, id, name: member.name };
+    return [member.shipId, ship];
+  }),
+);

@@ -14,6 +14,7 @@ import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
+import { useShips } from '../../../lib/ship';
 import { useHasSquadrons } from '../../../lib/squadrons';
 import { useCatalogue, useIssuedCrewLines, useSquadrons } from '../../../lib/squadrons-api';
 
@@ -38,6 +39,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const squadron = squadrons.data?.find((each) => each.id === squadronId);
+  const ships = useShips(squadron?.members.map((member) => member.shipId) ?? []);
   const blueprint = catalogue.data?.blueprints.find(
     (each) => each.repository === squadron?.blueprint.repository && each.name === squadron.blueprint.name && each.version === squadron.blueprint.version,
   );
@@ -63,7 +65,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       account={accountMenu}
     >
       {squadron ? (
-        <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines} />
+        <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines} ships={ships} now={now} />
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
       )}
