@@ -78,6 +78,15 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
     },
     send: (crewToken, message) =>
       call(fleetUrl, { path: '/ship/send', method: 'POST', crewToken, body: message, answers: z.object({ messageId: idSchema('message') }) }),
+    listShips: async (crewToken) => {
+      const listed = await call(fleetUrl, {
+        path: '/fleet/list',
+        method: 'GET',
+        crewToken,
+        answers: z.array(z.object({ id: idSchema('ship'), name: z.string(), status: z.string() })),
+      });
+      return listed.isOk ? ok(listed.value.filter((ship) => ship.status !== 'retired').map(({ id, name }) => ({ shipId: id, name }))) : listed;
+    },
     retire: async (crewToken, ship) => {
       const retired = await call(fleetUrl, { path: '/fleet/retire', method: 'POST', crewToken, body: ship, answers: z.unknown() });
       return retired.isOk ? ok(undefined) : retired;

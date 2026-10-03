@@ -37,6 +37,7 @@ function fakeFleet() {
     receive: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     ack: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    listShips: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
   };
   return { state, door };
 }
