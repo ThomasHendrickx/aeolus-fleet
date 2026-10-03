@@ -52,11 +52,11 @@ The operator stands down a Sailing squadron. It goes Standing down and takes no 
 
 1. A member that never came on station holds no work: squadrons retires it at once.
 2. The flagship sends every other member `application/vnd.aeolus.squadron.stand-down+json`: `{ "squadron" }`, once each.
-3. The member acknowledges it on receipt, as any delivery: an ack means received, never done. It finishes its open work, then sends its flagship `application/vnd.aeolus.squadron.stood-down+json`: `{ "squadron" }`, with `inReplyTo` set to the stand-down.
-4. The flagship handles a stood-down as it handles an on-station: it records it, then acks it. A member that stood down and holds no open deliveries is retired then; one that still holds some is retired at the first rescan (every 30 seconds) where it holds none.
+3. The member acknowledges it on receipt, as any delivery: an ack means received, never done. It finishes its open work, then sends its flagship `application/vnd.aeolus.squadron.stood-down+json`: `{ "squadron" }`, with `inReplyTo` set to the message that told it to stand down.
+4. The flagship knows a stood-down by its sender, a member of the squadron standing down; `inReplyTo` only informs. It handles it as it handles an on-station: it records it, then acks it. A member that stood down and holds no open deliveries is retired then; one that still holds some is retired at the first rescan (every 30 seconds) where it holds none.
 5. Once every member is retired, squadrons retires the flagship and the squadron is Disbanded.
 
-A member that checks in while its squadron stands down gets its role message with `"standingDown": true`: it finishes its open work and sends stood-down, as in step 3. A member is never retired before it sent stood-down: a stand-down that goes undeliverable, or a member that never answers, retires nobody. The operator removes that member or forces the stand down. The flagship receives until the squadron is Disbanded, so no message to it goes unseen while members finish.
+A member that checks in while its squadron stands down gets its role message with `"standingDown": true`: it finishes its open work and sends stood-down, as in step 3, with `inReplyTo` set to that role message. A member is never retired before it sent stood-down: a stand-down that goes undeliverable, or a member that never answers, retires nobody. The operator removes that member or forces the stand down. The flagship receives until the squadron is Disbanded, so no message to it goes unseen while members finish.
 
 Sending stood-down is the aeolus plugin's part: when a stand-down arrives, or a role message says `"standingDown": true`, the member finishes its work and sends stood-down to its flagship.
 
