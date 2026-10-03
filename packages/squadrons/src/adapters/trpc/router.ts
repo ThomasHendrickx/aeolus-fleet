@@ -15,6 +15,7 @@ import type { FormSquadron } from '../../core/squadron/form-squadron.js';
 import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
 import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
+import type { AddMember } from '../../core/squadron/add-member.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
@@ -32,6 +33,7 @@ export interface Context {
   listSquadrons: ListSquadrons;
   standDown: StandDown;
   forceStandDown: ForceStandDown;
+  addMember: AddMember;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -101,6 +103,15 @@ const FORCE_CODES = {
   SQUADRON_NOT_FOUND: 'NOT_FOUND',
   ALREADY_DISBANDED: 'CONFLICT',
   FLEET_UNAVAILABLE: 'BAD_GATEWAY',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of adding a member, as the API states them. */
+const ADD_CODES = {
+  MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
+  SQUADRON_NOT_FOUND: 'NOT_FOUND',
+  NOT_SAILING: 'CONFLICT',
+  ROLE_NOT_FOUND: 'BAD_REQUEST',
+  ADDING_FAILED: 'BAD_GATEWAY',
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -282,6 +293,21 @@ export const squadronsRouter = t.router({
           throw new TRPCError({ code: FORCE_CODES[forced.error.kind], message: forced.error.message });
         }
         return {};
+      }),
+    /**
+     * Adds a member of a role to a sailing squadron, from the squadron's own
+     * template version. Its crew line, launch note and pinned model are in the
+     * answer, once.
+     */
+    addMember: connectedProcedure
+      .input(z.object({ squadronId: z.string(), role: z.string() }))
+      .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }))
+      .mutation(async ({ ctx, input }) => {
+        const added = await ctx.addMember({ fleetId: ctx.fleetId, ...input });
+        if (!added.isOk) {
+          throw new TRPCError({ code: ADD_CODES[added.error.kind], message: added.error.message });
+        }
+        return added.value;
       }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by

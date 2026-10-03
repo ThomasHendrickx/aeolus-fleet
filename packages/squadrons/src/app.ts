@@ -26,6 +26,7 @@ import { createListSquadrons } from './core/squadron/list-squadrons.js';
 import { createAdvanceStandDowns } from './core/squadron/advance-stand-downs.js';
 import { createStandDown, type StandDown } from './core/squadron/stand-down.js';
 import { createForceStandDown } from './core/squadron/force-stand-down.js';
+import { createAddMember } from './core/squadron/add-member.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
 
@@ -124,6 +125,7 @@ export function createSquadronsApp(options: {
   const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
   const standDownOnly = createStandDown({ squadrons });
   const forceStandDown = createForceStandDown({ door, management: store, squadrons, clock });
+  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock });
   // Each member gets its stand-down at once, not at the next rescan.
   const standDown: StandDown = async (input) => {
     const stood = await standDownOnly(input);
@@ -169,6 +171,7 @@ export function createSquadronsApp(options: {
         listSquadrons,
         standDown,
         forceStandDown,
+        addMember,
         keptMessages: (fleetId, squadronId) => keptMessages.list(fleetId, squadronId),
       }),
     },
