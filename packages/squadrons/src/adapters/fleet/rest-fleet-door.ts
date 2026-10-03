@@ -69,6 +69,12 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         body: ship,
         answers: z.object({ shipId: idSchema('ship'), crewLine: z.string().nullable() }),
       }),
+    getShip: (crewToken, ship) =>
+      call(fleetUrl, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: z.object({ scopes: z.array(z.string()) }) }),
+    deregister: async (crewToken) => {
+      const ended = await call(fleetUrl, { path: '/ship/deregister', method: 'POST', crewToken, body: {}, answers: z.unknown() });
+      return ended.isOk ? ok(undefined) : ended;
+    },
     getStartingPrompt: (crewToken, ship) =>
       call(fleetUrl, {
         path: '/fleet/getStartingPrompt',

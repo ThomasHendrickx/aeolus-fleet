@@ -21,7 +21,7 @@ export function fakeManagementFleet() {
     isCrewed: false,
     liveTokens: new Set<string>(),
     registers: 0,
-    deregistered: [] as string[],
+    deregistered: new Array<string>(),
   };
   const door: FleetDoor = {
     register: ({ shipId, secret }): Promise<Result<{ crewToken: string }, FleetRefusal>> => {
@@ -70,16 +70,16 @@ export function fakeManagementFleet() {
 }
 
 /** The management store in memory: the binding stays when the crew token is dropped. */
-export function memoryManagementStore(): ManagementCrewStore & { held: { binding: ManagementBinding; crewToken: string | null; crewedAt: Date } | undefined } {
-  const store: ManagementCrewStore & { held: { binding: ManagementBinding; crewToken: string | null; crewedAt: Date } | undefined } = {
+export function memoryManagementStore(): ManagementCrewStore & { held: { binding: ManagementBinding; name: string; crewToken: string | null; crewedAt: Date } | undefined } {
+  const store: ManagementCrewStore & { held: { binding: ManagementBinding; name: string; crewToken: string | null; crewedAt: Date } | undefined } = {
     held: undefined,
     find: () => {
       const { held } = store;
-      return Promise.resolve(held?.crewToken ? { ...held.binding, crewToken: held.crewToken, crewedAt: held.crewedAt } : undefined);
+      return Promise.resolve(held?.crewToken ? { ...held.binding, name: held.name, crewToken: held.crewToken, crewedAt: held.crewedAt } : undefined);
     },
     binding: () => Promise.resolve(store.held ? { ...store.held.binding } : undefined),
     save: (crew: ManagementCrew) => {
-      store.held = { binding: { fleetId: crew.fleetId, shipId: crew.shipId }, crewToken: crew.crewToken, crewedAt: crew.crewedAt };
+      store.held = { binding: { fleetId: crew.fleetId, shipId: crew.shipId }, name: crew.name, crewToken: crew.crewToken, crewedAt: crew.crewedAt };
       return Promise.resolve();
     },
     drop: () => {

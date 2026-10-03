@@ -10,8 +10,10 @@ export type AuthenticateOperator = (cookie: string | undefined) => Promise<Resul
 /**
  * Use case: whether a request comes from the operator. squadrons has no login
  * of its own: the web app's server forwards the console session cookie, and
- * the fleet says whose session it is (decision 0017). Only the operator of the
- * fleet squadrons serves, the fleet of its management ship, is let through.
+ * the fleet says whose session it is (decision 0017). Once squadrons was
+ * connected, only the operator of that fleet, the fleet of its management
+ * ship, is let through; before, any operator of the fleet at its FLEET_URL,
+ * who may connect it.
  */
 export function createAuthenticateOperator(deps: { sessions: ConsoleSessions; store: ManagementCrewStore }): AuthenticateOperator {
   const refusal = refuse('NOT_THE_OPERATOR', 'Sign in to the console of the fleet squadrons serves');
@@ -19,11 +21,11 @@ export function createAuthenticateOperator(deps: { sessions: ConsoleSessions; st
     if (cookie === undefined) {
       return refusal;
     }
-    const crew = await deps.store.find();
-    if (!crew) {
+    const session = await deps.sessions.check(cookie);
+    if (!session.isOk) {
       return refusal;
     }
-    const session = await deps.sessions.check(cookie);
-    return session.isOk && session.value.fleetId === crew.fleetId ? ok({ fleetId: crew.fleetId }) : refusal;
+    const binding = await deps.store.binding();
+    return binding === undefined || binding.fleetId === session.value.fleetId ? ok({ fleetId: session.value.fleetId }) : refusal;
   };
 }

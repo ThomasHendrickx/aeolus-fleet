@@ -81,6 +81,8 @@ function fakeFleet() {
       return Promise.resolve(ok({ crewToken: `aeolus_ct_v1_${ship.name}` }));
     },
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
+    getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+    deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
@@ -144,8 +146,10 @@ function memorySquadrons(attempts: ReturnType<typeof memoryAttempts>): SquadronR
 }
 
 const managementStore: ManagementCrewStore = {
-  find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+  find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+  binding: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT }),
   save: () => Promise.resolve(),
+  drop: () => Promise.resolve(),
 };
 
 let fleet: ReturnType<typeof fakeFleet>;
@@ -341,7 +345,7 @@ describe('a squadron not formed', () => {
   });
 
   it('refuses while squadrons crews no management ship', async () => {
-    const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), save: () => Promise.resolve() };
+    const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), binding: () => Promise.resolve(undefined), save: () => Promise.resolve(), drop: () => Promise.resolve() };
 
     await expect(formWith({ store: empty })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
   });

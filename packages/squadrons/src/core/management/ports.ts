@@ -25,6 +25,10 @@ export interface FleetDoor {
    * same key answers the same ship with no crew line: its secret was shown once.
    */
   commission(crewToken: string, ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>>;
+  /** A ship of the fleet with its scopes; needs fleet:read. */
+  getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<{ scopes: string[] }, FleetRefusal>>;
+  /** Ends this session's crew of its ship: the lease and the secret it claimed with. */
+  deregister(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
   /** A new starting prompt's crew line for a ship awaiting crew; the earlier secret stops working. */
   getStartingPrompt(crewToken: string, ship: { shipId: ShipId }): Promise<Result<{ crewLine: string }, FleetRefusal>>;
   /** The fleet's ships that are not retired, by id and name (fleet:read). */
@@ -63,12 +67,35 @@ export interface ManagementCrew {
   /** The fleet the management ship belongs to: the fleet squadrons serves. */
   fleetId: FleetId;
   shipId: ShipId;
+  /** The ship's name when squadrons connected, shown while the fleet does not answer. */
+  name: string;
   crewToken: string;
   crewedAt: Date;
 }
 
+/** The fleet and ship squadrons was last connected as; kept when its crew token is dropped. */
+export interface ManagementBinding {
+  fleetId: FleetId;
+  shipId: ShipId;
+}
+
 /** Outbound port: where squadrons keeps its management ship's crew token across restarts. */
 export interface ManagementCrewStore {
+  /** The crew, while squadrons holds a crew token: while it is connected. */
   find(): Promise<ManagementCrew | undefined>;
+  /** The last connection's fleet and ship, with or without a crew token; none before the first. */
+  binding(): Promise<ManagementBinding | undefined>;
   save(crew: ManagementCrew): Promise<void>;
+  /** Forgets the crew token, keeping the binding: squadrons is not connected. */
+  drop(): Promise<void>;
+}
+
+/**
+ * Whether squadrons holds a working crew token for its management ship, as
+ * which ship, and the ship it was last connected as.
+ */
+export interface ConnectionStatus {
+  state: 'not-connected' | 'connected';
+  ship: { shipId: ShipId; name: string } | null;
+  lastShipId: ShipId | null;
 }

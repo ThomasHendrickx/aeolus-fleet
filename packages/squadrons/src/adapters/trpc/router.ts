@@ -2,22 +2,27 @@
  * squadrons' API: one tRPC router, which the web app's server calls with the
  * console's session cookie (decision 0017). Every procedure is the
  * operator's: the cookie must be a signed-in console session of the fleet
- * squadrons serves.
+ * squadrons serves. Only `connection` works before squadrons is connected.
  */
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import type { Catalogue } from '../../core/catalogue/catalogue.js';
+import type { Connect } from '../../core/management/connect.js';
+import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel, type Squadron } from '../../core/squadron/squadron.js';
-import type { FleetId } from '@aeolus-fleet/common';
+import { idSchema, type FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
   /** The Cookie header the web app's server forwarded. */
   cookie: string | undefined;
   authenticateOperator: AuthenticateOperator;
+  isConnected: () => Promise<boolean>;
+  readConnection: ReadConnection;
+  connect: Connect;
   catalogue: () => Catalogue;
   refreshCatalogue: () => Promise<void>;
   formSquadron: FormSquadron;
@@ -40,6 +45,28 @@ const operatorProcedure = t.procedure.use(async ({ ctx, next }) => {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: operator.error.message });
   }
   return next({ ctx: { fleetId: operator.value.fleetId } });
+});
+
+/** The operator's procedures that need squadrons connected: until then, PRECONDITION_FAILED. */
+const connectedProcedure = operatorProcedure.use(async ({ ctx, next }) => {
+  if (!(await ctx.isConnected())) {
+    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'squadrons is not connected: connect it in the console' });
+  }
+  return next();
+});
+
+/** The refusals of connecting, as the API states them. */
+const CONNECT_CODES = {
+  ALREADY_CONNECTED: 'CONFLICT',
+  SECRET_REFUSED: 'BAD_REQUEST',
+  OTHER_FLEET: 'BAD_REQUEST',
+  MISSING_SCOPES: 'BAD_REQUEST',
+} as const satisfies Record<string, TRPCError['code']>;
+
+const connectionOutputSchema = z.object({
+  state: z.enum(['not-connected', 'connected']),
+  ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
+  lastShipId: z.string().nullable(),
 });
 
 /** The refusals of forming, as the API states them. */
@@ -130,9 +157,28 @@ function squadronOutputOf(squadron: Squadron): z.infer<typeof squadronOutputSche
 }
 
 export const squadronsRouter = t.router({
+  connection: t.router({
+    /** Whether squadrons is connected, as which ship, and the ship it was last connected as. */
+    status: operatorProcedure.output(connectionOutputSchema).query(({ ctx }) => ctx.readConnection()),
+    /**
+     * Connects squadrons with the management ship's secret, which the web
+     * app's server hands over server to server: squadrons registers with it
+     * and keeps only the crew token. Only while not connected.
+     */
+    connect: operatorProcedure
+      .input(z.object({ shipId: idSchema('ship'), secret: z.string().min(1) }))
+      .output(connectionOutputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const connected = await ctx.connect({ operatorFleetId: ctx.fleetId, ...input });
+        if (!connected.isOk) {
+          throw new TRPCError({ code: CONNECT_CODES[connected.error.kind], message: connected.error.message });
+        }
+        return connected.value;
+      }),
+  }),
   squadrons: t.router({
     /** The messages a squadron's flagship kept because it does not handle them, oldest first. */
-    messages: operatorProcedure
+    messages: connectedProcedure
       .input(z.object({ squadronId: z.string() }))
       .output(
         z.array(
@@ -161,13 +207,13 @@ export const squadronsRouter = t.router({
         })),
       ),
     /** The fleet's squadrons, oldest first, with their members and whether each is on station. */
-    list: operatorProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => (await ctx.listSquadrons(ctx.fleetId)).map(squadronOutputOf)),
+    list: connectedProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => (await ctx.listSquadrons(ctx.fleetId)).map(squadronOutputOf)),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
      * squadrons, its members commissioned. Each member's crew line, launch
      * note and pinned model are in the answer, once.
      */
-    form: operatorProcedure
+    form: connectedProcedure
       .input(z.object({ blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }), squadronId: z.string().optional() }))
       .output(
         z.object({
@@ -186,7 +232,7 @@ export const squadronsRouter = t.router({
   }),
   catalogue: t.router({
     /** Every template and blueprint version tagged in git, and every version left out with its problem. */
-    list: operatorProcedure.output(catalogueOutputSchema).query(({ ctx }) => {
+    list: connectedProcedure.output(catalogueOutputSchema).query(({ ctx }) => {
       const { templates, blueprints, problems } = ctx.catalogue();
       return {
         templates: templates.map((template) => ({ ...template, committedAt: template.committedAt.toISOString() })),
@@ -195,7 +241,7 @@ export const squadronsRouter = t.router({
       };
     }),
     /** Fetches the repositories again now, rather than at the next interval. */
-    refresh: operatorProcedure.output(z.strictObject({})).mutation(async ({ ctx }) => {
+    refresh: connectedProcedure.output(z.strictObject({})).mutation(async ({ ctx }) => {
       await ctx.refreshCatalogue();
       return {};
     }),

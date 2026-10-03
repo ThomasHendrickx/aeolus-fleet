@@ -23,7 +23,7 @@ describe('connecting squadrons', () => {
       isOk: true,
       value: { state: 'connected', ship: { shipId: SHIP_ID, name: 'squadrons' }, lastShipId: SHIP_ID },
     });
-    await expect(store.find()).resolves.toEqual({ fleetId: FLEET_ID, shipId: SHIP_ID, crewToken: 'aeolus_ct_v1_1', crewedAt: AT });
+    await expect(store.find()).resolves.toEqual({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_1', crewedAt: AT });
   });
 
   it('is refused while squadrons is connected: connect only from not connected', async () => {

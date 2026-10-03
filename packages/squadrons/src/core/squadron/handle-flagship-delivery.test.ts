@@ -77,6 +77,8 @@ let isAckRefused: boolean;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   retire: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),

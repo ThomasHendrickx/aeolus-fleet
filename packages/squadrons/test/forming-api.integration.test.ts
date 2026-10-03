@@ -83,12 +83,11 @@ beforeEach(async () => {
   app = createSquadronsApp({
     databaseUrl: await createSquadronsDatabase(),
     fleetUrl,
-    managementShip: { shipId, secret: secretIn(prompt) },
     repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     logger: false,
   });
-  unwrap(await app.crewManagementShip());
+  unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretIn(prompt) }));
   await app.refreshCatalogue();
   address = await app.server.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();

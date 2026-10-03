@@ -66,7 +66,7 @@ export function createFormSquadron(deps: {
   return async (input) => {
     const crew = await deps.management.find();
     if (!crew) {
-      return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons crews no management ship yet');
+      return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }
     const { blueprints, templates } = deps.catalogue();
     const { repository, name, version } = input.blueprint;

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -36,7 +36,7 @@ let fleet: FastifyInstance;
 let fleetUrl: string;
 let proxy: Server;
 let squadronsDatabaseUrl: string;
-let managementShip: { shipId: ShipId; secret: string };
+let managementShip: { operatorFleetId: FleetId; shipId: ShipId; secret: string };
 let killed: SquadronsApp;
 let restarted: SquadronsApp | undefined;
 let cookie: string;
@@ -106,7 +106,6 @@ function squadronsApp(through: string): SquadronsApp {
   return createSquadronsApp({
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl: through,
-    managementShip,
     repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     logger: false,
@@ -132,7 +131,7 @@ beforeEach(async () => {
   const { shipId, prompt } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
-  managementShip = { shipId, secret: secretIn(prompt) };
+  managementShip = { operatorFleetId: argo.fleetId, shipId, secret: secretIn(prompt) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();
@@ -162,7 +161,7 @@ describe('forming that a crash kills midway', () => {
       hung = resolve;
     });
     killed = squadronsApp(await startCrashingProxy(() => { hung(); }));
-    unwrap(await killed.crewManagementShip());
+    unwrap(await killed.connect(managementShip));
     await killed.refreshCatalogue();
     const address = await killed.server.listen({ host: '127.0.0.1', port: 0 });
     void fetch(`${address}/trpc/squadrons.form`, {
@@ -174,7 +173,8 @@ describe('forming that a crash kills midway', () => {
     expect((await shipsOtherThanArgoAndSquadrons()).filter((ship) => ship.retiredAt === null)).toHaveLength(COMMISSION_THAT_HANGS);
 
     restarted = squadronsApp(fleetUrl);
-    unwrap(await restarted.crewManagementShip());
+    // The restart connects again with the crew token the killed process kept.
+    expect(await restarted.readConnection()).toMatchObject({ state: 'connected' });
     const recovered = unwrap(await restarted.recoverFormations());
 
     expect(recovered).toEqual({ recovered: 1, retired: COMMISSION_THAT_HANGS });
@@ -189,7 +189,7 @@ describe('forming that a crash kills midway', () => {
 describe('a commission whose answer is lost', () => {
   it('is asked again under the same key: forming goes on with one ship per name, each member crew line claiming its ship', async () => {
     killed = squadronsApp(await startCrashingProxy(() => undefined, 'drop'));
-    unwrap(await killed.crewManagementShip());
+    unwrap(await killed.connect(managementShip));
     await killed.refreshCatalogue();
     const address = await killed.server.listen({ host: '127.0.0.1', port: 0 });
 
