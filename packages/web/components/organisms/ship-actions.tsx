@@ -15,7 +15,7 @@ import {
 } from '../../lib/fleet';
 import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
-import { useHasSquadrons } from '../../lib/squadrons';
+import { useSquadronsSettings } from '../../lib/squadrons';
 import { useRemoveMember, useSquadrons } from '../../lib/squadrons-api';
 import { otherMembersOfRole } from '../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
@@ -51,8 +51,9 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * With squadrons (docs/design/conventions.md, "Squadrons"): a flagship offers
  * only Open squadron, since retiring, releasing or renaming it would break its
  * squadron; a member offers Ping, Release and Remove from squadron, never
- * Rename, Retire, Re-crew or Get starting prompt. Until the squadrons list is
- * known, only Ping shows, so a member is never offered Retire.
+ * Rename, Retire, Re-crew or Get starting prompt. Until it is known whether
+ * squadrons is set up and, if so, its list, only Ping shows, so a member is
+ * never offered Retire.
  */
 export function ShipActions({ ship }: { ship: ListedShip }) {
   const [dialog, setDialog] = useState<OpenDialog>();
@@ -64,7 +65,8 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
-  const hasSquadrons = useHasSquadrons();
+  const settings = useSquadronsSettings();
+  const hasSquadrons = settings.data?.configured === true;
   const squadrons = useSquadrons({ isEnabled: hasSquadrons });
   const removeMember = useRemoveMember();
 
@@ -84,7 +86,7 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
     );
   }
   const member = squadron?.members.find((each) => each.shipId === ship.id);
-  const isMembershipPending = hasSquadrons && squadrons.data === undefined && !squadrons.isError;
+  const isMembershipPending = (settings.data === undefined && !settings.isError) || (hasSquadrons && squadrons.data === undefined && !squadrons.isError);
 
   const close = () => {
     setDialog(undefined);
