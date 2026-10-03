@@ -32,6 +32,7 @@ next-env.d.ts
 
 # Prisma client, generated on npm install
 packages/server/src/adapters/prisma/generated/
+packages/squadrons/src/adapters/prisma/generated/
 
 # Storybook build output
 storybook-static/

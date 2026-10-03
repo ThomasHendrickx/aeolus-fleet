@@ -222,6 +222,7 @@ export default defineConfig(
     '**/storybook-static/',
     '**/next-env.d.ts',
     'packages/server/src/adapters/prisma/generated/',
+    'packages/squadrons/src/adapters/prisma/generated/',
   ]),
 
   js.configs.recommended,

@@ -45,6 +45,15 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'squadrons:unit',
+          root: 'packages/squadrons',
+          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'web:unit',
           root: 'packages/web',
           include: ['lib/**/*.test.ts'],
@@ -67,6 +76,18 @@ export default defineConfig({
           root: 'packages/server',
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['test/postgres.global-setup.ts'],
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // Squadrons on Postgres, against a real fleet server, both in the shared container.
+          name: 'squadrons:integration',
+          root: 'packages/squadrons',
+          include: ['test/**/*.integration.test.ts'],
+          globalSetup: ['../server/test/postgres.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
