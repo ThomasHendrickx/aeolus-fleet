@@ -58,6 +58,9 @@ model Member {
   role        String
   type        String
   onStationAt DateTime? @map("on_station_at") @db.Timestamptz(3)
+  /// Its last check-in, and the model it stated then (null when it stated none).
+  checkInAt    DateTime? @map("check_in_at") @db.Timestamptz(3)
+  checkInModel String?   @map("check_in_model")
   squadron    Squadron  @relation(fields: [fleetId, squadronId], references: [fleetId, id])
 
   @@index([fleetId, squadronId])

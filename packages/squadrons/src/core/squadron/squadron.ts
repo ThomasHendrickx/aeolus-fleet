@@ -14,6 +14,8 @@ export interface Member {
   type: string;
   /** When its session confirmed the role at check-in; null until then. */
   onStationAt: Date | null;
+  /** Its last check-in: when, and the model it stated (null when it stated none); null before its first. */
+  checkIn: { at: Date; model: string | null } | null;
 }
 
 /** A squadron, with the blueprint and templates it formed from as they were then. */
@@ -28,4 +30,22 @@ export interface Squadron {
   members: Member[];
   formedAt: Date;
   sailedAt: Date | null;
+}
+
+/** The model a member's template pins; null when it pins none. */
+export function pinnedModel(squadron: Squadron, member: Member): string | null {
+  const role = squadron.blueprint.roles.find((each) => each.name === member.role);
+  const template = squadron.templates.find(
+    (each) => each.repository === role?.template.repository && each.name === role.template.name && each.version === role.template.version,
+  );
+  return template?.model ?? null;
+}
+
+/**
+ * Whether a member runs another model than its template pins: it checked in
+ * stating another, or none. Shown on the member; nothing is refused for it.
+ */
+export function isModelMismatch(squadron: Squadron, member: Member): boolean {
+  const pinned = pinnedModel(squadron, member);
+  return pinned !== null && member.checkIn !== null && member.checkIn.model !== pinned;
 }

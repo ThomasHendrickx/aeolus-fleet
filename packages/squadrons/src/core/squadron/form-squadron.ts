@@ -20,8 +20,8 @@ export type FormRefusal = DomainError<
 export interface FormedSquadron {
   squadronId: string;
   flagship: { shipId: ShipId; name: string };
-  /** Each member with its crew line and launch note: shown once, never stored. */
-  members: { shipId: ShipId; name: string; role: string; crewLine: string; launchNote: string | null }[];
+  /** Each member with its crew line, launch note and pinned model: shown once, never stored. */
+  members: { shipId: ShipId; name: string; role: string; crewLine: string; launchNote: string | null; model: string | null }[];
 }
 
 export type FormSquadron = (input: {
@@ -138,8 +138,8 @@ export function createFormSquadron(deps: {
           return failed(member.error);
         }
         const { shipId, name: memberName, crewLine } = member.value;
-        members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null });
-        lines.push({ shipId, name: memberName, role: role.name, crewLine: `${crewLine} ${squadronId}`, launchNote: used[index]?.launchNote ?? null });
+        members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null });
+        lines.push({ shipId, name: memberName, role: role.name, crewLine: `${crewLine} ${squadronId}`, launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
       }
     }
 

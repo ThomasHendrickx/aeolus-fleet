@@ -37,11 +37,10 @@ function squadron(): Squadron {
         { role: 'tester', handoff: 'on-fail', to: 'planner' },
         { role: 'tester', handoff: 'on-pass', to: 'flagship' },
       ],
-      entry: 'planner',
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, launchNote: null, charter: 'You plan.', handoffs: [] },
+      { repository: REPO, name: 'planner', version: 1, commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
       {
         repository: REPO,
         name: 'tester',
@@ -50,6 +49,7 @@ function squadron(): Squadron {
         committedAt: FORMED,
         description: 'Tests.',
         checkInMinutes: 30,
+        model: 'claude-opus-5-5',
         launchNote: null,
         charter: 'You test.',
         handoffs: [
@@ -60,8 +60,8 @@ function squadron(): Squadron {
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null },
-      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null },
+      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null },
+      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null },
     ],
     formedAt: FORMED,
     sailedAt: null,
@@ -177,6 +177,18 @@ describe("a member's check-in", () => {
     await handle(held, delivery(PLANNER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
 
     expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ role: 'planner', checkIn: '2h', handoffs: {} });
+  });
+
+  it('keeps when the member checked in and the model it states', async () => {
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3', model: 'claude-sonnet-5-5' } }));
+
+    expect(held.members.find((member) => member.shipId === TESTER)?.checkIn).toEqual({ at: NOW, model: 'claude-sonnet-5-5' });
+  });
+
+  it('keeps a check-in that states no model as stating none', async () => {
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.members.find((member) => member.shipId === TESTER)?.checkIn).toEqual({ at: NOW, model: null });
   });
 
   it('is answered again after /clear: a member checks in as often as it starts', async () => {

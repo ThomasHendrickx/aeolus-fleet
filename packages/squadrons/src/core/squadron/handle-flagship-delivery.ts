@@ -15,7 +15,7 @@ export type FlagshipOutcome = 'answered' | 'on-station' | 'kept';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
-const checkInPayload = z.object({ squadron: z.string() });
+const checkInPayload = z.object({ squadron: z.string(), model: z.string().optional() });
 const onStationPayload = z.object({ squadron: z.string(), role: z.string() });
 
 /** The payload, parsed as JSON and checked; undefined when it is neither. */
@@ -61,8 +61,9 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
 
 /**
  * Use case: the flagship handles one delivery (docs/squadrons.md,
- * "Check-in"). A member's check-in for this squadron is acknowledged and
- * answered with its role, every time it checks in. A member's on-station is
+ * "Check-in"). A member's check-in for this squadron is acknowledged, kept
+ * with the model the member states, and answered with its role, every time it
+ * checks in. A member's on-station is
  * acknowledged and the member marked on station; the squadron sails when every
  * member is. A flagship supports only the squadron's messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
@@ -112,6 +113,8 @@ export function createHandleFlagshipDelivery(deps: {
       if (!acked.isOk) {
         return err(acked.error);
       }
+      const checkedIn = { at: deps.clock.now(), model: checkIn.model ?? null };
+      await deps.squadrons.update({ ...squadron, members: squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, checkIn: checkedIn } : each)) });
       const answered = await deps.door.send(crewToken, roleMessage(squadron, { member, checkIn: delivery }));
       return answered.isOk ? ok('answered') : err(answered.error);
     }

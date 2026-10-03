@@ -114,7 +114,7 @@ beforeEach(async () => {
   mkdirSync(origin);
   await git('init', '--quiet', '--initial-branch=main');
   write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n');
-  write('squadrons/blueprints/team.yaml', `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 3\nentry: tester\n`);
+  write('squadrons/blueprints/team.yaml', `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 3\n`);
   await git('add', '.');
   await git('commit', '--quiet', '-m', 'team');
   await git('tag', 'tester@1');

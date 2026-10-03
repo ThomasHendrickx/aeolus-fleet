@@ -16,6 +16,7 @@ const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
     committedAt: z.coerce.date(),
     description: z.string(),
     checkInMinutes: z.number(),
+    model: z.string().nullable(),
     launchNote: z.string().nullable(),
     charter: z.string(),
     handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
@@ -30,7 +31,6 @@ const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
   description: z.string(),
   roles: z.array(z.object({ name: z.string(), template: reference, count: z.number() })),
   handoffs: z.array(z.object({ role: z.string(), handoff: z.string(), to: z.string() })),
-  entry: z.string(),
   memberNames: z.enum(['plain', 'prefixed']),
 });
 const stateSchema = z.enum(['forming', 'sailing', 'standing-down', 'disbanded']);
@@ -55,6 +55,7 @@ function squadronOf(row: Row): Squadron {
         role: member.role,
         type: member.type,
         onStationAt: member.onStationAt,
+        checkIn: member.checkInAt === null ? null : { at: member.checkInAt, model: member.checkInModel },
       })),
     formedAt: row.formedAt,
     sailedAt: row.sailedAt,
@@ -87,6 +88,8 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
               role: member.role,
               type: member.type,
               onStationAt: member.onStationAt,
+              checkInAt: member.checkIn?.at ?? null,
+              checkInModel: member.checkIn?.model ?? null,
             })),
           },
         },
@@ -100,7 +103,10 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
         data: { state: squadron.state, sailedAt: squadron.sailedAt },
       });
       for (const member of squadron.members) {
-        await db.member.updateMany({ where: { fleetId: squadron.fleetId, shipId: member.shipId }, data: { onStationAt: member.onStationAt } });
+        await db.member.updateMany({
+          where: { fleetId: squadron.fleetId, shipId: member.shipId },
+          data: { onStationAt: member.onStationAt, checkInAt: member.checkIn?.at ?? null, checkInModel: member.checkIn?.model ?? null },
+        });
       }
     },
     list: async (fleetId) =>

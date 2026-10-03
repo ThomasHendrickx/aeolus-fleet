@@ -11,7 +11,7 @@ import type { Catalogue } from '../../core/catalogue/catalogue.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
-import type { Squadron } from '../../core/squadron/squadron.js';
+import { isModelMismatch, pinnedModel, type Squadron } from '../../core/squadron/squadron.js';
 import type { FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
@@ -64,6 +64,7 @@ export const catalogueOutputSchema = z.object({
       committedAt: z.iso.datetime(),
       description: z.string(),
       checkInMinutes: z.number(),
+      model: z.string().nullable(),
       launchNote: z.string().nullable(),
       charter: z.string(),
       handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
@@ -79,7 +80,6 @@ export const catalogueOutputSchema = z.object({
       description: z.string(),
       roles: z.array(z.object({ name: z.string(), template: templateReference, count: z.number() })),
       handoffs: z.array(z.object({ role: z.string(), handoff: z.string(), to: z.string() })),
-      entry: z.string(),
       memberNames: z.enum(['plain', 'prefixed']),
     }),
   ),
@@ -93,7 +93,17 @@ const squadronOutputSchema = z.object({
   state: z.enum(['forming', 'sailing', 'standing-down', 'disbanded']),
   blueprint: z.object({ repository: z.string(), name: z.string(), version: z.number(), commit: z.string() }),
   flagship: z.object({ shipId: z.string(), name: z.string() }),
-  members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), type: z.string(), onStationAt: z.iso.datetime().nullable() })),
+  members: z.array(
+    z.object({
+      shipId: z.string(),
+      name: z.string(),
+      role: z.string(),
+      type: z.string(),
+      onStationAt: z.iso.datetime().nullable(),
+      /** The model its template pins, the model it stated at its last check-in, and whether they differ. */
+      model: z.object({ pinned: z.string().nullable(), stated: z.string().nullable(), isMismatch: z.boolean() }),
+    }),
+  ),
   formedAt: z.iso.datetime(),
   sailedAt: z.iso.datetime().nullable(),
 });
@@ -106,7 +116,14 @@ function squadronOutputOf(squadron: Squadron): z.infer<typeof squadronOutputSche
     state: squadron.state,
     blueprint: { repository, name, version, commit },
     flagship: { shipId: squadron.flagship.shipId, name: squadron.flagship.name },
-    members: squadron.members.map((member) => ({ ...member, onStationAt: member.onStationAt?.toISOString() ?? null })),
+    members: squadron.members.map((member) => ({
+      shipId: member.shipId,
+      name: member.name,
+      role: member.role,
+      type: member.type,
+      onStationAt: member.onStationAt?.toISOString() ?? null,
+      model: { pinned: pinnedModel(squadron, member), stated: member.checkIn?.model ?? null, isMismatch: isModelMismatch(squadron, member) },
+    })),
     formedAt: squadron.formedAt.toISOString(),
     sailedAt: squadron.sailedAt?.toISOString() ?? null,
   };
@@ -147,8 +164,8 @@ export const squadronsRouter = t.router({
     list: operatorProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => (await ctx.listSquadrons(ctx.fleetId)).map(squadronOutputOf)),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
-     * squadrons, its members commissioned. Each member's crew line and launch
-     * note are in the answer, once.
+     * squadrons, its members commissioned. Each member's crew line, launch
+     * note and pinned model are in the answer, once.
      */
     form: operatorProcedure
       .input(z.object({ blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }), squadronId: z.string().optional() }))
@@ -156,7 +173,7 @@ export const squadronsRouter = t.router({
         z.object({
           squadronId: z.string(),
           flagship: z.object({ shipId: z.string(), name: z.string() }),
-          members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable() })),
+          members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() })),
         }),
       )
       .mutation(async ({ ctx, input }) => {

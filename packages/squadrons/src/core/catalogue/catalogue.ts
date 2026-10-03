@@ -8,6 +8,8 @@ export interface TemplateVersion {
   description: string;
   /** How often a member reports; late after one interval, silent after three. */
   checkInMinutes: number;
+  /** The exact model id a member of this role runs, shown with the launch note; null when it pins none. */
+  model: string | null;
   launchNote: string | null;
   charter: string;
   /** The hand-offs its charter refers to, with what each carries. */
@@ -32,8 +34,6 @@ export interface BlueprintVersion {
   roles: { name: string; template: TemplateReference; count: number }[];
   /** Where each role's hand-off goes: another role, or the flagship. */
   handoffs: { role: string; handoff: string; to: string }[];
-  /** The role the flagship hands new work to. */
-  entry: string;
   memberNames: 'plain' | 'prefixed';
 }
 
