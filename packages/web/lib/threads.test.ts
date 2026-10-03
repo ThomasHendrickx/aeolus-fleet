@@ -14,7 +14,7 @@ function aMessage(sentAt: string, inReplyTo: MessageId | null = null): ListedMes
     recipient: { kind: 'ship', ship: planner },
     inReplyTo,
     sentAt: `2026-10-01T${sentAt}:00.000Z`,
-    contentType: 'text/plain',
+    contentType: 'text/plain', model: null,
     preview: 'hello',
     delivery: { id: newId('delivery'), state: 'pending', claimedBy: null },
   };

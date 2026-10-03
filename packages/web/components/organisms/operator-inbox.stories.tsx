@@ -31,6 +31,7 @@ function aMessage(
       inReplyTo: null,
       sentAt,
       contentType,
+      model: null,
       payload,
     },
   };

@@ -39,7 +39,7 @@ export const CREWED_SHIP: ShipDetail = {
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
-  report: null,
+  report: null, harness: null, model: null,
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,
@@ -91,8 +91,8 @@ export const RETIRED_SHIP: ShipDetail = {
   retiredAt: '2026-09-28T14:40:00Z',
 };
 
-const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain' };
-const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain' };
+const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain', model: null };
+const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain', model: null };
 
 function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineEntry {
   return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };
@@ -103,6 +103,7 @@ const pingFromArgo = {
   sender: ARGO,
   recipient: { kind: 'ship' as const, ship: REVIEWER },
   contentType: 'application/vnd.aeolus.ping',
+  model: null,
 };
 
 /** A ping argo sent reviewer-01, which its session took and answered with pong, newest first. */
@@ -156,7 +157,7 @@ export const MESSAGES: ListedMessage[] = [
     recipient: { kind: 'ship', ship: PLANNER },
     inReplyTo: null,
     sentAt: minutesAgo(6),
-    contentType: 'text/plain',
+    contentType: 'text/plain', model: null,
     preview: 'Which branch should I review first?',
     state: 'acknowledged',
     claimedBy: PLANNER,
@@ -166,7 +167,7 @@ export const MESSAGES: ListedMessage[] = [
     recipient: { kind: 'ship', ship: REVIEWER },
     inReplyTo: messageId('0002'),
     sentAt: minutesAgo(5),
-    contentType: 'text/plain',
+    contentType: 'text/plain', model: null,
     preview: 'Start with claude/slice-12-ship-page.',
     state: 'acknowledged',
     claimedBy: REVIEWER,
@@ -176,7 +177,7 @@ export const MESSAGES: ListedMessage[] = [
     recipient: { kind: 'type', type: 'reviewer' },
     inReplyTo: null,
     sentAt: minutesAgo(30),
-    contentType: 'application/json',
+    contentType: 'application/json', model: null,
     preview: '{"task":"review","repo":"web","pr":321}',
     state: 'delivered',
     claimedBy: REVIEWER,
@@ -189,24 +190,24 @@ function history(seq: number, entry: Omit<DeliveryHistoryEntry, 'seq'>): Deliver
 
 /** A type-addressed delivery: queued, claimed, returned when its crew was released, claimed again. */
 export const TYPE_HISTORY: DeliveryHistoryEntry[] = [
-  history(14, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:20:31Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, attempts: 2 }),
-  history(12, { type: 'DeliveryReturned', occurredAt: '2026-09-28T14:20:02Z', ship: PLANNER, location: null, attempts: 1 }),
-  history(11, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:06:15Z', ship: PLANNER, location: { kind: 'DEVICE', description: null }, attempts: 1 }),
-  history(10, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:05:51Z', ship: null, location: null, attempts: null }),
+  history(14, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:20:31Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 2 }),
+  history(12, { type: 'DeliveryReturned', occurredAt: '2026-09-28T14:20:02Z', ship: PLANNER, location: null, harness: null, attempts: 1 }),
+  history(11, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:06:15Z', ship: PLANNER, location: { kind: 'DEVICE', description: null }, harness: null, attempts: 1 }),
+  history(10, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:05:51Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
 /** A direct delivery, acknowledged. */
 export const DIRECT_HISTORY: DeliveryHistoryEntry[] = [
-  history(9, { type: 'DeliveryAcknowledged', occurredAt: '2026-09-28T14:27:40Z', ship: REVIEWER, location: null, attempts: null }),
-  history(8, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:26:12Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, attempts: 1 }),
-  history(7, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:26:03Z', ship: null, location: null, attempts: null }),
+  history(9, { type: 'DeliveryAcknowledged', occurredAt: '2026-09-28T14:27:40Z', ship: REVIEWER, location: null, harness: null, attempts: null }),
+  history(8, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:26:12Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 1 }),
+  history(7, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:26:03Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
 /** An undeliverable delivery: claimed five times, never acknowledged. */
 export const UNDELIVERABLE_HISTORY: DeliveryHistoryEntry[] = [
-  history(30, { type: 'DeliveryUndeliverable', occurredAt: '2026-09-28T13:12:40Z', ship: REVIEWER, location: null, attempts: 5 }),
-  history(29, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T13:02:38Z', ship: REVIEWER, location: { kind: 'CLOUD', description: null }, attempts: 5 }),
-  history(20, { type: 'MessageAccepted', occurredAt: '2026-09-28T12:10:05Z', ship: null, location: null, attempts: null }),
+  history(30, { type: 'DeliveryUndeliverable', occurredAt: '2026-09-28T13:12:40Z', ship: REVIEWER, location: null, harness: null, attempts: 5 }),
+  history(29, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T13:02:38Z', ship: REVIEWER, location: { kind: 'CLOUD', description: null }, harness: null, attempts: 5 }),
+  history(20, { type: 'MessageAccepted', occurredAt: '2026-09-28T12:10:05Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
 /** The task from builder-core to any reviewer, claimed by reviewer-01 after planner's crew left. */
@@ -216,7 +217,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   recipient: { kind: 'type', type: 'reviewer' },
   inReplyTo: null,
   sentAt: '2026-09-28T14:05:51Z',
-  contentType: 'application/json',
+  contentType: 'application/json', model: null,
   payload: '{"task":"review","repo":"web","pr":321}',
   delivery: { id: deliveryId('0003'), state: 'delivered', attempts: 2, claimedBy: REVIEWER, history: TYPE_HISTORY },
 };
@@ -228,7 +229,7 @@ export const DIRECT_MESSAGE: MessageDetail = {
   recipient: { kind: 'ship', ship: REVIEWER },
   inReplyTo: messageId('0002'),
   sentAt: '2026-09-28T14:26:03Z',
-  contentType: 'text/plain',
+  contentType: 'text/plain', model: null,
   payload: 'Start with claude/slice-12-ship-page.',
   delivery: { id: deliveryId('0001'), state: 'acknowledged', attempts: 1, claimedBy: REVIEWER, history: DIRECT_HISTORY },
 };
