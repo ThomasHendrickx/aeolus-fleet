@@ -44,7 +44,7 @@ function openLeasesOf(shipId: ShipId) {
 describe('claiming a ship with its secret', () => {
   it('returns a crew token and opens a lease at the reported location, holding only the hash of the token', async () => {
     const { crewToken } = unwrap(
-      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' } }),
+      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
     );
 
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
@@ -56,6 +56,7 @@ describe('claiming a ship with its secret', () => {
         fleetId,
         shipId: scoutId,
         location: { kind: 'CLOUD', description: null },
+        harness: 'claude-code',
         crewTokenHash: core.hasher.hash(crewToken),
         startedAt: core.clock.now(),
         endedAt: null,
@@ -70,6 +71,7 @@ describe('claiming a ship with its secret', () => {
         shipId: scoutId,
         secret: scoutSecret,
         location: { kind: 'OTHER', description: '  a ci runner ' },
+        harness: 'claude-code',
       }),
     );
 
@@ -77,7 +79,7 @@ describe('claiming a ship with its secret', () => {
   });
 
   it('marks the secret claimed: the ship is crewed and its prompt claimed', async () => {
-    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }));
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }));
 
     const listed = await useCases.listFleet(argo);
     expect(listed.find((ship) => ship.id === scoutId)).toMatchObject({
@@ -90,7 +92,7 @@ describe('claiming a ship with its secret', () => {
   });
 
   it('writes ShipClaimed with the location, caused by the ship itself', async () => {
-    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }));
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }));
 
     const [lease] = openLeasesOf(scoutId);
     expect(core.state.events).toEqual([
@@ -99,7 +101,7 @@ describe('claiming a ship with its secret', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: scoutId },
         shipId: scoutId,
-        details: { leaseId: lease?.id, location: 'DEVICE', locationDescription: null },
+        details: { leaseId: lease?.id, location: 'DEVICE', locationDescription: null, harness: 'claude-code' },
       }),
     ]);
   });
@@ -107,10 +109,24 @@ describe('claiming a ship with its secret', () => {
   it('gives every claim its own crew token', async () => {
     const other = addAgentShip(core, { fleetId });
 
-    const first = unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }));
-    const second = unwrap(await useCases.claimShip({ shipId: other.shipId, secret: other.secret, location: onDevice }));
+    const first = unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }));
+    const second = unwrap(await useCases.claimShip({ shipId: other.shipId, secret: other.secret, location: onDevice, harness: 'claude-code' }));
 
     expect(first.crewToken).not.toBe(second.crewToken);
+  });
+});
+
+describe('the harness a session runs in', () => {
+  it('keeps the harness with its lease, trimmed and in lower case', async () => {
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: '  Claude-Code ' }));
+
+    expect(openLeasesOf(scoutId).map((lease) => lease.harness)).toEqual(['claude-code']);
+  });
+
+  it('takes a harness the console does not name, as free text', async () => {
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'gemini cli' }));
+
+    expect(openLeasesOf(scoutId).map((lease) => lease.harness)).toEqual(['gemini cli']);
   });
 });
 
@@ -129,31 +145,38 @@ describe('a claim refused', () => {
 
   const wrongIdOrSecret = { kind: 'WRONG_SHIP_ID_OR_SECRET', message: 'Wrong ship id or secret' };
 
+  it.each([
+    ['an empty harness', ''],
+    ['a harness over 50 characters', 'h'.repeat(51)],
+  ])('refuses %s, and opens no lease', async (_label, harness) => {
+    await expectRefused({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness }, { kind: 'INVALID_HARNESS' });
+  });
+
   it('refuses an unknown secret', async () => {
-    await expectRefused({ shipId: scoutId, secret: 'aeolus_sk_v1_unknown', location: onDevice }, wrongIdOrSecret);
+    await expectRefused({ shipId: scoutId, secret: 'aeolus_sk_v1_unknown', location: onDevice, harness: 'claude-code' }, wrongIdOrSecret);
   });
 
   it('refuses an invalidated secret with the same error as an unknown one', async () => {
     unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
-    await expectRefused({ shipId: scoutId, secret: scoutSecret, location: onDevice }, wrongIdOrSecret);
+    await expectRefused({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }, wrongIdOrSecret);
   });
 
   it("refuses another ship's secret with the same error", async () => {
     const other = addAgentShip(core, { fleetId });
 
-    await expectRefused({ shipId: scoutId, secret: other.secret, location: onDevice }, wrongIdOrSecret);
+    await expectRefused({ shipId: scoutId, secret: other.secret, location: onDevice, harness: 'claude-code' }, wrongIdOrSecret);
   });
 
   it('refuses an unknown ship id with the same error', async () => {
-    await expectRefused({ shipId: core.ids('ship'), secret: scoutSecret, location: onDevice }, wrongIdOrSecret);
+    await expectRefused({ shipId: core.ids('ship'), secret: scoutSecret, location: onDevice, harness: 'claude-code' }, wrongIdOrSecret);
   });
 
   it('refuses a retired ship', async () => {
     const retired = addAgentShip(core, { fleetId, name: 'wreck', retiredAt: core.clock.now() });
 
     await expectRefused(
-      { shipId: retired.shipId, secret: retired.secret, location: onDevice },
+      { shipId: retired.shipId, secret: retired.secret, location: onDevice, harness: 'claude-code' },
       { kind: 'SHIP_NOT_AWAITING_CREW', message: 'wreck is retired: a session claims a ship only while it awaits crew' },
     );
   });
@@ -171,18 +194,18 @@ describe('a claim refused', () => {
     });
 
     await expectRefused(
-      { shipId: argoId, secret, location: onDevice },
+      { shipId: argoId, secret, location: onDevice, harness: 'claude-code' },
       { kind: 'OPERATOR_SHIP_HAS_NO_SECRET' },
     );
   });
 
   it('refuses a second claim while a lease is held, and keeps the first crew', async () => {
     const { crewToken } = unwrap(
-      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }),
+      await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }),
     );
 
     await expectRefused(
-      { shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' } },
+      { shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
       { kind: 'SHIP_NOT_AWAITING_CREW', message: 'scout is crewed: a session claims a ship only while it awaits crew' },
     );
     expect(openLeasesOf(scoutId)).toEqual([expect.objectContaining({ crewTokenHash: core.hasher.hash(crewToken) })]);
