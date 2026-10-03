@@ -12,7 +12,7 @@ import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton'
 import { useAccountMenu } from '../../../lib/account';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
-import { useNeedsAttention } from '../../../lib/needs-attention';
+import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
@@ -32,6 +32,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
+  const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
@@ -55,7 +56,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       nav={{
         active: 'squadrons',
         inboxCount,
-        attentionCount: attention.data?.length,
+        attentionCount,
         hasSquadrons,
       }}
       onCompose={() => {

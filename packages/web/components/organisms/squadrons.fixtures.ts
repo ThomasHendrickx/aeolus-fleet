@@ -45,6 +45,9 @@ export const blueprints: Catalogue['blueprints'] = [
 ];
 
 const noModel = { pinned: null, stated: null, isMismatch: false };
+type MemberFacts = Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'>;
+const onTime: MemberFacts = { health: 'on-time', checkInMinutes: 30, crew: { status: 'crewed', lastSeenAt: AT, crewedSince: AT } };
+const notOnStation: MemberFacts = { health: 'not-on-station', checkInMinutes: 15, crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null } };
 
 export const forming: Squadron = {
   id: 'aeolus-a1b2c3',
@@ -52,8 +55,9 @@ export const forming: Squadron = {
   blueprint: { repository: REPO, name: 'aeolus', version: 4, commit: 'a4' },
   flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'aeolus-a1b2c3' },
   members: [
-    { shipId: 'shp_01m3tbfspe96yf1rnr4ank0001', name: 'planner-k3x9', role: 'planner', type: 'aeolus-a1b2c3:planner', onStationAt: AT, model: noModel },
+    { ...onTime, shipId: 'shp_01m3tbfspe96yf1rnr4ank0001', name: 'planner-k3x9', role: 'planner', type: 'aeolus-a1b2c3:planner', onStationAt: AT, model: noModel },
     {
+      ...notOnStation,
       shipId: 'shp_01m3tbfspe96yf1rnr4ank0002',
       name: 'implementer-m4p7',
       role: 'implementer',
@@ -62,6 +66,7 @@ export const forming: Squadron = {
       model: { pinned: 'claude-opus-5-5', stated: null, isMismatch: false },
     },
     {
+      ...onTime,
       shipId: 'shp_01m3tbfspe96yf1rnr4ank0003',
       name: 'implementer-q8r2',
       role: 'implementer',
@@ -69,7 +74,7 @@ export const forming: Squadron = {
       onStationAt: AT,
       model: { pinned: 'claude-opus-5-5', stated: 'claude-sonnet-5-5', isMismatch: true },
     },
-    { shipId: 'shp_01m3tbfspe96yf1rnr4ank0004', name: 'tester-w5t1', role: 'tester', type: 'aeolus-a1b2c3:tester', onStationAt: null, model: noModel },
+    { ...notOnStation, shipId: 'shp_01m3tbfspe96yf1rnr4ank0004', name: 'tester-w5t1', role: 'tester', type: 'aeolus-a1b2c3:tester', onStationAt: null, model: noModel },
   ],
   formedAt: AT,
   sailedAt: null,
@@ -80,7 +85,7 @@ export const sailing: Squadron = {
   id: 'docs-x7q2w9',
   state: 'sailing',
   blueprint: { repository: REPO, name: 'docs', version: 1, commit: 'd1' },
-  members: forming.members.map((member) => ({ ...member, onStationAt: AT })),
+  members: forming.members.map((member) => ({ ...member, ...onTime, onStationAt: AT })),
   sailedAt: AT,
 };
 

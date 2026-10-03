@@ -76,7 +76,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
         />
       }
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount , hasSquadrons }}
+      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

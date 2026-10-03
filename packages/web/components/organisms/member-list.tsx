@@ -1,10 +1,12 @@
 import type { ShipDetail } from '@aeolus-fleet/common';
-import { CircleCheck, CircleDashed, FileText, Info, Inbox } from 'lucide-react';
+import { FileText, Info, Inbox } from 'lucide-react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
+import { lastSeen } from '../../lib/relative-time';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
 import { CodeBlock } from '../atoms/code-block';
 import { EmptyState } from '../molecules/empty-state';
+import { HealthIndicator } from '../molecules/health-indicator';
 import { LocationTag } from '../molecules/location-tag';
 import { ReportLine } from '../molecules/report-line';
 import { StatusBadge } from '../molecules/status-badge';
@@ -26,6 +28,12 @@ interface MemberListProps {
   ships: ReadonlyMap<string, ShipDetail>;
   /** The time reports are measured from. */
   now: Date;
+}
+
+/** For a late or silent member, when its session last called the fleet. */
+function healthDetail(member: Squadron['members'][number], now: Date): string | undefined {
+  const { lastSeenAt } = member.crew;
+  return (member.health === 'late' || member.health === 'silent') && lastSeenAt !== null ? lastSeen(new Date(lastSeenAt), now).replace(/^Last/, 'last') : undefined;
 }
 
 /** A member's ship from the fleet: awaiting crew, or its report, and where its session runs and its open deliveries. */
@@ -82,7 +90,7 @@ function RoleHeading({
 /**
  * The squadron's members grouped by role (docs/design/png/MemberList.png),
  * each group headed by its template version and check-in interval. Each
- * member says whether it is on station, and from the fleet its report, where
+ * member shows its health (on time, late, silent or not on station), and from the fleet its report, where
  * its session runs and its open deliveries. Right after forming, a member not on
  * station shows its crew line and launch note in its row: once.
  */
@@ -102,17 +110,7 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
                 <li key={member.shipId} data-testid="member-row" className="flex flex-col gap-2 px-3 py-2.5">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{member.name}</span>
-                    {member.onStationAt === null ? (
-                      <span className="flex items-center gap-1 text-meta text-muted-foreground" data-testid="member-station">
-                        <CircleDashed aria-hidden className="size-(--size-icon-sm)" />
-                        Not on station
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-meta text-tone-ok-fg" data-testid="member-station">
-                        <CircleCheck aria-hidden className="size-(--size-icon-sm)" />
-                        On station
-                      </span>
-                    )}
+                    <HealthIndicator health={member.health} detail={healthDetail(member, now)} className="shrink-0" />
                     {member.model.isMismatch && (
                       <span className="text-meta text-tone-attention-fg">
                         Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}

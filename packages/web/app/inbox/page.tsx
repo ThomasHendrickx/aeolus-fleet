@@ -83,7 +83,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       title="Operator inbox"
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
-      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount , hasSquadrons }}
+      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons }}
       account={accountMenu}
       onCompose={() => {
         setIsComposing(true);

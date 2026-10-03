@@ -82,7 +82,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       title={ship.data?.name ?? 'Ship'}
       parent={{ href: '/', label: 'Fleet overview' }}
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount , hasSquadrons }}
+      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons }}
       onCompose={() => {
         setIsComposing(true);
       }}

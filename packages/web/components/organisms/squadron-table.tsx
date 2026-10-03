@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { shortDateTime } from '../../lib/relative-time';
 import { disbandedCount, filterSquadrons, squadronBlueprints, type SquadronView } from '../../lib/squadron-filter';
 import type { Squadron } from '../../lib/squadrons-api';
-import { blueprintPath, stationCount } from '../../lib/squadrons-view';
+import { blueprintPath, healthCounts, stationCount } from '../../lib/squadrons-view';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
+import { HealthSummary } from '../molecules/health-indicator';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { StatusBadge } from '../molecules/status-badge';
@@ -202,6 +203,7 @@ function SquadronRows({ squadrons }: { squadrons: readonly Squadron[] }) {
           <TableHead>Blueprint</TableHead>
           <TableHead>State</TableHead>
           <TableHead>Members</TableHead>
+          <TableHead>Health</TableHead>
           <TableHead>Formed</TableHead>
         </TableRow>
       </TableHeader>
@@ -222,6 +224,9 @@ function SquadronRows({ squadrons }: { squadrons: readonly Squadron[] }) {
               <StatusBadge status={squadron.state} />
             </TableCell>
             <TableCell>{membersText(squadron)}</TableCell>
+            <TableCell>
+              <HealthSummary counts={healthCounts(squadron.members)} />
+            </TableCell>
             <TableCell className="text-muted-foreground">{shortDateTime(new Date(squadron.formedAt))}</TableCell>
           </TableRow>
         ))}
