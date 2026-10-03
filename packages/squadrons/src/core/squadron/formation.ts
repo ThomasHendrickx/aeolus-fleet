@@ -3,10 +3,12 @@ import type { ShipId } from '@aeolus-fleet/common';
 import type { FleetDoor, FleetRefusal, ManagementCrew } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
-import type { FormationAttempts } from './ports.js';
+import type { FormationAttempts, RandomNames } from './ports.js';
 
 /** How many random names a ship gets before commissioning gives up on it. */
 const NAME_ATTEMPTS = 5;
+/** Random characters that tell apart attempts of one squadron begun in the same instant. */
+const ATTEMPT_SUFFIX_LENGTH = 8;
 
 /** A formation attempt under way: it commissions ships, each recorded before and after, and can retire them all. */
 export interface Formation {
@@ -30,13 +32,14 @@ export interface Formation {
  * with storing what it formed.
  */
 export async function beginFormation(
-  deps: { door: FleetDoor; attempts: FormationAttempts; clock: Clock },
+  deps: { door: FleetDoor; attempts: FormationAttempts; random: RandomNames; clock: Clock },
   of: { crew: ManagementCrew; squadronId: string },
 ): Promise<Formation> {
   const { crew, squadronId } = of;
-  // One attempt per squadron id at a time: its id and its start tell attempts apart.
+  // The squadron, the start and a random suffix: attempts sort by start, and two begun in the same
+  // instant (forming, then adding a member at once, or under a test's frozen clock) never share an id.
   const startedAt = deps.clock.now();
-  const attemptId = `${squadronId}@${startedAt.toISOString()}`;
+  const attemptId = `${squadronId}@${startedAt.toISOString()}-${deps.random.suffix(ATTEMPT_SUFFIX_LENGTH)}`;
   await deps.attempts.begin({ id: attemptId, fleetId: crew.fleetId, squadronId, startedAt });
   const commissioned: ShipId[] = [];
 
