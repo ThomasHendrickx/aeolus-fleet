@@ -12,7 +12,7 @@ import { Skeleton } from '../atoms/skeleton';
 import { EmptyState } from '../molecules/empty-state';
 import { LocationTag } from '../molecules/location-tag';
 import { PingStatus } from '../molecules/ping-status';
-import { ReportStatus } from '../molecules/report-status';
+import { ReportLine } from '../molecules/report-line';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -67,7 +67,7 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          <ReportStatus report={ship.report} now={now} testId="ship-report" />
+          {ship.kind === 'operator' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">
