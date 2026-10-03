@@ -51,6 +51,10 @@ export interface FleetShip {
   crewedSince: Date | null;
   /** When its crew last reported; null until it reports, and for a ship no session crews. */
   reportedAt: Date | null;
+  /** Its direct deliveries pending or in flight. */
+  openDeliveries: number;
+  /** What its crew holds in flight now, direct or claimed by its type. */
+  inFlightDeliveries: number;
 }
 
 /** A delivery as a receive hands it over: what squadrons reads of it. */

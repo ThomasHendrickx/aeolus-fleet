@@ -4,19 +4,21 @@ import { FLAGSHIP } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, OutgoingMessage, ReceivedMessage } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
-import { CHECK_IN, checkInText, ON_STATION, ROLE } from './check-in.js';
+import type { AdvanceStandDowns } from './advance-stand-downs.js';
+import { CHECK_IN, checkInText, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
 import type { FlagshipMessageLog, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, or kept a message it does not handle. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'kept';
+/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, or kept a message it does not handle. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'kept';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
 const checkInPayload = z.object({ squadron: z.string(), model: z.string().optional() });
 const onStationPayload = z.object({ squadron: z.string(), role: z.string() });
+const stoodDownPayload = z.object({ squadron: z.string() });
 
 /** The payload, parsed as JSON and checked; undefined when it is neither. */
 function parsedPayload<T>(schema: z.ZodType<T>, payload: string): T | undefined {
@@ -55,6 +57,8 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
       checkIn: checkInText(template?.checkInMinutes ?? 0),
       handoffs,
       flagship: squadron.flagship.name,
+      // A member that starts while its squadron stands down finishes its work and sends stood-down.
+      ...(squadron.state === 'standing-down' ? { standingDown: true } : {}),
     }),
   };
 }
@@ -65,7 +69,11 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
  * with the model the member states, and answered with its role, every time it
  * checks in. A member's on-station is
  * acknowledged and the member marked on station from then, again after each
- * new check-in; the squadron sails when every member is. A flagship supports only the squadron's messages: anything else,
+ * new check-in; the squadron sails when every member is. While the squadron
+ * stands down, a member's stood-down is recorded and acked, then the
+ * stand-downs advance, so the member is retired when it holds no open deliveries;
+ * a check-in then is answered with a role message saying the squadron stands
+ * down. A flagship supports only the squadron's messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
  * page, never forwarded, and argo is told, so no message disappears or goes
  * unseen. A delivery is acked only after it is handled; the delivery id keys
@@ -76,6 +84,7 @@ export function createHandleFlagshipDelivery(deps: {
   squadrons: SquadronRepository;
   messages: FlagshipMessageLog;
   operator: OperatorNotices;
+  advanceStandDowns: AdvanceStandDowns;
   clock: Clock;
 }): HandleFlagshipDelivery {
   return async (squadron, delivery) => {
@@ -139,6 +148,26 @@ export function createHandleFlagshipDelivery(deps: {
         after: { ...squadron, members, state: isSailing ? 'sailing' : squadron.state, sailedAt: isSailing ? at : squadron.sailedAt },
       });
       return acked('on-station');
+    }
+
+    if (delivery.contentType === STOOD_DOWN) {
+      const stoodDown = parsedPayload(stoodDownPayload, delivery.payload);
+      if (!member || stoodDown?.squadron !== squadron.id || squadron.state !== 'standing-down') {
+        return keep();
+      }
+      if (member.stoodDownAt === null) {
+        const at = deps.clock.now();
+        await deps.squadrons.update({
+          before: squadron,
+          after: { ...squadron, members: squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, stoodDownAt: at } : each)) },
+        });
+      }
+      // Acked before the stand-downs advance: retiring the last member retires the flagship, which could ack no more.
+      const handled = await acked('stood-down');
+      if (handled.isOk) {
+        await deps.advanceStandDowns();
+      }
+      return handled;
     }
 
     return keep();

@@ -1,23 +1,31 @@
 /**
- * The flagships at work: one long-poll receive per squadron that is forming
- * or sailing, each delivery handed to the flagship's rule with the squadron
- * as it is stored then. A rescan, every interval and after each forming,
- * starts the receive of a new squadron. A flagship whose lease ended (the
- * operator released it) is no longer watched, says so in the log, and argo is
- * told once.
+ * The flagships at work: one long-poll receive per squadron that is forming,
+ * sailing or standing down, each delivery handed to the flagship's rule with
+ * the squadron as it is stored then. A rescan, every interval and after each
+ * forming, starts the receive of a new squadron and advances every stand-down.
+ * A flagship whose lease ended (the operator released it) is no longer
+ * watched, says so in the log, and argo is told once; one squadrons retired
+ * as its squadron disbanded just stops.
  */
 import type { FleetId } from '@aeolus-fleet/common';
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
+import type { AdvanceStandDowns } from '../../core/squadron/advance-stand-downs.js';
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
 import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
+import type { Squadron } from '../../core/squadron/squadron.js';
 
 /** How long a flagship waits before it receives again after a failure. */
 const RETRY_MS = 1_000;
 
+/** Whether a squadron's flagship receives: until its squadron is disbanded. */
+function isReceiving(squadron: Squadron | undefined): squadron is Squadron {
+  return squadron !== undefined && squadron.state !== 'disbanded';
+}
+
 export interface FlagshipWatch {
-  /** Starts the receive of every forming or sailing squadron not watched yet. */
+  /** Starts the receive of every squadron not disbanded and not watched yet, and advances every stand-down. */
   rescan(): Promise<void>;
   /** Stops receiving, and resolves once every receive, delivery and rescan in flight is done: the database may close then. */
   stop(): Promise<void>;
@@ -28,6 +36,7 @@ export function watchFlagships(deps: {
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   handle: HandleFlagshipDelivery;
+  advanceStandDowns: AdvanceStandDowns;
   operator: OperatorNotices;
   log: FastifyBaseLogger;
   rescanMs: number;
@@ -57,13 +66,16 @@ export function watchFlagships(deps: {
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
       const squadron = (await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId);
-      if (!squadron || (squadron.state !== 'forming' && squadron.state !== 'sailing')) {
+      if (!isReceiving(squadron)) {
         break;
       }
       try {
         const received = await deps.door.receive(squadron.flagship.crewToken, { signal: stopping.signal });
         if (!received.isOk) {
           if (received.error.code === 'LEASE_ENDED') {
+            if (!isReceiving((await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId))) {
+              break;
+            }
             deps.log.warn({ squadron: squadronId }, 'the flagship was released: squadrons no longer receives on it');
             ended.add(squadronId);
             await deps.operator.tell({
@@ -101,10 +113,15 @@ export function watchFlagships(deps: {
       return;
     }
     for (const squadron of await deps.squadrons.list(crew.fleetId)) {
-      if ((squadron.state === 'forming' || squadron.state === 'sailing') && !watched.has(squadron.id) && !ended.has(squadron.id)) {
+      if (isReceiving(squadron) && !watched.has(squadron.id) && !ended.has(squadron.id)) {
         watched.add(squadron.id);
         void track(watch(crew.fleetId, squadron.id));
       }
+    }
+    try {
+      await deps.advanceStandDowns();
+    } catch (error) {
+      deps.log.error({ err: error }, 'the stand-downs could not advance');
     }
   };
 

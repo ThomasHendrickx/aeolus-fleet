@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { BlueprintVersion, TemplateVersion } from '../catalogue/catalogue.js';
 
@@ -16,6 +16,12 @@ export interface Member {
   onStationAt: Date | null;
   /** Its last check-in: when, and the model it stated (null when it stated none); null before its first. */
   checkIn: { at: Date; model: string | null } | null;
+  /** The stand-down the flagship sent it, once its squadron stands down; null before. */
+  standDownMessageId: MessageId | null;
+  /** When it sent its flagship stood-down: its open work finished; null before. */
+  stoodDownAt: Date | null;
+  /** When squadrons retired its ship; null while it serves. */
+  retiredAt: Date | null;
 }
 
 /** A squadron, with the blueprint and templates it formed from as they were then. */

@@ -56,6 +56,9 @@ function squadronOf(row: Row): Squadron {
         type: member.type,
         onStationAt: member.onStationAt,
         checkIn: member.checkInAt === null ? null : { at: member.checkInAt, model: member.checkInModel },
+        standDownMessageId: member.standDownMessageId === null ? null : idSchema('message').parse(member.standDownMessageId),
+        stoodDownAt: member.stoodDownAt,
+        retiredAt: member.retiredAt,
       })),
     formedAt: row.formedAt,
     sailedAt: row.sailedAt,
@@ -94,6 +97,9 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
               onStationAt: member.onStationAt,
               checkInAt: member.checkIn?.at ?? null,
               checkInModel: member.checkIn?.model ?? null,
+              standDownMessageId: member.standDownMessageId,
+              stoodDownAt: member.stoodDownAt,
+              retiredAt: member.retiredAt,
             })),
           },
         },
@@ -112,6 +118,9 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
         const data = {
           ...(member.onStationAt?.getTime() === was?.onStationAt?.getTime() ? {} : { onStationAt: member.onStationAt }),
           ...(isSameCheckIn(member.checkIn, was?.checkIn ?? null) ? {} : { checkInAt: member.checkIn?.at ?? null, checkInModel: member.checkIn?.model ?? null }),
+          ...(member.standDownMessageId === was?.standDownMessageId ? {} : { standDownMessageId: member.standDownMessageId }),
+          ...(member.stoodDownAt?.getTime() === was?.stoodDownAt?.getTime() ? {} : { stoodDownAt: member.stoodDownAt }),
+          ...(member.retiredAt?.getTime() === was?.retiredAt?.getTime() ? {} : { retiredAt: member.retiredAt }),
         };
         if (Object.keys(data).length > 0) {
           writes.push(db.member.updateMany({ where: { fleetId, shipId: member.shipId }, data }));

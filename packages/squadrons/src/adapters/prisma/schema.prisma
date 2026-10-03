@@ -63,6 +63,12 @@ model Member {
   /// Its last check-in, and the model it stated then (null when it stated none).
   checkInAt    DateTime? @map("check_in_at") @db.Timestamptz(3)
   checkInModel String?   @map("check_in_model")
+  /// The stand-down its flagship sent it once its squadron stood down; null before.
+  standDownMessageId String?   @map("stand_down_message_id")
+  /// When it sent its flagship stood-down; null before.
+  stoodDownAt        DateTime? @map("stood_down_at") @db.Timestamptz(3)
+  /// When squadrons retired its ship; null while it serves.
+  retiredAt          DateTime? @map("retired_at") @db.Timestamptz(3)
   squadron    Squadron  @relation(fields: [fleetId, squadronId], references: [fleetId, id])
 
   @@index([fleetId, squadronId])

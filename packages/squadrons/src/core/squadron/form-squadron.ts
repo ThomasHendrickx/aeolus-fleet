@@ -156,7 +156,7 @@ export function createFormSquadron(deps: {
           return failed(member.error);
         }
         const { shipId, name: memberName, crewLine } = member.value;
-        members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null });
+        members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null });
         lines.push({ shipId, name: memberName, role: role.name, crewLine: `${crewLine} ${squadronId}`, launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
       }
     }

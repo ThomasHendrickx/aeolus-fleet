@@ -13,6 +13,7 @@ import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
 import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
+import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
@@ -28,6 +29,7 @@ export interface Context {
   refreshCatalogue: () => Promise<void>;
   formSquadron: FormSquadron;
   listSquadrons: ListSquadrons;
+  standDown: StandDown;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -83,6 +85,12 @@ const FORM_CODES = {
 const LIST_CODES = {
   MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
   FLEET_UNAVAILABLE: 'BAD_GATEWAY',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of standing down, as the API states them. */
+const STAND_DOWN_CODES = {
+  SQUADRON_NOT_FOUND: 'NOT_FOUND',
+  NOT_SAILING: 'CONFLICT',
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -234,6 +242,22 @@ export const squadronsRouter = t.router({
       }
       return listed.value.map(squadronOutputOf);
     }),
+    /**
+     * Stands a sailing squadron down: it takes no new work, each member on
+     * station gets its stand-down and is retired once it acknowledged it and
+     * holds no open deliveries, then the flagship is retired and the squadron
+     * is Disbanded. The members and the flagship advance at each rescan.
+     */
+    standDown: connectedProcedure
+      .input(z.object({ squadronId: z.string() }))
+      .output(z.strictObject({}))
+      .mutation(async ({ ctx, input }) => {
+        const stood = await ctx.standDown({ fleetId: ctx.fleetId, squadronId: input.squadronId });
+        if (!stood.isOk) {
+          throw new TRPCError({ code: STAND_DOWN_CODES[stood.error.kind], message: stood.error.message });
+        }
+        return {};
+      }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
      * squadrons, its members commissioned. Each member's crew line, launch
