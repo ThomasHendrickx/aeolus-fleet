@@ -1,9 +1,10 @@
 'use client';
 
-import { ChevronsUpDown, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CodeXml, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
+import { SOURCE_URL } from '../../lib/source';
 import { sessionSince, THEME_LABELS, THEMES, type Theme } from '../../lib/theme';
 import { Avatar } from '../atoms/avatar';
 import { Button } from '../atoms/button';
@@ -201,6 +202,17 @@ export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningO
             </TabsList>
           </Tabs>
         </div>
+        <a
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="account-source"
+          className="flex h-(--size-control-touch) items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground"
+        >
+          <CodeXml aria-hidden />
+          Source on GitHub
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
         <button
           type="button"
           data-testid="account-sign-out"

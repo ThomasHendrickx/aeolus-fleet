@@ -1,11 +1,12 @@
 'use client';
 
-import { Inbox, Settings, Shapes, Ship, TriangleAlert } from 'lucide-react';
+import { CodeXml, Inbox, Settings, Shapes, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { Avatar } from '../atoms/avatar';
 import { Badge } from '../atoms/badge';
+import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
@@ -96,7 +97,8 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
- * comes second. Settings sits above the account menu.
+ * comes second. Settings and the link to the source on GitHub sit above the
+ * account menu.
  */
 export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, ...account }: SidebarProps) {
   return (
@@ -141,6 +143,11 @@ export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = fal
       </nav>
       <div className="px-2.5 pb-2">
         <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />
+        <a href={SOURCE_URL} target="_blank" rel="noreferrer" data-testid="nav-source" className={ITEM}>
+          <CodeXml aria-hidden />
+          <span className="grow max-lg:sr-only">Source on GitHub</span>
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
       </div>
       <div className="border-t border-border p-2.5">
         <AccountMenu {...account} />

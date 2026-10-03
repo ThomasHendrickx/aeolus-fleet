@@ -104,6 +104,17 @@ describe.each([
     await expect.poll(() => isDark(page)).toBe(false);
   });
 
+  it('links to the source on GitHub, opening in a new tab: in the Sidebar foot on desktop, in the account sheet on phone', async () => {
+    const page = await signedInPage({ isPhone });
+    if (isPhone) {
+      await visible(page, 'account-menu').click();
+    }
+    const source = visible(page, isPhone ? 'account-source' : 'nav-source');
+
+    await expect(source.getAttribute('href')).resolves.toBe('https://github.com/ThomasHendrickx/aeolus-fleet');
+    await expect(source.getAttribute('target')).resolves.toBe('_blank');
+  });
+
   it('signs out from the menu', async () => {
     const page = await signedInPage({ isPhone });
 
