@@ -8,7 +8,8 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, shipIdIn } from './support/core-fixtures.js';
+import { presentStartingPrompt } from '../src/adapters/trpc/starting-prompt-text.js';
+import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -27,8 +28,10 @@ const RECEIVES_WHILE_WAITING = 10;
 
 let database: PrismaClient;
 let server: FastifyInstance;
-/** The operator's side: argo's use cases, wired as the server wires them, with the URL the server answers on. */
+/** The operator's side: argo's use cases, wired as the server wires them. */
 let operator: UseCases;
+/** The URL the server answers on: where the starting prompts the operator is issued send a session. */
+let address: string;
 let argo: Caller;
 const clients: Client[] = [];
 
@@ -36,8 +39,8 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
-  const address = await server.listen({ host: '127.0.0.1', port: 0 });
-  operator = createUseCases({ prisma: database, fleetUrl: address });
+  address = await server.listen({ host: '127.0.0.1', port: 0 });
+  operator = createUseCases({ prisma: database });
   argo = operatorCaller(unwrap(await operator.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   await eventsSinceLastStep();
 });
@@ -105,6 +108,11 @@ async function refusalOf(client: Client, request: { name: string; arguments: obj
  * A new session given only a starting prompt: it connects to the fleet's MCP
  * URL in it and registers with the ship id and secret in it.
  */
+/** The starting prompt the console shows for a secret the operator was issued. */
+function promptOf(issued: { shipId: ShipId; secret: string | null }): string {
+  return presentStartingPrompt({ fleetUrl: address, shipId: issued.shipId, secret: secretOf(issued.secret) }).prompt;
+}
+
 async function sessionFrom(prompt: string, location: LocationInput): Promise<Session> {
   const client = new Client({ name: 'ship-session', version: '1.0.0' });
   await client.connect(new StreamableHTTPClientTransport(new URL(mcpUrlIn(prompt))));
@@ -230,8 +238,8 @@ describe('the v1 acceptance test, over MCP', () => {
     ]);
 
     // Each session connects to the fleet its prompt names, reads the protocol, and registers.
-    const scout = await sessionFrom(scoutShip.prompt ?? '', { kind: 'DEVICE' });
-    const lookout = await sessionFrom(lookoutShip.prompt ?? '', { kind: 'CLOUD' });
+    const scout = await sessionFrom(promptOf(scoutShip), { kind: 'DEVICE' });
+    const lookout = await sessionFrom(promptOf(lookoutShip), { kind: 'CLOUD' });
     expect(scout.instructions).toMatch(/^Aeolus carries messages between ships\./);
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('ShipClaimed', { actorShipId: scoutId, shipId: scoutId }),
@@ -281,17 +289,17 @@ describe('the v1 acceptance test, over MCP', () => {
     // starting prompt: the old one no longer crews it, the new one does, and
     // the new crew receives the question again, acks it and answers.
     const waiting = receiveWhileWaiting(scout);
-    const { prompt: newPrompt } = unwrap(await operator.getStartingPrompt(argo, { shipId: lookoutId }));
+    const newPrompt = promptOf(unwrap(await operator.getStartingPrompt(argo, { shipId: lookoutId })));
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('StartingPromptIssued', { actorShipId: argoId, shipId: lookoutId }),
     ]);
     const staleClient = new Client({ name: 'ship-session', version: '1.0.0' });
-    await staleClient.connect(new StreamableHTTPClientTransport(new URL(mcpUrlIn(lookoutShip.prompt ?? ''))));
+    await staleClient.connect(new StreamableHTTPClientTransport(new URL(mcpUrlIn(promptOf(lookoutShip)))));
     clients.push(staleClient);
     await expect(
       refusalOf(staleClient, {
         name: 'register',
-        arguments: { shipId: lookoutId, secret: secretIn(lookoutShip.prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' },
+        arguments: { shipId: lookoutId, secret: secretOf(lookoutShip.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' },
       }),
     ).resolves.toBe('UNAUTHORIZED: Wrong ship id or secret');
     const relief = await sessionFrom(newPrompt, { kind: 'SERVER' });

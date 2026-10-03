@@ -3,12 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   crewShip,
-  FLEET_MCP_URL,
-  FLEET_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -32,7 +30,7 @@ beforeEach(async () => {
   useCases = registryUseCases(core);
   const commissioned = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
-  firstSecret = secretIn(commissioned.prompt);
+  firstSecret = secretOf(commissioned.secret);
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
@@ -46,28 +44,20 @@ function validSecretsOf(shipId: ShipId) {
 }
 
 describe('getting a starting prompt', () => {
-  it('gives the crew line with the same ship id and the new secret', async () => {
-    const { prompt, crewLine } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
-
-    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${scoutId} ${secretIn(prompt)}`);
-  });
-
-  it('issues a new prompt with the fleet MCP URL, the ship id and a new secret while the ship awaits crew', async () => {
-    const { shipId, prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
+  it('issues a new secret for the ship while it awaits crew', async () => {
+    const { shipId, secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
     expect(shipId).toBe(scoutId);
-    expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
-    expect(prompt).toContain(`Ship id: ${scoutId}`);
-    expect(secretIn(prompt)).toMatch(/^aeolus_sk_v1_./);
-    expect(secretIn(prompt)).not.toBe(firstSecret);
+    expect(secret).toMatch(/^aeolus_sk_v1_./);
+    expect(secret).not.toBe(firstSecret);
   });
 
   it('invalidates the previous secret: the new one is the only valid secret', async () => {
-    const { prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
+    const { secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
     expect(credentialsOf(scoutId).map((credential) => [credential.secretHash, credential.invalidatedAt])).toEqual([
       [core.hasher.hash(firstSecret), core.clock.now()],
-      [core.hasher.hash(secretIn(prompt)), null],
+      [core.hasher.hash(secret), null],
     ]);
   });
 
@@ -81,9 +71,9 @@ describe('getting a starting prompt', () => {
   });
 
   it('stores the new secret only as its hash', async () => {
-    const { prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
+    const { secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scoutId }));
 
-    expect(JSON.stringify(core.state)).not.toContain(`"${secretIn(prompt)}"`);
+    expect(JSON.stringify(core.state)).not.toContain(`"${secret}"`);
   });
 
   it('writes CredentialRevoked for the previous secret, then StartingPromptIssued, caused by the caller', async () => {
@@ -203,8 +193,6 @@ describe('a failed starting prompt', () => {
       clock: core.clock,
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
-      mcpUrl: FLEET_MCP_URL,
-      fleetUrl: FLEET_URL,
     });
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('event log unavailable');

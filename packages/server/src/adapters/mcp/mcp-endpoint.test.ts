@@ -7,9 +7,10 @@ import { z } from 'zod';
 import {
   addAgentShip,
   crewShip,
+  FLEET_URL,
+  historyUseCases,
   identityUseCases,
   initialiseFleet,
-  historyUseCases,
   messagingUseCases,
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
@@ -79,6 +80,7 @@ async function start(
 ): Promise<void> {
   const { logLines } = options;
   server = buildHttpServer({
+    fleetUrl: FLEET_URL,
     useCases: options.useCases ?? useCasesOf(),
     checkDatabase: () => Promise.resolve(),
     latestMigration: () => Promise.resolve(null),

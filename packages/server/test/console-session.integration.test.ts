@@ -9,7 +9,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createSignIn } from '../src/core/identity/sign-in.js';
 import { ok } from '../src/core/shared/result.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -212,7 +212,7 @@ describe('a console session on Postgres', () => {
     const { token } = unwrap(await core.useCases.signIn(OPERATOR));
     const restarted = createPrismaClient(core.databaseUrl);
     try {
-      const useCases = createUseCases({ prisma: restarted, clock: core.clock, fleetUrl: FLEET_URL });
+      const useCases = createUseCases({ prisma: restarted, clock: core.clock });
 
       await expect(useCases.authenticate.byConsoleSession(token)).resolves.toMatchObject({ caller: { shipId: argoId, fleetId } });
     } finally {
@@ -296,8 +296,9 @@ describe('the caller lookups', () => {
 
   async function claimedScout(): Promise<{ shipId: ShipId; secret: string; crewToken: string }> {
     const argo = { shipId: argoId, fleetId, kind: 'operator' as const, scopes: [...SCOPES] };
-    const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-    const secret = secretIn(prompt);
+    const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { shipId } = commissioned;
+    const secret = secretOf(commissioned.secret);
     const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
     return { shipId, secret, crewToken };
   }

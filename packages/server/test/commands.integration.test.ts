@@ -17,7 +17,7 @@ let useCases: UseCases;
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database });
 });
 
 afterAll(async () => {

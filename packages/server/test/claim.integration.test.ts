@@ -7,7 +7,7 @@ import { createClaimShip } from '../src/core/registry/claim-ship.js';
 import { createGetStartingPrompt } from '../src/core/registry/get-starting-prompt.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
-import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import {
   createPostgresCore,
   everyRow,
@@ -39,7 +39,7 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
-  scoutSecret = secretIn(commissioned.prompt);
+  scoutSecret = secretOf(commissioned.secret);
   core.clock.advance(60_000);
 });
 
@@ -62,8 +62,6 @@ function getStartingPromptWith(uow: UnitOfWork<PrismaTx>) {
     clock: core.clock,
     ids: newId,
     secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
-    mcpUrl: FLEET_MCP_URL,
-    fleetUrl: FLEET_URL,
   });
 }
 

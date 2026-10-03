@@ -7,7 +7,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -31,7 +31,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   argo = operatorCaller(
-    unwrap(await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+    unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
   );
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -46,20 +46,20 @@ afterAll(async () => {
 async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
   const name = `rest-ship-${shipCount}`;
-  const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
+  const { shipId, secret } = unwrap(
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
-  return { shipId, name, secret: secretIn(prompt) };
+  return { shipId, name, secret: secretOf(secret) };
 }
 
 /** A new ship commissioned by argo with fleet scopes, claimed with its secret: its name and crew token. */
 async function crewedWithFleetScopes(fleetScopes: ('fleet:read' | 'fleet:manage')[]): Promise<{ name: string; crewToken: string }> {
   shipCount += 1;
   const name = `rest-manager-${shipCount}`;
-  const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
+  const { shipId, secret } = unwrap(
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
   );
-  return { name, crewToken: await register({ shipId, secret: secretIn(prompt) }) };
+  return { name, crewToken: await register({ shipId, secret: secretOf(secret) }) };
 }
 
 /** A new idempotency key: every message gets its own. */
@@ -217,7 +217,7 @@ describe('the ship calls at /api/v1', () => {
     const skiff = await commissioned();
     const crewToken = await register(skiff);
     const { messageId } = unwrap(
-      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).pingShip(argo, { shipId: skiff.shipId }),
+      await createUseCases({ prisma: database }).pingShip(argo, { shipId: skiff.shipId }),
     );
     const { deliveries } = await ok(request('receive', { crewToken }), deliveriesSchema);
     const [ping] = deliveries;
@@ -236,7 +236,7 @@ describe('the ship calls at /api/v1', () => {
 
     await ok(request('report', { crewToken, body: { state: 'working', note: 'on PR 89' } }), z.strictObject({}));
 
-    const listed = await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).listFleet(argo);
+    const listed = await createUseCases({ prisma: database }).listFleet(argo);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'working', note: 'on PR 89' });
   });
 
@@ -283,7 +283,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     );
     const repeated = await ok(
       request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
-      z.object({ shipId: z.string(), prompt: z.null(), crewLine: z.null(), startingPrompt: z.object({ isClaimed: z.boolean() }) }),
+      z.object({ shipId: z.string(), prompt: z.null(), crewLines: z.null(), secret: z.null(), startingPrompt: z.object({ isClaimed: z.boolean() }) }),
     );
     const pinged = await ok(
       request('fleet/ping', { crewToken: manager.crewToken, body: { shipId: mooring.shipId } }),

@@ -5,7 +5,7 @@ import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets
 import { createCommissionShip } from '../src/core/registry/commission-ship.js';
 import { createRenameShip } from '../src/core/registry/rename-ship.js';
 import type { Caller } from '../src/core/shared/caller.js';
-import { FLEET_MCP_URL, FLEET_URL, OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -76,8 +76,6 @@ describe('renaming a ship on Postgres', () => {
     const commissionShip = createCommissionShip({
       ...deps,
       secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
-      mcpUrl: FLEET_MCP_URL,
-      fleetUrl: FLEET_URL,
     });
 
     const [renamed, commissioned] = await Promise.all([

@@ -4,12 +4,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   crewAboard,
   deliveryIdOf,
-  FLEET_URL,
   initialiseFleet,
   messagingUseCases,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -34,13 +33,13 @@ beforeEach(async () => {
   messaging = messagingUseCases(core);
   const commissioned = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
-  firstSecret = secretIn(commissioned.prompt);
+  firstSecret = secretOf(commissioned.secret);
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   core.clock.advance(60_000);
 });
 
 describe('re-crewing a ship', () => {
-  it('releases the crewed ship and hands out a new starting prompt and crew line, all at once', async () => {
+  it('releases the crewed ship and issues a new secret, all at once', async () => {
     const { messageId } = unwrap(
       await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: scoutId }, payload: 'Review', idempotencyKey: 'k1' }),
     );
@@ -49,7 +48,7 @@ describe('re-crewing a ship', () => {
     const issued = unwrap(await registry.recrewShip(argo, { shipId: scoutId }));
 
     expect(issued.shipId).toBe(scoutId);
-    expect(issued.crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${scoutId} ${secretIn(issued.prompt)}`);
+    expect(issued.secret).toMatch(/^aeolus_sk_v1_./);
     await expect(messaging.receiveDeliveries(scout, {})).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
     expect(core.state.deliveries.find((held) => held.id === deliveryIdOf(core, messageId))).toMatchObject({ state: 'pending' });
     expect(core.state.events.map((event) => event.type).slice(-4)).toEqual([
@@ -67,7 +66,7 @@ describe('re-crewing a ship', () => {
       isOk: false,
     });
     await expect(
-      registry.claimShip({ shipId: scoutId, secret: secretIn(issued.prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
+      registry.claimShip({ shipId: scoutId, secret: secretOf(issued.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: true });
   });
 

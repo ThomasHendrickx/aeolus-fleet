@@ -6,9 +6,10 @@ import { z } from 'zod';
 import {
   addAgentShip,
   crewShip,
+  FLEET_URL,
+  historyUseCases,
   identityUseCases,
   initialiseFleet,
-  historyUseCases,
   messagingUseCases,
   OPERATOR,
   registryUseCases,
@@ -56,6 +57,7 @@ function useCasesOf(overrides: Partial<UseCases> = {}): UseCases {
 function start(options: { useCases?: UseCases; registerRateLimit?: RateLimit; logLines?: string[] } = {}): void {
   const { logLines } = options;
   server = buildHttpServer({
+    fleetUrl: FLEET_URL,
     useCases: options.useCases ?? useCasesOf(),
     checkDatabase: () => Promise.resolve(),
     latestMigration: () => Promise.resolve(null),

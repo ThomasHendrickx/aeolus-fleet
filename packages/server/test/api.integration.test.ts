@@ -37,7 +37,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   ({ fleetId, operatorShipId: argoId } = unwrap(
-    await createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
+    await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
   ));
 
   server = createApp({
@@ -1193,7 +1193,11 @@ describe('retire and re-crew at the API', () => {
 
     const issued = await asArgo.fleet.recrew.mutate({ shipId });
 
-    expect(issued.crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipId} ${secretIn(issued.prompt)}`);
+    expect(issued.crewLines).toEqual([
+      { harness: 'claude-code', line: `/aeolus:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+      { harness: 'codex', line: `$aeolus-crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+    ]);
+    expect(secretIn(issued.prompt)).toBe(issued.secret);
     await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
     await expect(codeOf(asArgo.fleet.recrew.mutate({ shipId }))).resolves.toBe('CONFLICT');
   });

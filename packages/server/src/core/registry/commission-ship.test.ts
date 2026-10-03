@@ -3,12 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
-  FLEET_MCP_URL,
-  FLEET_URL,
   initialiseFleet,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -66,23 +64,16 @@ describe('commissioning a ship', () => {
     expect(shipsNamed('scout')[0]?.note).toBeNull();
   });
 
-  it('gives the crew line with the same ship id and secret as the prompt', async () => {
-    const { shipId, prompt, crewLine } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  it('issues the first starting prompt: a new secret for the ship', async () => {
+    const commissioned = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
-    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipId} ${secretIn(prompt)}`);
-  });
-
-  it('issues the first starting prompt, with the fleet MCP URL, the ship id and a new secret', async () => {
-    const { shipId, prompt } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-
-    expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
-    expect(prompt).toContain(`Ship id: ${shipId}`);
-    expect(secretIn(prompt)).toMatch(/^aeolus_sk_v1_./);
+    expect(commissioned.secret).toMatch(/^aeolus_sk_v1_./);
   });
 
   it('stores the secret only as its hash, valid and not yet claimed', async () => {
-    const { shipId, prompt } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-    const secret = secretIn(prompt);
+    const commissioned = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { shipId } = commissioned;
+    const secret = secretOf(commissioned.secret);
 
     expect(core.state.credentials.filter((credential) => credential.shipId === shipId)).toEqual([
       expect.objectContaining({
@@ -249,8 +240,6 @@ describe('a failed commission', () => {
       clock: core.clock,
       ids: core.ids,
       secrets: { hasher: core.hasher, random: core.random },
-      mcpUrl: FLEET_MCP_URL,
-      fleetUrl: FLEET_URL,
     });
 
     await expect(commission(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).rejects.toThrow('event log unavailable');
@@ -261,13 +250,13 @@ describe('a failed commission', () => {
 describe('a commission that comes again', () => {
   const scout = { name: 'scout', type: 'reviewer', note: 'reviews pull requests', idempotencyKey: 'commission-scout' };
 
-  it('answers the original ship id and its starting prompt state, with no secret and no crew line', async () => {
+  it('answers the original ship id and its starting prompt state, with no secret', async () => {
     const { shipId } = unwrap(await commissionShip(argo, scout));
     core.clock.advance(60_000);
 
     await expect(commissionShip(argo, scout)).resolves.toEqual({
       isOk: true,
-      value: { shipId, prompt: null, crewLine: null, startingPrompt: { issuedAt: new Date('2026-09-29T12:00:00.000Z'), isClaimed: false } },
+      value: { shipId, secret: null, startingPrompt: { issuedAt: new Date('2026-09-29T12:00:00.000Z'), isClaimed: false } },
     });
   });
 
@@ -281,8 +270,9 @@ describe('a commission that comes again', () => {
   });
 
   it('says the starting prompt is claimed once a session claimed it', async () => {
-    const { shipId, prompt } = unwrap(await commissionShip(argo, scout));
-    unwrap(await registryUseCases(core).claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const commissioned = unwrap(await commissionShip(argo, scout));
+    const { shipId } = commissioned;
+    unwrap(await registryUseCases(core).claimShip({ shipId, secret: secretOf(commissioned.secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
     const repeat = unwrap(await commissionShip(argo, scout));
 
@@ -292,7 +282,7 @@ describe('a commission that comes again', () => {
   it('takes the fleet scopes in another order as the same request', async () => {
     unwrap(await commissionShip(argo, { ...scout, fleetScopes: ['fleet:read', 'fleet:manage'] }));
 
-    await expect(commissionShip(argo, { ...scout, fleetScopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { prompt: null } });
+    await expect(commissionShip(argo, { ...scout, fleetScopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { secret: null } });
   });
 
   it.each([
@@ -315,7 +305,7 @@ describe('a commission that comes again', () => {
 
     const theirs = unwrap(await commissionShip(manager, { ...scout, name: 'deputy' }));
 
-    expect(theirs.prompt).not.toBeNull();
+    expect(theirs.secret).not.toBeNull();
     expect(shipsNamed('deputy')).toHaveLength(1);
   });
 

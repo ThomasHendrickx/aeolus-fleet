@@ -11,7 +11,7 @@ import {
   OPERATOR,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -44,7 +44,7 @@ beforeEach(async () => {
 
   const commissioned = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
-  scoutSecret = secretIn(commissioned.prompt);
+  scoutSecret = secretOf(commissioned.secret);
   ({ crewToken: scoutCrewToken } = unwrap(
     await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
   ));
@@ -56,8 +56,8 @@ beforeEach(async () => {
 
 /** A new starting prompt for the ship and a session claiming it: the next crew. */
 async function nextCrewOf(shipId: ShipId): Promise<Crew> {
-  const { prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  const { secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return crewOfToken(core, crewToken);
 }
 

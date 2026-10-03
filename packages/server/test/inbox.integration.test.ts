@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/core/messaging/mark-done.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -22,8 +22,8 @@ let captain: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   operator = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'release-captain', type: 'release' }));
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name: 'release-captain', type: 'release' }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   captain = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   const { token } = unwrap(await core.useCases.signIn(OPERATOR));
   const use = await core.useCases.authenticate.byConsoleSession(token);

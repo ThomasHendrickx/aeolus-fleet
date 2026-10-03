@@ -6,7 +6,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAnswerPing } from '../src/core/messaging/answer-ping.js';
 import { createPingShip } from '../src/core/messaging/ping-ship.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -24,9 +24,9 @@ let scout: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   const { crewToken } = unwrap(
-    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
+    await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   );
   scout = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   core.clock.advance(60_000);

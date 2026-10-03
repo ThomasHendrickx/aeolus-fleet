@@ -11,7 +11,7 @@ import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -37,7 +37,7 @@ beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   argo = operatorCaller(
-    unwrap(await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+    unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
   );
   running = [];
 });
@@ -65,12 +65,12 @@ async function stop(server: FastifyInstance): Promise<void> {
 
 /** A ship commissioned by argo and claimed through register at the server: its id and crew token. */
 async function crewed(address: string, name: string): Promise<{ shipId: ShipId; crewToken: string }> {
-  const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
+  const { shipId, secret } = unwrap(
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
   const { crewToken } = await client(address).ship.register.mutate({
     shipId,
-    secret: secretIn(prompt),
+    secret: secretOf(secret),
     location: { kind: 'DEVICE' }, harness: 'claude-code',
   });
   return { shipId, crewToken };

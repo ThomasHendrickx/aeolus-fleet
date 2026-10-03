@@ -6,7 +6,7 @@ import {
   initialiseFleet,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -30,7 +30,7 @@ beforeEach(async () => {
   useCases = registryUseCases(core);
   const commissioned = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = commissioned.shipId;
-  scoutSecret = secretIn(commissioned.prompt);
+  scoutSecret = secretOf(commissioned.secret);
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
