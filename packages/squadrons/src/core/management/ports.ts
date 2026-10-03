@@ -25,8 +25,8 @@ export interface FleetDoor {
    * same key answers the same ship with no crew line: its secret was shown once.
    */
   commission(crewToken: string, ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>>;
-  /** A ship of the fleet with its scopes; needs fleet:read. */
-  getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<{ scopes: string[] }, FleetRefusal>>;
+  /** A ship of the fleet, retired ones included; needs fleet:read. */
+  getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<FleetShip, FleetRefusal>>;
   /** Ends this session's crew of its ship: the lease and the secret it claimed with. */
   deregister(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
   /** A new starting prompt's crew line for a ship awaiting crew; the earlier secret stops working. */
@@ -39,6 +39,18 @@ export interface FleetDoor {
   receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<ReceivedMessage[], FleetRefusal>>;
   ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
   send(crewToken: string, message: OutgoingMessage): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
+}
+
+/** A ship as `fleet.ship` shows it: what squadrons reads of it. */
+export interface FleetShip {
+  status: 'awaitingCrew' | 'crewed' | 'retired';
+  scopes: string[];
+  /** When its session last called the fleet; null while no session crews it. */
+  lastSeenAt: Date | null;
+  /** Since when its crew has held it; null while not crewed. */
+  crewedSince: Date | null;
+  /** When its crew last reported; null until it reports, and for a ship no session crews. */
+  reportedAt: Date | null;
 }
 
 /** A delivery as a receive hands it over: what squadrons reads of it. */
