@@ -36,10 +36,10 @@ function fakeFleet() {
 }
 
 function memoryStore(): ManagementCrewStore & { held: ManagementCrew | undefined } {
-  const store = {
-    held: undefined as ManagementCrew | undefined,
+  const store: ManagementCrewStore & { held: ManagementCrew | undefined } = {
+    held: undefined,
     find: () => Promise.resolve(store.held),
-    save: (crew: ManagementCrew) => {
+    save: (crew) => {
       store.held = { ...crew };
       return Promise.resolve();
     },

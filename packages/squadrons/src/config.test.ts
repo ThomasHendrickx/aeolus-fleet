@@ -22,7 +22,7 @@ describe('loadConfig', () => {
   });
 
   it('needs no secret once the management ship is crewed: the kept crew token does', () => {
-    const { MANAGEMENT_SHIP_SECRET: _spent, ...withoutSecret } = environment;
+    const withoutSecret = { ...environment, MANAGEMENT_SHIP_SECRET: undefined };
 
     expect(loadConfig(withoutSecret).managementShip).toEqual({ shipId: environment.MANAGEMENT_SHIP_ID, secret: undefined });
   });

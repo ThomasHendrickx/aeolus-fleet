@@ -1,3 +1,4 @@
+import type { ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -19,7 +20,7 @@ let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
 let fleetUrl: string;
 let squadronsDatabaseUrl: string;
-let shipId: string;
+let shipId: ShipId;
 let secret: string;
 const apps: SquadronsApp[] = [];
 
