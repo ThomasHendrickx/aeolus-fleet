@@ -1,4 +1,4 @@
-# Publishes @aeolus-fleet/common, server and web to npm with one version, and
+# Publishes @aeolus-fleet/common, server, web and squadrons to npm with one version, and
 # tags the released commit v<version>, so a version on npm always matches a tag
 # in git. Then sets the aeolus Claude Code plugin to that version on main,
 # where the plugin marketplace installs from.
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for all three packages, MAJOR.MINOR.PATCH (the first real release is 0.1.0)
+        description: Version for all four packages, MAJOR.MINOR.PATCH
         required: true
         type: string
 
@@ -82,7 +82,7 @@ jobs:
       - run: npm run lint
       - run: npm test
 
-      - name: Set the version on all three packages
+      - name: Set the version on all four packages
         env:
           VERSION: ${{ inputs.version }}
         run: npm run set-version -- "$VERSION"
@@ -90,11 +90,12 @@ jobs:
       - run: npm run build
 
       # Catch a problem in any package before the first one is published.
-      - name: Dry run all three
+      - name: Dry run all four
         run: |
           npm publish --dry-run --access public --workspace @aeolus-fleet/common
           npm publish --dry-run --access public --workspace @aeolus-fleet/server
           npm publish --dry-run --access public --workspace @aeolus-fleet/web
+          npm publish --dry-run --access public --workspace @aeolus-fleet/squadrons
 
       - name: Publish @aeolus-fleet/common
         run: npm publish --access public --workspace @aeolus-fleet/common
@@ -102,8 +103,11 @@ jobs:
         run: npm publish --access public --workspace @aeolus-fleet/server
       - name: Publish @aeolus-fleet/web
         run: npm publish --access public --workspace @aeolus-fleet/web
+      # Last: squadrons is optional, so a problem here leaves the fleet's three published.
+      - name: Publish @aeolus-fleet/squadrons
+        run: npm publish --access public --workspace @aeolus-fleet/squadrons
 
-      # After all three are on npm. If this step fails, push the tag by hand:
+      # After all four are on npm. If this step fails, push the tag by hand:
       # the version is already published and cannot be released again.
       - name: Tag the released commit v${{ inputs.version }}
         env:

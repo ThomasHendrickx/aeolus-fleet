@@ -164,7 +164,7 @@ The same event rows feed three things at once: ship and message timelines, the a
 
 ## Code structure
 
-Five parts. The first four are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` is not published yet and is optional). The fifth is your private setup and consumes the packages like any other installer would.
+Five parts. The first four are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` is optional). The fifth is your private setup and consumes the packages like any other installer would.
 
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
