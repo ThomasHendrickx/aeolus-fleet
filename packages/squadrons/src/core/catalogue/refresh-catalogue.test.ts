@@ -71,6 +71,30 @@ describe('refreshing the catalogue', () => {
     expect(holder.catalogue.templates).toHaveLength(2);
   });
 
+  it('runs one refresh at a time, so a refresh started later is never overwritten by one that read the repositories before it', async () => {
+    const release = source.holdNextRead();
+    const earlier = refresh(FLEET, 'all');
+    await store.remove(FLEET, 'github.com/acme/two');
+    const later = refresh(FLEET, 'none');
+    release();
+
+    await Promise.all([earlier, later]);
+
+    expect(holder.catalogue.templates.map((template) => template.repository)).toEqual(['github.com/acme/one']);
+  });
+
+  it('runs the next refresh after one that failed', async () => {
+    let isDown = true;
+    const flaky = { ...store, list: (fleetId: FleetId) => (isDown ? Promise.reject(new Error('database down')) : store.list(fleetId)) };
+    const refreshing = createRefreshCatalogue({ store: flaky, source, holder, clock: { now: () => NOW } });
+    await expect(refreshing(FLEET, 'all')).rejects.toThrow('database down');
+    isDown = false;
+
+    await refreshing(FLEET, 'all');
+
+    expect(holder.catalogue.templates).toHaveLength(2);
+  });
+
   it('fetches nothing when asked for none: the catalogue is built from what each repository last fetched', async () => {
     await refresh(FLEET, 'none');
 

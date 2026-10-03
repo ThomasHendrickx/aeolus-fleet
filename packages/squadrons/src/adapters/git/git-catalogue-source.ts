@@ -1,17 +1,20 @@
 /**
  * Templates and blueprints from git (docs/squadrons.md, "Files in git"), with
- * the git command line. Each repository is kept as a bare mirror in the cache
- * folder; fetching brings it up to date with its tags, and a repository read
- * without fetching gives what its mirror holds, nothing before its first
- * fetch. A version is a tag `<name>@<n>`; its file is
- * `<path>/templates/<name>.yaml` or `<path>/blueprints/<name>.yaml` at the
- * tag's commit. A token, for a private repository, travels as basic
- * authentication on the fetch only, and never appears in what a failed fetch
- * says.
+ * the git command line. Each fleet's repository is kept as its own bare
+ * mirror in the cache folder, so one fleet never reads what another fetched,
+ * and the folder opens to squadrons' own user only.
+ * Fetching brings a mirror up to date with its tags; a repository read
+ * without fetching gives what its mirror holds, and nothing before its first
+ * fetch or when git cannot read its mirror. A version is a tag `<name>@<n>`;
+ * its file is `<path>/templates/<name>.yaml` or
+ * `<path>/blueprints/<name>.yaml` at the tag's commit. A token, for a private
+ * repository, travels as basic authentication on the fetch only, handed to
+ * git in its environment (which only the same user can read), never in its
+ * command line; and it never appears in what a failed fetch says.
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -35,13 +38,22 @@ function basicCredentials(token: string): string {
   return Buffer.from(`x-access-token:${token}`).toString('base64');
 }
 
-function authArguments(token: string | null): string[] {
-  return token === null ? [] : ['-c', `http.extraHeader=Authorization: Basic ${basicCredentials(token)}`];
+/** git's environment for a fetch: a token's header as configuration set through the environment, so no command line holds it. */
+function fetchEnvironment(token: string | null): NodeJS.ProcessEnv {
+  if (token === null) {
+    return process.env;
+  }
+  return {
+    ...process.env,
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'http.extraHeader',
+    GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicCredentials(token)}`,
+  };
 }
 
 /**
  * What a failed fetch says: the last line git wrote to standard error, never
- * the command (which holds the token's header), with the token and its
+ * the command, with the token and its
  * credentials blanked should git ever repeat them.
  */
 function fetchErrorOf(error: unknown, token: string | null): string {
@@ -58,17 +70,18 @@ async function git(mirror: string, ...args: string[]): Promise<string> {
 }
 
 function mirrorOf(repository: RepositoryToRead, cacheDir: string): string {
-  return join(cacheDir, createHash('sha256').update(repository.url).digest('hex').slice(0, 16));
+  return join(cacheDir, createHash('sha256').update(`${repository.fleetId} ${repository.url}`).digest('hex').slice(0, 16));
 }
 
 /** Brings the repository's mirror up to date with its tags, cloning it the first time. */
 async function fetchMirror(repository: RepositoryToRead, cacheDir: string): Promise<void> {
   const mirror = mirrorOf(repository, cacheDir);
+  mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+  chmodSync(cacheDir, 0o700);
   if (!existsSync(mirror)) {
-    mkdirSync(cacheDir, { recursive: true });
-    await run('git', [...authArguments(repository.token), 'clone', '--bare', '--quiet', repository.url, mirror]);
+    await run('git', ['clone', '--bare', '--quiet', repository.url, mirror], { env: fetchEnvironment(repository.token) });
   }
-  await run('git', ['-C', mirror, ...authArguments(repository.token), 'fetch', '--quiet', '--prune', 'origin', '+refs/tags/*:refs/tags/*']);
+  await run('git', ['-C', mirror, 'fetch', '--quiet', '--prune', 'origin', '+refs/tags/*:refs/tags/*'], { env: fetchEnvironment(repository.token) });
 }
 
 /** Every tag with the commit it points at (an annotated tag peeled) and that commit's time. */
@@ -108,10 +121,16 @@ function parsed(text: string): { content: unknown; parseError?: string } {
   }
 }
 
-/** Every tagged template and blueprint version in a repository's mirror. */
+/** Every tagged template and blueprint version in a repository's mirror; none when git cannot read the mirror. */
 async function filesIn(repository: RepositoryToRead, mirror: string): Promise<SourceFile[]> {
+  let tagged: Awaited<ReturnType<typeof tags>>;
+  try {
+    tagged = await tags(mirror);
+  } catch {
+    return [];
+  }
   const files: SourceFile[] = [];
-  for (const { tag, commit, committedAt } of await tags(mirror)) {
+  for (const { tag, commit, committedAt } of tagged) {
     const version = VERSION_TAG.exec(tag);
     if (!version) {
       continue;

@@ -1,19 +1,24 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import type { FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createGitRepositoryReader } from '../src/adapters/git/git-catalogue-source.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
 
+const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
+const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
+
 // The git reader on real repositories: tags <name>@<n>, lightweight or
 // annotated, read at their commits from the .aeolus/squadrons/ folder or the
 // repository's path; a new tag shows after a fetch, a repository read without
-// fetching gives what it last fetched, and a failed fetch says why without
-// its token.
+// fetching gives what it last fetched, within its own fleet only, and a
+// failed fetch says why without its token. A token never shows in git's
+// command line, where any local process could read it.
 
 const run = promisify(execFile);
 let work: string;
@@ -44,7 +49,7 @@ afterEach(() => {
 
 function source(path = DEFAULT_PATH) {
   const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
-  const repository = { url: `file://${origin}`, name: 'example.com/templates', path, token: null };
+  const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path, token: null };
   return {
     files: async () => (await reader.read([repository], { fetch: () => true })).files,
     unfetched: async () => (await reader.read([repository], { fetch: () => false })).files,
@@ -145,6 +150,55 @@ describe('the git repository reader', () => {
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
   });
 
+  it('keeps its mirrors in a folder only its own user can open, even one that existed open to others', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const fresh = join(work, 'fresh', 'cache');
+    const open = join(work, 'open');
+    mkdirSync(open, { mode: 0o755 });
+    chmodSync(open, 0o755);
+    const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null };
+
+    for (const cacheDir of [fresh, open]) {
+      await createGitRepositoryReader({ cacheDir }).read([repository], { fetch: () => true });
+    }
+
+    expect([fresh, open].map((cacheDir) => statSync(cacheDir).mode & 0o777)).toEqual([0o700, 0o700]);
+  });
+
+  it('gives nothing from a mirror it cannot read, rather than failing the read', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+    for (const mirror of readdirSync(join(work, 'cache'))) {
+      rmSync(join(work, 'cache', mirror, 'HEAD'));
+    }
+
+    await expect(reading.unfetched()).resolves.toEqual([]);
+  });
+
+  it("never gives another fleet's mirror: the same repository read by a second fleet holds nothing before that fleet fetches it", async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+    const repository = { fleetId: OTHER_FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: 'ghp_wrong' };
+    rmSync(origin, { recursive: true, force: true });
+
+    const fetchedByOther = await reading.reader.read([repository], { fetch: () => true });
+    const unfetchedByOther = await reading.reader.read([repository], { fetch: () => false });
+
+    expect(fetchedByOther.files).toEqual([]);
+    expect(unfetchedByOther.files).toEqual([]);
+  });
+
   it('says why a repository could not be fetched, never with its token, and reads the others', async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
     await git('add', '.');
@@ -155,8 +209,8 @@ describe('the git repository reader', () => {
 
     const { files, fetched } = await reader.read(
       [
-        { url: `file://${join(work, 'missing')}`, name: 'example.com/missing', path: DEFAULT_PATH, token },
-        { url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null },
+        { fleetId: FLEET, url: `file://${join(work, 'missing')}`, name: 'example.com/missing', path: DEFAULT_PATH, token },
+        { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null },
       ],
       { fetch: () => true },
     );
@@ -169,5 +223,41 @@ describe('the git repository reader', () => {
     const error = fetched[0]?.error ?? '';
     expect(error).not.toContain(token);
     expect(error).not.toContain(Buffer.from(`x-access-token:${token}`).toString('base64'));
+  });
+});
+
+describe('a private repository', () => {
+  let path: string | undefined;
+
+  afterEach(() => {
+    process.env.PATH = path;
+  });
+
+  it("hands git its token outside the command line: never in any git process's arguments", async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
+    const bin = join(work, 'bin');
+    const log = join(work, 'git.log');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf 'argv %s\\n' "$*" >> '${log}'\nenv | grep '^GIT_CONFIG_VALUE' >> '${log}'\nexec '${realGit}' "$@"\n`);
+    chmodSync(join(bin, 'git'), 0o755);
+    path = process.env.PATH;
+    process.env.PATH = `${bin}:${path ?? ''}`;
+    const token = 'ghp_secret_token_value';
+    const credentials = Buffer.from(`x-access-token:${token}`).toString('base64');
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+
+    const { files } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token }], { fetch: () => true });
+
+    expect(files.map((file) => file.name)).toEqual(['tester']);
+    const lines = readFileSync(log, 'utf8').split('\n');
+    const argv = lines.filter((line) => line.startsWith('argv '));
+    expect(argv.length).toBeGreaterThan(0);
+    expect(argv.join('\n')).not.toContain(token);
+    expect(argv.join('\n')).not.toContain(credentials);
+    expect(lines).toContain(`GIT_CONFIG_VALUE_0=Authorization: Basic ${credentials}`);
   });
 });

@@ -6,9 +6,6 @@
  * connects it in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
 import { acquireProcessLock } from '../adapters/prisma/process-lock.js';
 import { createSquadronsApp } from '../app.js';
@@ -34,7 +31,7 @@ async function start(): Promise<void> {
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
-    cacheDir: config.cacheDir ?? join(tmpdir(), 'aeolus-squadrons'),
+    cacheDir: config.cacheDir,
     logger: { level: config.logLevel },
   });
   const connection = await app.readConnection();

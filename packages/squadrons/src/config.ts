@@ -1,3 +1,6 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { z } from 'zod';
 
 const environmentSchema = z.object({
@@ -7,6 +10,8 @@ const environmentSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65_535).default(4100),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   SQUADRONS_CACHE_DIR: z.string().min(1).optional(),
+  XDG_CACHE_HOME: z.string().min(1).optional(),
+  HOME: z.string().min(1).optional(),
 });
 
 /** What `aeolus-squadrons migrate` reads: the database alone. */
@@ -25,8 +30,8 @@ export interface Config {
   host: string;
   port: number;
   logLevel: string;
-  /** Where the repositories' mirrors are kept; under the system's temporary folder when unset. */
-  cacheDir: string | undefined;
+  /** Where the repositories' mirrors are kept: SQUADRONS_CACHE_DIR, or aeolus-squadrons in the user's cache folder. */
+  cacheDir: string;
 }
 
 export class ConfigError extends Error {
@@ -50,7 +55,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     host: variables.HOST,
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,
-    cacheDir: variables.SQUADRONS_CACHE_DIR,
+    cacheDir: variables.SQUADRONS_CACHE_DIR ?? join(variables.XDG_CACHE_HOME ?? join(variables.HOME ?? homedir(), '.cache'), 'aeolus-squadrons'),
   };
 }
 
