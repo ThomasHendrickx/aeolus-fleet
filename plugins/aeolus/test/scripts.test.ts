@@ -145,7 +145,11 @@ describe('aeolus-identity', () => {
           Promise.all([stopped, wakeStopped]).then(() => {
             return true;
           }),
-          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+          new Promise<boolean>((resolve) =>
+            setTimeout(() => {
+              resolve(false);
+            }, 500),
+          ),
         ]),
       ).resolves.toBe(true);
       expect(readdirSync(join(data, 'ships'))).toEqual([]);

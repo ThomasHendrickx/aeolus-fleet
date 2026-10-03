@@ -112,7 +112,7 @@ describe('the Codex plugin package', () => {
 
     expect(hooks).toContain('${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/scripts/aeolus-session-start.sh');
     expect(hooks).toContain('${PLUGIN_ROOT}/scripts/aeolus-codex-send-model.py');
-    expect(hooks).toContain('%PLUGIN_ROOT%\\scripts\\aeolus-codex-send-model.py');
+    expect(hooks).toContain('%PLUGIN_ROOT%\\\\scripts\\\\aeolus-codex-send-model.py');
   });
 });
 
