@@ -81,6 +81,13 @@ function Envelope({ message }: { message: MessageDetail }) {
           {fullDateTime(new Date(message.sentAt))}
         </time>
       </EnvelopeRow>
+      {message.model === null ? null : (
+        <EnvelopeRow label="Model">
+          <span className="truncate font-mono text-id" data-testid="message-model">
+            {message.model}
+          </span>
+        </EnvelopeRow>
+      )}
       {message.inReplyTo ? (
         <EnvelopeRow label="In reply to">
           <span className="truncate font-mono text-id">{message.inReplyTo}</span>

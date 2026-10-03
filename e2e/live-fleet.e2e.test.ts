@@ -109,7 +109,7 @@ describe('the live fleet overview', () => {
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await watched.and(second.locator('[data-new]')).waitFor();
 
-    unwrap(await useCases.claimShip({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' } }));
+    unwrap(await useCases.claimShip({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     await watched.getByText('Crewed').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await watched.getByText('Cloud').waitFor();
 
@@ -141,7 +141,7 @@ describe('the live fleet overview', () => {
     await page.getByRole('banner').getByText(/^(Reconnecting|Offline)$/).waitFor({ timeout: LIVE_TIMEOUT_MS });
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     const pilot = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
-    unwrap(await useCases.claimShip({ shipId: pilot.shipId, secret: secretIn(pilot.prompt), location: { kind: 'SERVER' } }));
+    unwrap(await useCases.claimShip({ shipId: pilot.shipId, secret: secretIn(pilot.prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }));
     await context.setOffline(false);
 
     await isLive(page);

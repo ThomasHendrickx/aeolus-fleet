@@ -74,7 +74,7 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
   const registered = await fetch(`${serverUrl}/api/v1/ship/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' } }),
+    body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   });
   const { crewToken } = z.object({ crewToken: z.string() }).parse(await registered.json());
   return {
@@ -83,7 +83,7 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
       const response = await fetch(`${serverUrl}/api/v1/ship/${operation}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify(operation === 'send' ? { model: 'claude-opus-5-5', ...body } : body),
       });
       expect(response.status).toBe(200);
       return response.json();
@@ -108,7 +108,7 @@ function messageRow(page: Page, messageId: string) {
 }
 
 describe('the ship page', () => {
-  it('shows two ships exchanging messages over the API: the thread and each delivery state, live, and the delivery history', async () => {
+  it('shows two ships exchanging messages over the API: the thread and each delivery state, live, the delivery history, and the models they state', async () => {
     const planner = await crewedOverRest({ name: 'planner', type: 'planner' });
     const scout = await crewedOverRest({ name: 'scout', type: 'reviewer' });
     const page = await signedInPage();
@@ -164,6 +164,9 @@ describe('the ship page', () => {
       'MessageAccepted',
     ]);
     await sheet.getByText('"task": "review"').waitFor();
+    // The model the planner's session stated with the message, and the scout's harness and current model in the header.
+    await expect(sheet.getByTestId('message-model').textContent()).resolves.toBe('claude-opus-5-5');
+    await expect(page.getByTestId('ship-model').textContent()).resolves.toMatch(/^Claude Code·claude-opus-5-5$/);
   });
 
   it("replies as argo from a message's sheet: the reply reaches its sender, naming the message", async () => {

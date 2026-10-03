@@ -28,6 +28,7 @@ import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { LocationTag } from '../molecules/location-tag';
+import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportLine } from '../molecules/report-line';
 import { SquadronTag } from '../molecules/squadron-tag';
@@ -110,6 +111,7 @@ function Whereabouts({ ship, now, size }: { ship: ListedShip; now: Date; size: '
     return (
       <span className="inline-flex min-w-0 flex-col gap-0.5">
         <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size={size} />
+        <ModelLine harness={ship.harness} model={ship.model?.id ?? null} testId="fleet-model" />
         {ship.lastSeenAt === null ? null : (
           <time
             dateTime={ship.lastSeenAt}
