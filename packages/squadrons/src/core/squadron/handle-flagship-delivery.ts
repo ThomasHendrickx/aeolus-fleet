@@ -64,8 +64,8 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
  * "Check-in"). A member's check-in for this squadron is acknowledged, kept
  * with the model the member states, and answered with its role, every time it
  * checks in. A member's on-station is
- * acknowledged and the member marked on station; the squadron sails when every
- * member is. A flagship supports only the squadron's messages: anything else,
+ * acknowledged and the member marked on station from then, again after each
+ * new check-in; the squadron sails when every member is. A flagship supports only the squadron's messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
  * page, never forwarded, and argo is told, so no message disappears or goes
  * unseen. A delivery is acked only after it is handled; the delivery id keys
@@ -128,7 +128,10 @@ export function createHandleFlagshipDelivery(deps: {
         return keep();
       }
       const at = deps.clock.now();
-      const members = squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, onStationAt: each.onStationAt ?? at } : each));
+      // A member that checked in since it last came on station, after /clear or with a new crew, comes on station
+      // again from now; the same on-station coming again finds it on station since that check-in and changes nothing.
+      const isOnStationSinceCheckIn = member.onStationAt !== null && (member.checkIn === null || member.onStationAt >= member.checkIn.at);
+      const members = squadron.members.map((each) => (each.shipId === member.shipId && !isOnStationSinceCheckIn ? { ...each, onStationAt: at } : each));
       const isAllOnStation = members.every((each) => each.onStationAt !== null);
       const isSailing = squadron.state === 'forming' && isAllOnStation;
       await deps.squadrons.update({

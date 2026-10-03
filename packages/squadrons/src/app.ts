@@ -22,6 +22,7 @@ import { createReadConnection, type ReadConnection } from './core/management/rea
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
+import { createListSquadrons } from './core/squadron/list-squadrons.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
 
@@ -116,6 +117,7 @@ export function createSquadronsApp(options: {
     }
   };
 
+  const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
   const readConnection = createReadConnection({ door, store });
   const connectOnly = createConnect({ door, store, clock });
@@ -150,7 +152,7 @@ export function createSquadronsApp(options: {
         catalogue: () => catalogue,
         refreshCatalogue,
         formSquadron: formAndWatch,
-        listSquadrons: (fleetId) => squadrons.list(fleetId),
+        listSquadrons,
         keptMessages: (fleetId, squadronId) => keptMessages.list(fleetId, squadronId),
       }),
     },

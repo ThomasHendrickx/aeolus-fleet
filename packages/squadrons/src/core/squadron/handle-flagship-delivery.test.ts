@@ -231,6 +231,18 @@ describe('on station', () => {
     expect(held).toMatchObject({ state: 'sailing', sailedAt: NOW });
     expect(acked).toHaveLength(2);
   });
+
+  it('comes on station again, from then, after the member checked in again: a new crew is not on station until it confirms its role', async () => {
+    held = { ...held, state: 'sailing', sailedAt: FORMED, members: held.members.map((member) => ({ ...member, onStationAt: FORMED, checkIn: { at: FORMED, model: null } })) };
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+    const later = new Date('2026-10-03T09:11:00.000Z');
+    now = later;
+
+    await handle(held, delivery(TESTER, { contentType: ON_STATION, payload: { squadron: 'team-a1b2c3', role: 'tester' } }));
+
+    expect(held.members.map((member) => member.onStationAt)).toEqual([FORMED, later]);
+    expect(held).toMatchObject({ state: 'sailing', sailedAt: FORMED });
+  });
 });
 
 describe('a delivery the flagship does not handle', () => {
@@ -309,6 +321,18 @@ describe('handling before the ack', () => {
     expect(held.members.find((member) => member.shipId === TESTER)?.onStationAt).toEqual(NOW);
     expect(held).toMatchObject({ state: 'sailing', sailedAt: NOW });
     expect(acked).toEqual([onStation.deliveryId]);
+  });
+
+  it('keeps when a member came on station again after checking in again, when that on-station comes again', async () => {
+    held = { ...held, members: held.members.map((member) => ({ ...member, onStationAt: FORMED, checkIn: { at: FORMED, model: null } })) };
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+    const onStation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: 'team-a1b2c3', role: 'tester' } });
+    await handle(held, onStation);
+    now = new Date('2026-10-03T09:20:00.000Z');
+
+    await handle(held, onStation);
+
+    expect(held.members.find((member) => member.shipId === TESTER)?.onStationAt).toEqual(NOW);
   });
 
   it('keeps a message and tells argo before it acks, and a message that comes again is kept once and told under the same key', async () => {

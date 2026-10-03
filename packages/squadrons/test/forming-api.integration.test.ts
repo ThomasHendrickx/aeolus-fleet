@@ -147,15 +147,36 @@ describe('forming a squadron at the squadrons API', () => {
     expect(member?.launchNote).toBe('Start in the repository root.');
   });
 
-  it('lists the squadron forming, with its members off station', async () => {
+  it('lists the squadron forming, with its members off station, awaiting crew, and their check-in interval', async () => {
     const formed = await formTeam();
 
     const listed = z
-      .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ name: z.string(), onStationAt: z.string().nullable() })) })) }) })
+      .object({
+        result: z.object({
+          data: z.array(
+            z.object({
+              id: z.string(),
+              state: z.string(),
+              members: z.array(
+                z.object({
+                  name: z.string(),
+                  onStationAt: z.string().nullable(),
+                  health: z.string(),
+                  checkInMinutes: z.number(),
+                  crew: z.object({ status: z.string(), lastSeenAt: z.string().nullable(), crewedSince: z.string().nullable() }),
+                }),
+              ),
+            }),
+          ),
+        }),
+      })
       .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json());
 
     expect(formed.squadronId).toMatch(/^team-[a-z0-9]{6}$/);
     expect(listed.result.data.map(({ id, state }) => ({ id, state }))).toEqual([{ id: formed.squadronId, state: 'forming' }]);
-    expect(listed.result.data[0]?.members.every((member) => member.onStationAt === null)).toBe(true);
+    expect(listed.result.data[0]?.members.map(({ onStationAt, health, checkInMinutes, crew }) => ({ onStationAt, health, checkInMinutes, crew }))).toEqual([
+      { onStationAt: null, health: 'not-on-station', checkInMinutes: 30, crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null } },
+      { onStationAt: null, health: 'not-on-station', checkInMinutes: 30, crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null } },
+    ]);
   });
 });

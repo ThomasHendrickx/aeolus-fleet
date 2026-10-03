@@ -3,7 +3,7 @@
  * not TypeScript-bound may make them: squadrons uses the public API like any
  * client (decision 0017). A refusal reads as the fleet's code and message.
  */
-import { idSchema, receivedDeliverySchema } from '@aeolus-fleet/common';
+import { idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -45,6 +45,10 @@ async function call<T>(
   return response.ok ? ok(request.answers.parse(body)) : err(refusalSchema.parse(body));
 }
 
+function dateOf(iso: string | null): Date | null {
+  return iso === null ? null : new Date(iso);
+}
+
 export function createRestFleetDoor(fleetUrl: string): FleetDoor {
   return {
     register: ({ shipId, secret }) =>
@@ -69,8 +73,14 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         body: ship,
         answers: z.object({ shipId: idSchema('ship'), crewLine: z.string().nullable() }),
       }),
-    getShip: (crewToken, ship) =>
-      call(fleetUrl, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: z.object({ scopes: z.array(z.string()) }) }),
+    getShip: async (crewToken, ship) => {
+      const read = await call(fleetUrl, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: shipDetailOutputSchema });
+      if (!read.isOk) {
+        return read;
+      }
+      const { status, scopes, lastSeenAt, crewedSince, report } = read.value;
+      return ok({ status, scopes, lastSeenAt: dateOf(lastSeenAt), crewedSince: dateOf(crewedSince), reportedAt: dateOf(report?.reportedAt ?? null) });
+    },
     deregister: async (crewToken) => {
       const ended = await call(fleetUrl, { path: '/ship/deregister', method: 'POST', crewToken, body: {}, answers: z.unknown() });
       return ended.isOk ? ok(undefined) : ended;

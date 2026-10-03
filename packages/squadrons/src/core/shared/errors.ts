@@ -11,7 +11,8 @@ export type DomainErrorKind =
   | 'INVALID_SQUADRON_ID'
   | 'SQUADRON_ID_TAKEN'
   | 'MANAGEMENT_SHIP_NOT_CREWED'
-  | 'FORMING_FAILED';
+  | 'FORMING_FAILED'
+  | 'FLEET_UNAVAILABLE';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
