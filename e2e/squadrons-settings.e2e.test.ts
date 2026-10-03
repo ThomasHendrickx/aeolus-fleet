@@ -15,7 +15,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
 import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
-import { signIn } from './support/console.js';
+import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Connect squadrons, end to end: squadrons starts not connected; the operator
@@ -96,12 +96,14 @@ describe('Settings, Squadrons', () => {
       }
     });
     await signIn(page, OPERATOR);
-    const row = page.getByTestId('fleet-row-reviewer-02');
-    await row.getByTestId('fleet-ship-retire').waitFor();
+    // The row menu stays open while the overview refreshes: what it offers must not change.
+    await page.getByTestId('fleet-row-reviewer-02').waitFor();
+    await openRowMenu(page, 'reviewer-02');
+    await page.getByTestId('fleet-ship-retire').waitFor();
 
     const shown: number[] = [];
     for (const started = Date.now(); Date.now() - started < STEADY_FOR_MS; ) {
-      shown.push(await row.getByTestId('fleet-ship-retire').count());
+      shown.push(await page.getByTestId('fleet-ship-retire').count());
       await page.waitForTimeout(SAMPLE_EVERY_MS);
     }
 

@@ -6,7 +6,7 @@ import { fn } from 'storybook/test';
 
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../../lib/fleet-filter';
 import { Button } from '../atoms/button';
-import { FleetTable } from './fleet-table';
+import { FleetTable, type RowActionsLayout } from './fleet-table';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;
@@ -22,10 +22,12 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
       isClaimed: true,
     },
     location: { kind: 'DEVICE', description: null },
-    lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null,
+    report: null,
+    harness: 'claude-code',
+    model: { id: 'claude-opus-5-5', statedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
+    lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
     ...changes,
   };
 }
@@ -36,10 +38,11 @@ const argo = ship('h1aa', {
   kind: 'operator',
   startingPrompt: null,
   location: { kind: 'OTHER', description: 'web console' },
-  lastSeenAt: null,
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
   report: null,
+  harness: null,
+  model: null,
 });
 
 const FLEET: ListedShip[] = [
@@ -57,6 +60,8 @@ const FLEET: ListedShip[] = [
     status: 'awaitingCrew',
     location: null,
     lastSeenAt: null,
+    harness: null,
+    model: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
@@ -108,7 +113,10 @@ const FLEET: ListedShip[] = [
   }),
 ];
 
-function rowActions(listed: ListedShip) {
+function rowActions(listed: ListedShip, layout: RowActionsLayout) {
+  if (layout === 'next') {
+    return listed.status === 'awaitingCrew' ? <Button size="xs">Get starting prompt</Button> : null;
+  }
   return <Button variant="ghost" size="xs" isIconOnly aria-label={`Actions for ${listed.name}`} icon={<Ellipsis />} />;
 }
 

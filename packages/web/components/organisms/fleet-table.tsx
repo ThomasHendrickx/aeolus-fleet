@@ -14,7 +14,7 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../../lib/fleet-filter';
-import { fullDateTime, lastSeen, relativeTime } from '../../lib/relative-time';
+import { fullDateTime, relativeTime } from '../../lib/relative-time';
 import type { ShipInSquadron } from '../../lib/squadrons-view';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
@@ -27,16 +27,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
+import { LastSeen } from '../molecules/last-seen';
 import { LocationTag } from '../molecules/location-tag';
-import { ModelLine } from '../molecules/model-line';
-import { PingStatus } from '../molecules/ping-status';
+import { ModelTag } from '../molecules/model-tag';
 import { ReportLine } from '../molecules/report-line';
 import { SquadronTag } from '../molecules/squadron-tag';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
-/** Where row actions render: the desktop table's last column or the phone row. */
-export type RowActionsLayout = 'table' | 'phone';
+/** Where row actions render: the desktop row menu, the phone row's actions sheet, or the one next step in the Report cell. */
+export type RowActionsLayout = 'table' | 'phone' | 'next';
 
 interface FleetTableProps {
   /** Every ship of the fleet, argo and retired ships included; the table filters and orders them. */
@@ -75,11 +75,11 @@ function isOnlyArgo(ships: readonly ListedShip[]): boolean {
 }
 
 /**
- * The ship's type: argo's operator kind chip; with squadrons on, a flagship's
- * flagship kind chip and a member's SquadronTag (its squadron and role, in
- * place of the `<squadron>:<role>` type); otherwise the type chip.
+ * The chip beside a ship's name: argo's operator kind chip; with squadrons
+ * on, a flagship's flagship kind chip and a member's SquadronTag. Other ships
+ * carry none: their type stays a filter.
  */
-function TypeChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadron | undefined }) {
+function NameChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadron | undefined }) {
   if (ship.kind === 'operator') {
     return (
       <Badge variant="kind">
@@ -99,39 +99,13 @@ function TypeChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadr
   if (squadron) {
     return <SquadronTag squadronId={squadron.squadronId} role={squadron.role} size="sm" />;
   }
-  return <Badge variant="type">{ship.type}</Badge>;
+  return null;
 }
 
-/** A crewed ship's LocationTag, or an awaiting ship's starting prompt status. */
-function Whereabouts({ ship, now, size }: { ship: ListedShip; now: Date; size: 'md' | 'sm' }) {
-  if (ship.status === 'retired') {
-    return null;
-  }
-  if (ship.status === 'crewed') {
-    return (
-      <span className="inline-flex min-w-0 flex-col gap-0.5">
-        <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size={size} />
-        <ModelLine harness={ship.harness} model={ship.model?.id ?? null} testId="fleet-model" />
-        {ship.lastSeenAt === null ? null : (
-          <time
-            dateTime={ship.lastSeenAt}
-            title={fullDateTime(new Date(ship.lastSeenAt))}
-            data-testid="fleet-last-seen"
-            className="text-meta text-muted-foreground tabular-nums"
-          >
-            {lastSeen(new Date(ship.lastSeenAt), now)}
-          </time>
-        )}
-        <PingStatus ping={ship.ping} now={now} testId="fleet-ping-status" />
-        <ReportLine report={ship.report} now={now} variant="row" testId="fleet-report" />
-      </span>
-    );
-  }
+/** An awaiting ship's starting prompt status, where a crewed ship shows where its session runs. */
+function PromptStatus({ ship, now }: { ship: ListedShip; now: Date }) {
   const prompt = ship.startingPrompt;
-  const frame = classNames(
-    'inline-flex min-w-0 items-center gap-1.5 text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0',
-    size === 'md' ? 'text-body' : 'text-meta',
-  );
+  const frame = 'inline-flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0';
   if (prompt === null) {
     return (
       <span className={frame}>
@@ -151,6 +125,39 @@ function Whereabouts({ ship, now, size }: { ship: ListedShip; now: Date; size: '
         </time>
         {prompt.isClaimed ? ', claimed' : ', not claimed yet'}
       </span>
+    </span>
+  );
+}
+
+/** Runs on: the harness and location kind of a crewed ship's session (argo: its console), or an awaiting ship's prompt status. */
+function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
+  if (ship.status === 'retired') {
+    return null;
+  }
+  if (ship.status === 'awaitingCrew') {
+    return <PromptStatus ship={ship} now={now} />;
+  }
+  return (
+    <LocationTag
+      kind={ship.location?.kind ?? null}
+      description={ship.location?.description}
+      harness={ship.kind === 'operator' ? 'console' : ship.harness}
+      size="sm"
+    />
+  );
+}
+
+/**
+ * The Report cell: the row's one next step, when it has one (a starting
+ * prompt for a ship awaiting crew, a new crew line for a silent member), and
+ * a crewed ship's report with its time in the title. argo never reports.
+ */
+function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
+  const isReporting = ship.kind !== 'operator' && ship.status === 'crewed';
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {next}
+      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
     </span>
   );
 }
@@ -332,9 +339,11 @@ function DesktopTable({
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Location</TableHead>
+            <TableHead>Report</TableHead>
+            <TableHead>Runs on</TableHead>
+            <TableHead>Model</TableHead>
+            <TableHead>Seen</TableHead>
             <TableHead>
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -346,20 +355,30 @@ function DesktopTable({
               key={ship.id}
               data-testid={`fleet-row-${ship.name}`}
               data-new={highlightedShipIds?.has(ship.id) ? '' : undefined}
+              className="h-12"
             >
-              <TableCell className="max-w-56">
-                <ShipNameCell ship={ship} />
-              </TableCell>
-              <TableCell>
-                <TypeChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+              <TableCell className="max-w-64">
+                <span className="flex min-w-0 items-center gap-2">
+                  <ShipNameCell ship={ship} />
+                  <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+                </span>
               </TableCell>
               <TableCell>
                 <StatusBadge status={ship.status} />
               </TableCell>
-              <TableCell className="max-w-80">
-                <Whereabouts ship={ship} now={now} size="sm" />
+              <TableCell className="max-w-72">
+                <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
               </TableCell>
-              <TableCell className="text-right">{renderRowActions?.(ship, 'table')}</TableCell>
+              <TableCell className="max-w-56">
+                <RunsOn ship={ship} now={now} />
+              </TableCell>
+              <TableCell>
+                {ship.kind === 'operator' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} testId="fleet-model" />}
+              </TableCell>
+              <TableCell>
+                <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+              </TableCell>
+              <TableCell className="w-10 text-right">{renderRowActions?.(ship, 'table')}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -377,37 +396,44 @@ function PhoneList({
 }: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
-      {ships.map((ship) => {
-        const actions = renderRowActions?.(ship, 'phone');
-        return (
-          <li
-            key={ship.id}
-            data-testid={`fleet-card-${ship.name}`}
-            data-new={highlightedShipIds?.has(ship.id) ? '' : undefined}
-            className="flex flex-col gap-1.5 border-b border-border px-3.5 py-3 last:border-0 data-new:animate-highlight"
-          >
+      {ships.map((ship) => (
+        <li
+          key={ship.id}
+          data-testid={`fleet-card-${ship.name}`}
+          data-new={highlightedShipIds?.has(ship.id) ? '' : undefined}
+          className="flex items-start gap-2 border-b border-border px-3.5 py-3 last:border-0 data-new:animate-highlight"
+        >
+          <div className="flex min-w-0 grow flex-col gap-1.5">
             <div className="flex items-center justify-between gap-3 text-body-touch">
-              <ShipNameCell ship={ship} />
+              <span className="flex min-w-0 items-center gap-2">
+                <ShipNameCell ship={ship} />
+                <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+              </span>
               <StatusBadge status={ship.status} />
             </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <TypeChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
-              <Whereabouts ship={ship} now={now} size="sm" />
+            <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <RunsOn ship={ship} now={now} />
+              {ship.kind === 'operator' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} />}
+              <LastSeen seenAt={ship.lastSeenAt} now={now} />
             </div>
-            {actions ? <div className="flex flex-wrap gap-2 pt-1">{actions}</div> : null}
-          </li>
-        );
-      })}
+          </div>
+          {renderRowActions?.(ship, 'phone')}
+        </li>
+      ))}
     </ul>
   );
 }
 
 /**
- * The fleet overview list (docs/design/png/FleetTable.png). argo sorts first
- * and carries the operator kind chip; search and filters apply to it like any
- * ship. Crewed ships show LocationTag, awaiting ships their starting prompt
- * status. On phone each ship becomes a row of three lines and the filters move
- * into a bottom Sheet. Rows update in place and never reorder under the
+ * The fleet overview list (docs/design/png/FleetTable.png): one calm 48 px
+ * line per ship. Columns name (with the operator chip, flagship chip or
+ * SquadronTag), status, report, runs on (harness and location kind; an
+ * awaiting ship's prompt status), model and last seen (an icon). argo sorts
+ * first and never reports; search and filters apply to it like any ship.
+ * Every action lives in the row menu; the Report cell shows at most one next
+ * step. On phone each ship becomes a row of up to three lines with its
+ * actions in a bottom Sheet, and the filters move into a bottom Sheet too. Rows update in place and never reorder under the
  * pointer; ships that just appeared are highlighted.
  */
 export function FleetTable({

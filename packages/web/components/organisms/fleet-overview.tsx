@@ -45,7 +45,7 @@ export function FleetOverview({
         }}
         highlightedShipIds={newShipIds}
         now={now}
-        renderRowActions={(ship) => <ShipActions ship={ship} />}
+        renderRowActions={(ship, layout) => <ShipActions ship={ship} layout={layout === 'table' ? 'menu' : layout === 'phone' ? 'sheet' : 'next'} />}
         squadronsOf={squadrons.data ? shipsInSquadrons(squadrons.data) : undefined}
       />
     </section>

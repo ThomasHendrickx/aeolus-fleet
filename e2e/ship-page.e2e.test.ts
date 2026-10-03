@@ -167,6 +167,11 @@ describe('the ship page', () => {
     // The model the planner's session stated with the message, and the scout's harness and current model in the header.
     await expect(sheet.getByTestId('message-model').textContent()).resolves.toBe('claude-opus-5-5');
     await expect(page.getByTestId('ship-model').textContent()).resolves.toMatch(/^Claude Code·claude-opus-5-5$/);
+    // On the overview, the scout's row says what it runs on and its model.
+    await page.goto('/');
+    const row = page.getByTestId('fleet-row-scout');
+    await expect(row.getByTestId('fleet-model').textContent()).resolves.toBe('claude-opus-5-5');
+    await row.locator('[data-slot="location-tag"]').getByText('Claude Code').waitFor();
   });
 
   it("replies as argo from a message's sheet: the reply reaches its sender, naming the message", async () => {

@@ -11,7 +11,7 @@ import { createMigratedDatabase } from '../packages/server/test/support/database
 import { newKey } from '../packages/server/test/support/keys.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
-import { signIn } from './support/console.js';
+import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // A console without squadrons (no AEOLUS_SQUADRONS_URL), end to end: squadrons
@@ -64,14 +64,17 @@ describe('a console without squadrons', () => {
       }
     });
     await signIn(page, OPERATOR);
-    const row = page.getByTestId('fleet-row-reviewer-02');
-    await row.getByTestId('fleet-ship-retire').waitFor();
+    // The row menu stays open while the overview refreshes: what it offers must not change.
+    await page.getByTestId('fleet-row-reviewer-02').waitFor();
+    await openRowMenu(page, 'reviewer-02');
+    await page.getByTestId('fleet-ship-retire').waitFor();
 
     const shown: number[] = [];
     for (const started = Date.now(); Date.now() - started < STEADY_FOR_MS; ) {
-      shown.push(await row.getByTestId('fleet-ship-retire').count());
+      shown.push(await page.getByTestId('fleet-ship-retire').count());
       await page.waitForTimeout(SAMPLE_EVERY_MS);
     }
+    await page.keyboard.press('Escape');
     await page.getByTestId('nav-attention').click();
     await page.getByRole('heading', { name: 'Needs attention' }).first().waitFor();
     await page.getByTestId('nav-settings').click();
