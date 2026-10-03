@@ -77,6 +77,10 @@ function pidFile(): string {
   return identityFile().replace(/\.identity$/, '.watch.pid');
 }
 
+function wakePidFile(): string {
+  return identityFile().replace(/\.identity$/, '.wake.pid');
+}
+
 const inbox = (waiting: number) => ({ status: 200, body: { waiting } });
 
 describe('aeolus-identity', () => {
@@ -127,13 +131,26 @@ describe('aeolus-identity', () => {
   it('forgets the ship and stops its watcher on delete', async () => {
     crew();
     const sleeper = spawn('sleep', ['30']);
+    const wakeSleeper = spawn('sleep', ['30']);
     writeFileSync(pidFile(), `${String(sleeper.pid)}\n`);
+    writeFileSync(wakePidFile(), `${String(wakeSleeper.pid)}\n`);
     const stopped = new Promise((resolve) => sleeper.on('exit', resolve));
+    const wakeStopped = new Promise((resolve) => wakeSleeper.on('exit', resolve));
 
-    expect(run('aeolus-identity.sh', { args: ['delete'] }).status).toBe(0);
+    try {
+      expect(run('aeolus-identity.sh', { args: ['delete'] }).status).toBe(0);
 
-    await stopped;
-    expect(readdirSync(join(data, 'ships'))).toEqual([]);
+      await expect(
+        Promise.race([
+          Promise.all([stopped, wakeStopped]).then(() => true),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+        ]),
+      ).resolves.toBe(true);
+      expect(readdirSync(join(data, 'ships'))).toEqual([]);
+    } finally {
+      sleeper.kill();
+      wakeSleeper.kill();
+    }
   });
 });
 
