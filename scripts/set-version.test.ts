@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { PLUGIN_MANIFEST, PUBLISHED_PACKAGES, setPluginVersion, setVersion } from './set-version.ts';
+import { PLUGIN_MANIFESTS, PUBLISHED_PACKAGES, setPluginVersion, setVersion } from './set-version.ts';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -19,8 +19,10 @@ beforeEach(() => {
     mkdirSync(join(copy, 'packages', name), { recursive: true });
     cpSync(join(repositoryRoot, 'packages', name, 'package.json'), join(copy, 'packages', name, 'package.json'));
   }
-  mkdirSync(join(copy, PLUGIN_MANIFEST, '..'), { recursive: true });
-  cpSync(join(repositoryRoot, PLUGIN_MANIFEST), join(copy, PLUGIN_MANIFEST));
+  for (const pluginManifest of PLUGIN_MANIFESTS) {
+    mkdirSync(join(copy, pluginManifest, '..'), { recursive: true });
+    cpSync(join(repositoryRoot, pluginManifest), join(copy, pluginManifest));
+  }
 });
 
 afterEach(() => {
@@ -40,12 +42,16 @@ function manifest(name: string): z.infer<typeof manifestSchema> {
 }
 
 describe('setVersion', () => {
-  it('sets the same version on the aeolus Claude Code plugin, keeping its other fields', () => {
-    const before = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8')));
+  it('sets the same version on both aeolus plugin manifests, keeping their other fields', () => {
+    const before = PLUGIN_MANIFESTS.map((path) =>
+      z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, path), 'utf8'))),
+    );
 
     setVersion(copy, '0.3.0');
 
-    expect(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8'))).toEqual({ ...before, version: '0.3.0' });
+    expect(PLUGIN_MANIFESTS.map((path) => JSON.parse(readFileSync(join(copy, path), 'utf8')))).toEqual(
+      before.map((manifest) => ({ ...manifest, version: '0.3.0' })),
+    );
   });
 
   it('sets the same version on all four packages, squadrons included', () => {
@@ -126,7 +132,10 @@ describe('setPluginVersion', () => {
 
     setPluginVersion(copy, '0.4.0');
 
-    expect(JSON.parse(readFileSync(join(copy, PLUGIN_MANIFEST), 'utf8'))).toMatchObject({ name: 'aeolus', version: '0.4.0' });
+    expect(PLUGIN_MANIFESTS.map((path) => JSON.parse(readFileSync(join(copy, path), 'utf8')))).toEqual([
+      expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
+      expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
+    ]);
     expect(PUBLISHED_PACKAGES.map((name) => manifest(name))).toEqual(packagesBefore);
   });
 
