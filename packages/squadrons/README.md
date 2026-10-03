@@ -2,7 +2,7 @@
 
 Forms squadrons of ships from blueprints and leads them (decision 0017). Optional: a fleet works with individual ships only. Aeolus knows nothing about squadrons; squadrons is a ship of the fleet with `fleet:read` and `fleet:manage`, its management ship, and reaches the fleet only through its public API.
 
-So far: its own process and database, the management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), `/api/health` and `/api/version`. Forming squadrons arrives in the next slices of #86.
+So far: its own process and database, the management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), forming squadrons, `/api/health` and `/api/version`. The check-in arrives in the next slice of #86.
 
 ## Running
 
@@ -32,4 +32,4 @@ If another session holds the management ship (a lost crew token, say), the start
 | --- | --- |
 | `/api/health` | Up and its database reachable: `{ "status": "ok" }`, or 503 |
 | `/api/version` | `{ "squadrons": "<version>", "migration": "<latest migration>" }`. No authentication, no fleet data |
-| `/trpc` | The squadrons API, for the web app's server. Every procedure needs the console session cookie of the fleet's signed-in operator, which squadrons checks with the fleet's `console.session`: `catalogue.list` (every tagged template and blueprint version, and every version left out with its problem) and `catalogue.refresh` (fetch the repositories now) |
+| `/trpc` | The squadrons API, for the web app's server. Every procedure needs the console session cookie of the fleet's signed-in operator, which squadrons checks with the fleet's `console.session`: `catalogue.list` (every tagged template and blueprint version, and every version left out with its problem), `catalogue.refresh` (fetch the repositories now), `squadrons.form` (`{ blueprint: { repository, name, version }, squadronId? }`: commissions the flagship, named as the squadron and crewed by squadrons, and the members; answers each member's crew line, with the squadron id, and its template's launch note, once) and `squadrons.list` (the fleet's squadrons, their state and members). A failure answers `Internal error` only; the log holds it whole |
