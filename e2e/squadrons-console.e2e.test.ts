@@ -262,6 +262,20 @@ describe('the first squadron in the console', () => {
     expect(page.url()).toContain('state=forming');
   });
 
+  it('finds the squadron in the command palette and opens it; Form squadron opens the dialog', async () => {
+    const page = await squadronsPage();
+
+    await page.keyboard.press('Control+k');
+    await page.getByTestId('command-palette-input').fill('team-');
+    await page.locator('[data-testid="command-palette-item"][data-item-kind="squadron"]').first().click();
+    await page.getByTestId('squadron-header').waitFor();
+
+    await page.keyboard.press('Control+k');
+    await page.getByTestId('command-palette-input').fill('form squadron');
+    await page.getByTestId('command-palette-item').first().click();
+    await page.getByTestId('form-squadron-dialog').waitFor();
+  });
+
   // Last: it moves the clock past three check-in intervals.
   it('sends a member silent for three check-in intervals to Needs attention, and counts it', async () => {
     const THREE_INTERVALS_AND_MORE_MS = 2 * 60 * 60 * 1000;

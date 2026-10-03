@@ -166,11 +166,12 @@ export function useKeptMessages(squadronId: string) {
   });
 }
 
-/** The templates and blueprints tagged in git. */
-export function useCatalogue() {
+/** The templates and blueprints tagged in git; idle when not enabled. */
+export function useCatalogue(options: { isEnabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['squadrons', 'catalogue'],
     queryFn: () => call('catalogue.list', { answers: catalogueSchema }),
+    enabled: options.isEnabled ?? true,
   });
 }
 

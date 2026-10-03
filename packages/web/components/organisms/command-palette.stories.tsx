@@ -51,3 +51,16 @@ export const NoResults: Story = { args: { initialQuery: 'deploy' } };
 
 /** Phone: the TopBar's search icon opens it full screen, with Cancel. */
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** With squadrons on: Form squadron, a squadron with its state, a blueprint and the Squadrons page. */
+export const SquadronsOn: Story = {
+  args: {
+    items: [
+      ...ITEMS,
+      { kind: 'action', id: 'form-squadron', label: 'Form squadron' },
+      { kind: 'squadron', id: 'aeolus-a1b2c3', blueprint: 'aeolus', state: 'sailing', href: '/squadrons/aeolus-a1b2c3' },
+      { kind: 'blueprint', id: 'github.com/acme/templates#aeolus', name: 'aeolus', version: 4, href: '/squadrons/blueprints/aeolus' },
+      { kind: 'page', id: 'squadrons', label: 'Squadrons', href: '/squadrons' },
+    ],
+  },
+};

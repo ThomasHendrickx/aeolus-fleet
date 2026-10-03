@@ -1,6 +1,6 @@
 'use client';
 
-import { CornerDownLeft, Inbox, Plus, Search, Ship, SquarePen, TriangleAlert, type LucideIcon } from 'lucide-react';
+import { CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { useId, useState, type KeyboardEvent } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -24,10 +24,12 @@ interface CommandPaletteProps {
   initialQuery?: string;
 }
 
-const ICONS: Record<Exclude<PaletteItem, { kind: 'ship' }>['id'], LucideIcon> = {
+const ICONS: Record<Extract<PaletteItem, { kind: 'action' | 'page' }>['id'], LucideIcon> = {
   compose: SquarePen,
   commission: Plus,
+  'form-squadron': Plus,
   overview: Ship,
+  squadrons: Shapes,
   inbox: Inbox,
   attention: TriangleAlert,
 };
@@ -41,6 +43,25 @@ function ItemContent({ item }: { item: PaletteItem }) {
         <span className="min-w-0 truncate font-mono text-body font-medium text-foreground">{item.name}</span>
         <span className="min-w-0 truncate text-meta text-muted-foreground">{item.type}</span>
         <StatusBadge status={item.status} className="ml-auto" />
+      </>
+    );
+  }
+  if (item.kind === 'squadron') {
+    return (
+      <>
+        <Shapes aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate text-body font-medium text-foreground">{item.id}</span>
+        <span className="min-w-0 truncate font-mono text-meta text-muted-foreground">{item.blueprint}</span>
+        <StatusBadge status={item.state} className="ml-auto" />
+      </>
+    );
+  }
+  if (item.kind === 'blueprint') {
+    return (
+      <>
+        <DraftingCompass aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate font-mono text-body text-foreground">{item.name}</span>
+        <span className="text-meta text-muted-foreground">v{item.version}</span>
       </>
     );
   }
