@@ -127,6 +127,7 @@ describe('sending a message on Postgres', () => {
         selectorType: null,
         payload: input.payload,
         contentType: 'application/json',
+        model: null,
         idempotencyKey: input.idempotencyKey,
         requestHash: stored?.requestHash,
         inReplyToMessageId: null,
@@ -157,7 +158,7 @@ describe('sending a message on Postgres', () => {
         shipId: scoutId,
         messageId,
         deliveryId: delivery?.id,
-        details: { selector: 'ship', recipientType: null },
+        details: { selector: 'ship', recipientType: null, model: null },
       }),
     ]);
     await vi.waitFor(() => {
@@ -176,7 +177,7 @@ describe('sending a message on Postgres', () => {
   });
 
   it("resolves a name to the ship's id, and a type to its queue", async () => {
-    unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' } })));
+    unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: 'claude-opus-5-5' })));
     unwrap(await core.useCases.sendMessage(argo, aReview({ selector: { kind: 'type', type: 'reviewer' } })));
 
     const stored = await core.prisma.delivery.findMany({ orderBy: { id: 'asc' }, include: { message: true } });
@@ -212,7 +213,7 @@ describe('sending a message on Postgres', () => {
 
   it("stores the message a reply names, and refuses one of another fleet's", async () => {
     const question = unwrap(
-      await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' } })),
+      await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: 'claude-opus-5-5' })),
     ).messageId;
     const elsewhere = newId('message');
     const otherFleetId = newId('fleet');

@@ -9,6 +9,7 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
+  modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -40,7 +41,7 @@ beforeEach(async () => {
 async function toArgo(from: Crew, payload: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   core.clock.advance(60_000);
   const { messageId } = unwrap(
-    await messaging.sendMessage(from, { selector: { kind: 'ship', shipId: argoId }, payload, idempotencyKey: payload }),
+    await messaging.sendMessage(from, { ...modelOf(from), selector: { kind: 'ship', shipId: argoId }, payload, idempotencyKey: payload }),
   );
   const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
   return { messageId, deliveryId: delivery?.id ?? core.ids('delivery') };
@@ -101,7 +102,7 @@ describe("reading argo's inbox", () => {
 
   it('leaves out messages argo sent, and messages to other ships', async () => {
     unwrap(await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: captain.shipId }, payload: 'go', idempotencyKey: 'go' }));
-    unwrap(await messaging.sendMessage(tester, { selector: { kind: 'ship', shipId: captain.shipId }, payload: 'hi', idempotencyKey: 'hi' }));
+    unwrap(await messaging.sendMessage(tester, { ...modelOf(tester), selector: { kind: 'ship', shipId: captain.shipId }, payload: 'hi', idempotencyKey: 'hi' }));
 
     await expect(history.readInbox(argo, { filter: 'all' })).resolves.toEqual([]);
   });

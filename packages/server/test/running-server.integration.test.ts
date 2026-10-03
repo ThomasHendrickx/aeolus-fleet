@@ -71,7 +71,7 @@ async function crewed(address: string, name: string): Promise<{ shipId: ShipId; 
   const { crewToken } = await client(address).ship.register.mutate({
     shipId,
     secret: secretIn(prompt),
-    location: { kind: 'DEVICE' },
+    location: { kind: 'DEVICE' }, harness: 'claude-code',
   });
   return { shipId, crewToken };
 }
@@ -86,6 +86,7 @@ function toShipNamed(name: string): SendInput {
     selector: { kind: 'ship', name },
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
     contentType: 'text/plain',
+    model: 'claude-opus-5-5',
     idempotencyKey: `key-${newId('message')}`,
   };
 }

@@ -18,6 +18,7 @@ export function createPrismaMessageRepository(db: Db): MessageRepository {
           selectorType: selector.kind === 'type' ? selector.type : null,
           payload: message.payload,
           contentType: message.contentType,
+          model: message.model,
           idempotencyKey: message.idempotencyKey,
           requestHash: message.requestHash,
           inReplyToMessageId: message.inReplyToMessageId,

@@ -321,6 +321,7 @@ export function deliveryInFlight(
     selector: recipient,
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28',
     contentType: 'text/plain',
+    model: null,
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
     inReplyToMessageId: null,
@@ -339,4 +340,12 @@ export function deliveryInFlight(
     createdAt: at,
   });
   return { deliveryId, messageId };
+}
+
+/** The model a test session states on its sends: every ship but argo states one. */
+export const SESSION_MODEL = 'claude-opus-5-5';
+
+/** The model field a send from the caller carries: none from argo, the session's model from any other ship. */
+export function modelOf(caller: { kind: string }): { model?: string } {
+  return caller.kind === 'operator' ? {} : { model: SESSION_MODEL };
 }

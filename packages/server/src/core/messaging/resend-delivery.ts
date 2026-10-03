@@ -107,6 +107,7 @@ export function createResendDelivery(deps: {
           senderShipId: original.senderShipId,
           payload: original.payload,
           contentType: original.contentType,
+          model: original.model ?? undefined,
           idempotencyKey: senderKey.idempotencyKey,
           requestHash,
           inReplyTo,

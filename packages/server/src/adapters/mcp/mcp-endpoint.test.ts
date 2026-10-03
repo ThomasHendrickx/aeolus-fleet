@@ -192,7 +192,7 @@ describe('the ship tools at /mcp', () => {
 
     const { inputSchema } = await tool('register');
 
-    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location']);
+    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location', 'harness']);
     expect(inputSchema.properties.shipId).toMatchObject({ type: 'string', pattern: '^shp_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
     expect(inputSchema.properties).not.toHaveProperty('crewToken');
   });
@@ -208,6 +208,7 @@ describe('the ship tools at /mcp', () => {
       'selector',
       'payload',
       'contentType',
+      'model',
       'idempotencyKey',
       'inReplyTo',
     ]);
@@ -314,7 +315,7 @@ describe('a ship tool call', () => {
 
     const registered = await callTool(client, {
       name: 'register',
-      arguments: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } },
+      arguments: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
     });
     const { crewToken } = z.object({ crewToken: z.string() }).parse(registered.structuredContent);
     const whoami = await callTool(client, { name: 'whoami', arguments: { crewToken } });
@@ -410,7 +411,7 @@ describe('a ship tool call', () => {
     await start({ registerRateLimit: { limit: 2, windowMs: 60_000 } });
     const agent = addAgentShip(core, { fleetId });
     const client = await connect();
-    const aWrongClaim = { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } };
+    const aWrongClaim = { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' }, harness: 'claude-code' };
 
     const overTrpc = await fetch(`${address}/trpc/ship.register`, {
       method: 'POST',
@@ -420,7 +421,7 @@ describe('a ship tool call', () => {
     const overMcp = await refusalText(client, { name: 'register', arguments: aWrongClaim });
     const limited = await refusalText(client, {
       name: 'register',
-      arguments: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } },
+      arguments: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' }, harness: 'claude-code' },
     });
 
     expect(overTrpc.status).toBe(401);

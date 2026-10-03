@@ -178,7 +178,7 @@ describe('sending a message to a ship', () => {
         shipId: scoutId,
         messageId,
         deliveryId: core.state.deliveries[0]?.id,
-        details: { selector: 'ship', recipientType: null },
+        details: { selector: 'ship', recipientType: null, model: null },
       },
     ]);
   });
@@ -459,6 +459,7 @@ describe('a send refused', () => {
       selector: { kind: 'type', type: 'reviewer' },
       payload: 'elsewhere',
       contentType: 'text/plain',
+      model: null,
       idempotencyKey: 'elsewhere',
       requestHash: 'elsewhere',
       inReplyToMessageId: null,

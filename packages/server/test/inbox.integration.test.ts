@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/core/messaging/mark-done.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -40,7 +40,7 @@ afterEach(async () => {
 async function toArgo(payload: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   core.clock.advance(1_000);
   const { messageId } = unwrap(
-    await core.useCases.sendMessage(captain, {
+    await core.useCases.sendMessage(captain, { ...modelOf(captain),
       selector: { kind: 'ship', shipId: argo.shipId },
       payload,
       idempotencyKey: `key-${newId('message')}`,

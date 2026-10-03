@@ -28,6 +28,8 @@ export interface MessageToSend {
   payload: string;
   /** Any well-formed media type, passed on untouched; text/plain when the sender gives none. */
   contentType?: string;
+  /** The exact model the sender's session runs: every ship but argo states it. */
+  model?: string;
   idempotencyKey: string;
   /** The id of the message, in the same fleet, this one replies to. */
   inReplyTo?: MessageId;
@@ -55,7 +57,9 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * is no media type or a bad key is refused before the unit of work starts, so
  * nothing is stored. Without a content type the message is text/plain: the
  * same request as one that names text/plain. The ping content type is
- * reserved: only the ping call sends one, so pings never stack.
+ * reserved: only the ping call sends one, so pings never stack. Every ship but
+ * argo states its model; the model is no part of the request, so a retry
+ * after the session switched model is still a repeat.
  *
  * A repeat, the same sender with the same idempotency key and the same
  * request, returns the original message's id and stores nothing; the same key
@@ -88,6 +92,7 @@ export interface CheckedSend {
   selector: Selector;
   payload: string;
   contentType: string;
+  model: string | undefined;
   idempotencyKey: string;
   inReplyTo: MessageId | undefined;
   requestHash: string;
@@ -115,7 +120,7 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
   const requestHash = hasher.hash(
     sendRequestText({ selector, payload: text.value, contentType: mediaType.value, inReplyTo }),
   );
-  return ok({ selector, payload: text.value, contentType: mediaType.value, idempotencyKey: key.value, inReplyTo, requestHash });
+  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, requestHash });
 }
 
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
@@ -148,6 +153,8 @@ export async function sendWithin(
       senderShipId,
       payload: send.request.payload,
       contentType: send.request.contentType,
+      model: send.request.model,
+      senderKind: send.caller.kind,
       idempotencyKey: send.request.idempotencyKey,
       requestHash,
       inReplyTo,

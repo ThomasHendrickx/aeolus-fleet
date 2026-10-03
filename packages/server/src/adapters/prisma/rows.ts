@@ -309,6 +309,7 @@ const messageRow = z.object({
   senderShipId: idSchema('ship'),
   payload: z.string(),
   contentType: z.string(),
+  model: z.string().nullable(),
   idempotencyKey: z.string(),
   requestHash: z.string(),
   inReplyToMessageId: idSchema('message').nullable(),

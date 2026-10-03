@@ -7,6 +7,7 @@ import {
   historyUseCases,
   initialiseFleet,
   messagingUseCases,
+  modelOf,
   operatorCaller,
   registryUseCases,
 } from './core-fixtures.js';
@@ -65,6 +66,7 @@ export async function historyScenario(): Promise<HistoryScenario> {
           selector: to,
           payload: options.payload ?? 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
           contentType: 'text/plain',
+          ...modelOf(from),
           idempotencyKey: `key-${core.ids('message')}`,
           ...(options.inReplyTo === undefined ? {} : { inReplyTo: options.inReplyTo }),
         }),

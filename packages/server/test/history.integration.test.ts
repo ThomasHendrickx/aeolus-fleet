@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -42,7 +42,7 @@ async function send(from: Caller, message: { to: Selector; payload?: string; inR
   core.clock.advance(1_000);
   const { to, payload = 'Review PR 48', inReplyTo } = message;
   return unwrap(
-    await core.useCases.sendMessage(from, {
+    await core.useCases.sendMessage(from, { ...modelOf(from),
       selector: to,
       payload,
       contentType: 'text/plain',

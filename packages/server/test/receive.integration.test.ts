@@ -12,7 +12,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -162,7 +162,7 @@ describe('receiving on Postgres', () => {
 
   it("hands over the sender's name as it is now: renamed after the send, by its new name, with its type", async () => {
     const { messageId } = unwrap(
-      await useCases.sendMessage(lookout, {
+      await useCases.sendMessage(lookout, { ...modelOf(lookout),
         selector: toShip(scout),
         payload: 'Can you take https://github.com/ThomasHendrickx/aeolus-fleet/pull/25?',
         idempotencyKey: 'ask-scout',

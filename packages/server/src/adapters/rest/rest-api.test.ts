@@ -323,7 +323,7 @@ describe('a ship call at /api/v1', () => {
     const registered = await server.inject({
       method: 'POST',
       url: '/api/v1/ship/register',
-      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' } },
+      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
     });
     const { crewToken } = z.object({ crewToken: z.string() }).parse(registered.json());
     const whoami = await server.inject({
@@ -454,14 +454,14 @@ describe('a ship call at /api/v1', () => {
   it('counts a failed register against the client address, in one budget with /trpc', async () => {
     start({ registerRateLimit: { limit: 2, windowMs: 60_000 } });
     const agent = addAgentShip(core, { fleetId });
-    const aWrongClaim = { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' } };
+    const aWrongClaim = { shipId: core.ids('ship'), secret: 'aeolus_sk_v1_wrong', location: { kind: 'DEVICE' }, harness: 'claude-code' };
 
     const overTrpc = await server.inject({ method: 'POST', url: '/trpc/ship.register', payload: aWrongClaim });
     const overRest = await server.inject({ method: 'POST', url: '/api/v1/ship/register', payload: aWrongClaim });
     const limited = await server.inject({
       method: 'POST',
       url: '/api/v1/ship/register',
-      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' } },
+      payload: { shipId: agent.shipId, secret: agent.secret, location: { kind: 'DEVICE' }, harness: 'claude-code' },
     });
 
     expect([overTrpc.statusCode, overRest.statusCode, limited.statusCode]).toEqual([401, 401, 429]);
