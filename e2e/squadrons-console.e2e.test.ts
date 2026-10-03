@@ -327,5 +327,19 @@ describe('the first squadron in the console', () => {
 
     await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
+
+  it('forces the stand down of a forming squadron: with no open work a normal confirm, and it is disbanded at once', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-form').click();
+    await page.getByTestId('form-squadron-preview').click();
+    await page.getByTestId('form-squadron-submit').click();
+    await page.getByTestId('squadron-header').getByText('Forming').waitFor({ timeout: LIVE_TIMEOUT_MS });
+
+    await page.getByTestId('squadron-force-stand-down').click();
+    await page.getByTestId('force-stand-down-dialog').waitFor();
+    await page.getByTestId('force-stand-down-confirm').click();
+
+    await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
 });
 

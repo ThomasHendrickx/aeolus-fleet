@@ -207,6 +207,17 @@ export function useStandDown() {
   });
 }
 
+/** Forces a squadron's stand down: every member and the flagship retire now, abandoning open work, and it disbands. */
+export function useForceStandDown() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (squadronId: string) => call('squadrons.forceStandDown', { input: { squadronId }, isMutation: true, answers: z.object({}) }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
+    },
+  });
+}
+
 function crewLinesKey(squadronId: string): string[] {
   return ['squadrons', 'crew-lines', squadronId];
 }
