@@ -1,6 +1,8 @@
+import Link from 'next/link';
+
 import { shortDateTime } from '../../lib/relative-time';
 import type { Squadron } from '../../lib/squadrons-api';
-import { stationCount } from '../../lib/squadrons-view';
+import { blueprintPath, stationCount } from '../../lib/squadrons-view';
 import { EmptyState } from '../molecules/empty-state';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { StationProgress } from '../molecules/station-progress';
@@ -31,9 +33,9 @@ export function SquadronHeader({ squadron, squadronId, state }: SquadronHeaderPr
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="text-title font-semibold">{squadron.id}</h1>
         <StatusBadge status={squadron.state} />
-        <span className="text-meta text-muted-foreground">
+        <Link href={blueprintPath(squadron.blueprint)} className="text-meta text-muted-foreground hover:underline" data-testid="squadron-blueprint">
           <span className="font-mono">{squadron.blueprint.name}</span> v{squadron.blueprint.version}
-        </span>
+        </Link>
       </div>
       <dl className="flex flex-wrap gap-x-6 gap-y-1 text-meta text-muted-foreground">
         <div className="flex gap-1.5">

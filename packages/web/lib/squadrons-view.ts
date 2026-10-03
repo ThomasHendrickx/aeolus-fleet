@@ -104,3 +104,17 @@ export function shipsInSquadrons(squadrons: readonly Pick<Squadron, 'id' | 'stat
   }
   return byShip;
 }
+
+/** Where a blueprint's page is: its name, with its repository and version in the query. */
+export function blueprintPath(blueprint: { repository: string; name: string; version?: number }): string {
+  const query = new URLSearchParams({ repository: blueprint.repository });
+  if (blueprint.version !== undefined) {
+    query.set('version', String(blueprint.version));
+  }
+  return `/squadrons/blueprints/${encodeURIComponent(blueprint.name)}?${query.toString()}`;
+}
+
+/** The squadrons formed from a blueprint, any version, oldest first as listed. */
+export function squadronsFromBlueprint<S extends Pick<Squadron, 'blueprint'>>(squadrons: readonly S[], blueprint: { repository: string; name: string }): S[] {
+  return squadrons.filter((squadron) => squadron.blueprint.repository === blueprint.repository && squadron.blueprint.name === blueprint.name);
+}
