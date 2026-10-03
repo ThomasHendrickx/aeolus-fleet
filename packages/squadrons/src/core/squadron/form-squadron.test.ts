@@ -90,6 +90,9 @@ function fakeFleet() {
       state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false });
       return Promise.resolve(ok({ shipId, crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` }));
     },
+    receive: () => Promise.resolve(ok([])),
+    ack: () => Promise.resolve(ok(undefined)),
+    send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     retire: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId);
       if (ship) {
@@ -110,6 +113,7 @@ function memorySquadrons(): SquadronRepository & { held: Squadron[] } {
       return Promise.resolve();
     },
     list: (fleetId) => Promise.resolve(repository.held.filter((squadron) => squadron.fleetId === fleetId)),
+    update: () => Promise.resolve(),
   };
   return repository;
 }

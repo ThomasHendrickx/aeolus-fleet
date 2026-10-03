@@ -92,6 +92,15 @@ export function createPrismaSquadronRepository(db: Db): SquadronRepository {
         },
       });
     },
+    update: async (squadron) => {
+      await db.squadron.updateMany({
+        where: { fleetId: squadron.fleetId, id: squadron.id },
+        data: { state: squadron.state, sailedAt: squadron.sailedAt },
+      });
+      for (const member of squadron.members) {
+        await db.member.updateMany({ where: { fleetId: squadron.fleetId, shipId: member.shipId }, data: { onStationAt: member.onStationAt } });
+      }
+    },
     list: async (fleetId) =>
       (await db.squadron.findMany({ where: { fleetId }, include: { members: true }, orderBy: { formedAt: 'asc' } })).map(squadronOf),
   };

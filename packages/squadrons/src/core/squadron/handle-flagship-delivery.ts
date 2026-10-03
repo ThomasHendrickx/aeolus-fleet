@@ -28,7 +28,8 @@ function parsedPayload<T>(schema: z.ZodType<T>, payload: string): T | undefined 
 }
 
 /** The member's role message (docs/squadrons.md, "Check-in"): each hand-off as the selector to send to. */
-function roleMessage(squadron: Squadron, member: Member, inReplyTo: FlagshipDelivery): OutgoingMessage {
+function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: FlagshipDelivery }): OutgoingMessage {
+  const { member, checkIn: inReplyTo } = answering;
   const role = squadron.blueprint.roles.find((each) => each.name === member.role);
   const template = squadron.templates.find(
     (each) => each.repository === role?.template.repository && each.name === role.template.name && each.version === role.template.version,
@@ -81,7 +82,7 @@ export function createHandleFlagshipDelivery(deps: { door: FleetDoor; squadrons:
       if (!acked.isOk) {
         return err(acked.error);
       }
-      const answered = await deps.door.send(crewToken, roleMessage(squadron, member, delivery));
+      const answered = await deps.door.send(crewToken, roleMessage(squadron, { member, checkIn: delivery }));
       return answered.isOk ? ok('answered') : err(answered.error);
     }
 
@@ -97,8 +98,8 @@ export function createHandleFlagshipDelivery(deps: { door: FleetDoor; squadrons:
       const at = deps.clock.now();
       const members = squadron.members.map((each) => (each.shipId === member.shipId ? { ...each, onStationAt: each.onStationAt ?? at } : each));
       const isAllOnStation = members.every((each) => each.onStationAt !== null);
-      const sails = squadron.state === 'forming' && isAllOnStation;
-      await deps.squadrons.update({ ...squadron, members, state: sails ? 'sailing' : squadron.state, sailedAt: sails ? at : squadron.sailedAt });
+      const isSailing = squadron.state === 'forming' && isAllOnStation;
+      await deps.squadrons.update({ ...squadron, members, state: isSailing ? 'sailing' : squadron.state, sailedAt: isSailing ? at : squadron.sailedAt });
       return ok('on-station');
     }
 

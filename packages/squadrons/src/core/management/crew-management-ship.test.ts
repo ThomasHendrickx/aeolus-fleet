@@ -34,6 +34,9 @@ function fakeFleet() {
       ),
     commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     retire: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    receive: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    ack: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
   };
   return { state, door };
 }

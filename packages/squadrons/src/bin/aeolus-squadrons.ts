@@ -15,6 +15,9 @@ import { readSquadronsFile } from '../squadrons-file.js';
 
 const USAGE = 'Usage: aeolus-squadrons start | migrate';
 
+/** How often squadrons looks for squadrons whose flagship does not receive yet, such as after a restart. */
+const FLAGSHIP_RESCAN_MS = 30_000;
+
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
   // Without the file, squadrons runs with no repositories: nothing to form yet.
@@ -38,6 +41,7 @@ async function start(): Promise<void> {
   }
   app.server.log.info({ ship: crewed.value.name }, 'crewing the management ship');
   await app.startRefreshing(refreshMinutes * 60_000);
+  app.startFlagships(FLAGSHIP_RESCAN_MS);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
