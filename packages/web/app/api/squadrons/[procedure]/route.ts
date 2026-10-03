@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
  * fleet (decision 0017). Only the procedures the console uses pass; the
  * connection has its own route, which keeps the management secret server side.
  */
-const QUERIES = new Set(['catalogue.list', 'squadrons.list', 'squadrons.messages']);
-const MUTATIONS = new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'squadrons.removeMember', 'squadrons.newCrewLine', 'catalogue.refresh']);
+const QUERIES = new Set(['catalogue.list', 'squadrons.list', 'squadrons.messages', 'repositories.list']);
+const MUTATIONS = new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'squadrons.removeMember', 'squadrons.newCrewLine', 'catalogue.refresh', 'repositories.add', 'repositories.remove']);
 
 async function forward(request: Request, init: { procedure: string; method: 'GET' | 'POST'; search: string; body?: string }): Promise<Response> {
   const { procedure } = init;
