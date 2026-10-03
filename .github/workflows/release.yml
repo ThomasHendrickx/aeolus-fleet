@@ -97,15 +97,51 @@ jobs:
           npm publish --dry-run --access public --workspace @aeolus-fleet/web
           npm publish --dry-run --access public --workspace @aeolus-fleet/squadrons
 
+      # Each step skips a package whose version is on npm already, so re-running a
+      # release that failed partway publishes only what is missing, then tags and
+      # sets the plugin. Re-run that run (Re-run jobs), not a new dispatch, so the
+      # tag lands on the commit the packages were built from.
       - name: Publish @aeolus-fleet/common
-        run: npm publish --access public --workspace @aeolus-fleet/common
+        env:
+          PACKAGE: '@aeolus-fleet/common'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public --workspace "$PACKAGE"
+          fi
       - name: Publish @aeolus-fleet/server
-        run: npm publish --access public --workspace @aeolus-fleet/server
+        env:
+          PACKAGE: '@aeolus-fleet/server'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public --workspace "$PACKAGE"
+          fi
       - name: Publish @aeolus-fleet/web
-        run: npm publish --access public --workspace @aeolus-fleet/web
+        env:
+          PACKAGE: '@aeolus-fleet/web'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public --workspace "$PACKAGE"
+          fi
       # Last: squadrons is optional, so a problem here leaves the fleet's three published.
       - name: Publish @aeolus-fleet/squadrons
-        run: npm publish --access public --workspace @aeolus-fleet/squadrons
+        env:
+          PACKAGE: '@aeolus-fleet/squadrons'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public --workspace "$PACKAGE"
+          fi
 
       # After all four are on npm. If this step fails, push the tag by hand:
       # the version is already published and cannot be released again.
