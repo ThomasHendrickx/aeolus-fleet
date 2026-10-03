@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,7 +99,7 @@ describe('Codex plugin state', () => {
     ]);
 
     expect(written.status).toBe(0);
-    expect(runScript('aeolus-identity.sh', ['show']).stdout).toContain(`folder: ${folder}`);
+    expect(runScript('aeolus-identity.sh', ['show']).stdout).toContain(`folder: ${realpathSync(folder)}`);
     expect(runScript('aeolus-identity.sh', ['path']).stdout).toContain(data);
   });
 
@@ -111,7 +111,7 @@ describe('Codex plugin state', () => {
         'shp_01m3tbfspe96yf1rnr4ank9h1a',
         'scout',
         'aeolus_ct_v1_crew',
-      ]).status,
+      ], '', { AEOLUS_FOLDER: folder }).status,
     ).toBe(0);
 
     const hook = runScript(
@@ -188,7 +188,7 @@ describe('Codex fleet calls', () => {
   });
 
   it('shows the Codex MCP command when a Codex session has no fleet tools', () => {
-    const hinted = runScript('aeolus-mcp-hint.sh', ['https://fleet.example.com/'], '', { CODEX_VERSION: '0.155.0' });
+    const hinted = runScript('aeolus-mcp-hint.sh', ['https://fleet.example.com/'], '', { AEOLUS_HARNESS: 'codex' });
 
     expect(hinted.stdout).toContain('codex mcp add aeolus --url https://fleet.example.com/mcp');
     expect(hinted.stdout).toContain('start a new Codex task');
