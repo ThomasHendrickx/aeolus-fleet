@@ -6,12 +6,12 @@ import type { SourceFile } from './ports.js';
 const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = new Date('2026-10-03T08:00:00.000Z');
 
-function template(name: string, version: number, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'template', name, version, commit: `c0ffee${String(version)}`, committedAt: AT, content };
+function template(tagged: { name: string; version: number }, content: unknown): SourceFile {
+  return { repository: REPO, kind: 'template', ...tagged, commit: `c0ffee${String(tagged.version)}`, committedAt: AT, content };
 }
 
-function blueprint(name: string, version: number, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'blueprint', name, version, commit: `b1ue${String(version)}`, committedAt: AT, content };
+function blueprint(tagged: { name: string; version: number }, content: unknown): SourceFile {
+  return { repository: REPO, kind: 'blueprint', ...tagged, commit: `b1ue${String(tagged.version)}`, committedAt: AT, content };
 }
 
 const tester = {
@@ -35,11 +35,11 @@ const hemmaFeature = {
   entry: 'planner',
 };
 
-const templates = [template('tester', 4, tester), template('implementer', 1, implementer), template('planner', 1, planner)];
+const templates = [template({ name: 'tester', version: 4 }, tester), template({ name: 'implementer', version: 1 }, implementer), template({ name: 'planner', version: 1 }, planner)];
 
 describe('a ship template', () => {
   it('reads its description, check-in interval in minutes, launch note, charter and hand-offs', () => {
-    const { templates: read } = assembleCatalogue([template('tester', 4, tester)]);
+    const { templates: read } = assembleCatalogue([template({ name: 'tester', version: 4 }, tester)]);
 
     expect(read).toEqual([
       {
@@ -61,31 +61,30 @@ describe('a ship template', () => {
   });
 
   it('has no launch note and no hand-offs when it gives none', () => {
-    const [read] = assembleCatalogue([template('planner', 1, planner)]).templates;
+    const [read] = assembleCatalogue([template({ name: 'planner', version: 1 }, planner)]).templates;
 
     expect(read).toMatchObject({ launchNote: null, handoffs: [], checkInMinutes: 120 });
   });
 
   it.each([
-    ['no charter', { ...tester, charter: undefined }, 'charter'],
-    ['a check-in under a minute', { ...tester, checkIn: '0m' }, 'checkIn'],
-    ['a check-in over 24 hours', { ...tester, checkIn: '25h' }, 'checkIn'],
-    ['a check-in that is no duration', { ...tester, checkIn: 'often' }, 'checkIn'],
-    ['a hand-off name that is no handle', { ...tester, handoffs: { 'On Fail': 'x' } }, 'handoffs'],
-    ['content that is no mapping', 'just text', 'template'],
-  ])('is left out with a problem when it has %s', (_label, content, field) => {
-    const { templates: read, problems } = assembleCatalogue([template('tester', 4, content)]);
+    { label: 'no charter', content: { ...tester, charter: undefined }, field: 'charter' },
+    { label: 'a check-in under a minute', content: { ...tester, checkIn: '0m' }, field: 'checkIn' },
+    { label: 'a check-in over 24 hours', content: { ...tester, checkIn: '25h' }, field: 'checkIn' },
+    { label: 'a check-in that is no duration', content: { ...tester, checkIn: 'often' }, field: 'checkIn' },
+    { label: 'a hand-off name that is no handle', content: { ...tester, handoffs: { 'On Fail': 'x' } }, field: 'handoffs' },
+    { label: 'content that is no mapping', content: 'just text', field: 'template' },
+  ])('is left out with a problem when it has $label', ({ content, field }) => {
+    const { templates: read, problems } = assembleCatalogue([template({ name: 'tester', version: 4 }, content)]);
 
     expect(read).toEqual([]);
-    expect(problems).toEqual([
-      { repository: REPO, kind: 'template', name: 'tester', version: 4, message: expect.stringContaining(field) as unknown as string },
-    ]);
+    expect(problems).toMatchObject([{ repository: REPO, kind: 'template', name: 'tester', version: 4 }]);
+    expect(problems[0]?.message).toContain(field);
   });
 });
 
 describe('a squadron blueprint', () => {
   it('reads its roles with their template versions and counts, hand-offs, entry, and plain member names', () => {
-    const { blueprints, problems } = assembleCatalogue([...templates, blueprint('hemma-feature', 4, hemmaFeature)]);
+    const { blueprints, problems } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
 
     expect(problems).toEqual([]);
     expect(blueprints).toEqual([
@@ -113,28 +112,31 @@ describe('a squadron blueprint', () => {
   });
 
   it('may choose prefixed member names', () => {
-    const [read] = assembleCatalogue([...templates, blueprint('hemma-feature', 4, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
+    const [read] = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
 
     expect(read?.memberNames).toBe('prefixed');
   });
 
   function problemsOf(content: unknown) {
-    const { blueprints, problems } = assembleCatalogue([...templates, blueprint('hemma-feature', 4, content)]);
+    const { blueprints, problems } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)]);
     expect(blueprints).toEqual([]);
     return problems.map((problem) => problem.message);
   }
 
   it.each([
-    ['a template version git has no tag for', { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@9` } } }, /tester@9/],
-    ['a template of a repository squadrons does not know', { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: 'example.com/other#tester@4' } } }, /example\.com\/other/],
-    ['a template reference that is no <repo>#<name>@<n>', { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester` } } }, /template/],
-    ['a hand-off a template declares left unbound', { ...hemmaFeature, handoffs: { 'tester.on-fail': 'implementer', 'tester.on-pass': 'flagship' } }, /implementer\.done/],
-    ['a binding of a hand-off no template declares', { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'planner.done': 'tester' } }, /planner\.done/],
-    ['a hand-off to a role it does not have', { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'tester.on-pass': 'reviewer' } }, /reviewer/],
-    ['an entry role it does not have', { ...hemmaFeature, entry: 'reviewer' }, /entry/],
-    ['a count over 20', { ...hemmaFeature, roles: { ...hemmaFeature.roles, implementer: { template: `${REPO}#implementer@1`, count: 21 } } }, /count/],
-    ['no roles', { ...hemmaFeature, roles: {} }, /roles/],
-  ])('is left out with a problem when it has %s', (_label, content, message) => {
-    expect(problemsOf(content)).toEqual([expect.stringMatching(message) as unknown as string]);
+    { label: 'a template version git has no tag for', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@9` } } }, message: /tester@9/ },
+    { label: 'a template of a repository squadrons does not know', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: 'example.com/other#tester@4' } } }, message: /example\.com\/other/ },
+    { label: 'a template reference that is no <repo>#<name>@<n>', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester` } } }, message: /template/ },
+    { label: 'a hand-off a template declares left unbound', content: { ...hemmaFeature, handoffs: { 'tester.on-fail': 'implementer', 'tester.on-pass': 'flagship' } }, message: /implementer\.done/ },
+    { label: 'a binding of a hand-off no template declares', content: { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'planner.done': 'tester' } }, message: /planner\.done/ },
+    { label: 'a hand-off to a role it does not have', content: { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'tester.on-pass': 'reviewer' } }, message: /reviewer/ },
+    { label: 'an entry role it does not have', content: { ...hemmaFeature, entry: 'reviewer' }, message: /entry/ },
+    { label: 'a count over 20', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, implementer: { template: `${REPO}#implementer@1`, count: 21 } } }, message: /count/ },
+    { label: 'no roles', content: { ...hemmaFeature, roles: {} }, message: /roles/ },
+  ])('is left out with a problem when it has $label', ({ content, message }) => {
+    const messages = problemsOf(content);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatch(message);
   });
 });
