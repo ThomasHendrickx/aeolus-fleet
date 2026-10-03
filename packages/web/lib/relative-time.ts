@@ -39,6 +39,11 @@ export function duration(from: Date, to: Date): string {
   return `${String(minutes)} min`;
 }
 
+/** "28 Sep": day and month, in the browser's time zone, for a list of commits. */
+export function dayMonth(at: Date): string {
+  return `${String(at.getDate())} ${MONTHS[at.getMonth()] ?? ''}`;
+}
+
 /** "28 Sep, 14:21": day, month and a 24 h clock, in the browser's time zone. */
 export function shortDateTime(at: Date): string {
   return `${String(at.getDate())} ${MONTHS[at.getMonth()] ?? ''}, ${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;

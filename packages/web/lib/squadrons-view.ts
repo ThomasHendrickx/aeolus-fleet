@@ -164,3 +164,79 @@ export function otherMembersOfRole(squadron: { members: readonly { shipId: strin
   const role = squadron.members.find((member) => member.shipId === shipId)?.role;
   return squadron.members.filter((member) => member.role === role && member.shipId !== shipId && member.crew.status !== 'retired').map((member) => member.name);
 }
+
+/** A template with its versions, newest first: the first is the latest. */
+export interface TemplateChoice {
+  key: string;
+  repository: string;
+  name: string;
+  versions: TemplateVersion[];
+}
+
+/** Every template in the catalogue with its versions, newest first, by name. */
+export function templateChoices(catalogue: Pick<Catalogue, 'templates'>): TemplateChoice[] {
+  const byKey = new Map<string, TemplateChoice>();
+  for (const template of catalogue.templates) {
+    const key = `${template.repository}#${template.name}`;
+    const choice = byKey.get(key) ?? { key, repository: template.repository, name: template.name, versions: [] };
+    choice.versions.push(template);
+    byKey.set(key, choice);
+  }
+  return [...byKey.values()]
+    .map((choice) => ({ ...choice, versions: [...choice.versions].sort((first, second) => second.version - first.version) }))
+    .sort((first, second) => first.name.localeCompare(second.name));
+}
+
+/** Where a template's page is: its name, with its repository and version in the query. */
+export function templatePath(template: { repository: string; name: string; version?: number }): string {
+  const query = new URLSearchParams({ repository: template.repository });
+  if (template.version !== undefined) {
+    query.set('version', String(template.version));
+  }
+  return `/squadrons/templates/${encodeURIComponent(template.name)}?${query.toString()}`;
+}
+
+/** The blueprint versions with a role that runs the template: any of its versions, or the one given. */
+export function blueprintsUsing(blueprints: readonly BlueprintVersion[], template: { repository: string; name: string; version?: number }): BlueprintVersion[] {
+  return blueprints.filter((blueprint) =>
+    blueprint.roles.some(
+      (role) =>
+        role.template.repository === template.repository &&
+        role.template.name === template.name &&
+        (template.version === undefined || role.template.version === template.version),
+    ),
+  );
+}
+
+/** A blueprint's roles as the Blueprints tab says them: "planner, implementer ×2, tester". */
+export function rolesText(blueprint: Pick<BlueprintVersion, 'roles'>): string {
+  return blueprint.roles.map((role) => (role.count > 1 ? `${role.name} ×${String(role.count)}` : role.name)).join(', ');
+}
+
+/** The squadrons not disbanded, by state, as the Blueprints tab says them: "1 sailing, 1 forming"; empty for none. */
+export function squadronsText(squadrons: readonly Pick<Squadron, 'state'>[]): string {
+  const order: Squadron['state'][] = ['forming', 'sailing', 'standing-down'];
+  return order
+    .map((state) => ({ state, count: squadrons.filter((squadron) => squadron.state === state).length }))
+    .filter((each) => each.count > 0)
+    .map((each) => `${String(each.count)} ${each.state.replace('-', ' ')}`)
+    .join(', ');
+}
+
+function spanText(minutes: number): string {
+  const hours = Math.floor(minutes / MINUTES_PER_HOUR);
+  const rest = minutes % MINUTES_PER_HOUR;
+  if (hours === 0) {
+    return `${String(rest)} min`;
+  }
+  return rest === 0 ? `${String(hours)} h` : `${String(hours)} h ${String(rest)} min`;
+}
+
+/** Missed check-ins before a member is late, and before it is silent (docs/squadrons.md). */
+const LATE_AFTER_INTERVALS = 1;
+const SILENT_AFTER_INTERVALS = 3;
+
+/** What a check-in interval implies: "Late after 10 min, silent after 30 min". */
+export function thresholdsText(minutes: number): string {
+  return `Late after ${spanText(minutes * LATE_AFTER_INTERVALS)}, silent after ${spanText(minutes * SILENT_AFTER_INTERVALS)}`;
+}

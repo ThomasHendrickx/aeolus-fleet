@@ -73,7 +73,7 @@ describe('paletteItemsOf', () => {
   });
 
   it('adds, with squadrons on, Form squadron, the squadrons not disbanded, the blueprints and the Squadrons page', () => {
-    const blueprint = { repository: 'example.com/t', name: 'team', version: 2, commit: 'c', committedAt: '2026-10-01T09:00:00.000Z', description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' as const };
+    const blueprint = { repository: 'example.com/t', name: 'team', version: 2, commit: 'c', committedAt: '2026-10-01T09:00:00.000Z', description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' as const, file: 'squadrons/blueprints/team.yaml' };
     const items = paletteItemsOf([], {
       squadrons: [
         { id: 'team-a1b2c3', state: 'sailing', blueprint: { repository: 'example.com/t', name: 'team', version: 2, commit: 'c' } },
