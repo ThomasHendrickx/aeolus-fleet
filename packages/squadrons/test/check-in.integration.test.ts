@@ -332,3 +332,34 @@ describe('forcing a stand down', () => {
     expect(ships.map((ship) => ship.retiredAt !== null)).toEqual([true, true]);
   });
 });
+
+describe('adding a member', () => {
+  it('commissions a member of a sailing squadron, answers its crew line with the squadron id once, and lists it not on station', async () => {
+    const formed = await formTeam('team-six');
+    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-six' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-six', role: 'tester' }),
+      idempotencyKey: 'on-station-6',
+    });
+    await expect.poll(() => squadronState('team-six'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const response = await fetch(`${address}/trpc/squadrons.addMember`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-six', role: 'tester' }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const added = z.object({ result: z.object({ data: z.object({ name: z.string(), crewLine: z.string(), launchNote: z.string().nullable() }) }) }).parse(await response.json()).result.data;
+    expect(added.crewLine.split(' ').at(-1)).toBe('team-six');
+    expect(added.launchNote).toBe('Start in the repository root.');
+    const listed = z
+      .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ name: z.string(), health: z.string() })) })) }) })
+      .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json())
+      .result.data.find((squadron) => squadron.id === 'team-six');
+    expect(listed?.state).toBe('sailing');
+    expect(listed?.members.find((each) => each.name === added.name)?.health).toBe('not-on-station');
+  });
+});
