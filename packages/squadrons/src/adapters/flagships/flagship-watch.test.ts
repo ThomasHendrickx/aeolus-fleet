@@ -64,6 +64,7 @@ describe('stopping the flagship watch', () => {
         isHandlingDone = true;
         return ok('kept');
       },
+      advanceStandDowns: () => Promise.resolve(),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -102,6 +103,7 @@ describe('a released flagship', () => {
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
       operator: {
         tell: (notice) => {
           told.push(notice);
@@ -132,6 +134,7 @@ describe('a released flagship', () => {
         management: store,
         squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
         handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+        advanceStandDowns: () => Promise.resolve(),
         operator: {
           tell: (notice) => {
             keys.push(notice.key);
@@ -147,5 +150,105 @@ describe('a released flagship', () => {
     }
 
     expect(keys).toEqual(['released-team-a1b2c3', 'released-team-a1b2c3']);
+  });
+});
+
+describe('the flagship of a squadron standing down', () => {
+  const standingDown: Squadron = { ...forming, state: 'standing-down' };
+
+  async function connectedStore() {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    return store;
+  }
+
+  it('keeps receiving, so no message to the squadron goes unseen while its members finish', async () => {
+    let isReceived = false;
+    const handled: string[] = [];
+    const watch = watchFlagships({
+      door: {
+        ...fakeManagementFleet().door,
+        receive: () => {
+          if (isReceived) {
+            return new Promise(() => undefined);
+          }
+          isReceived = true;
+          const deliveryId: DeliveryId = 'dlv_01m3tbfspe96yf1rnr4ank0001';
+          const messageId: MessageId = 'msg_01m3tbfspe96yf1rnr4ank0001';
+          return Promise.resolve(ok([{ deliveryId, messageId, senderShipId: SHIP_ID, senderName: 'a-member', contentType: 'text/plain', payload: 'done', inReplyTo: null }]));
+        },
+      },
+      management: await connectedStore(),
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([standingDown]), update: () => Promise.resolve() },
+      handle: (_squadron, delivery): Promise<Result<FlagshipOutcome, never>> => {
+        handled.push(delivery.payload);
+        return Promise.resolve(ok('kept'));
+      },
+      advanceStandDowns: () => Promise.resolve(),
+      operator: { tell: () => Promise.resolve() },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+
+    await expect.poll(() => handled).toEqual(['done']);
+    void watch.stop();
+  });
+
+  it('tells argo nothing when its lease ends because the squadron disbanded: squadrons retired it', async () => {
+    let lists = 0;
+    const told: string[] = [];
+    const watch = watchFlagships({
+      door: { ...fakeManagementFleet().door, receive: () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'retired' })) },
+      management: await connectedStore(),
+      squadrons: {
+        exists: () => Promise.resolve(true),
+        create: () => Promise.resolve(),
+        list: () => {
+          lists += 1;
+          return Promise.resolve([lists <= 2 ? standingDown : { ...standingDown, state: 'disbanded' }]);
+        },
+        update: () => Promise.resolve(),
+      },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      operator: {
+        tell: (notice) => {
+          told.push(notice.text);
+          return Promise.resolve();
+        },
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.stop();
+
+    expect(told).toEqual([]);
+  });
+
+  it('advances every stand-down at each rescan', async () => {
+    let advances = 0;
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: await connectedStore(),
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => {
+        advances += 1;
+        return Promise.resolve();
+      },
+      operator: { tell: () => Promise.resolve() },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.rescan();
+    await watch.stop();
+
+    expect(advances).toBe(2);
   });
 });

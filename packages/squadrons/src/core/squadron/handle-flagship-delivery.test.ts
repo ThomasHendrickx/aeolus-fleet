@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
 import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
-import { CHECK_IN, ON_STATION, ROLE } from './check-in.js';
+import { CHECK_IN, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
 import type { FlagshipMessageLog, KeptMessage, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
@@ -61,8 +61,8 @@ function squadron(): Squadron {
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null },
-      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null },
+      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
     ],
     formedAt: FORMED,
     sailedAt: null,
@@ -126,8 +126,21 @@ const operator: OperatorNotices = {
   },
 };
 
+/** For each advance of the stand-downs, how many deliveries were acked by then. */
+const advances: number[] = [];
+
 let now = NOW;
-const handle = createHandleFlagshipDelivery({ door, squadrons, messages, operator, clock: { now: () => now } });
+const handle = createHandleFlagshipDelivery({
+  door,
+  squadrons,
+  messages,
+  operator,
+  advanceStandDowns: () => {
+    advances.push(acked.length);
+    return Promise.resolve();
+  },
+  clock: { now: () => now },
+});
 
 let next = 0;
 function delivery(from: ShipId, message: { contentType: string; payload: unknown; inReplyTo?: MessageId }): FlagshipDelivery {
@@ -150,6 +163,7 @@ beforeEach(() => {
   kept.length = 0;
   told.length = 0;
   isAckRefused = false;
+  advances.length = 0;
   now = NOW;
 });
 
@@ -242,6 +256,76 @@ describe('on station', () => {
 
     expect(held.members.map((member) => member.onStationAt)).toEqual([FORMED, later]);
     expect(held).toMatchObject({ state: 'sailing', sailedAt: FORMED });
+  });
+});
+
+describe('stood-down', () => {
+  const STAND_DOWN_MESSAGE: MessageId = 'msg_01m3tbfspe96yf1rnr4ank0200';
+
+  function standingDown(): Squadron {
+    return {
+      ...squadron(),
+      state: 'standing-down',
+      sailedAt: FORMED,
+      members: squadron().members.map((member) => ({ ...member, onStationAt: FORMED, standDownMessageId: STAND_DOWN_MESSAGE })),
+    };
+  }
+
+  it('records that the member stood down and acks it, then advances the stand-downs so it is retired when it holds no open deliveries', async () => {
+    held = standingDown();
+
+    await expect(handle(held, delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'team-a1b2c3' }, inReplyTo: STAND_DOWN_MESSAGE }))).resolves.toEqual({
+      isOk: true,
+      value: 'stood-down',
+    });
+
+    expect(held.members.map((member) => member.stoodDownAt)).toEqual([null, NOW]);
+    expect(advances).toEqual([1]);
+    expect(acked).toHaveLength(1);
+  });
+
+  it('keeps when the member first stood down, when its stood-down comes again', async () => {
+    held = standingDown();
+    const stoodDown = delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'team-a1b2c3' }, inReplyTo: STAND_DOWN_MESSAGE });
+    await handle(held, stoodDown);
+    now = new Date('2026-10-03T09:20:00.000Z');
+
+    await handle(held, stoodDown);
+
+    expect(held.members.find((member) => member.shipId === TESTER)?.stoodDownAt).toEqual(NOW);
+  });
+
+  it('is kept as a message the flagship does not handle while the squadron does not stand down', async () => {
+    held = { ...squadron(), state: 'sailing' };
+
+    await expect(handle(held, delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'team-a1b2c3' } }))).resolves.toEqual({ isOk: true, value: 'kept' });
+
+    expect(held.members.every((member) => member.stoodDownAt === null)).toBe(true);
+    expect(advances).toEqual([]);
+  });
+
+  it('is kept as a message the flagship does not handle when it names another squadron', async () => {
+    held = standingDown();
+
+    await expect(handle(held, delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'other-squadron' } }))).resolves.toEqual({ isOk: true, value: 'kept' });
+  });
+});
+
+describe('a check-in while the squadron stands down', () => {
+  it('is answered with its role saying the squadron stands down, so the member finishes its work and sends stood-down', async () => {
+    held = { ...squadron(), state: 'standing-down' };
+
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ role: 'tester', standingDown: true });
+  });
+
+  it('says nothing of standing down while the squadron sails', async () => {
+    held = { ...squadron(), state: 'sailing' };
+
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(JSON.parse(sent[0]?.payload ?? '{}')).not.toHaveProperty('standingDown');
   });
 });
 

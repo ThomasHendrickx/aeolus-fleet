@@ -41,8 +41,8 @@ function aSquadron(): Squadron {
     ],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null },
-      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: ON_STATION, checkIn: { at: ON_STATION, model: null } },
+      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: ON_STATION, checkIn: { at: ON_STATION, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
     ],
     formedAt: FORMED,
     sailedAt: null,
@@ -90,8 +90,8 @@ beforeEach(() => {
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
   readAs.length = 0;
   ships = new Map<ShipId, FleetShip>([
-    [PLANNER, { status: 'awaitingCrew', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null }],
-    [TESTER, { status: 'crewed', scopes: [], lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED, reportedAt: null }],
+    [PLANNER, { status: 'awaitingCrew', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0 }],
+    [TESTER, { status: 'crewed', scopes: [], lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0 }],
   ]);
 });
 
