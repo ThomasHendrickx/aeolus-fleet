@@ -20,6 +20,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
 import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
+import { seedRepository } from '../packages/squadrons/test/support/repositories.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -84,10 +85,11 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false, receiveWaitMs: 500 });
   serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
+  const squadronsDatabaseUrl = await createSquadronsDatabase();
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
   squadrons = createSquadronsApp({
-    databaseUrl: await createSquadronsDatabase(),
+    databaseUrl: squadronsDatabaseUrl,
     fleetUrl: serverUrl,
-    repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     clock,
     logger: false,

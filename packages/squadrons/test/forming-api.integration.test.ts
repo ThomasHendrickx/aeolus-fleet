@@ -16,6 +16,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../server/test/support/keys.js';
 
 // Forming a squadron at squadrons' API against a real fleet: its flagship and
@@ -80,10 +81,11 @@ beforeEach(async () => {
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
+  const squadronsDatabaseUrl = await createSquadronsDatabase();
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
   app = createSquadronsApp({
-    databaseUrl: await createSquadronsDatabase(),
+    databaseUrl: squadronsDatabaseUrl,
     fleetUrl,
-    repositories: [{ url: `file://${origin}`, name: REPO, path: undefined, token: undefined }],
     cacheDir: join(work, 'cache'),
     logger: false,
   });
