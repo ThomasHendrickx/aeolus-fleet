@@ -26,8 +26,8 @@ import tseslint from 'typescript-eslint';
 
 /** @type {ImportRestriction[]} */
 const prismaOutsideItsAdapter = [
-  { regex: '^@prisma/', message: '@prisma/* is imported only in server/src/adapters/prisma.' },
-  { regex: '^pg([-/].+)?$', message: 'pg is imported only in server/src/adapters/prisma.' },
+  { regex: '^@prisma/', message: '@prisma/* is imported only in the prisma adapter (server or squadrons).' },
+  { regex: '^pg([-/].+)?$', message: 'pg is imported only in the prisma adapter (server or squadrons).' },
 ];
 
 /**
@@ -222,6 +222,7 @@ export default defineConfig(
     '**/storybook-static/',
     '**/next-env.d.ts',
     'packages/server/src/adapters/prisma/generated/',
+    'packages/squadrons/src/adapters/prisma/generated/',
   ]),
 
   js.configs.recommended,
@@ -304,7 +305,7 @@ export default defineConfig(
 
   {
     name: 'aeolus/prisma-in-its-adapter',
-    ignores: ['packages/server/src/adapters/prisma/**'],
+    ignores: ['packages/server/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
 
@@ -313,6 +314,12 @@ export default defineConfig(
   {
     name: 'aeolus/core',
     files: ['packages/server/src/core/**/*.ts'],
+    rules: coreRules(),
+  },
+  {
+    // squadrons keeps the server's rule: its core holds no framework, Prisma or adapter.
+    name: 'aeolus/squadrons-core',
+    files: ['packages/squadrons/src/core/**/*.ts'],
     rules: coreRules(),
   },
   ...coreContexts.map((context) => ({

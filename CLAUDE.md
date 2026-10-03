@@ -27,7 +27,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 
 ## Architecture rules
 
-- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/server, @aeolus-fleet/web. Separate packages, decided.
+- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/server, @aeolus-fleet/web, and the optional @aeolus-fleet/squadrons (decision 0017). Separate packages, decided.
 - Ports and adapters. server/src/core holds domain, use cases and ports, with no framework, Prisma, pg or tRPC imports. The lint rule enforces it; never disable it.
 - Contexts in core: registry, messaging, identity, shared. A context does not reach into another's internals.
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
