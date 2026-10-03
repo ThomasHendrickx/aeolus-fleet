@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   deregisterOutputSchema,
+  HARNESS_MAX_LENGTH,
+  harnessSchema,
+  KNOWN_HARNESSES,
   locationSchema,
   registerInputSchema,
   registerOutputSchema,
@@ -39,10 +42,32 @@ describe('locationSchema', () => {
   });
 });
 
-describe('registerInputSchema', () => {
-  const input = { shipId: newId('ship'), secret: 'aeolus_sk_v1_abc', location: { kind: 'CLOUD' } };
+describe('harnessSchema', () => {
+  it.each(KNOWN_HARNESSES)('accepts the known harness %s', (harness) => {
+    expect(harnessSchema.parse(harness)).toBe(harness);
+  });
 
-  it('accepts a ship id, its secret and a location', () => {
+  it('takes any other harness as free text, trimmed and in lower case', () => {
+    expect(harnessSchema.parse('  Gemini CLI ')).toBe('gemini cli');
+  });
+
+  it('accepts a harness of exactly 50 characters', () => {
+    expect(harnessSchema.safeParse('h'.repeat(HARNESS_MAX_LENGTH)).success).toBe(true);
+  });
+
+  it.each([
+    ['an empty harness', ''],
+    ['only spaces', '  '],
+    ['a harness over 50 characters', 'h'.repeat(HARNESS_MAX_LENGTH + 1)],
+  ])('rejects %s', (_label, candidate) => {
+    expect(harnessSchema.safeParse(candidate).success).toBe(false);
+  });
+});
+
+describe('registerInputSchema', () => {
+  const input = { shipId: newId('ship'), secret: 'aeolus_sk_v1_abc', location: { kind: 'CLOUD' }, harness: 'claude-code' };
+
+  it('accepts a ship id, its secret, a location and the harness the session runs in', () => {
     expect(registerInputSchema.parse(input)).toEqual(input);
   });
 
@@ -50,7 +75,8 @@ describe('registerInputSchema', () => {
     ['an id of another kind', { ...input, shipId: newId('fleet') }],
     ['an empty secret', { ...input, secret: '' }],
     ['a secret over 256 characters', { ...input, secret: 'a'.repeat(257) }],
-    ['a missing location', { shipId: input.shipId, secret: input.secret }],
+    ['a missing location', { shipId: input.shipId, secret: input.secret, harness: input.harness }],
+    ['a missing harness', { shipId: input.shipId, secret: input.secret, location: input.location }],
   ])('rejects %s', (_label, candidate) => {
     expect(registerInputSchema.safeParse(candidate).success).toBe(false);
   });
