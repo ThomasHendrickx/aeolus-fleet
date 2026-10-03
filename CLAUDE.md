@@ -16,6 +16,8 @@ Aeolus is responsible for distribution, not execution. A ship acknowledges on re
 - docs/decisions/README.md: every decision in one line. Read it first; open a decision file only for its full rule. Do not reopen a recorded decision; raise it as a question instead. Keep decision files short: current rule, why, rejected. No history (git has it).
 - docs/design/README.md: design system (parts, tokens, conventions). Look only; behaviour comes from the blueprint.
 
+Every fact has one source of truth; everything else points to it, never copies it.
+
 If the docs do not answer a behaviour question, stop and ask. Never decide product behaviour yourself.
 
 ## House rules
