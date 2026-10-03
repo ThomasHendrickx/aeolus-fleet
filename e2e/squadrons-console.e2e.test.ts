@@ -420,4 +420,18 @@ describe('the first squadron in the console', () => {
     await expect(removed.getByTestId('member-remove').count()).resolves.toBe(0);
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor();
   });
+
+  it("adds squadrons' own part to the web app's /health and /version", async () => {
+    await expect(fetch(`${web.url}/health`).then((response) => response.json())).resolves.toEqual({
+      web: 'up',
+      server: 'up',
+      database: 'up',
+      squadrons: { status: 'up', connection: 'connected' },
+    });
+    const version = z
+      .object({ squadrons: z.object({ squadrons: z.string(), migration: z.string().nullable(), connection: z.string() }) })
+      .parse(await fetch(`${web.url}/version`).then((response) => response.json()));
+    expect(version.squadrons.connection).toBe('connected');
+    expect(version.squadrons.migration).toMatch(/^\d{14}_/);
+  });
 });

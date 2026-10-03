@@ -1,13 +1,19 @@
 import { serverUrlFrom } from '../../lib/server-url';
+import { squadronsUrlFrom } from '../../lib/squadrons-url';
 import { webVersion } from '../../lib/version';
 
 // Answer every request fresh: never from a build-time or cached copy.
 export const dynamic = 'force-dynamic';
 
-/** The versions this web process and the server process run, and the latest migration. Nothing about fleets. */
+const TIMEOUT_MS = 3_000;
+
+/** The versions this web process, the server process and, when the console has squadrons, squadrons run, with their latest migrations. Nothing about fleets. */
 export async function GET(): Promise<Response> {
-  const body = await webVersion(() =>
-    fetch(`${serverUrlFrom(process.env)}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(3_000) }),
-  );
+  const squadronsUrl = squadronsUrlFrom(process.env);
+  const body = await webVersion({
+    fetchServerVersion: () => fetch(`${serverUrlFrom(process.env)}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) }),
+    fetchSquadronsVersion:
+      squadronsUrl === undefined ? undefined : () => fetch(`${squadronsUrl}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) }),
+  });
   return Response.json(body);
 }
