@@ -52,5 +52,11 @@ export interface Catalogue {
   problems: CatalogueProblem[];
 }
 
+/**
+ * The longest charter, in UTF-8 bytes: the role message carries it, and 48 KB
+ * leaves 16 KB of the 64 KB payload limit for the rest of it.
+ */
+export const CHARTER_MAX_BYTES = 48 * 1024;
+
 /** Where a hand-off goes when it goes to no role. */
 export const FLAGSHIP = 'flagship';
