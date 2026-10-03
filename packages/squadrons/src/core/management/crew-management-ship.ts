@@ -52,8 +52,11 @@ export function createCrewManagementShip(deps: {
     }
 
     const { crewToken } = registered.value;
-    await deps.store.save({ shipId, crewToken, crewedAt: deps.clock.now() });
     const crewed = await deps.door.whoami(crewToken);
-    return ok({ crewToken, name: crewed.isOk ? crewed.value.name : shipId });
+    if (!crewed.isOk) {
+      return refuse('MANAGEMENT_SECRET_REFUSED', `The fleet refused the new crew token: ${crewed.error.message}`);
+    }
+    await deps.store.save({ fleetId: crewed.value.fleetId, shipId, crewToken, crewedAt: deps.clock.now() });
+    return ok({ crewToken, name: crewed.value.name });
   };
 }

@@ -10,13 +10,15 @@ export function createPrismaManagementCrewStore(db: Db): ManagementCrewStore {
   return {
     find: async () => {
       const row = await db.managementCrew.findUnique({ where: { key: SINGLETON } });
-      return row ? { shipId: idSchema('ship').parse(row.shipId), crewToken: row.crewToken, crewedAt: row.crewedAt } : undefined;
+      return row
+        ? { fleetId: idSchema('fleet').parse(row.fleetId), shipId: idSchema('ship').parse(row.shipId), crewToken: row.crewToken, crewedAt: row.crewedAt }
+        : undefined;
     },
-    save: async ({ shipId, crewToken, crewedAt }) => {
+    save: async ({ fleetId, shipId, crewToken, crewedAt }) => {
       await db.managementCrew.upsert({
         where: { key: SINGLETON },
-        create: { key: SINGLETON, shipId, crewToken, crewedAt },
-        update: { shipId, crewToken, crewedAt },
+        create: { key: SINGLETON, fleetId, shipId, crewToken, crewedAt },
+        update: { fleetId, shipId, crewToken, crewedAt },
       });
     },
   };

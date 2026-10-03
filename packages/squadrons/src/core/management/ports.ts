@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -14,11 +14,13 @@ export interface FleetRefusal {
  */
 export interface FleetDoor {
   register(claim: { shipId: ShipId; secret: string }): Promise<Result<{ crewToken: string }, FleetRefusal>>;
-  whoami(crewToken: string): Promise<Result<{ shipId: string; name: string; type: string }, FleetRefusal>>;
+  whoami(crewToken: string): Promise<Result<{ shipId: ShipId; fleetId: FleetId; name: string; type: string }, FleetRefusal>>;
 }
 
 /** The crew token squadrons holds for its management ship, and when it got it. */
 export interface ManagementCrew {
+  /** The fleet the management ship belongs to: the fleet squadrons serves. */
+  fleetId: FleetId;
   shipId: ShipId;
   crewToken: string;
   crewedAt: Date;

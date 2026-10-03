@@ -21,6 +21,7 @@ datasource db {
 /// again without a new secret. One row at most: the singleton key is always "management".
 model ManagementCrew {
   key       String   @id
+  fleetId   String   @map("fleet_id")
   shipId    String   @map("ship_id")
   crewToken String   @map("crew_token")
   crewedAt  DateTime @map("crewed_at") @db.Timestamptz(3)

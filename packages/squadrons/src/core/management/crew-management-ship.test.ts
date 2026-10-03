@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { err, ok, type Result } from '../shared/result.js';
@@ -6,6 +6,7 @@ import { createCrewManagementShip } from './crew-management-ship.js';
 import type { FleetDoor, FleetRefusal, ManagementCrew, ManagementCrewStore } from './ports.js';
 
 const SHIP_ID: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
+const FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const AT = new Date('2026-10-03T08:00:00.000Z');
 
 /** A fleet that knows one management ship: its secret claims it once, and its crew tokens work while their lease holds. */
@@ -28,7 +29,7 @@ function fakeFleet() {
     whoami: (crewToken) =>
       Promise.resolve(
         state.liveTokens.has(crewToken)
-          ? ok({ shipId: SHIP_ID, name: 'squadrons', type: 'squadrons' })
+          ? ok({ shipId: SHIP_ID, fleetId: FLEET_ID, name: 'squadrons', type: 'squadrons' })
           : err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }),
       ),
   };
@@ -65,7 +66,7 @@ describe('crewing the management ship', () => {
       isOk: true,
       value: { crewToken: 'aeolus_ct_v1_1', name: 'squadrons' },
     });
-    expect(store.held).toEqual({ shipId: SHIP_ID, crewToken: 'aeolus_ct_v1_1', crewedAt: AT });
+    expect(store.held).toEqual({ fleetId: FLEET_ID, shipId: SHIP_ID, crewToken: 'aeolus_ct_v1_1', crewedAt: AT });
   });
 
   it('crews it again with the kept crew token after a restart, without the secret', async () => {
