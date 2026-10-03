@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,9 +49,9 @@ function run(script: string, options: { args?: string[]; env?: Record<string, st
 }
 
 /** Runs a script without waiting for it, for one that keeps running. */
-function start(script: string, env: Record<string, string> = {}) {
-  const child = spawn('bash', [join(SCRIPTS, script)], {
-    env: { ...process.env, AEOLUS_FOLDER: folder, AEOLUS_DATA: data, AEOLUS_RETRY_SECONDS: '0', ...env },
+function start(script: string, options: { args?: string[]; env?: Record<string, string> } = {}) {
+  const child = spawn('bash', [join(SCRIPTS, script), ...(options.args ?? [])], {
+    env: { ...process.env, AEOLUS_FOLDER: folder, AEOLUS_DATA: data, AEOLUS_RETRY_SECONDS: '0', ...options.env },
   });
   let stdout = '';
   child.stdout.on('data', (chunk: Buffer) => {
@@ -184,7 +184,7 @@ describe('aeolus-wait', () => {
     fleet = await startStubFleet([{ ...inbox(1), hold: isLockSeen }]);
     crew(fleet.url);
 
-    const { exited } = start('aeolus-wait.sh', { AEOLUS_WAIT_SECONDS: '0' });
+    const { exited } = start('aeolus-wait.sh', { env: { AEOLUS_WAIT_SECONDS: '0' } });
     await expect.poll(() => run('aeolus-watch-status.sh').status).toBe(0);
     answer();
     await exited;
@@ -239,7 +239,9 @@ describe('aeolus-wait', () => {
     fleet = await startStubFleet([inbox(0)]);
     crew(fleet.url);
 
-    const { status, stdout } = await start('aeolus-wait.sh', { AEOLUS_WAIT_SECONDS: '0', AEOLUS_MAX_SECONDS: '1' }).exited;
+    const { status, stdout } = await start('aeolus-wait.sh', {
+      env: { AEOLUS_WAIT_SECONDS: '0', AEOLUS_MAX_SECONDS: '1' },
+    }).exited;
 
     expect(status).toBe(6);
     expect(stdout).toBe(
@@ -250,6 +252,29 @@ describe('aeolus-wait', () => {
 
   it('stops by 1 hour 55 minutes unless told otherwise', () => {
     expect(readFileSync(join(SCRIPTS, 'aeolus-wait.sh'), 'utf8')).toContain('MAX_SECONDS="${AEOLUS_MAX_SECONDS:-6900}"');
+  });
+});
+
+describe('the Codex wake bridge', () => {
+  it('waits without model tokens, then queues one message to the exact Codex task', async () => {
+    fleet = await startStubFleet([inbox(1)]);
+    crew(fleet.url);
+    const bin = join(data, 'bin');
+    const calls = join(data, 'codex.calls');
+    mkdirSync(bin);
+    const codex = join(bin, 'codex');
+    writeFileSync(codex, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${calls}"\n`);
+    chmodSync(codex, 0o700);
+    const threadId = '01a103c9-80b0-7ab1-82e3-6f4a2f70ad86';
+
+    const result = await start('aeolus-codex-wake.sh', {
+      args: ['run', threadId],
+      env: { PATH: `${bin}:${process.env.PATH ?? ''}` },
+    }).exited;
+
+    expect(result.status).toBe(0);
+    expect(readFileSync(calls, 'utf8')).toContain(`queue --thread ${threadId} --message Aeolus has 1 delivery waiting for scout.`);
+    expect(readFileSync(calls, 'utf8')).not.toContain(CREW_TOKEN);
   });
 });
 
