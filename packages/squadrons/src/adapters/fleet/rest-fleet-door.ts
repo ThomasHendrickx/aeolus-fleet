@@ -8,11 +8,19 @@ import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
 import { err, ok, type Result } from '../../core/shared/result.js';
+import { runningVersion } from '../http/version.js';
 
 const refusalSchema = z.object({ code: z.string(), message: z.string() });
 
 /** Where squadrons says its management ship runs: on a server the operator runs. */
 const LOCATION = { kind: 'SERVER' } as const;
+
+/**
+ * What squadrons' own ships, its management ship and every flagship, state
+ * as model and harness (#157): squadrons is software, not a model, so it
+ * names its package and the version it runs, read from its package.json.
+ */
+export const SQUADRONS_SELF = { model: `@aeolus-fleet/squadrons@${runningVersion()}`, harness: 'aeolus-squadrons' } as const;
 
 async function call<T>(
   fleetUrl: string,
@@ -55,7 +63,7 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
       call(fleetUrl, {
         path: '/ship/register',
         method: 'POST',
-        body: { shipId, secret, location: LOCATION },
+        body: { shipId, secret, location: LOCATION, harness: SQUADRONS_SELF.harness },
         answers: z.object({ crewToken: z.string() }),
       }),
     whoami: (crewToken) =>
@@ -111,7 +119,7 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
       return acked.isOk ? ok(undefined) : acked;
     },
     send: (crewToken, message) =>
-      call(fleetUrl, { path: '/ship/send', method: 'POST', crewToken, body: message, answers: z.object({ messageId: idSchema('message') }) }),
+      call(fleetUrl, { path: '/ship/send', method: 'POST', crewToken, body: { ...message, model: SQUADRONS_SELF.model }, answers: z.object({ messageId: idSchema('message') }) }),
     listShips: async (crewToken) => {
       const listed = await call(fleetUrl, {
         path: '/fleet/list',

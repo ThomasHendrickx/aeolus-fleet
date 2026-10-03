@@ -137,14 +137,15 @@ async function crewedMember(crewLine: string) {
   const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+    body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   });
   const { crewToken } = z.object({ crewToken: z.string() }).parse(await registered.json());
   const call = async (operation: 'send' | 'receive' | 'ack', body: Record<string, unknown>): Promise<unknown> => {
     const response = await fetch(`${fleetUrl}/api/v1/ship/${operation}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` },
-      body: JSON.stringify(body),
+      // A member's session states its model on every send.
+      body: JSON.stringify(operation === 'send' ? { model: 'claude-opus-5-5', ...body } : body),
     });
     expect(response.status, await response.clone().text()).toBe(200);
     return response.json();
@@ -153,7 +154,7 @@ async function crewedMember(crewLine: string) {
 }
 
 const deliveriesSchema = z.object({
-  deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string(), contentType: z.string(), payload: z.string(), inReplyTo: z.string().nullable() })),
+  deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string(), contentType: z.string(), payload: z.string(), model: z.string().nullable(), inReplyTo: z.string().nullable() })),
 });
 
 async function squadronState(squadronId: string): Promise<string | undefined> {
@@ -188,6 +189,8 @@ describe('the check-in at the flagship', () => {
     await member.call('ack', { deliveryId: role?.deliveryId });
 
     expect(JSON.parse(role?.payload ?? '{}')).toMatchObject({ squadron: 'team-one', role: 'tester', template: 'tester@1', charter: 'You test.', checkIn: '30m' });
+    // The flagship is squadrons' own ship: it states the package and the version it runs as its model.
+    expect(role?.model).toMatch(/^@aeolus-fleet\/squadrons@\d+\.\d+\.\d+/);
     expect(await squadronState('team-one')).toBe('forming');
 
     await member.call('send', {
@@ -415,7 +418,7 @@ describe("a member's new crew line", () => {
     const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+      body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
     expect(registered.status).toBe(200);
   });

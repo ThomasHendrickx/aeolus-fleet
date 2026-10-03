@@ -95,7 +95,7 @@ describe('a squadrons process that was never connected', () => {
 });
 
 describe('connecting squadrons', () => {
-  it('registers the management ship with the secret, as a server, and is connected as it', async () => {
+  it('registers the management ship with the secret, as a server in the aeolus-squadrons harness, and is connected as it', async () => {
     const { address } = await started();
 
     const connected = await connectSquadrons(address, { cookie, shipId, secret });
@@ -103,7 +103,7 @@ describe('connecting squadrons', () => {
     expect(connected.status, await connected.clone().text()).toBe(200);
     await expect(status(address)).resolves.toEqual({ state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId });
     await expect(healthOf(address)).resolves.toMatchObject({ body: { connection: 'connected' } });
-    await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER' });
+    await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER', harness: 'aeolus-squadrons' });
   });
 
   it('is refused without a console session of the fleet', async () => {

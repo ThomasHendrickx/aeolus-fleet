@@ -211,7 +211,7 @@ describe('a commission whose answer is lost', () => {
       const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+        body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
       });
       expect(registered.status, member.name).toBe(200);
     }

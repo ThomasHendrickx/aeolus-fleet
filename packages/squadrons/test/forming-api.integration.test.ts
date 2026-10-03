@@ -139,7 +139,7 @@ describe('forming a squadron at the squadrons API', () => {
     const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+      body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
 
     expect(registered.status).toBe(200);
