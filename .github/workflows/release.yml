@@ -89,13 +89,20 @@ jobs:
 
       - run: npm run build
 
-      # Catch a problem in any package before the first one is published.
+      # Catch a problem in any package before the first one is published. A dry
+      # run refuses a version on npm already too, so it skips those, as the
+      # publish steps below do.
       - name: Dry run all four
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          npm publish --dry-run --access public --workspace @aeolus-fleet/common
-          npm publish --dry-run --access public --workspace @aeolus-fleet/server
-          npm publish --dry-run --access public --workspace @aeolus-fleet/web
-          npm publish --dry-run --access public --workspace @aeolus-fleet/squadrons
+          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/server @aeolus-fleet/web @aeolus-fleet/squadrons; do
+            if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+              echo "$PACKAGE@$VERSION is on npm already: skipped"
+            else
+              npm publish --dry-run --access public --workspace "$PACKAGE"
+            fi
+          done
 
       # Each step skips a package whose version is on npm already, so releasing a
       # version again after it failed partway publishes only what is missing, then
