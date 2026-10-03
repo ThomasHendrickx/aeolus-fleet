@@ -19,7 +19,7 @@ import type { CatalogueSource, SourceFile } from '../../core/catalogue/ports.js'
 const run = promisify(execFile);
 
 /** The folder of templates/ and blueprints/ in a repository unless it sets its own. */
-export const DEFAULT_PATH = 'squadrons';
+export const DEFAULT_PATH = '.aeolus/squadrons';
 
 const VERSION_TAG = /^([a-z0-9:-]+)@([1-9]\d*)$/;
 const KINDS = [
