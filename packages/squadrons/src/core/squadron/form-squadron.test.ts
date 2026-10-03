@@ -6,7 +6,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import type { Squadron } from './squadron.js';
-import type { SquadronRepository } from './ports.js';
+import type { FormationAttempt, FormationAttempts, SquadronRepository } from './ports.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -93,6 +93,7 @@ function fakeFleet() {
     receive: () => Promise.resolve(ok([])),
     ack: () => Promise.resolve(ok(undefined)),
     send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
+    listShips: () => Promise.resolve(ok(state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
     retire: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId);
       if (ship) {
@@ -104,13 +105,44 @@ function fakeFleet() {
   return { state, door };
 }
 
-function memorySquadrons(): SquadronRepository & { held: Squadron[] } {
+/** Formation attempts in memory, finished when the squadron is created with them. */
+export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt & { isFinished: boolean })[] } {
+  const attempts: FormationAttempts & { held: (FormationAttempt & { isFinished: boolean })[] } = {
+    held: [],
+    begin: (attempt) => {
+      attempts.held.push({ ...attempt, ships: [], isFinished: false });
+      return Promise.resolve();
+    },
+    plan: (attemptId, name) => {
+      attempts.held.find((held) => held.id === attemptId)?.ships.push({ name, shipId: null });
+      return Promise.resolve();
+    },
+    commissioned: (attemptId, ship) => {
+      const planned = attempts.held.find((held) => held.id === attemptId)?.ships.find((each) => each.name === ship.name);
+      if (planned) {
+        planned.shipId = ship.shipId;
+      }
+      return Promise.resolve();
+    },
+    finish: (attemptId) => {
+      const held = attempts.held.find((each) => each.id === attemptId);
+      if (held) {
+        held.isFinished = true;
+      }
+      return Promise.resolve();
+    },
+    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished)),
+  };
+  return attempts;
+}
+
+function memorySquadrons(attempts: ReturnType<typeof memoryAttempts>): SquadronRepository & { held: Squadron[] } {
   const repository: SquadronRepository & { held: Squadron[] } = {
     held: [],
     exists: (fleetId, id) => Promise.resolve(repository.held.some((squadron) => squadron.fleetId === fleetId && squadron.id === id)),
-    create: (squadron) => {
+    create: async (squadron, attemptId) => {
       repository.held.push(structuredClone(squadron));
-      return Promise.resolve();
+      await attempts.finish(attemptId);
     },
     list: (fleetId) => Promise.resolve(repository.held.filter((squadron) => squadron.fleetId === fleetId)),
     update: () => Promise.resolve(),
@@ -124,6 +156,7 @@ const managementStore: ManagementCrewStore = {
 };
 
 let fleet: ReturnType<typeof fakeFleet>;
+let attempts: ReturnType<typeof memoryAttempts>;
 let squadrons: ReturnType<typeof memorySquadrons>;
 let suffixes: string[];
 let form: FormSquadron;
@@ -133,6 +166,7 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     door: fleet.door,
     management: overrides.store ?? managementStore,
     squadrons,
+    attempts,
     catalogue: () => overrides.catalogue ?? catalogue,
     random: { suffix: (length) => (suffixes.shift() ?? 'zzzzzz').slice(0, length) },
     clock: { now: () => AT },
@@ -141,7 +175,8 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
 
 beforeEach(() => {
   fleet = fakeFleet();
-  squadrons = memorySquadrons();
+  attempts = memoryAttempts();
+  squadrons = memorySquadrons(attempts);
   suffixes = ['a1b2c3', 'k3x9', 'm4p7', 'q8r2'];
   form = formWith();
 });
@@ -229,6 +264,30 @@ describe('forming a squadron', () => {
     unwrapped(await form(fromHemmaFeature));
 
     expect(fleet.state.ships.slice(1).map((ship) => ship.name)).toEqual(['planner-k3x9', 'implementer-m4p7', 'implementer-q8r2']);
+  });
+});
+
+describe('the formation attempt', () => {
+  it('records each ship before it commissions it, and finishes with the squadron', async () => {
+    unwrapped(await form(fromHemmaFeature));
+
+    expect(attempts.held).toEqual([
+      expect.objectContaining({
+        fleetId: FLEET,
+        squadronId: 'hemma-feature-a1b2c3',
+        startedAt: AT,
+        isFinished: true,
+        ships: fleet.state.ships.map(({ name, shipId }) => ({ name, shipId })),
+      }),
+    ]);
+  });
+
+  it('finishes once a failure halfway has retired what it commissioned', async () => {
+    fleet.state.refuseCommissionAfter = 3;
+
+    await form(fromHemmaFeature);
+
+    expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
   });
 });
 
