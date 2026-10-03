@@ -97,15 +97,33 @@ export function createFormSquadron(deps: {
       await deps.attempts.finish(attemptId);
       return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${refusal.message}`);
     };
-    const commission = async (names: () => string, type: string): Promise<Result<{ shipId: ShipId; name: string; crewLine: string }, FleetRefusal>> => {
+    // A lost answer is asked again under the same key, so the fleet commissions
+    // no second ship; its repeat holds no secret, so the ship gets a new starting prompt.
+    const commissionOnce = async (ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>> => {
+      let made = await deps.door.commission(crew.crewToken, ship);
+      if (!made.isOk && made.error.code === 'UNAVAILABLE') {
+        made = await deps.door.commission(crew.crewToken, ship);
+      }
+      if (!made.isOk) {
+        return made;
+      }
+      const { shipId, crewLine } = made.value;
+      commissioned.push(shipId);
+      await deps.attempts.commissioned(attemptId, { name: ship.name, shipId });
+      if (crewLine !== null) {
+        return ok({ shipId, crewLine });
+      }
+      const prompt = await deps.door.getStartingPrompt(crew.crewToken, { shipId });
+      return prompt.isOk ? ok({ shipId, crewLine: prompt.value.crewLine }) : prompt;
+    };
+    // `slot` is the ship's place in the squadron, so a name drawn twice in one forming never repeats another ship's key.
+    const commission = async (slot: string, ship: { names: () => string; type: string }): Promise<Result<{ shipId: ShipId; name: string; crewLine: string }, FleetRefusal>> => {
       let refusal: FleetRefusal = { code: 'CONFLICT', message: 'no free name' };
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
-        const shipName = names();
+        const shipName = ship.names();
         await deps.attempts.plan(attemptId, shipName);
-        const made = await deps.door.commission(crew.crewToken, { name: shipName, type });
+        const made = await commissionOnce({ name: shipName, type: ship.type, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
-          commissioned.push(made.value.shipId);
-          await deps.attempts.commissioned(attemptId, { name: shipName, shipId: made.value.shipId });
           return ok({ ...made.value, name: shipName });
         }
         refusal = made.error;
@@ -116,7 +134,7 @@ export function createFormSquadron(deps: {
       return err(refusal);
     };
 
-    const flagship = await commission(() => squadronId, 'flagship');
+    const flagship = await commission('flagship', { names: () => squadronId, type: 'flagship' });
     if (!flagship.isOk) {
       return failed(flagship.error);
     }
@@ -133,7 +151,7 @@ export function createFormSquadron(deps: {
           blueprint.memberNames === 'prefixed'
             ? () => `${squadronId}:${role.name}-${String(number)}`
             : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
-        const member = await commission(names, `${squadronId}:${role.name}`);
+        const member = await commission(`${role.name}-${String(number)}`, { names, type: `${squadronId}:${role.name}` });
         if (!member.isOk) {
           return failed(member.error);
         }

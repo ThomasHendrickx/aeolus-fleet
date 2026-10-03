@@ -25,13 +25,23 @@ async function call<T>(
   if (request.body !== undefined) {
     headers['content-type'] = 'application/json';
   }
-  const response = await fetch(`${fleetUrl}/api/v1${request.path}`, {
-    method: request.method,
-    headers,
-    body: request.body === undefined ? undefined : JSON.stringify(request.body),
-    signal: request.signal,
-  });
-  const body: unknown = await response.json();
+  let response: Response;
+  let body: unknown;
+  try {
+    response = await fetch(`${fleetUrl}/api/v1${request.path}`, {
+      method: request.method,
+      headers,
+      body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      signal: request.signal,
+    });
+    body = await response.json();
+  } catch (error) {
+    // Stopping is the caller's own doing; anything else means no answer came.
+    if (request.signal?.aborted === true) {
+      throw error;
+    }
+    return err({ code: 'UNAVAILABLE', message: `The fleet did not answer: ${error instanceof Error ? error.message : String(error)}` });
+  }
   return response.ok ? ok(request.answers.parse(body)) : err(refusalSchema.parse(body));
 }
 
@@ -57,7 +67,15 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         method: 'POST',
         crewToken,
         body: ship,
-        answers: z.object({ shipId: idSchema('ship'), crewLine: z.string() }),
+        answers: z.object({ shipId: idSchema('ship'), crewLine: z.string().nullable() }),
+      }),
+    getStartingPrompt: (crewToken, ship) =>
+      call(fleetUrl, {
+        path: '/fleet/getStartingPrompt',
+        method: 'POST',
+        crewToken,
+        body: ship,
+        answers: z.object({ crewLine: z.string() }),
       }),
     receive: async (crewToken, until) => {
       const received = await call(fleetUrl, {
