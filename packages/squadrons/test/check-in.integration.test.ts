@@ -36,6 +36,10 @@ let cookie: string;
 const ROLE = 'application/vnd.aeolus.squadron.role+json';
 const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
+const STAND_DOWN = 'application/vnd.aeolus.squadron.stand-down+json';
+const STOOD_DOWN = 'application/vnd.aeolus.squadron.stood-down+json';
+/** Longer than several flagship rescans of 200 ms. */
+const RESCANS_MS = 1_000;
 /** A live change shows within this. */
 const LIVE_TIMEOUT_MS = 20_000;
 
@@ -245,5 +249,69 @@ describe('a message the flagship does not handle', () => {
         timeout: LIVE_TIMEOUT_MS,
       })
       .toContain('The flagship of the squadron team-two got a message it does not handle');
+  });
+});
+
+describe('standing a squadron down', () => {
+  it('sends the member its stand-down, retires it once it stood down, then retires the flagship: the squadron is disbanded', async () => {
+    const formed = await formTeam('team-three');
+    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-three' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-three', role: 'tester' }),
+      idempotencyKey: 'on-station-3',
+    });
+    await expect.poll(() => squadronState('team-three'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const stood = await fetch(`${address}/trpc/squadrons.standDown`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-three' }),
+    });
+    expect(stood.status, await stood.clone().text()).toBe(200);
+    expect(await squadronState('team-three')).toBe('standing-down');
+
+    let standDown: z.infer<typeof deliveriesSchema>['deliveries'][number] | undefined;
+    await expect
+      .poll(
+        async () => {
+          const { deliveries } = deliveriesSchema.parse(await member.call('receive', {}));
+          standDown = deliveries.find((delivery) => delivery.contentType === STAND_DOWN) ?? standDown;
+          return standDown !== undefined;
+        },
+        { timeout: LIVE_TIMEOUT_MS },
+      )
+      .toBe(true);
+    expect(JSON.parse(standDown?.payload ?? '{}')).toEqual({ squadron: 'team-three' });
+    expect(await squadronState('team-three')).toBe('standing-down');
+
+    await member.call('ack', { deliveryId: standDown?.deliveryId });
+    await new Promise((resolve) => setTimeout(resolve, RESCANS_MS));
+    expect(await squadronState('team-three')).toBe('standing-down');
+
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-three' },
+      contentType: STOOD_DOWN,
+      payload: JSON.stringify({ squadron: 'team-three' }),
+      inReplyTo: standDown?.messageId,
+      idempotencyKey: 'stood-down-3',
+    });
+
+    await expect.poll(() => squadronState('team-three'), { timeout: LIVE_TIMEOUT_MS }).toBe('disbanded');
+    const ships = await fleetDatabase.ship.findMany({ where: { id: { in: [formed.flagship.shipId, formed.members[0]?.shipId ?? ''] } } });
+    expect(ships.map((ship) => ship.retiredAt !== null)).toEqual([true, true]);
+  });
+
+  it('refuses a squadron that is not sailing', async () => {
+    await formTeam('team-four');
+
+    const stood = await fetch(`${address}/trpc/squadrons.standDown`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-four' }),
+    });
+
+    expect(stood.status).toBe(409);
   });
 });

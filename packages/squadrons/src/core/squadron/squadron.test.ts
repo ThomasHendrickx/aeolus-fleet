@@ -35,7 +35,7 @@ function aSquadron(pinned: string | null): Squadron {
 }
 
 function aTester(checkIn: Member['checkIn']): Member {
-  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn };
+  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn, standDownMessageId: null, stoodDownAt: null, retiredAt: null };
 }
 
 describe('a model mismatch', () => {

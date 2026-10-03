@@ -23,6 +23,8 @@ import { createAuthenticateOperator } from './core/operator/authenticate-operato
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
 import { createListSquadrons } from './core/squadron/list-squadrons.js';
+import { createAdvanceStandDowns } from './core/squadron/advance-stand-downs.js';
+import { createStandDown, type StandDown } from './core/squadron/stand-down.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
 
@@ -118,6 +120,16 @@ export function createSquadronsApp(options: {
   };
 
   const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
+  const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
+  const standDownOnly = createStandDown({ squadrons });
+  // Each member gets its stand-down at once, not at the next rescan.
+  const standDown: StandDown = async (input) => {
+    const stood = await standDownOnly(input);
+    if (stood.isOk) {
+      await flagships?.rescan();
+    }
+    return stood;
+  };
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
   const readConnection = createReadConnection({ door, store });
   const connectOnly = createConnect({ door, store, clock });
@@ -153,6 +165,7 @@ export function createSquadronsApp(options: {
         refreshCatalogue,
         formSquadron: formAndWatch,
         listSquadrons,
+        standDown,
         keptMessages: (fleetId, squadronId) => keptMessages.list(fleetId, squadronId),
       }),
     },
@@ -181,7 +194,8 @@ export function createSquadronsApp(options: {
         door,
         management: store,
         squadrons,
-        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, clock }),
+        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, advanceStandDowns, clock }),
+        advanceStandDowns,
         operator,
         log: server.log,
         rescanMs,

@@ -41,8 +41,8 @@ const formed: Squadron = {
   templates: [],
   flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
   members: [
-    { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null },
-    { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null },
+    { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+    { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
   ],
   formedAt: AT,
   sailedAt: null,
@@ -98,5 +98,31 @@ describe('updating a squadron', () => {
     const [stored] = await squadrons.list(FLEET);
     expect(stored).toMatchObject({ state: 'sailing', sailedAt: LATER });
     expect(stored?.members.map((member) => member.onStationAt)).toEqual([LATER, LATER]);
+  });
+
+  it("writes each member's stand-down message, when it stood down and when it retired", async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const [snapshot] = await squadrons.list(FLEET);
+    if (!snapshot) {
+      expect.fail('the squadron was not stored');
+    }
+
+    await squadrons.update({
+      before: snapshot,
+      after: {
+        ...snapshot,
+        state: 'standing-down',
+        members: snapshot.members.map((member) =>
+          member.shipId === PLANNER ? { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER } : { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101' },
+        ),
+      },
+    });
+
+    const [stored] = await squadrons.list(FLEET);
+    expect(stored?.state).toBe('standing-down');
+    expect(stored?.members.map(({ standDownMessageId, stoodDownAt, retiredAt }) => ({ standDownMessageId, stoodDownAt, retiredAt }))).toEqual([
+      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER },
+      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101', stoodDownAt: null, retiredAt: null },
+    ]);
   });
 });

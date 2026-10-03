@@ -6,6 +6,7 @@ export const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 export const ROLE = 'application/vnd.aeolus.squadron.role+json';
 export const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
 export const STAND_DOWN = 'application/vnd.aeolus.squadron.stand-down+json';
+export const STOOD_DOWN = 'application/vnd.aeolus.squadron.stood-down+json';
 
 const MINUTES_PER_HOUR = 60;
 
