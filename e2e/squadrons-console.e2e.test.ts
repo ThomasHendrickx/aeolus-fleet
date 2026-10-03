@@ -211,6 +211,24 @@ describe('the first squadron in the console', () => {
     await expect(tag.getAttribute('href')).resolves.toMatch(/^\/squadrons\/team-[a-z0-9]{6}$/);
   });
 
+  it('offers a flagship only Open squadron, and a member Remove from squadron instead of Retire and Rename', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('nav-overview').click();
+    const rows = page.locator('[data-testid^="fleet-row-"]');
+    const flagship = rows.filter({ has: page.getByTestId('fleet-flagship') }).first();
+    const member = rows.filter({ has: page.locator('[data-slot="squadron-tag"]') }).first();
+
+    await flagship.getByTestId('fleet-ship-open-squadron').waitFor({ state: 'attached', timeout: LIVE_TIMEOUT_MS });
+    await member.getByTestId('fleet-ship-remove').waitFor({ state: 'attached', timeout: LIVE_TIMEOUT_MS });
+
+    for (const action of ['fleet-ship-retire', 'fleet-ship-rename', 'fleet-ship-release', 'fleet-ship-recrew', 'fleet-ship-ping']) {
+      await expect(flagship.getByTestId(action).count()).resolves.toBe(0);
+    }
+    for (const action of ['fleet-ship-retire', 'fleet-ship-rename', 'fleet-ship-recrew', 'fleet-ship-prompt']) {
+      await expect(member.getByTestId(action).count()).resolves.toBe(0);
+    }
+  });
+
   it('shows a message the flagship kept, and opens it whole on the flagship page', async () => {
     const flagship = await database.ship.findFirstOrThrow({ where: { type: 'flagship' } });
     unwrap(

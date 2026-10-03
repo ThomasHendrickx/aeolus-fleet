@@ -1,6 +1,7 @@
 'use client';
 
 import type { ListedShip } from '@aeolus-fleet/common';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import {
@@ -14,15 +15,19 @@ import {
 } from '../../lib/fleet';
 import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
+import { useHasSquadrons } from '../../lib/squadrons';
+import { useRemoveMember, useSquadrons } from '../../lib/squadrons-api';
+import { otherMembersOfRole } from '../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { Button } from '../atoms/button';
 import { showToast } from '../atoms/toast';
 import { ReleaseDialog } from './release-dialog';
+import { RemoveMemberDialog } from './remove-member-dialog';
 import { RenameDialog } from './rename-dialog';
 import { RetireDialog } from './retire-dialog';
 import { StartingPromptDialog, type StartingPromptDialogState } from './starting-prompt-dialog';
 
-type OpenDialog = 'release' | 'recrew' | 'retire' | 'rename' | 'prompt' | undefined;
+type OpenDialog = 'release' | 'recrew' | 'retire' | 'rename' | 'prompt' | 'remove' | undefined;
 
 /** Where a crewed ship's session runs, as the release dialog names it. */
 function sessionLocationOf(ship: ListedShip): string | null {
@@ -42,6 +47,12 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * opens once it has them, so its numbers are exact and a retire never skips
  * the typed confirm because the open deliveries were not known yet. A new or re-crewed prompt shows once, in the
  * StartingPromptDialog.
+ *
+ * With squadrons (docs/design/conventions.md, "Squadrons"): a flagship offers
+ * only Open squadron, since retiring, releasing or renaming it would break its
+ * squadron; a member offers Ping, Release and Remove from squadron, never
+ * Rename, Retire, Re-crew or Get starting prompt. Until the squadrons list is
+ * known, only Ping shows, so a member is never offered Retire.
  */
 export function ShipActions({ ship }: { ship: ListedShip }) {
   const [dialog, setDialog] = useState<OpenDialog>();
@@ -52,11 +63,28 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
   const renameShip = useRenameShip();
   const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
-  const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' ? ship.id : undefined);
+  const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
+  const hasSquadrons = useHasSquadrons();
+  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const removeMember = useRemoveMember();
 
   if (ship.kind === 'operator' || ship.status === 'retired') {
     return null;
   }
+  const squadron = squadrons.data?.find(
+    (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
+  );
+  if (squadron?.flagship.shipId === ship.id) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
+        <Button size="xs" nativeButton={false} data-testid="fleet-ship-open-squadron" render={<Link href={`/squadrons/${squadron.id}`} />}>
+          Open squadron
+        </Button>
+      </div>
+    );
+  }
+  const member = squadron?.members.find((each) => each.shipId === ship.id);
+  const isMembershipPending = hasSquadrons && squadrons.data === undefined && !squadrons.isError;
 
   const close = () => {
     setDialog(undefined);
@@ -87,6 +115,7 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
     retireShip.reset();
     recrewShip.reset();
     renameShip.reset();
+    removeMember.reset();
     setDialog(next);
   };
 
@@ -113,26 +142,43 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
       <Button size="xs" data-testid="fleet-ship-ping" disabled={!canPing(ship)} isLoading={pingShip.isPending} onClick={ping}>
         Ping
       </Button>
-      {ship.status === 'awaitingCrew' ? (
-        <Button size="xs" data-testid="fleet-ship-prompt" onClick={requestPrompt}>
-          Get starting prompt
-        </Button>
+      {isMembershipPending ? null : member ? (
+        <>
+          {ship.status === 'crewed' && (
+            <Button size="xs" data-testid="fleet-ship-release" onClick={open('release')}>
+              Release
+            </Button>
+          )}
+          {(squadron?.state === 'sailing' || squadron?.state === 'standing-down') && (
+            <Button size="xs" variant="ghost" data-testid="fleet-ship-remove" onClick={open('remove')}>
+              Remove from squadron
+            </Button>
+          )}
+        </>
       ) : (
         <>
-          <Button size="xs" data-testid="fleet-ship-recrew" onClick={open('recrew')}>
-            Re-crew
+          {ship.status === 'awaitingCrew' ? (
+            <Button size="xs" data-testid="fleet-ship-prompt" onClick={requestPrompt}>
+              Get starting prompt
+            </Button>
+          ) : (
+            <>
+              <Button size="xs" data-testid="fleet-ship-recrew" onClick={open('recrew')}>
+                Re-crew
+              </Button>
+              <Button size="xs" data-testid="fleet-ship-release" onClick={open('release')}>
+                Release
+              </Button>
+            </>
+          )}
+          <Button size="xs" variant="ghost" data-testid="fleet-ship-rename" onClick={open('rename')}>
+            Rename
           </Button>
-          <Button size="xs" data-testid="fleet-ship-release" onClick={open('release')}>
-            Release
+          <Button size="xs" variant="ghost" data-testid="fleet-ship-retire" onClick={open('retire')}>
+            Retire
           </Button>
         </>
       )}
-      <Button size="xs" variant="ghost" data-testid="fleet-ship-rename" onClick={open('rename')}>
-        Rename
-      </Button>
-      <Button size="xs" variant="ghost" data-testid="fleet-ship-retire" onClick={open('retire')}>
-        Retire
-      </Button>
 
       <ReleaseDialog
         shipName={ship.name}
@@ -171,6 +217,26 @@ export function ShipActions({ ship }: { ship: ListedShip }) {
           retireShip.mutate({ shipId: ship.id }, { onSuccess: close });
         }}
       />
+      {squadron && member && (
+        <RemoveMemberDialog
+          squadronId={squadron.id}
+          member={member}
+          othersOfRole={otherMembersOfRole(squadron, member.shipId)}
+          openDeliveries={counted.data?.openDeliveries ?? 0}
+          inFlightDeliveries={counted.data?.inFlightDeliveries ?? 0}
+          isOpen={dialog === 'remove' && counted.data !== undefined}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              close();
+            }
+          }}
+          isPending={removeMember.isPending}
+          error={removeMember.error?.message}
+          onConfirm={() => {
+            removeMember.mutate({ squadronId: squadron.id, shipId: member.shipId }, { onSuccess: close });
+          }}
+        />
+      )}
       <RenameDialog
         shipName={ship.name}
         activeNames={(fleet.data ?? []).filter((each) => each.status !== 'retired').map((each) => each.name)}
