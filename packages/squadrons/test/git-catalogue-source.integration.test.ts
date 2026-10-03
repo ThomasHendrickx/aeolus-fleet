@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -148,6 +148,24 @@ describe('the git repository reader', () => {
     rmSync(origin, { recursive: true, force: true });
 
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
+  });
+
+  it('keeps its mirrors in a folder only its own user can open, even one that existed open to others', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const fresh = join(work, 'fresh', 'cache');
+    const open = join(work, 'open');
+    mkdirSync(open, { mode: 0o755 });
+    chmodSync(open, 0o755);
+    const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null };
+
+    for (const cacheDir of [fresh, open]) {
+      await createGitRepositoryReader({ cacheDir }).read([repository], { fetch: () => true });
+    }
+
+    expect([fresh, open].map((cacheDir) => statSync(cacheDir).mode & 0o777)).toEqual([0o700, 0o700]);
   });
 
   it('gives nothing from a mirror it cannot read, rather than failing the read', async () => {
