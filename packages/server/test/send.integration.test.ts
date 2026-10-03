@@ -84,7 +84,7 @@ function unitOfWorkWith(wrap: (tx: PrismaTx) => PrismaTx): UnitOfWork<PrismaTx> 
  * arrives, every notice of a transaction that committed before it has too.
  */
 async function probe(): Promise<void> {
-  const { messageId } = unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' } })));
+  const { messageId } = unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: 'claude-opus-5-5' })));
   const delivery = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
   await vi.waitFor(() => {
     expect(notices.map((notice) => notice.deliveryId)).toContain(delivery.id);
@@ -98,6 +98,16 @@ async function storedCounts() {
     accepted: await core.prisma.event.count({ where: { type: 'MessageAccepted' } }),
   };
 }
+
+describe('the model on Postgres', () => {
+  it('keeps the model an agent ship states with its message, and none for argo', async () => {
+    const { messageId: fromScout } = unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: 'claude-opus-5-5' })));
+    const { messageId: fromArgo } = unwrap(await core.useCases.sendMessage(argo, aReview()));
+
+    const stored = await core.prisma.message.findMany({ where: { id: { in: [fromScout, fromArgo] } }, select: { id: true, model: true } });
+    expect(new Map(stored.map((message) => [message.id, message.model]))).toEqual(new Map([[fromScout, 'claude-opus-5-5'], [fromArgo, null]]));
+  });
+});
 
 describe('sending a message on Postgres', () => {
   it('stores the message and its pending delivery, writes MessageAccepted, and notifies after commit', async () => {
