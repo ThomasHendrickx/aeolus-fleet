@@ -14,7 +14,8 @@ export type DomainErrorKind =
   | 'FORMING_FAILED'
   | 'FLEET_UNAVAILABLE'
   | 'SQUADRON_NOT_FOUND'
-  | 'NOT_SAILING';
+  | 'NOT_SAILING'
+  | 'ALREADY_DISBANDED';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
