@@ -100,7 +100,7 @@ describe('the Codex plugin package', () => {
     const watch = readFileSync(join(PLUGIN, 'skills/aeolus-watch/SKILL.md'), 'utf8');
     const manifest = JSON.stringify(json(join(PLUGIN, '.codex-plugin/plugin.json')));
 
-    expect(crew).toContain('aeolus-codex-wake.sh` `start`');
+    expect(crew).toContain('aeolus-codex-wake.sh` `start <codexTaskId>`');
     expect(crew).toContain('before ending every completed turn');
     expect(watch).toContain('automatic local wake-up');
     expect(manifest).toContain('Automatic local wake-up');

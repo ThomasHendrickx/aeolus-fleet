@@ -21,6 +21,7 @@ if [ -n "${PLUGIN_ROOT:-}" ]; then
   identity="$(aeolus_identity_file 2>/dev/null)" || exit 0
   context="Aeolus Codex hooks are active. The plugin root is ${root}; plugin data is ${AEOLUS_DATA}; the working folder is ${AEOLUS_FOLDER}."
   [ -n "$model" ] && context="${context} The active model is ${model}."
+  [ -n "$session_id" ] && context="${context} The Codex task id is ${session_id}."
   if [ ! -f "$identity" ]; then
     context="${context} This folder crews no Aeolus ship. When an Aeolus skill runs, pass AEOLUS_DATA and AEOLUS_FOLDER with the values above to its scripts."
     printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(aeolus_json_escape "$context")"

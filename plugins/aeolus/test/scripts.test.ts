@@ -142,7 +142,9 @@ describe('aeolus-identity', () => {
 
       await expect(
         Promise.race([
-          Promise.all([stopped, wakeStopped]).then(() => true),
+          Promise.all([stopped, wakeStopped]).then(() => {
+            return true;
+          }),
           new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
         ]),
       ).resolves.toBe(true);
