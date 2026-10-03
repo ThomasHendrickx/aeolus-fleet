@@ -51,30 +51,40 @@ export type CommissionShipInput = z.infer<typeof commissionShipInputSchema>;
 export const getStartingPromptInputSchema = z.object({ shipId: idSchema('ship') });
 
 /**
- * Output of `fleet.commission` and `fleet.getStartingPrompt`: the starting
- * prompt, holding the ship's new secret, and the crew line, the same in one
- * line for a Claude Code session with the aeolus plugin. Shown once; the
- * secret is never readable again.
+ * One crew line: the starting prompt's identity in one line for a harness
+ * with the aeolus plugin, `/aeolus:crew <fleetUrl> <shipId> <secret>` for
+ * Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex.
+ */
+export const crewLineSchema = z.object({ harness: z.string(), line: z.string() });
+
+export type CrewLine = z.infer<typeof crewLineSchema>;
+
+/**
+ * Output of `fleet.getStartingPrompt` and `fleet.recrew`: the starting
+ * prompt, holding the ship's new secret, one crew line per harness, and the
+ * secret itself, for a client that registers the ship for a session of its
+ * own. Shown once; the secret is never readable again.
  */
 export const startingPromptOutputSchema = z.object({
   shipId: idSchema('ship'),
   prompt: z.string(),
-  /** `/aeolus:crew <fleetUrl> <shipId> <secret>`. */
-  crewLine: z.string(),
+  crewLines: z.array(crewLineSchema),
+  secret: z.string(),
 });
 
 export type StartingPromptOutput = z.infer<typeof startingPromptOutputSchema>;
 
 /**
  * Output of `fleet.commission`: the ship, and on the first commission its
- * starting prompt and crew line, shown once. A repeat under the same key
+ * starting prompt, crew lines and secret, shown once. A repeat under the same key
  * answers neither (the secret is never readable again), and says how its
  * starting prompt stands; get a new one with `fleet.getStartingPrompt`.
  */
 export const commissionShipOutputSchema = z.object({
   shipId: idSchema('ship'),
   prompt: z.string().nullable(),
-  crewLine: z.string().nullable(),
+  crewLines: z.array(crewLineSchema).nullable(),
+  secret: z.string().nullable(),
   /** When its valid secret was issued (ISO 8601 in UTC) and whether a session claimed it; null when it has none. */
   startingPrompt: z.object({ issuedAt: z.iso.datetime(), isClaimed: z.boolean() }).nullable(),
 });
