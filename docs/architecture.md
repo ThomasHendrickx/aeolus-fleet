@@ -99,6 +99,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | --- | --- | --- |
 | `web` | Any Next.js host | Vercel, any Node host, a container |
 | `server` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
+| `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
 ## Technology choices
@@ -163,13 +164,14 @@ The same event rows feed three things at once: ship and message timelines, the a
 
 ## Code structure
 
-Four parts. The first three are published npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository. The fourth is your private setup and consumes the packages like any other installer would.
+Five parts. The first four are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` is not published yet and is optional). The fifth is your private setup and consumes the packages like any other installer would.
 
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
 | `@aeolus-fleet/common` | Public repo, `packages/common` | Zod schemas for every procedure, prefixed id helpers, shared types, error codes, event names | Nothing but Zod |
 | `@aeolus-fleet/server` | Public repo, `packages/server` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
+| `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, and the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`). Optional | `common` |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
 Layers, not folders (the code shows the folders):
@@ -178,6 +180,7 @@ Layers, not folders (the code shows the folders):
 - `server/src/adapters`: everything that touches a technology (Prisma, tRPC, HTTP, CLI, crypto, REST, MCP). Depends on core, never the reverse. REST and MCP go through the tRPC router.
 - Composition: the server's entry points build the adapters and inject them into the use cases.
 - `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
+- `squadrons/src/core` and `squadrons/src/adapters` follow the same split; squadrons reaches the fleet only through the fleet's public API, never its tables.
 - Every repository call takes a fleet scope (exception: decision 0007).
 
 Lint and CI enforce these rules (slice 1b).

@@ -9,7 +9,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0005](0005-prefixed-ids.md) **Prefixed ids.** `<prefix>_<lowercase ULID>`: `flt_ shp_ msg_ dlv_ evt_ lse_ crd_ opr_ ses_`.
 - [0006](0006-payload-limit.md) **Payloads max 64 KB.** Carry a reference plus instruction, not content.
 - [0007](0007-tenancy.md) **Every record belongs to a fleet.** `fleet_id` everywhere, scoped queries. Only unscoped: secret hash, token hash, operator email lookup.
-- [0008](0008-packages.md) **Three packages, one repo.** server, web, common; one version. Hosting in private infra repo.
+- [0008](0008-packages.md) **Four packages, one repo.** server, web, common, squadrons (optional); one version. Hosting in private infra repo.
 - [0009](0009-stack.md) **Stack.** Node 26, Fastify, tRPC, Next.js, Prisma, Zod, Vitest, Testcontainers, Playwright.
 - [0010](0010-leases-without-heartbeats.md) **Leases until released.** No heartbeats; second claim fails (except `argo` takeover); release and deregister invalidate the secret; location reported on claim.
 - [0011](0011-release-via-trusted-publishing.md) **Release via trusted publishing.** Only `release.yml` publishes, no tokens, tags `v<version>`, and commits the plugin's version to main.
@@ -18,3 +18,4 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0014](0014-strict-test-driven-development.md) **Strict TDD.** Server and common test first, `(red)` commit then green; push green only.
 - [0015](0015-ship-identity-per-conversation.md) **Identity per conversation, per folder with the plugin.** `register` returns a crew token; later calls carry it; MCP connection has no ship credential; the plugin keeps the token per working folder.
 - [0016](0016-no-policy.md) **No policy.** Scopes are enforced exactly; Aeolus adds no protective rules. Risk is the operator's call.
+- [0017](0017-squadrons-package.md) **Squadrons, a ship of the fleet.** Separate package, own process and database, reaches the fleet only through the public API as its management ship (fleet:read, fleet:manage); Aeolus knows nothing about squadrons.
