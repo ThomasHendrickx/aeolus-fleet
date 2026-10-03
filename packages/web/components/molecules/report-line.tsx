@@ -24,11 +24,14 @@ export function ReportLine({
   report,
   now,
   variant,
+  isTimeInTitle = false,
   testId,
 }: {
   report: ListedShip['report'];
   now: Date;
   variant: 'row' | 'full';
+  /** FleetTable: the time moves to the title, as LastSeen carries recency there. */
+  isTimeInTitle?: boolean;
   /** The test id of the line, by where it shows. */
   testId: string;
 }) {
@@ -45,10 +48,16 @@ export function ReportLine({
   const tone = TONE_TEXT[REPORT_TONES[report.state]];
   const reportedAt = new Date(report.reportedAt);
   return (
-    <span data-testid={testId} data-state={report.state} title={reportText(report)} className={frame}>
+    <span
+      data-testid={testId}
+      data-state={report.state}
+      title={isTimeInTitle ? `${reportText(report)} · ${reportedWhen(reportedAt, now)}` : reportText(report)}
+      className={frame}
+    >
       <Icon aria-hidden className={classNames('size-(--size-icon-sm) shrink-0', tone)} />
       <span className={classNames('shrink-0 font-medium', tone)}>{REPORT_STATE_WORDS[report.state]}</span>
       {report.note === null ? null : <span className="min-w-0 truncate text-foreground">{report.note}</span>}
+      {isTimeInTitle ? null : (
       <time
         dateTime={report.reportedAt}
         title={fullDateTime(reportedAt)}
@@ -56,6 +65,7 @@ export function ReportLine({
       >
         {isFull ? `· ${reportedWhen(reportedAt, now)}` : reportAge(reportedAt, now)}
       </time>
+      )}
     </span>
   );
 }
