@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * `aeolus-squadrons start`: migrates squadrons' database, crews the
- * management ship, then serves until SIGINT or SIGTERM. `aeolus-squadrons
+ * `aeolus-squadrons start`: takes the process lock (one squadrons process per
+ * database), migrates squadrons' database, crews the management ship, then
+ * serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -9,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
+import { acquireProcessLock } from '../adapters/prisma/process-lock.js';
 import { createSquadronsApp } from '../app.js';
 import { ConfigError, loadConfig, loadDatabaseUrl } from '../config.js';
 import { readSquadronsFile } from '../squadrons-file.js';
@@ -25,6 +27,15 @@ async function start(): Promise<void> {
     existsSync(config.squadronsFile) ? readFileSync(config.squadronsFile, 'utf8') : '',
     process.env,
   );
+  const lock = await acquireProcessLock(config.databaseUrl, {
+    onLost: (error) => {
+      process.stderr.write(`squadrons lost its process lock, so another process could start: stopping. ${error.message}\n`);
+      process.exit(1);
+    },
+  });
+  if (!lock) {
+    throw new ConfigError('Another squadrons process runs on this database: squadrons runs one process at a time. Stop the other one first.');
+  }
   await migrateDatabase(config.databaseUrl);
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
@@ -37,6 +48,7 @@ async function start(): Promise<void> {
   const crewed = await app.crewManagementShip();
   if (!crewed.isOk) {
     await app.close();
+    await lock.release();
     throw new ConfigError(crewed.error.message);
   }
   app.server.log.info({ ship: crewed.value.name }, 'crewing the management ship');
@@ -49,7 +61,10 @@ async function start(): Promise<void> {
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
-      void app.close().then(() => process.exit(0));
+      void app
+        .close()
+        .then(() => lock.release())
+        .then(() => process.exit(0));
     });
   }
   await app.server.listen({ host: config.host, port: config.port });

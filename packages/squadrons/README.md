@@ -24,9 +24,11 @@ squadrons receives on every forming or sailing squadron's flagship. A member's c
 
 `squadrons.yaml` lists the repositories (docs/squadrons.md, "Configuration"): each with its `url`, an optional `name` (what blueprints reference; the URL without scheme and `.git` by default), an optional `path` (the folder of `templates/` and `blueprints/`; `squadrons` by default) and an optional `token`, the name of the environment variable holding a read token. `refresh` (default `5m`) is how often squadrons fetches them. squadrons runs `git`, so the host needs it.
 
-3. `aeolus-squadrons start` migrates the database, crews the management ship, retires every ship a forming cut short by a crash had commissioned, and serves. `aeolus-squadrons migrate` migrates alone.
+3. `aeolus-squadrons start` takes the process lock, migrates the database, crews the management ship, retires every ship a forming cut short by a crash had commissioned, and serves. `aeolus-squadrons migrate` migrates alone.
 
 If another session holds the management ship (a lost crew token, say), the start says so: release the ship in the console, get a new starting prompt and set its secret.
+
+One squadrons process runs per database: a second start on the same database refuses and says so, so stop the old process before starting a new one (a rolling deploy cannot overlap them). A process whose lock connection fails stops.
 
 ## Paths
 
