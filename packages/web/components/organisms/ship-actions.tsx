@@ -93,6 +93,7 @@ function sessionLocationOf(ship: ListedShip): string | null {
 export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; layout?: ShipActionsLayout }) {
   const [dialog, setDialog] = useState<OpenDialog>();
   const [isComposing, setIsComposing] = useState(false);
+  const [replacedPrompt, setReplacedPrompt] = useState<{ issuedAt: string } | undefined>(undefined);
   const getStartingPrompt = useGetStartingPrompt();
   const releaseShip = useReleaseShip();
   const retireShip = useRetireShip();
@@ -119,13 +120,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
     setDialog(undefined);
   };
   const issued = getStartingPrompt.data ?? recrewShip.data;
-  const promptState: StartingPromptDialogState = issued
-    ? 'shown'
-    : getStartingPrompt.isPending || recrewShip.isPending
-      ? 'issuing'
-      : getStartingPrompt.isError
-        ? 'error'
-        : 'confirm';
+  const promptState: StartingPromptDialogState = issued ? 'shown' : getStartingPrompt.isError ? 'error' : 'issuing';
 
   const issuePrompt = () => {
     recrewShip.reset();
@@ -134,10 +129,10 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
   const requestPrompt = () => {
     getStartingPrompt.reset();
     recrewShip.reset();
+    // No confirm: the dialog says the prompt it replaces stops working.
+    setReplacedPrompt(isUnclaimedPromptOut(ship) && ship.startingPrompt ? { issuedAt: ship.startingPrompt.issuedAt } : undefined);
     setDialog('prompt');
-    if (!isUnclaimedPromptOut(ship)) {
-      getStartingPrompt.mutate({ shipId: ship.id });
-    }
+    getStartingPrompt.mutate({ shipId: ship.id });
   };
   const open = (next: Exclude<OpenDialog, 'prompt' | undefined>) => () => {
     releaseShip.reset();
@@ -302,9 +297,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
         state={promptState}
         prompt={issued?.prompt}
         crewLine={issued?.crewLine}
-        replacesUnclaimed={
-          isUnclaimedPromptOut(ship) && ship.startingPrompt ? { issuedAt: ship.startingPrompt.issuedAt } : undefined
-        }
+        replacesUnclaimed={replacedPrompt}
         error={getStartingPrompt.error?.message}
         isOpen={dialog === 'prompt'}
         onOpenChange={(isOpen) => {

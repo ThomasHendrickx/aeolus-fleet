@@ -3,7 +3,7 @@
 import type { ShipDetail } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
-import { newCrewLineConfirm } from '../../lib/ship-dialogs';
+import { newCrewLineReplaced } from '../../lib/ship-dialogs';
 import { useNewCrewLine } from '../../lib/squadrons-api';
 import { Button } from '../atoms/button';
 import { CrewLineDialog, type CrewLineDialogState } from './crew-line-dialog';
@@ -18,21 +18,21 @@ interface NewCrewLineFor {
 }
 
 /**
- * Get new crew line for a member as a flow: `start` asks first when the new
- * line ends a session or an unclaimed line, and issues at once otherwise;
- * `dialog` shows the line and launch note, once. Kept apart from its trigger,
+ * Get new crew line for a member as a flow: `start` issues it at once, with
+ * no confirm (docs/design/conventions.md, "Confirm"); `dialog` shows the line
+ * and launch note once, and what the new line ended. Kept apart from its trigger,
  * so a row menu can start it and close while the dialog stays.
  */
 export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: boolean; start: () => void; dialog: ReactNode } {
   const newCrewLine = useNewCrewLine();
   const [isOpen, setIsOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState<string | undefined>(undefined);
+  const [replacedText, setReplacedText] = useState<string | undefined>(undefined);
   const issue = () => {
     if (of) {
       newCrewLine.mutate({ squadronId: of.squadronId, shipId: of.member.shipId });
     }
   };
-  const state: CrewLineDialogState = newCrewLine.data ? 'shown' : newCrewLine.isPending ? 'issuing' : newCrewLine.isError ? 'error' : 'confirm';
+  const state: CrewLineDialogState = newCrewLine.data ? 'shown' : newCrewLine.isError ? 'error' : 'issuing';
   return {
     isReady: of?.ship !== undefined,
     start: () => {
@@ -40,12 +40,9 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
         return;
       }
       newCrewLine.reset();
-      const asked = newCrewLineConfirm(of.ship);
-      setConfirmText(asked);
+      setReplacedText(newCrewLineReplaced(of.ship));
       setIsOpen(true);
-      if (asked === undefined) {
-        issue();
-      }
+      issue();
     },
     dialog: of ? (
       <CrewLineDialog
@@ -54,7 +51,7 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
         template={of.template}
         launchNote={newCrewLine.data?.launchNote}
         crewLine={newCrewLine.data?.crewLine}
-        confirmText={confirmText}
+        replacedText={replacedText}
         error={newCrewLine.error?.message}
         isOpen={isOpen}
         onOpenChange={(isNowOpen) => {
