@@ -36,7 +36,7 @@ const databaseImports = [
 describe('Prisma and pg outside the Prisma adapter', () => {
   it.each(databaseImports)('refuses $label in another adapter', async ({ code }) => {
     await expect(importViolations(lint(code, server.http))).resolves.toEqual([
-      expect.stringMatching(/is imported only in server\/src\/adapters\/prisma/),
+      expect.stringMatching(/is imported only in the prisma adapter \(server or squadrons\)/),
     ]);
   });
 
