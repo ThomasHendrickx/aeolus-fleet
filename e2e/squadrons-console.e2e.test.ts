@@ -139,6 +139,32 @@ async function crewed(crewLine: string) {
   };
 }
 
+/** A member session checks in, takes its role and reports on station, as the plugin skill says. */
+async function bringOnStation({ call, squadronId }: { call: Awaited<ReturnType<typeof crewed>>; squadronId: string }): Promise<void> {
+  await call('send', { selector: { kind: 'ship', name: squadronId }, contentType: CHECK_IN, payload: JSON.stringify({ squadron: squadronId }), idempotencyKey: 'check-in' });
+  let role: { deliveryId: string; messageId: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const { deliveries } = z
+          .object({ deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string(), contentType: z.string() })) })
+          .parse(await call('receive', {}));
+        role = deliveries.find((delivery) => delivery.contentType === ROLE) ?? role;
+        return role !== undefined;
+      },
+      { timeout: LIVE_TIMEOUT_MS },
+    )
+    .toBe(true);
+  await call('ack', { deliveryId: role?.deliveryId });
+  await call('send', {
+    selector: { kind: 'ship', name: squadronId },
+    contentType: ON_STATION,
+    payload: JSON.stringify({ squadron: squadronId, role: 'tester' }),
+    inReplyTo: role?.messageId,
+    idempotencyKey: 'on-station',
+  });
+}
+
 describe('the first squadron in the console', () => {
   it('forms from a blueprint, shows the crew line and launch note once, and sails once its member checks in', async () => {
     const page = await squadronsPage();
@@ -155,28 +181,7 @@ describe('the first squadron in the console', () => {
 
     const call = await crewed(crewLine);
     memberCall = call;
-    await call('send', { selector: { kind: 'ship', name: squadronId }, contentType: CHECK_IN, payload: JSON.stringify({ squadron: squadronId }), idempotencyKey: 'check-in' });
-    let role: { deliveryId: string; messageId: string } | undefined;
-    await expect
-      .poll(
-        async () => {
-          const { deliveries } = z
-            .object({ deliveries: z.array(z.object({ deliveryId: z.string(), messageId: z.string(), contentType: z.string() })) })
-            .parse(await call('receive', {}));
-          role = deliveries.find((delivery) => delivery.contentType === ROLE) ?? role;
-          return role !== undefined;
-        },
-        { timeout: LIVE_TIMEOUT_MS },
-      )
-      .toBe(true);
-    await call('ack', { deliveryId: role?.deliveryId });
-    await call('send', {
-      selector: { kind: 'ship', name: squadronId },
-      contentType: ON_STATION,
-      payload: JSON.stringify({ squadron: squadronId, role: 'tester' }),
-      inReplyTo: role?.messageId,
-      idempotencyKey: 'on-station',
-    });
+    await bringOnStation({ call, squadronId });
 
     await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('On time').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
@@ -341,5 +346,27 @@ describe('the first squadron in the console', () => {
 
     await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
-});
 
+  it('adds a member to a sailing squadron and shows its crew line and launch note once', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-form').click();
+    await page.getByTestId('form-squadron-preview').click();
+    await page.getByTestId('form-squadron-submit').click();
+    const crewLine = (await page.getByTestId('member-crew-line').textContent()) ?? '';
+    const squadronId = crewLine.split(' ')[4] ?? '';
+    await bringOnStation({ call: await crewed(crewLine), squadronId });
+    await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
+
+    // Adding is a later attempt than forming; the test clock stands still unless moved.
+    clock.advance(1000);
+    await page.getByTestId('squadron-add-member').click();
+    await page.getByTestId('add-member-dialog').getByText('Blueprint team v1 has 1 tester; the squadron then has 2.').waitFor();
+    await page.getByTestId('add-member-submit').click();
+
+    await page.getByTestId('crew-line-dialog').getByRole('heading', { name: /^Crew line for tester-[a-z0-9]{4}$/ }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await expect(page.getByTestId('crew-line-launch-note').textContent()).resolves.toBe('Start in the repository root.');
+    await expect(page.getByTestId('crew-line-text').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${squadronId}$`));
+    await page.getByTestId('crew-line-done').click();
+    await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
+});
