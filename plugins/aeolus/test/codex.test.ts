@@ -106,6 +106,14 @@ describe('the Codex plugin package', () => {
     expect(manifest).toContain('Automatic local wake-up');
     expect(`${crew}\n${watch}\n${manifest}`).toContain('Codex Cloud cannot wake automatically');
   });
+
+  it('launches shared hooks from the root variable each harness provides', () => {
+    const hooks = JSON.stringify(json(join(PLUGIN, 'hooks/hooks.json')));
+
+    expect(hooks).toContain('${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/scripts/aeolus-session-start.sh');
+    expect(hooks).toContain('${PLUGIN_ROOT}/scripts/aeolus-codex-send-model.py');
+    expect(hooks).toContain('%PLUGIN_ROOT%\\scripts\\aeolus-codex-send-model.py');
+  });
 });
 
 describe('Codex plugin state', () => {
