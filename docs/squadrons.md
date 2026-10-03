@@ -98,15 +98,12 @@ squadrons starts not connected: no management ship and no secret in its environm
 - **Connected:** squadrons crews the ship again with its kept crew token after a restart.
 - **Released:** when the operator releases the management ship, squadrons drops the crew token and is not connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
 
-## Configuration
+## Template repositories
 
-squadrons reads its repositories from one file, `SQUADRONS_CONFIG` (default `squadrons.yaml` beside the process):
+The repositories squadrons reads are runtime configuration: the operator adds them in the console, under Settings, never in a file. Each has:
 
-```yaml
-repositories:
-  - url: https://github.com/thomashendrickx/squadron-templates.git
-    name: github.com/thomashendrickx/squadron-templates   # what blueprints reference; the URL without scheme and .git when left out
-    path: ops/squadrons                                    # the folder holding templates/ and blueprints/; .aeolus/squadrons when left out
-    token: SQUADRON_TEMPLATES_TOKEN                        # the environment variable holding a read token, for a private repository
-refresh: 5m                                                # how often squadrons fetches; the console also has Refresh
-```
+- **URL:** the repository's https URL, such as `https://github.com/thomashendrickx/squadron-templates.git`. Its name, what blueprints reference, is the URL without the scheme and `.git`: `github.com/thomashendrickx/squadron-templates`.
+- **Path:** the folder holding `templates/` and `blueprints/`; `.aeolus/squadrons` when left out.
+- **Token:** a read token for a private repository, entered once and never shown again.
+
+squadrons fetches a repository when the operator adds it and when the operator refreshes, never by itself. A fetch that fails keeps the repository, with why. Removing a repository takes its versions out of the catalogue at once; formed squadrons keep the versions they formed from.

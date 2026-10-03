@@ -54,11 +54,3 @@ export interface CatalogueHolder {
   get(): Catalogue;
   set(catalogue: Catalogue): void;
 }
-
-/**
- * Outbound port: every tagged template and blueprint version in the
- * configured repositories (docs/squadrons.md, "Files in git").
- */
-export interface CatalogueSource {
-  files(): Promise<SourceFile[]>;
-}

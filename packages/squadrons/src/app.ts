@@ -4,7 +4,8 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
-import { createGitCatalogueSource, type GitRepository } from './adapters/git/git-catalogue-source.js';
+import { createGitRepositoryReader } from './adapters/git/git-catalogue-source.js';
+import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
@@ -15,7 +16,10 @@ import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
-import { assembleCatalogue } from './core/catalogue/assemble-catalogue.js';
+import { createAddRepository } from './core/catalogue/add-repository.js';
+import { createListRepositories } from './core/catalogue/list-repositories.js';
+import { createRefreshCatalogue, type RefreshScope } from './core/catalogue/refresh-catalogue.js';
+import { createRemoveRepository } from './core/catalogue/remove-repository.js';
 import type { Catalogue } from './core/catalogue/catalogue.js';
 import { createConnect, type Connect } from './core/management/connect.js';
 import { createReadConnection, type ReadConnection } from './core/management/read-connection.js';
@@ -41,10 +45,10 @@ export interface SquadronsApp {
   readConnection: ReadConnection;
   /** Connects squadrons as the operator's management ship, then recovers formations and starts the flagships. */
   connect: Connect;
-  /** Reads the repositories again; on failure the catalogue stays as it was and the failure is logged. */
+  /** Fetches every template repository of the connected fleet and rebuilds the catalogue; a failure is logged. */
   refreshCatalogue: () => Promise<void>;
-  /** Refreshes the catalogue now and then every interval, until the app closes. */
-  startRefreshing: (intervalMs: number) => Promise<void>;
+  /** Builds the catalogue from what each repository last fetched, fetching none: at start and on connecting. */
+  loadCatalogue: () => Promise<void>;
   /** Retires what formations a crash left unfinished commissioned: run once connected, before anything else forms. */
   recoverFormations: RecoverFormations;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
@@ -61,9 +65,7 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  /** The repositories of templates and blueprints (docs/squadrons.md, "Configuration"). */
-  repositories: readonly GitRepository[];
-  /** Where the repositories' mirrors are kept. */
+  /** Where the template repositories' mirrors are kept. */
   cacheDir: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
@@ -113,15 +115,34 @@ export function createSquadronsApp(options: {
     }
     return formed;
   };
-  const source = createGitCatalogueSource({ repositories: options.repositories, cacheDir: options.cacheDir });
   let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
-  const refreshCatalogue = async (): Promise<void> => {
+  const repositories = createPrismaRepositoryStore(prisma);
+  const refresh = createRefreshCatalogue({
+    store: repositories,
+    source: createGitRepositoryReader({ cacheDir: options.cacheDir }),
+    holder: {
+      get: () => catalogue,
+      set: (built) => {
+        catalogue = built;
+      },
+    },
+    clock,
+  });
+  // squadrons serves the fleet it was last connected to.
+  const refreshConnectedFleet = async (scope: RefreshScope): Promise<void> => {
+    const binding = await store.binding();
+    if (!binding) {
+      return;
+    }
     try {
-      catalogue = assembleCatalogue(await source.files());
+      await refresh(binding.fleetId, scope);
     } catch (error) {
-      server.log.error({ err: error }, 'the repositories could not be read; the catalogue stays as it was');
+      server.log.error({ err: error }, 'the template repositories could not be read; the catalogue stays as it was');
     }
   };
+  const listRepositories = createListRepositories({ store: repositories });
+  const addRepository = createAddRepository({ store: repositories, refresh, clock });
+  const removeRepository = createRemoveRepository({ store: repositories, refresh });
 
   const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
   const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
@@ -149,6 +170,7 @@ export function createSquadronsApp(options: {
       if (!recovered.isOk) {
         server.log.error({ refusal: recovered.error }, 'formations a crash left unfinished could not be recovered');
       }
+      await refreshConnectedFleet('none');
       await flagships?.rescan();
     }
     return connected;
@@ -170,7 +192,10 @@ export function createSquadronsApp(options: {
         readConnection,
         connect,
         catalogue: () => catalogue,
-        refreshCatalogue,
+        refreshCatalogue: (fleetId) => refresh(fleetId, 'all'),
+        listRepositories,
+        addRepository,
+        removeRepository,
         formSquadron: formAndWatch,
         listSquadrons,
         standDown,
@@ -184,9 +209,7 @@ export function createSquadronsApp(options: {
   };
   void server.register(fastifyTRPCPlugin, trpc);
 
-  let refresher: ReturnType<typeof setInterval> | undefined;
   server.addHook('onClose', async () => {
-    clearInterval(refresher);
     await flagships?.stop();
     await prisma.$disconnect();
   });
@@ -195,11 +218,8 @@ export function createSquadronsApp(options: {
     server,
     readConnection,
     connect,
-    refreshCatalogue,
-    startRefreshing: async (intervalMs) => {
-      await refreshCatalogue();
-      refresher = setInterval(() => void refreshCatalogue(), intervalMs);
-    },
+    refreshCatalogue: () => refreshConnectedFleet('all'),
+    loadCatalogue: () => refreshConnectedFleet('none'),
     recoverFormations,
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({

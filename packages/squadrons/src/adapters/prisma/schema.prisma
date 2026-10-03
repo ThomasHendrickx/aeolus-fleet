@@ -120,3 +120,23 @@ model FormationShip {
   @@id([attemptId, name])
   @@map("formation_ships")
 }
+
+/// A git repository the operator set in the console to read templates and
+/// blueprints from (#161): runtime configuration, never a file. The read token
+/// is written once and never shown; it is kept as squadrons keeps its crew
+/// tokens until #104 decides how secrets are stored at rest.
+model TemplateRepository {
+  fleetId        String    @map("fleet_id")
+  /// What blueprints reference it by: its URL without the scheme and `.git`.
+  name           String
+  url            String
+  path           String
+  token          String?
+  addedAt        DateTime  @map("added_at") @db.Timestamptz(3)
+  lastFetchedAt  DateTime? @map("last_fetched_at") @db.Timestamptz(3)
+  /// Why its last fetch failed; null when it worked or before the first.
+  lastFetchError String?   @map("last_fetch_error")
+
+  @@id([fleetId, name])
+  @@map("template_repositories")
+}
