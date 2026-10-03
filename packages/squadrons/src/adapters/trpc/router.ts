@@ -16,6 +16,7 @@ import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squ
 import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
 import type { AddMember } from '../../core/squadron/add-member.js';
+import type { RemoveMember } from '../../core/squadron/remove-member.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
 import { idSchema, type FleetId } from '@aeolus-fleet/common';
@@ -34,6 +35,7 @@ export interface Context {
   standDown: StandDown;
   forceStandDown: ForceStandDown;
   addMember: AddMember;
+  removeMember: RemoveMember;
   keptMessages: (fleetId: FleetId, squadronId: string) => Promise<KeptMessage[]>;
 }
 
@@ -112,6 +114,15 @@ const ADD_CODES = {
   NOT_SAILING: 'CONFLICT',
   ROLE_NOT_FOUND: 'BAD_REQUEST',
   ADDING_FAILED: 'BAD_GATEWAY',
+} as const satisfies Record<string, TRPCError['code']>;
+
+/** The refusals of removing a member, as the API states them. */
+const REMOVE_CODES = {
+  MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
+  SQUADRON_NOT_FOUND: 'NOT_FOUND',
+  SQUADRON_NOT_SERVING: 'CONFLICT',
+  MEMBER_NOT_FOUND: 'NOT_FOUND',
+  FLEET_UNAVAILABLE: 'BAD_GATEWAY',
 } as const satisfies Record<string, TRPCError['code']>;
 
 const templateReference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
@@ -308,6 +319,20 @@ export const squadronsRouter = t.router({
           throw new TRPCError({ code: ADD_CODES[added.error.kind], message: added.error.message });
         }
         return added.value;
+      }),
+    /**
+     * Removes a member of a sailing or standing-down squadron: its ship is
+     * retired at once, its direct deliveries abandoned.
+     */
+    removeMember: connectedProcedure
+      .input(z.object({ squadronId: z.string(), shipId: idSchema('ship') }))
+      .output(z.strictObject({}))
+      .mutation(async ({ ctx, input }) => {
+        const removed = await ctx.removeMember({ fleetId: ctx.fleetId, ...input });
+        if (!removed.isOk) {
+          throw new TRPCError({ code: REMOVE_CODES[removed.error.kind], message: removed.error.message });
+        }
+        return {};
       }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
