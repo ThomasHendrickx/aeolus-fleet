@@ -13,8 +13,9 @@ export interface PingStatus {
 /**
  * The status of a ship's last ping: waiting while its delivery is pending or
  * in flight, answered once pong acknowledged it, received when a plain ack
- * did. A ping that went undeliverable, or was dismissed or abandoned, shows
- * none: it is in Needs attention, not waiting.
+ * did, and undeliverable once it was handed out again and again and never
+ * acknowledged (it is in Needs attention too). A ping the operator dismissed,
+ * or one abandoned with a retired ship, shows none.
  */
 export function pingStatusOf(lastPing: ShipFacts['lastPing']): PingStatus | null {
   if (lastPing === null) {
@@ -30,6 +31,7 @@ export function pingStatusOf(lastPing: ShipFacts['lastPing']): PingStatus | null
         ? { state: 'received', sentAt, answeredAt: null }
         : { state: 'answered', sentAt, answeredAt: answeredWithPongAt };
     case 'undeliverable':
+      return { state: 'undeliverable', sentAt, answeredAt: null };
     case 'dismissed':
     case 'abandoned':
       return null;

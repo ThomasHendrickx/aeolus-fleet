@@ -22,4 +22,8 @@ export const Answered: Story = {
 export const Received: Story = {
   args: { ping: { state: 'received', sentAt: '2026-10-02T09:07:00.000Z', answeredAt: null } },
 };
+/** Handed out again and again and never acknowledged: it went undeliverable. */
+export const Undeliverable: Story = {
+  args: { ping: { state: 'undeliverable', sentAt: '2026-10-02T07:40:00.000Z', answeredAt: null } },
+};
 export const NeverPinged: Story = {};
