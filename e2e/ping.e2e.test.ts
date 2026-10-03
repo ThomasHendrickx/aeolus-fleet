@@ -145,4 +145,23 @@ describe('ping', () => {
     const { deliveries } = receivedSchema.parse(await lookout.call('receive', { max: 10 }));
     expect(deliveries).toHaveLength(1);
   });
+
+  it('shows a ping that went undeliverable on the overview row and the ship page', async () => {
+    const pilot = await crewedOverRest({ name: 'pilot', type: 'reviewer' });
+    const page = await signedInPage();
+    await page.goto(`/ships/${pilot.shipId}`);
+    await page.getByTestId('fleet-ship-ping').click();
+    await page.getByTestId('ship-ping-status').getByText('no answer yet', { exact: false }).waitFor();
+
+    // Handed out again and again, never acknowledged: it goes undeliverable.
+    for (let claim = 1; claim <= 5; claim += 1) {
+      await pilot.call('receive', {});
+    }
+
+    await page.reload();
+    await page.getByTestId('ship-ping-status').getByText('Ping not answered: undeliverable').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.goto('/');
+    await page.getByTestId('fleet-row-pilot').getByText('Ping not answered: undeliverable').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
 });
+

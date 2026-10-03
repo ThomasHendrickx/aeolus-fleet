@@ -5,7 +5,8 @@ import { pingLine } from '../../lib/ping';
 
 /**
  * How a ship's last ping stands, under its Last seen: "Pinged 3 min ago, no
- * answer yet", "Answered ping in 4 s" or "Received, not answered with pong".
+ * answer yet", "Answered ping in 4 s", "Received, not answered with pong" or
+ * "Ping not answered: undeliverable".
  * Said in words, never by colour alone. Nothing before any ping.
  */
 export function PingStatus({

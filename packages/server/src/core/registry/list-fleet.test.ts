@@ -237,13 +237,28 @@ describe("a ship's last ping", () => {
     await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting', sentAt } });
   });
 
-  it('is null when the last ping went to the operator as undeliverable', async () => {
+  it('is undeliverable, from when it was sent, once the last ping went to the operator as undeliverable', async () => {
     const scoutCrew = await crewedScout();
     const messaging = messagingUseCases(core);
+    const sentAt = core.clock.now();
     unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
     for (let claim = 1; claim <= 5; claim += 1) {
       unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
     }
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'undeliverable', sentAt, answeredAt: null } });
+  });
+
+  it('is null once the operator dismissed the undeliverable ping', async () => {
+    const scoutCrew = await crewedScout();
+    const messaging = messagingUseCases(core);
+    const { messageId } = unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
+    for (let claim = 1; claim <= 5; claim += 1) {
+      unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
+    }
+    const ping = core.state.deliveries.find((delivery) => delivery.messageId === messageId);
+
+    unwrap(await messaging.dismissDelivery(argo, { deliveryId: ping?.id ?? core.ids('delivery') }));
 
     await expect(listedScout()).resolves.toMatchObject({ ping: null });
   });

@@ -7,6 +7,7 @@ import {
   fleetListOutputSchema,
   fleetStreamItemSchema,
   getStartingPromptInputSchema,
+  pingStateSchema,
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
@@ -324,5 +325,11 @@ describe('renameShipInputSchema', () => {
 
   it('refuses a name that is no handle', () => {
     expect(renameShipInputSchema.safeParse({ shipId: newId('ship'), name: 'Look Out' }).success).toBe(false);
+  });
+});
+
+describe('pingStateSchema', () => {
+  it.each(['waiting', 'answered', 'received', 'undeliverable'])('accepts the ping state %s', (state) => {
+    expect(pingStateSchema.safeParse(state).success).toBe(true);
   });
 });

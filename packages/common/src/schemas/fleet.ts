@@ -107,8 +107,12 @@ export const retireShipOutputSchema = z.object({ abandonedDeliveries: z.int().mi
  */
 export const recrewShipInputSchema = z.object({ shipId: idSchema('ship') });
 
-/** How a ship's last ping stands: waiting for an answer, answered with pong, or received with a plain ack. */
-export const PING_STATES = ['waiting', 'answered', 'received'] as const;
+/**
+ * How a ship's last ping stands: waiting for an answer, answered with pong,
+ * received with a plain ack, or undeliverable: handed out again and again and
+ * never acknowledged.
+ */
+export const PING_STATES = ['waiting', 'answered', 'received', 'undeliverable'] as const;
 
 export const pingStateSchema = z.enum(PING_STATES);
 
@@ -149,8 +153,8 @@ export const listedShipSchema = z.object({
   lastSeenAt: z.iso.datetime().nullable(),
   /**
    * The ship's last ping (ISO 8601 in UTC): when argo sent it, how it stands,
-   * and when pong answered it. Null before any ping, or when the last one went
-   * undeliverable. Observation only.
+   * and when pong answered it. Null before any ping, or once the operator
+   * dismissed the last one. Observation only.
    */
   ping: z
     .object({

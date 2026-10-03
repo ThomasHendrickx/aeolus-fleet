@@ -21,7 +21,8 @@ export function answerTime(sentAt: Date, answeredAt: Date): string {
 /**
  * How the ship's last ping stands, in one line: "Pinged 3 min ago, no answer
  * yet" until its session answers, then "Answered ping in 4 s", or "Received,
- * not answered with pong" after a plain ack. Observation only: no timeout.
+ * not answered with pong" after a plain ack, or "Ping not answered:
+ * undeliverable" once it went undeliverable. Observation only: no timeout.
  */
 export function pingLine(ping: NonNullable<ListedShip['ping']>, now: Date): string {
   const sentAt = new Date(ping.sentAt);
@@ -36,5 +37,7 @@ export function pingLine(ping: NonNullable<ListedShip['ping']>, now: Date): stri
         : `Answered ping in ${answerTime(sentAt, new Date(ping.answeredAt))}`;
     case 'received':
       return 'Received, not answered with pong';
+    case 'undeliverable':
+      return 'Ping not answered: undeliverable';
   }
 }
