@@ -284,6 +284,19 @@ describe('stood-down', () => {
     expect(acked).toHaveLength(1);
   });
 
+  it.each([
+    ['the role message that said the squadron stands down', 'msg_01m3tbfspe96yf1rnr4ank0201'],
+    ['nothing', undefined],
+  ] as const)('is known by its sender, a member of the squadron standing down, whatever it replies to: here %s', async (_label, inReplyTo) => {
+    held = standingDown();
+
+    await expect(handle(held, delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'team-a1b2c3' }, ...(inReplyTo === undefined ? {} : { inReplyTo }) }))).resolves.toEqual({
+      isOk: true,
+      value: 'stood-down',
+    });
+    expect(held.members.find((member) => member.shipId === TESTER)?.stoodDownAt).toEqual(NOW);
+  });
+
   it('keeps when the member first stood down, when its stood-down comes again', async () => {
     held = standingDown();
     const stoodDown = delivery(TESTER, { contentType: STOOD_DOWN, payload: { squadron: 'team-a1b2c3' }, inReplyTo: STAND_DOWN_MESSAGE });
