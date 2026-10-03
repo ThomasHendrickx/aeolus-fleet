@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, Ship, TriangleAlert } from 'lucide-react';
+import { Inbox, Settings, Ship, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -9,7 +9,7 @@ import { Badge } from '../atoms/badge';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'inbox' | 'attention';
+export type SidebarDestination = 'overview' | 'inbox' | 'attention' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
@@ -93,7 +93,8 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
- * tone. A count simply hides until it is known.
+ * tone. A count simply hides until it is known. Settings sits above the
+ * account menu.
  */
 export function Sidebar({ active, inboxCount, attentionCount, ...account }: SidebarProps) {
   return (
@@ -133,6 +134,9 @@ export function Sidebar({ active, inboxCount, attentionCount, ...account }: Side
           count={<AttentionCount count={attentionCount} />}
         />
       </nav>
+      <div className="px-2.5 pb-2">
+        <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />
+      </div>
       <div className="border-t border-border p-2.5">
         <AccountMenu {...account} />
       </div>

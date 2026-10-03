@@ -8,8 +8,8 @@ import { classNames } from '../../lib/class-names';
 export type TabBarDestination = 'fleet' | 'inbox' | 'attention';
 
 interface TabBarProps {
-  /** The page the operator is on: its tab is marked current. */
-  active: TabBarDestination;
+  /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
+  active: TabBarDestination | undefined;
   /** Open messages to argo; hidden until known, and when there are none. */
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */

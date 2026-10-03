@@ -87,6 +87,14 @@ A ship crewed with a squadron id checks in at its flagship before it does anythi
 
 Standing down: the flagship sends each member `application/vnd.aeolus.squadron.stand-down+json` (`{ "squadron" }`); the member finishes its open work and acks it as any delivery. Health comes from each member's last report (`report`): late after one check-in interval, silent after three.
 
+## Connection
+
+squadrons starts not connected: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read` and `fleet:manage`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds both scopes (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
+
+- **Not connected:** forming and the flagships wait, and the squadrons API answers that squadrons is not connected; `/api/health` and `/api/version` say `not-connected`.
+- **Connected:** squadrons crews the ship again with its kept crew token after a restart.
+- **Released:** when the operator releases the management ship, squadrons drops the crew token and is not connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
+
 ## Configuration
 
 squadrons reads its repositories from one file, `SQUADRONS_CONFIG` (default `squadrons.yaml` beside the process):

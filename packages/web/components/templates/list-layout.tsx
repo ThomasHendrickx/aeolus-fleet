@@ -95,7 +95,7 @@ export function ListLayout({
         </main>
       </div>
       <TabBar
-        active={nav.active === 'overview' ? 'fleet' : nav.active}
+        active={nav.active === 'overview' ? 'fleet' : nav.active === 'settings' ? undefined : nav.active}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
       />

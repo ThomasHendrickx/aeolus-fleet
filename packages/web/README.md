@@ -32,6 +32,7 @@ Environment variables, read when the app runs, never when it is built:
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `AEOLUS_SERVER_URL` | `http://localhost:4000` | The Aeolus server. The browser calls its `/trpc` there, with credentials, and follows the fleet over a WebSocket to the same path (`ws://` or `wss://`), and the web app's `/health` asks its `/health`, so both must reach it. Behind one host with the server, it is the server's public URL. On another host, the server needs `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for the console (see the server README) |
+| `AEOLUS_SQUADRONS_URL` | unset | Where squadrons runs, read by the web app's server only: the browser never calls squadrons. Unset means the console has no squadrons. Settings then connects it: the web app's server commissions the management ship (`squadrons`, with `fleet:read` and `fleet:manage`) or gives it a new starting prompt, and hands its secret to squadrons server to server; no one sees the secret. It reaches the server at `AEOLUS_SERVER_URL` from the web app's server too |
 | `PORT` | `3000` | Port to listen on |
 | `HOST` | `127.0.0.1` | Interface to listen on |
 
