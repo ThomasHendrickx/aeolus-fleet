@@ -6,7 +6,7 @@ Model and decisions: #79, #86, decision 0017. Aeolus knows nothing of what is de
 
 Ship templates and squadron blueprints are YAML files in git repositories, as Dockerfiles and compose files are. squadrons reads them from the repositories it is configured with; it never edits them.
 
-- **Where:** in each configured repository, `templates/*.yaml` and `blueprints/*.yaml` under its folder: `squadrons/` unless the repository's entry in the configuration sets a `path`. One file is one template or one blueprint, and the file name (without `.yaml`) is its name.
+- **Where:** in each configured repository, `templates/*.yaml` and `blueprints/*.yaml` under its folder: `.aeolus/squadrons/` unless the repository's entry in the configuration sets a `path`. One file is one template or one blueprint, and the file name (without `.yaml`) is its name.
 - **Versions are git tags.** A template's version `n` is the tag `<name>@<n>` (`tester@4`), a blueprint's likewise (`hemma-feature@4`), each a whole number from 1. The tag's commit holds that version of the file; a tag whose commit has no such file is ignored. The console shows templates as `tester@4`, blueprints as `v4`, and each version with its short commit (`4f2a91c`). A file changed without a new tag is no new version.
 - **Snapshots:** forming a squadron stores the blueprint version and every template version it uses, as read then. A squadron never changes when the files change later.
 
@@ -15,7 +15,7 @@ Ship templates and squadron blueprints are YAML files in git repositories, as Do
 A reusable role, like an image: what a ship in this role does, how often it checks in, how it is launched, and the hand-offs it accepts, like the environment variables an image accepts.
 
 ```yaml
-# squadrons/templates/tester.yaml
+# .aeolus/squadrons/templates/tester.yaml
 description: Runs the end-to-end suite on a branch and reports the result.
 checkIn: 30m                 # how often a member reports; late after 1 interval, silent after 3
 model: claude-opus-5-5       # optional: the exact model a member of this role runs
@@ -44,7 +44,7 @@ handoffs:                    # the hand-offs the charter refers to, by name, wit
 A compose file: which roles, how many ships each, which template version each runs, and where each hand-off goes.
 
 ```yaml
-# squadrons/blueprints/hemma-feature.yaml
+# .aeolus/squadrons/blueprints/hemma-feature.yaml
 description: Plans, builds and tests one feature of Hemma.
 roles:
   planner:
@@ -105,7 +105,7 @@ squadrons reads its repositories from one file, `SQUADRONS_CONFIG` (default `squ
 repositories:
   - url: https://github.com/thomashendrickx/squadron-templates.git
     name: github.com/thomashendrickx/squadron-templates   # what blueprints reference; the URL without scheme and .git when left out
-    path: squadrons                                        # the folder holding templates/ and blueprints/; squadrons when left out
+    path: ops/squadrons                                    # the folder holding templates/ and blueprints/; .aeolus/squadrons when left out
     token: SQUADRON_TEMPLATES_TOKEN                        # the environment variable holding a read token, for a private repository
 refresh: 5m                                                # how often squadrons fetches; the console also has Refresh
 ```

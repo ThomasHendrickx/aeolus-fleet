@@ -63,11 +63,11 @@ async function inOrigin(origin: string, ...args: string[]): Promise<void> {
 beforeAll(async () => {
   work = mkdtempSync(join(tmpdir(), 'aeolus-squadrons-console-'));
   const origin = join(work, 'templates');
-  mkdirSync(join(origin, 'squadrons', 'templates'), { recursive: true });
-  mkdirSync(join(origin, 'squadrons', 'blueprints'), { recursive: true });
+  mkdirSync(join(origin, '.aeolus', 'squadrons', 'templates'), { recursive: true });
+  mkdirSync(join(origin, '.aeolus', 'squadrons', 'blueprints'), { recursive: true });
   await inOrigin(origin, 'init', '--quiet', '--initial-branch=main');
-  writeFileSync(join(origin, 'squadrons/templates/tester.yaml'), 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\nhandoffs:\n  on-pass: The run that passed\n');
-  writeFileSync(join(origin, 'squadrons/blueprints/team.yaml'), `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nhandoffs:\n  tester.on-pass: flagship\n`);
+  writeFileSync(join(origin, '.aeolus/squadrons/templates/tester.yaml'), 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\nhandoffs:\n  on-pass: The run that passed\n');
+  writeFileSync(join(origin, '.aeolus/squadrons/blueprints/team.yaml'), `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nhandoffs:\n  tester.on-pass: flagship\n`);
   await inOrigin(origin, 'add', '.');
   await inOrigin(origin, 'commit', '--quiet', '-m', 'team');
   await inOrigin(origin, 'tag', 'tester@1');
@@ -263,7 +263,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadron-blueprint').click();
 
     await page.getByTestId('blueprint-view').waitFor();
-    await expect(page.getByTestId('blueprint-source').textContent()).resolves.toMatch(/^squadrons\/blueprints\/team\.yaml at [0-9a-f]{7}, /);
+    await expect(page.getByTestId('blueprint-source').textContent()).resolves.toMatch(/^\.aeolus\/squadrons\/blueprints\/team\.yaml at [0-9a-f]{7}, /);
     await expect(page.getByTestId('blueprint-role').first().textContent()).resolves.toMatch(/^testertester@11every 30 minStart in the repository root\.$/);
     await page.getByRole('heading', { name: 'Squadrons from this blueprint' }).waitFor();
     await page.getByTestId('blueprint-form').click();
@@ -282,7 +282,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('template-row').first().getByRole('link', { name: 'tester' }).click();
 
     await page.getByTestId('template-view').waitFor();
-    await expect(page.getByTestId('template-source').textContent()).resolves.toMatch(/^squadrons\/templates\/tester\.yaml at [0-9a-f]{7}, /);
+    await expect(page.getByTestId('template-source').textContent()).resolves.toMatch(/^\.aeolus\/squadrons\/templates\/tester\.yaml at [0-9a-f]{7}, /);
     await expect(page.getByTestId('template-charter-text').textContent()).resolves.toBe('You test.');
     await expect(page.getByTestId('template-check-in').textContent()).resolves.toBe('Every 30 min');
     await expect(page.getByTestId('template-handoff').textContent()).resolves.toBe('on-passThe run that passed');
