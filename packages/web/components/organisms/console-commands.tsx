@@ -5,6 +5,9 @@ import { useEffect } from 'react';
 
 import { paletteItemsOf } from '../../lib/command-palette';
 import { useFleetSnapshot } from '../../lib/fleet';
+import { useHasSquadrons } from '../../lib/squadrons';
+import { useCatalogue, useSquadrons } from '../../lib/squadrons-api';
+import { blueprintChoices } from '../../lib/squadrons-view';
 import { CommandPalette } from './command-palette';
 
 interface ConsoleCommandsProps {
@@ -17,12 +20,17 @@ interface ConsoleCommandsProps {
 /**
  * The CommandPalette on every console page, with the fleet's ships, the
  * actions and the pages; Cmd+K (Ctrl+K) opens it. A ship opens its page, a
- * page its route, Compose the page's Compose, and Commission ship the fleet
- * overview with its CommissionDialog open.
+ * page its route, Compose the page's Compose, Commission ship the fleet
+ * overview with its CommissionDialog open, and with squadrons on, a squadron
+ * or blueprint its page and Form squadron the Squadrons page with its dialog
+ * open.
  */
 export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleCommandsProps) {
   const router = useRouter();
   const fleet = useFleetSnapshot();
+  const hasSquadrons = useHasSquadrons();
+  const squadrons = useSquadrons({ isEnabled: hasSquadrons });
+  const catalogue = useCatalogue({ isEnabled: hasSquadrons });
 
   useEffect(() => {
     const openOnShortcut = (event: KeyboardEvent) => {
@@ -41,16 +49,23 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
     <CommandPalette
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      items={paletteItemsOf(fleet.data ?? [])}
+      items={paletteItemsOf(
+        fleet.data ?? [],
+        hasSquadrons ? { squadrons: squadrons.data ?? [], blueprints: blueprintChoices(catalogue.data ?? { blueprints: [] }) } : undefined,
+      )}
       onSelect={(item) => {
         switch (item.kind) {
           case 'ship':
           case 'page':
+          case 'squadron':
+          case 'blueprint':
             router.push(item.href);
             return;
           case 'action':
             if (item.id === 'compose') {
               onCompose();
+            } else if (item.id === 'form-squadron') {
+              router.push('/squadrons?form=new');
             } else {
               router.push('/?commission=new');
             }

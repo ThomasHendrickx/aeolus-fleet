@@ -71,4 +71,36 @@ describe('paletteItemsOf', () => {
       'attention',
     ]);
   });
+
+  it('adds, with squadrons on, Form squadron, the squadrons not disbanded, the blueprints and the Squadrons page', () => {
+    const blueprint = { repository: 'example.com/t', name: 'team', version: 2, commit: 'c', committedAt: '2026-10-01T09:00:00.000Z', description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' as const };
+    const items = paletteItemsOf([], {
+      squadrons: [
+        { id: 'team-a1b2c3', state: 'sailing', blueprint: { repository: 'example.com/t', name: 'team', version: 2, commit: 'c' } },
+        { id: 'team-old', state: 'disbanded', blueprint: { repository: 'example.com/t', name: 'team', version: 1, commit: 'b' } },
+      ],
+      blueprints: [{ key: 'example.com/t#team', repository: 'example.com/t', name: 'team', versions: [blueprint] }],
+    });
+
+    expect(items.map((item) => `${item.kind}:${item.id}`)).toEqual([
+      'action:commission',
+      'action:form-squadron',
+      'action:compose',
+      'squadron:team-a1b2c3',
+      'blueprint:example.com/t#team',
+      'page:overview',
+      'page:squadrons',
+      'page:inbox',
+      'page:attention',
+    ]);
+  });
+
+  it('finds a squadron by its blueprint, in its own group', () => {
+    const items = paletteItemsOf([], {
+      squadrons: [{ id: 'team-a1b2c3', state: 'forming', blueprint: { repository: 'r', name: 'hemma', version: 1, commit: 'c' } }],
+      blueprints: [],
+    });
+
+    expect(paletteGroups(items, 'hemma').map((group) => [group.key, group.items.length])).toEqual([['squadrons', 1]]);
+  });
 });

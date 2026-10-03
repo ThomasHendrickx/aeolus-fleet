@@ -30,6 +30,8 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const router = useRouter();
   const query = use(searchParams);
   const view = readSquadronView(new URLSearchParams(Object.entries(query).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))));
+  // The command palette's Form squadron lands here with the dialog open.
+  const isFormAsked = query.form === 'new';
   const changeView = (next: SquadronView) => {
     const params = squadronViewParams(next).toString();
     router.replace(params === '' ? '/squadrons' : `/squadrons?${params}`, { scroll: false });
@@ -96,8 +98,13 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         <FormSquadronDialog
           blueprints={blueprints}
           templates={catalogue.data?.templates ?? []}
-          isOpen={isForming}
-          onOpenChange={setIsForming}
+          isOpen={isForming || isFormAsked}
+          onOpenChange={(isOpen) => {
+            setIsForming(isOpen);
+            if (!isOpen && isFormAsked) {
+              changeView(view);
+            }
+          }}
           isPending={form.isPending}
           error={form.error?.message}
           onSubmit={(blueprint) => {
