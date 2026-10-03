@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaFormationAttempts } from '../src/adapters/prisma/formation-attempts.js';
 import { createPrismaSquadronRepository } from '../src/adapters/prisma/squadron-repository.js';
+import { beginFormation } from '../src/core/squadron/formation.js';
 import type { Squadron } from '../src/core/squadron/squadron.js';
 import { createSquadronsDatabase } from './support/database.js';
 
@@ -145,3 +146,32 @@ describe('adding a member', () => {
     await expect(attempts.unfinished(FLEET)).resolves.toEqual([]);
   });
 });
+
+describe('formation attempts begun in the same instant', () => {
+  it('get ids of their own, so adding a member in the instant its squadron formed is no clash', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    let drawn = 0;
+    const deps = {
+      door: { register: unused, whoami: unused, commission: unused, getShip: unused, release: unused, deregister: unused, getStartingPrompt: unused, listShips: unused, retire: unused, receive: unused, ack: unused, send: unused },
+      attempts,
+      random: {
+        suffix: (length: number) => {
+          drawn += 1;
+          return String(drawn).padStart(length, '0');
+        },
+      },
+      clock,
+    };
+    const crew = { fleetId: FLEET, shipId: 'shp_01m3tbfspe96yf1rnr4ank9h1a', name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT } as const;
+
+    const forming = await beginFormation(deps, { crew, squadronId: 'team-b2c3d4' });
+    const adding = await beginFormation(deps, { crew, squadronId: 'team-b2c3d4' });
+
+    expect(adding.attemptId).not.toBe(forming.attemptId);
+    await expect(attempts.unfinished(FLEET)).resolves.toHaveLength(2);
+  });
+});
+
+function unused(): never {
+  throw new Error('not used: an attempt begins without the fleet');
+}
