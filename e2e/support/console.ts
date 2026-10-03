@@ -9,3 +9,8 @@ export async function signIn(page: Page, login: { email: string; password: strin
   await button.and(page.locator(':enabled')).waitFor();
   await button.click();
 }
+
+/** Opens a fleet row's actions menu; its items render in a portal, so find them on the page. */
+export async function openRowMenu(page: Page, shipName: string): Promise<void> {
+  await page.getByTestId(`fleet-row-${shipName}`).getByTestId('fleet-actions').click();
+}

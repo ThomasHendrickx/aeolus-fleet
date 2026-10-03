@@ -127,8 +127,6 @@ describe('ping', () => {
       .getByTestId('ship-timeline-entry')
       .getByText('Answered a ping from argo with pong')
       .waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await page.goto('/');
-    await page.getByTestId('fleet-row-scout').getByText('Answered ping in 4 s').waitFor();
   });
 
   it('shows the ping already waiting instead of sending another', async () => {
@@ -146,7 +144,7 @@ describe('ping', () => {
     expect(deliveries).toHaveLength(1);
   });
 
-  it('shows a ping that went undeliverable on the overview row and the ship page', async () => {
+  it('shows a ping that went undeliverable on the ship page', async () => {
     const pilot = await crewedOverRest({ name: 'pilot', type: 'reviewer' });
     const page = await signedInPage();
     await page.goto(`/ships/${pilot.shipId}`);
@@ -160,8 +158,6 @@ describe('ping', () => {
 
     await page.reload();
     await page.getByTestId('ship-ping-status').getByText('Ping not answered: undeliverable').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await page.goto('/');
-    await page.getByTestId('fleet-row-pilot').getByText('Ping not answered: undeliverable').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
 });
 

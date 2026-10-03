@@ -220,14 +220,17 @@ describe('the first squadron in the console', () => {
     const flagship = rows.filter({ has: page.getByTestId('fleet-flagship') }).first();
     const member = rows.filter({ has: page.locator('[data-slot="squadron-tag"]') }).first();
 
-    await flagship.getByTestId('fleet-ship-open-squadron').waitFor({ state: 'attached', timeout: LIVE_TIMEOUT_MS });
-    await member.getByTestId('fleet-ship-remove').waitFor({ state: 'attached', timeout: LIVE_TIMEOUT_MS });
-
+    await flagship.getByTestId('fleet-actions').click();
+    await page.getByTestId('fleet-ship-open-squadron').waitFor({ timeout: LIVE_TIMEOUT_MS });
     for (const action of ['fleet-ship-retire', 'fleet-ship-rename', 'fleet-ship-release', 'fleet-ship-recrew', 'fleet-ship-ping']) {
-      await expect(flagship.getByTestId(action).count()).resolves.toBe(0);
+      await expect(page.getByTestId(action).count()).resolves.toBe(0);
     }
+    await page.keyboard.press('Escape');
+
+    await member.getByTestId('fleet-actions').click();
+    await page.getByTestId('fleet-ship-remove').waitFor({ timeout: LIVE_TIMEOUT_MS });
     for (const action of ['fleet-ship-retire', 'fleet-ship-rename', 'fleet-ship-recrew', 'fleet-ship-prompt']) {
-      await expect(member.getByTestId(action).count()).resolves.toBe(0);
+      await expect(page.getByTestId(action).count()).resolves.toBe(0);
     }
   });
 

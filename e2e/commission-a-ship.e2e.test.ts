@@ -13,7 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../pack
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
-import { signIn } from './support/console.js';
+import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Commissioning a ship, handing out its starting prompt, claiming it and
@@ -138,7 +138,6 @@ describe('commissioning a ship in the console', () => {
     const row = shipRow(page, 'scout');
     await row.getByText('Awaiting crew').waitFor();
     await row.getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
-    await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('reviewer');
     await page.reload();
     await shipRow(page, 'scout').waitFor();
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
@@ -152,7 +151,9 @@ describe('commissioning a ship in the console', () => {
     await promptBlock(page, 'hemma-a1b2:planner').getByRole('button', { name: 'Done' }).click();
     const row = shipRow(page, 'hemma-a1b2:planner');
     await row.getByText('Awaiting crew').waitFor();
-    await expect(row.getByRole('cell').nth(1).textContent()).resolves.toBe('hemma:planner');
+    // The type is no longer a column: the ship page shows it.
+    await row.getByRole('link', { name: 'hemma-a1b2:planner' }).click();
+    await page.getByTestId('ship-header').getByText('hemma:planner', { exact: true }).waitFor();
   });
 
   it('turns uppercase typed into the name and type into lowercase', async () => {
@@ -267,7 +268,7 @@ describe('claiming a commissioned ship', () => {
     });
 
     await row.getByText('Crewed').waitFor();
-    await row.getByText('a ci runner', { exact: true }).waitFor();
+    await expect(row.locator('[data-slot="location-tag"]').getAttribute('title')).resolves.toBe('Claude Code · Other: a ci runner');
     await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
     await shipRow(page, 'argo').getByText(/· Chrome/).waitFor();
   });
@@ -279,7 +280,8 @@ describe('releasing a crewed ship', () => {
     const crewToken = await crewedShip(page, { name: 'coxswain', type: 'reviewer' });
     const row = shipRow(page, 'coxswain');
 
-    await row.getByTestId('fleet-ship-release').click();
+    await openRowMenu(page, 'coxswain');
+    await page.getByTestId('fleet-ship-release').click();
     await page.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await row.getByText('Awaiting crew').waitFor();
@@ -293,7 +295,8 @@ describe('releasing a crewed ship', () => {
     const crewToken = await crewedShip(page, { name: 'bowman', type: 'reviewer' });
     const row = shipRow(page, 'bowman');
 
-    await row.getByTestId('fleet-ship-release').click();
+    await openRowMenu(page, 'bowman');
+    await page.getByTestId('fleet-ship-release').click();
     const confirmation = page.getByTestId('release-dialog');
     await confirmation.getByText(/Its secret and crew token stop working/).waitFor();
     await confirmation.getByRole('button', { name: 'Cancel' }).click();
@@ -309,8 +312,13 @@ describe('releasing a crewed ship', () => {
     await promptBlock(page, 'oarsman').getByRole('button', { name: 'Done' }).click();
     await shipRow(page, 'oarsman').getByText('Awaiting crew').waitFor();
 
-    await expect(shipRow(page, 'argo').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
-    await expect(shipRow(page, 'oarsman').getByTestId('fleet-ship-release').count()).resolves.toBe(0);
+    await openRowMenu(page, 'argo');
+    await page.getByTestId('fleet-ship-open-inbox').waitFor();
+    await expect(page.getByTestId('fleet-ship-release').count()).resolves.toBe(0);
+    await page.keyboard.press('Escape');
+    await openRowMenu(page, 'oarsman');
+    await page.getByTestId('fleet-ship-rename').waitFor();
+    await expect(page.getByTestId('fleet-ship-release').count()).resolves.toBe(0);
   });
 });
 
@@ -320,7 +328,8 @@ describe('re-crewing a crewed ship', () => {
     const crewToken = await crewedShip(page, { name: 'helmsman', type: 'reviewer' });
     const row = shipRow(page, 'helmsman');
 
-    await row.getByTestId('fleet-ship-recrew').click();
+    await openRowMenu(page, 'helmsman');
+    await page.getByTestId('fleet-ship-recrew').click();
     const confirmation = page.getByTestId('recrew-dialog');
     await confirmation.getByText(/A new starting prompt and its crew line are shown once/).waitFor();
     await confirmation.getByRole('button', { name: 'Re-crew ship' }).click();
@@ -354,7 +363,8 @@ describe('retiring a ship', () => {
     const row = shipRow(page, 'castaway');
     await row.getByText('Crewed').waitFor();
 
-    await row.getByTestId('fleet-ship-retire').click();
+    await openRowMenu(page, 'castaway');
+    await page.getByTestId('fleet-ship-retire').click();
     const dialog = page.getByTestId('retire-dialog');
     const retire = dialog.getByRole('button', { name: 'Retire and abandon 1 delivery' });
     await expect(retire.isDisabled()).resolves.toBe(true);

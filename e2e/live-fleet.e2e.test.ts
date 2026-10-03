@@ -10,7 +10,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../pack
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
-import { signIn } from './support/console.js';
+import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/server/test/support/keys.js';
 
@@ -115,7 +115,8 @@ describe('the live fleet overview', () => {
 
     const releasing = shipRow(first, 'scout');
     await releasing.getByText('Crewed').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await releasing.getByTestId('fleet-ship-release').click();
+    await openRowMenu(first, 'scout');
+    await first.getByTestId('fleet-ship-release').click();
     await first.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
