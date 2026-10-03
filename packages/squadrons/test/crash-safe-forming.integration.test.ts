@@ -72,10 +72,11 @@ async function bodyOf(request: IncomingMessage): Promise<Buffer> {
 
 /**
  * Passes squadrons' calls to the fleet, but the given commission reaches the
- * fleet and its answer never comes back: the process dies there, after the
- * fleet made the ship and before squadrons recorded its id.
+ * fleet and its answer never comes back. `hang`: the process dies there, after
+ * the fleet made the ship and before squadrons recorded its id. `drop`: the
+ * connection breaks, as a lost answer does, and squadrons goes on.
  */
-function startCrashingProxy(onHang: () => void): Promise<string> {
+function startCrashingProxy(onHang: () => void, behaviour: 'hang' | 'drop' = 'hang'): Promise<string> {
   let commissions = 0;
   proxy = createServer((request: IncomingMessage, response: ServerResponse) => {
     void (async () => {
@@ -84,6 +85,9 @@ function startCrashingProxy(onHang: () => void): Promise<string> {
       const answered = await fetch(`${fleetUrl}${request.url ?? ''}`, { method: request.method, headers, ...(body.length > 0 ? { body } : {}) });
       if (request.url === '/api/v1/fleet/commission' && ++commissions === COMMISSION_THAT_HANGS) {
         onHang();
+        if (behaviour === 'drop') {
+          response.destroy();
+        }
         return;
       }
       response.writeHead(answered.status, { 'content-type': answered.headers.get('content-type') ?? 'application/json' });
@@ -179,5 +183,37 @@ describe('forming that a crash kills midway', () => {
       .object({ result: z.object({ data: z.array(z.unknown()) }) })
       .parse(await (await fetch(`${await restarted.server.listen({ host: '127.0.0.1', port: 0 })}/trpc/squadrons.list`, { headers: { cookie } })).json());
     expect(listed.result.data).toEqual([]);
+  });
+});
+
+describe('a commission whose answer is lost', () => {
+  it('is asked again under the same key: forming goes on with one ship per name, each member crew line claiming its ship', async () => {
+    killed = squadronsApp(await startCrashingProxy(() => undefined, 'drop'));
+    unwrap(await killed.crewManagementShip());
+    await killed.refreshCatalogue();
+    const address = await killed.server.listen({ host: '127.0.0.1', port: 0 });
+
+    const response = await fetch(`${address}/trpc/squadrons.form`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, squadronId: 'team-one' }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const formed = z
+      .object({ result: z.object({ data: z.object({ members: z.array(z.object({ name: z.string(), crewLine: z.string() })) }) }) })
+      .parse(await response.json()).result.data;
+    const ships = await shipsOtherThanArgoAndSquadrons();
+    expect(ships.filter((ship) => ship.retiredAt === null)).toHaveLength(1 + formed.members.length);
+    expect(new Set(ships.map((ship) => ship.name)).size).toBe(ships.length);
+    for (const member of formed.members) {
+      const [, , shipId = '', secret = ''] = member.crewLine.split(' ');
+      const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ shipId, secret, location: { kind: 'DEVICE' } }),
+      });
+      expect(registered.status, member.name).toBe(200);
+    }
   });
 });

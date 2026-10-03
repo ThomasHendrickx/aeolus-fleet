@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Catalogue, TemplateVersion } from '../catalogue/catalogue.js';
@@ -63,7 +63,13 @@ interface FleetShip {
 
 function fakeFleet() {
   const ships: FleetShip[] = [];
-  const state = { ships, refuseCommissionAfter: Number.POSITIVE_INFINITY };
+  const state = {
+    ships,
+    refuseCommissionAfter: Number.POSITIVE_INFINITY,
+    /** Names whose first commission the fleet carries out, but whose answer never reaches squadrons. */
+    answersLost: new Set<string>(),
+    keys: new Map<string, ShipId>(),
+  };
   let next = 0;
   const door: FleetDoor = {
     register: ({ shipId, secret }) => {
@@ -75,9 +81,13 @@ function fakeFleet() {
       return Promise.resolve(ok({ crewToken: `aeolus_ct_v1_${ship.name}` }));
     },
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
-    commission: (crewToken, { name, type }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
+      }
+      const original = state.keys.get(idempotencyKey);
+      if (original) {
+        return Promise.resolve(ok({ shipId: original, crewLine: null }));
       }
       if (state.ships.filter((ship) => !ship.isRetired).length >= state.refuseCommissionAfter) {
         return Promise.resolve(err({ code: 'INTERNAL_SERVER_ERROR', message: 'Internal error' }));
@@ -89,7 +99,20 @@ function fakeFleet() {
       const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`;
       const secret = `aeolus_sk_v1_${name}`;
       state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false });
+      state.keys.set(idempotencyKey, shipId);
+      if (state.answersLost.delete(name)) {
+        return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
+      }
       return Promise.resolve(ok({ shipId, crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` }));
+    },
+    getStartingPrompt: (_crewToken, { shipId }) => {
+      const ship = state.ships.find((held) => held.shipId === shipId && !held.isCrewed);
+      if (!ship) {
+        return Promise.resolve(err({ code: 'CONFLICT', message: 'Only a ship awaiting crew gets a starting prompt' }));
+      }
+      // A new secret: the one in the lost answer stops working.
+      ship.secret = `${ship.secret}-again`;
+      return Promise.resolve(ok({ crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${ship.secret}` }));
     },
     receive: () => Promise.resolve(ok([])),
     ack: () => Promise.resolve(ok(undefined)),
@@ -278,6 +301,32 @@ describe('a squadron not formed', () => {
     unwrapped(await form({ ...fromHemmaFeature, squadronId: 'hemma-login' }));
 
     await expect(form({ ...fromHemmaFeature, squadronId: 'hemma-login' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SQUADRON_ID_TAKEN' } });
+  });
+
+  it("asks again with the same key when the fleet's answer to a commission is lost, and commissions no second ship", async () => {
+    fleet.state.answersLost.add('planner-k3x9');
+
+    const formed = unwrapped(await form(fromHemmaFeature));
+
+    expect(fleet.state.ships.filter((ship) => ship.name === 'planner-k3x9')).toHaveLength(1);
+    expect(formed.members.map((member) => member.name)).toContain('planner-k3x9');
+  });
+
+  it('gives a member whose answer was lost a crew line with a new starting prompt, which claims its ship', async () => {
+    fleet.state.answersLost.add('planner-k3x9');
+
+    const [planner] = unwrapped(await form(fromHemmaFeature)).members;
+    const [, , shipId = '', secret = ''] = planner?.crewLine.split(' ') ?? [];
+
+    await expect(fleet.door.register({ shipId: idSchema('ship').parse(shipId), secret })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('crews a flagship whose answer was lost with a new starting prompt', async () => {
+    fleet.state.answersLost.add('hemma-feature-a1b2c3');
+
+    const formed = unwrapped(await form(fromHemmaFeature));
+
+    expect(fleet.state.ships.filter((ship) => ship.name === formed.squadronId)).toEqual([expect.objectContaining({ isCrewed: true })]);
   });
 
   it('retires every ship it commissioned and stores nothing when a commission fails halfway', async () => {
