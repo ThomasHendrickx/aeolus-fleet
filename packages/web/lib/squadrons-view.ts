@@ -133,3 +133,28 @@ export function silentMembers<M extends { health: MemberHealth }>(
     .filter((squadron) => squadron.state !== 'disbanded')
     .flatMap((squadron) => squadron.members.filter((member) => member.health === 'silent').map((member) => ({ squadronId: squadron.id, member })));
 }
+
+/** A role a member can be added to: its template version, interval, and how many members it has now and in the blueprint. */
+export interface RoleOption {
+  role: string;
+  template: string;
+  checkInMinutes: number | undefined;
+  /** Members of the role in the squadron now, retired ones left out. */
+  now: number;
+  /** Members of the role the blueprint forms. */
+  inBlueprint: number;
+}
+
+export function roleOptions(
+  squadron: { members: readonly { role: string; crew: { status: string } }[] },
+  formedFrom: { blueprint: BlueprintVersion; templates: readonly TemplateVersion[] },
+): RoleOption[] {
+  const { blueprint, templates } = formedFrom;
+  return rolePreviews(blueprint, templates).map((role) => ({
+    role: role.role,
+    template: role.template,
+    checkInMinutes: role.checkInMinutes,
+    now: squadron.members.filter((member) => member.role === role.role && member.crew.status !== 'retired').length,
+    inBlueprint: role.count,
+  }));
+}
