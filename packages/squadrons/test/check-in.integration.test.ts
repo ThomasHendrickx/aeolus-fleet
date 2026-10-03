@@ -69,9 +69,9 @@ beforeEach(async () => {
   origin = join(work, 'templates');
   mkdirSync(origin);
   await git('init', '--quiet', '--initial-branch=main');
-  write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
+  write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
   write(
-    'squadrons/blueprints/team.yaml',
+    '.aeolus/squadrons/blueprints/team.yaml',
     `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`,
   );
   await git('add', '.');

@@ -59,8 +59,8 @@ beforeEach(async () => {
   origin = join(work, 'templates');
   mkdirSync(origin);
   await git('init', '--quiet', '--initial-branch=main');
-  write('squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\ncharter: You test.\n');
-  write('squadrons/blueprints/team.yaml', `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`);
+  write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\ncharter: You test.\n');
+  write('.aeolus/squadrons/blueprints/team.yaml', `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`);
   await git('add', '.');
   await git('commit', '--quiet', '-m', 'team');
   await git('tag', 'tester@1');
@@ -115,8 +115,8 @@ describe('the catalogue at the squadrons API', () => {
 
     expect(response.status).toBe(200);
     const { data } = listed.parse(await response.json()).result;
-    expect(data.templates).toEqual([expect.objectContaining({ name: 'tester', version: 1, checkInMinutes: 30, model: 'claude-opus-5-5', file: 'squadrons/templates/tester.yaml' })]);
-    expect(data.blueprints).toEqual([expect.objectContaining({ name: 'team', version: 1, file: 'squadrons/blueprints/team.yaml' })]);
+    expect(data.templates).toEqual([expect.objectContaining({ name: 'tester', version: 1, checkInMinutes: 30, model: 'claude-opus-5-5', file: '.aeolus/squadrons/templates/tester.yaml' })]);
+    expect(data.blueprints).toEqual([expect.objectContaining({ name: 'team', version: 1, file: '.aeolus/squadrons/blueprints/team.yaml' })]);
   });
 
   it('refuses without a signed-in console session', async () => {
