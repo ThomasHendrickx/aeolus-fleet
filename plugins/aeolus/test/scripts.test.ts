@@ -299,6 +299,29 @@ describe('the Codex wake bridge', () => {
     expect(readFileSync(calls, 'utf8')).toContain(`queue --thread ${threadId} --message Aeolus has 1 delivery waiting for scout.`);
     expect(readFileSync(calls, 'utf8')).not.toContain(CREW_TOKEN);
   });
+
+  it('detaches from SessionStart and still queues the task when a delivery arrives', async () => {
+    fleet = await startStubFleet([inbox(1)]);
+    crew(fleet.url);
+    const bin = join(data, 'bin');
+    const calls = join(data, 'codex.calls');
+    mkdirSync(bin);
+    const codex = join(bin, 'codex');
+    writeFileSync(codex, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${calls}"\n`);
+    chmodSync(codex, 0o700);
+    const threadId = '01a103c9-80b0-7ab1-82e3-6f4a2f70ad86';
+
+    expect(
+      run('aeolus-codex-wake.sh', {
+        args: ['start', threadId],
+        env: { PATH: `${bin}:${process.env.PATH ?? ''}` },
+      }),
+    ).toMatchObject({ status: 0, stdout: `aeolus: automatic wake-up armed for Codex task ${threadId}\n` });
+
+    await expect.poll(() => (statSync(calls, { throwIfNoEntry: false }) ? readFileSync(calls, 'utf8') : '')).toContain(
+      `queue --thread ${threadId}`,
+    );
+  });
 });
 
 describe('aeolus-mcp-hint', () => {
