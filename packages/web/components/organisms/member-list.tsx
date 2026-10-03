@@ -29,7 +29,7 @@ interface MemberListProps {
   ships: ReadonlyMap<string, ShipDetail>;
   /** The time reports are measured from. */
   now: Date;
-  /** Remove from squadron, while the squadron may lose members; none hides the action. */
+  /** Remove from squadron, while the squadron may lose members; none hides the action. A member retired in either the squadron or the fleet has none. */
   onRemove?: (member: Squadron['members'][number]) => void;
 }
 
@@ -121,7 +121,7 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
                       </span>
                     )}
                     <FleetFacts ship={ships.get(member.shipId)} now={now} />
-                    {onRemove && member.crew.status !== 'retired' && (
+                    {onRemove && member.crew.status !== 'retired' && ships.get(member.shipId)?.status !== 'retired' && (
                       <Button
                         size="xs"
                         variant="ghost"
