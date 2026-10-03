@@ -1,14 +1,15 @@
 /**
  * Templates and blueprints from git (docs/squadrons.md, "Files in git"), with
- * the git command line. Each fleet's repository is kept as its own bare mirror
- * in the cache folder, so one fleet never reads what another fetched; fetching brings it up to date with its tags, and a repository read
- * without fetching gives what its mirror holds, nothing before its first
- * fetch. A version is a tag `<name>@<n>`; its file is
- * `<path>/templates/<name>.yaml` or `<path>/blueprints/<name>.yaml` at the
- * tag's commit. A token, for a private repository, travels as basic
- * authentication on the fetch only, handed to git in its environment (which
- * only the same user can read), never in its command line; and it never
- * appears in what a failed fetch says.
+ * the git command line. Each fleet's repository is kept as its own bare
+ * mirror in the cache folder, so one fleet never reads what another fetched.
+ * Fetching brings a mirror up to date with its tags; a repository read
+ * without fetching gives what its mirror holds, and nothing before its first
+ * fetch or when git cannot read its mirror. A version is a tag `<name>@<n>`;
+ * its file is `<path>/templates/<name>.yaml` or
+ * `<path>/blueprints/<name>.yaml` at the tag's commit. A token, for a private
+ * repository, travels as basic authentication on the fetch only, handed to
+ * git in its environment (which only the same user can read), never in its
+ * command line; and it never appears in what a failed fetch says.
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -118,10 +119,16 @@ function parsed(text: string): { content: unknown; parseError?: string } {
   }
 }
 
-/** Every tagged template and blueprint version in a repository's mirror. */
+/** Every tagged template and blueprint version in a repository's mirror; none when git cannot read the mirror. */
 async function filesIn(repository: RepositoryToRead, mirror: string): Promise<SourceFile[]> {
+  let tagged: Awaited<ReturnType<typeof tags>>;
+  try {
+    tagged = await tags(mirror);
+  } catch {
+    return [];
+  }
   const files: SourceFile[] = [];
-  for (const { tag, commit, committedAt } of await tags(mirror)) {
+  for (const { tag, commit, committedAt } of tagged) {
     const version = VERSION_TAG.exec(tag);
     if (!version) {
       continue;

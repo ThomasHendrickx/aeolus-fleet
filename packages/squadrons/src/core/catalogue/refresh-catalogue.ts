@@ -15,16 +15,35 @@ export type RefreshCatalogue = (fleetId: FleetId, scope: RefreshScope) => Promis
  * and records when each was fetched and why one could not be; every other
  * repository is read from what it last fetched. Nothing fetches by itself: a
  * fetch happens when the operator adds a repository or refreshes.
+ *
+ * Refreshes run one at a time, each after the one before it settled, so the
+ * catalogue served is always built from the repositories as the last refresh
+ * found them, never from an earlier refresh that finished later. One process
+ * serves the database (the process lock), so this one queue is all of them.
  */
-export function createRefreshCatalogue(deps: { store: RepositoryStore; source: RepositoryReader; holder: CatalogueHolder; clock: Clock }): RefreshCatalogue {
-  return async (fleetId, scope) => {
-    const repositories = await deps.store.list(fleetId);
-    const isFetched = (name: string): boolean => scope === 'all' || (typeof scope === 'object' && scope.name === name);
-    const { files, fetched } = await deps.source.read(repositories, { fetch: isFetched });
-    const at = deps.clock.now();
-    for (const { name, error } of fetched) {
-      await deps.store.recordFetch(fleetId, { name, at, error });
-    }
-    deps.holder.set(assembleCatalogue(files));
+interface RefreshDeps {
+  store: RepositoryStore;
+  source: RepositoryReader;
+  holder: CatalogueHolder;
+  clock: Clock;
+}
+
+export function createRefreshCatalogue(deps: RefreshDeps): RefreshCatalogue {
+  let queue: Promise<void> = Promise.resolve();
+  return (fleetId, scope) => {
+    const refreshing = queue.then(() => refresh(deps, { fleetId, scope }));
+    queue = refreshing.catch(() => undefined);
+    return refreshing;
   };
+}
+
+async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId; scope: RefreshScope }): Promise<void> {
+  const repositories = await deps.store.list(fleetId);
+  const isFetched = (name: string): boolean => scope === 'all' || (typeof scope === 'object' && scope.name === name);
+  const { files, fetched } = await deps.source.read(repositories, { fetch: isFetched });
+  const at = deps.clock.now();
+  for (const { name, error } of fetched) {
+    await deps.store.recordFetch(fleetId, { name, at, error });
+  }
+  deps.holder.set(assembleCatalogue(files));
 }
