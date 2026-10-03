@@ -44,6 +44,7 @@ describe('operatorInboxOutputSchema', () => {
       inReplyTo: null,
       sentAt: AT,
       contentType: 'text/plain',
+      model: 'claude-opus-5-5',
       payload: 'Release 2.14 is staged on hetzner-2. Promote to production? Reply "go" to promote.',
     },
   };

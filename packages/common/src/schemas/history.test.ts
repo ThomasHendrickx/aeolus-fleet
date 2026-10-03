@@ -112,6 +112,7 @@ describe('shipMessagesOutputSchema', () => {
     inReplyTo: null,
     sentAt: AT,
     contentType: 'text/plain',
+    model: 'claude-opus-5-5',
     preview: 'Review PR 48',
     delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner },
   };
@@ -143,6 +144,7 @@ describe('messageOutputSchema', () => {
     inReplyTo: newId('message'),
     sentAt: AT,
     contentType: 'application/json',
+    model: null,
     payload: '{"pr":48}',
     delivery: {
       id: newId('delivery'),
@@ -150,9 +152,9 @@ describe('messageOutputSchema', () => {
       attempts: 2,
       claimedBy: planner,
       history: [
-        { seq: 3, type: 'DeliveryClaimed', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, attempts: 2 },
-        { seq: 2, type: 'DeliveryReturned', occurredAt: AT, ship: planner, location: null, attempts: 1 },
-        { seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null, location: null, attempts: null },
+        { seq: 3, type: 'DeliveryClaimed', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2 },
+        { seq: 2, type: 'DeliveryReturned', occurredAt: AT, ship: planner, location: null, harness: null, attempts: 1 },
+        { seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null, location: null, harness: null, attempts: null },
       ],
     },
   };
