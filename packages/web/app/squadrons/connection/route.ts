@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { ConnectSquadronsError, connectSquadrons } from '../../../lib/connect-squadrons';
 import { readSquadronsConnection, squadronsCalls } from '../../../lib/squadrons-calls';
-import { serverUrlFrom } from '../../../lib/server-url';
+import { serverInternalUrlFrom } from '../../../lib/server-url';
 import { squadronsUrlFrom } from '../../../lib/squadrons-url';
 
 // Answer every request fresh: the connection changes.
@@ -38,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
   if (origin === null) {
     return Response.json({ message: 'Connect from the console' }, { status: 403 });
   }
-  const calls = squadronsCalls({ serverUrl: serverUrlFrom(process.env), squadronsUrl }, { cookie: request.headers.get('cookie') ?? '', origin });
+  const calls = squadronsCalls({ serverUrl: serverInternalUrlFrom(process.env), squadronsUrl }, { cookie: request.headers.get('cookie') ?? '', origin });
   try {
     return Response.json({ configured: true, connection: await connectSquadrons(calls, randomUUID) });
   } catch (error) {

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
-import { serverUrlFrom } from '../lib/server-url';
+import { serverInternalUrlFrom, serverUrlFrom } from '../lib/server-url';
 import { squadronsUrlFrom } from '../lib/squadrons-url';
 import { themeOfSession, themeScript } from '../lib/theme';
 import { geistMono, geistSans } from './fonts';
@@ -22,7 +22,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const serverUrl = serverUrlFrom(process.env);
   // The operator's theme lives on their account (dark on <html> as .dark,
   // docs/design/conventions.md, "Stack"); signed out, it is System.
-  const theme = await themeOfSession(serverUrl, (await cookies()).toString());
+  const theme = await themeOfSession(serverInternalUrlFrom(process.env), (await cookies()).toString());
   return (
     // The theme script sets the class before React hydrates.
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>

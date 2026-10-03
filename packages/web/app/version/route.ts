@@ -1,4 +1,4 @@
-import { serverUrlFrom } from '../../lib/server-url';
+import { serverInternalUrlFrom } from '../../lib/server-url';
 import { squadronsUrlFrom } from '../../lib/squadrons-url';
 import { webVersion } from '../../lib/version';
 
@@ -11,7 +11,7 @@ const TIMEOUT_MS = 3_000;
 export async function GET(): Promise<Response> {
   const squadronsUrl = squadronsUrlFrom(process.env);
   const body = await webVersion({
-    fetchServerVersion: () => fetch(`${serverUrlFrom(process.env)}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) }),
+    fetchServerVersion: () => fetch(`${serverInternalUrlFrom(process.env)}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) }),
     fetchSquadronsVersion:
       squadronsUrl === undefined ? undefined : () => fetch(`${squadronsUrl}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) }),
   });

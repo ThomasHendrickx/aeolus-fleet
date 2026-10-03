@@ -191,6 +191,25 @@ describe('installed from npm', () => {
     });
   });
 
+  it("reaches the server at AEOLUS_SERVER_INTERNAL_URL for the web app's own calls, when the public address does not lead there", async () => {
+    const internalWebUrl = `http://localhost:${String(await freePort())}`;
+    const unreachable = `http://localhost:${String(await freePort())}`;
+    const web = startBin({
+      bin: 'aeolus-web',
+      args: ['start'],
+      env: { PORT: new URL(internalWebUrl).port, AEOLUS_SERVER_URL: unreachable, AEOLUS_SERVER_INTERNAL_URL: serverUrl },
+    });
+
+    await expect
+      .poll(() => healthStatus(internalWebUrl), { timeout: ANSWER_TIMEOUT_MS, interval: 500, message: web.output() })
+      .toBe(200);
+    await expect(fetch(`${internalWebUrl}/health`).then((response) => response.json())).resolves.toEqual({
+      web: 'up',
+      server: 'up',
+      database: 'up',
+    });
+  });
+
   it('signs the operator in: the browser calls the server at the address the web app started with', async () => {
     browser = await launchChromium();
     const page = await browser.newPage({ baseURL: webUrl });
