@@ -24,6 +24,14 @@ export interface FleetRepository {
   count(): Promise<number>;
   list(): Promise<Fleet[]>;
   create(fleet: Fleet): Promise<void>;
+  /** The fleet, locked until the unit of work ends, so two deletes of it never both run. */
+  findForUpdate(fleetId: FleetId): Promise<Fleet | undefined>;
+  /**
+   * Deletes the fleet and every record in it, for good: its ships, leases,
+   * secrets, operator account and console sessions, messages, deliveries and
+   * events (decision 0020).
+   */
+  delete(fleetId: FleetId): Promise<void>;
 }
 
 /** Outbound port: the installation's requests, by request id; not scoped to a fleet (decision 0020). */

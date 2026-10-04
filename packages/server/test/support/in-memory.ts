@@ -197,6 +197,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.fleets.push({ ...fleet });
         return Promise.resolve();
       },
+      findForUpdate: (fleetId) => {
+        const fleet = state.fleets.find((held) => held.id === fleetId);
+        return Promise.resolve(fleet && { ...fleet });
+      },
+      delete: (fleetId) => {
+        // Every table that belongs to a fleet, as the Postgres adapter deletes them.
+        state.fleets.splice(0, state.fleets.length, ...state.fleets.filter((fleet) => fleet.id !== fleetId));
+        for (const table of FLEET_TABLES) {
+          const rows: { fleetId: FleetId }[] = state[table];
+          rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
+        }
+        return Promise.resolve();
+      },
     },
     ships: {
       create: (created) => {
@@ -954,6 +967,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
   return { state, uow, ships: tx.ships, callers, accounts, listing, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
+
+/** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
+const FLEET_TABLES = [
+  'ships',
+  'leases',
+  'credentials',
+  'operatorAccounts',
+  'consoleSessions',
+  'messages',
+  'deliveries',
+  'deliveryReads',
+  'leaseSeen',
+  'leaseReports',
+  'events',
+  'notices',
+] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests'>[];
 
 const TABLES = [
   'fleets',

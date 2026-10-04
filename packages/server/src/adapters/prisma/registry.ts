@@ -22,6 +22,25 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
     create: async (fleet) => {
       await db.fleet.create({ data: fleet });
     },
+    findForUpdate: async (fleetId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, name, created_at AS "createdAt" FROM fleets WHERE id = ${fleetId} FOR UPDATE`;
+      return row === undefined ? undefined : toFleet(row);
+    },
+    delete: async (fleetId) => {
+      // Children first: every foreign key restricts deletes. A message may answer
+      // or resend another of the fleet, so those links go before the messages.
+      await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
+    },
   };
 }
 
