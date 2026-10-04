@@ -174,7 +174,8 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
   const isFlagship = squadron?.flagship.shipId === ship.id;
   const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true };
   const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', testId: 'fleet-ship-copy-id', onSelect: copyId, isMenuOnly: true };
-  const pingAction: ShipAction = { key: 'ping', label: 'Ping', menuLabel: 'Ping', testId: 'fleet-ship-ping', onSelect: ping, isDisabled: !canPing(ship), isLoading: pingShip.isPending };
+  // Only a session can answer a ping: none is offered while the ship awaits crew.
+  const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending }] : [];
   const actions: ShipAction[] = [];
   if (ship.kind === 'operator') {
     actions.push({ key: 'inbox', label: 'Open inbox', menuLabel: 'Open inbox', testId: 'fleet-ship-open-inbox', href: '/inbox', isMenuOnly: true }, copy);
@@ -183,9 +184,9 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
   } else if (isFlagship) {
     actions.push({ key: 'squadron', label: 'Open squadron', menuLabel: 'Open squadron', testId: 'fleet-ship-open-squadron', href: `/squadrons/${squadron.id}` });
   } else if (isMembershipPending) {
-    actions.push(message, copy, pingAction);
+    actions.push(message, copy, ...pings);
   } else if (member && squadron) {
-    actions.push(message, copy, pingAction, {
+    actions.push(message, copy, ...pings, {
       key: 'crew-line',
       label: 'Get new crew line',
       menuLabel: 'Get new crew line…',
@@ -206,7 +207,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
       actions.push({ key: 'prompt', label: 'Get starting prompt', menuLabel: 'Get starting prompt…', testId: 'fleet-ship-prompt', onSelect: requestPrompt });
     } else {
       actions.push(
-        pingAction,
+        ...pings,
         { key: 'recrew', label: 'Re-crew', menuLabel: 'Re-crew…', testId: 'fleet-ship-recrew', onSelect: open('recrew') },
         { key: 'release', label: 'Release', menuLabel: 'Release ship…', testId: 'fleet-ship-release', onSelect: open('release') },
       );
