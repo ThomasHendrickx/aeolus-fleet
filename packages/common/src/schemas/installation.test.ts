@@ -49,9 +49,10 @@ describe('installationFleetSchema', () => {
     shipCount: 3,
     messagesLast7Days: 12,
     lastActivityAt: '2026-10-04T12:30:00.000Z',
+    storage: 4096,
   };
 
-  it('describes a fleet: id, name, operator email, created, ships not retired, messages of the last 7 days and last activity', () => {
+  it('describes a fleet: id, name, operator email, created, ships not retired, messages of the last 7 days, last activity and storage', () => {
     expect(installationFleetSchema.parse(fleet)).toEqual(fleet);
   });
 
@@ -62,6 +63,8 @@ describe('installationFleetSchema', () => {
   it.each([
     ['a negative ship count', { ...fleet, shipCount: -1 }],
     ['a fractional message count', { ...fleet, messagesLast7Days: 1.5 }],
+    ['a missing storage', { ...fleet, storage: undefined }],
+    ['a negative storage', { ...fleet, storage: -1 }],
   ])('refuses %s', (_case, input) => {
     expect(installationFleetSchema.safeParse(input).success).toBe(false);
   });
