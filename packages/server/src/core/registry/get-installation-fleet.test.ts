@@ -10,7 +10,7 @@ let getFleet: GetInstallationFleet;
 
 beforeEach(() => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
-  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, clock: core.clock });
+  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock });
 });
 
 describe('getting one fleet of the installation', () => {

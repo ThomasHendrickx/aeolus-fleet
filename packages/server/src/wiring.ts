@@ -13,7 +13,7 @@ import {
 } from './adapters/prisma/registry.js';
 import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
-import { createPrismaInstallationFleets } from './adapters/prisma/installation.js';
+import { createPrismaInstallationFleets, createPrismaInstallationSettings } from './adapters/prisma/installation.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './core/identity/issue-sign-in-ticket.js';
@@ -148,8 +148,8 @@ export function createUseCases(options: {
     deleteFleet: createDeleteFleet({ uow, clock, hasher: sha256Hasher }),
     issueSignInTicket: createIssueSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     redeemSignInTicket: createRedeemSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
-    listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), clock }),
-    getInstallationFleet: createGetInstallationFleet({ fleets: createPrismaInstallationFleets(prisma), clock }),
+    listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),
+    getInstallationFleet: createGetInstallationFleet({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),

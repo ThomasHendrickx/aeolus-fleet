@@ -206,13 +206,23 @@ export interface InstallationFleetFacts {
   lastActivityAt: Date | null;
   /** The UTF-8 bytes of every message payload it ever stored. */
   storage: number;
+  /** The messages it stored on each UTC day (YYYY-MM-DD) from the window's first day on; a day without any is left out. */
+  messagesPerUtcDay: { date: string; count: number }[];
+  /** How its limits are set. */
+  limitSettings: FleetLimitSettings;
+}
+
+/** What a read of the installation's fleets counts messages over: since a moment, and per UTC day from a first day. */
+export interface InstallationFleetWindow {
+  since: Date;
+  firstDay: Date;
 }
 
 /** Outbound port: the fleets read across the installation; reachable only with the installation token. */
 export interface InstallationFleets {
-  /** Every fleet, oldest first, counting its messages stored since `since`. */
-  list(since: Date): Promise<InstallationFleetFacts[]>;
-  find(fleetId: FleetId, since: Date): Promise<InstallationFleetFacts | undefined>;
+  /** Every fleet, oldest first, counting its messages over the window. */
+  list(window: InstallationFleetWindow): Promise<InstallationFleetFacts[]>;
+  find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
 export interface FleetListing {

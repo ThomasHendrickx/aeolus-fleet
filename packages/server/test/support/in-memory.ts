@@ -31,6 +31,7 @@ import type {
   InFlightDeliveries,
   InstallationFleetFacts,
   InstallationFleets,
+  InstallationFleetWindow,
   InstallationRequestRepository,
   InstallationSettingsRepository,
   LeaseRepository,
@@ -780,7 +781,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lastModel: lastModelOf(held),
     };
   };
-  const installationFactsOf = (fleet: Fleet, since: Date): InstallationFleetFacts => {
+  const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {
     const times = state.events.filter((event) => event.fleetId === fleet.id).map((event) => event.occurredAt.getTime());
     return {
       fleetId: fleet.id,
@@ -788,19 +789,26 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       operatorEmail: state.operatorAccounts.find((account) => account.fleetId === fleet.id)?.email ?? '',
       createdAt: fleet.createdAt,
       shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
-      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= since).length,
+      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.since).length,
       lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
       storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + Buffer.byteLength(message.payload, 'utf8'), 0),
+      messagesPerUtcDay: Object.entries(
+        Object.groupBy(
+          state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.firstDay),
+          (message) => message.createdAt.toISOString().slice(0, 10),
+        ),
+      ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
+      limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
     };
   };
   const installationFleets: InstallationFleets = {
-    list: (since) =>
+    list: (window) =>
       Promise.resolve(
-        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, since)),
+        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, window)),
       ),
-    find: (fleetId, since) => {
+    find: (fleetId, window) => {
       const fleet = state.fleets.find((held) => held.id === fleetId);
-      return Promise.resolve(fleet && installationFactsOf(fleet, since));
+      return Promise.resolve(fleet && installationFactsOf(fleet, window));
     },
   };
 

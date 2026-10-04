@@ -19,7 +19,7 @@ let hemmaArgo: ShipId;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-01T12:00:00.000Z');
-  listFleets = createListInstallationFleets({ fleets: core.installationFleets, clock: core.clock });
+  listFleets = createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock });
   ({ fleetId: first } = await initialiseFleet(core));
   core.clock.advance(DAY_MS);
   ({ fleetId: hemma, operatorShipId: hemmaArgo } = unwrap(
