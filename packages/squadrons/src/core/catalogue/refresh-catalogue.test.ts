@@ -49,6 +49,31 @@ describe('refreshing the catalogue', () => {
     expect(holder.get(FLEET).templates.map((template) => template.repository)).toEqual(['github.com/acme/one', 'github.com/acme/two']);
   });
 
+  it("gives a reason for each tag a repository read no file at, and knows the fleet's repositories that hold no version yet", async () => {
+    source.files.set('github.com/acme/one', []);
+    source.tags.set('github.com/acme/one', [{ repository: 'github.com/acme/one', tag: 'planner@1', path: '.aeolus/squadrons' }]);
+    source.files.set('github.com/acme/two', [
+      {
+        ...tester('github.com/acme/two'),
+        kind: 'blueprint',
+        name: 'team',
+        file: '.aeolus/squadrons/blueprints/team.yaml',
+        content: { description: 'A team.', roles: { tester: { template: 'github.com/acme/one#tester@1' } } },
+      },
+    ]);
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).problems.map(({ repository, kind, message }) => ({ repository, kind, message }))).toEqual([
+      {
+        repository: 'github.com/acme/one',
+        kind: 'tag',
+        message: 'the tag planner@1 points at a commit with neither .aeolus/squadrons/templates/planner.yaml nor .aeolus/squadrons/blueprints/planner.yaml',
+      },
+      { repository: 'github.com/acme/two', kind: 'blueprint', message: 'roles.tester.template: github.com/acme/one has no template tester at any tag' },
+    ]);
+  });
+
   it('records when each repository was fetched, and why one could not be', async () => {
     source.failing.set('github.com/acme/two', 'Authentication failed');
 

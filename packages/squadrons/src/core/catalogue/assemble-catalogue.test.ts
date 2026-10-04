@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { assembleCatalogue } from './assemble-catalogue.js';
 import { CHARTER_MAX_BYTES } from './catalogue.js';
-import type { SourceFile } from './ports.js';
+import type { SourceFile, UnreadTag } from './ports.js';
 
 const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = new Date('2026-10-03T08:00:00.000Z');
@@ -13,6 +13,11 @@ function template(tagged: { name: string; version: number }, content: unknown): 
 
 function blueprint(tagged: { name: string; version: number }, content: unknown): SourceFile {
   return { repository: REPO, kind: 'blueprint', ...tagged, file: `squadrons/blueprints/${tagged.name}.yaml`, commit: `b1ue${String(tagged.version)}`, committedAt: AT, content };
+}
+
+/** The catalogue of the files and tags read from REPO, the one repository squadrons is given. */
+function catalogueOf(files: SourceFile[], tags: UnreadTag[] = []) {
+  return assembleCatalogue({ repositories: [REPO], files, tags });
 }
 
 const tester = {
@@ -40,7 +45,7 @@ const templates = [template({ name: 'tester', version: 4 }, tester), template({ 
 
 describe('a version in the catalogue', () => {
   it('keeps the path of its file within its repository, for the template and the blueprint alike', () => {
-    const { templates: held, blueprints } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
+    const { templates: held, blueprints } = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
 
     expect(held.find((each) => each.name === 'tester')?.file).toBe('squadrons/templates/tester.yaml');
     expect(blueprints[0]?.file).toBe('squadrons/blueprints/hemma-feature.yaml');
@@ -49,7 +54,7 @@ describe('a version in the catalogue', () => {
 
 describe('a ship template', () => {
   it('reads its description, check-in interval in minutes, pinned model, launch note, charter and hand-offs', () => {
-    const { templates: read } = assembleCatalogue([template({ name: 'tester', version: 4 }, tester)]);
+    const { templates: read } = catalogueOf([template({ name: 'tester', version: 4 }, tester)]);
 
     expect(read).toEqual([
       {
@@ -73,13 +78,13 @@ describe('a ship template', () => {
   });
 
   it('has no model, no launch note and no hand-offs when it gives none', () => {
-    const [read] = assembleCatalogue([template({ name: 'planner', version: 1 }, planner)]).templates;
+    const [read] = catalogueOf([template({ name: 'planner', version: 1 }, planner)]).templates;
 
     expect(read).toMatchObject({ model: null, launchNote: null, handoffs: [], checkInMinutes: 120 });
   });
 
   it('takes a charter of exactly 48 KB', () => {
-    expect(assembleCatalogue([template({ name: 'tester', version: 4 }, { ...tester, charter: 'x'.repeat(CHARTER_MAX_BYTES) })]).templates).toHaveLength(1);
+    expect(catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, charter: 'x'.repeat(CHARTER_MAX_BYTES) })]).templates).toHaveLength(1);
   });
 
   it.each([
@@ -95,7 +100,7 @@ describe('a ship template', () => {
     { label: 'a model that follows the latest release', content: { ...tester, model: 'claude-opus-latest' }, field: 'model' },
     { label: 'a model id with capitals', content: { ...tester, model: 'Claude-Opus-5-5' }, field: 'model' },
   ])('is left out with a problem when it has $label', ({ content, field }) => {
-    const { templates: read, problems } = assembleCatalogue([template({ name: 'tester', version: 4 }, content)]);
+    const { templates: read, problems } = catalogueOf([template({ name: 'tester', version: 4 }, content)]);
 
     expect(read).toEqual([]);
     expect(problems).toMatchObject([{ repository: REPO, kind: 'template', name: 'tester', version: 4 }]);
@@ -105,7 +110,7 @@ describe('a ship template', () => {
 
 describe('a squadron blueprint', () => {
   it('reads its roles with their template versions and counts, hand-offs, and plain member names', () => {
-    const { blueprints, problems } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
+    const { blueprints, problems } = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]);
 
     expect(problems).toEqual([]);
     expect(blueprints).toEqual([
@@ -133,13 +138,13 @@ describe('a squadron blueprint', () => {
   });
 
   it('may choose prefixed member names', () => {
-    const [read] = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
+    const [read] = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
 
     expect(read?.memberNames).toBe('prefixed');
   });
 
   function problemsOf(content: unknown) {
-    const { blueprints, problems } = assembleCatalogue([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)]);
+    const { blueprints, problems } = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)]);
     expect(blueprints).toEqual([]);
     return problems.map((problem) => problem.message);
   }
@@ -158,5 +163,95 @@ describe('a squadron blueprint', () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatch(message);
+  });
+});
+
+describe('why a version is left out', () => {
+  function reasonOf(files: SourceFile[], tags: UnreadTag[] = []): string | undefined {
+    const { problems } = catalogueOf(files, tags);
+    expect(problems).toHaveLength(1);
+    return problems[0]?.message;
+  }
+
+  it('names a missing field and what it expects', () => {
+    expect(reasonOf([template({ name: 'tester', version: 4 }, { ...tester, description: undefined })])).toBe('description is missing: expected one line of text');
+  });
+
+  it('names a field of the wrong kind and what it expects', () => {
+    expect(reasonOf([template({ name: 'tester', version: 4 }, { ...tester, checkIn: 30 })])).toBe('checkIn must be a duration such as 30m or 2h');
+  });
+
+  it("names a blueprint's missing roles and what they hold", () => {
+    expect(reasonOf([blueprint({ name: 'hemma-feature', version: 4 }, { description: 'A team.' })])).toBe('roles is missing: expected a mapping of role names, each to its template');
+  });
+
+  it('names a role whose name is no handle', () => {
+    expect(reasonOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, roles: { ...hemmaFeature.roles, Tester: { template: `${REPO}#tester@4` } } })])).toBe(
+      'roles.Tester must be a handle: lowercase letters, digits, hyphens or colons',
+    );
+  });
+
+  it('says a file is no valid YAML, and where', () => {
+    const file: SourceFile = { ...template({ name: 'tester', version: 4 }, undefined), parseError: 'Nested mappings are not allowed in compact mappings at line 2, column 10' };
+
+    expect(reasonOf([file])).toBe('the template is no valid YAML: Nested mappings are not allowed in compact mappings at line 2, column 10');
+  });
+
+  it('says a blueprint references a template that is at no tag', () => {
+    const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, reviewer: { template: `${REPO}#reviewer@1` } } };
+
+    expect(reasonOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)])).toBe(`roles.reviewer.template: ${REPO} has no template reviewer at any tag`);
+  });
+
+  it('says a blueprint references a version that is not tagged, and which are', () => {
+    const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@9` } } };
+
+    expect(reasonOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)])).toBe(`roles.tester.template: ${REPO} has no tester@9, only tester@4`);
+  });
+
+  it('says a blueprint references a version that is left out itself', () => {
+    const files = [template({ name: 'tester', version: 4 }, { ...tester, checkIn: 'often' }), ...templates.slice(1), blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)];
+
+    expect(catalogueOf(files).problems.map((problem) => problem.message)).toEqual([
+      'checkIn must be a duration such as 30m or 2h',
+      `roles.tester.template: ${REPO}#tester@4 is left out itself, for its own reason`,
+    ]);
+  });
+
+  it('says a reference differs from a repository only in letter case, and that it must match exactly', () => {
+    const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: 'github.com/ThomasHendrickx/squadron-templates#tester@4' } } };
+
+    expect(reasonOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)])).toBe(
+      `roles.tester.template: squadrons knows no repository github.com/ThomasHendrickx/squadron-templates; it knows ${REPO}, and a reference must match its name exactly, letter case too`,
+    );
+  });
+
+  it('finds the templates of a repository it is given that holds no version yet', () => {
+    const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: 'github.com/acme/empty#tester@1' } } };
+    const { problems } = assembleCatalogue({ repositories: [REPO, 'github.com/acme/empty'], files: [...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)], tags: [] });
+
+    expect(problems.map((problem) => problem.message)).toEqual(['roles.tester.template: github.com/acme/empty has no template tester at any tag']);
+  });
+
+  it('says a tag points at a commit with no file of its name', () => {
+    expect(catalogueOf([], [{ repository: REPO, tag: 'tester@3', path: '.aeolus/squadrons' }]).problems).toEqual([
+      {
+        repository: REPO,
+        kind: 'tag',
+        name: 'tester',
+        version: 3,
+        message: 'the tag tester@3 points at a commit with neither .aeolus/squadrons/templates/tester.yaml nor .aeolus/squadrons/blueprints/tester.yaml',
+      },
+    ]);
+  });
+
+  it('says a tag names no template or blueprint when its name is not lowercase', () => {
+    expect(reasonOf([], [{ repository: REPO, tag: 'Tester@1', path: '.aeolus/squadrons' }])).toBe(
+      'the tag Tester@1 names no template or blueprint: a version tag is <name>@<n>, its name in lowercase as the file is named, such as tester@1',
+    );
+  });
+
+  it('gives no reason for a repository whose every file and tag is read', () => {
+    expect(catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature)]).problems).toEqual([]);
   });
 });

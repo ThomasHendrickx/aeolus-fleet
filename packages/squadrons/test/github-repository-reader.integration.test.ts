@@ -64,12 +64,29 @@ describe('the GitHub repository reader', () => {
     });
   });
 
-  it('ignores tags that are no <name>@<n>, and tags whose commit has no such file', async () => {
+  it('ignores tags that are no <name>@<n>, and hands back each version tag it read no file at, its name lowercase or not', async () => {
     github.repositories.set('acme/templates', {
-      tags: [aTag('v1.0.0', { files: { '.aeolus/squadrons/templates/v1.0.0.yaml': TESTER } }), aTag('planner@1', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } }), aTag('tester@0', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } })],
+      tags: [
+        aTag('v1.0.0', { files: { '.aeolus/squadrons/templates/v1.0.0.yaml': TESTER } }),
+        aTag('tester@0', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } }),
+        aTag('planner@1', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } }),
+        aTag('Tester@2', { files: { '.aeolus/squadrons/templates/Tester.yaml': TESTER } }),
+      ],
     });
 
-    await expect(reader().read([aRepository()], fetchAll).then((read) => read.files)).resolves.toEqual([]);
+    const { files, tags } = await reader().read([aRepository()], fetchAll);
+
+    expect(files).toEqual([]);
+    expect(tags).toEqual([
+      { repository: 'github.com/acme/templates', tag: 'planner@1', path: '.aeolus/squadrons' },
+      { repository: 'github.com/acme/templates', tag: 'Tester@2', path: '.aeolus/squadrons' },
+    ]);
+  });
+
+  it('hands back no tag of a repository whose every version tag holds its file', async () => {
+    github.repositories.set('acme/templates', { tags: [aTag('tester@1', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } }), aTag('v2.0.0')] });
+
+    await expect(reader().read([aRepository()], fetchAll).then((read) => read.tags)).resolves.toEqual([]);
   });
 
   it('reads from the path a repository sets instead of .aeolus/squadrons/', async () => {
@@ -187,6 +204,16 @@ describe('reading again', () => {
     expect(unfetched.files.map((file) => file.name)).toEqual(['tester']);
     expect(github.requests).toEqual([]);
     expect(forgotten.files).toEqual([]);
+  });
+
+  it('gives the version tags it read no file at from what a repository last fetched, too', async () => {
+    github.repositories.set('acme/templates', { tags: [aTag('planner@1')] });
+    const reading = reader();
+    await reading.read([aRepository()], fetchAll);
+
+    const unfetched = await reading.read([aRepository()], fetchNone);
+
+    expect(unfetched.tags.map((tag) => tag.tag)).toEqual(['planner@1']);
   });
 
   it('keeps what a repository last fetched when a fetch fails', async () => {
