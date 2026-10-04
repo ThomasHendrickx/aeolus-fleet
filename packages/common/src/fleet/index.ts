@@ -71,6 +71,7 @@ export const EVENT_TYPES = [
   'ShipRenamed',
   'ShipReported',
   'SignInTicketIssued',
+  'FleetLimitsChanged',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
