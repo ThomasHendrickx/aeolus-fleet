@@ -10,13 +10,14 @@ import { ok, type Result } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
+import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
-export interface SendMessageTx extends ResolveSelectorTx {
+export interface SendMessageTx extends ResolveSelectorTx, DailyMessageLimitTx {
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: EventLog;
@@ -44,7 +45,8 @@ export type SendMessageRefusal =
   | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE'>
   | RepeatRefusal
   | UnresolvableSelector
-  | AcceptRefusal;
+  | AcceptRefusal
+  | DomainError<'MESSAGE_LIMIT_REACHED'>;
 
 export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
 
@@ -143,6 +145,11 @@ export async function sendWithin(
   if (!recipient.isOk) {
     return recipient;
   }
+  const at = clock.now();
+  const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+  if (!withinLimit.isOk) {
+    return withinLimit;
+  }
   const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
   const accepted = acceptMessage(
     { recipient: recipient.value, repliedTo },
@@ -158,7 +165,7 @@ export async function sendWithin(
       idempotencyKey: send.request.idempotencyKey,
       requestHash,
       inReplyTo,
-      at: clock.now(),
+      at,
     },
   );
   if (!accepted.isOk) {

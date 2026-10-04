@@ -95,6 +95,11 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // one's lookup sees the ship it created.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${name}))`;
     },
+    lockShipCount: async (fleetId) => {
+      // A transaction-level advisory lock on the fleet's ship count, released at commit or rollback.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('ship-count'), hashtext(${fleetId}))`;
+    },
+    countActive: (fleetId) => db.ship.count({ where: { fleetId, retiredAt: null } }),
     lockCommissionKey: async ({ fleetId, by, idempotencyKey }) => {
       // As for a name: a transaction-level advisory lock on the commissioning
       // ship and its key, so the second commission under one key waits and then

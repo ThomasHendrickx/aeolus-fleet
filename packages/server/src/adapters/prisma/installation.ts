@@ -2,7 +2,8 @@ import { idSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { InstallationRequest } from '../../core/registry/installation-request.js';
-import type { InstallationFleetFacts, InstallationFleets, InstallationRequestRepository } from '../../core/registry/ports.js';
+import { NO_INSTALLATION_SETTINGS } from '../../core/registry/limits.js';
+import type { InstallationFleetFacts, InstallationFleets, InstallationRequestRepository, InstallationSettingsRepository } from '../../core/registry/ports.js';
 import type { Db, PrismaClient } from './client.js';
 
 // The installation's own reads and records (docs/architecture.md,
@@ -87,5 +88,24 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
   return {
     list: (since) => read(null, since),
     find: async (fleetId, since) => (await read(fleetId, since))[0],
+  };
+}
+
+/** The one row of the installation's settings. */
+const SETTINGS_ROW = 1;
+
+export function createPrismaInstallationSettings(db: Db): InstallationSettingsRepository {
+  return {
+    read: async () => {
+      const row = await db.installationSettings.findUnique({ where: { id: SETTINGS_ROW } });
+      if (!row) {
+        return { ...NO_INSTALLATION_SETTINGS };
+      }
+      const { defaultShipLimit, defaultDailyMessageLimit, fleetCap } = row;
+      return { defaultShipLimit, defaultDailyMessageLimit, fleetCap };
+    },
+    write: async (settings) => {
+      await db.installationSettings.upsert({ where: { id: SETTINGS_ROW }, create: { id: SETTINGS_ROW, ...settings }, update: settings });
+    },
   };
 }

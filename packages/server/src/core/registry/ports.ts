@@ -71,6 +71,13 @@ export interface ShipRepository {
    * of work ends, so two commissions under one key never both find it unused.
    */
   lockCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<void>;
+  /**
+   * Holds the fleet's ship-count lock until the unit of work ends, so two
+   * commissions at the ship limit never both see room for one more.
+   */
+  lockShipCount(fleetId: FleetId): Promise<void>;
+  /** The fleet's ships that are not retired, argo included. */
+  countActive(fleetId: FleetId): Promise<number>;
   /** The ship this commissioning ship commissioned under this idempotency key, retired or not. */
   findByCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<Ship | undefined>;
   /**

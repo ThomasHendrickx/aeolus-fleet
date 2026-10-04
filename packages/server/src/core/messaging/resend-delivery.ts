@@ -8,12 +8,13 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { dismissForResend, type DismissRefusal } from './delivery.js';
 import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
-export interface ResendDeliveryTx extends ResolveSelectorTx {
+export interface ResendDeliveryTx extends ResolveSelectorTx, DailyMessageLimitTx {
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: EventLog;
@@ -23,6 +24,7 @@ export interface ResendDeliveryTx extends ResolveSelectorTx {
 export type ResendDeliveryRefusal =
   | DomainError<'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT'>
   | DismissRefusal
+  | DomainError<'MESSAGE_LIMIT_REACHED'>
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal;
@@ -96,6 +98,10 @@ export function createResendDelivery(deps: {
       const recipient = await resolveSelector(tx, { fleetId, selector });
       if (!recipient.isOk) {
         return recipient;
+      }
+      const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+      if (!withinLimit.isOk) {
+        return withinLimit;
       }
       const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
       const accepted = acceptMessage(

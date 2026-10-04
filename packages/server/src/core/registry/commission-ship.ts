@@ -8,11 +8,12 @@ import { recordEvent, shipActor } from '../shared/events.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import type { ShipRepository } from './ports.js';
 import { commissionAgentShip, type CommissionRefusal } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface CommissionShipTx extends StartingPromptTx {
+export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
   ships: ShipRepository;
 }
 
@@ -37,7 +38,7 @@ export interface CommissionedShip {
   startingPrompt: { issuedAt: Date; isClaimed: boolean } | null;
 }
 
-export type CommissionShipRefusal = CommissionRefusal | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED'>;
+export type CommissionShipRefusal = CommissionRefusal | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED'>;
 
 export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
@@ -87,6 +88,15 @@ export function createCommissionShip(deps: {
           secret: null,
           startingPrompt: secret ? { issuedAt: secret.issuedAt, isClaimed: secret.claimedAt !== null } : null,
         });
+      }
+
+      const { ships: shipLimit } = await appliedLimits(tx, fleetId);
+      if (shipLimit !== null) {
+        // Counted under the fleet's lock, held until the ship is stored: commissions at the limit never overshoot it.
+        await tx.ships.lockShipCount(fleetId);
+        if ((await tx.ships.countActive(fleetId)) >= shipLimit) {
+          return refuse('SHIP_LIMIT_REACHED', `The fleet is at its limit of ${String(shipLimit)} ships, so it takes no new one.`);
+        }
       }
 
       await tx.ships.lockName(fleetId, input.name);

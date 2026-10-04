@@ -271,6 +271,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
       lockName: () => Promise.resolve(),
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockShipCount: () => Promise.resolve(),
+      countActive: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
       lockCommissionKey: () => Promise.resolve(),
       findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
         Promise.resolve(
@@ -512,6 +515,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     messages: {
+      lockDailyCount: () => Promise.resolve(),
+      countCreatedSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
       create: (message) => {
         if (
           state.messages.some(
