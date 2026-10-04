@@ -106,6 +106,7 @@ describe('migrations', () => {
       'messages',
       'operators',
       'ships',
+      'sign_in_tickets',
     ]);
     expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets']);
   });
