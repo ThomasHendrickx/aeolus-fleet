@@ -12,6 +12,42 @@ export function resetTime(resetsAt: string): string {
   return `${new Date(resetsAt).toISOString().slice(11, 16)} UTC`;
 }
 
+/** Where a count stands against its limit (the LimitMeter part): below it, at it, over it (a limit lowered below use), or no limit. */
+export type MeterState = 'below' | 'at' | 'over' | 'none';
+
+/** A count against its limit, as fleet.limits gives it: the limit null when none applies. */
+export interface Metered {
+  count: number;
+  limit: number | null;
+}
+
+export function meterState({ count, limit }: Metered): MeterState {
+  if (limit === null) {
+    return 'none';
+  }
+  return count < limit ? 'below' : count === limit ? 'at' : 'over';
+}
+
+/** The line under a meter: what is left, that the limit is reached, or how far over it the count is; nothing without a limit. */
+export function meterCaption(metered: Metered): string | undefined {
+  const { count, limit } = metered;
+  if (limit === null) {
+    return undefined;
+  }
+  const state = meterState(metered);
+  return state === 'below' ? `${counted(limit - count)} left` : state === 'at' ? 'Limit reached' : `${counted(count - limit)} over the limit`;
+}
+
+/** Whether any limit applies to the fleet: without one, the console shows no meters. */
+export function hasLimits(limits: FleetLimitsOutput | undefined): limits is FleetLimitsOutput {
+  return limits !== undefined && (limits.ships.limit !== null || limits.dailyMessages.limit !== null);
+}
+
+/** A count as the meters write it: 1,000. */
+export function meterCount(value: number): string {
+  return counted(value);
+}
+
 /** The ship limit the fleet is at, or none while it has room or no limit applies. */
 export function shipLimitReached(limits: FleetLimitsOutput | undefined): number | undefined {
   const ships = limits?.ships;

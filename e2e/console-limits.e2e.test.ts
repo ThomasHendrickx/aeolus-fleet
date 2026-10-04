@@ -84,6 +84,16 @@ describe('a hosted console', () => {
 });
 
 describe('a console at its limits', () => {
+  it('shows no limits on the overview while none applies', async () => {
+    const page = await signedInPage();
+
+    // Once the console has read the fleet's limits, it shows none.
+    await Promise.all([page.waitForResponse((response) => response.url().includes('fleet.limits')), page.reload()]);
+    await page.getByTestId('fleet-commission').waitFor();
+
+    await expect(page.getByTestId('overview-limits').count()).resolves.toBe(0);
+  });
+
   it('says in Commission that the fleet is at its ship limit, with View limits, and commissions nothing', async () => {
     unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     await installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'fleet', limit: 2 } });
@@ -112,5 +122,31 @@ describe('a console at its limits', () => {
     await dialog.getByTestId('compose-send').click();
 
     await page.getByTestId('compose-message-limit').getByText('This message wasn’t sent').waitFor();
+  });
+
+  it('shows ships used and messages today against their limits on the overview, at the limit in the waiting tone, with View limits', async () => {
+    const page = await signedInPage();
+
+    const limits = page.getByTestId('overview-limits');
+    await limits.waitFor();
+    const ships = limits.getByTestId('limit-meter-ships');
+    const messages = limits.getByTestId('limit-meter-messages');
+    await expect(ships.getAttribute('data-state')).resolves.toBe('at');
+    await expect(ships.getByText('of 2 ships').count()).resolves.toBe(1);
+    await expect(ships.getByText('At limit').count()).resolves.toBe(1);
+    await expect(messages.getAttribute('data-state')).resolves.toBe('at');
+    await expect(messages.getByTestId('limit-meter-messages-caption').textContent()).resolves.toBe('Limit reached · resets at 00:00 UTC');
+    await expect(limits.getByTestId('overview-limits-view').getAttribute('href')).resolves.toBe(ACCOUNT_URL);
+  });
+
+  it('shows a limit not set as No limit beside one that is', async () => {
+    await installation().fleets.setLimits.mutate({ fleetId, dailyMessages: { kind: 'fleet', limit: null } });
+    const page = await signedInPage();
+
+    const messages = page.getByTestId('overview-limits').getByTestId('limit-meter-messages');
+    await messages.waitFor();
+
+    await expect(messages.getAttribute('data-state')).resolves.toBe('none');
+    await expect(messages.getByText('No limit').count()).resolves.toBe(1);
   });
 });

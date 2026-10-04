@@ -35,3 +35,5 @@ export const Forming: Story = { args: { status: 'forming' } };
 export const Sailing: Story = { args: { status: 'sailing' } };
 export const StandingDown: Story = { args: { status: 'standing-down' } };
 export const Disbanded: Story = { args: { status: 'disbanded' } };
+export const AtLimit: Story = { args: { status: 'at-limit' } };
+export const OverLimit: Story = { args: { status: 'over-limit' } };
