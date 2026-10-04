@@ -181,6 +181,20 @@ describe('the git repository reader', () => {
     await expect(reading.unfetched()).resolves.toEqual([]);
   });
 
+  it('deletes the mirror of a repository it forgets: read again, it holds nothing before its next fetch', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+
+    await reading.reader.forget({ fleetId: FLEET, name: 'example.com/templates', url: `file://${origin}` });
+
+    expect(readdirSync(join(work, 'cache', 'aeolus-squadrons'))).toEqual([]);
+    await expect(reading.unfetched()).resolves.toEqual([]);
+  });
+
   it("never gives another fleet's mirror: the same repository read by a second fleet holds nothing before that fleet fetches it", async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
     await git('add', '.');
@@ -276,6 +290,30 @@ describe('a private repository', () => {
     expect(argv.join('\n')).not.toContain(token);
     expect(argv.join('\n')).not.toContain(credentials);
     expect(lines).toContain(`GIT_CONFIG_VALUE_0=Authorization: Basic ${credentials}`);
+  });
+});
+
+describe('a mirror git cannot read after a fetch', () => {
+  let restore: (() => void) | undefined;
+
+  afterEach(() => {
+    restore?.();
+  });
+
+  it('says why as the fetch error', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
+    const faked = await fakeGit(`case "$*" in *for-each-ref*) echo 'fatal: bad object refs/tags/tester@1' >&2; exit 128;; esac\nexec '${realGit}' "$@"`);
+    restore = faked.restore;
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+
+    const { files, fetched } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null }], { fetch: () => true });
+
+    expect(files).toEqual([]);
+    expect(fetched).toEqual([{ name: 'example.com/templates', error: 'bad object refs/tags/tester@1' }]);
   });
 });
 

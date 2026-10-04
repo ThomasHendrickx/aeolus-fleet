@@ -42,6 +42,7 @@ export function fakeCatalogueSource(): RepositoryReader & {
   failing: Map<string, string>;
   fetches: string[];
   tokens: Map<string, string | null>;
+  forgotten: { fleetId: FleetId; url: string }[];
   /** Holds the next read back until the answered function is called. */
   holdNextRead: () => () => void;
 } {
@@ -52,6 +53,12 @@ export function fakeCatalogueSource(): RepositoryReader & {
     failing: new Map<string, string>(),
     fetches: new Array<string>(),
     tokens: new Map<string, string | null>(),
+    forgotten: new Array<{ fleetId: FleetId; url: string }>(),
+    forget: (repository: Pick<RepositoryToRead, 'fleetId' | 'name' | 'url'>) => {
+      source.forgotten.push({ fleetId: repository.fleetId, url: repository.url });
+      mirrored.delete(repository.name);
+      return Promise.resolve();
+    },
     holdNextRead: () => {
       let release = (): void => undefined;
       held = new Promise((resolve) => {
