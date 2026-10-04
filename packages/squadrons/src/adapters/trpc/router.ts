@@ -133,12 +133,6 @@ const CONNECT_CODES = {
   MISSING_SCOPES: 'BAD_REQUEST',
 } as const satisfies Record<string, TRPCError['code']>;
 
-const connectionOutputSchema = z.object({
-  state: z.enum(['not-connected', 'connected']),
-  ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
-  lastShipId: z.string().nullable(),
-});
-
 /** The connection as the console reads it: whether squadrons serves the fleet, and its connection. */
 const connectionStatusOutputSchema = z.object({
   enabled: z.boolean(),
@@ -339,13 +333,14 @@ export const squadronsRouter = t.router({
      */
     connect: servedProcedure
       .input(z.object({ shipId: idSchema('ship'), secret: z.string().min(1) }))
-      .output(connectionOutputSchema)
+      .output(connectionStatusOutputSchema)
       .mutation(async ({ ctx, input }) => {
         const connected = await ctx.connect({ operatorFleetId: ctx.fleetId, ...input });
         if (!connected.isOk) {
           throw new TRPCError({ code: CONNECT_CODES[connected.error.kind], message: connected.error.message });
         }
-        return connected.value;
+        // Answered as connection.status answers: connect works only while squadrons serves the fleet.
+        return { enabled: true, ...connected.value };
       }),
   }),
   squadrons: t.router({
