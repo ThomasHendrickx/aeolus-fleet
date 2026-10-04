@@ -61,6 +61,7 @@ Load the matching skill from `.claude/skills/` before writing code. They are man
 
 ## Working
 
+- Done means the acceptance criteria are met. A finding that does not block them is reported, not acted on.
 - One slice per session, one PR per slice. Keep the slice thin; list what you noticed but did not do.
 - Commit per logical step, not one catch-up commit.
 - Repo text must serve the current commit. What git shows (what changed, the steps taken) lives in commits and the PR, never in files. Decisions go into the docs or an ADR as current state.
