@@ -285,3 +285,62 @@ export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { cr
   const members = useQueryClient().getQueryData<FormedSquadron['members']>(crewLinesKey(squadronId)) ?? [];
   return new Map(members.map((member) => [member.shipId, { crewLine: member.crewLine, launchNote: member.launchNote }]));
 }
+
+export const repositorySchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  path: z.string(),
+  hasToken: z.boolean(),
+  addedAt: z.string(),
+  lastFetch: z.object({ at: z.string(), error: z.string().nullable() }).nullable(),
+});
+
+export type TemplateRepository = z.infer<typeof repositorySchema>;
+
+const REPOSITORIES_KEY = ['squadrons', 'repositories'];
+
+/** The repositories squadrons reads templates and blueprints from, with their last fetch; asked only while squadrons is connected. */
+export function useRepositories() {
+  const isConnected = useSquadronsConnection() === 'connected';
+  return useQuery({
+    queryKey: REPOSITORIES_KEY,
+    queryFn: () => call('repositories.list', { answers: z.array(repositorySchema) }),
+    enabled: isConnected,
+  });
+}
+
+/** After a repository changes: its fetch, and the catalogue it feeds. */
+function useRefreshRepositories() {
+  const queryClient = useQueryClient();
+  return async () => {
+    await Promise.all([queryClient.invalidateQueries({ queryKey: REPOSITORIES_KEY }), queryClient.invalidateQueries({ queryKey: ['squadrons', 'catalogue'] })]);
+  };
+}
+
+/** Adds a repository by its https URL, with an optional path and read token; squadrons fetches it at once. */
+export function useAddRepository() {
+  const refresh = useRefreshRepositories();
+  return useMutation({
+    mutationFn: (repository: { url: string; path?: string; token?: string }) =>
+      call('repositories.add', { input: repository, isMutation: true, answers: repositorySchema }),
+    onSuccess: refresh,
+  });
+}
+
+/** Removes a repository: its versions leave the catalogue at once. */
+export function useRemoveRepository() {
+  const refresh = useRefreshRepositories();
+  return useMutation({
+    mutationFn: (name: string) => call('repositories.remove', { input: { name }, isMutation: true, answers: z.strictObject({}) }),
+    onSuccess: refresh,
+  });
+}
+
+/** Fetches every repository now: the one way to refresh, as squadrons never fetches by itself. */
+export function useRefreshCatalogue() {
+  const refresh = useRefreshRepositories();
+  return useMutation({
+    mutationFn: () => call('catalogue.refresh', { isMutation: true, answers: z.strictObject({}) }),
+    onSuccess: refresh,
+  });
+}

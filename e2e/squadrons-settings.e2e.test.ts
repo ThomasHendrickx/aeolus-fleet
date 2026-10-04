@@ -139,4 +139,25 @@ describe('Settings, Squadrons', () => {
     await expect(database.ship.count({ where: { name: 'squadrons' } })).resolves.toBe(1);
     await expect(squadronsHealth()).resolves.toBe('connected');
   });
+
+  it('adds a repository that cannot be fetched: it is kept with why, and removing it after a confirm takes it out', async () => {
+    const page = await settingsPage();
+    const repositories = page.getByTestId('settings-repositories');
+    await repositories.getByText('No repositories yet').waitFor();
+
+    // Nothing answers on port 1: the fetch fails at once, and squadrons keeps the repository with why.
+    await page.getByTestId('repositories-url').fill('https://127.0.0.1:1/missing.git');
+    await page.getByTestId('repositories-add-submit').click();
+
+    const row = repositories.getByTestId('repositories-row');
+    await row.getByText('127.0.0.1:1/missing', { exact: true }).waitFor();
+    await row.getByTestId('repositories-error').waitFor();
+    await expect(page.getByTestId('repositories-url').inputValue()).resolves.toBe('');
+
+    await row.getByTestId('repositories-remove').click();
+    await page.getByTestId('repositories-remove-dialog').getByText('Remove 127.0.0.1:1/missing?').waitFor();
+    await page.getByTestId('repositories-remove-confirm').click();
+
+    await repositories.getByText('No repositories yet').waitFor();
+  });
 });
