@@ -16,6 +16,12 @@ import {
 
 const newId = createIdGenerator();
 
+describe('installationFleetsCreateInputSchema with a viewer ship', () => {
+  it('takes whether the fleet gets a viewer ship', () => {
+    expect(installationFleetsCreateInputSchema.parse({ requestId: 'demo-1', name: 'demo', operatorEmail: 'demo@example.com', viewer: true })).toMatchObject({ viewer: true });
+  });
+});
+
 describe('installationFleetsCreateInputSchema', () => {
   it('takes a request id, a fleet name and the operator email, dropping whitespace around the email', () => {
     expect(installationFleetsCreateInputSchema.parse({ requestId: 'signup-42', name: 'hemma', operatorEmail: ' thomas@example.com ' })).toEqual({
@@ -117,6 +123,8 @@ describe('installationOperatorsIssueSignInTicket', () => {
     const fleetId = newId('fleet');
 
     expect(installationOperatorsIssueSignInTicketInputSchema.parse({ fleetId })).toEqual({ fleetId });
+    expect(installationOperatorsIssueSignInTicketInputSchema.parse({ fleetId, as: 'viewer' })).toEqual({ fleetId, as: 'viewer' });
+    expect(installationOperatorsIssueSignInTicketInputSchema.safeParse({ fleetId, as: 'agent' }).success).toBe(false);
     expect(installationOperatorsIssueSignInTicketOutputSchema.parse({ ticket: 'aeolus_st_v1_abc' })).toEqual({ ticket: 'aeolus_st_v1_abc' });
   });
 

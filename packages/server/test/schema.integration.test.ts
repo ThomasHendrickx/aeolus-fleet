@@ -407,6 +407,7 @@ describe('console sessions', () => {
         fleetId,
         shipId: argo.id,
         leaseId,
+        idleLimitSeconds: 30 * 24 * 60 * 60,
         tokenHash,
         createdAt: now,
         lastUsedAt: now,

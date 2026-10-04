@@ -50,7 +50,7 @@ import { createRenameShip } from '../../src/core/registry/rename-ship.js';
 import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createReport } from '../../src/core/registry/report.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
-import type { Caller, Crew } from '../../src/core/shared/caller.js';
+import { isCrew, type Caller, type Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/core/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/core/shared/read-inbox.js';
@@ -99,8 +99,8 @@ export async function argoAboard(core: InMemoryCore): Promise<Crew> {
   const identity = identityUseCases(core);
   const { token } = unwrap(await identity.signIn(OPERATOR));
   const use = await identity.authenticate.byConsoleSession(token);
-  if (!use) {
-    throw new Error('The console session the sign-in started does not authenticate');
+  if (!use || !isCrew(use.caller)) {
+    throw new Error('The console session the sign-in started does not authenticate as the crew of argo');
   }
   return use.caller;
 }
@@ -260,6 +260,23 @@ export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@exam
     operatorEmail,
   });
   return unwrap(created);
+}
+
+/** A fleet the installation created with its viewer ship (decision 0022), answering the fleet, argo and the viewer ship. */
+export async function hostedFleetWithViewer(core: InMemoryCore): Promise<{ fleetId: FleetId; operatorShipId: ShipId; viewerShipId: ShipId }> {
+  const created = unwrap(
+    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({
+      requestId: 'signup-with-viewer',
+      name: 'demo',
+      operatorEmail: 'demo@example.com',
+      hasViewer: true,
+    }),
+  );
+  const viewer = core.state.ships.find((ship) => ship.fleetId === created.fleetId && ship.kind === 'viewer');
+  if (!viewer) {
+    throw new Error('the fleet was created without its viewer ship');
+  }
+  return { ...created, viewerShipId: viewer.id };
 }
 
 /**

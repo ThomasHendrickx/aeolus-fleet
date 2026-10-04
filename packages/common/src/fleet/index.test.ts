@@ -58,6 +58,7 @@ describe('eventTypeSchema', () => {
       'ShipReported',
       'SignInTicketIssued',
       'FleetLimitsChanged',
+      'ViewerSessionStarted',
     ]);
   });
 });
