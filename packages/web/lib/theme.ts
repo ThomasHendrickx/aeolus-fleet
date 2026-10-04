@@ -74,7 +74,8 @@ export async function themeOfSession(serverUrl: string, cookie: string | undefin
         ? body.result.data
         : undefined,
     );
-    return parsed.success ? parsed.data.theme : 'system';
+    // A viewer has no theme on the server: it follows the system (decision 0022).
+    return parsed.success && parsed.data.kind === 'operator' ? parsed.data.theme : 'system';
   } catch {
     return 'system';
   }

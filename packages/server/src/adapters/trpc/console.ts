@@ -48,7 +48,7 @@ export const consoleRouter = router({
     ctx.sessionCookie.set(token, expiresAt);
   }),
 
-  /** The signed-in operator: email, theme, and this console session's device and start. */
+  /** The signed-in operator: email, theme, and this console session's device and start; a viewer's session alone. */
   account: authenticatedProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
     const account = okOrThrow(await ctx.useCases.readAccount(ctx.caller));
     return { ...account, session: { ...account.session, since: account.session.since.toISOString() } };
@@ -59,8 +59,10 @@ export const consoleRouter = router({
    * service the operator uses beside the console (decision 0012), which
    * forwards the browser's cookie from its own server and serves its pages
    * without a login of its own. Only the cookie counts, never a crew token:
-   * a ship is no operator. Counts as console use, so the session's expiry
-   * moves as on any console call. A query: it comes from any origin.
+   * a ship is no operator. Says whose session it is, the operator's or a
+   * viewer's, and its ship's scopes, so that service serves a viewer reads
+   * only. Counts as console use, so the session's expiry moves as on any
+   * console call. A query: it comes from any origin.
    */
   session: publicProcedure.output(consoleSessionOutputSchema).query(async ({ ctx }) => {
     const { sessionToken } = ctx.credentials;
@@ -68,7 +70,12 @@ export const consoleRouter = router({
     if (!use) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
     }
-    return { fleetId: use.caller.fleetId, expiresAt: use.expiresAt.toISOString() };
+    const { fleetId, kind, scopes } = use.caller;
+    if (kind === 'agent') {
+      // A console session is the operator's or a viewer's; no agent ever signs in to the console.
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
+    }
+    return { fleetId, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes] };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */

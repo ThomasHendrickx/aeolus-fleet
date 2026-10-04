@@ -164,6 +164,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Fleet limits changed')], tone: 'ended', icon: 'fleet' };
     case 'SignInTicketIssued':
       return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
+    case 'ViewerSessionStarted':
+      return { parts: [text('Someone started viewing the fleet')], tone: 'ended', icon: 'password' };
     case 'MessageAccepted':
       return {
         parts: messageAccepted(entry, shipId),

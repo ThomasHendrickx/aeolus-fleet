@@ -100,6 +100,8 @@ model Ship {
   @@unique([fleetId, name], map: "ships_fleet_id_name_active_key", where: { retiredAt: null })
   /// Exactly one operator ship per fleet.
   @@unique([fleetId], map: "ships_fleet_id_operator_key", where: raw("kind = 'operator'::ship_kind"))
+  /// At most one viewer ship per fleet (decision 0022).
+  @@unique([fleetId], map: "ships_fleet_id_viewer_key", where: raw("kind = 'viewer'::ship_kind"))
   @@map("ships")
 }
 
@@ -338,12 +340,17 @@ enum Theme {
 /// The operator crewing argo through the web console. Ids start with ses_.
 /// Only the hash of the session token is stored, unique across all fleets: finding
 /// a session by its token is the one lookup not scoped by fleet (ADR 0007).
-/// Valid until expires_at, which moves to 30 days after each use.
+/// Valid until expires_at, which moves to idle_limit_seconds after each use
+/// (30 days for the operator, 2 hours for a viewer), never past ends_by.
 model ConsoleSession {
   id         String    @id
   fleetId    String    @map("fleet_id")
   shipId     String    @map("ship_id")
-  leaseId    String    @map("lease_id")
+  /// The lease on argo it holds; null for a viewer session (decision 0022).
+  leaseId    String?   @map("lease_id")
+  idleLimitSeconds Int @map("idle_limit_seconds")
+  /// No use renews it past this; null when only idleness ends it.
+  endsBy     DateTime? @map("ends_by") @db.Timestamptz(3)
   /// The device it signed in from, as the browser told: "Mac · Chrome".
   device     String    @default("Unknown device")
   tokenHash  String    @unique @map("token_hash")
@@ -356,10 +363,10 @@ model ConsoleSession {
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
   ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
-  lease Lease @relation(fields: [fleetId, leaseId], references: [fleetId, id])
+  lease Lease? @relation(fields: [fleetId, leaseId], references: [fleetId, id])
 
-  /// At most one live session per fleet: signing in ends the previous one.
-  @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: { endedAt: null })
+  /// At most one live session holding argo's lease per fleet: signing in ends the previous one. Viewer sessions run beside it.
+  @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: raw("ended_at IS NULL AND lease_id IS NOT NULL"))
   @@map("console_sessions")
 }
 
@@ -369,6 +376,8 @@ model ConsoleSession {
 model SignInTicket {
   tokenHash String    @id @map("token_hash")
   fleetId   String    @map("fleet_id")
+  /// Whom it signs in as: the operator or a viewer (decision 0022).
+  signInAs  SignInAs  @map("sign_in_as")
   issuedAt  DateTime  @map("issued_at") @db.Timestamptz(3)
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
   /// When it signed in; null while unused.
@@ -378,6 +387,13 @@ model SignInTicket {
 
   @@index([fleetId])
   @@map("sign_in_tickets")
+}
+
+enum SignInAs {
+  operator
+  viewer
+
+  @@map("sign_in_as")
 }
 
 /// The installation's settings (decision 0020): the default ship and daily message

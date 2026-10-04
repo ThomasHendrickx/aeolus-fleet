@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { scopeSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 
 /** The operator's email: at most 254 characters, the longest address mail carries. */
@@ -43,28 +44,35 @@ export type Theme = z.infer<typeof themeSchema>;
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
 
+/** Whose a console session is: the operator's, crewing argo, or a viewer's, through the viewer ship (decision 0022). */
+export const consoleSessionKindSchema = z.enum(['operator', 'viewer']);
+
 /**
  * Output of `console.session`: for another service the operator uses beside
  * the console, which forwards the browser's session cookie and asks whether
- * the operator is signed in. The fleet they signed in to, and when the
- * session expires (ISO 8601 in UTC).
+ * someone is signed in. The fleet, when the session expires (ISO 8601 in
+ * UTC), whose session it is, and the scopes of its ship: a viewer reads only.
  */
 export const consoleSessionOutputSchema = z.object({
   fleetId: idSchema('fleet'),
   expiresAt: z.iso.datetime(),
+  kind: consoleSessionKindSchema,
+  scopes: z.array(scopeSchema),
 });
 
 export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
 
+const accountSessionSchema = z.object({ device: z.string(), since: isoTime });
+
 /**
  * Output of `console.account`: the signed-in operator, their theme, and this
- * console session: the device it signed in from and since when.
+ * console session: the device it signed in from and since when. A viewer's
+ * session has no email and no theme (decision 0022).
  */
-export const accountOutputSchema = z.object({
-  email: z.string(),
-  theme: themeSchema,
-  session: z.object({ device: z.string(), since: isoTime }),
-});
+export const accountOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('operator'), email: z.string(), theme: themeSchema, session: accountSessionSchema }),
+  z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
+]);
 
 export type Account = z.infer<typeof accountOutputSchema>;
 

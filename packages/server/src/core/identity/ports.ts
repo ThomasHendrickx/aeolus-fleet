@@ -4,7 +4,7 @@ import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { OperatorAccount } from './operator-account.js';
-import type { SignInTicket } from './sign-in-ticket.js';
+import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
 
 /** The ship a crew token or a console session token belongs to, as the caller it makes. */
 export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
@@ -71,11 +71,12 @@ export interface OperatorAccountRepository {
 export interface SignInTicketRepository {
   create(ticket: SignInTicket): Promise<void>;
   /**
-   * Marks the ticket with this hash used and answers its fleet, when it is
-   * unused and not expired at `at`; undefined otherwise. At most one redeem of
-   * a ticket ever answers its fleet, however many run at once.
+   * Marks the ticket with this hash used and answers its fleet and whom it
+   * signs in as, when it is unused and not expired at `at`; undefined
+   * otherwise. At most one redeem of a ticket ever answers, however many run
+   * at once.
    */
-  redeem(tokenHash: string, at: Date): Promise<FleetId | undefined>;
+  redeem(tokenHash: string, at: Date): Promise<{ fleetId: FleetId; as: SignInAs } | undefined>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */
@@ -90,8 +91,8 @@ export interface ConsoleSessionRepository {
     at: Date;
     reason: ConsoleSessionEndReason;
   }): Promise<ConsoleSession | undefined>;
-  /** Ends every session of the fleet that has not ended, expired ones included, and returns them. */
-  endAll(fleetId: FleetId, ending: { at: Date; reason: ConsoleSessionEndReason }): Promise<ConsoleSession[]>;
+  /** Ends every session of the ship that has not ended, expired ones included, and returns them. */
+  endAll(of: { fleetId: FleetId; shipId: ShipId }, ending: { at: Date; reason: ConsoleSessionEndReason }): Promise<ConsoleSession[]>;
 }
 
 /**
@@ -110,10 +111,12 @@ export interface CallerLookup {
   /**
    * The caller of the console session with this token hash, when the session
    * has not ended and expires after `now`: argo, crewed under the lease the
-   * session holds. Using it moves its last use to `now`, its expiry to
-   * `expiresAt`, and marks argo's lease seen `now`.
+   * session holds, or the viewer ship, without a lease. Using it moves its
+   * last use to `now` and its expiry to its idle limit after `now`, never
+   * past the moment it ends by, and marks argo's lease seen `now`. Answers
+   * the new expiry.
    */
-  useConsoleSession(use: { tokenHash: string; now: Date; expiresAt: Date }): Promise<Crew | undefined>;
+  useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: Caller | Crew; expiresAt: Date } | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
   consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
 }

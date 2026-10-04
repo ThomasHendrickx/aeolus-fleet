@@ -85,7 +85,10 @@ export const installationRouter = router({
     create: installationProcedure
       .input(installationFleetsCreateInputSchema)
       .output(installationFleetsCreateOutputSchema)
-      .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.createFleet(input))),
+      .mutation(async ({ ctx, input }) => {
+        const { viewer, ...fleet } = input;
+        return okOrThrow(await ctx.useCases.createFleet({ ...fleet, hasViewer: viewer === true }));
+      }),
 
     /** Every fleet, oldest first, with its operator, ships, messages of the last 7 days and last activity. */
     list: installationProcedure
@@ -115,7 +118,7 @@ export const installationRouter = router({
       }),
   }),
   operators: router({
-    /** A one-time sign-in ticket for the fleet's operator: single use, valid 2 minutes, redeemed in the console. */
+    /** A one-time sign-in ticket for the fleet's operator, or for a viewer through its viewer ship: single use, valid 2 minutes, redeemed in the console. */
     issueSignInTicket: installationProcedure
       .input(installationOperatorsIssueSignInTicketInputSchema)
       .output(installationOperatorsIssueSignInTicketOutputSchema)

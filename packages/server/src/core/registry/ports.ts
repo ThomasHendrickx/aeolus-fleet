@@ -57,6 +57,8 @@ export interface InstallationRequestRepository {
 export interface ShipRepository {
   create(ship: Ship): Promise<void>;
   findOperatorShip(fleetId: FleetId): Promise<Ship | undefined>;
+  /** The fleet's viewer ship, when it has one (decision 0022). */
+  findViewerShip(fleetId: FleetId): Promise<Ship | undefined>;
   /**
    * Holds the lock on this name in the fleet until the unit of work ends, so
    * two commissions of one name never both find it free.

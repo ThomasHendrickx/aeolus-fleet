@@ -89,6 +89,10 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       const row = await db.ship.findFirst({ where: { fleetId, kind: 'operator' } });
       return row ? toShip(row) : undefined;
     },
+    findViewerShip: async (fleetId) => {
+      const row = await db.ship.findFirst({ where: { fleetId, kind: 'viewer' } });
+      return row ? toShip(row) : undefined;
+    },
     lockName: async (fleetId, name) => {
       // A transaction-level advisory lock on the fleet and the name, released at
       // commit or rollback. Read committed: once the holder commits, the next
