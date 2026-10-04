@@ -16,7 +16,8 @@ export type SignOut = (caller: Caller) => Promise<void>;
 
 /**
  * Use case: ends the caller's console session and releases the lease on `argo`
- * it holds. Signing out twice, or without a console session, changes nothing.
+ * it holds; a viewer session holds none. Signing out twice, or without a
+ * console session, changes nothing.
  */
 export function createSignOut(deps: { uow: UnitOfWork<SignOutTx>; clock: Clock; ids: IdGenerator }): SignOut {
   return async (caller) => {
@@ -28,7 +29,8 @@ export function createSignOut(deps: { uow: UnitOfWork<SignOutTx>; clock: Clock; 
     await deps.uow.run(async (tx) => {
       const at = deps.clock.now();
       const session = await tx.consoleSessions.end({ fleetId: caller.fleetId, consoleSessionId, at, reason: 'signedOut' });
-      if (session) {
+      // A viewer session holds no lease (decision 0022): ending it is all.
+      if (session?.leaseId != null) {
         await endLease({ tx, ids: deps.ids }, {
           fleetId: session.fleetId,
           leaseId: session.leaseId,

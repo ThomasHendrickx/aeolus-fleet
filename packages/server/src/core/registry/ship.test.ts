@@ -9,10 +9,14 @@ import {
   claimShip,
   checkCanRename,
   checkCanRetire,
+  checkCanBePinged,
+  checkCanIssueStartingPrompt,
   checkNameIsNotReserved,
+  addressShip,
   isReservedShipName,
   operatorShip,
   shipStatus,
+  viewerShip,
   type Ship,
 } from './ship.js';
 
@@ -105,6 +109,48 @@ describe('the operator ship', () => {
   });
 });
 
+describe('the viewer ship', () => {
+  const viewer = viewerShip({ id: newId('ship'), fleetId, createdAt });
+
+  it('is viewer, of kind viewer and type viewer, reading the fleet only', () => {
+    expect(viewer).toMatchObject({ name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], retiredAt: null, commission: null });
+  });
+
+  it.each([
+    ['retired', () => checkCanRetire(viewer)],
+    ['released', () => checkCanRelease(viewer, undefined)],
+    ['renamed', () => checkCanRename(viewer, 'lookout')],
+  ])('can never be %s, refused as argo is', (action, check) => {
+    expect(check()).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_PERMANENT', message: `viewer is the viewer ship and can never be ${action}` },
+    });
+  });
+
+  it('is always crewed: it is a door into the console, not a working ship', () => {
+    expect(shipStatus(viewer, { isCrewed: false })).toBe('crewed');
+  });
+
+  it('refuses a secret claim and a starting prompt: it has no secret', () => {
+    expect(claimShip({ ship: viewer, heldLease: undefined }, aClaim())).toMatchObject({ isOk: false, error: { kind: 'OPERATOR_SHIP_HAS_NO_SECRET' } });
+    expect(checkCanIssueStartingPrompt(viewer, { isCrewed: false })).toMatchObject({ isOk: false, error: { kind: 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' } });
+  });
+
+  it('is never pinged', () => {
+    expect(checkCanBePinged(viewer, { isCrewed: false })).toEqual({
+      isOk: false,
+      error: { kind: 'OPERATOR_SHIP_IS_NOT_PINGED', message: 'viewer is the viewer ship: only a ship a session crews is pinged' },
+    });
+  });
+
+  it('is never addressed: a viewer receives nothing', () => {
+    expect(addressShip(viewer)).toEqual({
+      isOk: false,
+      error: { kind: 'UNRESOLVABLE_SELECTOR', message: 'viewer is the viewer ship: it receives nothing, so nothing is sent to it' },
+    });
+  });
+});
+
 describe('an agent ship', () => {
   it('can be retired and renamed', () => {
     expect(checkCanRetire(scout)).toEqual(allowed);
@@ -186,7 +232,15 @@ describe('the reserved name', () => {
     });
   });
 
-  it.each(['scout', 'argo-2', 'argonaut'])('leaves %s free', (name) => {
+  it('is viewer too, for the viewer ship', () => {
+    expect(isReservedShipName('viewer')).toBe(true);
+    expect(checkNameIsNotReserved('viewer')).toEqual({
+      isOk: false,
+      error: { kind: 'SHIP_NAME_RESERVED', message: 'The name viewer is reserved for the viewer ship' },
+    });
+  });
+
+  it.each(['scout', 'argo-2', 'argonaut', 'viewers'])('leaves %s free', (name) => {
     expect(isReservedShipName(name)).toBe(false);
     expect(checkNameIsNotReserved(name)).toEqual(allowed);
   });

@@ -29,6 +29,8 @@ export const installationFleetsCreateInputSchema = z.strictObject({
   requestId: idempotencyKeySchema,
   name: z.string(),
   operatorEmail: z.string().trim().min(1).max(OPERATOR_EMAIL_MAX_LENGTH),
+  /** Whether the fleet gets a viewer ship, its read-only door into the console (decision 0022); none when left out. */
+  viewer: z.boolean().optional(),
 });
 
 export const installationFleetsCreateOutputSchema = z.object({
@@ -72,7 +74,8 @@ export const installationFleetsDeleteInputSchema = z.strictObject({ requestId: i
 export const installationFleetsDeleteOutputSchema = z.strictObject({});
 
 /** A one-time sign-in ticket for the fleet's operator: single use, valid 2 minutes, redeemed in the console. */
-export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({ fleetId: idSchema('fleet') });
+/** Whom a ticket signs in as: the operator when left out, or a viewer of a fleet with a viewer ship (decision 0022). */
+export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({ fleetId: idSchema('fleet'), as: z.enum(['operator', 'viewer']).optional() });
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
 /**

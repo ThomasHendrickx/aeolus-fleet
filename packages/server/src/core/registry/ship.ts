@@ -57,6 +57,33 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
   };
 }
 
+/** The viewer ship's name, reserved as argo's is (decision 0022). */
+export const VIEWER_SHIP_NAME = 'viewer';
+
+/** The viewer ship's type label, the same word as its kind. */
+export const VIEWER_SHIP_TYPE = 'viewer';
+
+/**
+ * The viewer ship: the fleet's read-only door into the console (decision
+ * 0022). It reads the fleet and nothing more, has no secret, and holds no
+ * lease: many people view through it at once, each with a console session.
+ */
+export function viewerShip(input: { id: ShipId; fleetId: FleetId; createdAt: Date }): Ship {
+  return {
+    ...input,
+    name: VIEWER_SHIP_NAME,
+    type: VIEWER_SHIP_TYPE,
+    kind: 'viewer',
+    scopes: ['fleet:read'],
+    note: null,
+    retiredAt: null,
+    commission: null,
+  };
+}
+
+/** The ships no session crews with a secret and no fleet action ends or renames, by kind, as their refusals name them. */
+const PERMANENT_SHIPS: Partial<Record<ShipKind, string>> = { operator: 'the operator ship', viewer: 'the viewer ship' };
+
 /** The scopes every agent ship gets at creation: it sends and receives; commissioning may add fleet scopes (ADR 0002). */
 export const AGENT_SCOPES: readonly Scope[] = ['messages:send', 'messages:receive'];
 
@@ -141,7 +168,8 @@ export function shipStatus(ship: Ship, lease: { isCrewed: boolean }): ShipStatus
   if (ship.retiredAt !== null) {
     return 'retired';
   }
-  return lease.isCrewed ? 'crewed' : 'awaitingCrew';
+  // The viewer ship holds no lease: it is a door into the console, always open (decision 0022).
+  return lease.isCrewed || ship.kind === 'viewer' ? 'crewed' : 'awaitingCrew';
 }
 
 const STATUS_WORDS: Record<ShipStatus, string> = {
@@ -158,7 +186,7 @@ export function checkCanIssueStartingPrompt(
   ship: Ship,
   lease: { isCrewed: boolean },
 ): Result<void, DomainError<'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' | 'SHIP_NOT_AWAITING_CREW'>> {
-  if (ship.kind === 'operator') {
+  if (ship.kind !== 'agent') {
     return refuse(
       'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
       `${ship.name} has no secret: only the operator's console sign-in crews it, so it gets no starting prompt`,
@@ -182,6 +210,9 @@ export type PingRefusal = DomainError<'OPERATOR_SHIP_IS_NOT_PINGED' | 'SHIP_ALRE
 export function checkCanBePinged(ship: Ship, lease: { isCrewed: boolean }): Result<void, PingRefusal> {
   if (ship.kind === 'operator') {
     return refuse('OPERATOR_SHIP_IS_NOT_PINGED', `${ship.name} is the console: only a ship a session crews is pinged`);
+  }
+  if (ship.kind === 'viewer') {
+    return refuse('OPERATOR_SHIP_IS_NOT_PINGED', `${ship.name} is the viewer ship: only a ship a session crews is pinged`);
   }
   switch (shipStatus(ship, lease)) {
     case 'crewed':
@@ -211,6 +242,9 @@ export function claimShip(
   const { ship, heldLease } = crew;
   if (ship.kind === 'operator') {
     return refuse('OPERATOR_SHIP_HAS_NO_SECRET', `${ship.name} has no secret: only the operator's console sign-in crews it`);
+  }
+  if (ship.kind === 'viewer') {
+    return refuse('OPERATOR_SHIP_HAS_NO_SECRET', `${ship.name} has no secret: it is viewed through console sessions the installation hands out`);
   }
   const status = shipStatus(ship, { isCrewed: heldLease !== undefined });
   if (status !== 'awaitingCrew') {
@@ -249,16 +283,26 @@ export function claimShip(
 /**
  * A message can be addressed to any ship of the fleet, `argo` included, as long
  * as it is not retired: a retired ship's id can never be addressed again, so a
- * message to it could never be delivered.
+ * message to it could never be delivered. Never the viewer ship, which
+ * receives nothing (decision 0022).
  */
 export function addressShip(ship: Ship): Result<Recipient, DomainError<'UNRESOLVABLE_SELECTOR'>> {
+  if (ship.kind === 'viewer') {
+    return refuse('UNRESOLVABLE_SELECTOR', `${ship.name} is the viewer ship: it receives nothing, so nothing is sent to it`);
+  }
   return ship.retiredAt === null
     ? ok({ kind: 'ship', shipId: ship.id })
     : refuse('UNRESOLVABLE_SELECTOR', `${ship.name} is retired: a retired ship is never addressed again`);
 }
 
+/** The reserved names, each with the ship it is kept for. */
+const RESERVED_NAMES: ReadonlyMap<string, string> = new Map([
+  [OPERATOR_SHIP_NAME, 'the operator ship'],
+  [VIEWER_SHIP_NAME, 'the viewer ship'],
+]);
+
 export function isReservedShipName(name: string): boolean {
-  return name === OPERATOR_SHIP_NAME;
+  return RESERVED_NAMES.has(name);
 }
 
 type Permanent = DomainError<'OPERATOR_SHIP_IS_PERMANENT'>;
@@ -266,9 +310,8 @@ type Reserved = DomainError<'SHIP_NAME_RESERVED'>;
 
 /** Commissioning and renaming call this: no ship but the operator ship may be called `argo`. */
 export function checkNameIsNotReserved(name: string): Result<void, Reserved> {
-  return isReservedShipName(name)
-    ? refuse('SHIP_NAME_RESERVED', `The name ${OPERATOR_SHIP_NAME} is reserved for the operator ship`)
-    : ok(undefined);
+  const keptFor = RESERVED_NAMES.get(name);
+  return keptFor === undefined ? ok(undefined) : refuse('SHIP_NAME_RESERVED', `The name ${name} is reserved for ${keptFor}`);
 }
 
 export type ReleaseRefusal = Permanent | DomainError<'SHIP_NOT_CREWED'>;
@@ -384,8 +427,8 @@ export function renameShip(
   });
 }
 
+/** argo and the viewer ship are permanent: no fleet action retires, releases or renames them (ADR 0012, decision 0022). */
 function checkNotOperatorShip(ship: Ship, action: 'retired' | 'released' | 'renamed'): Result<void, Permanent> {
-  return ship.kind === 'operator'
-    ? refuse('OPERATOR_SHIP_IS_PERMANENT', `${ship.name} is the operator ship and can never be ${action}`)
-    : ok(undefined);
+  const permanent = PERMANENT_SHIPS[ship.kind];
+  return permanent === undefined ? ok(undefined) : refuse('OPERATOR_SHIP_IS_PERMANENT', `${ship.name} is ${permanent} and can never be ${action}`);
 }

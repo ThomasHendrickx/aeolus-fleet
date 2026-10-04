@@ -48,11 +48,26 @@ Every fleet has exactly one operator ship, named `argo`. The web console is how 
 | --- | --- |
 | Created with the fleet | Initialising a fleet creates `argo` and the operator account. `argo` has no secret |
 | Permanent | `argo` can never be retired, released or renamed. The name `argo` is reserved: no other ship can take it |
-| Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope. Agent ships are of kind `agent` |
+| Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope. Agent ships are of kind `agent`; the viewer ship is of kind `viewer` |
 | Signing in | The operator signs in to the console with email and password and gets a session cookie. That session is `argo`'s crew. `register` with a secret is refused for `argo` |
-| One session at a time | Signing in ends any other console session and takes `argo`'s lease over. Its in-flight deliveries return to pending, so the new session receives them again |
-| Forgotten password | A server command resets it and ends every console session |
+| One session at a time | Signing in ends any other operator console session and takes `argo`'s lease over; viewer sessions run on. Its in-flight deliveries return to pending, so the new session receives them again |
+| Forgotten password | A server command resets it and ends every operator console session |
 | Inbox | Messages to `argo` are the operator inbox. Opening one marks it read; Reply or Mark done acknowledges it |
+
+### The viewer ship (`viewer`)
+
+A fleet the installation creates with a viewer has one viewer ship, named `viewer` (decision 0022). Through it, anyone the hosting service hands a viewer ticket looks at the live fleet and changes nothing.
+
+| Rule | Behaviour |
+| --- | --- |
+| Created with the fleet | Only creating a fleet with a viewer makes it, with type `viewer`. The name `viewer` is reserved: no other ship can take it. It shows in the fleet like any ship |
+| Permanent | It can never be retired, released or renamed. It has no secret: `register` is refused for it |
+| Reads only | It holds `fleet:read` and nothing else |
+| Always crewed | Its status is always Crewed. It is never pinged and never in Needs attention |
+| Receives nothing | A send to it is refused, and so is a send to its type while no other ship has that type |
+| Signing in | A viewer ticket from the hosting service starts a viewer session, with a session cookie. Many run at once; none holds a lease, so none takes another over, and the operator signing in ends none |
+| Expiry | A viewer session is valid 2 hours after its last use and 24 hours after it started at most. It ends then, when the viewer signs out (that session only), or with its fleet |
+| Account | A viewer session's account has its device and when it started; no email and no theme |
 
 ### The operator (human)
 
@@ -170,7 +185,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
-| `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator; redeeming it starts a console session as a password sign-in does |
+| `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship; details say which. Redeeming an operator's starts a console session as a password sign-in does |
+| `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship and daily message limits are set: each following the default, or the fleet's own limit or none |
 
 ## Key flows
@@ -199,7 +215,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 A hosting service such as pagasae drives the installation with its token (docs/architecture.md, "Installation"); a server without a token has no installation procedures. Each create and delete carries the caller's own request id: a replay under it answers what the first call answered, and a different request under a used id is refused.
 
-1. Create a fleet: a name and the operator's email. The fleet, its `argo` and the operator account come in one transaction, with their events. The operator has no password, so a password sign-in for that email fails like a wrong password. The email is unique across the installation. One account is one fleet and one operator.
+1. Create a fleet: a name and the operator's email, and whether it has a viewer. The fleet, its `argo`, the operator account and, with a viewer, the viewer ship come in one transaction, with their events. The operator has no password, so a password sign-in for that email fails like a wrong password. The email is unique across the installation. One account is one fleet and one operator.
 2. List the fleets, or get one: its id, name, operator email, when it was created, and its four measures:
    - **Ships:** its ships that are not retired, `argo` included.
    - **Messages:** every message row stored in the fleet in the last 7 days, of any kind and from any sender; the server never looks into messages for it.
@@ -213,7 +229,7 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Fleet cap:** creating a fleet is refused once the installation's fleets are at the cap.
 
    Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set; with no limit at all, none show.
-4. Sign the operator in: the hosting service asks for a sign-in ticket for the fleet's operator (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once. A hosted operator has no password, and the password reset command refuses them.
+4. Sign the operator in: the hosting service asks for a sign-in ticket for the fleet's operator (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once. A hosted operator has no password, and the password reset command refuses them. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
 5. Delete a fleet: it is gone for good, in one transaction, with every record in it, which ends its console session and leases. No event survives it (the event log is the fleet's own), so the server logs the delete with the fleet's id, name and operator email. Nothing of the fleet stays behind: the record that answers a replayed delete keeps only the request's hash.
 
 ### Launch a ship

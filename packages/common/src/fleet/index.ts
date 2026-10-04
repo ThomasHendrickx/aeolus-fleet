@@ -20,7 +20,7 @@ export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 
 /** `argo` is the one ship of kind `operator` in a fleet; every other ship is an `agent`. */
-export const SHIP_KINDS = ['operator', 'agent'] as const;
+export const SHIP_KINDS = ['operator', 'agent', 'viewer'] as const;
 export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
 
@@ -72,6 +72,7 @@ export const EVENT_TYPES = [
   'ShipReported',
   'SignInTicketIssued',
   'FleetLimitsChanged',
+  'ViewerSessionStarted',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

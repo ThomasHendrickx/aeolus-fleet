@@ -57,6 +57,8 @@ export interface InstallationRequestRepository {
 export interface ShipRepository {
   create(ship: Ship): Promise<void>;
   findOperatorShip(fleetId: FleetId): Promise<Ship | undefined>;
+  /** The fleet's viewer ship, when it has one (decision 0022). */
+  findViewerShip(fleetId: FleetId): Promise<Ship | undefined>;
   /**
    * Holds the lock on this name in the fleet until the unit of work ends, so
    * two commissions of one name never both find it free.
@@ -99,7 +101,7 @@ export interface ShipRepository {
   findForShare(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
   /** The ship of the fleet that is not retired and has this name, held as {@link findForShare} holds it. */
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
-  /** Whether at least one ship of the fleet with this type is not retired. */
+  /** Whether at least one ship of the fleet with this type is not retired and receives: the viewer ship receives nothing (decision 0022). */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;

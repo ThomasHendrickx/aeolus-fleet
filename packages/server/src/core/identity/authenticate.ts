@@ -1,16 +1,16 @@
 import { refuseEndedLease, type LeaseEnded } from '../registry/public.js';
-import type { Crew } from '../shared/caller.js';
+import type { Caller, Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { SecretHasher } from '../shared/secrets.js';
-import { consoleSessionExpiry, type ConsoleSessionEndReason } from './console-session.js';
+import type { ConsoleSessionEndReason } from './console-session.js';
 import type { CallerLookup } from './ports.js';
 
 export interface ConsoleSessionUse {
-  /** argo, crewed under the lease the session holds. */
-  caller: Crew;
-  /** The session's new expiry: 30 days after this use. */
+  /** argo, crewed under the lease the session holds, or the viewer ship, holding none. */
+  caller: Caller | Crew;
+  /** The session's new expiry: its idle limit after this use, never past the moment it ends by. */
   expiresAt: Date;
 }
 
@@ -30,7 +30,8 @@ export interface Authenticate {
   byCrewToken(crewToken: string): Promise<Result<Crew, CrewTokenRefusal>>;
   /**
    * The caller of this live console session, or undefined. Each use keeps the
-   * session valid for another 30 days.
+   * session valid for another 30 days, or a viewer's for another 2 hours and
+   * never past 24 hours after it started.
    */
   byConsoleSession(token: string): Promise<ConsoleSessionUse | undefined>;
   /**
@@ -51,12 +52,7 @@ export function createAuthenticate(deps: { callers: CallerLookup; hasher: Secret
       }
       return lease.isOpen ? ok(lease.crew) : refuseEndedLease();
     },
-    byConsoleSession: async (token) => {
-      const now = deps.clock.now();
-      const expiresAt = consoleSessionExpiry(now);
-      const caller = await deps.callers.useConsoleSession({ tokenHash: deps.hasher.hash(token), now, expiresAt });
-      return caller ? { caller, expiresAt } : undefined;
-    },
+    byConsoleSession: (token) => deps.callers.useConsoleSession({ tokenHash: deps.hasher.hash(token), now: deps.clock.now() }),
     endOfConsoleSession: (token) => deps.callers.consoleSessionEnding(deps.hasher.hash(token)),
   };
 }

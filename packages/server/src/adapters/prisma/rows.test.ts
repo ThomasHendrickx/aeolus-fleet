@@ -81,9 +81,10 @@ describe('mapping rows to domain objects', () => {
     ).toMatchObject({ location: { kind: 'DEVICE', description: null }, harness: 'claude-code', crewTokenHash: 'sha256(aeolus_ct_v1_crew)' });
   });
 
-  it('maps the caller of a console session, with the lease it holds on argo', () => {
+  it('maps the caller of a console session, with the lease it holds on argo and the expiry its use moved to', () => {
     const consoleSessionId = newId('consoleSession');
     const leaseId = newId('lease');
+    const expiresAt = new Date('2026-11-04T09:00:00.000Z');
 
     expect(
       toConsoleSessionCaller({
@@ -93,8 +94,26 @@ describe('mapping rows to domain objects', () => {
         fleet_id: fleetId,
         kind: 'operator',
         scopes: ['fleet:read'],
+        expires_at: expiresAt,
       }),
-    ).toEqual({ shipId, fleetId, kind: 'operator', scopes: ['fleet:read'], consoleSessionId, leaseId });
+    ).toEqual({ caller: { shipId, fleetId, kind: 'operator', scopes: ['fleet:read'], consoleSessionId, leaseId }, expiresAt });
+  });
+
+  it('maps the caller of a viewer session, which holds no lease', () => {
+    const consoleSessionId = newId('consoleSession');
+    const expiresAt = new Date('2026-10-05T11:00:00.000Z');
+
+    expect(
+      toConsoleSessionCaller({
+        console_session_id: consoleSessionId,
+        lease_id: null,
+        ship_id: shipId,
+        fleet_id: fleetId,
+        kind: 'viewer',
+        scopes: ['fleet:read'],
+        expires_at: expiresAt,
+      }),
+    ).toEqual({ caller: { shipId, fleetId, kind: 'viewer', scopes: ['fleet:read'], consoleSessionId }, expiresAt });
   });
 });
 

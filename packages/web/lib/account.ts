@@ -1,4 +1,4 @@
-import type { Theme } from '@aeolus-fleet/common';
+import type { Account, Theme } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
@@ -25,7 +25,12 @@ export function useAccountMenu(now: Date): AccountMenuProps {
     trpc.console.setTheme.mutationOptions({
       onMutate: ({ theme }) => {
         applyTheme(theme);
-        queryClient.setQueryData(trpc.console.account.queryKey(), (held) => held && { ...held, theme });
+        queryClient.setQueryData(trpc.console.account.queryKey(), (held: Account | undefined) => {
+          if (held?.kind !== 'operator') {
+            return held;
+          }
+          return { ...held, theme };
+        });
       },
       onError: () => {
         showToast({ title: 'Couldn’t save the theme', description: 'It applies here until the page reloads.', tone: 'error' });
@@ -54,7 +59,8 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   };
 
   return {
-    account: account.data,
+    // The account menu is the operator's; a viewer's console comes with the viewer drawing (decision 0022).
+    account: account.data?.kind === 'operator' ? account.data : undefined,
     onThemeChange: (theme: Theme) => {
       setTheme.mutate({ theme });
     },

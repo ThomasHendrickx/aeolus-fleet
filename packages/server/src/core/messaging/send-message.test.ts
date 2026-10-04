@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addAgentShip,
+  addViewerShip,
   agentCaller,
   initialiseFleet,
   messagingUseCases,
@@ -404,6 +405,24 @@ describe('a send refused', () => {
     await expectRefused(aReview({ selector: { kind: 'ship', name: 'wreck' } }), {
       kind: 'UNRESOLVABLE_SELECTOR',
       message: 'No active ship is named wreck',
+    });
+  });
+
+  it('refuses the viewer ship by its name: a viewer receives nothing', async () => {
+    addViewerShip(core, { fleetId });
+
+    await expectRefused(aReview({ selector: { kind: 'ship', name: 'viewer' } }), {
+      kind: 'UNRESOLVABLE_SELECTOR',
+      message: 'viewer is the viewer ship: it receives nothing, so nothing is sent to it',
+    });
+  });
+
+  it("refuses the viewer ship's type when no other ship has it", async () => {
+    addViewerShip(core, { fleetId });
+
+    await expectRefused(aReview({ selector: { kind: 'type', type: 'viewer' } }), {
+      kind: 'UNRESOLVABLE_SELECTOR',
+      message: 'No active ship has the type viewer',
     });
   });
 

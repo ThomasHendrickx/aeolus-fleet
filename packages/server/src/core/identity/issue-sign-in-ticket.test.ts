@@ -27,7 +27,7 @@ describe("issuing a sign-in ticket for a fleet's operator", () => {
 
     expect(ticket).toMatch(/^aeolus_st_v1_./);
     expect(core.state.signInTickets).toEqual([
-      { fleetId, tokenHash: core.hasher.hash(ticket), issuedAt: core.clock.now(), expiresAt: new Date(core.clock.now().getTime() + TWO_MINUTES_MS), usedAt: null },
+      { fleetId, as: 'operator', tokenHash: core.hasher.hash(ticket), issuedAt: core.clock.now(), expiresAt: new Date(core.clock.now().getTime() + TWO_MINUTES_MS), usedAt: null },
     ]);
     expect(JSON.stringify(core.state)).not.toContain(`"${ticket}"`);
   });
@@ -35,7 +35,7 @@ describe("issuing a sign-in ticket for a fleet's operator", () => {
   it('writes SignInTicketIssued in the fleet, by the system', async () => {
     unwrap(await useCases.issueSignInTicket({ fleetId }));
 
-    expect(core.state.events).toEqual([expect.objectContaining({ fleetId, type: 'SignInTicketIssued', actor: { kind: 'system' } })]);
+    expect(core.state.events).toEqual([expect.objectContaining({ fleetId, type: 'SignInTicketIssued', actor: { kind: 'system' }, details: { as: 'operator' } })]);
   });
 
   it('gives a new ticket each time; an earlier unused one still stands until it expires', async () => {

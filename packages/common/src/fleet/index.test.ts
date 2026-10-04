@@ -21,8 +21,8 @@ describe('scopeSchema', () => {
 });
 
 describe('shipKindSchema', () => {
-  it('knows operator and agent, nothing else', () => {
-    expect(shipKindSchema.options).toEqual(['operator', 'agent']);
+  it('knows operator, agent and viewer, nothing else', () => {
+    expect(shipKindSchema.options).toEqual(['operator', 'agent', 'viewer']);
   });
 });
 
@@ -58,6 +58,7 @@ describe('eventTypeSchema', () => {
       'ShipReported',
       'SignInTicketIssued',
       'FleetLimitsChanged',
+      'ViewerSessionStarted',
     ]);
   });
 });

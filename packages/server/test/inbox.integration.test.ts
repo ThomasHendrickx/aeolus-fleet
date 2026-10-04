@@ -2,7 +2,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@a
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/core/messaging/mark-done.js';
-import type { Caller, Crew } from '../src/core/shared/caller.js';
+import { isCrew, type Caller, type Crew } from '../src/core/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -27,8 +27,8 @@ beforeEach(async () => {
   captain = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   const { token } = unwrap(await core.useCases.signIn(OPERATOR));
   const use = await core.useCases.authenticate.byConsoleSession(token);
-  if (!use) {
-    throw new Error('The sign-in started no console session');
+  if (!use || !isCrew(use.caller)) {
+    throw new Error('The sign-in started no console session crewing argo');
   }
   argo = use.caller;
 });

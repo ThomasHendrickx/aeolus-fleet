@@ -275,6 +275,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
+      findViewerShip: (fleetId) => Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'viewer')),
       lockName: () => Promise.resolve(),
       // One test runs one unit of work at a time: nothing to wait for.
       lockShipCount: () => Promise.resolve(),
@@ -320,7 +321,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       hasActiveShipOfType: (fleetId, type) =>
         Promise.resolve(
-          state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null),
+          state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
         ),
     },
     leases: {
@@ -495,7 +496,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(session && { ...session });
       },
       create: (session) => {
-        if (state.consoleSessions.some((held) => held.fleetId === session.fleetId && held.endedAt === null)) {
+        if (state.consoleSessions.some((held) => held.fleetId === session.fleetId && held.endedAt === null && held.leaseId !== null) && session.leaseId !== null) {
           return Promise.reject(new Error('unique violation: the fleet already has a live console session'));
         }
         state.consoleSessions.push({ ...session });
@@ -510,8 +511,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         session.endReason = reason;
         return Promise.resolve({ ...session });
       },
-      endAll: (fleetId, { at, reason }) => {
-        const open = state.consoleSessions.filter((held) => held.fleetId === fleetId && held.endedAt === null);
+      endAll: ({ fleetId, shipId }, { at, reason }) => {
+        const open = state.consoleSessions.filter((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
         for (const session of open) {
           session.endedAt = at;
           session.endReason = reason;
@@ -642,7 +643,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           return Promise.resolve(undefined);
         }
         ticket.usedAt = at;
-        return Promise.resolve(ticket.fleetId);
+        return Promise.resolve({ fleetId: ticket.fleetId, as: ticket.as });
       },
     },
     installationSettings: installationSettingsRepository,
@@ -712,7 +713,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           : { isOpen: false },
       );
     },
-    useConsoleSession: ({ tokenHash, now: at, expiresAt }) => {
+    useConsoleSession: ({ tokenHash, now: at }) => {
       const session = state.consoleSessions.find(
         (held) => held.tokenHash === tokenHash && held.endedAt === null && held.expiresAt > at,
       );
@@ -720,13 +721,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       if (!session || !owner) {
         return Promise.resolve(undefined);
       }
+      const renewed = at.getTime() + session.idleLimitMs;
+      const expiresAt = new Date(Math.max(session.expiresAt.getTime(), Math.min(renewed, session.endsBy?.getTime() ?? renewed)));
       session.lastUsedAt = at;
       session.expiresAt = expiresAt;
       const lease = state.leases.find((held) => held.id === session.leaseId);
       if (lease) {
         markSeen(lease, at);
       }
-      return Promise.resolve({ ...authenticated(owner), consoleSessionId: session.id, leaseId: session.leaseId });
+      const caller = { ...authenticated(owner), consoleSessionId: session.id };
+      return Promise.resolve({ caller: session.leaseId === null ? caller : { ...caller, leaseId: session.leaseId }, expiresAt });
     },
     consoleSessionEnding: (tokenHash) =>
       Promise.resolve(state.consoleSessions.find((held) => held.tokenHash === tokenHash)?.endReason ?? undefined),

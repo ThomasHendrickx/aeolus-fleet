@@ -6,7 +6,7 @@ import type { DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { RandomTokens, SecretHasher } from '../shared/secrets.js';
-import { consoleLocation, consoleSessionExpiry } from './console-session.js';
+import { CONSOLE_SESSION_IDLE_LIMIT_MS, consoleLocation, consoleSessionExpiry } from './console-session.js';
 import type { ConsoleSessionRepository } from './ports.js';
 import type { SignedIn } from './sign-in.js';
 
@@ -33,7 +33,8 @@ export async function startConsoleSession(
   }
   const argo = found.value;
 
-  await tx.consoleSessions.endAll(argo.fleetId, { at, reason: 'takenOver' });
+  // Only argo's sessions: viewer sessions run beside the operator's (decision 0022).
+  await tx.consoleSessions.endAll({ fleetId: argo.fleetId, shipId: argo.id }, { at, reason: 'takenOver' });
   const takenOver = await takeOverOperatorLease({ tx, ids }, {
     fleetId: argo.fleetId,
     shipId: argo.id,
@@ -54,6 +55,8 @@ export async function startConsoleSession(
     fleetId: argo.fleetId,
     shipId: argo.id,
     leaseId: takenOver.value,
+    idleLimitMs: CONSOLE_SESSION_IDLE_LIMIT_MS,
+    endsBy: null,
     device,
     tokenHash: deps.hasher.hash(token),
     createdAt: at,

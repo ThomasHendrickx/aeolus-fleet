@@ -50,7 +50,7 @@ import { createRenameShip } from '../../src/core/registry/rename-ship.js';
 import { createRetireShip } from '../../src/core/registry/retire-ship.js';
 import { createReport } from '../../src/core/registry/report.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
-import type { Caller, Crew } from '../../src/core/shared/caller.js';
+import { isCrew, type Caller, type Crew } from '../../src/core/shared/caller.js';
 import { createReadFleetEvents } from '../../src/core/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/core/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/core/shared/read-inbox.js';
@@ -99,8 +99,8 @@ export async function argoAboard(core: InMemoryCore): Promise<Crew> {
   const identity = identityUseCases(core);
   const { token } = unwrap(await identity.signIn(OPERATOR));
   const use = await identity.authenticate.byConsoleSession(token);
-  if (!use) {
-    throw new Error('The console session the sign-in started does not authenticate');
+  if (!use || !isCrew(use.caller)) {
+    throw new Error('The console session the sign-in started does not authenticate as the crew of argo');
   }
   return use.caller;
 }
@@ -262,11 +262,35 @@ export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@exam
   return unwrap(created);
 }
 
+/** A fleet the installation created with its viewer ship (decision 0022), answering the fleet, argo and the viewer ship. */
+export async function hostedFleetWithViewer(core: InMemoryCore): Promise<{ fleetId: FleetId; operatorShipId: ShipId; viewerShipId: ShipId }> {
+  const created = unwrap(
+    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({
+      requestId: 'signup-with-viewer',
+      name: 'demo',
+      operatorEmail: 'demo@example.com',
+      hasViewer: true,
+    }),
+  );
+  const viewer = core.state.ships.find((ship) => ship.fleetId === created.fleetId && ship.kind === 'viewer');
+  if (!viewer) {
+    throw new Error('the fleet was created without its viewer ship');
+  }
+  return { ...created, viewerShipId: viewer.id };
+}
+
 /**
  * Puts an agent ship with a valid secret straight into the state, without
  * commissioning it: for a ship with other scopes, in another fleet or already
  * retired, which commissioning never makes.
  */
+/** Adds the fleet's viewer ship straight to the in-memory state, as an installation's create with a viewer would. */
+export function addViewerShip(core: InMemoryCore, ship: { fleetId: FleetId }): { shipId: ShipId } {
+  const shipId = core.ids('ship');
+  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null });
+  return { shipId };
+}
+
 export function addAgentShip(
   core: InMemoryCore,
   ship: { fleetId: FleetId; name?: string; type?: string; scopes?: Scope[]; retiredAt?: Date },

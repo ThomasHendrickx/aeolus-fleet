@@ -18,6 +18,12 @@ export async function findOperatorShip(
   return ship ? ok(ship) : refuse('FLEET_NOT_FOUND', `Fleet ${fleetId} does not exist`);
 }
 
+/** The fleet's viewer ship (decision 0022). Refuses when the fleet has none. */
+export async function findViewerShip(tx: ShipTx, fleetId: FleetId): Promise<Result<Ship, DomainError<'FLEET_HAS_NO_VIEWER'>>> {
+  const ship = await tx.ships.findViewerShip(fleetId);
+  return ship ? ok(ship) : refuse('FLEET_HAS_NO_VIEWER', `Fleet ${fleetId} has no viewer ship: create it with one to hand out viewer tickets`);
+}
+
 /** The ports finding a ship reads, inside the caller's unit of work. */
 export interface FindShipTx {
   ships: Pick<ShipRepository, 'find'>;

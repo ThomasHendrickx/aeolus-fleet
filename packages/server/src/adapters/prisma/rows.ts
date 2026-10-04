@@ -11,6 +11,8 @@ import {
 } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+const MS_PER_SECOND = 1000;
+
 import type { ConsoleSession } from '../../core/identity/console-session.js';
 import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../../core/identity/ports.js';
 import type { Credential } from '../../core/identity/credential.js';
@@ -23,7 +25,7 @@ import type { Fleet } from '../../core/registry/fleet.js';
 import type { Lease } from '../../core/registry/lease.js';
 import type { ShipFacts } from '../../core/registry/ports.js';
 import type { Ship } from '../../core/registry/ship.js';
-import type { Crew } from '../../core/shared/caller.js';
+import type { Caller, Crew } from '../../core/shared/caller.js';
 import type { Recipient } from '../../core/shared/selector.js';
 
 // Maps database rows to domain objects. A row is outside data: each one is
@@ -247,7 +249,9 @@ const consoleSessionSqlRow = z
     id: idSchema('consoleSession'),
     fleet_id: idSchema('fleet'),
     ship_id: idSchema('ship'),
-    lease_id: idSchema('lease'),
+    lease_id: idSchema('lease').nullable(),
+    idle_limit_seconds: z.number(),
+    ends_by: z.date().nullable(),
     device: z.string(),
     token_hash: z.string(),
     created_at: z.date(),
@@ -262,6 +266,8 @@ const consoleSessionSqlRow = z
       fleetId: row.fleet_id,
       shipId: row.ship_id,
       leaseId: row.lease_id,
+      idleLimitMs: row.idle_limit_seconds * MS_PER_SECOND,
+      endsBy: row.ends_by,
       device: row.device,
       tokenHash: row.token_hash,
       createdAt: row.created_at,
@@ -305,12 +311,17 @@ export function toCrewTokenLease(row: unknown): CrewTokenLease {
   return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
 }
 
-const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease') });
+const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), expires_at: z.date() });
 
-/** The caller of a console session: its ship, the session it came through, and the lease the session holds. */
-export function toConsoleSessionCaller(row: unknown): Crew {
-  const { console_session_id, lease_id } = consoleSessionCallerSqlRow.parse(row);
-  return { ...toAuthenticatedShip(row), consoleSessionId: console_session_id, leaseId: lease_id };
+/**
+ * The caller of a console session: its ship, the session it came through,
+ * and the lease the session holds (a viewer session holds none), with the
+ * expiry its use moved to.
+ */
+export function toConsoleSessionCaller(row: unknown): { caller: Caller | Crew; expiresAt: Date } {
+  const { console_session_id, lease_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
+  const caller: Caller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+  return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 
 const messageRow = z.object({

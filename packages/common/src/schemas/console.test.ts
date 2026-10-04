@@ -51,19 +51,25 @@ describe('THEMES', () => {
 });
 
 describe('consoleSessionOutputSchema', () => {
-  it('answers the fleet of the signed-in operator and when the session expires', () => {
-    const output = { fleetId: newId('fleet'), expiresAt: '2026-11-01T19:00:00.000Z' };
+  const output = { fleetId: newId('fleet'), expiresAt: '2026-11-01T19:00:00.000Z', kind: 'operator', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] };
 
+  it("answers the session's fleet, when it expires, and whose it is: the operator's or a viewer's, with the ship's scopes", () => {
     expect(consoleSessionOutputSchema.parse(output)).toEqual(output);
+    expect(consoleSessionOutputSchema.parse({ ...output, kind: 'viewer', scopes: ['fleet:read'] })).toMatchObject({ kind: 'viewer', scopes: ['fleet:read'] });
   });
 
   it('rejects an expiry that is not ISO 8601', () => {
-    expect(consoleSessionOutputSchema.safeParse({ fleetId: newId('fleet'), expiresAt: 'soon' }).success).toBe(false);
+    expect(consoleSessionOutputSchema.safeParse({ ...output, expiresAt: 'soon' }).success).toBe(false);
+  });
+
+  it('rejects an agent: only the operator and a viewer have console sessions', () => {
+    expect(consoleSessionOutputSchema.safeParse({ ...output, kind: 'agent' }).success).toBe(false);
   });
 });
 
 describe('accountOutputSchema', () => {
   const account = {
+    kind: 'operator',
     email: 'operator@example.com',
     theme: 'system',
     session: { device: 'Mac · Chrome', since: '2026-10-01T08:02:00.000Z' },
@@ -75,6 +81,12 @@ describe('accountOutputSchema', () => {
 
   it('refuses another theme', () => {
     expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
+  });
+
+  it("takes a viewer's session alone, with no email and no theme", () => {
+    const viewer = { kind: 'viewer', session: account.session };
+
+    expect(accountOutputSchema.parse(viewer)).toEqual(viewer);
   });
 });
 
