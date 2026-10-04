@@ -51,7 +51,9 @@ import {
   type ShipHistory,
   type TimelineEntry,
 } from '../../src/core/shared/history.js';
+import type { FleetLimitReads } from '../../src/core/shared/read-fleet-limits.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
+import { appliedLimits } from '../../src/core/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
@@ -135,6 +137,8 @@ export interface InMemoryCore {
   installationFleets: InstallationFleets;
   /** The installation's settings, read outside a unit of work. */
   installationSettings: InstallationSettingsRepository;
+  /** What each fleet's limits apply to, read outside a unit of work. */
+  fleetLimitReads: FleetLimitReads;
   /** The committed events, numbered per fleet in the order they were appended. */
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
@@ -812,6 +816,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const fleetLimitReads: FleetLimitReads = {
+    applied: (fleetId) => appliedLimits(tx, fleetId),
+    activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
+    messagesSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
+  };
+
   const listing: FleetListing = {
     ships: (fleetId) =>
       Promise.resolve(
@@ -1062,7 +1072,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, feed, history, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

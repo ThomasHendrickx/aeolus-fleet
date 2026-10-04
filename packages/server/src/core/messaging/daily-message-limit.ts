@@ -3,15 +3,11 @@ import type { FleetId } from '@aeolus-fleet/common';
 import { appliedLimits, type AppliedLimitsTx } from '../registry/public.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
+import { utcDayStart } from '../shared/utc-day.js';
 import type { MessageRepository } from './ports.js';
 
 export interface DailyMessageLimitTx extends AppliedLimitsTx {
   messages: Pick<MessageRepository, 'lockDailyCount' | 'countCreatedSince'>;
-}
-
-/** The start of the UTC calendar day `at` falls in: when the daily message count starts again. */
-export function utcDayStart(at: Date): Date {
-  return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
 }
 
 /**
