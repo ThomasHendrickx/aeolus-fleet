@@ -7,7 +7,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/server/src/ad
 import { createApp } from '../packages/server/src/app.js';
 import type { Caller } from '../packages/server/src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -42,7 +42,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   const webUrl = await reserveWebUrl();
@@ -74,11 +74,11 @@ interface Session {
 }
 
 async function crewedOverRest(ship: { name: string; type: string }): Promise<Session> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const registered = await fetch(`${serverUrl}/api/v1/ship/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
+    body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   });
   const { crewToken } = z.object({ crewToken: z.string() }).parse(await registered.json());
   return {

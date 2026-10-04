@@ -34,7 +34,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   const webUrl = await reserveWebUrl();
@@ -202,15 +202,15 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(second)).resolves.toBe(true);
   });
 
-  it('shows the crew line for the aeolus plugin beside the prompt, with the same ship and secret', async () => {
+  it('shows a crew line per harness with the aeolus plugin beside the prompt, Claude Code and Codex, with the same ship and secret', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'bosun', type: 'reviewer' });
     const block = promptBlock(page, 'bosun');
     const prompt = await promptTextIn(page, 'bosun');
+    const identity = `${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`;
 
-    const crewLine = await block.getByTestId('starting-prompt-crew-line').textContent();
-
-    expect(crewLine).toBe(`/aeolus:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(`/aeolus:crew ${identity}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-codex').textContent()).resolves.toBe(`$aeolus-crew ${identity}`);
   });
 
   it('copies the starting prompt', async () => {
@@ -327,12 +327,12 @@ describe('re-crewing a crewed ship', () => {
     await openRowMenu(page, 'helmsman');
     await page.getByTestId('fleet-ship-recrew').click();
     const confirmation = page.getByTestId('recrew-dialog');
-    await confirmation.getByText(/A new starting prompt and its crew line are shown once/).waitFor();
+    await confirmation.getByText(/A new starting prompt and its crew lines are shown once/).waitFor();
     await confirmation.getByRole('button', { name: 'Re-crew ship' }).click();
 
     const dialog = page.getByTestId('starting-prompt-dialog');
     const prompt = (await dialog.getByTestId('starting-prompt-text').textContent()) ?? '';
-    await expect(dialog.getByTestId('starting-prompt-crew-line').textContent()).resolves.toBe(
+    await expect(dialog.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(
       `/aeolus:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`,
     );
     await expect(isValid(secretIn(prompt))).resolves.toBe(true);
