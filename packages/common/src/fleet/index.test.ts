@@ -56,6 +56,7 @@ describe('eventTypeSchema', () => {
       'DeliveryDismissed',
       'ShipRenamed',
       'ShipReported',
+      'SignInTicketIssued',
     ]);
   });
 });
