@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 
 import { Toaster } from '../components/atoms/toast';
 import { trpcErrorCode } from '../lib/errors';
+import { HostedAccountUrlContext } from '../lib/hosted-account';
 import { SquadronsConfiguredContext } from '../lib/squadrons';
 import { TRPCProvider } from '../lib/trpc';
 
@@ -48,8 +49,21 @@ function createClient(serverUrl: string) {
   });
 }
 
-/** isSquadronsConfigured: whether AEOLUS_SQUADRONS_URL is set, read on the server per request; without it the console makes no squadrons call. */
-export function Providers({ serverUrl, isSquadronsConfigured, children }: { serverUrl: string; isSquadronsConfigured: boolean; children: ReactNode }) {
+/**
+ * isSquadronsConfigured: whether AEOLUS_SQUADRONS_URL is set, read on the server per request; without it the console makes no squadrons call.
+ * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
+ */
+export function Providers({
+  serverUrl,
+  isSquadronsConfigured,
+  hostedAccountUrl,
+  children,
+}: {
+  serverUrl: string;
+  isSquadronsConfigured: boolean;
+  hostedAccountUrl?: string;
+  children: ReactNode;
+}) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
   const [trpcClient] = useState(() => createClient(serverUrl));
 
@@ -57,8 +71,10 @@ export function Providers({ serverUrl, isSquadronsConfigured, children }: { serv
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <SquadronsConfiguredContext value={isSquadronsConfigured}>
-          {children}
-          <Toaster />
+          <HostedAccountUrlContext value={hostedAccountUrl}>
+            {children}
+            <Toaster />
+          </HostedAccountUrlContext>
         </SquadronsConfiguredContext>
       </TRPCProvider>
     </QueryClientProvider>

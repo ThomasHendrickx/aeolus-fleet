@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
 import { serverInternalUrlFrom, serverUrlFrom } from '../lib/server-url';
+import { hostedAccountUrlFrom } from '../lib/hosted-account-url';
 import { squadronsUrlFrom } from '../lib/squadrons-url';
 import { themeOfSession, themeScript } from '../lib/theme';
 import { geistMono, geistSans } from './fonts';
@@ -30,7 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript(theme) }} />
       </head>
       <body>
-        <Providers serverUrl={serverUrl} isSquadronsConfigured={squadronsUrlFrom(process.env) !== undefined}>
+        <Providers serverUrl={serverUrl} isSquadronsConfigured={squadronsUrlFrom(process.env) !== undefined} hostedAccountUrl={hostedAccountUrlFrom(process.env)}>
           {children}
         </Providers>
       </body>

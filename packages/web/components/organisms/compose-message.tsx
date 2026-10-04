@@ -6,6 +6,9 @@ import { useState } from 'react';
 import { composeTargets, sendInputOf, useSendMessage } from '../../lib/compose';
 import { useFleetSnapshot } from '../../lib/fleet';
 import { showToast } from '../atoms/toast';
+import { useFleetLimits } from '../../lib/fleet-limits';
+import { useHostedAccountUrl } from '../../lib/hosted-account';
+import { messageLimitReached } from '../../lib/limits';
 import { ComposeDialog } from './compose-dialog';
 
 interface ComposeMessageProps {
@@ -27,6 +30,8 @@ interface ComposeMessageProps {
 export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: ComposeMessageProps) {
   const fleet = useFleetSnapshot();
   const send = useSendMessage();
+  const limits = useFleetLimits();
+  const accountUrl = useHostedAccountUrl();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const { ships, types } = composeTargets(fleet.data ?? []);
 
@@ -43,6 +48,8 @@ export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: Comp
       types={types}
       state={send.isPending ? 'sending' : send.isError ? 'failed' : 'editing'}
       error={send.error?.message}
+      messageLimit={send.isError ? messageLimitReached(limits.data) : undefined}
+      accountUrl={accountUrl}
       draft={replyTo ? { selector: { kind: 'ship', shipId: replyTo.sender.id }, payload: '' } : toShipId && { selector: { kind: 'ship', shipId: toShipId }, payload: '' }}
       onSend={(message) => {
         send.mutate(sendInputOf({ ...message, inReplyTo: replyTo?.messageId }, idempotencyKey), {
@@ -51,6 +58,10 @@ export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: Comp
             send.reset();
             onOpenChange(false);
             showToast({ title: 'Message sent', description: 'It waits in the inbox until a ship receives it.', tone: 'success' });
+          },
+          // A refusal may be the daily limit: read the counts again, so the dialog can say so.
+          onError: () => {
+            void limits.refetch();
           },
         });
       }}

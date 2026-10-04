@@ -11,6 +11,8 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Label } from '../atoms/label';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from '../molecules/inline-error';
+import { LimitNotice } from '../molecules/limit-notice';
+import { composeRefusedNotice } from '../../lib/limits';
 import { SelectorPicker, type SelectorMode, type SelectorValue } from '../molecules/selector-picker';
 import { SendShortcutHint } from '../molecules/send-shortcut-hint';
 
@@ -22,6 +24,10 @@ interface ComposeDialogProps {
   state: 'editing' | 'sending' | 'failed';
   /** The server's refusal to show, kept with the operator's input. */
   error?: string;
+  /** The daily message limit that refused it: the dialog says so instead (canvas 12.3). */
+  messageLimit?: { limit: number; resetsAt: string };
+  /** Where the hosted account lists the limits, for View limits. */
+  accountUrl?: string;
   onSend: (message: { selector: SelectorValue; payload: string }) => void;
   /** What the form starts with when it opens; empty when not given. */
   draft?: { selector: SelectorValue; payload: string };
@@ -33,7 +39,7 @@ type ComposeFormProps = Omit<ComposeDialogProps, 'isOpen' | 'onOpenChange'>;
  * The fields, mounted only while the dialog is open, so each opening starts
  * empty while a failed send keeps what the operator wrote.
  */
-function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormProps) {
+function ComposeForm({ ships, types, state, error, messageLimit, accountUrl, onSend, draft }: ComposeFormProps) {
   const payloadId = useId();
   const sizeErrorId = useId();
   const [mode, setMode] = useState<SelectorMode>(draft?.selector.kind ?? 'ship');
@@ -87,7 +93,9 @@ function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormP
           <p className="text-meta text-muted-foreground">Sent as plain text from argo, stored before the fleet says OK.</p>
         )}
       </div>
-      {state === 'failed' && error !== undefined ? (
+      {state === 'failed' && messageLimit !== undefined ? (
+        <LimitNotice {...composeRefusedNotice(messageLimit)} accountUrl={accountUrl} testId="compose-message-limit" />
+      ) : state === 'failed' && error !== undefined ? (
         <InlineError
           title="Couldn’t send the message"
           description={`${error} Nothing was sent; your message is kept here.`}
