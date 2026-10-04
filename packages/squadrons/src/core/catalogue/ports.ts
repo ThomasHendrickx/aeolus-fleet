@@ -27,8 +27,7 @@ export type RepositoryToRead = Pick<TemplateRepository, 'fleetId' | 'name' | 'ur
 /**
  * Outbound port: the template and blueprint versions of the given
  * repositories (docs/squadrons.md, "Files in git"). A repository `fetch`
- * picks is fetched first, and answers whether that worked, a mirror that
- * cannot be read right after it counting as a failed fetch; every other is
+ * picks is fetched first, and answers whether that worked; every other is
  * read from what it last fetched, and holds nothing before its first fetch.
  * What one fleet fetched is never read for another.
  */
