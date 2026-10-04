@@ -1,9 +1,4 @@
-import { execFile } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
 
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
@@ -18,6 +13,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
 import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../server/test/support/keys.js';
 
@@ -25,13 +21,11 @@ import { newKey } from '../../server/test/support/keys.js';
 // start retires every ship the killed forming commissioned, the one whose id it
 // never heard back included, and no squadron is left half formed.
 
-const run = promisify(execFile);
-const REPO = 'example.com/templates';
+const REPO = 'github.com/acme/templates';
 // The flagship, then two members: the third commission is the one the crash swallows.
 const COMMISSION_THAT_HANGS = 3;
 
-let work: string;
-let origin: string;
+let github: FakeGithub;
 let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
 let fleetUrl: string;
@@ -41,17 +35,6 @@ let managementShip: { operatorFleetId: FleetId; shipId: ShipId; secret: string }
 let killed: SquadronsApp;
 let restarted: SquadronsApp | undefined;
 let cookie: string;
-
-async function git(...args: string[]): Promise<void> {
-  await run('git', ['-C', origin, ...args], {
-    env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 't@example.com' },
-  });
-}
-
-function write(path: string, content: string): void {
-  mkdirSync(join(origin, path, '..'), { recursive: true });
-  writeFileSync(join(origin, path), content);
-}
 
 async function signIn(): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.signIn`, {
@@ -107,22 +90,24 @@ function squadronsApp(through: string): SquadronsApp {
   return createSquadronsApp({
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl: through,
-    cacheDir: join(work, 'cache'),
+    githubApiUrl: github.apiUrl,
     logger: false,
   });
 }
 
 beforeEach(async () => {
-  work = mkdtempSync(join(tmpdir(), 'aeolus-crash-safe-forming-'));
-  origin = join(work, 'templates');
-  mkdirSync(origin);
-  await git('init', '--quiet', '--initial-branch=main');
-  write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n');
-  write('.aeolus/squadrons/blueprints/team.yaml', `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 3\n`);
-  await git('add', '.');
-  await git('commit', '--quiet', '-m', 'team');
-  await git('tag', 'tester@1');
-  await git('tag', 'team@1');
+  github = await startFakeGithub();
+  github.repositories.set('acme/templates', {
+    tags: tagsAt(
+      {
+        files: {
+          '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n',
+          '.aeolus/squadrons/blueprints/team.yaml': `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 3\n`,
+        },
+      },
+      'tester@1', 'team@1',
+    ),
+  });
 
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
@@ -136,7 +121,7 @@ beforeEach(async () => {
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();
   squadronsDatabaseUrl = await createSquadronsDatabase();
-  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: 'https://github.com/acme/templates' });
 });
 
 afterEach(async () => {
@@ -148,7 +133,7 @@ afterEach(async () => {
   await restarted?.close();
   await fleet.close();
   await fleetDatabase.$disconnect();
-  rmSync(work, { recursive: true, force: true });
+  await github.close();
 });
 
 async function shipsOtherThanArgoAndSquadrons() {

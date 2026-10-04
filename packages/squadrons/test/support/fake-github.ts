@@ -123,3 +123,9 @@ export async function startFakeGithub(): Promise<FakeGithub> {
   github.apiUrl = `http://127.0.0.1:${String(address.port)}`;
   return github;
 }
+
+/** Tags that all point at one commit holding the files, as `git tag` on one commit gives. */
+export function tagsAt(commit: { files: Record<string, string>; committedAt?: Date }, ...names: string[]): FakeTag[] {
+  const sha = shaOf(JSON.stringify(commit.files));
+  return names.map((name) => ({ name, sha, committedAt: commit.committedAt ?? new Date('2026-10-01T10:00:00.000Z'), files: commit.files }));
+}

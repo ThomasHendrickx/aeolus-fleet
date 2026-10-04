@@ -1,9 +1,3 @@
-import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
-
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,6 +14,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
 import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../packages/squadrons/test/support/fake-github.js';
 import { seedRepository } from '../packages/squadrons/test/support/repositories.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
@@ -29,8 +24,7 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // launch note once, and a member that checks in shows on station; the
 // squadron sails once every member is.
 
-const run = promisify(execFile);
-const REPO = 'example.com/templates';
+const REPO = 'github.com/acme/templates';
 const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 const ROLE = 'application/vnd.aeolus.squadron.role+json';
 const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
@@ -40,7 +34,7 @@ const SIGN_IN_WINDOW_MS = 60_000;
 /** The squadron page asks again every few seconds; a check-in shows within that. */
 const LIVE_TIMEOUT_MS = 20_000;
 
-let work: string;
+let github: FakeGithub;
 let database: PrismaClient;
 let useCases: UseCases;
 let argo: Caller;
@@ -55,24 +49,20 @@ let memberCall: Awaited<ReturnType<typeof crewed>> | undefined;
 /** The squadron the add-member test grew to two testers, kept so the next test can remove one. */
 let grownSquadronId = '';
 
-async function inOrigin(origin: string, ...args: string[]): Promise<void> {
-  await run('git', ['-C', origin, ...args], {
-    env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 't@example.com' },
-  });
-}
-
 beforeAll(async () => {
-  work = mkdtempSync(join(tmpdir(), 'aeolus-squadrons-console-'));
-  const origin = join(work, 'templates');
-  mkdirSync(join(origin, '.aeolus', 'squadrons', 'templates'), { recursive: true });
-  mkdirSync(join(origin, '.aeolus', 'squadrons', 'blueprints'), { recursive: true });
-  await inOrigin(origin, 'init', '--quiet', '--initial-branch=main');
-  writeFileSync(join(origin, '.aeolus/squadrons/templates/tester.yaml'), 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\nhandoffs:\n  on-pass: The run that passed\n');
-  writeFileSync(join(origin, '.aeolus/squadrons/blueprints/team.yaml'), `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nhandoffs:\n  tester.on-pass: flagship\n`);
-  await inOrigin(origin, 'add', '.');
-  await inOrigin(origin, 'commit', '--quiet', '-m', 'team');
-  await inOrigin(origin, 'tag', 'tester@1');
-  await inOrigin(origin, 'tag', 'team@1');
+  github = await startFakeGithub();
+  github.repositories.set('acme/templates', {
+    tags: tagsAt(
+      {
+        files: {
+          '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\nhandoffs:\n  on-pass: The run that passed\n',
+          '.aeolus/squadrons/blueprints/team.yaml': `description: One tester.\nroles:\n  tester:\n    template: ${REPO}#tester@1\nhandoffs:\n  tester.on-pass: flagship\n`,
+        },
+      },
+      'tester@1',
+      'team@1',
+    ),
+  });
 
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
@@ -86,11 +76,11 @@ beforeAll(async () => {
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false, receiveWaitMs: 500 });
   serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   const squadronsDatabaseUrl = await createSquadronsDatabase();
-  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: 'https://github.com/acme/templates' });
   squadrons = createSquadronsApp({
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl: serverUrl,
-    cacheDir: join(work, 'cache'),
+    githubApiUrl: github.apiUrl,
     clock,
     logger: false,
   });
@@ -109,7 +99,7 @@ afterAll(async () => {
   await squadrons.close();
   await server.close();
   await database.$disconnect();
-  rmSync(work, { recursive: true, force: true });
+  await github.close();
 });
 
 async function squadronsPage(): Promise<Page> {

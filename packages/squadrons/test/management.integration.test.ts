@@ -54,7 +54,7 @@ afterEach(async () => {
 
 /** A squadrons process on the test's database, serving on a free port. */
 async function started(): Promise<{ app: SquadronsApp; address: string }> {
-  const app = createSquadronsApp({ databaseUrl: squadronsDatabaseUrl, fleetUrl, cacheDir: '/tmp/aeolus-squadrons-unused', logger: false });
+  const app = createSquadronsApp({ databaseUrl: squadronsDatabaseUrl, fleetUrl, logger: false });
   apps.push(app);
   await app.readConnection();
   return { app, address: await app.server.listen({ host: '127.0.0.1', port: 0 }) };
