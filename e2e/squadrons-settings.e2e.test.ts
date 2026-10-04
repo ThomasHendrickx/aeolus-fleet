@@ -53,7 +53,7 @@ beforeAll(async () => {
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   github = await startFakeGithub();
   squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, githubApiUrl: github.apiUrl, logger: false });
-  await squadrons.readConnection();
+  await squadrons.restoreConnections();
   squadronsUrl = await squadrons.server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl, squadronsUrl });
   browser = await launchChromium();

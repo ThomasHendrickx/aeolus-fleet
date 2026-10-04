@@ -159,11 +159,10 @@ describe('forming that a crash kills midway', () => {
     expect((await shipsOtherThanArgoAndSquadrons()).filter((ship) => ship.retiredAt === null)).toHaveLength(COMMISSION_THAT_HANGS);
 
     restarted = squadronsApp(fleetUrl);
-    // The restart connects again with the crew token the killed process kept.
-    expect(await restarted.readConnection()).toMatchObject({ state: 'connected' });
-    const recovered = unwrap(await restarted.recoverFormations());
+    // The restart connects again with the crew token the killed process kept, and recovers the fleet's formations.
+    const restored = await restarted.restoreConnections();
 
-    expect(recovered).toEqual({ recovered: 1, retired: COMMISSION_THAT_HANGS });
+    expect(restored).toEqual([{ fleetId: managementShip.operatorFleetId, ship: 'squadrons', recovered: 1, retired: COMMISSION_THAT_HANGS }]);
     expect((await shipsOtherThanArgoAndSquadrons()).every((ship) => ship.retiredAt !== null)).toBe(true);
     const listed = z
       .object({ result: z.object({ data: z.array(z.unknown()) }) })

@@ -38,6 +38,7 @@ const door: FleetDoor = {
 const management: ManagementCrewStore = {
   find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
   binding: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT }),
+  connected: () => Promise.resolve([{ fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }]),
   save: () => Promise.resolve(),
   drop: () => Promise.resolve(),
 };
@@ -60,7 +61,7 @@ beforeEach(async () => {
   await attempts.commissioned('attempt-1', { name: 'planner-k3x9', shipId: 'shp_01m3tbfspe96yf1rnr4ank0002' });
 });
 
-const recover = () => createRecoverFormations({ door, management, attempts })();
+const recover = () => createRecoverFormations({ door, management, attempts })(FLEET);
 
 describe('recovering formations a crash left unfinished', () => {
   it('retires every ship the attempt commissioned, finding by name one whose id was never recorded', async () => {

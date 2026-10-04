@@ -56,7 +56,7 @@ afterEach(async () => {
 async function started(): Promise<{ app: SquadronsApp; address: string }> {
   const app = createSquadronsApp({ databaseUrl: squadronsDatabaseUrl, fleetUrl, logger: false });
   apps.push(app);
-  await app.readConnection();
+  await app.restoreConnections();
   return { app, address: await app.server.listen({ host: '127.0.0.1', port: 0 }) };
 }
 
@@ -81,7 +81,7 @@ describe('a squadrons process that was never connected', () => {
     await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok', connection: 'not-connected' } });
     const version = z.object({ squadrons: z.string(), migration: z.string(), connection: z.string() }).parse(await (await fetch(`${address}/api/version`)).json());
     expect(version.connection).toBe('not-connected');
-    expect(version.migration).toMatch(/^\d{14}_template_repositories$/);
+    expect(version.migration).toMatch(/^\d{14}_management_crew_per_fleet$/);
     expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
   });
 

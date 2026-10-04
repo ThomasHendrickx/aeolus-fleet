@@ -8,6 +8,7 @@ import type { SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
+const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 const PLANNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0001';
 const TESTER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0002';
@@ -73,8 +74,9 @@ const door: FleetDoor = {
   send: notUsed,
 };
 const management: ManagementCrewStore = {
-  find: () => Promise.resolve(crew),
-  binding: () => Promise.resolve(crew && { fleetId: crew.fleetId, shipId: crew.shipId }),
+  find: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? crew : undefined),
+  binding: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? { fleetId: crew.fleetId, shipId: crew.shipId } : undefined),
+  connected: () => Promise.resolve(crew ? [crew] : []),
   save: () => Promise.resolve(),
   drop: () => Promise.resolve(),
 };
@@ -111,6 +113,12 @@ describe('listing the squadrons', () => {
     ships.delete(TESTER);
 
     await expect(listSquadrons(FLEET)).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_UNAVAILABLE' } });
+  });
+
+  it('refuses in a fleet squadrons is not connected to, though another fleet is connected', async () => {
+    crew = { fleetId: OTHER_FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
+
+    await expect(listSquadrons(FLEET)).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
   });
 
   it('refuses while squadrons is not connected', async () => {

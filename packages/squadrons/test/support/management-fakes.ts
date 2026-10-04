@@ -87,25 +87,40 @@ export function fakeManagementFleet() {
   return { state, door };
 }
 
-/** The management store in memory: the binding stays when the crew token is dropped. */
-export function memoryManagementStore(): ManagementCrewStore & { held: { binding: ManagementBinding; name: string; crewToken: string | null; crewedAt: Date } | undefined } {
-  const store: ManagementCrewStore & { held: { binding: ManagementBinding; name: string; crewToken: string | null; crewedAt: Date } | undefined } = {
-    held: undefined,
-    find: () => {
-      const { held } = store;
-      return Promise.resolve(held?.crewToken ? { ...held.binding, name: held.name, crewToken: held.crewToken, crewedAt: held.crewedAt } : undefined);
+/** A connection the management store holds for one fleet: the binding stays when the crew token is dropped. */
+interface HeldConnection {
+  binding: ManagementBinding;
+  name: string;
+  crewToken: string | null;
+  crewedAt: Date;
+}
+
+/** The management store in memory, one connection per fleet. */
+export function memoryManagementStore(): ManagementCrewStore & { held: Map<FleetId, HeldConnection> } {
+  const held = new Map<FleetId, HeldConnection>();
+  const crewOf = (connection: HeldConnection): ManagementCrew | undefined =>
+    connection.crewToken ? { ...connection.binding, name: connection.name, crewToken: connection.crewToken, crewedAt: connection.crewedAt } : undefined;
+  return {
+    held,
+    find: (fleetId) => {
+      const connection = held.get(fleetId);
+      return Promise.resolve(connection ? crewOf(connection) : undefined);
     },
-    binding: () => Promise.resolve(store.held ? { ...store.held.binding } : undefined),
+    binding: (fleetId) => {
+      const connection = held.get(fleetId);
+      return Promise.resolve(connection ? { ...connection.binding } : undefined);
+    },
+    connected: () => Promise.resolve([...held.values()].flatMap((connection) => crewOf(connection) ?? [])),
     save: (crew: ManagementCrew) => {
-      store.held = { binding: { fleetId: crew.fleetId, shipId: crew.shipId }, name: crew.name, crewToken: crew.crewToken, crewedAt: crew.crewedAt };
+      held.set(crew.fleetId, { binding: { fleetId: crew.fleetId, shipId: crew.shipId }, name: crew.name, crewToken: crew.crewToken, crewedAt: crew.crewedAt });
       return Promise.resolve();
     },
-    drop: () => {
-      if (store.held) {
-        store.held = { ...store.held, crewToken: null };
+    drop: (fleetId) => {
+      const connection = held.get(fleetId);
+      if (connection) {
+        held.set(fleetId, { ...connection, crewToken: null });
       }
       return Promise.resolve();
     },
   };
-  return store;
 }

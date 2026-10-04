@@ -109,7 +109,7 @@ const squadrons: SquadronRepository = {
 };
 
 const kept: KeptMessage[] = [];
-const told: { text: string; key: string }[] = [];
+const told: { fleetId: FleetId; text: string; key: string }[] = [];
 const messages: FlagshipMessageLog = {
   keep: (message) => {
     // As the port promises: keeping the same delivery again changes nothing.
@@ -446,5 +446,6 @@ describe('handling before the ack', () => {
     expect(told).toHaveLength(2);
     expect(told[1]).toEqual(told[0]);
     expect(told[0]?.key).toBe(`kept-${unknown.deliveryId}`);
+    expect(told[0]?.fleetId).toBe(FLEET);
   });
 });
