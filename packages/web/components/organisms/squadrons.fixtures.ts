@@ -91,12 +91,18 @@ export const sailing: Squadron = {
   sailedAt: AT,
 };
 
+/** The crew lines squadrons hands a member: one per harness, each with the squadron id. */
+function memberCrewLines(shipId: string) {
+  const identity = `https://fleet.example.dev ${shipId} aeolus_sk_v1_example aeolus-a1b2c3`;
+  return [
+    { harness: 'claude-code', line: `/aeolus:crew ${identity}` },
+    { harness: 'codex', line: `$aeolus-crew ${identity}` },
+  ];
+}
+
 export const crewLines = new Map([
-  ['shp_01m3tbfspe96yf1rnr4ank0002', { crewLine: '/aeolus:crew https://fleet.example.dev shp_01m3tbfspe96yf1rnr4ank0002 aeolus_sk_v1_example aeolus-a1b2c3', launchNote: null }],
-  [
-    'shp_01m3tbfspe96yf1rnr4ank0004',
-    { crewLine: '/aeolus:crew https://fleet.example.dev shp_01m3tbfspe96yf1rnr4ank0004 aeolus_sk_v1_example aeolus-a1b2c3', launchNote: 'Start in a worktree with Docker running.' },
-  ],
+  ['shp_01m3tbfspe96yf1rnr4ank0002', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0002'), launchNote: null }],
+  ['shp_01m3tbfspe96yf1rnr4ank0004', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0004'), launchNote: 'Start in a worktree with Docker running.' }],
 ]);
 
 export { NOW } from './ship-page.fixtures';

@@ -296,7 +296,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
         shipName={ship.name}
         state={promptState}
         prompt={issued?.prompt}
-        crewLine={issued?.crewLine}
+        crewLines={issued?.crewLines}
         replacesUnclaimed={replacedPrompt}
         error={getStartingPrompt.error?.message}
         isOpen={dialog === 'prompt'}

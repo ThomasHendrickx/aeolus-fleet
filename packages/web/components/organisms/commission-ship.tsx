@@ -53,7 +53,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         shipName={commission.variables?.name ?? ''}
         state="shown"
         prompt={commission.data?.prompt ?? undefined}
-        crewLine={commission.data?.crewLine ?? undefined}
+        crewLines={commission.data?.crewLines ?? undefined}
         isOpen={isPromptOpen && commission.data !== undefined}
         onOpenChange={(isNowOpen) => {
           if (!isNowOpen) {

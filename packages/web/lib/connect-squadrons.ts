@@ -22,23 +22,14 @@ export interface ConnectCalls {
   status(): Promise<SquadronsConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<SquadronsConnection>;
   ships(): Promise<{ id: string; name: string; type: string; status: ShipStatus }[]>;
-  commission(ship: { name: string; type: string; fleetScopes: ('fleet:read' | 'fleet:manage')[]; idempotencyKey: string }): Promise<{ shipId: string; crewLine: string | null }>;
+  commission(ship: { name: string; type: string; fleetScopes: ('fleet:read' | 'fleet:manage')[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
-  startingPrompt(shipId: string): Promise<{ crewLine: string }>;
+  startingPrompt(shipId: string): Promise<{ secret: string }>;
 }
 
 /** A refusal to show the operator as it is: it names what to do. */
 export class ConnectSquadronsError extends Error {
   override name = 'ConnectSquadronsError';
-}
-
-/** The secret in a crew line: `/aeolus:crew <fleetUrl> <shipId> <secret>`. */
-function secretIn(crewLine: string): string {
-  const secret = crewLine.split(' ')[3];
-  if (secret === undefined) {
-    throw new ConnectSquadronsError('The fleet answered no secret for the management ship');
-  }
-  return secret;
 }
 
 /**
@@ -63,17 +54,17 @@ export async function connectSquadrons(calls: ConnectCalls, newKey: () => string
   const ship = last ?? named;
 
   let shipId: string;
-  let crewLine: string;
+  let secret: string;
   if (ship) {
     if (ship.status === 'crewed') {
       await calls.release(ship.id);
     }
     shipId = ship.id;
-    crewLine = (await calls.startingPrompt(ship.id)).crewLine;
+    secret = (await calls.startingPrompt(ship.id)).secret;
   } else {
     const commissioned = await calls.commission({ name: MANAGEMENT_SHIP, type: MANAGEMENT_SHIP, fleetScopes: ['fleet:read', 'fleet:manage'], idempotencyKey: newKey() });
     shipId = commissioned.shipId;
-    crewLine = commissioned.crewLine ?? (await calls.startingPrompt(commissioned.shipId)).crewLine;
+    secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
-  return calls.connect({ shipId, secret: secretIn(crewLine) });
+  return calls.connect({ shipId, secret });
 }

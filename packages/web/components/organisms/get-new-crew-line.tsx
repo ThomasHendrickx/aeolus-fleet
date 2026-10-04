@@ -50,7 +50,7 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
         state={state}
         template={of.template}
         launchNote={newCrewLine.data?.launchNote}
-        crewLine={newCrewLine.data?.crewLine}
+        crewLines={newCrewLine.data?.crewLines}
         replacedText={replacedText}
         error={newCrewLine.error?.message}
         isOpen={isOpen}

@@ -21,7 +21,10 @@ const meta = {
       '',
       'Call register.',
     ].join('\n'),
-    crewLine: `/aeolus:crew https://fleet.example.com ${SHIP_ID} ${SECRET}`,
+    crewLines: [
+      { harness: 'claude-code', line: `/aeolus:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+      { harness: 'codex', line: `$aeolus-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+    ],
     isOpen: true,
     onOpenChange: () => undefined,
     onConfirm: () => undefined,
@@ -42,7 +45,7 @@ export const Shown: Story = {};
 export const ReplacesUnclaimed: Story = {
   args: { replacesUnclaimed: { issuedAt: '2026-10-01T09:12:00.000Z' } },
 };
-export const Issuing: Story = { args: { state: 'issuing', prompt: undefined, crewLine: undefined } };
+export const Issuing: Story = { args: { state: 'issuing', prompt: undefined, crewLines: undefined } };
 export const Failed: Story = {
-  args: { state: 'error', prompt: undefined, crewLine: undefined, error: 'The server did not answer.' },
+  args: { state: 'error', prompt: undefined, crewLines: undefined, error: 'The server did not answer.' },
 };

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { crewLineSchema, type CrewLine } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { useSquadronsConnection } from './squadrons';
@@ -108,7 +109,7 @@ export const formedSquadronSchema = z.object({
       shipId: z.string(),
       name: z.string(),
       role: z.string(),
-      crewLine: z.string(),
+      crewLines: z.array(crewLineSchema),
       launchNote: z.string().nullable(),
       model: z.string().nullable(),
     }),
@@ -189,7 +190,7 @@ export function useCatalogue() {
 
 /**
  * Forms a squadron from a blueprint version. The answer holds each member's
- * crew line and launch note: shown once, kept only in this browser's memory.
+ * crew lines and launch note: shown once, kept only in this browser's memory.
  */
 export function useFormSquadron() {
   const queryClient = useQueryClient();
@@ -234,14 +235,14 @@ export const addedMemberSchema = z.object({
   shipId: z.string(),
   name: z.string(),
   role: z.string(),
-  crewLine: z.string(),
+  crewLines: z.array(crewLineSchema),
   launchNote: z.string().nullable(),
   model: z.string().nullable(),
 });
 
 export type AddedMember = z.infer<typeof addedMemberSchema>;
 
-/** Adds one member of a role to a sailing squadron; the answer holds its crew line and launch note, shown once. */
+/** Adds one member of a role to a sailing squadron; the answer holds its crew lines and launch note, shown once. */
 export function useAddMember() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -263,9 +264,9 @@ export function useRemoveMember() {
   });
 }
 
-export const newCrewLineSchema = z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() });
+export const newCrewLineSchema = z.object({ crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() });
 
-/** A member's new crew line: releases its ship if crewed; the answer, with its launch note, is shown once. */
+/** A member's new crew lines: releases its ship if crewed; the answer, with its launch note, is shown once. */
 export function useNewCrewLine() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -281,9 +282,9 @@ function crewLinesKey(squadronId: string): string[] {
 }
 
 /** The crew lines forming handed out for this squadron, by ship id, while this browser still holds them. */
-export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { crewLine: string; launchNote: string | null }> {
+export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { crewLines: readonly CrewLine[]; launchNote: string | null }> {
   const members = useQueryClient().getQueryData<FormedSquadron['members']>(crewLinesKey(squadronId)) ?? [];
-  return new Map(members.map((member) => [member.shipId, { crewLine: member.crewLine, launchNote: member.launchNote }]));
+  return new Map(members.map((member) => [member.shipId, { crewLines: member.crewLines, launchNote: member.launchNote }]));
 }
 
 export const repositorySchema = z.object({

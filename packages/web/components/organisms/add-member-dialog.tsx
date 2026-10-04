@@ -32,7 +32,7 @@ function AddMemberBody({ squadronId, blueprint, roles, isPending, error, onSubmi
     <>
       <DialogHeader>
         <DialogTitle>Add a member to {squadronId}</DialogTitle>
-        <DialogDescription>Roles come from its blueprint. Next you get the new member&apos;s crew line.</DialogDescription>
+        <DialogDescription>Roles come from its blueprint. Next you get the new member&apos;s crew lines.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-2">
         <span className="text-meta font-medium">Role</span>
@@ -86,7 +86,7 @@ function AddMemberBody({ squadronId, blueprint, roles, isPending, error, onSubmi
  * Adds one member while the squadron sails (docs/design/png/AddMemberDialog.png):
  * the operator picks a role from the blueprint; the dialog says what gets
  * commissioned and how the squadron then differs from its blueprint. On
- * success the CrewLineDialog shows the new member's crew line once.
+ * success the CrewLineDialog shows the new member's crew lines once.
  */
 export function AddMemberDialog(props: AddMemberDialogProps) {
   const { isOpen, onOpenChange, isPending } = props;

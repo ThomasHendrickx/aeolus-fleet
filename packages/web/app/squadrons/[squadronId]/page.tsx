@@ -41,7 +41,7 @@ import { otherMembersOfRole, roleOptions } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
- * not, and the messages its flagship kept because it does not handle them. Right after forming, members not on station show their crew line and
+ * not, and the messages its flagship kept because it does not handle them. Right after forming, members not on station show their crew lines and
  * launch note once. It asks again every few seconds, so members show on
  * station as they check in.
  */
@@ -293,7 +293,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           state="shown"
           template={roles.find((each) => each.role === added.role)?.template}
           launchNote={added.launchNote}
-          crewLine={added.crewLine}
+          crewLines={added.crewLines}
           isOpen
           onOpenChange={(isNowOpen) => {
             if (!isNowOpen) {
