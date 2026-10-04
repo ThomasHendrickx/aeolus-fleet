@@ -25,8 +25,10 @@ export const installationFleetsCreateOutputSchema = z.object({
 
 /**
  * One fleet as the installation sees it: its operator, when it was created,
- * its ships that are not retired (argo included), the messages stored in the
- * last 7 days, and the time of its newest event (null before any).
+ * and its four measures (docs/architecture.md, "Installation"): ships, the
+ * ones not retired, argo included; messages, every one stored in the last 7
+ * days; last activity, the time of its newest event (null before any); and
+ * storage, the UTF-8 bytes of every payload it ever stored.
  */
 export const installationFleetSchema = z.object({
   fleetId: idSchema('fleet'),
@@ -36,6 +38,7 @@ export const installationFleetSchema = z.object({
   shipCount: z.int().min(0),
   messagesLast7Days: z.int().min(0),
   lastActivityAt: z.iso.datetime().nullable(),
+  storage: z.int().min(0),
 });
 
 export type InstallationFleet = z.infer<typeof installationFleetSchema>;
