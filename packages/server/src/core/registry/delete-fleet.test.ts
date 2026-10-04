@@ -14,10 +14,10 @@ let doomed: FleetId;
 
 /**
  * How many rows of each table belong to the fleet. Typed over the whole state,
- * so a new table must say here how it belongs to a fleet; the installation's
- * requests belong to none.
+ * so a new table must say here how it belongs to a fleet; of the installation's
+ * requests, a create names the fleet it created.
  */
-function rowsOf(fleetId: FleetId): Record<Exclude<keyof InMemoryState, 'installationRequests'>, number> {
+function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
   const { state } = core;
   const of = (rows: readonly { fleetId: FleetId }[]) => rows.filter((row) => row.fleetId === fleetId).length;
   return {
@@ -34,15 +34,16 @@ function rowsOf(fleetId: FleetId): Record<Exclude<keyof InMemoryState, 'installa
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),
     notices: of(state.notices),
+    installationRequests: state.installationRequests.filter((request) => request.kind === 'createFleet' && request.fleetId === fleetId).length,
   };
 }
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
-  deleteFleet = createDeleteFleet({ uow: core.uow, clock: core.clock });
+  deleteFleet = createDeleteFleet({ uow: core.uow, clock: core.clock, hasher: core.hasher });
   ({ fleetId: kept } = await initialiseFleet(core));
   ({ fleetId: doomed } = unwrap(
-    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
+    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
   ));
   // A busy fleet to delete: a crewed ship and a message in flight with it. The kept
   // fleet's operator is signed in, so its console session and argo's lease must stay.
@@ -53,7 +54,7 @@ beforeEach(async () => {
 });
 
 describe('deleting a fleet for the installation', () => {
-  it('deletes the fleet and every record in it: ships, leases, secrets, messages, deliveries, events, its operator', async () => {
+  it('deletes the fleet and every record in it: ships, leases, secrets, messages, deliveries, events, its operator, the request that created it', async () => {
     expect(Object.values(rowsOf(doomed)).some((count) => count > 0)).toBe(true);
 
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
@@ -72,7 +73,7 @@ describe('deleting a fleet for the installation', () => {
   it("answers the fleet's name and operator email, for the server's log", async () => {
     await expect(deleteFleet({ requestId: 'delete-1', fleetId: doomed })).resolves.toEqual({
       isOk: true,
-      value: { fleetId: doomed, name: 'hemma', operatorEmail: 'lena@example.com' },
+      value: { isReplay: false, fleetId: doomed, name: 'hemma', operatorEmail: 'lena@example.com' },
     });
   });
 
@@ -84,17 +85,25 @@ describe('deleting a fleet for the installation', () => {
 });
 
 describe('a delete that comes again under its request id', () => {
-  it('answers what the first one answered, though the fleet is gone', async () => {
-    const first = unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+  it('answers that the fleet was deleted, though it is gone, as a replay the server does not log again', async () => {
+    unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
 
-    await expect(deleteFleet({ requestId: 'delete-1', fleetId: doomed })).resolves.toEqual({ isOk: true, value: first });
+    await expect(deleteFleet({ requestId: 'delete-1', fleetId: doomed })).resolves.toEqual({ isOk: true, value: { isReplay: true, fleetId: doomed } });
   });
 
-  it('refuses another fleet, or a request id a create used', async () => {
+  it("keeps nothing of the fleet in the record of the delete: no fleet id, name or operator email, only the request's hash", async () => {
+    unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
+
+    expect(core.state.installationRequests.map((request) => Object.keys(request).sort())).toEqual([['at', 'kind', 'requestHash', 'requestId']]);
+    expect(JSON.stringify(core.state.installationRequests)).not.toMatch(/hemma|lena@example\.com/);
+  });
+
+  it('refuses another fleet, or the request id of a create whose fleet is still there', async () => {
+    unwrap(await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-2', name: 'other', operatorEmail: 'olle@example.com' }));
     unwrap(await deleteFleet({ requestId: 'delete-1', fleetId: doomed }));
 
     await expect(deleteFleet({ requestId: 'delete-1', fleetId: kept })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
-    await expect(deleteFleet({ requestId: 'signup-1', fleetId: kept })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
-    expect(core.state.fleets.map((fleet) => fleet.id)).toEqual([kept]);
+    await expect(deleteFleet({ requestId: 'signup-2', fleetId: kept })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+    expect(core.state.fleets).toHaveLength(2);
   });
 });

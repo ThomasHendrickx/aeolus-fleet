@@ -23,7 +23,7 @@ beforeEach(async () => {
   ({ fleetId: first } = await initialiseFleet(core));
   core.clock.advance(DAY_MS);
   ({ fleetId: hemma, operatorShipId: hemmaArgo } = unwrap(
-    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
+    await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
   ));
 });
 

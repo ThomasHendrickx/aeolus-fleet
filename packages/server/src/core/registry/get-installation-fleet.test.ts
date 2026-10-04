@@ -16,7 +16,7 @@ beforeEach(() => {
 describe('getting one fleet of the installation', () => {
   it('describes it as the list does', async () => {
     const { fleetId } = unwrap(
-      await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
+      await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
     );
 
     await expect(getFleet({ fleetId })).resolves.toEqual({

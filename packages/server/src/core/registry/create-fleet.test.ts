@@ -16,7 +16,7 @@ let createFleet: CreateFleet;
 
 beforeEach(() => {
   core = createInMemoryCore(CREATED_AT.toISOString());
-  createFleet = createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids });
+  createFleet = createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher });
 });
 
 describe('creating a fleet for the installation', () => {
