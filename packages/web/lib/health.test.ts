@@ -32,10 +32,10 @@ describe('webHealth', () => {
     expect(Object.keys(body)).toEqual(['web', 'server', 'database']);
   });
 
-  it('adds squadrons, up with its connection, when the console has squadrons', async () => {
-    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(200, { status: 'ok', connection: 'not-connected' }))).resolves.toEqual({
+  it('adds squadrons, up with its connected fleets and installation, when the console has squadrons', async () => {
+    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(200, { status: 'ok', connectedFleets: 0, installation: 'open' }))).resolves.toEqual({
       isHealthy: true,
-      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'up', connection: 'not-connected' } },
+      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'up', connectedFleets: 0, installation: 'open' } },
     });
   });
 

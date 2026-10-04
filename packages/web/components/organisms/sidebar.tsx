@@ -97,8 +97,8 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
- * comes second. Settings and the link to the source on GitHub sit above the
- * account menu.
+ * comes second, and Settings, which holds squadrons alone today, sits with
+ * the link to the source on GitHub above the account menu.
  */
 export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, ...account }: SidebarProps) {
   return (
@@ -142,7 +142,8 @@ export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = fal
         />
       </nav>
       <div className="px-2.5 pb-2">
-        <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />
+        {/* Settings holds squadrons alone today: without them it has nothing to show, so it is not offered. */}
+        {hasSquadrons && <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
         <a href={SOURCE_URL} target="_blank" rel="noreferrer" data-testid="nav-source" className={ITEM}>
           <CodeXml aria-hidden />
           <span className="grow max-lg:sr-only">Source on GitHub</span>

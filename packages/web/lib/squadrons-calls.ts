@@ -12,11 +12,15 @@ import { ConnectSquadronsError, type ConnectCalls, type SquadronsConnection } fr
 
 const TIMEOUT_MS = 10_000;
 
-const connectionSchema: z.ZodType<SquadronsConnection> = z.object({
-  state: z.enum(['not-connected', 'connected']),
-  ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
-  lastShipId: z.string().nullable(),
-});
+/** Squadrons' connection.status, with its `enabled` named as the console names a boolean. */
+const connectionSchema: z.ZodType<SquadronsConnection> = z
+  .object({
+    enabled: z.boolean(),
+    state: z.enum(['not-connected', 'connected']),
+    ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
+    lastShipId: z.string().nullable(),
+  })
+  .transform(({ enabled, ...connection }) => ({ isEnabled: enabled, ...connection }));
 
 const answerSchema = z.union([
   z.object({ result: z.object({ data: z.unknown() }) }),
