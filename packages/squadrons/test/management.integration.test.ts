@@ -101,6 +101,8 @@ describe('connecting squadrons', () => {
     const connected = await connectSquadrons(address, { cookie, shipId, secret });
 
     expect(connected.status, await connected.clone().text()).toBe(200);
+    // It answers as connection.status does: squadrons serves the fleet it connected to.
+    await expect(connected.json()).resolves.toEqual({ result: { data: { enabled: true, state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId } } });
     await expect(status(address)).resolves.toEqual({ state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId });
     await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 1 } });
     await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER', harness: 'aeolus-squadrons' });
