@@ -122,7 +122,7 @@ describe('adding a member', () => {
         shipId: 'shp_01m3tbfspe96yf1rnr4ank0010',
         name: 'tester-q8r2',
         role: 'tester',
-        crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0010', 'aeolus_sk_v1_tester-q8r2', 'team-a1b2c3'),
+        crewLines: memberCrewLines({ shipId: 'shp_01m3tbfspe96yf1rnr4ank0010', secret: 'aeolus_sk_v1_tester-q8r2', squadronId: 'team-a1b2c3' }),
         launchNote: 'Start in the root.',
         model: 'claude-opus-5-5',
       },

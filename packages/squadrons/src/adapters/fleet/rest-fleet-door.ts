@@ -3,7 +3,7 @@
  * not TypeScript-bound may make them: squadrons uses the public API like any
  * client (decision 0017). A refusal reads as the fleet's code and message.
  */
-import { idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
+import { crewLineSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -79,7 +79,7 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         method: 'POST',
         crewToken,
         body: ship,
-        answers: z.object({ shipId: idSchema('ship'), crewLine: z.string().nullable() }),
+        answers: z.object({ shipId: idSchema('ship'), secret: z.string().nullable(), crewLines: z.array(crewLineSchema).nullable() }),
       }),
     getShip: async (crewToken, ship) => {
       const read = await call(fleetUrl, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: shipDetailOutputSchema });
@@ -99,7 +99,7 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         method: 'POST',
         crewToken,
         body: ship,
-        answers: z.object({ crewLine: z.string() }),
+        answers: z.object({ secret: z.string(), crewLines: z.array(crewLineSchema) }),
       }),
     receive: async (crewToken, until) => {
       const received = await call(fleetUrl, {

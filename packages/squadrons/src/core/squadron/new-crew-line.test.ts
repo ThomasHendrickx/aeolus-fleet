@@ -106,7 +106,7 @@ describe("a member's new crew line", () => {
   it('releases the crewed ship, then answers new crew lines, one per harness, each with the squadron id, its launch note and pinned model, once', async () => {
     await expect(newCrewLine({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toEqual({
       isOk: true,
-      value: { crewLines: memberCrewLines(TESTER, 'aeolus_sk_v1_new', 'team-a1b2c3'), launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
+      value: { crewLines: memberCrewLines({ shipId: TESTER, secret: 'aeolus_sk_v1_new', squadronId: 'team-a1b2c3' }), launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
     });
     expect(calls).toEqual([`release ${TESTER}`, `prompt ${TESTER}`]);
   });

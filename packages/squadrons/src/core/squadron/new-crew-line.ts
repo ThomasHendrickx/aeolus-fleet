@@ -1,16 +1,17 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { CrewLine, FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { SquadronRepository } from './ports.js';
+import { withSquadronId } from './crew-lines.js';
 import { templateOf } from './squadron.js';
 
 export type NewCrewLineRefusal = DomainError<'MANAGEMENT_SHIP_NOT_CREWED' | 'SQUADRON_NOT_FOUND' | 'MEMBER_NOT_FOUND' | 'MEMBER_RETIRED' | 'FLEET_UNAVAILABLE'>;
 
-/** A member's new crew line, with the squadron id, its launch note and pinned model: shown once, never stored. */
+/** A member's new crew lines, with the squadron id, its launch note and pinned model: shown once, never stored. */
 export interface NewCrewLineAnswer {
-  crewLine: string;
+  crewLines: CrewLine[];
   launchNote: string | null;
   model: string | null;
 }
@@ -20,7 +21,7 @@ export type NewCrewLine = (input: { fleetId: FleetId; squadronId: string; shipId
 /**
  * Use case: the operator gives a member a new session while keeping its
  * check-in (#86, B4). squadrons releases the member's ship if a session crews
- * it, gets it a new starting prompt, and answers its crew line with the
+ * it, gets it a new starting prompt, and answers its crew lines with the
  * squadron id appended, so the new crew checks in at its flagship. A recrew
  * from the console gives no squadron id.
  */
@@ -56,6 +57,6 @@ export function createNewCrewLine(deps: { door: FleetDoor; management: Managemen
       return refuse('FLEET_UNAVAILABLE', `The fleet gave ${member.name} no starting prompt: ${prompt.error.message}`);
     }
     const template = templateOf(squadron, member);
-    return ok({ crewLine: `${prompt.value.crewLine} ${squadronId}`, launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ crewLines: withSquadronId(prompt.value.crewLines, squadronId), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }

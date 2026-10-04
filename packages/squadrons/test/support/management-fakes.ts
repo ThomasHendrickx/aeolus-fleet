@@ -19,7 +19,8 @@ export function issuedPrompt(shipId: ShipId, secret: string): { secret: string; 
 }
 
 /** The crew lines a member is handed: the fleet's, each with the squadron id. */
-export function memberCrewLines(shipId: ShipId, secret: string, squadronId: string): { harness: string; line: string }[] {
+export function memberCrewLines(member: { shipId: ShipId; secret: string; squadronId: string }): { harness: string; line: string }[] {
+  const { shipId, secret, squadronId } = member;
   return issuedPrompt(shipId, secret).crewLines.map(({ harness, line }) => ({ harness, line: `${line} ${squadronId}` }));
 }
 

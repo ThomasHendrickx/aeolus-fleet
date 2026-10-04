@@ -24,7 +24,7 @@ import type { RemoveMember } from '../../core/squadron/remove-member.js';
 import type { NewCrewLine } from '../../core/squadron/new-crew-line.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
-import { idSchema, type FleetId } from '@aeolus-fleet/common';
+import { crewLineSchema, idSchema, type FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
   /** The Cookie header the web app's server forwarded. */
@@ -353,12 +353,12 @@ export const squadronsRouter = t.router({
       }),
     /**
      * Adds a member of a role to a sailing squadron, from the squadron's own
-     * template version. Its crew line, launch note and pinned model are in the
+     * template version. Its crew lines, launch note and pinned model are in the
      * answer, once.
      */
     addMember: connectedProcedure
       .input(z.object({ squadronId: z.string(), role: z.string() }))
-      .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }))
+      .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
         const added = await ctx.addMember({ fleetId: ctx.fleetId, ...input });
         if (!added.isOk) {
@@ -382,12 +382,12 @@ export const squadronsRouter = t.router({
       }),
     /**
      * Gives a member a new session while keeping its check-in: releases its
-     * ship if crewed and answers a new crew line with the squadron id, its
+     * ship if crewed and answers new crew lines with the squadron id, its
      * launch note and pinned model, once.
      */
     newCrewLine: connectedProcedure
       .input(z.object({ squadronId: z.string(), shipId: idSchema('ship') }))
-      .output(z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }))
+      .output(z.object({ crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
         const answered = await ctx.newCrewLine({ fleetId: ctx.fleetId, ...input });
         if (!answered.isOk) {
@@ -397,7 +397,7 @@ export const squadronsRouter = t.router({
       }),
     /**
      * Forms a squadron from a blueprint version: its flagship crewed by
-     * squadrons, its members commissioned. Each member's crew line, launch
+     * squadrons, its members commissioned. Each member's crew lines, launch
      * note and pinned model are in the answer, once.
      */
     form: connectedProcedure
@@ -406,7 +406,7 @@ export const squadronsRouter = t.router({
         z.object({
           squadronId: z.string(),
           flagship: z.object({ shipId: z.string(), name: z.string() }),
-          members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() })),
+          members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() })),
         }),
       )
       .mutation(async ({ ctx, input }) => {

@@ -216,7 +216,7 @@ describe('forming a squadron', () => {
       shipId: fleet.state.ships[1]?.shipId,
       name: 'planner-k3x9',
       role: 'planner',
-      crewLines: memberCrewLines(idSchema('ship').parse(fleet.state.ships[1]?.shipId), 'aeolus_sk_v1_planner-k3x9', 'hemma-feature-a1b2c3'),
+      crewLines: memberCrewLines({ shipId: idSchema('ship').parse(fleet.state.ships[1]?.shipId), secret: 'aeolus_sk_v1_planner-k3x9', squadronId: 'hemma-feature-a1b2c3' }),
       launchNote: 'Start the planner in the repository root.',
       model: 'claude-opus-5-5',
     });
