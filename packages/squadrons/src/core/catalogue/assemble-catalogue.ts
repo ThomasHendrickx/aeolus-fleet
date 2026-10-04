@@ -3,42 +3,54 @@ import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
 import { CHARTER_MAX_BYTES, FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type TemplateReference, type TemplateVersion } from './catalogue.js';
-import type { SourceFile } from './ports.js';
+import type { SourceFile, UnreadTag } from './ports.js';
 
 const MINUTES_PER_HOUR = 60;
 const CHECK_IN_MAX_MINUTES = 24 * MINUTES_PER_HOUR;
 const COUNT_MAX = 20;
 
-const handle = z.string().max(SHIP_HANDLE_MAX_LENGTH).regex(SHIP_HANDLE_PATTERN, 'must be a handle: lowercase letters, digits, hyphens or colons');
+/**
+ * Why a field is refused, as the operator reads it after the field's name:
+ * missing, or not what it must be.
+ */
+function expecting(expected: string): { error: (issue: { input?: unknown }) => string } {
+  return { error: (issue) => (issue.input === undefined ? `is missing: expected ${expected}` : `must be ${expected}`) };
+}
 
+const HANDLE = 'a handle: lowercase letters, digits, hyphens or colons';
+const handle = z.string().max(SHIP_HANDLE_MAX_LENGTH, `must be ${HANDLE}`).regex(SHIP_HANDLE_PATTERN, `must be ${HANDLE}`);
+/** A mapping whose keys are handles; zod reports a refused key at the key's path. */
+function handleRecord<T extends z.ZodType>(values: T, expected: string) {
+  return z.record(handle, values, { error: (issue) => (issue.code === 'invalid_key' ? `must be ${HANDLE}` : expecting(expected).error(issue)) });
+}
+const text = (expected: string) => z.string(expecting(expected)).min(1, `must not be empty: expected ${expected}`);
+
+const DURATION = 'a duration such as 30m or 2h';
 /** `30m` or `2h`, from 1 minute to 24 hours, in minutes. */
 const checkIn = z
-  .string()
-  .regex(/^[1-9]\d*[mh]$/, 'must be a duration such as 30m or 2h')
+  .string(expecting(DURATION))
+  .regex(/^[1-9]\d*[mh]$/, `must be ${DURATION}`)
   .transform((raw) => Number(raw.slice(0, -1)) * (raw.endsWith('h') ? MINUTES_PER_HOUR : 1))
   .refine((minutes) => minutes <= CHECK_IN_MAX_MINUTES, 'must be at most 24h');
 
 /** An exact model id, never an alias: `claude-opus-5-5`, not `opus` or `claude-opus-latest`. */
 const model = z
-  .string()
+  .string(expecting('an exact model id such as claude-opus-5-5'))
   .regex(/^[a-z0-9][a-z0-9.-]*$/, 'must be an exact model id: lowercase letters, digits, dots and hyphens')
   .refine((id) => /\d/.test(id) && !id.endsWith('-latest'), 'must be an exact model id, not an alias');
 
 const templateSchema = z.object({
-  description: z.string().min(1),
+  description: text('one line of text'),
   checkIn,
   model: model.optional(),
-  launchNote: z.string().optional(),
-  charter: z
-    .string()
-    .min(1)
-    .refine((text) => new TextEncoder().encode(text).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
-  handoffs: z.record(handle, z.string().min(1)).optional(),
+  launchNote: z.string(expecting('text')).optional(),
+  charter: text("the role's instructions as text").refine((charter) => new TextEncoder().encode(charter).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
+  handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
 });
 
 /** `<repository>#<name>@<n>`: a configured repository, a template's name, and its tag's version. */
 const templateReference = z
-  .string()
+  .string(expecting('<repository>#<name>@<n>'))
   .regex(/^[^#\s]+#[a-z0-9:-]+@[1-9]\d*$/, 'must be <repository>#<name>@<n>')
   .transform((raw): TemplateReference => {
     const [repository = '', rest = ''] = raw.split('#');
@@ -46,20 +58,30 @@ const templateReference = z
     return { repository, name, version: Number(version) };
   });
 
+const COUNT = `a whole number from 1 to ${String(COUNT_MAX)}`;
+const ROLE_OR_FLAGSHIP = `a role of the blueprint or ${FLAGSHIP}`;
 const blueprintSchema = z.object({
-  description: z.string().min(1),
-  roles: z
-    .record(handle, z.object({ template: templateReference, count: z.int().min(1).max(COUNT_MAX).optional() }))
-    .refine((roles) => Object.keys(roles).length > 0, 'must name at least one role'),
-  handoffs: z.record(z.string().regex(/^[a-z0-9:-]+\.[a-z0-9:-]+$/, 'must be <role>.<hand-off>'), handle).optional(),
-  memberNames: z.enum(['plain', 'prefixed']).optional(),
+  description: text('one line of text'),
+  roles: handleRecord(
+    z.object(
+      { template: templateReference, count: z.int(expecting(COUNT)).min(1, `must be ${COUNT}`).max(COUNT_MAX, `must be ${COUNT}`).optional() },
+      expecting('a mapping holding the role\'s template'),
+    ),
+    'a mapping of role names, each to its template',
+  ).refine((roles) => Object.keys(roles).length > 0, 'must name at least one role'),
+  handoffs: z
+    .record(z.string().regex(/^[a-z0-9:-]+\.[a-z0-9:-]+$/), handle, {
+      error: (issue) => (issue.code === 'invalid_key' ? 'must be <role>.<hand-off>' : expecting(`a mapping of <role>.<hand-off>, each to ${ROLE_OR_FLAGSHIP}`).error(issue)),
+    })
+    .optional(),
+  memberNames: z.enum(['plain', 'prefixed'], expecting('plain or prefixed')).optional(),
 });
 
-/** The first problem zod found, as `<field>: <message>`; the whole file when it is no mapping. */
+/** The first problem zod found, as `<field> <why>`; the whole file when it is no mapping. */
 function firstIssue(kind: SourceFile['kind'], error: z.ZodError): string {
   const [issue] = error.issues;
   const field = issue?.path.join('.') ?? '';
-  return field === '' ? `the ${kind} must be a mapping of its fields` : `${field}: ${issue?.message ?? 'is not valid'}`;
+  return field === '' ? `the ${kind} must be a mapping of its fields` : `${field} ${issue?.message ?? 'is not valid'}`;
 }
 
 function templateOf(file: SourceFile): Result<TemplateVersion, string> {
@@ -89,10 +111,45 @@ function keyOf(reference: TemplateReference): string {
   return `${reference.repository}#${reference.name}@${String(reference.version)}`;
 }
 
-function blueprintOf(
-  file: SourceFile,
-  known: { templates: ReadonlyMap<string, TemplateVersion>; repositories: ReadonlySet<string> },
-): Result<BlueprintVersion, string> {
+/** A tag that names a version: a handle, `@`, and a whole number from 1. */
+const VERSION_TAG = /^([a-z0-9:-]+)@([1-9]\d*)$/;
+/** A tag shaped like a version tag, its name a handle or not. */
+const VERSION_SHAPED_TAG = /^(.+)@([1-9]\d*)$/;
+
+/** What a blueprint's references are checked against. */
+interface Known {
+  /** The templates in the catalogue, by reference. */
+  templates: ReadonlyMap<string, TemplateVersion>;
+  /** Every version a template file is tagged at, read or left out, by `<repository>#<name>`. */
+  tagged: ReadonlyMap<string, readonly number[]>;
+  /** The repositories squadrons is given, by name. */
+  repositories: ReadonlySet<string>;
+}
+
+/** Why a reference finds no template in the catalogue; undefined when it finds one. */
+function missingReason(reference: TemplateReference, known: Known): string | undefined {
+  const { repository, name, version } = reference;
+  if (!known.repositories.has(repository)) {
+    const named = [...known.repositories].find((each) => each.toLowerCase() === repository.toLowerCase());
+    return named === undefined
+      ? `squadrons knows no repository ${repository}`
+      : `squadrons knows no repository ${repository}; it knows ${named}, and a reference must match its name exactly, letter case too`;
+  }
+  if (known.templates.has(keyOf(reference))) {
+    return undefined;
+  }
+  const versions = known.tagged.get(`${repository}#${name}`) ?? [];
+  if (versions.length === 0) {
+    return `${repository} has no template ${name} at any tag`;
+  }
+  if (versions.includes(version)) {
+    return `${keyOf(reference)} is left out itself, for its own reason`;
+  }
+  const tags = versions.toSorted((one, other) => one - other).map((each) => `${name}@${String(each)}`);
+  return `${repository} has no ${name}@${String(version)}, only ${tags.join(', ')}`;
+}
+
+function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, string> {
   const parsed = blueprintSchema.safeParse(file.content);
   if (!parsed.success) {
     return err(firstIssue('blueprint', parsed.error));
@@ -103,12 +160,10 @@ function blueprintOf(
 
   const declared = new Set<string>();
   for (const role of roles) {
-    if (!known.repositories.has(role.template.repository)) {
-      return err(`roles.${role.name}.template: squadrons knows no repository ${role.template.repository}`);
-    }
+    const missing = missingReason(role.template, known);
     const template = known.templates.get(keyOf(role.template));
-    if (!template) {
-      return err(`roles.${role.name}.template: ${role.template.repository} has no template ${role.template.name}@${String(role.template.version)}`);
+    if (missing !== undefined || !template) {
+      return err(`roles.${role.name}.template: ${missing ?? 'is no template'}`);
     }
     for (const handoff of template.handoffs) {
       declared.add(`${role.name}.${handoff.name}`);
@@ -136,41 +191,58 @@ function blueprintOf(
   return ok({ repository, name, version, file: path, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
 }
 
+/** Why nothing was read at a version tag: its name is not lowercase, or its commit has no file of its name. */
+function tagProblem(tag: UnreadTag): CatalogueProblem {
+  const [, name = '', number = ''] = VERSION_SHAPED_TAG.exec(tag.tag) ?? [];
+  const message = VERSION_TAG.test(tag.tag)
+    ? `the tag ${tag.tag} points at a commit with neither ${tag.path}/templates/${name}.yaml nor ${tag.path}/blueprints/${name}.yaml`
+    : `the tag ${tag.tag} names no template or blueprint: a version tag is <name>@<n>, its name in lowercase as the file is named, such as ${name.toLowerCase()}@${number}`;
+  return { repository: tag.repository, kind: 'tag', name, version: Number(number), message };
+}
+
+/** Why a file is no valid YAML: the parser's first line, without the excerpt it adds below. */
+function invalidYaml(file: SourceFile & { parseError: string }): string {
+  return `the ${file.kind} is no valid YAML: ${file.parseError.split('\n')[0] ?? file.parseError}`;
+}
+
 /**
- * The catalogue from every tagged file (docs/squadrons.md): the template and
- * blueprint versions that follow the spec, and every version left out with its
- * first problem, so the operator can fix it in git. A blueprint is checked
- * against the templates it references: every hand-off they declare bound, and
- * nothing bound they do not declare.
+ * The catalogue from every tagged file of the repositories squadrons is given
+ * (docs/squadrons.md): the template and blueprint versions that follow the
+ * spec, and every version left out and version tag read nothing at, each with
+ * its first problem, so the operator can fix it in git. A blueprint is
+ * checked against the templates it references: every hand-off they declare
+ * bound, and nothing bound they do not declare.
  */
-export function assembleCatalogue(files: readonly SourceFile[]): Catalogue {
-  const problems: CatalogueProblem[] = [];
+export function assembleCatalogue(read: { repositories: readonly string[]; files: readonly SourceFile[]; tags: readonly UnreadTag[] }): Catalogue {
+  const problems: CatalogueProblem[] = read.tags.map(tagProblem);
   const problemOf = (file: SourceFile, message: string): CatalogueProblem => {
     const { repository, kind, name, version } = file;
     return { repository, kind, name, version, message };
   };
 
   const templates: TemplateVersion[] = [];
-  for (const file of files.filter((each) => each.kind === 'template')) {
-    const read = file.parseError === undefined ? templateOf(file) : err(`the template is no valid YAML: ${file.parseError}`);
-    if (read.isOk) {
-      templates.push(read.value);
+  const templateFiles = read.files.filter((each) => each.kind === 'template');
+  for (const file of templateFiles) {
+    const parsed = file.parseError === undefined ? templateOf(file) : err(invalidYaml({ ...file, parseError: file.parseError }));
+    if (parsed.isOk) {
+      templates.push(parsed.value);
     } else {
-      problems.push(problemOf(file, read.error));
+      problems.push(problemOf(file, parsed.error));
     }
   }
 
-  const known = {
-    templates: new Map(templates.map((template) => [keyOf(template), template])),
-    repositories: new Set(files.map((file) => file.repository)),
-  };
+  const tagged = new Map<string, number[]>();
+  for (const { repository, name, version } of templateFiles) {
+    tagged.set(`${repository}#${name}`, [...(tagged.get(`${repository}#${name}`) ?? []), version]);
+  }
+  const known: Known = { templates: new Map(templates.map((template) => [keyOf(template), template])), tagged, repositories: new Set(read.repositories) };
   const blueprints: BlueprintVersion[] = [];
-  for (const file of files.filter((each) => each.kind === 'blueprint')) {
-    const read = file.parseError === undefined ? blueprintOf(file, known) : err(`the blueprint is no valid YAML: ${file.parseError}`);
-    if (read.isOk) {
-      blueprints.push(read.value);
+  for (const file of read.files.filter((each) => each.kind === 'blueprint')) {
+    const parsed = file.parseError === undefined ? blueprintOf(file, known) : err(invalidYaml({ ...file, parseError: file.parseError }));
+    if (parsed.isOk) {
+      blueprints.push(parsed.value);
     } else {
-      problems.push(problemOf(file, read.error));
+      problems.push(problemOf(file, parsed.error));
     }
   }
   return { templates, blueprints, problems };

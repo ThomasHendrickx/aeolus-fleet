@@ -16,6 +16,20 @@ export interface SourceFile {
   parseError?: string;
 }
 
+/**
+ * A tag of the form `<name>@<n>` at which no file was read: its name is not
+ * lowercase, or its commit holds no file of that name. Other tags, such as
+ * `v1.0.0`, are no version tags and never listed.
+ */
+export interface UnreadTag {
+  /** The repository's name, as blueprints reference it. */
+  repository: string;
+  /** The tag's name: `tester@3`. */
+  tag: string;
+  /** The folder its files would be in: `.aeolus/squadrons`. */
+  path: string;
+}
+
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Catalogue } from './catalogue.js';
@@ -26,7 +40,8 @@ export type RepositoryToRead = Pick<TemplateRepository, 'fleetId' | 'name' | 'ur
 
 /**
  * Outbound port: the template and blueprint versions of the given
- * repositories (docs/squadrons.md, "Files in git"). A repository `fetch`
+ * repositories (docs/squadrons.md, "Files in git"), and the version tags at
+ * which no file was read. A repository `fetch`
  * picks is fetched first, and answers whether that worked; every other is
  * read from what it last fetched, and holds nothing before its first fetch.
  * What one fleet fetched is never read for another.
@@ -35,7 +50,7 @@ export interface RepositoryReader {
   read(
     repositories: readonly RepositoryToRead[],
     options: { fetch: (name: string) => boolean },
-  ): Promise<{ files: SourceFile[]; fetched: { name: string; error: string | null }[] }>;
+  ): Promise<{ files: SourceFile[]; tags: UnreadTag[]; fetched: { name: string; error: string | null }[] }>;
   /** Deletes what was fetched of a repository: read again, it holds nothing before its next fetch. */
   forget(repository: Pick<RepositoryToRead, 'fleetId' | 'name' | 'url'>): Promise<void>;
 }
