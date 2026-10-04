@@ -119,7 +119,7 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
  * Rename a ship (docs/design/png/RenameDialog.png), any but argo or a retired
  * one: the same live name check as commissioning, the fact that ships
  * addressing the old name stop reaching it. The dialog is the confirm
- * (docs/design/conventions.md, "Confirm"): a normal confirm. Desktop:
+ * (docs/design/conventions.md, "Destructive actions"): a normal confirm. Desktop:
  * a dialog; phone: full screen.
  */
 export function RenameDialog(props: RenameDialogProps) {

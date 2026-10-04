@@ -24,8 +24,5 @@ type Story = StoryObj<typeof meta>;
 
 export const Shown: Story = {};
 export const NoLaunchNote: Story = { args: { launchNote: null } };
-export const EndedASession: Story = {
-  args: { replacedText: 'Ends the session on mac mini. 1 in-flight delivery returns to pending. Nothing is lost.' },
-};
 export const Issuing: Story = { args: { state: 'issuing', crewLines: undefined } };
 export const Failed: Story = { args: { state: 'error', error: 'The squadron manager did not answer.', crewLines: undefined } };

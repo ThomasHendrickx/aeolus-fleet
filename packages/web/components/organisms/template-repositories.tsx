@@ -37,8 +37,10 @@ interface TemplateRepositoriesProps {
   addError?: string;
   onAdd: (repository: { url: string; path?: string; token?: string }, done: () => void) => void;
   isRemoving: boolean;
+  /** Why the last remove failed; cleared through onRemoveClosed, so the next remove starts without it. */
   removeError?: string;
   onRemove: (name: string, done: () => void) => void;
+  onRemoveClosed: () => void;
   isRefreshing: boolean;
   refreshError?: string;
   onRefresh: () => void;
@@ -60,7 +62,8 @@ function AddRepository({ isAdding, addError, onAdd }: Pick<TemplateRepositoriesP
       onSubmit={(event) => {
         event.preventDefault();
         const trimmedPath = path.trim();
-        onAdd({ url: url.trim(), ...(trimmedPath === '' ? {} : { path: trimmedPath }), ...(token === '' ? {} : { token }) }, () => {
+        const trimmedToken = token.trim();
+        onAdd({ url: url.trim(), ...(trimmedPath === '' ? {} : { path: trimmedPath }), ...(trimmedToken === '' ? {} : { token: trimmedToken }) }, () => {
           setUrl('');
           setPath('');
           setToken('');
@@ -104,7 +107,7 @@ function AddRepository({ isAdding, addError, onAdd }: Pick<TemplateRepositoriesP
         <Input
           id={tokenId}
           type="password"
-          autoComplete="off"
+          autoComplete="new-password"
           data-testid="repositories-token"
           value={token}
           onChange={(event) => {
@@ -113,7 +116,7 @@ function AddRepository({ isAdding, addError, onAdd }: Pick<TemplateRepositoriesP
         />
         <p className="text-meta text-muted-foreground">Entered once and never shown again. To change it, remove the repository and add it again.</p>
       </div>
-      {addError === undefined ? null : <InlineError title="Couldn't add the repository" description={`${addError} Nothing was added.`} />}
+      {addError === undefined ? null : <InlineError title="Couldn’t add the repository" description={`${addError} The list shows what squadrons holds.`} />}
       <div className="flex justify-end">
         <Button type="submit" variant="primary" icon={<Plus aria-hidden />} isLoading={isAdding} disabled={url.trim() === ''} data-testid="repositories-add-submit">
           {isAdding ? 'Adding' : 'Add repository'}
@@ -163,7 +166,7 @@ function RepositoryRow({ repository, now, onRemove }: { repository: TemplateRepo
  * confirm; Refresh fetches them all. squadrons never fetches by itself.
  */
 export function TemplateRepositories(props: TemplateRepositoriesProps) {
-  const { repositories, state, error, onRetry, isRemoving, removeError, onRemove, isRefreshing, refreshError, onRefresh, now } = props;
+  const { repositories, state, error, onRetry, isRemoving, removeError, onRemove, onRemoveClosed, isRefreshing, refreshError, onRefresh, now } = props;
   const [removing, setRemoving] = useState<string | undefined>(undefined);
   return (
     <section aria-labelledby="settings-repositories" data-testid="settings-repositories" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
@@ -178,11 +181,11 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
       <p className="text-meta text-muted-foreground">
         squadrons reads templates and blueprints from these repositories, under {DEFAULT_PATH} unless a repository sets its own path. It fetches one when you add it and when you refresh.
       </p>
-      {refreshError === undefined ? null : <InlineError variant="section" title="Couldn't refresh" description={refreshError} />}
+      {refreshError === undefined ? null : <InlineError variant="section" title="Couldn’t refresh" description={refreshError} />}
       {state === 'loading' ? (
         <LoadingSkeleton variant="list" rows={2} label="Loading the repositories" />
       ) : state === 'error' ? (
-        <InlineError title="Couldn't read the repositories" description={error} onRetry={onRetry} />
+        <InlineError title="Couldn’t read the repositories" description={error} onRetry={onRetry} />
       ) : repositories.length === 0 ? (
         <EmptyState variant="section" title="No repositories yet" description="Add one to read its templates and blueprints." />
       ) : (
@@ -205,6 +208,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
         onOpenChange={(isOpen) => {
           if (!isOpen && !isRemoving) {
             setRemoving(undefined);
+            onRemoveClosed();
           }
         }}
       >
@@ -215,7 +219,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
               Its templates and blueprints leave the catalogue at once. Squadrons formed from them keep the versions they formed from.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {removeError === undefined ? null : <InlineError title="Couldn't remove the repository" description={`${removeError} Nothing changed.`} />}
+          {removeError === undefined ? null : <InlineError title="Couldn’t remove the repository" description={`${removeError} The list shows what squadrons holds.`} />}
           <AlertDialogFooter>
             <AlertDialogClose render={<Button disabled={isRemoving} />}>Cancel</AlertDialogClose>
             <Button
@@ -226,6 +230,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
                 if (removing !== undefined) {
                   onRemove(removing, () => {
                     setRemoving(undefined);
+                    onRemoveClosed();
                   });
                 }
               }}

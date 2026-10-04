@@ -64,7 +64,7 @@ function AddMemberBody({ squadronId, blueprint, roles, isPending, error, onSubmi
           {role.role}; the squadron then has {role.now + 1}.
         </span>
       </p>
-      {error !== undefined && <InlineError variant="field" title="Couldn't add the member" description={`${error} No ship was commissioned.`} />}
+      {error !== undefined && <InlineError variant="field" title="Couldn’t add the member" description={`${error} No ship was commissioned.`} />}
       <DialogFooter>
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button

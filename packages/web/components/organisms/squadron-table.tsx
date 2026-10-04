@@ -53,8 +53,8 @@ export function SquadronTable({ squadrons, state, hasBlueprints, error, onRetry,
   if (state === 'error') {
     return (
       <InlineError
-        title="Couldn't load squadrons"
-        description="The console couldn't reach the squadron manager. Your ships keep running; nothing is lost."
+        title="Couldn’t load squadrons"
+        description="The console couldn’t reach the squadron manager. Your ships keep running; nothing is lost."
         detail={error}
         onRetry={onRetry}
       />

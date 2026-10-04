@@ -231,7 +231,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Ping a ship
 
-1. The operator presses Ping on a crewed ship, in its fleet row or on its page. Disabled while the ship awaits crew; never offered for a retired ship or `argo`.
+1. The operator presses Ping on a crewed ship, in its fleet row or on its page. Never offered while the ship awaits crew (no session to answer it), for a retired ship or for `argo`.
 2. The fleet sends the ship a ping (`MessageAccepted`), unless one already waits unanswered: then Ping shows that one and sends nothing. The ship shows "Pinged 3 min ago, no answer yet".
 3. The session receives the ping and answers with `pong`: the delivery is acknowledged (`DeliveryAcknowledged`, with `answer: pong`) and the lease marked seen. The ship shows "Answered ping in 4 s". A plain `ack` shows "Received, not answered with pong".
 4. The timeline shows the ping and its answer. No timeout and no automatic action: a ping that is never answered waits, and goes undeliverable like any delivery (decision 0016). The ship then shows "Ping not answered: undeliverable" until the next ping, or until the operator dismisses it. In Needs attention an undeliverable ping offers only Dismiss: a resend would stack a second ping, so a fresh one goes through Ping.

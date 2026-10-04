@@ -31,6 +31,16 @@ export const Section: Story = {
   },
 };
 
+/** A section whose read failed: Try again reads it again. */
+export const SectionWithRetry: Story = {
+  args: {
+    variant: 'section',
+    title: 'Couldn’t read the repositories',
+    description: 'squadrons did not answer.',
+    onRetry: fn(),
+  },
+};
+
 export const Page: Story = {
   args: {
     variant: 'page',

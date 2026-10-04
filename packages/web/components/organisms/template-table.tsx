@@ -48,8 +48,8 @@ export function TemplateTable({ templates, blueprints, state, error, onRetry }: 
     return (
       <InlineError
         variant="page"
-        title="Couldn't read templates from git"
-        description="The squadron manager couldn't fetch the squadrons repository. Running squadrons are not affected."
+        title="Couldn’t read templates from git"
+        description="The squadron manager couldn’t fetch the squadrons repository. Running squadrons are not affected."
         detail={error}
         onRetry={onRetry}
       />

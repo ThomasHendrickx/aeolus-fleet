@@ -68,7 +68,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Off: no Squadrons destination, Squadron filter, flagship chip, squadron states, health or silent members. Nothing else changes.
 - On: Squadrons second in Sidebar and TabBar (TabBar gets 5 tabs); Squadron filter in the FleetTable toolbar and phone filter Sheet; CommandPalette adds squadrons, blueprints and squadron actions.
 - Member name: the ship name as is; a squadron may prefix names but the console never parses them. Membership shows as SquadronTag, from the squadrons API.
-- Flagship: like argo, never Release, Rename or Retire; actions Open squadron, Message, Copy ship id; retires when its squadron disbands. Message on a squadron goes to its flagship.
+- Flagship: like argo, never Release, Rename or Retire; its only action is Open squadron; retires when its squadron disbands. Message on a squadron goes to its flagship.
 - Member: no Rename. Retire → Remove from squadron (RemoveMemberDialog). Get starting prompt → Get new crew line (CrewLineDialog). Silent: Get new crew line is the primary action.
 - Crew lines carry the secret: CrewLineBlock shows them once, with the template's launch note; afterwards only "Crew line issued … not claimed yet".
 - Forming: FormSquadronDialog (blueprint and version, then preview) → squadron page in Forming: StationProgress plus crew lines in MemberList rows. All on station: Sailing, Toast "<id> is sailing".
@@ -87,8 +87,8 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.
 
 ## Destructive actions
-- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt, Get new crew line (the dialog states the old one stops working), Sign out.
-- Normal confirm (Dialog, phone bottom Sheet): Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
+- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt (the dialog states the old one stops working), Sign out.
+- Normal confirm (Dialog, phone bottom Sheet): Get new crew line, always (it says what the new line ends: a session or an unclaimed line); Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
 - TypedConfirm only when an irreversible action discards pending work: Retire with open deliveries (type the ship name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
 - No other protective rules.
@@ -103,7 +103,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Times: relative under 24 h ("6 min ago"); durations "1 d 2 h", "11 min"; otherwise "28 Sep, 14:21" (24 h clock); envelopes and meta strips "28 Sep 2026, 14:05:51"; seconds only in DeliveryHistory and envelopes; relative times carry the absolute in `title`.
 - Numbers as digits: "1 open", "3 deliveries".
 - Buttons: verb + object, max 4 words ("Commission ship", "Send reply"); "Try again" for retries; "Cancel" before anything is done, "Close" after.
-- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, claude-chat, codex and console show icon plus Claude Code, Claude chat, Codex, Console; any other harness plain text as stored.
+- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, codex, claude-chat, chatgpt, grok, grokbot and console show icon plus Claude Code, Codex, Claude chat, ChatGPT, Grok, Grokbot, Console; any other harness plain text as stored.
 - Versions: blueprints "v4", templates "tester@4", commits short (`4f2a91c`).
 - No em dashes; use a colon, comma or full stop. Curly quotes and apostrophes.
 

@@ -46,7 +46,7 @@ function StandDownBody(props: StandDownDialogProps) {
   const isTypingNeeded = isForced && openDeliveries > 0;
   const isConfirmed = !isTypingNeeded || isTypedMatch(squadronId, typed);
   const failed = error === undefined ? null : (
-    <InlineError title="Couldn't stand down the squadron" description={`${error} Nothing changed; the squadron still sails.`} />
+    <InlineError title="Couldn’t stand down the squadron" description={`${error} Nothing changed; the squadron still sails.`} />
   );
 
   if (!isForced) {

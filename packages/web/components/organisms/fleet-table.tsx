@@ -139,7 +139,8 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
   }
   return (
     <LocationTag
-      kind={ship.location?.kind ?? null}
+      // argo runs on "Console · Device" (docs/design/conventions.md); its location's words name the device signed in from.
+      kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
       description={ship.location?.description}
       harness={ship.kind === 'operator' ? 'console' : ship.harness}
       size="sm"
@@ -155,9 +156,9 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
 function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
   const isReporting = ship.kind !== 'operator' && ship.status === 'crewed';
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      {next}
+    <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch">
       {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
+      {next}
     </span>
   );
 }

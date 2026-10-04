@@ -35,7 +35,7 @@ handoffs:                    # the hand-offs the charter refers to, by name, wit
 | `description` | yes | One line, for the template lists |
 | `checkIn` | yes | A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
 | `model` | no | The exact model id a member runs (`claude-opus-5-5`), never an alias: lowercase letters, digits, dots and hyphens, with at least one digit, not ending in `-latest`. Shown with the launch note; a member that states another model at check-in is flagged, not stopped |
-| `launchNote` | no | Shown once with each member's crew line: where to start the session |
+| `launchNote` | no | Shown once with each member's crew lines: where to start the session |
 | `charter` | yes | The role's instructions, given to the member at check-in, as written. At most 48 KB (UTF-8), so the role message stays within the 64 KB payload limit |
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
 

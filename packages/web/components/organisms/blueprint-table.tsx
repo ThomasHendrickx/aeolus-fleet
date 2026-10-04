@@ -32,8 +32,8 @@ export function BlueprintTable({ blueprints, squadrons, state, error, onRetry }:
     return (
       <InlineError
         variant="page"
-        title="Couldn't read blueprints from git"
-        description="The squadron manager couldn't fetch the squadrons repository. Running squadrons are not affected."
+        title="Couldn’t read blueprints from git"
+        description="The squadron manager couldn’t fetch the squadrons repository. Running squadrons are not affected."
         detail={error}
         onRetry={onRetry}
       />

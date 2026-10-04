@@ -342,6 +342,31 @@ describe('re-crewing a crewed ship', () => {
   });
 });
 
+describe('re-crewing after a replaced prompt', () => {
+  it('says nothing is replaced by the prompt after a re-crew, even after an earlier prompt replaced one', async () => {
+    const page = await signedInPage();
+    await commission(page, { name: 'quartermaster', type: 'reviewer' });
+    await promptBlock(page, 'quartermaster').getByRole('button', { name: 'Done' }).click();
+    // Both from the row menu: one ShipActions holds what the last prompt replaced.
+    await openRowMenu(page, 'quartermaster');
+    await page.getByRole('menuitem', { name: 'Get starting prompt…' }).click();
+    const replaced = page.getByTestId('starting-prompt-dialog');
+    await replaced.getByText(/This prompt stops the one issued/).waitFor();
+    const prompt = (await replaced.getByTestId('starting-prompt-text').textContent()) ?? '';
+    await replaced.getByRole('button', { name: 'Done' }).click();
+    await sessionClient().ship.register.mutate({ shipId: shipIdIn(prompt), secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' });
+    await shipRow(page, 'quartermaster').getByText('Crewed').waitFor();
+
+    await openRowMenu(page, 'quartermaster');
+    await page.getByTestId('fleet-ship-recrew').click();
+    await page.getByTestId('recrew-dialog').getByRole('button', { name: 'Re-crew ship' }).click();
+
+    const dialog = page.getByTestId('starting-prompt-dialog');
+    await dialog.getByTestId('starting-prompt-text').waitFor();
+    await expect(dialog.getByText(/This prompt stops the one issued/).count()).resolves.toBe(0);
+  });
+});
+
 describe('retiring a ship', () => {
   it('retires it after the typed confirm: gone from the default overview, shown under Show retired', async () => {
     const page = await signedInPage();

@@ -11,7 +11,7 @@ interface InlineErrorProps {
   description?: ReactNode;
   /** The technical reason, in mono (page only). */
   detail?: string;
-  /** Page only: Try again. */
+  /** Page and section: Try again. */
   onRetry?: () => void;
   /** Page only: the automatic retry, such as "Retrying in 12 s". */
   retryNote?: string;
@@ -69,6 +69,11 @@ export function InlineError({
         <div className="flex flex-col gap-1">
           <p className="text-body font-medium">{title}</p>
           {description ? <p className="text-meta text-foreground">{description}</p> : null}
+          {onRetry ? (
+            <Button size="xs" icon={<RotateCw aria-hidden />} onClick={onRetry} className="self-start">
+              Try again
+            </Button>
+          ) : null}
         </div>
       </div>
     );

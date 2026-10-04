@@ -41,7 +41,7 @@ export function KeptMessages({ messages, state, error, onRetry, flagshipId, now 
       {state === 'loading' ? (
         <LoadingSkeleton variant="list" rows={2} label="Loading the kept messages" />
       ) : state === 'error' ? (
-        <InlineError title="Couldn't load the kept messages" description="The rest of the page is current. Try again in a moment." detail={error} onRetry={onRetry} />
+        <InlineError title="Couldn’t load the kept messages" description="The rest of the page is current. Try again in a moment." detail={error} onRetry={onRetry} />
       ) : messages.length === 0 ? (
         <EmptyState variant="section" icon={<Inbox aria-hidden />} title="No kept messages" description="Every message to the flagship was the squadron's own." />
       ) : (

@@ -151,7 +151,7 @@ function FormSquadronBody({ blueprints, templates, isPending, error, onSubmit, i
       <p className="text-meta text-muted-foreground">
         Next you get crew lines and a launch note per member. You start each session by hand; the squadron sails once every member is on station.
       </p>
-      {error !== undefined && <InlineError variant="field" title="Couldn't form the squadron" description={error} />}
+      {error !== undefined && <InlineError variant="field" title="Couldn’t form the squadron" description={error} />}
       <DialogFooter>
         <Button
           type="button"

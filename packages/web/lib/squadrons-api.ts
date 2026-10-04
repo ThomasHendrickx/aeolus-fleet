@@ -324,7 +324,8 @@ export function useAddRepository() {
   return useMutation({
     mutationFn: (repository: { url: string; path?: string; token?: string }) =>
       call('repositories.add', { input: repository, isMutation: true, answers: repositorySchema }),
-    onSuccess: refresh,
+    // Also after a failure: a timeout may come after squadrons stored it.
+    onSettled: refresh,
   });
 }
 
@@ -333,7 +334,8 @@ export function useRemoveRepository() {
   const refresh = useRefreshRepositories();
   return useMutation({
     mutationFn: (name: string) => call('repositories.remove', { input: { name }, isMutation: true, answers: z.strictObject({}) }),
-    onSuccess: refresh,
+    // Also after a failure: a timeout may come after squadrons removed it.
+    onSettled: refresh,
   });
 }
 

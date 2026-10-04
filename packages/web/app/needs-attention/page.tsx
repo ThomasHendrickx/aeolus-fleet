@@ -78,7 +78,7 @@ export default function NeedsAttentionPage() {
           showToast({ ...resentToast(delivery), tone: 'success' });
         }
       } catch (error) {
-        showToast({ title: "Couldn't resend the message", description: messageOf(error), tone: 'error' });
+        showToast({ title: "Couldn’t resend the message", description: messageOf(error), tone: 'error' });
       }
     });
   };
@@ -88,7 +88,7 @@ export default function NeedsAttentionPage() {
         await dismiss.mutateAsync({ deliveryId });
         showToast({ ...DISMISSED_TOAST, tone: 'success' });
       } catch (error) {
-        showToast({ title: "Couldn't dismiss the delivery", description: messageOf(error), tone: 'error' });
+        showToast({ title: "Couldn’t dismiss the delivery", description: messageOf(error), tone: 'error' });
       }
     });
   };

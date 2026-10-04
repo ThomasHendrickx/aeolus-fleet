@@ -32,6 +32,7 @@ const meta = {
     onAdd: () => undefined,
     isRemoving: false,
     onRemove: () => undefined,
+    onRemoveClosed: () => undefined,
     isRefreshing: false,
     onRefresh: () => undefined,
     now: NOW,
