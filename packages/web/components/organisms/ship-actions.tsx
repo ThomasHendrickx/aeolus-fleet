@@ -235,7 +235,16 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
         error={(dialog === 'recrew' ? recrewShip.error : releaseShip.error)?.message}
         onConfirm={() => {
           if (dialog === 'recrew') {
-            recrewShip.mutate({ shipId: ship.id }, { onSuccess: () => { setDialog('prompt'); } });
+            recrewShip.mutate(
+              { shipId: ship.id },
+              {
+                onSuccess: () => {
+                  // A crewed ship's prompt was claimed: the new one replaces no unclaimed prompt.
+                  setReplacedPrompt(undefined);
+                  setDialog('prompt');
+                },
+              },
+            );
           } else {
             releaseShip.mutate({ shipId: ship.id }, { onSuccess: close });
           }
