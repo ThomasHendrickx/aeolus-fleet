@@ -70,7 +70,6 @@ beforeEach(async () => {
     logger: false,
   });
   unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) }));
-  await app.refreshCatalogue();
   address = await app.server.listen({ host: '127.0.0.1', port: 0 });
 });
 
@@ -96,6 +95,16 @@ async function catalogueWith(cookie: string | undefined): Promise<Response> {
 }
 
 describe('the catalogue at the squadrons API', () => {
+  it('is served once squadrons connects: connecting fetches every template repository once, recording the fetch', async () => {
+    const cookie = await signIn();
+
+    const repositories = repositoriesListed.parse(await (await fetch(`${address}/trpc/repositories.list`, { headers: { cookie } })).json()).result.data;
+    const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;
+
+    expect(repositories.map((repository) => repository.lastFetch?.error)).toEqual([null]);
+    expect(data.templates.map((template) => template.name)).toEqual(['tester']);
+  });
+
   it("gives the fleet's operator the tagged templates and blueprints", async () => {
     const response = await catalogueWith(await signIn());
 
