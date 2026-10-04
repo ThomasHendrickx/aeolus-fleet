@@ -28,6 +28,10 @@ import { createResendDelivery } from '../../src/core/messaging/resend-delivery.j
 import { createSendMessage } from '../../src/core/messaging/send-message.js';
 import { createClaimShip } from '../../src/core/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/core/registry/commission-ship.js';
+import { createCreateFleet } from '../../src/core/registry/create-fleet.js';
+import { createDeleteFleet } from '../../src/core/registry/delete-fleet.js';
+import { createGetInstallationFleet } from '../../src/core/registry/get-installation-fleet.js';
+import { createListInstallationFleets } from '../../src/core/registry/list-installation-fleets.js';
 import { createDeregister } from '../../src/core/registry/deregister.js';
 import { createGetShip } from '../../src/core/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
@@ -109,6 +113,10 @@ export function registryUseCases(core: InMemoryCore) {
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
+    createFleet: createCreateFleet({ ...deps, hasher: core.hasher }),
+    deleteFleet: createDeleteFleet({ ...deps, hasher: core.hasher }),
+    listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, clock: core.clock }),
+    getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing }),
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),

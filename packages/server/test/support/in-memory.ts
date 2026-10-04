@@ -19,12 +19,16 @@ import type {
   ReceiverWakeups,
 } from '../../src/core/messaging/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
+import type { InstallationRequest } from '../../src/core/registry/installation-request.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
   FleetListing,
   ShipFacts,
   FleetRepository,
   InFlightDeliveries,
+  InstallationFleetFacts,
+  InstallationFleets,
+  InstallationRequestRepository,
   LeaseRepository,
   ShipRepository,
 } from '../../src/core/registry/ports.js';
@@ -69,6 +73,8 @@ export interface InMemoryState {
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
+  /** The installation's requests: the one table without a fleet (decision 0020). */
+  installationRequests: InstallationRequest[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
 }
@@ -85,6 +91,7 @@ export interface InMemoryTx {
   deliveries: DeliveryRepository;
   events: EventLog;
   notifier: Notifier;
+  installationRequests: InstallationRequestRepository;
 }
 
 /**
@@ -112,6 +119,8 @@ export interface InMemoryCore {
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
+  /** The fleets read across the installation. */
+  installationFleets: InstallationFleets;
   /** The committed events, numbered per fleet in the order they were appended. */
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
@@ -143,6 +152,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseSeen: [],
     leaseReports: [],
     events: [],
+    installationRequests: [],
     notices: [],
   };
 
@@ -189,6 +199,25 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       list: () => Promise.resolve(state.fleets.map((fleet) => ({ ...fleet }))),
       create: (fleet) => {
         state.fleets.push({ ...fleet });
+        return Promise.resolve();
+      },
+      findForUpdate: (fleetId) => {
+        const fleet = state.fleets.find((held) => held.id === fleetId);
+        return Promise.resolve(fleet && { ...fleet });
+      },
+      delete: (fleetId) => {
+        // Every table that belongs to a fleet, as the Postgres adapter deletes them.
+        state.fleets.splice(0, state.fleets.length, ...state.fleets.filter((fleet) => fleet.id !== fleetId));
+        for (const table of FLEET_TABLES) {
+          const rows: { fleetId: FleetId }[] = state[table];
+          rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
+        }
+        const { installationRequests } = state;
+        installationRequests.splice(
+          0,
+          installationRequests.length,
+          ...installationRequests.filter((request) => request.kind !== 'createFleet' || request.fleetId !== fleetId),
+        );
         return Promise.resolve();
       },
     },
@@ -381,6 +410,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     operatorAccounts: {
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockEmail: () => Promise.resolve(),
       create: (account) => {
         if (state.operatorAccounts.some((held) => held.email === account.email || held.fleetId === account.fleetId)) {
           return Promise.reject(new Error('unique violation: the email or the fleet already has an operator account'));
@@ -555,6 +586,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    installationRequests: {
+      lock: () => Promise.resolve(),
+      find: (requestId) => {
+        const request = state.installationRequests.find((held) => held.requestId === requestId);
+        return Promise.resolve(request && { ...request });
+      },
+      record: (request) => {
+        state.installationRequests.push({ ...request });
+        return Promise.resolve();
+      },
+    },
     notifier: {
       deliveryPending: (notice) => {
         state.notices.push(structuredClone(notice));
@@ -683,6 +725,30 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lastModel: lastModelOf(held),
     };
   };
+  const installationFactsOf = (fleet: Fleet, since: Date): InstallationFleetFacts => {
+    const times = state.events.filter((event) => event.fleetId === fleet.id).map((event) => event.occurredAt.getTime());
+    return {
+      fleetId: fleet.id,
+      name: fleet.name,
+      operatorEmail: state.operatorAccounts.find((account) => account.fleetId === fleet.id)?.email ?? '',
+      createdAt: fleet.createdAt,
+      shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
+      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= since).length,
+      lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
+      storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + Buffer.byteLength(message.payload, 'utf8'), 0),
+    };
+  };
+  const installationFleets: InstallationFleets = {
+    list: (since) =>
+      Promise.resolve(
+        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, since)),
+      ),
+    find: (fleetId, since) => {
+      const fleet = state.fleets.find((held) => held.id === fleetId);
+      return Promise.resolve(fleet && installationFactsOf(fleet, since));
+    },
+  };
+
   const listing: FleetListing = {
     ships: (fleetId) =>
       Promise.resolve(
@@ -933,8 +999,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, feed, history, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
+
+/** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
+const FLEET_TABLES = [
+  'ships',
+  'leases',
+  'credentials',
+  'operatorAccounts',
+  'consoleSessions',
+  'messages',
+  'deliveries',
+  'deliveryReads',
+  'leaseSeen',
+  'leaseReports',
+  'events',
+  'notices',
+] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests'>[];
 
 const TABLES = [
   'fleets',
@@ -949,6 +1031,7 @@ const TABLES = [
   'leaseSeen',
   'leaseReports',
   'events',
+  'installationRequests',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 

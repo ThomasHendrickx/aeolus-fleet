@@ -101,6 +101,7 @@ describe('migrations', () => {
       'deliveries',
       'events',
       'fleets',
+      'installation_requests',
       'leases',
       'messages',
       'operators',

@@ -2,6 +2,7 @@ import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } f
 
 import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
+import type { InstallationRequest } from './installation-request.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
@@ -23,6 +24,23 @@ export interface FleetRepository {
   count(): Promise<number>;
   list(): Promise<Fleet[]>;
   create(fleet: Fleet): Promise<void>;
+  /** The fleet, locked until the unit of work ends, so two deletes of it never both run. */
+  findForUpdate(fleetId: FleetId): Promise<Fleet | undefined>;
+  /**
+   * Deletes the fleet and every record in it, for good: its ships, leases,
+   * secrets, operator account and console sessions, messages, deliveries,
+   * events, and the installation's record of the request that created it
+   * (decision 0020).
+   */
+  delete(fleetId: FleetId): Promise<void>;
+}
+
+/** Outbound port: the installation's requests, by request id; not scoped to a fleet (decision 0020). */
+export interface InstallationRequestRepository {
+  /** Holds the lock on this request id until the unit of work ends, so a request and its replay never both run. */
+  lock(requestId: string): Promise<void>;
+  find(requestId: string): Promise<InstallationRequest | undefined>;
+  record(request: InstallationRequest): Promise<void>;
 }
 
 /** Outbound port: ships, always within one fleet. */
@@ -157,6 +175,29 @@ export interface ShipFacts {
  * query, oldest ship first. Registry's need for secret dates, stated in its own
  * words, so it never reaches into Identity.
  */
+/** A fleet as the installation sees it (docs/architecture.md, "Installation"). */
+export interface InstallationFleetFacts {
+  fleetId: FleetId;
+  name: string;
+  operatorEmail: string;
+  createdAt: Date;
+  /** Its ships that are not retired, argo included. */
+  shipCount: number;
+  /** Every message stored in the fleet at or after the given time, whatever its kind or sender. */
+  messagesSince: number;
+  /** The time of its newest event of any kind; null before any. */
+  lastActivityAt: Date | null;
+  /** The UTF-8 bytes of every message payload it ever stored. */
+  storage: number;
+}
+
+/** Outbound port: the fleets read across the installation; reachable only with the installation token. */
+export interface InstallationFleets {
+  /** Every fleet, oldest first, counting its messages stored since `since`. */
+  list(since: Date): Promise<InstallationFleetFacts[]>;
+  find(fleetId: FleetId, since: Date): Promise<InstallationFleetFacts | undefined>;
+}
+
 export interface FleetListing {
   ships(fleetId: FleetId): Promise<ShipFacts[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */

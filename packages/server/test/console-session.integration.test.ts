@@ -271,7 +271,7 @@ describe('resetting the operator password on Postgres', () => {
 
     const account = await core.prisma.operator.findFirstOrThrow({ where: { fleetId } });
     expect(account.passwordHash).toMatch(/^\$argon2id\$/);
-    await expect(argon2idPasswordHasher.verify(NEW_PASSWORD, account.passwordHash)).resolves.toBe(true);
+    await expect(argon2idPasswordHasher.verify(NEW_PASSWORD, account.passwordHash ?? undefined)).resolves.toBe(true);
   });
 
   it('never lets a concurrent sign-in with the old password outlive the reset', async () => {

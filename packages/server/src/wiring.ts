@@ -13,6 +13,7 @@ import {
 } from './adapters/prisma/registry.js';
 import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
+import { createPrismaInstallationFleets } from './adapters/prisma/installation.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createReadAccount, type ReadAccount } from './core/identity/read-account.js';
@@ -52,6 +53,10 @@ import { createReadFleetEvents, type ReadFleetEvents } from './core/shared/read-
 import { createFollowFleet, type FollowFleet } from './core/shared/follow-fleet.js';
 import type { FleetEventWakeups } from './core/shared/events.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
+import { createCreateFleet, type CreateFleet } from './core/registry/create-fleet.js';
+import { createDeleteFleet, type DeleteFleet } from './core/registry/delete-fleet.js';
+import { createGetInstallationFleet, type GetInstallationFleet } from './core/registry/get-installation-fleet.js';
+import { createListInstallationFleets, type ListInstallationFleets } from './core/registry/list-installation-fleets.js';
 import { createReadInbox, type ReadInbox } from './core/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './core/shared/read-message.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './core/shared/read-needs-attention.js';
@@ -98,6 +103,10 @@ export interface UseCases {
   setTheme: SetTheme;
   resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
+  createFleet: CreateFleet;
+  deleteFleet: DeleteFleet;
+  listInstallationFleets: ListInstallationFleets;
+  getInstallationFleet: GetInstallationFleet;
 }
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -131,6 +140,10 @@ export function createUseCases(options: {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
+    createFleet: createCreateFleet({ uow, clock, ids, hasher: sha256Hasher }),
+    deleteFleet: createDeleteFleet({ uow, clock, hasher: sha256Hasher }),
+    listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), clock }),
+    getInstallationFleet: createGetInstallationFleet({ fleets: createPrismaInstallationFleets(prisma), clock }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),

@@ -18,6 +18,10 @@ import type { ResendDelivery } from '../../core/messaging/resend-delivery.js';
 import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
+import type { CreateFleet } from '../../core/registry/create-fleet.js';
+import type { DeleteFleet } from '../../core/registry/delete-fleet.js';
+import type { GetInstallationFleet } from '../../core/registry/get-installation-fleet.js';
+import type { ListInstallationFleets } from '../../core/registry/list-installation-fleets.js';
 import type { Deregister } from '../../core/registry/deregister.js';
 import type { GetShip } from '../../core/registry/get-ship.js';
 import type { GetStartingPrompt } from '../../core/registry/get-starting-prompt.js';
@@ -75,6 +79,10 @@ export interface UseCases {
   readMessage: ReadMessage;
   readNeedsAttention: ReadNeedsAttention;
   readInbox: ReadInbox;
+  createFleet: CreateFleet;
+  deleteFleet: DeleteFleet;
+  listInstallationFleets: ListInstallationFleets;
+  getInstallationFleet: GetInstallationFleet;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */
@@ -100,8 +108,25 @@ export interface FleetEventWatches {
   };
 }
 
+/**
+ * The installation token (docs/architecture.md, "Installation"): the one the
+ * server is configured with, none when the installation procedures are off,
+ * and the one the request presented in x-aeolus-installation-token.
+ */
+export interface InstallationCredential {
+  configured: string | undefined;
+  presented: string | undefined;
+}
+
+/** Where a procedure writes what the server must keep a record of, such as a deleted fleet. */
+export interface ProcedureLog {
+  info(details: Record<string, unknown>, message: string): void;
+}
+
 export interface Context {
   useCases: UseCases;
+  installation: InstallationCredential;
+  log: ProcedureLog;
   /** Where ships reach the fleet, the public URL: what starting prompts and crew lines carry. */
   fleetUrl: string;
   fleetEvents: FleetEventWatches;

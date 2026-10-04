@@ -8,6 +8,7 @@ import type { DeliveryRepository, MessageRepository } from '../../core/messaging
 import type {
   FleetRepository,
   InFlightDeliveries,
+  InstallationRequestRepository,
   LeaseRepository,
   ShipRepository,
 } from '../../core/registry/ports.js';
@@ -23,6 +24,7 @@ import {
   createPrismaCredentialRepository,
   createPrismaOperatorAccountRepository,
 } from './identity.js';
+import { createPrismaInstallationRequestRepository } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
 import {
   createPrismaFleetRepository,
@@ -44,6 +46,7 @@ export interface PrismaTx {
   deliveries: DeliveryRepository;
   events: BufferedEventLog;
   notifier: Notifier;
+  installationRequests: InstallationRequestRepository;
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
@@ -58,6 +61,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     messages: createPrismaMessageRepository(db),
     deliveries: createPrismaDeliveryRepository(db),
     events: createPrismaEventLog(db),
+    installationRequests: createPrismaInstallationRequestRepository(db),
     notifier: createPrismaNotifier(db),
   };
 }

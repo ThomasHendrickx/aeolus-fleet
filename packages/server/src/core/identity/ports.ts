@@ -48,6 +48,11 @@ export interface OperatorAccountLookup {
 export interface OperatorAccountRepository {
   create(account: OperatorAccount): Promise<void>;
   /**
+   * Holds the lock on this normalised email until the unit of work ends, so
+   * two fleets created at once never both take it.
+   */
+  lockEmail(email: string): Promise<void>;
+  /**
    * The account with this normalised email, locked until the unit of work
    * ends. Not scoped by fleet: signing in names no fleet, and the email is
    * unique across all fleets (ADR 0007).

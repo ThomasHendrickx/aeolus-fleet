@@ -165,6 +165,9 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_commission_key$/),
       expect.stringMatching(/^\d{14}_message_model$/),
       expect.stringMatching(/^\d{14}_lease_harness$/),
+      expect.stringMatching(/^\d{14}_operator_without_password$/),
+      expect.stringMatching(/^\d{14}_installation_requests$/),
+      expect.stringMatching(/^\d{14}_events_deleted_with_their_fleet$/),
     ]);
   });
 });
@@ -1452,7 +1455,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_lease_harness$/);
+    expect(migration).toMatch(/^\d{14}_events_deleted_with_their_fleet$/);
   });
 });
 

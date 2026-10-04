@@ -28,6 +28,8 @@ export interface AppOptions {
   consoleOrigin?: string;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   receiveWaitMs?: number;
+  /** The installation token that opens the installation procedures; unset, they are off. */
+  installationToken?: string;
 }
 
 /**
@@ -51,6 +53,7 @@ export function createApp(options: AppOptions): FastifyInstance {
       receiveWaitMs: options.receiveWaitMs,
     }),
     fleetUrl: options.publicUrl,
+    installationToken: options.installationToken,
     fleetEvents,
     checkDatabase: () => checkDatabase(prisma),
     latestMigration: () => latestMigration(prisma),
