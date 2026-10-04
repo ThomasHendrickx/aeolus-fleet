@@ -46,11 +46,11 @@ export function createApp(options: AppOptions): FastifyInstance {
     useCases: createUseCases({
       prisma,
       clock,
-      fleetUrl: options.publicUrl,
       wakeups,
       fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
       receiveWaitMs: options.receiveWaitMs,
     }),
+    fleetUrl: options.publicUrl,
     fleetEvents,
     checkDatabase: () => checkDatabase(prisma),
     latestMigration: () => latestMigration(prisma),

@@ -27,8 +27,7 @@ export type RecrewShip = (
  * release, then a new starting prompt, in one unit of work. No rule of its
  * own: the session crewing the ship loses it, its crew token and secret stop
  * working, what it held in flight returns to pending, and a new secret is
- * issued with its prompt and crew line, shown once. Never half done: a
- * refusal or a failure leaves the ship crewed as it was. The caller's scope
+ * issued, shown once. Never half done: a refusal or a failure leaves the ship crewed as it was. The caller's scope
  * (fleet:manage) is checked before this runs.
  */
 export function createRecrewShip(deps: {
@@ -36,10 +35,6 @@ export function createRecrewShip(deps: {
   clock: Clock;
   ids: IdGenerator;
   secrets: Omit<SecretTools, 'ids'>;
-  /** Where a session reaches the fleet over MCP: the URL the starting prompt carries. */
-  mcpUrl: string;
-  /** The fleet's public URL: the one the crew line carries. */
-  fleetUrl: string;
 }): RecrewShip {
   return (caller, { shipId }) =>
     deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, RecrewShipRefusal>> => {
@@ -59,7 +54,7 @@ export function createRecrewShip(deps: {
       await endLease({ tx, ids: deps.ids }, { fleetId, leaseId: lease.value.id, actor, at, reason: 'released' });
       return ok(
         await issueStartingPrompt(
-          { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl, fleetUrl: deps.fleetUrl },
+          { tx, secrets: { ...deps.secrets, ids: deps.ids } },
           { fleetId, shipId, actor, at },
         ),
       );

@@ -43,6 +43,7 @@ import type {} from '@trpc/server/unstable-core-do-not-import';
 
 import type { PingStatus } from '../../core/registry/ping-status.js';
 import type { SequencedEvent } from '../../core/shared/events.js';
+import { presentStartingPrompt } from './starting-prompt-text.js';
 import { checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
@@ -65,29 +66,31 @@ export const fleetRouter = router({
       description: [
         'Needs fleet:manage. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'fleetScopes adds fleet:read and/or fleet:manage to its scopes; they never change later.',
-        'Answers its shipId and its first starting prompt and crew line, shown only this once: they hold its secret.',
+        'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
-        'the retry answers the same shipId with prompt and crewLine null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
+        'the retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
       ].join(' '),
     })
     .input(commissionShipInputSchema)
     .output(commissionShipOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      const commissioned = okOrThrow(await ctx.useCases.commissionShip(ctx.caller, input));
-      const { startingPrompt } = commissioned;
-      return { ...commissioned, startingPrompt: startingPrompt && { ...startingPrompt, issuedAt: startingPrompt.issuedAt.toISOString() } };
+      const { shipId, secret, startingPrompt } = okOrThrow(await ctx.useCases.commissionShip(ctx.caller, input));
+      const presented = secret === null ? { prompt: null, crewLines: null, secret: null } : presentStartingPrompt({ fleetUrl: ctx.fleetUrl, shipId, secret });
+      return { ...presented, shipId, startingPrompt: startingPrompt && { ...startingPrompt, issuedAt: startingPrompt.issuedAt.toISOString() } };
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
   getStartingPrompt: scopedProcedure('fleet:manage')
     .meta({
       description: [
-        'Needs fleet:manage. A new starting prompt and crew line for a ship awaiting crew; its new secret stops any earlier one working.',
+        'Needs fleet:manage. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
       ].join(' '),
     })
     .input(getStartingPromptInputSchema)
     .output(startingPromptOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.getStartingPrompt(ctx.caller, input))),
+    .mutation(async ({ ctx, input }) =>
+      presentStartingPrompt({ fleetUrl: ctx.fleetUrl, ...okOrThrow(await ctx.useCases.getStartingPrompt(ctx.caller, input)) }),
+    ),
 
   /**
    * Pings a crewed ship: a message its session answers with pong, proving
@@ -158,17 +161,19 @@ export const fleetRouter = router({
 
   /**
    * A new crew for a crewed ship whose session is gone: a release and a new
-   * starting prompt in one transaction. Its prompt and crew line are shown once.
+   * starting prompt in one transaction. Its prompt, crew lines and secret are shown once.
    */
   recrew: scopedProcedure('fleet:manage')
     .meta({
       description: [
-        'Needs fleet:manage. A new crew for a crewed ship whose session is gone: releases it and answers a fresh starting prompt and crew line, shown once. Never argo.',
+        'Needs fleet:manage. A new crew for a crewed ship whose session is gone: releases it and answers a fresh starting prompt, one crew line per harness and the secret, shown once. Never argo.',
       ].join(' '),
     })
     .input(recrewShipInputSchema)
     .output(startingPromptOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.recrewShip(ctx.caller, input))),
+    .mutation(async ({ ctx, input }) =>
+      presentStartingPrompt({ fleetUrl: ctx.fleetUrl, ...okOrThrow(await ctx.useCases.recrewShip(ctx.caller, input)) }),
+    ),
 
   /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
   list: scopedProcedure('fleet:read')

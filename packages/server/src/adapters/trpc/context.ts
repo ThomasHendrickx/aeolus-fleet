@@ -102,6 +102,8 @@ export interface FleetEventWatches {
 
 export interface Context {
   useCases: UseCases;
+  /** Where ships reach the fleet, the public URL: what starting prompts and crew lines carry. */
+  fleetUrl: string;
   fleetEvents: FleetEventWatches;
   credentials: RequestCredentials;
   /**
