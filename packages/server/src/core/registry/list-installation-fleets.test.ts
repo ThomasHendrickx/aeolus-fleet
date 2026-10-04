@@ -66,6 +66,19 @@ describe('listing the fleets of the installation', () => {
     expect(listed.find((fleet) => fleet.fleetId === hemma)?.messagesLast7Days).toBe(2);
   });
 
+  it('gives its storage: the UTF-8 bytes of every payload it ever stored, however old', async () => {
+    messageAt(hemma, new Date(core.clock.now().getTime() - 30 * DAY_MS));
+    messageAt(first, core.clock.now());
+    for (const message of core.state.messages) {
+      // Two bytes each for ü and ß, four for the ship: 12 bytes in 8 characters.
+      message.payload = message.fleetId === hemma ? 'Grüße 🚢' : 'elsewhere';
+    }
+
+    const listed = await listFleets();
+
+    expect(listed.map((fleet) => fleet.storage)).toEqual([9, 12]);
+  });
+
   it("gives the time of the fleet's newest event as its last activity", async () => {
     core.clock.advance(DAY_MS);
     const argo: Caller = { fleetId: hemma, shipId: hemmaArgo, kind: 'operator', scopes: [...SCOPES] };

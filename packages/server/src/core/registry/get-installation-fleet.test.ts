@@ -29,6 +29,7 @@ describe('getting one fleet of the installation', () => {
         shipCount: 1,
         messagesLast7Days: 0,
         lastActivityAt: new Date('2026-10-04T12:00:00.000Z'),
+        storage: 0,
       },
     });
   });
