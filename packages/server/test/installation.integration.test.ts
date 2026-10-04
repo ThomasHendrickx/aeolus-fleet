@@ -153,9 +153,9 @@ describe('the installation procedures on a hosting server', () => {
     const asked = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', idempotencyKey: newKey() }));
     unwrap(await core.receiveDeliveries(crew, {}));
     unwrap(await core.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'On it', model: 'claude-opus-5-5', inReplyTo: asked.messageId, idempotencyKey: newKey() }));
-    // Its operator signed in, so a console session and argo's lease exist too.
-    unwrap(await core.resetOperatorPassword({ fleetId: created.fleetId, password: 'correct horse' }));
-    unwrap(await core.signIn({ email: 'doomed@example.com', password: 'correct horse' }));
+    // Its operator signed in with a ticket, so a console session, argo's lease and a used ticket exist too.
+    const { ticket } = await client(hostingAddress, INSTALLATION_TOKEN).installation.operators.issueSignInTicket.mutate({ fleetId: created.fleetId });
+    unwrap(await core.redeemSignInTicket({ ticket }));
     const homeBefore = await rowsOf(homeFleet);
 
     await expect(installation().delete.mutate({ requestId: 'delete-doomed', fleetId: created.fleetId })).resolves.toEqual({});

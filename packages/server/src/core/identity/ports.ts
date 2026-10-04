@@ -4,6 +4,7 @@ import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { OperatorAccount } from './operator-account.js';
+import type { SignInTicket } from './sign-in-ticket.js';
 
 /** The ship a crew token or a console session token belongs to, as the caller it makes. */
 export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
@@ -64,6 +65,17 @@ export interface OperatorAccountRepository {
   /** The fleet's operator account, read without a lock. */
   findForFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
   setTheme(change: { fleetId: FleetId; operatorId: OperatorId; theme: Theme }): Promise<void>;
+}
+
+/** Outbound port: sign-in tickets, found by their hash before the fleet is known (ADR 0007). */
+export interface SignInTicketRepository {
+  create(ticket: SignInTicket): Promise<void>;
+  /**
+   * Marks the ticket with this hash used and answers its fleet, when it is
+   * unused and not expired at `at`; undefined otherwise. At most one redeem of
+   * a ticket ever answers its fleet, however many run at once.
+   */
+  redeem(tokenHash: string, at: Date): Promise<FleetId | undefined>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */

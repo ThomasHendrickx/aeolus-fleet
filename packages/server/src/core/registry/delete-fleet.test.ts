@@ -27,6 +27,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     credentials: of(state.credentials),
     operatorAccounts: of(state.operatorAccounts),
     consoleSessions: of(state.consoleSessions),
+    signInTickets: of(state.signInTickets),
     messages: of(state.messages),
     deliveries: of(state.deliveries),
     leaseSeen: of(state.leaseSeen),

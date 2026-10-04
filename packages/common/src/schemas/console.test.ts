@@ -5,6 +5,7 @@ import {
   THEMES,
   accountOutputSchema,
   consoleSessionOutputSchema,
+  redeemSignInTicketInputSchema,
   setThemeInputSchema,
   signInInputSchema,
 } from './console.js';
@@ -84,5 +85,19 @@ describe('setThemeInputSchema', () => {
 
   it('refuses another theme', () => {
     expect(setThemeInputSchema.safeParse({ theme: 'auto' }).success).toBe(false);
+  });
+});
+
+describe('redeemSignInTicketInputSchema', () => {
+  it('takes the ticket a hosting installation issued', () => {
+    expect(redeemSignInTicketInputSchema.parse({ ticket: 'aeolus_st_v1_abc' })).toEqual({ ticket: 'aeolus_st_v1_abc' });
+  });
+
+  it.each([
+    ['a missing ticket', {}],
+    ['an empty ticket', { ticket: '' }],
+    ['a ticket over 256 characters', { ticket: 't'.repeat(257) }],
+  ])('refuses %s', (_case, input) => {
+    expect(redeemSignInTicketInputSchema.safeParse(input).success).toBe(false);
   });
 });

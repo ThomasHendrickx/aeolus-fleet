@@ -25,6 +25,16 @@ export const signInInputSchema = z.object({
 
 export type SignInInput = z.infer<typeof signInInputSchema>;
 
+/** The longest sign-in ticket the console takes: far longer than any the server issues. */
+const SIGN_IN_TICKET_MAX_LENGTH = 256;
+
+/**
+ * A one-time sign-in ticket a hosting installation issued for the operator
+ * (docs/blueprint.md, "Installation"): the console redeems it for a session,
+ * as a password sign-in does.
+ */
+export const redeemSignInTicketInputSchema = z.strictObject({ ticket: z.string().min(1).max(SIGN_IN_TICKET_MAX_LENGTH) });
+
 /** The console's theme, per operator account: Light, Dark, or System (the browser's setting), the default. */
 export const THEMES = ['light', 'dark', 'system'] as const;
 export const themeSchema = z.enum(THEMES);

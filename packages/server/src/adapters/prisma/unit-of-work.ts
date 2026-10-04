@@ -3,6 +3,7 @@ import type {
   ConsoleSessionRepository,
   CredentialRepository,
   OperatorAccountRepository,
+  SignInTicketRepository,
 } from '../../core/identity/ports.js';
 import type { DeliveryRepository, MessageRepository } from '../../core/messaging/ports.js';
 import type {
@@ -23,6 +24,7 @@ import {
   createPrismaConsoleSessionRepository,
   createPrismaCredentialRepository,
   createPrismaOperatorAccountRepository,
+  createPrismaSignInTicketRepository,
 } from './identity.js';
 import { createPrismaInstallationRequestRepository } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
@@ -42,6 +44,7 @@ export interface PrismaTx {
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
+  signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: BufferedEventLog;
@@ -58,6 +61,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),
     consoleSessions: createPrismaConsoleSessionRepository(db),
+    signInTickets: createPrismaSignInTicketRepository(db),
     messages: createPrismaMessageRepository(db),
     deliveries: createPrismaDeliveryRepository(db),
     events: createPrismaEventLog(db),

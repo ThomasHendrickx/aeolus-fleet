@@ -51,3 +51,8 @@ export const installationFleetsGetInputSchema = z.strictObject({ fleetId: idSche
 export const installationFleetsDeleteInputSchema = z.strictObject({ requestId: idempotencyKeySchema, fleetId: idSchema('fleet') });
 
 export const installationFleetsDeleteOutputSchema = z.strictObject({});
+
+/** A one-time sign-in ticket for the fleet's operator: single use, valid 2 minutes, redeemed in the console. */
+export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({ fleetId: idSchema('fleet') });
+
+export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });

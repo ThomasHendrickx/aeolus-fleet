@@ -17,6 +17,8 @@ import type { PingShip } from '../../core/messaging/ping-ship.js';
 import type { ResendDelivery } from '../../core/messaging/resend-delivery.js';
 import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
+import type { IssueSignInTicket } from '../../core/identity/issue-sign-in-ticket.js';
+import type { RedeemSignInTicket } from '../../core/identity/redeem-sign-in-ticket.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { CreateFleet } from '../../core/registry/create-fleet.js';
 import type { DeleteFleet } from '../../core/registry/delete-fleet.js';
@@ -83,6 +85,8 @@ export interface UseCases {
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
+  issueSignInTicket: IssueSignInTicket;
+  redeemSignInTicket: RedeemSignInTicket;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

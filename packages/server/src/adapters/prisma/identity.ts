@@ -4,7 +4,10 @@ import type {
   CredentialRepository,
   OperatorAccountLookup,
   OperatorAccountRepository,
+  SignInTicketRepository,
 } from '../../core/identity/ports.js';
+import { idSchema } from '@aeolus-fleet/common';
+import { z } from 'zod';
 import type { Db } from './client.js';
 import {
   toCrewTokenLease,
@@ -105,6 +108,26 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     },
     setTheme: async ({ fleetId, operatorId, theme }) => {
       await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { theme } });
+    },
+  };
+}
+
+export function createPrismaSignInTicketRepository(db: Db): SignInTicketRepository {
+  return {
+    create: async (ticket) => {
+      await db.signInTicket.create({ data: ticket });
+    },
+    redeem: async (tokenHash, at) => {
+      // One statement marks it used only while unused and unexpired: of redeems racing
+      // for one ticket, the row lock lets exactly one see it so. Not scoped by fleet:
+      // the ticket names it (ADR 0007).
+      const rows = z.array(z.object({ fleet_id: idSchema('fleet') })).parse(
+        await db.$queryRaw`
+          UPDATE sign_in_tickets SET used_at = ${at}
+          WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > ${at}
+          RETURNING fleet_id`,
+      );
+      return rows[0]?.fleet_id;
     },
   };
 }

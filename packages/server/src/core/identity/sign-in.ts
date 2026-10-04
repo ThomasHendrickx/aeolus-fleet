@@ -1,20 +1,18 @@
 import type { ConsoleSessionId, IdGenerator } from '@aeolus-fleet/common';
 
-import { findOperatorShip, takeOverOperatorLease, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import type { Result } from '../shared/result.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { consoleLocation, consoleSessionExpiry, UNKNOWN_DEVICE } from './console-session.js';
+import { UNKNOWN_DEVICE } from './console-session.js';
 import { normaliseEmail } from './operator-account.js';
-import type { ConsoleSessionRepository, OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
+import type { OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
+import { startConsoleSession, type StartConsoleSessionTx } from './start-console-session.js';
 
-export interface SignInTx extends LeaseTx, ShipTx {
+export interface SignInTx extends StartConsoleSessionTx {
   operatorAccounts: OperatorAccountRepository;
-  consoleSessions: ConsoleSessionRepository;
 }
 
 export interface SignedIn {
@@ -75,54 +73,11 @@ export function createSignIn(deps: {
       if (locked?.id !== account.id || locked.passwordHash !== account.passwordHash) {
         return refuse('WRONG_EMAIL_OR_PASSWORD', WRONG_EMAIL_OR_PASSWORD);
       }
-      const found = await findOperatorShip(tx, account.fleetId);
-      if (!found.isOk) {
-        return found;
-      }
-      const argo = found.value;
-
-      const at = deps.clock.now();
-      const actor = shipActor(argo.id);
-      const device = input.device ?? UNKNOWN_DEVICE;
-
-      await tx.consoleSessions.endAll(argo.fleetId, { at, reason: 'takenOver' });
-      const takenOver = await takeOverOperatorLease({ tx, ids: deps.ids }, {
-        fleetId: argo.fleetId,
-        shipId: argo.id,
-        kind: argo.kind,
-        location: consoleLocation(device),
-        actor,
-        at,
+      return startConsoleSession({ tx, ids: deps.ids, hasher: deps.hasher, random: deps.random }, {
+        fleetId: account.fleetId,
+        device: input.device ?? UNKNOWN_DEVICE,
+        at: deps.clock.now(),
       });
-      if (!takenOver.isOk) {
-        return takenOver;
-      }
-
-      const token = deps.random.next();
-      const consoleSessionId = deps.ids('consoleSession');
-      const expiresAt = consoleSessionExpiry(at);
-      await tx.consoleSessions.create({
-        id: consoleSessionId,
-        fleetId: argo.fleetId,
-        shipId: argo.id,
-        leaseId: takenOver.value,
-        device,
-        tokenHash: deps.hasher.hash(token),
-        createdAt: at,
-        lastUsedAt: at,
-        expiresAt,
-        endedAt: null,
-        endReason: null,
-      });
-
-      const caller: Caller = {
-        shipId: argo.id,
-        fleetId: argo.fleetId,
-        kind: argo.kind,
-        scopes: argo.scopes,
-        consoleSessionId,
-      };
-      return ok({ token, consoleSessionId, expiresAt, caller });
     });
   };
 }

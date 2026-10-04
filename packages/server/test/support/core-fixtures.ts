@@ -9,6 +9,8 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
+import { createIssueSignInTicket } from '../../src/core/identity/issue-sign-in-ticket.js';
+import { createRedeemSignInTicket } from '../../src/core/identity/redeem-sign-in-ticket.js';
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createReadAccount } from '../../src/core/identity/read-account.js';
 import { createResetOperatorPassword } from '../../src/core/identity/reset-operator-password.js';
@@ -73,6 +75,8 @@ export function identityUseCases(core: InMemoryCore) {
     readAccount: createReadAccount(deps),
     setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
+    issueSignInTicket: createIssueSignInTicket(deps),
+    redeemSignInTicket: createRedeemSignInTicket(deps),
   };
 }
 
@@ -223,6 +227,16 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
     passwords: core.passwords,
   })({ name, ...OPERATOR });
   return unwrap(initialised);
+}
+
+/** A fleet a hosting installation created, through the use case: its argo and an operator without a password. */
+export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@example.com'): Promise<{ fleetId: FleetId; operatorShipId: ShipId }> {
+  const created = await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({
+    requestId: `signup-${operatorEmail}`,
+    name: 'hemma',
+    operatorEmail,
+  });
+  return unwrap(created);
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   initialiseFleet,
   OPERATOR,
   openLeaseOf,
+  hostedFleet,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -31,6 +32,19 @@ beforeEach(async () => {
     passwords: core.passwords,
   });
   ({ fleetId, operatorShipId: argoId, operatorId } = await initialiseFleet(core));
+});
+
+describe('resetting the password of an operator without one', () => {
+  it('refuses: a hosted operator signs in only through the hosting service', async () => {
+    const hosted = await hostedFleet(core);
+    const before = structuredClone(core.state);
+
+    await expect(resetOperatorPassword({ fleetId: hosted.fleetId, password: NEW_PASSWORD })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'OPERATOR_HAS_NO_PASSWORD' },
+    });
+    expect(core.state).toEqual(before);
+  });
 });
 
 describe('resetting the operator password', () => {

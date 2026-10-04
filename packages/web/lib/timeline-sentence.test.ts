@@ -108,6 +108,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a sign-in ticket was issued for the operator', () => {
+    expect(onScoutsPage(anEntry('SignInTicketIssued'))).toEqual({
+      sentence: 'Sign-in ticket issued',
+      tone: 'ended',
+      icon: 'password',
+    });
+  });
+
   it('says the ship sent a message to a ship', () => {
     expect(onScoutsPage(anEntry('MessageAccepted', { actor: scout, ship: planner, message: fromScout }))).toEqual({
       sentence: 'Sent a message to planner',

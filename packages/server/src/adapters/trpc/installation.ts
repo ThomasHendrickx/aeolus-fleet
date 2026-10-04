@@ -8,6 +8,8 @@ import {
   installationFleetsDeleteOutputSchema,
   installationFleetsGetInputSchema,
   installationFleetsListOutputSchema,
+  installationOperatorsIssueSignInTicketInputSchema,
+  installationOperatorsIssueSignInTicketOutputSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
@@ -82,5 +84,12 @@ export const installationRouter = router({
         }
         return {};
       }),
+  }),
+  operators: router({
+    /** A one-time sign-in ticket for the fleet's operator: single use, valid 2 minutes, redeemed in the console. */
+    issueSignInTicket: installationProcedure
+      .input(installationOperatorsIssueSignInTicketInputSchema)
+      .output(installationOperatorsIssueSignInTicketOutputSchema)
+      .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.issueSignInTicket(input))),
   }),
 });

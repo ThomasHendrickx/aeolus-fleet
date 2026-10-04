@@ -18,7 +18,7 @@ export interface ResetOperatorPasswordTx extends LeaseTx, ShipTx {
 export type ResetOperatorPassword = (input: {
   fleetId: FleetId;
   password: string;
-}) => Promise<Result<{ operatorId: OperatorId }, DomainError<'INVALID_PASSWORD' | 'FLEET_NOT_FOUND'>>>;
+}) => Promise<Result<{ operatorId: OperatorId }, DomainError<'INVALID_PASSWORD' | 'FLEET_NOT_FOUND' | 'OPERATOR_HAS_NO_PASSWORD'>>>;
 
 /**
  * Use case: a forgotten operator password is reset from the server (ADR 0012).
@@ -44,10 +44,13 @@ export function createResetOperatorPassword(deps: {
     // Hashed before the transaction: Argon2 takes its time on purpose.
     const passwordHash = await deps.passwords.hash(valid.value);
 
-    return deps.uow.run(async (tx) => {
+    return deps.uow.run(async (tx): ReturnType<ResetOperatorPassword> => {
       const account = await tx.operatorAccounts.findForFleetForUpdate(fleetId);
       if (!account) {
         return refuse('FLEET_NOT_FOUND', `Fleet ${fleetId} does not exist`);
+      }
+      if (account.passwordHash === null) {
+        return refuse('OPERATOR_HAS_NO_PASSWORD', 'This operator has no password: they sign in only through the hosting service');
       }
       const argo = await findOperatorShip(tx, fleetId);
       if (!argo.isOk) {

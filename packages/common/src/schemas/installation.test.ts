@@ -7,6 +7,8 @@ import {
   installationFleetsCreateOutputSchema,
   installationFleetsDeleteInputSchema,
   installationFleetsGetInputSchema,
+  installationOperatorsIssueSignInTicketInputSchema,
+  installationOperatorsIssueSignInTicketOutputSchema,
 } from './installation.js';
 
 const newId = createIdGenerator();
@@ -88,5 +90,18 @@ describe('installationFleetsGetInputSchema and installationFleetsDeleteInputSche
     ['a missing request id', { fleetId: newId('fleet') }],
   ])('delete refuses %s', (_case, input) => {
     expect(installationFleetsDeleteInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('installationOperatorsIssueSignInTicket', () => {
+  it("takes the fleet whose operator signs in, and answers the ticket", () => {
+    const fleetId = newId('fleet');
+
+    expect(installationOperatorsIssueSignInTicketInputSchema.parse({ fleetId })).toEqual({ fleetId });
+    expect(installationOperatorsIssueSignInTicketOutputSchema.parse({ ticket: 'aeolus_st_v1_abc' })).toEqual({ ticket: 'aeolus_st_v1_abc' });
+  });
+
+  it('refuses a ship id for the fleet', () => {
+    expect(installationOperatorsIssueSignInTicketInputSchema.safeParse({ fleetId: newId('ship') }).success).toBe(false);
   });
 });
