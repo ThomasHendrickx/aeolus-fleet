@@ -46,10 +46,8 @@ export interface SquadronsApp {
   readConnection: ReadConnection;
   /** Connects squadrons as the operator's management ship, then recovers formations and starts the flagships. */
   connect: Connect;
-  /** Fetches every template repository of the connected fleet and rebuilds the catalogue; a failure is logged. */
+  /** Fetches every template repository of the connected fleet and rebuilds the catalogue, at start and on Refresh; a failure is logged. */
   refreshCatalogue: () => Promise<void>;
-  /** Builds the catalogue from what each repository last fetched, fetching none: at start and on connecting. */
-  loadCatalogue: () => Promise<void>;
   /** Retires what formations a crash left unfinished commissioned: run once connected, before anything else forms. */
   recoverFormations: RecoverFormations;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
@@ -166,7 +164,7 @@ export function createSquadronsApp(options: {
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
   const readConnection = createReadConnection({ door, store });
   const connectOnly = createConnect({ door, store, clock });
-  // Once connected, what waited for it: formations a crash left unfinished, then the flagships.
+  // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
     const connected = await connectOnly(input);
     if (connected.isOk) {
@@ -174,7 +172,7 @@ export function createSquadronsApp(options: {
       if (!recovered.isOk) {
         server.log.error({ refusal: recovered.error }, 'formations a crash left unfinished could not be recovered');
       }
-      await refreshConnectedFleet('none');
+      await refreshConnectedFleet('all');
       await flagships?.rescan();
     }
     return connected;
@@ -223,7 +221,6 @@ export function createSquadronsApp(options: {
     readConnection,
     connect,
     refreshCatalogue: () => refreshConnectedFleet('all'),
-    loadCatalogue: () => refreshConnectedFleet('none'),
     recoverFormations,
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({

@@ -43,8 +43,8 @@ async function start(): Promise<void> {
   } else {
     app.server.log.warn('not connected: connect squadrons in the console (Settings, Connect squadrons)');
   }
-  // The template repositories the operator set, as each last fetched: a fetch happens only on add and on Refresh.
-  await app.loadCatalogue();
+  // The template repositories the operator set, each fetched once: squadrons keeps nothing of them across a restart.
+  await app.refreshCatalogue();
   app.startFlagships(FLAGSHIP_RESCAN_MS);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
