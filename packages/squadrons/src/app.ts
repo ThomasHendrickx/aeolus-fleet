@@ -65,7 +65,7 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  /** Where the template repositories' mirrors are kept. */
+  /** The folder squadrons keeps its own aeolus-squadrons folder of template repository mirrors in. */
   cacheDir: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];

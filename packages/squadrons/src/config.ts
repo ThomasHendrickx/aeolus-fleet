@@ -30,7 +30,7 @@ export interface Config {
   host: string;
   port: number;
   logLevel: string;
-  /** Where the repositories' mirrors are kept: SQUADRONS_CACHE_DIR, or aeolus-squadrons in the user's cache folder. */
+  /** The folder squadrons keeps its own aeolus-squadrons folder of mirrors in: SQUADRONS_CACHE_DIR, or the user's cache folder. */
   cacheDir: string;
 }
 
@@ -55,7 +55,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     host: variables.HOST,
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,
-    cacheDir: variables.SQUADRONS_CACHE_DIR ?? join(variables.XDG_CACHE_HOME ?? join(variables.HOME ?? homedir(), '.cache'), 'aeolus-squadrons'),
+    cacheDir: variables.SQUADRONS_CACHE_DIR ?? variables.XDG_CACHE_HOME ?? join(variables.HOME ?? homedir(), '.cache'),
   };
 }
 

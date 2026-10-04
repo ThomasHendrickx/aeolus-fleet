@@ -1,8 +1,9 @@
 /**
  * Templates and blueprints from git (docs/squadrons.md, "Files in git"), with
  * the git command line. Each fleet's repository is kept as its own bare
- * mirror in the cache folder, so one fleet never reads what another fetched,
- * and the folder opens to squadrons' own user only.
+ * mirror, so one fleet never reads what another fetched, in an
+ * aeolus-squadrons folder within the cache folder that opens to squadrons'
+ * own user only; the cache folder itself is left as it is.
  * Fetching brings a mirror up to date with its tags; a repository read
  * without fetching gives what its mirror holds, and nothing before its first
  * fetch or when git cannot read its mirror. A version is a tag `<name>@<n>`;
@@ -34,6 +35,9 @@ const KINDS = [
 
 /** The longest account of a failed fetch squadrons keeps. */
 const FETCH_ERROR_MAX_LENGTH = 300;
+
+/** squadrons' own folder within the cache folder it is given, holding the mirrors. */
+const MIRRORS_FOLDER = 'aeolus-squadrons';
 
 /** How long one git call may take before it is stopped. */
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -87,14 +91,15 @@ function gitWithin(timeoutMs: number): Git {
 }
 
 function mirrorOf(repository: RepositoryToRead, cacheDir: string): string {
-  return join(cacheDir, createHash('sha256').update(`${repository.fleetId} ${repository.url}`).digest('hex').slice(0, 16));
+  return join(cacheDir, MIRRORS_FOLDER, createHash('sha256').update(`${repository.fleetId} ${repository.url}`).digest('hex').slice(0, 16));
 }
 
 /** Brings the repository's mirror up to date with its tags, cloning it the first time. */
 async function fetchMirror(git: Git, { repository, cacheDir }: { repository: RepositoryToRead; cacheDir: string }): Promise<void> {
   const mirror = mirrorOf(repository, cacheDir);
-  mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-  chmodSync(cacheDir, 0o700);
+  const mirrors = join(cacheDir, MIRRORS_FOLDER);
+  mkdirSync(mirrors, { recursive: true, mode: 0o700 });
+  chmodSync(mirrors, 0o700);
   if (!existsSync(mirror)) {
     await git(['clone', '--bare', '--quiet', repository.url, mirror], repository.token);
   }
