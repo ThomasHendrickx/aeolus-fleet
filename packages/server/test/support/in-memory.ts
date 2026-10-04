@@ -26,6 +26,8 @@ import type {
   ShipFacts,
   FleetRepository,
   InFlightDeliveries,
+  InstallationFleetFacts,
+  InstallationFleets,
   InstallationRequestRepository,
   LeaseRepository,
   ShipRepository,
@@ -117,6 +119,8 @@ export interface InMemoryCore {
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
+  /** The fleets read across the installation. */
+  installationFleets: InstallationFleets;
   /** The committed events, numbered per fleet in the order they were appended. */
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
@@ -715,6 +719,29 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lastModel: lastModelOf(held),
     };
   };
+  const installationFactsOf = (fleet: Fleet, since: Date): InstallationFleetFacts => {
+    const times = state.events.filter((event) => event.fleetId === fleet.id).map((event) => event.occurredAt.getTime());
+    return {
+      fleetId: fleet.id,
+      name: fleet.name,
+      operatorEmail: state.operatorAccounts.find((account) => account.fleetId === fleet.id)?.email ?? '',
+      createdAt: fleet.createdAt,
+      shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
+      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= since).length,
+      lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
+    };
+  };
+  const installationFleets: InstallationFleets = {
+    list: (since) =>
+      Promise.resolve(
+        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, since)),
+      ),
+    find: (fleetId, since) => {
+      const fleet = state.fleets.find((held) => held.id === fleetId);
+      return Promise.resolve(fleet && installationFactsOf(fleet, since));
+    },
+  };
+
   const listing: FleetListing = {
     ships: (fleetId) =>
       Promise.resolve(
@@ -965,7 +992,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, feed, history, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

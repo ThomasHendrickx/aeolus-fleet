@@ -174,6 +174,27 @@ export interface ShipFacts {
  * query, oldest ship first. Registry's need for secret dates, stated in its own
  * words, so it never reaches into Identity.
  */
+/** A fleet as the installation sees it (docs/architecture.md, "Installation"). */
+export interface InstallationFleetFacts {
+  fleetId: FleetId;
+  name: string;
+  operatorEmail: string;
+  createdAt: Date;
+  /** Its ships that are not retired, argo included. */
+  shipCount: number;
+  /** Every message stored in the fleet at or after the given time, whatever its kind or sender. */
+  messagesSince: number;
+  /** The time of its newest event of any kind; null before any. */
+  lastActivityAt: Date | null;
+}
+
+/** Outbound port: the fleets read across the installation; reachable only with the installation token. */
+export interface InstallationFleets {
+  /** Every fleet, oldest first, counting its messages stored since `since`. */
+  list(since: Date): Promise<InstallationFleetFacts[]>;
+  find(fleetId: FleetId, since: Date): Promise<InstallationFleetFacts | undefined>;
+}
+
 export interface FleetListing {
   ships(fleetId: FleetId): Promise<ShipFacts[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
