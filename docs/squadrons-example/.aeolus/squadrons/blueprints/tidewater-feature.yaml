@@ -1,0 +1,21 @@
+# Tidewater's blueprint tidewater-feature, version 1 (tag tidewater-feature@1).
+# Each role names a template by <repository>#<name>@<version>; the repository
+# is this one, as squadrons names it.
+description: Plans, builds, reviews and tests one feature of Tidewater.
+roles:
+  planner:
+    template: github.com/tidewater-labs/squadron-templates#planner@1
+  implementer:
+    template: github.com/tidewater-labs/squadron-templates#implementer@1
+    count: 2
+  reviewer:
+    template: github.com/tidewater-labs/squadron-templates#reviewer@1
+  tester:
+    template: github.com/tidewater-labs/squadron-templates#tester@1
+handoffs:
+  planner.plan-ready: implementer
+  implementer.done: reviewer
+  reviewer.approved: tester
+  reviewer.changes: implementer
+  tester.on-fail: implementer
+  tester.on-pass: flagship
