@@ -160,6 +160,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Secret invalidated')], tone: 'ended', icon: 'secret' };
     case 'OperatorPasswordReset':
       return { parts: [text('Operator password reset')], tone: 'waiting', icon: 'password' };
+    case 'SignInTicketIssued':
+      return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
     case 'MessageAccepted':
       return {
         parts: messageAccepted(entry, shipId),
