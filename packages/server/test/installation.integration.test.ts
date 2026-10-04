@@ -122,7 +122,7 @@ describe('the installation procedures on a hosting server', () => {
     await expect(codeOf(installation().create.mutate({ ...request, requestId: newKey() }))).resolves.toBe('CONFLICT');
   });
 
-  it('describe a fleet: its operator, ships not retired, messages of the last 7 days, last activity and storage', async () => {
+  it('describe a fleet: its operator, measures, messages today and per UTC day, and the limits that apply', async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'busy', operatorEmail: 'busy@example.com' });
     const argo = argoOf(created);
     const { shipId } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -140,6 +140,9 @@ describe('the installation procedures on a hosting server', () => {
       lastActivityAt: clock.now().toISOString(),
       // The UTF-8 bytes of its one payload: "Review the pull request".
       storage: 23,
+      messagesToday: 1,
+      messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-04' ? 1 : 0 })),
+      limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
     });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });

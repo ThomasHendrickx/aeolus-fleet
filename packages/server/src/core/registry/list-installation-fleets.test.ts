@@ -1,7 +1,7 @@
 import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet, OPERATOR, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet, OPERATOR, registryUseCases, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -77,6 +77,40 @@ describe('listing the fleets of the installation', () => {
     const listed = await listFleets();
 
     expect(listed.map((fleet) => fleet.storage)).toEqual([9, 12]);
+  });
+
+  it('gives its messages today, and per UTC day of the last 7 days, today last and none where it stored none', async () => {
+    // Now is 2026-10-02T12:00Z: today began at 00:00Z, and the first of the 7 days is 2026-09-26.
+    messageAt(hemma, new Date('2026-10-02T00:00:00.000Z'));
+    messageAt(hemma, new Date('2026-10-02T11:00:00.000Z'));
+    messageAt(hemma, new Date('2026-09-30T23:59:59.999Z'));
+    messageAt(hemma, new Date('2026-09-26T00:00:00.000Z'));
+    messageAt(hemma, new Date('2026-09-25T23:59:59.999Z'));
+
+    const fleet = (await listFleets()).find((each) => each.fleetId === hemma);
+
+    expect(fleet?.messagesToday).toBe(2);
+    expect(fleet?.messagesPerDay).toEqual([
+      { date: '2026-09-26', count: 1 },
+      { date: '2026-09-27', count: 0 },
+      { date: '2026-09-28', count: 0 },
+      { date: '2026-09-29', count: 0 },
+      { date: '2026-09-30', count: 1 },
+      { date: '2026-10-01', count: 0 },
+      { date: '2026-10-02', count: 2 },
+    ]);
+  });
+
+  it('gives the limits that apply to it: each following the installation default or set for the fleet', async () => {
+    withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000 });
+    core.state.fleetLimitSettings.push({ fleetId: hemma, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'default' } });
+
+    const fleet = (await listFleets()).find((each) => each.fleetId === hemma);
+
+    expect(fleet?.limits).toEqual({
+      ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
+      dailyMessages: { setting: { kind: 'default' }, applies: 1000 },
+    });
   });
 
   it("gives the time of the fleet's newest event as its last activity", async () => {
