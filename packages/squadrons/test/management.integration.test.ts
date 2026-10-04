@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { createApp } from '../../server/src/app.js';
 import { createPrismaClient, type PrismaClient } from '../../server/src/adapters/prisma/client.js';
 import { createUseCases } from '../../server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../../server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
@@ -33,13 +33,13 @@ const apps: SquadronsApp[] = [];
 beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
-  useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: fleetDatabase });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const commissioned = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   shipId = commissioned.shipId;
-  secret = secretIn(commissioned.prompt);
+  secret = secretOf(commissioned.secret);
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn(fleetUrl);
@@ -116,7 +116,7 @@ describe('connecting squadrons', () => {
     const reader = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reader', type: 'squadrons', fleetScopes: ['fleet:read'] }));
     const { address } = await started();
 
-    const refused = await connectSquadrons(address, { cookie, shipId: reader.shipId, secret: secretIn(reader.prompt) });
+    const refused = await connectSquadrons(address, { cookie, shipId: reader.shipId, secret: secretOf(reader.secret) });
 
     expect(refused.status).toBe(400);
     await expect(status(address)).resolves.toMatchObject({ state: 'not-connected' });

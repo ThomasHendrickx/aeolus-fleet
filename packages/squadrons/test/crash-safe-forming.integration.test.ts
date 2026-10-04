@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { createApp } from '../../server/src/app.js';
 import { createPrismaClient, type PrismaClient } from '../../server/src/adapters/prisma/client.js';
 import { createUseCases } from '../../server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../../server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
@@ -126,12 +126,12 @@ beforeEach(async () => {
 
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
-  const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
+  const useCases = createUseCases({ prisma: fleetDatabase });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(
+  const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
-  managementShip = { operatorFleetId: argo.fleetId, shipId, secret: secretIn(prompt) };
+  managementShip = { operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();
@@ -202,13 +202,13 @@ describe('a commission whose answer is lost', () => {
 
     expect(response.status, await response.clone().text()).toBe(200);
     const formed = z
-      .object({ result: z.object({ data: z.object({ members: z.array(z.object({ name: z.string(), crewLine: z.string() })) }) }) })
+      .object({ result: z.object({ data: z.object({ members: z.array(z.object({ name: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })) })) }) }) })
       .parse(await response.json()).result.data;
     const ships = await shipsOtherThanArgoAndSquadrons();
     expect(ships.filter((ship) => ship.retiredAt === null)).toHaveLength(1 + formed.members.length);
     expect(new Set(ships.map((ship) => ship.name)).size).toBe(ships.length);
     for (const member of formed.members) {
-      const [, , shipId = '', secret = ''] = member.crewLine.split(' ');
+      const [, , shipId = '', secret = ''] = member.crewLines[0]?.line.split(' ') ?? [];
       const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

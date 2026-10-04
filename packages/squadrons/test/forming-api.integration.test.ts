@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { createApp } from '../../server/src/app.js';
 import { createPrismaClient, type PrismaClient } from '../../server/src/adapters/prisma/client.js';
 import { createUseCases } from '../../server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../../server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
@@ -73,9 +73,9 @@ beforeEach(async () => {
 
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
-  const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
+  const useCases = createUseCases({ prisma: fleetDatabase });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(
+  const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
@@ -89,7 +89,7 @@ beforeEach(async () => {
     cacheDir: join(work, 'cache'),
     logger: false,
   });
-  unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretIn(prompt) }));
+  unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) }));
   await app.refreshCatalogue();
   address = await app.server.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn();
@@ -107,7 +107,7 @@ const formedSchema = z.object({
     data: z.object({
       squadronId: z.string(),
       flagship: z.object({ shipId: z.string(), name: z.string() }),
-      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable() })),
+      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() })),
     }),
   }),
 });
@@ -136,7 +136,7 @@ describe('forming a squadron at the squadrons API', () => {
 
   it("gives each member a crew line that claims its ship, with the squadron id and the template's launch note", async () => {
     const [member] = (await formTeam('team-two')).members;
-    const [, , shipId = '', secret = '', squadronId] = member?.crewLine.split(' ') ?? [];
+    const [, , shipId = '', secret = '', squadronId] = member?.crewLines[0]?.line.split(' ') ?? [];
 
     const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {
       method: 'POST',

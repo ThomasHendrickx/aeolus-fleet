@@ -1,6 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { FleetDoor, ManagementCrew, ManagementCrewStore } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
@@ -73,7 +74,7 @@ const door: FleetDoor = {
     }
     const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(commissioned.length + 10).padStart(4, '0')}`;
     commissioned.push({ shipId, name, type, isRetired: false });
-    return Promise.resolve(ok({ shipId, crewLine: `/aeolus:crew https://fleet.example.com ${shipId} aeolus_sk_v1_${name}` }));
+    return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, `aeolus_sk_v1_${name}`) }));
   },
   retire: (_crewToken, { shipId }) => {
     const ship = commissioned.find((each) => each.shipId === shipId);
@@ -112,7 +113,7 @@ beforeEach(() => {
 });
 
 describe('adding a member', () => {
-  it("commissions a member of the role from the squadron's own template version, and answers its crew line, launch note and pinned model once", async () => {
+  it("commissions a member of the role from the squadron's own template version, and answers its crew lines, launch note and pinned model once", async () => {
     const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
 
     expect(added).toEqual({
@@ -121,7 +122,7 @@ describe('adding a member', () => {
         shipId: 'shp_01m3tbfspe96yf1rnr4ank0010',
         name: 'tester-q8r2',
         role: 'tester',
-        crewLine: '/aeolus:crew https://fleet.example.com shp_01m3tbfspe96yf1rnr4ank0010 aeolus_sk_v1_tester-q8r2 team-a1b2c3',
+        crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0010', 'aeolus_sk_v1_tester-q8r2', 'team-a1b2c3'),
         launchNote: 'Start in the root.',
         model: 'claude-opus-5-5',
       },

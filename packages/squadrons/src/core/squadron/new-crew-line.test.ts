@@ -6,6 +6,7 @@ import { err, ok } from '../shared/result.js';
 import { createNewCrewLine } from './new-crew-line.js';
 import type { SquadronRepository } from './ports.js';
 import type { Member, Squadron } from './squadron.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
@@ -74,7 +75,7 @@ const door: FleetDoor = {
     if (crewToken !== 'aeolus_ct_v1_management' || ship.status !== 'awaitingCrew') {
       return Promise.resolve(err({ code: 'CONFLICT', message: 'Only a ship awaiting crew gets a starting prompt' }));
     }
-    return Promise.resolve(ok({ crewLine: `/aeolus:crew https://fleet.example.com ${shipId} aeolus_sk_v1_new` }));
+    return Promise.resolve(ok(issuedPrompt(shipId, 'aeolus_sk_v1_new')));
   },
 };
 
@@ -102,10 +103,10 @@ beforeEach(() => {
 });
 
 describe("a member's new crew line", () => {
-  it('releases the crewed ship, then answers a new crew line with the squadron id, its launch note and pinned model, once', async () => {
+  it('releases the crewed ship, then answers new crew lines, one per harness, each with the squadron id, its launch note and pinned model, once', async () => {
     await expect(newCrewLine({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toEqual({
       isOk: true,
-      value: { crewLine: `/aeolus:crew https://fleet.example.com ${TESTER} aeolus_sk_v1_new team-a1b2c3`, launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
+      value: { crewLines: memberCrewLines(TESTER, 'aeolus_sk_v1_new', 'team-a1b2c3'), launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
     });
     expect(calls).toEqual([`release ${TESTER}`, `prompt ${TESTER}`]);
   });

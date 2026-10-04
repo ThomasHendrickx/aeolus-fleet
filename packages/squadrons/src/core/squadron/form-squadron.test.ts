@@ -6,6 +6,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import type { Squadron } from './squadron.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 
@@ -83,13 +84,13 @@ function fakeFleet() {
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
     getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; crewLine: string | null }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
       const original = state.keys.get(idempotencyKey);
       if (original) {
-        return Promise.resolve(ok({ shipId: original, crewLine: null }));
+        return Promise.resolve(ok({ shipId: original, secret: null, crewLines: null }));
       }
       if (state.ships.filter((ship) => !ship.isRetired).length >= state.refuseCommissionAfter) {
         return Promise.resolve(err({ code: 'INTERNAL_SERVER_ERROR', message: 'Internal error' }));
@@ -105,7 +106,7 @@ function fakeFleet() {
       if (state.answersLost.delete(name)) {
         return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
       }
-      return Promise.resolve(ok({ shipId, crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` }));
+      return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, secret) }));
     },
     release: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     getStartingPrompt: (_crewToken, { shipId }) => {
@@ -115,7 +116,7 @@ function fakeFleet() {
       }
       // A new secret: the one in the lost answer stops working.
       ship.secret = `${ship.secret}-again`;
-      return Promise.resolve(ok({ crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${ship.secret}` }));
+      return Promise.resolve(ok(issuedPrompt(shipId, ship.secret)));
     },
     receive: () => Promise.resolve(ok([])),
     ack: () => Promise.resolve(ok(undefined)),
@@ -192,7 +193,7 @@ describe('forming a squadron', () => {
     expect(fleet.state.ships[0]).toMatchObject({ name: 'hemma-feature-a1b2c3', type: 'flagship', isCrewed: true });
   });
 
-  it('crews the flagship itself, keeping its crew token, and shows no crew line for it', async () => {
+  it('crews the flagship itself, keeping its crew token, and shows no crew lines for it', async () => {
     unwrapped(await form(fromHemmaFeature));
 
     expect(squadrons.held[0]?.flagship).toEqual({ shipId: fleet.state.ships[0]?.shipId, name: 'hemma-feature-a1b2c3', crewToken: 'aeolus_ct_v1_hemma-feature-a1b2c3' });
@@ -208,14 +209,14 @@ describe('forming a squadron', () => {
     ]);
   });
 
-  it("answers each member's crew line with the squadron id, and its template's launch note and pinned model, once", async () => {
+  it("answers each member's crew lines, one per harness, each with the squadron id, and its template's launch note and pinned model, once", async () => {
     const { members } = unwrapped(await form(fromHemmaFeature));
 
     expect(members[0]).toEqual({
       shipId: fleet.state.ships[1]?.shipId,
       name: 'planner-k3x9',
       role: 'planner',
-      crewLine: `/aeolus:crew https://fleet.example.com ${String(fleet.state.ships[1]?.shipId)} aeolus_sk_v1_planner-k3x9 hemma-feature-a1b2c3`,
+      crewLines: memberCrewLines(idSchema('ship').parse(fleet.state.ships[1]?.shipId), 'aeolus_sk_v1_planner-k3x9', 'hemma-feature-a1b2c3'),
       launchNote: 'Start the planner in the repository root.',
       model: 'claude-opus-5-5',
     });
@@ -320,11 +321,11 @@ describe('a squadron not formed', () => {
     expect(formed.members.map((member) => member.name)).toContain('planner-k3x9');
   });
 
-  it('gives a member whose answer was lost a crew line with a new starting prompt, which claims its ship', async () => {
+  it('gives a member whose answer was lost crew lines with a new starting prompt, which claims its ship', async () => {
     fleet.state.answersLost.add('planner-k3x9');
 
     const [planner] = unwrapped(await form(fromHemmaFeature)).members;
-    const [, , shipId = '', secret = ''] = planner?.crewLine.split(' ') ?? [];
+    const [, , shipId = '', secret = ''] = planner?.crewLines[0]?.line.split(' ') ?? [];
 
     await expect(fleet.door.register({ shipId: idSchema('ship').parse(shipId), secret })).resolves.toMatchObject({ isOk: true });
   });
