@@ -168,6 +168,13 @@ describe('the template repositories at the squadrons API', () => {
     expect(response.status).toBe(400);
   });
 
+  it('refuses a repository that is not on GitHub, saying it reads GitHub repositories only', async () => {
+    const response = await call(await signIn(), { procedure: 'repositories.add', body: { url: 'https://gitlab.com/acme/templates' } });
+
+    expect(response.status).toBe(400);
+    await expect(response.text()).resolves.toContain('squadrons reads GitHub repositories only');
+  });
+
   it('refuses a repository added already', async () => {
     const cookie = await signIn();
     await call(cookie, { procedure: 'repositories.add', body: { url: 'https://github.com/acme/twice' } });
