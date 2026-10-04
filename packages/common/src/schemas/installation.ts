@@ -56,3 +56,41 @@ export const installationFleetsDeleteOutputSchema = z.strictObject({});
 export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({ fleetId: idSchema('fleet') });
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
+/** A limit as configured: a number, or null for no limit. Aeolus sets none of its own (decision 0016). */
+const limitSchema = z.int().min(0).nullable();
+
+/**
+ * The installation's settings: the ship and daily message limits a fleet
+ * follows unless set for it, and the cap on the number of fleets. Each may be
+ * null: no limit.
+ */
+export const installationSettingsSchema = z.strictObject({
+  defaultShipLimit: limitSchema,
+  defaultDailyMessageLimit: limitSchema,
+  fleetCap: limitSchema,
+});
+
+export type InstallationSettings = z.infer<typeof installationSettingsSchema>;
+
+/** How one of a fleet's limits is set: it follows the installation default, or is set for the fleet to a number or to no limit. */
+export const fleetLimitSettingSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('default') }),
+  z.strictObject({ kind: z.literal('fleet'), limit: limitSchema }),
+]);
+
+export type FleetLimitSetting = z.infer<typeof fleetLimitSettingSchema>;
+
+const fleetLimitSchema = z.object({ setting: fleetLimitSettingSchema, applies: limitSchema });
+
+/** A fleet's ship and daily message limits: how each is set, and the limit that applies (null: none). */
+export const installationFleetLimitsSchema = z.object({
+  fleetId: idSchema('fleet'),
+  ships: fleetLimitSchema,
+  dailyMessages: fleetLimitSchema,
+});
+
+export const installationFleetsSetLimitsInputSchema = z.strictObject({
+  fleetId: idSchema('fleet'),
+  ships: fleetLimitSettingSchema.optional(),
+  dailyMessages: fleetLimitSettingSchema.optional(),
+});
