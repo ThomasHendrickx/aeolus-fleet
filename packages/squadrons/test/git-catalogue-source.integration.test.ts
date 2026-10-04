@@ -150,22 +150,21 @@ describe('the git repository reader', () => {
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
   });
 
-  it('keeps its mirrors in a folder only its own user can open, even one that existed open to others', async () => {
+  it('keeps its mirrors in its own aeolus-squadrons folder, which only its user can open, leaving the folder it is given as it was', async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
     await git('add', '.');
     await git('commit', '--quiet', '-m', 'tester');
     await git('tag', 'tester@1');
-    const fresh = join(work, 'fresh', 'cache');
-    const open = join(work, 'open');
-    mkdirSync(open, { mode: 0o755 });
-    chmodSync(open, 0o755);
+    const shared = join(work, 'shared');
+    mkdirSync(shared, { mode: 0o755 });
+    chmodSync(shared, 0o755);
     const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null };
 
-    for (const cacheDir of [fresh, open]) {
-      await createGitRepositoryReader({ cacheDir }).read([repository], { fetch: () => true });
-    }
+    await createGitRepositoryReader({ cacheDir: shared }).read([repository], { fetch: () => true });
 
-    expect([fresh, open].map((cacheDir) => statSync(cacheDir).mode & 0o777)).toEqual([0o700, 0o700]);
+    expect(statSync(shared).mode & 0o777).toBe(0o755);
+    expect(statSync(join(shared, 'aeolus-squadrons')).mode & 0o777).toBe(0o700);
+    expect(readdirSync(shared)).toEqual(['aeolus-squadrons']);
   });
 
   it('gives nothing from a mirror it cannot read, rather than failing the read', async () => {
@@ -175,8 +174,8 @@ describe('the git repository reader', () => {
     await git('tag', 'tester@1');
     const reading = source();
     await reading.files();
-    for (const mirror of readdirSync(join(work, 'cache'))) {
-      rmSync(join(work, 'cache', mirror, 'HEAD'));
+    for (const mirror of readdirSync(join(work, 'cache', 'aeolus-squadrons'))) {
+      rmSync(join(work, 'cache', 'aeolus-squadrons', mirror, 'HEAD'));
     }
 
     await expect(reading.unfetched()).resolves.toEqual([]);
