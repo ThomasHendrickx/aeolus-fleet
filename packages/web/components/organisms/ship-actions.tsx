@@ -1,9 +1,9 @@
 'use client';
 
 import type { ListedShip } from '@aeolus-fleet/common';
-import { Ellipsis } from 'lucide-react';
+import { Archive, Copy, Ellipsis, Inbox, KeyRound, Pen, Radio, Shapes, SquarePen, UserMinus, UserPlus, UserX, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 
 import {
   useFleetSnapshot,
@@ -21,7 +21,7 @@ import { useRemoveMember, useSquadrons } from '../../lib/squadrons-api';
 import { otherMembersOfRole } from '../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { Button } from '../atoms/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../atoms/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../atoms/sheet';
 import { showToast } from '../atoms/toast';
 import { ComposeMessage } from './compose-message';
@@ -46,6 +46,8 @@ interface ShipAction {
   key: string;
   label: string;
   menuLabel: string;
+  /** Its mark in the row menu and sheet (docs/design/png/FleetTable.png). */
+  icon: LucideIcon;
   testId: string;
   onSelect?: () => void;
   href?: string;
@@ -172,17 +174,17 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
     );
   };
   const isFlagship = squadron?.flagship.shipId === ship.id;
-  const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true };
-  const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', testId: 'fleet-ship-copy-id', onSelect: copyId, isMenuOnly: true };
+  const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', icon: SquarePen, testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true };
+  const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', icon: Copy, testId: 'fleet-ship-copy-id', onSelect: copyId, isMenuOnly: true };
   // Only a session can answer a ping: none is offered while the ship awaits crew.
-  const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending }] : [];
+  const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', icon: Radio, testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending }] : [];
   const actions: ShipAction[] = [];
   if (ship.kind === 'operator') {
-    actions.push({ key: 'inbox', label: 'Open inbox', menuLabel: 'Open inbox', testId: 'fleet-ship-open-inbox', href: '/inbox', isMenuOnly: true }, copy);
+    actions.push({ key: 'inbox', label: 'Open inbox', menuLabel: 'Open inbox', icon: Inbox, testId: 'fleet-ship-open-inbox', href: '/inbox', isMenuOnly: true }, copy);
   } else if (ship.status === 'retired') {
     actions.push(copy);
   } else if (isFlagship) {
-    actions.push({ key: 'squadron', label: 'Open squadron', menuLabel: 'Open squadron', testId: 'fleet-ship-open-squadron', href: `/squadrons/${squadron.id}` });
+    actions.push({ key: 'squadron', label: 'Open squadron', menuLabel: 'Open squadron', icon: Shapes, testId: 'fleet-ship-open-squadron', href: `/squadrons/${squadron.id}` });
   } else if (isMembershipPending) {
     actions.push(message, copy, ...pings);
   } else if (member && squadron) {
@@ -190,31 +192,32 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
       key: 'crew-line',
       label: 'Get new crew line',
       menuLabel: 'Get new crew line…',
+      icon: KeyRound,
       testId: 'fleet-ship-new-crew-line',
       onSelect: crewLine.start,
       isDisabled: !crewLine.isReady,
       isPrimary: member.health === 'silent',
     });
     if (ship.status === 'crewed') {
-      actions.push({ key: 'release', label: 'Release', menuLabel: 'Release ship…', testId: 'fleet-ship-release', onSelect: open('release') });
+      actions.push({ key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release') });
     }
     if (squadron.state === 'sailing' || squadron.state === 'standing-down') {
-      actions.push({ key: 'remove', label: 'Remove from squadron', menuLabel: 'Remove from squadron…', testId: 'fleet-ship-remove', onSelect: open('remove'), isDestructive: true });
+      actions.push({ key: 'remove', label: 'Remove from squadron', menuLabel: 'Remove from squadron…', icon: UserMinus, testId: 'fleet-ship-remove', onSelect: open('remove'), isDestructive: true });
     }
   } else {
     actions.push(message, copy);
     if (ship.status === 'awaitingCrew') {
-      actions.push({ key: 'prompt', label: 'Get starting prompt', menuLabel: 'Get starting prompt…', testId: 'fleet-ship-prompt', onSelect: requestPrompt });
+      actions.push({ key: 'prompt', label: 'Get starting prompt', menuLabel: 'Get starting prompt…', icon: KeyRound, testId: 'fleet-ship-prompt', onSelect: requestPrompt });
     } else {
       actions.push(
         ...pings,
-        { key: 'recrew', label: 'Re-crew', menuLabel: 'Re-crew…', testId: 'fleet-ship-recrew', onSelect: open('recrew') },
-        { key: 'release', label: 'Release', menuLabel: 'Release ship…', testId: 'fleet-ship-release', onSelect: open('release') },
+        { key: 'recrew', label: 'Re-crew', menuLabel: 'Re-crew…', icon: UserPlus, testId: 'fleet-ship-recrew', onSelect: open('recrew') },
+        { key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release') },
       );
     }
     actions.push(
-      { key: 'rename', label: 'Rename', menuLabel: 'Rename…', testId: 'fleet-ship-rename', onSelect: open('rename') },
-      { key: 'retire', label: 'Retire', menuLabel: 'Retire ship…', testId: 'fleet-ship-retire', onSelect: open('retire'), isDestructive: true },
+      { key: 'rename', label: 'Rename', menuLabel: 'Rename…', icon: Pen, testId: 'fleet-ship-rename', onSelect: open('rename') },
+      { key: 'retire', label: 'Retire', menuLabel: 'Retire ship…', icon: Archive, testId: 'fleet-ship-retire', onSelect: open('retire'), isDestructive: true },
     );
   }
 
@@ -326,20 +329,34 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
 }
 
 /** Buttons, ghost for Rename and the destructive ones, as the ship page shows them. */
-function ActionButton({ action }: { action: ShipAction }) {
+function ActionButton({ action, className }: { action: ShipAction; className?: string }) {
   const variant = action.isPrimary ? 'primary' : action.isDestructive || action.key === 'rename' ? 'ghost' : 'secondary';
   if (action.href !== undefined) {
     return (
-      <Button size="xs" variant={variant} nativeButton={false} data-testid={action.testId} render={<Link href={action.href} />}>
+      <Button size="xs" variant={variant} nativeButton={false} data-testid={action.testId} className={className} render={<Link href={action.href} />}>
         {action.label}
       </Button>
     );
   }
   return (
-    <Button size="xs" variant={variant} data-testid={action.testId} disabled={action.isDisabled} isLoading={action.isLoading} onClick={action.onSelect}>
+    <Button size="xs" variant={variant} data-testid={action.testId} disabled={action.isDisabled} isLoading={action.isLoading} className={className} onClick={action.onSelect}>
       {action.label}
     </Button>
   );
+}
+
+/**
+ * Where a menu or sheet draws a separator before an action, as
+ * docs/design/png/FleetTable.png groups them: after the menu-only actions
+ * (Message, Copy ship id), and before the destructive one.
+ */
+function startsGroup(actions: readonly ShipAction[], index: number): boolean {
+  const before = actions[index - 1];
+  const action = actions[index];
+  if (before === undefined || action === undefined) {
+    return false;
+  }
+  return (before.isMenuOnly === true && action.isMenuOnly !== true) || (action.isDestructive === true && before.isDestructive !== true);
 }
 
 /** The ship's actions in the layout asked for: buttons, a row menu or sheet, or the row's one next step. */
@@ -347,7 +364,8 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
   if (layout === 'next') {
     // At most one next step: a starting prompt for a ship awaiting crew, a new crew line for a silent member.
     const next = actions.find((action) => action.key === 'prompt' || (action.key === 'crew-line' && action.isPrimary === true));
-    return next ? <ActionButton action={{ ...next, isPrimary: false }} /> : null;
+    // On phone the next step is a full-width touch target (docs/design/conventions.md, "FleetTable").
+    return next ? <ActionButton action={{ ...next, isPrimary: false }} className="max-sm:h-(--size-control-touch) max-sm:w-full max-sm:text-body-touch" /> : null;
   }
   if (layout === 'buttons') {
     const shown = actions.filter((action) => action.isMenuOnly !== true);
@@ -359,7 +377,9 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
       </div>
     );
   }
-  const trigger = <Button size="xs" variant="ghost" isIconOnly aria-label={`Actions for ${ship.name}`} icon={<Ellipsis />} data-testid="fleet-actions" />;
+  const trigger = (
+    <Button size={layout === 'sheet' ? 'touch' : 'xs'} variant="ghost" isIconOnly aria-label={`Actions for ${ship.name}`} icon={<Ellipsis />} data-testid="fleet-actions" />
+  );
   if (layout === 'sheet') {
     return (
       <Sheet>
@@ -369,8 +389,8 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
             <SheetTitle>{ship.name}</SheetTitle>
           </SheetHeader>
           <ul className="flex flex-col pb-2">
-            {actions.map((action) => (
-              <li key={action.key}>
+            {actions.map((action, index) => (
+              <li key={action.key} className={startsGroup(actions, index) ? 'mt-1 border-t border-border pt-1' : undefined}>
                 <SheetClose
                   render={
                     action.href === undefined ? (
@@ -380,8 +400,9 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
                     )
                   }
                   data-testid={action.testId}
-                  className={`flex h-(--size-control-touch) w-full items-center px-4 text-left text-body-touch disabled:opacity-45 ${action.isDestructive ? 'text-destructive-text' : 'text-foreground'}`}
+                  className={`flex h-(--size-control-touch) w-full items-center gap-3 px-4 text-left text-body-touch disabled:opacity-45 [&_svg]:size-(--size-icon) [&_svg]:shrink-0 ${action.isDestructive ? 'text-destructive-text' : 'text-foreground'}`}
                 >
+                  <action.icon aria-hidden />
                   {action.menuLabel.replace(/…$/, '')}
                 </SheetClose>
               </li>
@@ -398,23 +419,27 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
     <DropdownMenu>
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent>
-        {actions.map((action) =>
-          action.href === undefined ? (
-            <DropdownMenuItem
-              key={action.key}
-              data-testid={action.testId}
-              disabled={action.isDisabled}
-              variant={action.isDestructive ? 'destructive' : 'default'}
-              onClick={action.onSelect}
-            >
-              {action.menuLabel}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem key={action.key} data-testid={action.testId} render={<Link href={action.href} />}>
-              {action.menuLabel}
-            </DropdownMenuItem>
-          ),
-        )}
+        {actions.map((action, index) => (
+          <Fragment key={action.key}>
+            {startsGroup(actions, index) ? <DropdownMenuSeparator /> : null}
+            {action.href === undefined ? (
+              <DropdownMenuItem
+                data-testid={action.testId}
+                disabled={action.isDisabled}
+                variant={action.isDestructive ? 'destructive' : 'default'}
+                onClick={action.onSelect}
+              >
+                <action.icon aria-hidden />
+                {action.menuLabel}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem data-testid={action.testId} render={<Link href={action.href} />}>
+                <action.icon aria-hidden />
+                {action.menuLabel}
+              </DropdownMenuItem>
+            )}
+          </Fragment>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
