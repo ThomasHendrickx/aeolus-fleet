@@ -90,7 +90,8 @@ These terms mean the same thing in code, database, API, UI and conversation.
 
 | Term | Meaning |
 | --- | --- |
-| Fleet | The tenant: one operator's ships, messages and history. One installation can host several fleets; v1 runs one |
+| Fleet | The tenant: one operator's ships, messages and history. A self-hosted installation runs one; a hosting installation creates many |
+| Installation | One server and the fleets it hosts. A service that hosts fleets for others (pagasae, for hosted Aeolus) creates, describes and deletes them through the installation procedures, with the installation token; a self-hosted server has none of them |
 | Operator | The human running the fleet, crewing the ship `argo` through the web console |
 | `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
 | Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage` |
@@ -191,6 +192,18 @@ stateDiagram-v2
 `delivered` means claimed and in flight.
 
 A crash never loses a delivery: an unacknowledged delivery returns to pending until a ship acknowledges it. A delivery that keeps failing (a poison message) stops after N attempts and lands in the operator's undeliverable queue instead of looping forever.
+
+### Installation
+
+A hosting service such as pagasae drives the installation with its token (docs/architecture.md, "Installation"); a server without a token has no installation procedures. Each create and delete carries the caller's own request id: a replay under it answers what the first call answered, and a different request under a used id is refused.
+
+1. Create a fleet: a name and the operator's email. The fleet, its `argo` and the operator account come in one transaction, with their events. The operator has no password, so a password sign-in for that email fails like a wrong password. The email is unique across the installation. One account is one fleet and one operator.
+2. List the fleets, or get one: its id, name, operator email, when it was created, and its four measures:
+   - **Ships:** its ships that are not retired, `argo` included.
+   - **Messages:** every message row stored in the fleet in the last 7 days, of any kind and from any sender; the server never looks into messages for it.
+   - **Last activity:** the time of the fleet's newest event, of any kind.
+   - **Storage:** the UTF-8 bytes of every message payload the fleet ever stored.
+3. Delete a fleet: it is gone for good, in one transaction, with every record in it, which ends its console session and leases. No event survives it (the event log is the fleet's own), so the server logs the delete with the fleet's id, name and operator email. Nothing of the fleet stays behind: the record that answers a replayed delete keeps only the request's hash.
 
 ### Launch a ship
 

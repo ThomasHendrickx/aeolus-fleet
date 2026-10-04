@@ -8,7 +8,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0004](0004-trpc-single-api.md) **tRPC is the only API door.** REST and MCP map onto the same procedures (ship calls and the fleet actions for ships with fleet scopes), no own logic.
 - [0005](0005-prefixed-ids.md) **Prefixed ids.** `<prefix>_<lowercase ULID>`: `flt_ shp_ msg_ dlv_ evt_ lse_ crd_ opr_ ses_`.
 - [0006](0006-payload-limit.md) **Payloads max 64 KB.** Carry a reference plus instruction, not content.
-- [0007](0007-tenancy.md) **Every record belongs to a fleet.** `fleet_id` everywhere, scoped queries. Only unscoped: secret hash, token hash, operator email lookup.
+- [0007](0007-tenancy.md) **Every record belongs to a fleet.** `fleet_id` everywhere, scoped queries. Only unscoped: secret hash, token hash, operator email lookup, and the installation (0020).
 - [0008](0008-packages.md) **Four packages, one repo.** server, web, common, squadrons (optional); one version. Hosting in private infra repo.
 - [0009](0009-stack.md) **Stack.** Node 26, Fastify, tRPC, Next.js, Prisma, Zod, Vitest, Testcontainers, Playwright.
 - [0010](0010-leases-without-heartbeats.md) **Leases until released.** No heartbeats; second claim fails (except `argo` takeover); release and deregister invalidate the secret; location reported on claim.
@@ -21,3 +21,4 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0017](0017-squadrons-package.md) **Squadrons, a ship of the fleet.** Separate package, own process and database, reaches the fleet only through the public API as its management ship (fleet:read, fleet:manage); Aeolus knows nothing about squadrons.
 - [0018](0018-model-and-harness.md) **Model and harness.** Every send states the session's exact model (required for every ship but argo); the harness is free text with known values, stated when a session crews a ship and read with its location; squadrons states its package and version.
 - [0019](0019-starting-prompt-presentation.md) **Starting prompt presentation.** Core issues the secret only; the tRPC adapter answers the prompt, one crew line per harness (Claude Code, Codex) and the secret; clients read `secret`, never parse a line.
+- [0020](0020-installation.md) **Installation.** One server hosts many fleets for a hosting service; installation procedures on the tRPC router behind an installation token (off without one); request ids on create and delete; hosted operators have no password; delete removes every record of the fleet, events included, and keeps only a request hash.

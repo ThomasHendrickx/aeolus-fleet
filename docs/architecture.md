@@ -30,10 +30,22 @@ The server has exactly one API door: a tRPC router. The web app calls it like an
 | Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, pong, report, deregister |
 | Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC; the fleet actions (list, ship, commission, get starting prompt, release, re-crew, retire, ping, follow) also REST (`/api/v1/fleet/<call>`) and MCP (`fleet_<call>` tools) for a crewed ship with those scopes | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out, and `console.session`: another service's server forwards the browser's cookie and learns whether the operator is signed in (fleet and expiry, or `UNAUTHORIZED`), so it serves its pages beside the console without a login of its own |
+| Installation procedures | The installation token, in the `x-aeolus-installation-token` header; never a crew token or console session | tRPC only | `installation.fleets.create`, `list`, `get`, `delete`: see Installation below |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
 | Following the fleet | Crew token or console session, plus `fleet:read` | tRPC, REST (`/api/v1/fleet/follow`), MCP (`fleet_follow`) | `fleet.follow`: the events after an event number, the same numbers the live subscription sends, waiting up to 25 seconds while none has come, woken by the same `NOTIFY` |
 
-Every caller is a ship. A call is authorised by the caller's scopes, which live on the server with the ship; the console is simply `argo` holding every scope. The only procedures that exist purely for the web app are sign-in and live updates.
+Every caller is a ship, except a hosting service calling the installation procedures. A call is authorised by the caller's scopes, which live on the server with the ship; the console is simply `argo` holding every scope. The only procedures that exist purely for the web app are sign-in and live updates.
+
+### Installation
+
+One server may host many fleets for a hosting service such as pagasae (decision 0020; the behaviour and the four measures are in the blueprint, "Installation"). The service calls the installation procedures on the same tRPC router:
+
+- **The token:** `INSTALLATION_TOKEN` (at least 32 characters) in the server's environment. Unset, every installation procedure answers `NOT_FOUND`, so a self-hosted server shows nothing new. Set, a request must present exactly that token in `x-aeolus-installation-token` (compared in constant time), or it is refused with `UNAUTHORIZED`. REST and MCP never serve these procedures.
+- **`installation.fleets.create`** `{ requestId, name, operatorEmail }` answers `{ fleetId, operatorShipId }`; `CONFLICT` for an email an operator already has, or a request id used for another request.
+- **`installation.fleets.list`** answers every fleet, oldest first; **`installation.fleets.get`** `{ fleetId }` answers one, or `NOT_FOUND`. Each: `{ fleetId, name, operatorEmail, createdAt, shipCount, messagesLast7Days, lastActivityAt, storage }`.
+- **`installation.fleets.delete`** `{ requestId, fleetId }` answers `{}`; `NOT_FOUND` for a fleet the installation does not host.
+- **Request ids:** `installation_requests` keeps one row per create and delete, by request id, with the request's hash. A create's row names the fleet and argo it answered with and is deleted with that fleet; a delete's row names nothing of the fleet.
+- **Delete:** one transaction deletes every row with the fleet's `fleet_id`, children first. Events stay append-only through a trigger; the one exception is this transaction, which names the fleet in the transaction-local setting `aeolus.deleting_fleet`, so only that fleet's events may go.
 
 ### Use cases (inbound ports)
 
@@ -131,18 +143,19 @@ Every promise in the blueprint maps to one Postgres transaction. Nothing the gua
 
 ### Core tables
 
-Every table except `fleets` carries a `fleet_id`, and every uniqueness rule is per fleet. v1 creates exactly one fleet at first run; adding more later is a data change, not a schema change.
+Every table except `fleets` and the installation's `installation_requests` carries a `fleet_id`, and every uniqueness rule is per fleet. A self-hosted server creates one fleet at first run; a hosting installation creates more through the installation procedures.
 
 | Table | Holds | Key constraints |
 | --- | --- | --- |
-| `fleets` | The tenant: name, created date, the number of its last committed event | One row in v1 |
+| `fleets` | The tenant: name, created date, the number of its last committed event | One row on a self-hosted server |
 | `ships` | Name, type, kind (`operator` or `agent`), scopes, note, retired date; for an agent ship, the ship that commissioned it, its idempotency key and the request's hash | Name unique per fleet among ships that are not retired (partial unique index); exactly one `operator` ship per fleet, named `argo`; an idempotency key unique per commissioning ship |
 | `leases` | Which ship is crewed, since when, its crew's last call (every authenticated call by its crew token, or by argo's console session, marks it in the statement that authenticates it; observation only), the hash of its crew token, the session's location (`DEVICE`, `CLOUD`, `SERVER`, `OTHER` plus a description) and the harness it stated (none for argo's console lease) | At most one open lease per ship (partial unique index); the crew token hash is unique across all fleets, so the crew token lookup is not scoped by fleet either |
 | `credentials` | Hashed ship secrets, issued, claimed and invalidated dates | At most one valid secret per ship (partial unique index); the hash is unique across all fleets, which makes the secret lookup one of the queries that are not scoped by fleet |
 | `messages` | Sender ship, selector, payload, content type, the model the sender's session stated (none from argo, for pings, and before models were stated; a resend keeps the original's), sender's idempotency key, hash of the request it was sent with (selector as sent, payload, content type, in-reply-to), optional in-reply-to and resend-of message | Payload at most 64 KB (serialized bytes); in-reply-to names a message in the same fleet; unique on sender plus idempotency key; a repeat of the key must match the request hash (the model is no part of it); indexed on sender and time, for a ship's current model |
 | `deliveries` | Recipient ship or recipient type, state (including dismissed), claimed-by ship and lease, attempts (the claims so far), read date for messages to `argo` | One row per recipient; indexed on fleet, recipient and state, and on the claiming lease; an in-flight or acknowledged delivery names the ship and lease that claimed it, a pending one neither; the claiming lease belongs to the same fleet |
 | `events` | Append-only log of every state change: type, time, actor ship (or system), ship, message and delivery it concerns, small details, and its number in the fleet's stream | Never updated or deleted: timeline, audit trail and live-update source; the number is unique per fleet, in commit order without gaps |
-| `operators` | The operator account: email, Argon2id password hash, the console theme (light, dark, system; system until chosen) | Email unique across the installation (looked up before the fleet is known); one operator in v1 |
+| `operators` | The operator account: email, Argon2id password hash (none for an operator a hosting installation created), the console theme (light, dark, system; system until chosen) | Email unique across the installation (looked up before the fleet is known); one operator in v1 |
+| `installation_requests` | The installation's creates and deletes of fleets, by the caller's request id, with the request's hash; a create also names the fleet and argo it answered with | The one table that belongs to the installation, not to a fleet (decision 0020): a create's row goes with its fleet, a delete's names nothing of the fleet |
 | `console_sessions` | Console sessions crewing `argo`: token hash, the device it signed in from (from the sign-in's User-Agent: "Mac · Chrome"; also argo's lease location, as OTHER), last used, expiry, and why it ended (taken over by a sign-in elsewhere, signed out, password reset) | At most one live session per fleet (signing in ends the previous one); only an ended session has a reason |
 
 A message is the travelling ticket, not the cargo. The 64 KB limit is deliberate: real content lives where it belongs (a repo path, a pull request, a storage URL), and the payload carries the reference plus the instruction.
