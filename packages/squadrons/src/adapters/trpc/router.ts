@@ -84,8 +84,23 @@ const operatorProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!operator.isOk) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: operator.error.message });
   }
-  return next({ ctx: { fleetId: operator.value.fleetId } });
+  return next({ ctx: { fleetId: operator.value.fleetId, scopes: operator.value.scopes } });
 });
+
+/**
+ * What changes the fleet's squadrons, or names its template repositories,
+ * needs the session's ship to hold fleet:manage: the operator does, a viewer
+ * session (fleet:read only, decision 0022) does not, so it is served reads
+ * only. Checked before the input is read.
+ */
+function managing(procedure: typeof operatorProcedure) {
+  return procedure.use(({ ctx, next }) => {
+    if (!ctx.scopes.includes('fleet:manage')) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Needs fleet:manage: a viewer session only reads' });
+    }
+    return next();
+  });
+}
 
 /** Whether the token sent is the installation token, compared in constant time. */
 function isInstallationToken(sent: string | undefined, token: string): boolean {
@@ -331,7 +346,7 @@ export const squadronsRouter = t.router({
      * and keeps only the crew token. Only while not connected, and while
      * squadrons serves the fleet.
      */
-    connect: servedProcedure
+    connect: managing(servedProcedure)
       .input(z.object({ shipId: idSchema('ship'), secret: z.string().min(1) }))
       .output(connectionStatusOutputSchema)
       .mutation(async ({ ctx, input }) => {
@@ -387,7 +402,7 @@ export const squadronsRouter = t.router({
      * holds no open deliveries, then the flagship is retired and the squadron
      * is Disbanded. The members and the flagship advance at each rescan.
      */
-    standDown: connectedProcedure
+    standDown: managing(connectedProcedure)
       .input(z.object({ squadronId: z.string() }))
       .output(z.strictObject({}))
       .mutation(async ({ ctx, input }) => {
@@ -402,7 +417,7 @@ export const squadronsRouter = t.router({
      * every member not retired yet and the flagship are retired at once, their
      * direct deliveries abandoned, and the squadron is Disbanded.
      */
-    forceStandDown: connectedProcedure
+    forceStandDown: managing(connectedProcedure)
       .input(z.object({ squadronId: z.string() }))
       .output(z.strictObject({}))
       .mutation(async ({ ctx, input }) => {
@@ -417,7 +432,7 @@ export const squadronsRouter = t.router({
      * template version. Its crew lines, launch note and pinned model are in the
      * answer, once.
      */
-    addMember: connectedProcedure
+    addMember: managing(connectedProcedure)
       .input(z.object({ squadronId: z.string(), role: z.string() }))
       .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
@@ -431,7 +446,7 @@ export const squadronsRouter = t.router({
      * Removes a member of a sailing or standing-down squadron: its ship is
      * retired at once, its direct deliveries abandoned.
      */
-    removeMember: connectedProcedure
+    removeMember: managing(connectedProcedure)
       .input(z.object({ squadronId: z.string(), shipId: idSchema('ship') }))
       .output(z.strictObject({}))
       .mutation(async ({ ctx, input }) => {
@@ -446,7 +461,7 @@ export const squadronsRouter = t.router({
      * ship if crewed and answers new crew lines with the squadron id, its
      * launch note and pinned model, once.
      */
-    newCrewLine: connectedProcedure
+    newCrewLine: managing(connectedProcedure)
       .input(z.object({ squadronId: z.string(), shipId: idSchema('ship') }))
       .output(z.object({ crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
@@ -461,7 +476,7 @@ export const squadronsRouter = t.router({
      * squadrons, its members commissioned. Each member's crew lines, launch
      * note and pinned model are in the answer, once.
      */
-    form: connectedProcedure
+    form: managing(connectedProcedure)
       .input(z.object({ blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }), squadronId: z.string().optional() }))
       .output(
         z.object({
@@ -480,14 +495,14 @@ export const squadronsRouter = t.router({
   }),
   repositories: t.router({
     /** The template repositories squadrons reads, oldest first, each with whether it has a token and its last fetch. */
-    list: connectedProcedure.output(z.array(repositoryOutputSchema)).query(async ({ ctx }) => (await ctx.listRepositories(ctx.fleetId)).map(repositoryOutputOf)),
+    list: managing(connectedProcedure).output(z.array(repositoryOutputSchema)).query(async ({ ctx }) => (await ctx.listRepositories(ctx.fleetId)).map(repositoryOutputOf)),
     /**
      * Adds a template repository: its https URL, an optional path
      * (.aeolus/squadrons when left out) and an optional read token, which is
      * never answered again. It is fetched at once; one whose first fetch fails
      * is kept, with why.
      */
-    add: connectedProcedure
+    add: managing(connectedProcedure)
       .input(z.object({ url: z.string(), path: z.string().optional(), token: z.string().optional() }))
       .output(repositoryOutputSchema)
       .mutation(async ({ ctx, input }) => {
@@ -498,7 +513,7 @@ export const squadronsRouter = t.router({
         return repositoryOutputOf(added.value);
       }),
     /** Removes a template repository: its versions leave the catalogue at once. */
-    remove: connectedProcedure
+    remove: managing(connectedProcedure)
       .input(z.object({ name: z.string() }))
       .output(z.strictObject({}))
       .mutation(async ({ ctx, input }) => {
@@ -520,7 +535,7 @@ export const squadronsRouter = t.router({
       };
     }),
     /** Fetches every template repository now and rebuilds the catalogue: nothing fetches by itself. */
-    refresh: connectedProcedure.output(z.strictObject({})).mutation(async ({ ctx }) => {
+    refresh: managing(connectedProcedure).output(z.strictObject({})).mutation(async ({ ctx }) => {
       await ctx.refreshCatalogue(ctx.fleetId);
       return {};
     }),
