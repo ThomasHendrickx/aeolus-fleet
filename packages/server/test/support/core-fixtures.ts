@@ -225,6 +225,16 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
   return unwrap(initialised);
 }
 
+/** A fleet a hosting installation created, through the use case: its argo and an operator without a password. */
+export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@example.com'): Promise<{ fleetId: FleetId; operatorShipId: ShipId }> {
+  const created = await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({
+    requestId: `signup-${operatorEmail}`,
+    name: 'hemma',
+    operatorEmail,
+  });
+  return unwrap(created);
+}
+
 /**
  * Puts an agent ship with a valid secret straight into the state, without
  * commissioning it: for a ship with other scopes, in another fleet or already
