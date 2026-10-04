@@ -65,6 +65,7 @@ describe('stopping the flagship watch', () => {
         return ok('kept');
       },
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -113,6 +114,7 @@ describe('the flagships of every connected fleet', () => {
         advanced.push(fleetId);
         return Promise.resolve();
       },
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -124,6 +126,41 @@ describe('the flagships of every connected fleet', () => {
 
     expect([...receivedAs].sort()).toEqual(['aeolus_ct_v1_flagship', 'aeolus_ct_v1_their_flagship']);
     expect(advanced.sort()).toEqual([FLEET_ID, OTHER_FLEET_ID].sort());
+  });
+});
+
+describe('the flagships of a fleet squadrons does not serve', () => {
+  it('do not receive, and its stand-downs do not advance, while the fleet is off', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    let receives = 0;
+    const advanced: string[] = [];
+    const watch = watchFlagships({
+      door: {
+        ...fakeManagementFleet().door,
+        receive: () => {
+          receives += 1;
+          return Promise.resolve(ok([]));
+        },
+      },
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: (fleetId) => {
+        advanced.push(fleetId);
+        return Promise.resolve();
+      },
+      isServed: () => Promise.resolve(false),
+      operator: { tell: () => Promise.resolve() },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.stop();
+
+    expect(receives).toBe(0);
+    expect(advanced).toEqual([]);
   });
 });
 
@@ -145,6 +182,7 @@ describe('a released flagship', () => {
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
           told.push(notice);
@@ -176,6 +214,7 @@ describe('a released flagship', () => {
         squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
         handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
         advanceStandDowns: () => Promise.resolve(),
+        isServed: () => Promise.resolve(true),
         operator: {
           tell: (notice) => {
             keys.push(notice.key);
@@ -226,6 +265,7 @@ describe('the flagship of a squadron standing down', () => {
         return Promise.resolve(ok('kept'));
       },
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -254,6 +294,7 @@ describe('the flagship of a squadron standing down', () => {
       },
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
           told.push(notice.text);
@@ -281,6 +322,7 @@ describe('the flagship of a squadron standing down', () => {
         advances += 1;
         return Promise.resolve();
       },
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
