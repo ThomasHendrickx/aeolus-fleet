@@ -99,7 +99,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | --- | --- | --- |
 | `web` | Any Next.js host | Vercel, any Node host, a container |
 | `server` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
-| `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
+| `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
 ## Technology choices
@@ -171,7 +171,7 @@ Five parts. The first four are npm packages under the `aeolus-fleet` organisatio
 | `@aeolus-fleet/common` | Public repo, `packages/common` | Zod schemas for every procedure, prefixed id helpers, shared types, error codes, event names | Nothing but Zod |
 | `@aeolus-fleet/server` | Public repo, `packages/server` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
-| `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, and the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`). Optional | `common` |
+| `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`), and GitHub's REST API for the template repositories, with no clone and no files on disk. Optional | `common` |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
 Layers, not folders (the code shows the folders):
