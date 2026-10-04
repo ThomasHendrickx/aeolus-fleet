@@ -27,7 +27,8 @@ export type RepositoryToRead = Pick<TemplateRepository, 'fleetId' | 'name' | 'ur
 /**
  * Outbound port: the template and blueprint versions of the given
  * repositories (docs/squadrons.md, "Files in git"). A repository `fetch`
- * picks is fetched first, and answers whether that worked; every other is
+ * picks is fetched first, and answers whether that worked, a mirror that
+ * cannot be read right after it counting as a failed fetch; every other is
  * read from what it last fetched, and holds nothing before its first fetch.
  * What one fleet fetched is never read for another.
  */
@@ -36,6 +37,8 @@ export interface RepositoryReader {
     repositories: readonly RepositoryToRead[],
     options: { fetch: (name: string) => boolean },
   ): Promise<{ files: SourceFile[]; fetched: { name: string; error: string | null }[] }>;
+  /** Deletes what was fetched of a repository: read again, it holds nothing before its next fetch. */
+  forget(repository: Pick<RepositoryToRead, 'fleetId' | 'name' | 'url'>): Promise<void>;
 }
 
 /** Outbound port: the template repositories the operator set, in squadrons' own database, within one fleet. */

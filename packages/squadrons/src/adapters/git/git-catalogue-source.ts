@@ -4,9 +4,10 @@
  * mirror, so one fleet never reads what another fetched, in an
  * aeolus-squadrons folder within the cache folder that opens to squadrons'
  * own user only; the cache folder itself is left as it is.
- * Fetching brings a mirror up to date with its tags; a repository read
- * without fetching gives what its mirror holds, and nothing before its first
- * fetch or when git cannot read its mirror. A version is a tag `<name>@<n>`;
+ * Fetching brings a mirror up to date with its tags, and a mirror git cannot
+ * read right after counts as a failed fetch; a repository read without
+ * fetching gives what its mirror holds, and nothing before its first fetch,
+ * after it is forgotten, or when git cannot read its mirror. A version is a tag `<name>@<n>`;
  * its file is `<path>/templates/<name>.yaml` or
  * `<path>/blueprints/<name>.yaml` at the tag's commit. A token, for a private
  * repository, travels as basic authentication on the fetch only, handed to
@@ -17,7 +18,7 @@
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -90,7 +91,7 @@ function gitWithin(timeoutMs: number): Git {
   };
 }
 
-function mirrorOf(repository: RepositoryToRead, cacheDir: string): string {
+function mirrorOf(repository: Pick<RepositoryToRead, 'fleetId' | 'url'>, cacheDir: string): string {
   return join(cacheDir, MIRRORS_FOLDER, createHash('sha256').update(`${repository.fleetId} ${repository.url}`).digest('hex').slice(0, 16));
 }
 
@@ -144,13 +145,13 @@ function parsed(text: string): { content: unknown; parseError?: string } {
   }
 }
 
-/** Every tagged template and blueprint version in a repository's mirror; none when git cannot read the mirror. */
-async function filesIn(git: Git, { repository, mirror }: { repository: RepositoryToRead; mirror: string }): Promise<SourceFile[]> {
+/** Every tagged template and blueprint version in a repository's mirror; none, and why, when git cannot read the mirror. */
+async function filesIn(git: Git, { repository, mirror }: { repository: RepositoryToRead; mirror: string }): Promise<{ files: SourceFile[]; failure?: unknown }> {
   let tagged: Awaited<ReturnType<typeof tags>>;
   try {
     tagged = await tags(git, mirror);
-  } catch {
-    return [];
+  } catch (error) {
+    return { files: [], failure: error };
   }
   const files: SourceFile[] = [];
   for (const { tag, commit, committedAt } of tagged) {
@@ -167,7 +168,7 @@ async function filesIn(git: Git, { repository, mirror }: { repository: Repositor
       }
     }
   }
-  return files;
+  return { files };
 }
 
 export function createGitRepositoryReader(options: { cacheDir: string; timeoutMs?: number }): RepositoryReader {
@@ -178,20 +179,30 @@ export function createGitRepositoryReader(options: { cacheDir: string; timeoutMs
       const files: SourceFile[] = [];
       const fetched: { name: string; error: string | null }[] = [];
       for (const repository of repositories) {
-        if (isFetched(repository.name)) {
+        let fetchFailure: unknown;
+        const isFetching = isFetched(repository.name);
+        if (isFetching) {
           try {
             await fetchMirror(git, { repository, cacheDir: options.cacheDir });
-            fetched.push({ name: repository.name, error: null });
           } catch (error) {
-            fetched.push({ name: repository.name, error: fetchErrorOf(error, { token: repository.token, timeoutMs }) });
+            fetchFailure = error ?? new Error('git could not fetch the repository');
           }
         }
         const mirror = mirrorOf(repository, options.cacheDir);
         if (existsSync(mirror)) {
-          files.push(...(await filesIn(git, { repository, mirror })));
+          const read = await filesIn(git, { repository, mirror });
+          files.push(...read.files);
+          fetchFailure ??= read.failure;
+        }
+        if (isFetching) {
+          fetched.push({ name: repository.name, error: fetchFailure === undefined ? null : fetchErrorOf(fetchFailure, { token: repository.token, timeoutMs }) });
         }
       }
       return { files, fetched };
+    },
+    forget: (repository) => {
+      rmSync(mirrorOf(repository, options.cacheDir), { recursive: true, force: true });
+      return Promise.resolve();
     },
   };
 }

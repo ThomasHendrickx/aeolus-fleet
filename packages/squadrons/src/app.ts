@@ -117,9 +117,10 @@ export function createSquadronsApp(options: {
   };
   let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
   const repositories = createPrismaRepositoryStore(prisma);
+  const source = createGitRepositoryReader({ cacheDir: options.cacheDir });
   const refresh = createRefreshCatalogue({
     store: repositories,
-    source: createGitRepositoryReader({ cacheDir: options.cacheDir }),
+    source,
     holder: {
       get: () => catalogue,
       set: (built) => {
@@ -142,7 +143,7 @@ export function createSquadronsApp(options: {
   };
   const listRepositories = createListRepositories({ store: repositories });
   const addRepository = createAddRepository({ store: repositories, refresh, clock });
-  const removeRepository = createRemoveRepository({ store: repositories, refresh });
+  const removeRepository = createRemoveRepository({ store: repositories, source, refresh });
 
   const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
   const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
