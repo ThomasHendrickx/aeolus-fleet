@@ -23,7 +23,8 @@ export type DomainErrorKind =
   | 'MEMBER_RETIRED'
   | 'INVALID_REPOSITORY'
   | 'REPOSITORY_TAKEN'
-  | 'REPOSITORY_NOT_FOUND';
+  | 'REPOSITORY_NOT_FOUND'
+  | 'REQUEST_ID_USED';
 
 /** Why the core refused a request. Adapters map the kind to their own error shape; the message is safe to show. */
 export interface DomainError<K extends DomainErrorKind = DomainErrorKind> {
