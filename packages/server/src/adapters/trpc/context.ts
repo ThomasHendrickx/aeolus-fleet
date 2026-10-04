@@ -19,6 +19,11 @@ import type { SendMessage } from '../../core/messaging/send-message.js';
 import type { ClaimShip } from '../../core/registry/claim-ship.js';
 import type { IssueSignInTicket } from '../../core/identity/issue-sign-in-ticket.js';
 import type { RedeemSignInTicket } from '../../core/identity/redeem-sign-in-ticket.js';
+import type { GetFleetLimits } from '../../core/registry/get-fleet-limits.js';
+import type { GetInstallationSettings } from '../../core/registry/get-installation-settings.js';
+import type { SetFleetLimits } from '../../core/registry/set-fleet-limits.js';
+import type { SetInstallationSettings } from '../../core/registry/set-installation-settings.js';
+import type { ReadFleetLimits } from '../../core/shared/read-fleet-limits.js';
 import type { CommissionShip } from '../../core/registry/commission-ship.js';
 import type { CreateFleet } from '../../core/registry/create-fleet.js';
 import type { DeleteFleet } from '../../core/registry/delete-fleet.js';
@@ -87,6 +92,11 @@ export interface UseCases {
   getInstallationFleet: GetInstallationFleet;
   issueSignInTicket: IssueSignInTicket;
   redeemSignInTicket: RedeemSignInTicket;
+  getInstallationSettings: GetInstallationSettings;
+  setInstallationSettings: SetInstallationSettings;
+  getFleetLimits: GetFleetLimits;
+  setFleetLimits: SetFleetLimits;
+  readFleetLimits: ReadFleetLimits;
 }
 
 /** What the request carried to say who it is. Neither is trusted until a use case checks it. */

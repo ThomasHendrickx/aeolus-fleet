@@ -13,7 +13,7 @@ import {
 } from './adapters/prisma/registry.js';
 import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
-import { createPrismaInstallationFleets, createPrismaInstallationSettings } from './adapters/prisma/installation.js';
+import { createPrismaFleetLimitReads, createPrismaInstallationFleets, createPrismaInstallationSettings } from './adapters/prisma/installation.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './core/identity/issue-sign-in-ticket.js';
@@ -56,6 +56,11 @@ import { createFollowFleet, type FollowFleet } from './core/shared/follow-fleet.
 import type { FleetEventWakeups } from './core/shared/events.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createCreateFleet, type CreateFleet } from './core/registry/create-fleet.js';
+import { createGetFleetLimits, type GetFleetLimits } from './core/registry/get-fleet-limits.js';
+import { createGetInstallationSettings, type GetInstallationSettings } from './core/registry/get-installation-settings.js';
+import { createSetFleetLimits, type SetFleetLimits } from './core/registry/set-fleet-limits.js';
+import { createSetInstallationSettings, type SetInstallationSettings } from './core/registry/set-installation-settings.js';
+import { createReadFleetLimits, type ReadFleetLimits } from './core/shared/read-fleet-limits.js';
 import { createDeleteFleet, type DeleteFleet } from './core/registry/delete-fleet.js';
 import { createGetInstallationFleet, type GetInstallationFleet } from './core/registry/get-installation-fleet.js';
 import { createListInstallationFleets, type ListInstallationFleets } from './core/registry/list-installation-fleets.js';
@@ -111,6 +116,11 @@ export interface UseCases {
   getInstallationFleet: GetInstallationFleet;
   issueSignInTicket: IssueSignInTicket;
   redeemSignInTicket: RedeemSignInTicket;
+  getInstallationSettings: GetInstallationSettings;
+  setInstallationSettings: SetInstallationSettings;
+  getFleetLimits: GetFleetLimits;
+  setFleetLimits: SetFleetLimits;
+  readFleetLimits: ReadFleetLimits;
 }
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -147,6 +157,11 @@ export function createUseCases(options: {
     createFleet: createCreateFleet({ uow, clock, ids, hasher: sha256Hasher }),
     deleteFleet: createDeleteFleet({ uow, clock, hasher: sha256Hasher }),
     issueSignInTicket: createIssueSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
+    getInstallationSettings: createGetInstallationSettings({ settings: createPrismaInstallationSettings(prisma) }),
+    setInstallationSettings: createSetInstallationSettings({ uow }),
+    getFleetLimits: createGetFleetLimits({ uow }),
+    setFleetLimits: createSetFleetLimits({ uow, clock, ids }),
+    readFleetLimits: createReadFleetLimits({ limits: createPrismaFleetLimitReads(prisma), clock }),
     redeemSignInTicket: createRedeemSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),
     getInstallationFleet: createGetInstallationFleet({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),

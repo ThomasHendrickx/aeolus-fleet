@@ -2,7 +2,10 @@ import { idSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { InstallationRequest } from '../../core/registry/installation-request.js';
+import { appliedLimits } from '../../core/registry/applied-limits.js';
 import { NO_INSTALLATION_SETTINGS } from '../../core/registry/limits.js';
+import type { FleetLimitReads } from '../../core/shared/read-fleet-limits.js';
+import { createPrismaFleetRepository } from './registry.js';
 import type {
   InstallationFleetFacts,
   InstallationFleets,
@@ -128,5 +131,15 @@ export function createPrismaInstallationSettings(db: Db): InstallationSettingsRe
     write: async (settings) => {
       await db.installationSettings.upsert({ where: { id: SETTINGS_ROW }, create: { id: SETTINGS_ROW, ...settings }, update: settings });
     },
+  };
+}
+
+/** What a fleet's limits apply to, read outside a unit of work: the limits as a commission or send would apply them, and the counts. */
+export function createPrismaFleetLimitReads(prisma: PrismaClient): FleetLimitReads {
+  const limits = { fleets: createPrismaFleetRepository(prisma), installationSettings: createPrismaInstallationSettings(prisma) };
+  return {
+    applied: (fleetId) => appliedLimits(limits, fleetId),
+    activeShips: (fleetId) => prisma.ship.count({ where: { fleetId, retiredAt: null } }),
+    messagesSince: (fleetId, since) => prisma.message.count({ where: { fleetId, createdAt: { gte: since } } }),
   };
 }

@@ -34,6 +34,11 @@ import { createCreateFleet } from '../../src/core/registry/create-fleet.js';
 import { createDeleteFleet } from '../../src/core/registry/delete-fleet.js';
 import { createGetInstallationFleet } from '../../src/core/registry/get-installation-fleet.js';
 import { createListInstallationFleets } from '../../src/core/registry/list-installation-fleets.js';
+import { createGetFleetLimits } from '../../src/core/registry/get-fleet-limits.js';
+import { createGetInstallationSettings } from '../../src/core/registry/get-installation-settings.js';
+import { createSetFleetLimits } from '../../src/core/registry/set-fleet-limits.js';
+import { createSetInstallationSettings } from '../../src/core/registry/set-installation-settings.js';
+import { createReadFleetLimits } from '../../src/core/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/core/registry/deregister.js';
 import { createGetShip } from '../../src/core/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/core/registry/get-starting-prompt.js';
@@ -120,6 +125,11 @@ export function registryUseCases(core: InMemoryCore) {
     createFleet: createCreateFleet({ ...deps, hasher: core.hasher }),
     deleteFleet: createDeleteFleet({ ...deps, hasher: core.hasher }),
     listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock }),
+    getInstallationSettings: createGetInstallationSettings({ settings: core.installationSettings }),
+    setInstallationSettings: createSetInstallationSettings({ uow: core.uow }),
+    getFleetLimits: createGetFleetLimits({ uow: core.uow }),
+    setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing }),
     getShip: createGetShip({ listing: core.listing }),
