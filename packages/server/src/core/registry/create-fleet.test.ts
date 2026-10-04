@@ -1,7 +1,7 @@
 import { SCOPES } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { identityUseCases, initialiseFleet, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { identityUseCases, initialiseFleet, registryUseCases, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -105,5 +105,25 @@ describe('a create that comes again under its request id', () => {
 
     await expect(createFleet({ ...HEMMA, name: 'another' })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
     expect(core.state.fleets).toHaveLength(1);
+  });
+});
+
+describe("creating a fleet at the installation's cap", () => {
+  it('takes fleets up to the cap, then refuses the next and creates nothing', async () => {
+    withInstallationSettings(core, { fleetCap: 1 });
+    unwrap(await createFleet(HEMMA));
+
+    await expect(createFleet({ requestId: 'signup-2', name: 'other', operatorEmail: 'olle@example.com' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'FLEET_LIMIT_REACHED', message: 'The installation is at its cap of 1 fleets, so it creates no new one.' },
+    });
+    expect(core.state.fleets).toHaveLength(1);
+  });
+
+  it('still answers a create that comes again under its request id at the cap', async () => {
+    withInstallationSettings(core, { fleetCap: 1 });
+    const first = unwrap(await createFleet(HEMMA));
+
+    await expect(createFleet(HEMMA)).resolves.toEqual({ isOk: true, value: first });
   });
 });

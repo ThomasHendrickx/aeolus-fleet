@@ -10,7 +10,7 @@ let getFleet: GetInstallationFleet;
 
 beforeEach(() => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
-  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, clock: core.clock });
+  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock });
 });
 
 describe('getting one fleet of the installation', () => {
@@ -30,6 +30,9 @@ describe('getting one fleet of the installation', () => {
         messagesLast7Days: 0,
         lastActivityAt: new Date('2026-10-04T12:00:00.000Z'),
         storage: 0,
+        messagesToday: 0,
+        messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: 0 })),
+        limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
       },
     });
   });

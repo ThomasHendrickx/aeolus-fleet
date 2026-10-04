@@ -183,6 +183,8 @@ describe('initialise fleet', () => {
       leaseReports: [],
       events: [],
       installationRequests: [],
+      installationSettings: [],
+      fleetLimitSettings: [],
       notices: [],
     });
   });

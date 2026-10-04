@@ -22,6 +22,7 @@ import type {
 } from '../../src/core/messaging/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
 import type { InstallationRequest } from '../../src/core/registry/installation-request.js';
+import { FOLLOWING_DEFAULTS, NO_INSTALLATION_SETTINGS, type FleetLimitSettings, type InstallationSettings } from '../../src/core/registry/limits.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
   FleetListing,
@@ -30,7 +31,9 @@ import type {
   InFlightDeliveries,
   InstallationFleetFacts,
   InstallationFleets,
+  InstallationFleetWindow,
   InstallationRequestRepository,
+  InstallationSettingsRepository,
   LeaseRepository,
   ShipRepository,
 } from '../../src/core/registry/ports.js';
@@ -48,7 +51,9 @@ import {
   type ShipHistory,
   type TimelineEntry,
 } from '../../src/core/shared/history.js';
+import type { FleetLimitReads } from '../../src/core/shared/read-fleet-limits.js';
 import type { Recipient } from '../../src/core/shared/selector.js';
+import { appliedLimits } from '../../src/core/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/core/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/core/shared/secrets.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
@@ -76,8 +81,12 @@ export interface InMemoryState {
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
-  /** The installation's requests: the one table without a fleet (decision 0020). */
+  /** The installation's requests: a table that belongs to no fleet (decision 0020). */
   installationRequests: InstallationRequest[];
+  /** The installation's settings: no row until it sets them, then one. */
+  installationSettings: InstallationSettings[];
+  /** How each fleet's limits are set: the limit columns of its fleets row, apart from the Fleet; none means it follows the defaults. */
+  fleetLimitSettings: ({ fleetId: FleetId } & FleetLimitSettings)[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
 }
@@ -96,6 +105,7 @@ export interface InMemoryTx {
   events: EventLog;
   notifier: Notifier;
   installationRequests: InstallationRequestRepository;
+  installationSettings: InstallationSettingsRepository;
 }
 
 /**
@@ -125,6 +135,10 @@ export interface InMemoryCore {
   listing: FleetListing;
   /** The fleets read across the installation. */
   installationFleets: InstallationFleets;
+  /** The installation's settings, read outside a unit of work. */
+  installationSettings: InstallationSettingsRepository;
+  /** What each fleet's limits apply to, read outside a unit of work. */
+  fleetLimitReads: FleetLimitReads;
   /** The committed events, numbered per fleet in the order they were appended. */
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
@@ -158,6 +172,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseReports: [],
     events: [],
     installationRequests: [],
+    installationSettings: [],
+    fleetLimitSettings: [],
     notices: [],
   };
 
@@ -197,6 +213,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     scopes: found.scopes,
   });
 
+  const installationSettingsRepository: InstallationSettingsRepository = {
+    read: () => Promise.resolve({ ...(state.installationSettings[0] ?? NO_INSTALLATION_SETTINGS) }),
+    write: (settings) => {
+      state.installationSettings.splice(0, state.installationSettings.length, { ...settings });
+      return Promise.resolve();
+    },
+  };
+
   const tx: InMemoryTx = {
     fleets: {
       lockInitialisation: () => Promise.resolve(),
@@ -204,6 +228,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       list: () => Promise.resolve(state.fleets.map((fleet) => ({ ...fleet }))),
       create: (fleet) => {
         state.fleets.push({ ...fleet });
+        return Promise.resolve();
+      },
+      limitSettings: (fleetId) => {
+        if (!state.fleets.some((fleet) => fleet.id === fleetId)) {
+          return Promise.resolve(undefined);
+        }
+        const set = state.fleetLimitSettings.find((held) => held.fleetId === fleetId);
+        return Promise.resolve(set ? { ships: set.ships, dailyMessages: set.dailyMessages } : FOLLOWING_DEFAULTS);
+      },
+      setLimitSettings: (fleetId, settings) => {
+        state.fleetLimitSettings.splice(0, state.fleetLimitSettings.length, ...state.fleetLimitSettings.filter((held) => held.fleetId !== fleetId), { fleetId, ...settings });
         return Promise.resolve();
       },
       findForUpdate: (fleetId) => {
@@ -241,6 +276,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findOperatorShip: (fleetId) =>
         Promise.resolve(state.ships.find((found) => found.fleetId === fleetId && found.kind === 'operator')),
       lockName: () => Promise.resolve(),
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockShipCount: () => Promise.resolve(),
+      countActive: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
       lockCommissionKey: () => Promise.resolve(),
       findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
         Promise.resolve(
@@ -482,6 +520,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     messages: {
+      lockDailyCount: () => Promise.resolve(),
+      countCreatedSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
       create: (message) => {
         if (
           state.messages.some(
@@ -605,6 +645,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(ticket.fleetId);
       },
     },
+    installationSettings: installationSettingsRepository,
     installationRequests: {
       lock: () => Promise.resolve(),
       find: (requestId) => {
@@ -744,7 +785,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lastModel: lastModelOf(held),
     };
   };
-  const installationFactsOf = (fleet: Fleet, since: Date): InstallationFleetFacts => {
+  const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {
     const times = state.events.filter((event) => event.fleetId === fleet.id).map((event) => event.occurredAt.getTime());
     return {
       fleetId: fleet.id,
@@ -752,20 +793,33 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       operatorEmail: state.operatorAccounts.find((account) => account.fleetId === fleet.id)?.email ?? '',
       createdAt: fleet.createdAt,
       shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
-      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= since).length,
+      messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.since).length,
       lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
       storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + Buffer.byteLength(message.payload, 'utf8'), 0),
+      messagesPerUtcDay: Object.entries(
+        Object.groupBy(
+          state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.firstDay),
+          (message) => message.createdAt.toISOString().slice(0, 10),
+        ),
+      ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
+      limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
     };
   };
   const installationFleets: InstallationFleets = {
-    list: (since) =>
+    list: (window) =>
       Promise.resolve(
-        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, since)),
+        [...state.fleets].sort((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id)).map((fleet) => installationFactsOf(fleet, window)),
       ),
-    find: (fleetId, since) => {
+    find: (fleetId, window) => {
       const fleet = state.fleets.find((held) => held.id === fleetId);
-      return Promise.resolve(fleet && installationFactsOf(fleet, since));
+      return Promise.resolve(fleet && installationFactsOf(fleet, window));
     },
+  };
+
+  const fleetLimitReads: FleetLimitReads = {
+    applied: (fleetId) => appliedLimits(tx, fleetId),
+    activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
+    messagesSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
   };
 
   const listing: FleetListing = {
@@ -1018,7 +1072,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, feed, history, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1036,7 +1090,8 @@ const FLEET_TABLES = [
   'leaseReports',
   'events',
   'notices',
-] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests'>[];
+  'fleetLimitSettings',
+] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings'>[];
 
 const TABLES = [
   'fleets',
@@ -1053,6 +1108,8 @@ const TABLES = [
   'leaseReports',
   'events',
   'installationRequests',
+  'installationSettings',
+  'fleetLimitSettings',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 

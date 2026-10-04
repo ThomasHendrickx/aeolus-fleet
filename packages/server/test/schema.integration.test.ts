@@ -102,13 +102,15 @@ describe('migrations', () => {
       'events',
       'fleets',
       'installation_requests',
+      'installation_settings',
       'leases',
       'messages',
       'operators',
       'ships',
       'sign_in_tickets',
     ]);
-    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets']);
+    // The installation's settings belong to no fleet (decision 0020).
+    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'installation_settings']);
   });
 });
 

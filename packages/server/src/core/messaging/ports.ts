@@ -22,6 +22,13 @@ export interface MessageRepository {
   /** The message the sender stored with this key, if any. */
   findByIdempotencyKey(key: SenderKey): Promise<Message | undefined>;
   find(fleetId: FleetId, messageId: MessageId): Promise<Message | undefined>;
+  /**
+   * Holds the fleet's daily message-count lock until the unit of work ends, so
+   * two sends at the daily limit never both see room for one more.
+   */
+  lockDailyCount(fleetId: FleetId): Promise<void>;
+  /** How many messages the fleet stored at or after `since`, of any kind and from any sender. */
+  countCreatedSince(fleetId: FleetId, since: Date): Promise<number>;
 }
 
 /**

@@ -23,6 +23,8 @@ import { Label } from '../atoms/label';
 import { Switch } from '../atoms/switch';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from '../molecules/inline-error';
+import { LimitNotice } from '../molecules/limit-notice';
+import { shipLimitNotice } from '../../lib/limits';
 
 interface CommissionDialogProps {
   /** The fleet's active ships: their names are taken, their types suggested. */
@@ -32,6 +34,10 @@ interface CommissionDialogProps {
   isPending: boolean;
   /** Why the last try failed; the dialog stays open with the input kept. */
   error?: string;
+  /** The ship limit the fleet is at: the dialog says so, and commissions nothing (canvas 12.1). */
+  shipLimit?: number;
+  /** Where the hosted account lists the limits, for View limits. */
+  accountUrl?: string;
   onSubmit: (ship: { name: string; type: string; note?: string; fleetScopes?: FleetScope[] }) => void;
 }
 
@@ -42,7 +48,7 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
 };
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const nameId = useId();
   const nameStatusId = useId();
   const typeId = useId();
@@ -58,7 +64,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
   const isTypeValid = shipHandleSchema.safeParse(trimmedType).success;
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const types = [...new Set(activeShips.map((ship) => ship.type))].sort();
-  const canCommission = check.kind === 'available' && isTypeValid;
+  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined;
 
   return (
     <form
@@ -83,6 +89,7 @@ function CommissionDialogBody({ activeShips, isPending, error, onSubmit }: Omit<
           A ship is a durable agent identity with its own inbox. Next, you get the starting prompt.
         </DialogDescription>
       </DialogHeader>
+      {shipLimit === undefined ? null : <LimitNotice {...shipLimitNotice(shipLimit)} accountUrl={accountUrl} testId="commission-ship-limit" />}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between">
           <Label htmlFor={nameId}>Name</Label>

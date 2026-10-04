@@ -6,9 +6,12 @@ import {
   installationFleetsCreateInputSchema,
   installationFleetsCreateOutputSchema,
   installationFleetsDeleteInputSchema,
+  installationFleetLimitsSchema,
   installationFleetsGetInputSchema,
   installationOperatorsIssueSignInTicketInputSchema,
   installationOperatorsIssueSignInTicketOutputSchema,
+  installationFleetsSetLimitsInputSchema,
+  installationSettingsSchema,
 } from './installation.js';
 
 const newId = createIdGenerator();
@@ -52,9 +55,23 @@ describe('installationFleetSchema', () => {
     messagesLast7Days: 12,
     lastActivityAt: '2026-10-04T12:30:00.000Z',
     storage: 4096,
+    messagesToday: 3,
+    messagesPerDay: [
+      { date: '2026-09-28', count: 0 },
+      { date: '2026-09-29', count: 1 },
+      { date: '2026-09-30', count: 2 },
+      { date: '2026-10-01', count: 0 },
+      { date: '2026-10-02', count: 4 },
+      { date: '2026-10-03', count: 2 },
+      { date: '2026-10-04', count: 3 },
+    ],
+    limits: {
+      ships: { setting: { kind: 'default' }, applies: 10 },
+      dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+    },
   };
 
-  it('describes a fleet: id, name, operator email, created, ships not retired, messages of the last 7 days, last activity and storage', () => {
+  it('describes a fleet: its measures, its messages today and per UTC day of the last 7 days, and the limits that apply', () => {
     expect(installationFleetSchema.parse(fleet)).toEqual(fleet);
   });
 
@@ -67,6 +84,8 @@ describe('installationFleetSchema', () => {
     ['a fractional message count', { ...fleet, messagesLast7Days: 1.5 }],
     ['a missing storage', { ...fleet, storage: undefined }],
     ['a negative storage', { ...fleet, storage: -1 }],
+    ['a day that is no date', { ...fleet, messagesPerDay: [{ date: 'yesterday', count: 1 }] }],
+    ['missing limits', { ...fleet, limits: undefined }],
   ])('refuses %s', (_case, input) => {
     expect(installationFleetSchema.safeParse(input).success).toBe(false);
   });
@@ -103,5 +122,45 @@ describe('installationOperatorsIssueSignInTicket', () => {
 
   it('refuses a ship id for the fleet', () => {
     expect(installationOperatorsIssueSignInTicketInputSchema.safeParse({ fleetId: newId('ship') }).success).toBe(false);
+  });
+});
+
+describe('installation settings', () => {
+  it('hold the default ship and daily message limits for new fleets and the cap on fleets; each may be no limit', () => {
+    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: null, fleetCap: 500 };
+
+    expect(installationSettingsSchema.parse(settings)).toEqual(settings);
+  });
+
+  it.each([
+    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, fleetCap: null }],
+    ['a fractional limit', { defaultShipLimit: 1.5, defaultDailyMessageLimit: null, fleetCap: null }],
+    ['a missing cap', { defaultShipLimit: 1, defaultDailyMessageLimit: 1 }],
+  ])('refuse %s', (_case, settings) => {
+    expect(installationSettingsSchema.safeParse(settings).success).toBe(false);
+  });
+});
+
+describe("a fleet's limits", () => {
+  const fleetId = newId('fleet');
+
+  it('each follow the installation default, or are set for the fleet to a number or to no limit, and say which applies', () => {
+    const limits = {
+      fleetId,
+      ships: { setting: { kind: 'default' }, applies: 10 },
+      dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+    };
+
+    expect(installationFleetLimitsSchema.parse(limits)).toEqual(limits);
+  });
+
+  it('are set one or both at a time, back to the default too', () => {
+    expect(installationFleetsSetLimitsInputSchema.parse({ fleetId, ships: { kind: 'fleet', limit: 25 } })).toEqual({ fleetId, ships: { kind: 'fleet', limit: 25 } });
+    expect(installationFleetsSetLimitsInputSchema.parse({ fleetId, dailyMessages: { kind: 'default' } })).toEqual({ fleetId, dailyMessages: { kind: 'default' } });
+  });
+
+  it('refuse a negative limit or an unknown setting', () => {
+    expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, ships: { kind: 'fleet', limit: -1 } }).success).toBe(false);
+    expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, ships: { kind: 'none' } }).success).toBe(false);
   });
 });

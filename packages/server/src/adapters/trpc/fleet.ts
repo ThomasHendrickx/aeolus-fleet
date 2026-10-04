@@ -9,6 +9,7 @@ import {
   inboxActionOutputSchema,
   markDoneInputSchema,
   markReadInputSchema,
+  fleetLimitsOutputSchema,
   fleetListOutputSchema,
   messageInputSchema,
   messageOutputSchema,
@@ -174,6 +175,22 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) =>
       presentStartingPrompt({ fleetUrl: ctx.fleetUrl, ...okOrThrow(await ctx.useCases.recrewShip(ctx.caller, input)) }),
     ),
+
+  /**
+   * The fleet's ship and daily message limits with what each counts, and when
+   * today's message count starts again: what the console shows at a limit.
+   */
+  limits: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none.",
+      ].join(' '),
+    })
+    .output(fleetLimitsOutputSchema)
+    .query(async ({ ctx }) => {
+      const { ships, dailyMessages } = await ctx.useCases.readFleetLimits(ctx.caller);
+      return { ships, dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() } };
+    }),
 
   /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
   list: scopedProcedure('fleet:read')

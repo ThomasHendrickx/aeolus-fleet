@@ -3,6 +3,7 @@ import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } f
 import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
+import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
@@ -33,6 +34,15 @@ export interface FleetRepository {
    * (decision 0020).
    */
   delete(fleetId: FleetId): Promise<void>;
+  /** How the fleet's limits are set; undefined when there is no such fleet. */
+  limitSettings(fleetId: FleetId): Promise<FleetLimitSettings | undefined>;
+  setLimitSettings(fleetId: FleetId, settings: FleetLimitSettings): Promise<void>;
+}
+
+/** Outbound port: the installation's settings, one set for the whole installation, not scoped to a fleet (decision 0020). */
+export interface InstallationSettingsRepository {
+  read(): Promise<InstallationSettings>;
+  write(settings: InstallationSettings): Promise<void>;
 }
 
 /** Outbound port: the installation's requests, by request id; not scoped to a fleet (decision 0020). */
@@ -61,6 +71,13 @@ export interface ShipRepository {
    * of work ends, so two commissions under one key never both find it unused.
    */
   lockCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<void>;
+  /**
+   * Holds the fleet's ship-count lock until the unit of work ends, so two
+   * commissions at the ship limit never both see room for one more.
+   */
+  lockShipCount(fleetId: FleetId): Promise<void>;
+  /** The fleet's ships that are not retired, argo included. */
+  countActive(fleetId: FleetId): Promise<number>;
   /** The ship this commissioning ship commissioned under this idempotency key, retired or not. */
   findByCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<Ship | undefined>;
   /**
@@ -189,13 +206,23 @@ export interface InstallationFleetFacts {
   lastActivityAt: Date | null;
   /** The UTF-8 bytes of every message payload it ever stored. */
   storage: number;
+  /** The messages it stored on each UTC day (YYYY-MM-DD) from the window's first day on; a day without any is left out. */
+  messagesPerUtcDay: { date: string; count: number }[];
+  /** How its limits are set. */
+  limitSettings: FleetLimitSettings;
+}
+
+/** What a read of the installation's fleets counts messages over: since a moment, and per UTC day from a first day. */
+export interface InstallationFleetWindow {
+  since: Date;
+  firstDay: Date;
 }
 
 /** Outbound port: the fleets read across the installation; reachable only with the installation token. */
 export interface InstallationFleets {
-  /** Every fleet, oldest first, counting its messages stored since `since`. */
-  list(since: Date): Promise<InstallationFleetFacts[]>;
-  find(fleetId: FleetId, since: Date): Promise<InstallationFleetFacts | undefined>;
+  /** Every fleet, oldest first, counting its messages over the window. */
+  list(window: InstallationFleetWindow): Promise<InstallationFleetFacts[]>;
+  find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
 export interface FleetListing {

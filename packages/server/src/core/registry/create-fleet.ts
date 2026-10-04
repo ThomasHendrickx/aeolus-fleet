@@ -9,10 +9,11 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { fleetName } from './fleet.js';
 import { foundFleet, type FoundFleetTx } from './found-fleet.js';
 import { installationRequestText } from './installation-request.js';
-import type { InstallationRequestRepository } from './ports.js';
+import type { InstallationRequestRepository, InstallationSettingsRepository } from './ports.js';
 
 export interface CreateFleetTx extends FoundFleetTx {
   installationRequests: InstallationRequestRepository;
+  installationSettings: InstallationSettingsRepository;
 }
 
 export interface FleetCreated {
@@ -20,7 +21,7 @@ export interface FleetCreated {
   operatorShipId: ShipId;
 }
 
-export type CreateFleetRefusal = DomainError<'INVALID_FLEET_NAME' | 'INVALID_EMAIL' | 'OPERATOR_EMAIL_TAKEN' | 'IDEMPOTENCY_KEY_REUSED'>;
+export type CreateFleetRefusal = DomainError<'INVALID_FLEET_NAME' | 'INVALID_EMAIL' | 'OPERATOR_EMAIL_TAKEN' | 'IDEMPOTENCY_KEY_REUSED' | 'FLEET_LIMIT_REACHED'>;
 
 export type CreateFleet = (input: { requestId: string; name: string; operatorEmail: string }) => Promise<Result<FleetCreated, CreateFleetRefusal>>;
 
@@ -52,6 +53,15 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
         return earlier.kind === 'createFleet' && earlier.requestHash === requestHash
           ? ok({ fleetId: earlier.fleetId, operatorShipId: earlier.operatorShipId })
           : refuse('IDEMPOTENCY_KEY_REUSED', 'This request id was used for another request: use a new one for every request');
+      }
+
+      const { fleetCap } = await tx.installationSettings.read();
+      if (fleetCap !== null) {
+        // Counted under the installation-wide lock, held until the fleet is stored: creates at the cap never overshoot it.
+        await tx.fleets.lockInitialisation();
+        if ((await tx.fleets.count()) >= fleetCap) {
+          return refuse('FLEET_LIMIT_REACHED', `The installation is at its cap of ${String(fleetCap)} fleets, so it creates no new one.`);
+        }
       }
 
       await tx.operatorAccounts.lockEmail(email.value);

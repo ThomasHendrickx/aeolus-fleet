@@ -22,6 +22,27 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
     create: async (fleet) => {
       await db.fleet.create({ data: fleet });
     },
+    limitSettings: async (fleetId) => {
+      const row = await db.fleet.findUnique({ where: { id: fleetId }, select: { shipLimitSet: true, shipLimit: true, dailyMessageLimitSet: true, dailyMessageLimit: true } });
+      if (!row) {
+        return undefined;
+      }
+      return {
+        ships: row.shipLimitSet ? { kind: 'fleet', limit: row.shipLimit } : { kind: 'default' },
+        dailyMessages: row.dailyMessageLimitSet ? { kind: 'fleet', limit: row.dailyMessageLimit } : { kind: 'default' },
+      };
+    },
+    setLimitSettings: async (fleetId, settings) => {
+      await db.fleet.update({
+        where: { id: fleetId },
+        data: {
+          shipLimitSet: settings.ships.kind === 'fleet',
+          shipLimit: settings.ships.kind === 'fleet' ? settings.ships.limit : null,
+          dailyMessageLimitSet: settings.dailyMessages.kind === 'fleet',
+          dailyMessageLimit: settings.dailyMessages.kind === 'fleet' ? settings.dailyMessages.limit : null,
+        },
+      });
+    },
     findForUpdate: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, name, created_at AS "createdAt" FROM fleets WHERE id = ${fleetId} FOR UPDATE`;
@@ -74,6 +95,11 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // one's lookup sees the ship it created.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${name}))`;
     },
+    lockShipCount: async (fleetId) => {
+      // A transaction-level advisory lock on the fleet's ship count, released at commit or rollback.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('ship-count'), hashtext(${fleetId}))`;
+    },
+    countActive: (fleetId) => db.ship.count({ where: { fleetId, retiredAt: null } }),
     lockCommissionKey: async ({ fleetId, by, idempotencyKey }) => {
       // As for a name: a transaction-level advisory lock on the commissioning
       // ship and its key, so the second commission under one key waits and then

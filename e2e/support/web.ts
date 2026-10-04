@@ -48,7 +48,7 @@ export async function reserveWebUrl(): Promise<string> {
  * like the console: one site, or the SameSite=Strict session cookie would
  * stay behind.
  */
-export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; hostedSignInUrl?: string }): Promise<RunningWeb> {
+export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = new URL(url).port;
@@ -62,6 +62,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
       AEOLUS_SERVER_URL: sameSiteServer.origin,
       ...(web.squadronsUrl === undefined ? {} : { AEOLUS_SQUADRONS_URL: web.squadronsUrl }),
       ...(web.hostedSignInUrl === undefined ? {} : { AEOLUS_HOSTED_SIGN_IN_URL: web.hostedSignInUrl }),
+      ...(web.hostedAccountUrl === undefined ? {} : { AEOLUS_HOSTED_ACCOUNT_URL: web.hostedAccountUrl }),
       NEXT_TELEMETRY_DISABLED: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

@@ -37,4 +37,6 @@ type Story = StoryObj<typeof meta>;
 export const Empty: Story = {};
 export const Commissioning: Story = { args: { isPending: true } };
 export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
+/** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
+export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };

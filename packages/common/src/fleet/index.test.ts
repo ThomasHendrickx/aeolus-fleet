@@ -57,6 +57,7 @@ describe('eventTypeSchema', () => {
       'ShipRenamed',
       'ShipReported',
       'SignInTicketIssued',
+      'FleetLimitsChanged',
     ]);
   });
 });

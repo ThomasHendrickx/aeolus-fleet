@@ -7,7 +7,11 @@ import { ComposeMessage } from '../components/organisms/compose-message';
 import { ConsoleCommands } from '../components/organisms/console-commands';
 import { CommissionShip } from '../components/organisms/commission-ship';
 import { FleetOverview } from '../components/organisms/fleet-overview';
+import { LimitNotice } from '../components/molecules/limit-notice';
 import { ListLayout } from '../components/templates/list-layout';
+import { useFleetLimits } from '../lib/fleet-limits';
+import { useHostedAccountUrl } from '../lib/hosted-account';
+import { messageLimitNotice, messageLimitReached } from '../lib/limits';
 import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
 import { useOpenInboxCount } from '../lib/inbox';
@@ -48,6 +52,8 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
+  const messageLimit = messageLimitReached(useFleetLimits().data);
+  const accountUrl = useHostedAccountUrl();
   const inboxCount = useOpenInboxCount();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -85,6 +91,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       }}
       account={accountMenu}
     >
+      {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands

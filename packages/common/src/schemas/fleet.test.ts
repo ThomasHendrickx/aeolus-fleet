@@ -4,6 +4,7 @@ import { createIdGenerator } from '../ids/index.js';
 import {
   commissionShipInputSchema,
   fleetEventsInputSchema,
+  fleetLimitsOutputSchema,
   fleetListOutputSchema,
   fleetStreamItemSchema,
   getStartingPromptInputSchema,
@@ -370,5 +371,22 @@ describe('renameShipInputSchema', () => {
 describe('pingStateSchema', () => {
   it.each(['waiting', 'answered', 'received', 'undeliverable'])('accepts the ping state %s', (state) => {
     expect(pingStateSchema.safeParse(state).success).toBe(true);
+  });
+});
+
+describe('fleetLimitsOutputSchema', () => {
+  it("gives the fleet's ship and daily message limits with what each counts, and when today's count starts again", () => {
+    const limits = {
+      ships: { limit: 10, count: 7 },
+      dailyMessages: { limit: 1000, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' },
+    };
+
+    expect(fleetLimitsOutputSchema.parse(limits)).toEqual(limits);
+  });
+
+  it('gives no limit as null', () => {
+    const limits = { ships: { limit: null, count: 7 }, dailyMessages: { limit: null, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' } };
+
+    expect(fleetLimitsOutputSchema.parse(limits)).toEqual(limits);
   });
 });

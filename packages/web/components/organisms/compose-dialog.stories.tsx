@@ -53,4 +53,14 @@ export const Failed: Story = {
   },
 };
 
+/** Refused at the daily message limit (canvas 12.3): the message is kept, and the dialog says when sending works again. */
+export const RefusedAtDailyLimit: Story = {
+  args: {
+    draft: DRAFT,
+    state: 'failed',
+    error: 'The fleet reached its limit of 1000 messages today (UTC), so nothing was stored. Sending works again after 00:00 UTC.',
+    messageLimit: { limit: 1000, resetsAt: '2026-10-05T00:00:00.000Z' },
+    accountUrl: 'https://pagasae.aeolus-fleet.dev/account',
+  },
+};
 export const Phone: Story = { args: { draft: DRAFT }, globals: { viewport: { value: 'mobile1' } } };

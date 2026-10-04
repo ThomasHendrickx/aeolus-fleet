@@ -108,6 +108,10 @@ describe('timelineSentence', () => {
     });
   });
 
+  it("says the fleet's limits changed", () => {
+    expect(onScoutsPage(anEntry('FleetLimitsChanged'))).toEqual({ sentence: 'Fleet limits changed', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says a sign-in ticket was issued for the operator', () => {
     expect(onScoutsPage(anEntry('SignInTicketIssued'))).toEqual({
       sentence: 'Sign-in ticket issued',

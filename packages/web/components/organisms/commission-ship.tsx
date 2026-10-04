@@ -5,6 +5,9 @@ import { useState } from 'react';
 
 import { useCommissionShip, useFleetSnapshot } from '../../lib/fleet';
 import { Button } from '../atoms/button';
+import { useFleetLimits } from '../../lib/fleet-limits';
+import { useHostedAccountUrl } from '../../lib/hosted-account';
+import { shipLimitReached } from '../../lib/limits';
 import { CommissionDialog } from './commission-dialog';
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
@@ -16,6 +19,8 @@ import { StartingPromptDialog } from './starting-prompt-dialog';
  */
 export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void }) {
   const fleet = useFleetSnapshot();
+  const limits = useFleetLimits();
+  const accountUrl = useHostedAccountUrl();
   const commission = useCommissionShip();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
@@ -39,6 +44,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         onOpenChange={onOpenChange}
         isPending={commission.isPending}
         error={commission.error?.message}
+        shipLimit={shipLimitReached(limits.data)}
+        accountUrl={accountUrl}
         onSubmit={(ship) => {
           // A new key for every submission: the server's guard against a retried request, not a way to resubmit.
           commission.mutate({ ...ship, idempotencyKey: crypto.randomUUID() }, {

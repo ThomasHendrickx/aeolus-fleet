@@ -8,8 +8,11 @@ import {
   installationFleetsDeleteOutputSchema,
   installationFleetsGetInputSchema,
   installationFleetsListOutputSchema,
+  installationFleetLimitsSchema,
+  installationFleetsSetLimitsInputSchema,
   installationOperatorsIssueSignInTicketInputSchema,
   installationOperatorsIssueSignInTicketOutputSchema,
+  installationSettingsSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
@@ -51,7 +54,33 @@ function described(fleet: InstallationFleet) {
 
 /** The installation's fleets: what a service hosting many fleets on this server calls, never a ship. */
 export const installationRouter = router({
+  settings: router({
+    /** The default ship and daily message limits for fleets and the cap on fleets; null is no limit. */
+    get: installationProcedure.output(installationSettingsSchema).query(({ ctx }) => ctx.useCases.getInstallationSettings()),
+
+    /** Sets all three; a change to a default applies at once to every fleet that follows it. */
+    set: installationProcedure
+      .input(installationSettingsSchema)
+      .output(installationSettingsSchema)
+      .mutation(async ({ ctx, input }) => {
+        const settings = okOrThrow(await ctx.useCases.setInstallationSettings(input));
+        ctx.log.info({ ...settings }, 'installation settings set');
+        return settings;
+      }),
+  }),
   fleets: router({
+    /** A fleet's limits: how each is set and the limit that applies. */
+    limits: installationProcedure
+      .input(installationFleetsGetInputSchema)
+      .output(installationFleetLimitsSchema)
+      .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.getFleetLimits(input))),
+
+    /** Sets one or both of a fleet's limits, to a number or to no limit for the fleet, or back to the default. */
+    setLimits: installationProcedure
+      .input(installationFleetsSetLimitsInputSchema)
+      .output(installationFleetLimitsSchema)
+      .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setFleetLimits(input))),
+
     /** Creates a fleet, its argo and its operator without a password; once per request id. */
     create: installationProcedure
       .input(installationFleetsCreateInputSchema)

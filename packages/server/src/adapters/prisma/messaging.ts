@@ -6,6 +6,11 @@ import { toDeliveryFromSql, toMessage } from './rows.js';
 
 export function createPrismaMessageRepository(db: Db): MessageRepository {
   return {
+    lockDailyCount: async (fleetId) => {
+      // A transaction-level advisory lock on the fleet's daily message count, released at commit or rollback.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('daily-messages'), hashtext(${fleetId}))`;
+    },
+    countCreatedSince: (fleetId, since) => db.message.count({ where: { fleetId, createdAt: { gte: since } } }),
     create: async (message) => {
       const { selector } = message;
       await db.message.create({
