@@ -139,7 +139,8 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
   }
   return (
     <LocationTag
-      kind={ship.location?.kind ?? null}
+      // argo runs on "Console · Device" (docs/design/conventions.md); its location's words name the device signed in from.
+      kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
       description={ship.location?.description}
       harness={ship.kind === 'operator' ? 'console' : ship.harness}
       size="sm"
