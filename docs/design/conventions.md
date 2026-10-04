@@ -87,8 +87,8 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.
 
 ## Destructive actions
-- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt, Get new crew line (the dialog states the old one stops working), Sign out.
-- Normal confirm (Dialog, phone bottom Sheet): Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
+- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt (the dialog states the old one stops working), Sign out.
+- Normal confirm (Dialog, phone bottom Sheet): Get new crew line, always (it says what the new line ends: a session or an unclaimed line); Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
 - TypedConfirm only when an irreversible action discards pending work: Retire with open deliveries (type the ship name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
 - No other protective rules.

@@ -32,9 +32,8 @@ export function abandonedLine(openDeliveries: number): string {
 }
 
 /**
- * What a new crew line for a member ended, for the dialog that shows it; none
- * when it ended nothing (awaiting crew, no unclaimed line out). It is issued
- * at once either way (docs/design/conventions.md, "Confirm").
+ * What a new crew line for a member ends, for the confirm that asks first;
+ * none when it ends nothing (awaiting crew, no unclaimed line out).
  */
 export function newCrewLineReplaced(ship: {
   status: string;
@@ -44,7 +43,7 @@ export function newCrewLineReplaced(ship: {
 }): string | undefined {
   if (ship.status === 'crewed') {
     const where = ship.location === null ? 'the session crewing it' : `the session on ${ship.location.description ?? ship.location.kind.toLowerCase()}`;
-    return `Ends ${where}. ${inFlightLine(ship.inFlightDeliveries)}`;
+    return `This ends ${where}. ${inFlightLine(ship.inFlightDeliveries)}`;
   }
   if (ship.startingPrompt !== null && !ship.startingPrompt.isClaimed) {
     return 'The crew line issued earlier, not claimed yet, stops working.';

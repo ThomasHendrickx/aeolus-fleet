@@ -420,13 +420,15 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
 
-  it('gives a member a new crew line at once, saying its unclaimed one stops working, and shows the new one once', async () => {
+  it('asks before a new crew line, saying its unclaimed one stops working, then shows the new one once', async () => {
     const page = await squadronsPage();
     await page.goto(`/squadrons/${grownSquadronId}`);
     const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
 
     await added.getByTestId('member-new-crew-line').click();
-    await expect(page.getByTestId('crew-line-replaced').textContent()).resolves.toBe('The crew line issued earlier, not claimed yet, stops working.');
+    const confirm = page.getByTestId('new-crew-line-confirm');
+    await confirm.getByText('The crew line issued earlier, not claimed yet, stops working.').waitFor();
+    await confirm.getByTestId('new-crew-line-confirm-submit').click();
 
     await expect(page.getByTestId('crew-line-text-claude-code').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${grownSquadronId}$`));
     await expect(page.getByTestId('crew-line-launch-note').textContent()).resolves.toBe('Start in the repository root.');

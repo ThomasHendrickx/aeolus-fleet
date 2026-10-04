@@ -7,6 +7,7 @@ import { newCrewLineReplaced } from '../../lib/ship-dialogs';
 import { useNewCrewLine } from '../../lib/squadrons-api';
 import { Button } from '../atoms/button';
 import { CrewLineDialog, type CrewLineDialogState } from './crew-line-dialog';
+import { NewCrewLineConfirm } from './new-crew-line-confirm';
 
 interface NewCrewLineFor {
   squadronId: string;
@@ -18,14 +19,16 @@ interface NewCrewLineFor {
 }
 
 /**
- * Get new crew line for a member as a flow: `start` issues it at once, with
- * no confirm (docs/design/conventions.md, "Confirm"); `dialog` shows the line
- * and launch note once, and what the new line ended. Kept apart from its trigger,
- * so a row menu can start it and close while the dialog stays.
+ * Get new crew line for a member as a flow: `start` asks first, always, saying
+ * what the new line ends (docs/design/conventions.md, "Destructive actions");
+ * on confirm it is issued, and `dialog` shows the lines and launch note once.
+ * Kept apart from its trigger, so a row menu can start it and close while the
+ * dialog stays.
  */
 export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: boolean; start: () => void; dialog: ReactNode } {
   const newCrewLine = useNewCrewLine();
   const [isOpen, setIsOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [replacedText, setReplacedText] = useState<string | undefined>(undefined);
   const issue = () => {
     if (of) {
@@ -41,17 +44,27 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
       }
       newCrewLine.reset();
       setReplacedText(newCrewLineReplaced(of.ship));
-      setIsOpen(true);
-      issue();
+      setIsConfirming(true);
     },
     dialog: of ? (
-      <CrewLineDialog
+      <>
+        <NewCrewLineConfirm
+          memberName={of.member.name}
+          replacedText={replacedText}
+          isOpen={isConfirming}
+          onOpenChange={setIsConfirming}
+          onConfirm={() => {
+            setIsConfirming(false);
+            setIsOpen(true);
+            issue();
+          }}
+        />
+        <CrewLineDialog
         memberName={of.member.name}
         state={state}
         template={of.template}
         launchNote={newCrewLine.data?.launchNote}
         crewLines={newCrewLine.data?.crewLines}
-        replacedText={replacedText}
         error={newCrewLine.error?.message}
         isOpen={isOpen}
         onOpenChange={(isNowOpen) => {
@@ -62,6 +75,7 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
         }}
         onConfirm={issue}
       />
+      </>
     ) : null,
   };
 }

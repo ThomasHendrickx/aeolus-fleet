@@ -22,8 +22,6 @@ interface CrewLineDialogProps {
   /** The launch note and crew lines, one per harness, once issued: shown only now. */
   launchNote?: string | null;
   crewLines?: readonly CrewLine[];
-  /** What the new line ended: a session, or an unclaimed line. */
-  replacedText?: string;
   /** Why issuing failed (error). */
   error?: string;
   isOpen: boolean;
@@ -57,12 +55,11 @@ function IssuedLines({ memberName, template, launchNote, crewLines }: { memberNa
 
 /**
  * One member's launch note and crew lines, one per harness, shown once
- * (docs/design/png/CrewLineDialog.png): after Add member, and from Get new
- * crew line, issued at once; the dialog says what the new line ended, a
- * session or an unclaimed line. Follows the StartingPromptDialog: the line holds a secret, so it is
- * never shown again. Desktop: a dialog; phone: full screen.
+ * (docs/design/png/CrewLineDialog.png): after Add member, and after Get new
+ * crew line's confirm. Follows the StartingPromptDialog: the lines hold a
+ * secret, so they are never shown again. Desktop: a dialog; phone: full screen.
  */
-export function CrewLineDialog({ memberName, state, template, launchNote = null, crewLines, replacedText, error, isOpen, onOpenChange, onConfirm }: CrewLineDialogProps) {
+export function CrewLineDialog({ memberName, state, template, launchNote = null, crewLines, error, isOpen, onOpenChange, onConfirm }: CrewLineDialogProps) {
   const isIssuing = state === 'issuing';
 
   return (
@@ -79,11 +76,6 @@ export function CrewLineDialog({ memberName, state, template, launchNote = null,
           <DialogTitle>Crew line for {memberName}</DialogTitle>
           <DialogDescription>Start Claude Code or Codex where the launch note says, then paste its crew line. The member is on station once its session checks in.</DialogDescription>
         </DialogHeader>
-        {state !== 'error' && replacedText !== undefined && (
-          <p data-testid="crew-line-replaced" className="rounded-lg border border-tone-waiting-border bg-tone-waiting-bg px-3 py-2 text-meta text-tone-waiting-fg">
-            {replacedText}
-          </p>
-        )}
         {isIssuing && (
           <div aria-busy className="flex flex-col gap-3">
             <span className="sr-only">Issuing a crew line...</span>

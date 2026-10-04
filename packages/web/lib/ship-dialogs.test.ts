@@ -52,7 +52,7 @@ describe('newCrewLineReplaced', () => {
 
   it('says a crewed member loses its session, and what happens to its in-flight deliveries', () => {
     expect(newCrewLineReplaced({ ...awaiting, status: 'crewed', location: { kind: 'DEVICE', description: 'mac mini' }, inFlightDeliveries: 1 })).toBe(
-      'Ends the session on mac mini. 1 in-flight delivery returns to pending. Nothing is lost.',
+      'This ends the session on mac mini. 1 in-flight delivery returns to pending. Nothing is lost.',
     );
   });
 
