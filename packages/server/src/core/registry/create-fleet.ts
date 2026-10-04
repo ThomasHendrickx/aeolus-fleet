@@ -23,14 +23,21 @@ export interface FleetCreated {
 
 export type CreateFleetRefusal = DomainError<'INVALID_FLEET_NAME' | 'INVALID_EMAIL' | 'OPERATOR_EMAIL_TAKEN' | 'IDEMPOTENCY_KEY_REUSED' | 'FLEET_LIMIT_REACHED'>;
 
-export type CreateFleet = (input: { requestId: string; name: string; operatorEmail: string }) => Promise<Result<FleetCreated, CreateFleetRefusal>>;
+export type CreateFleet = (input: {
+  requestId: string;
+  name: string;
+  operatorEmail: string;
+  /** Whether the fleet gets a viewer ship, its read-only door into the console (decision 0022). */
+  hasViewer?: boolean;
+}) => Promise<Result<FleetCreated, CreateFleetRefusal>>;
 
 /**
  * Use case: the installation creates a fleet (docs/blueprint.md,
  * "Installation"), with its argo and its operator account, who has no
  * password: a password sign-in for that operator fails like a wrong password.
  * Unlike fleet:init it creates a fleet beside others. The operator email stays
- * unique across the installation. Under its request id it runs once: a replay
+ * unique across the installation. Asked for, the viewer ship comes with it
+ * (decision 0022). Under its request id it runs once: a replay
  * answers the same fleet, and a different create under that id is refused.
  */
 export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock: Clock; ids: IdGenerator; hasher: SecretHasher }): CreateFleet {
@@ -44,7 +51,8 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       return email;
     }
     const name = named.value;
-    const requestHash = deps.hasher.hash(installationRequestText(['createFleet', name, email.value]));
+    const hasViewer = input.hasViewer === true;
+    const requestHash = deps.hasher.hash(installationRequestText(hasViewer ? ['createFleet', name, email.value, 'viewer'] : ['createFleet', name, email.value]));
 
     return deps.uow.run(async (tx): Promise<Result<FleetCreated, CreateFleetRefusal>> => {
       await tx.installationRequests.lock(input.requestId);
@@ -70,7 +78,7 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       }
 
       const at = deps.clock.now();
-      const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { name, email: email.value, passwordHash: null, at });
+      const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { name, email: email.value, passwordHash: null, at, hasViewer });
       await tx.installationRequests.record({ requestId: input.requestId, at, requestHash, kind: 'createFleet', fleetId, operatorShipId });
       return ok({ fleetId, operatorShipId });
     });

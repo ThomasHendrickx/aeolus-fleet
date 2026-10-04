@@ -320,7 +320,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       hasActiveShipOfType: (fleetId, type) =>
         Promise.resolve(
-          state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null),
+          state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
         ),
     },
     leases: {

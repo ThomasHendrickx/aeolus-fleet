@@ -99,7 +99,7 @@ export interface ShipRepository {
   findForShare(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
   /** The ship of the fleet that is not retired and has this name, held as {@link findForShare} holds it. */
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
-  /** Whether at least one ship of the fleet with this type is not retired. */
+  /** Whether at least one ship of the fleet with this type is not retired and receives: the viewer ship receives nothing (decision 0022). */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;
