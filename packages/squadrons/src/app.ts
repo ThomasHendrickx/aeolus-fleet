@@ -5,7 +5,11 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
+import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
+import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
+import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
+import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
@@ -33,6 +37,11 @@ import { createStandDown, type StandDown } from './core/squadron/stand-down.js';
 import { createForceStandDown } from './core/squadron/force-stand-down.js';
 import { createAddMember } from './core/squadron/add-member.js';
 import { createRemoveMember } from './core/squadron/remove-member.js';
+import { createDeleteFleet } from './core/installation/delete-fleet.js';
+import type { FleetForgetter, InstallationMode } from './core/installation/ports.js';
+import { createReadFleet } from './core/installation/read-fleet.js';
+import { createIsServed } from './core/installation/served.js';
+import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
 import { createNewCrewLine } from './core/squadron/new-crew-line.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
@@ -74,12 +83,17 @@ export function createSquadronsApp(options: {
   githubApiUrl?: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
+  /** The installation token (decision 0021): unset, the installation is open and every fleet is served. */
+  installationToken?: string;
 }): SquadronsApp {
   const prisma = createPrismaClient(options.databaseUrl);
   const server = Fastify({ logger: options.logger ?? true });
   const store = createPrismaManagementCrewStore(prisma);
-  // From what squadrons holds, without asking the fleet: health and version stay quick.
-  const connectionOf = async (): Promise<'connected' | 'not-connected'> => ((await store.connected()).length > 0 ? 'connected' : 'not-connected');
+  const installation: InstallationMode = options.installationToken === undefined ? 'open' : 'enabled';
+  const switches = createPrismaFleetSwitches(prisma);
+  const isServed = createIsServed({ installation, switches });
+  // From what squadrons holds, without asking any fleet: health and version stay quick.
+  const connectedFleets = async (): Promise<number> => (await store.connected()).length;
 
   // The version this process runs and its database's latest migration. No authentication, no fleet data.
   const version = runningVersion();
@@ -90,14 +104,14 @@ export function createSquadronsApp(options: {
     } catch (error) {
       server.log.error({ err: error }, 'latest migration unknown');
     }
-    return { squadrons: version, migration, connection: await connectionOf() };
+    return { squadrons: version, migration, connectedFleets: await connectedFleets(), installation };
   });
 
   // Up and its database reachable.
   server.get('/api/health', async (_request, reply) => {
     try {
       await checkDatabase(prisma);
-      return { status: 'ok', connection: await connectionOf() };
+      return { status: 'ok', connectedFleets: await connectedFleets(), installation };
     } catch (error) {
       server.log.error({ err: error }, 'database unreachable');
       return reply.code(503).send({ status: 'unavailable' });
@@ -165,6 +179,29 @@ export function createSquadronsApp(options: {
   };
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
   const readConnection = createReadConnection({ door, store });
+  // A fleet's connection as squadrons holds it, asking the fleet nothing: what a fleet that is off reads.
+  const heldConnection: ReadConnection = async (fleetId) => {
+    const crew = await store.find(fleetId);
+    if (crew) {
+      return { state: 'connected', ship: { shipId: crew.shipId, name: crew.name }, lastShipId: crew.shipId };
+    }
+    return { state: 'not-connected', ship: null, lastShipId: (await store.binding(fleetId))?.shipId ?? null };
+  };
+  const requests = createPrismaInstallationRequests(prisma);
+  const forgetFleet = createPrismaFleetForgetter(prisma);
+  // Forgetting a fleet also drops what this process holds of it: each repository's last read, and its catalogue.
+  const forgetter: FleetForgetter = {
+    forget: async (fleetId) => {
+      for (const repository of await repositories.list(fleetId)) {
+        await source.forget(repository);
+      }
+      await forgetFleet.forget(fleetId);
+      catalogues.delete(fleetId);
+    },
+  };
+  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock });
+  const readFleet = createReadFleet({ isServed, management: store });
+  const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock });
   const connectOnly = createConnect({ door, store, clock });
   // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
@@ -193,6 +230,13 @@ export function createSquadronsApp(options: {
         cookie: req.headers.cookie,
         authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl) }),
         isConnected: async (fleetId) => (await store.find(fleetId)) !== undefined,
+        isServed,
+        heldConnection,
+        installationTokenSent: typeof req.headers['x-aeolus-installation-token'] === 'string' ? req.headers['x-aeolus-installation-token'] : undefined,
+        installation: { mode: installation, token: options.installationToken },
+        setFleetEnabled,
+        readFleet,
+        deleteFleet,
         readConnection,
         connect,
         catalogue: catalogueOf,
@@ -224,13 +268,19 @@ export function createSquadronsApp(options: {
     connect,
     refreshCatalogue: async () => {
       for (const crew of await store.connected()) {
-        await refreshFleet(crew.fleetId, 'all');
+        if (await isServed(crew.fleetId)) {
+          await refreshFleet(crew.fleetId, 'all');
+        }
       }
     },
     recoverFormations,
     restoreConnections: async () => {
       const restored: { fleetId: FleetId; ship: string; recovered: number; retired: number }[] = [];
       for (const crew of await store.connected()) {
+        // A fleet that is off rests: its connection waits, unread, for it to be on again.
+        if (!(await isServed(crew.fleetId))) {
+          continue;
+        }
         const connection = await readConnection(crew.fleetId);
         if (connection.state !== 'connected') {
           continue;
@@ -250,6 +300,7 @@ export function createSquadronsApp(options: {
         squadrons,
         handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, advanceStandDowns, clock }),
         advanceStandDowns,
+        isServed,
         operator,
         log: server.log,
         rescanMs,

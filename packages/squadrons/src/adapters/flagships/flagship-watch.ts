@@ -4,7 +4,9 @@
  * the squadron as it is stored then. A rescan, every interval and after each
  * forming, starts the receive of a new squadron and advances every stand-down,
  * fleet by fleet. Squadrons are told apart by fleet and id: two fleets may
- * each have a squadron of one id.
+ * each have a squadron of one id. A fleet squadrons does not serve (switched
+ * off) rests: its flagships stop receiving after their current receive, and
+ * a rescan once it is on again starts them anew.
  * A flagship whose lease ended (the operator released it) is no longer
  * watched, says so in the log, and argo is told once; one squadrons retired
  * as its squadron disbanded just stops.
@@ -13,6 +15,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
+import type { IsServed } from '../../core/installation/served.js';
 import type { AdvanceStandDowns } from '../../core/squadron/advance-stand-downs.js';
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
 import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
@@ -39,6 +42,7 @@ export function watchFlagships(deps: {
   squadrons: SquadronRepository;
   handle: HandleFlagshipDelivery;
   advanceStandDowns: AdvanceStandDowns;
+  isServed: IsServed;
   operator: OperatorNotices;
   log: FastifyBaseLogger;
   rescanMs: number;
@@ -70,7 +74,7 @@ export function watchFlagships(deps: {
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
       const squadron = (await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId);
-      if (!isReceiving(squadron)) {
+      if (!isReceiving(squadron) || !(await deps.isServed(fleetId))) {
         break;
       }
       try {
@@ -132,7 +136,9 @@ export function watchFlagships(deps: {
       if (stopping.signal.aborted) {
         return;
       }
-      await rescanFleet(crew.fleetId);
+      if (await deps.isServed(crew.fleetId)) {
+        await rescanFleet(crew.fleetId);
+      }
     }
   };
 

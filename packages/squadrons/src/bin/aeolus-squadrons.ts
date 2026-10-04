@@ -32,6 +32,7 @@ async function start(): Promise<void> {
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
     logger: { level: config.logLevel },
+    ...(config.installationToken === undefined ? {} : { installationToken: config.installationToken }),
   });
   // Every fleet squadrons was connected to, connected again with its kept crew token.
   const restored = await app.restoreConnections();
