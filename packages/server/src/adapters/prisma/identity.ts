@@ -74,6 +74,11 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     create: async (account) => {
       await db.operator.create({ data: account });
     },
+    lockEmail: async (email) => {
+      // A transaction-level advisory lock on the email across the installation,
+      // released at commit or rollback, as the ship-name lock is per fleet.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('operator-email'), hashtext(${email}))`;
+    },
     findByEmailForUpdate: async (email) => {
       // Not scoped by fleet: signing in names no fleet (ADR 0007).
       const [row] = await db.$queryRaw<unknown[]>`

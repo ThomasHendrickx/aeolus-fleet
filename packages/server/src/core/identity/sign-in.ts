@@ -64,7 +64,8 @@ export function createSignIn(deps: {
   return async (input) => {
     const email = normaliseEmail(input.email);
     const account = await deps.accounts.byEmail(email);
-    const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash);
+    // An account without a password checks against none, as a missing account does: no password signs it in.
+    const isPasswordRight = await deps.passwords.verify(input.password, account?.passwordHash ?? undefined);
     if (!account || !isPasswordRight) {
       return refuse('WRONG_EMAIL_OR_PASSWORD', WRONG_EMAIL_OR_PASSWORD);
     }

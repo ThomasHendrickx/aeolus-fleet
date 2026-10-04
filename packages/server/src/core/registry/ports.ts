@@ -2,6 +2,7 @@ import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } f
 
 import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
+import type { InstallationRequest } from './installation-request.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
@@ -23,6 +24,14 @@ export interface FleetRepository {
   count(): Promise<number>;
   list(): Promise<Fleet[]>;
   create(fleet: Fleet): Promise<void>;
+}
+
+/** Outbound port: the installation's requests, by request id; not scoped to a fleet (decision 0020). */
+export interface InstallationRequestRepository {
+  /** Holds the lock on this request id until the unit of work ends, so a request and its replay never both run. */
+  lock(requestId: string): Promise<void>;
+  find(requestId: string): Promise<InstallationRequest | undefined>;
+  record(request: InstallationRequest): Promise<void>;
 }
 
 /** Outbound port: ships, always within one fleet. */

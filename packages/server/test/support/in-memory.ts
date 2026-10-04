@@ -19,12 +19,14 @@ import type {
   ReceiverWakeups,
 } from '../../src/core/messaging/ports.js';
 import type { Fleet } from '../../src/core/registry/fleet.js';
+import type { InstallationRequest } from '../../src/core/registry/installation-request.js';
 import type { Lease } from '../../src/core/registry/lease.js';
 import type {
   FleetListing,
   ShipFacts,
   FleetRepository,
   InFlightDeliveries,
+  InstallationRequestRepository,
   LeaseRepository,
   ShipRepository,
 } from '../../src/core/registry/ports.js';
@@ -69,6 +71,8 @@ export interface InMemoryState {
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
+  /** The installation's requests: the one table without a fleet (decision 0020). */
+  installationRequests: InstallationRequest[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
 }
@@ -85,6 +89,7 @@ export interface InMemoryTx {
   deliveries: DeliveryRepository;
   events: EventLog;
   notifier: Notifier;
+  installationRequests: InstallationRequestRepository;
 }
 
 /**
@@ -143,6 +148,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseSeen: [],
     leaseReports: [],
     events: [],
+    installationRequests: [],
     notices: [],
   };
 
@@ -381,6 +387,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     },
     operatorAccounts: {
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockEmail: () => Promise.resolve(),
       create: (account) => {
         if (state.operatorAccounts.some((held) => held.email === account.email || held.fleetId === account.fleetId)) {
           return Promise.reject(new Error('unique violation: the email or the fleet already has an operator account'));
@@ -552,6 +560,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     events: {
       append: (event) => {
         state.events.push({ ...event });
+        return Promise.resolve();
+      },
+    },
+    installationRequests: {
+      lock: () => Promise.resolve(),
+      find: (requestId) => {
+        const request = state.installationRequests.find((held) => held.requestId === requestId);
+        return Promise.resolve(request && { ...request });
+      },
+      record: (request) => {
+        state.installationRequests.push({ ...request });
         return Promise.resolve();
       },
     },
@@ -949,6 +968,7 @@ const TABLES = [
   'leaseSeen',
   'leaseReports',
   'events',
+  'installationRequests',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 

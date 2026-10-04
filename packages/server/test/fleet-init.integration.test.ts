@@ -52,7 +52,7 @@ describe('initialising the fleet on Postgres', () => {
       expect.objectContaining({ id: operatorId, fleetId, email: OPERATOR.email, createdAt: core.clock.now() }),
     ]);
     expect(accounts[0]?.passwordHash).toMatch(/^\$argon2id\$/);
-    await expect(argon2idPasswordHasher.verify(OPERATOR.password, accounts[0]?.passwordHash)).resolves.toBe(true);
+    await expect(argon2idPasswordHasher.verify(OPERATOR.password, accounts[0]?.passwordHash ?? undefined)).resolves.toBe(true);
     expect(JSON.stringify(accounts)).not.toContain(OPERATOR.password);
   });
 

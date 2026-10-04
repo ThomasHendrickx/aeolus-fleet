@@ -300,14 +300,15 @@ enum ConsoleSessionEndReason {
   @@map("console_session_end_reason")
 }
 
-/// The operator's login: email and Argon2id password hash. Ids start with opr_.
+/// The operator's login: email and Argon2id password hash, none for an operator a
+/// hosting installation created. Ids start with opr_.
 /// The email is unique across all fleets: finding the account by email is the one
 /// lookup not scoped by fleet (ADR 0007). One account per fleet in v1.
 model Operator {
   id           String   @id
   fleetId      String   @unique @map("fleet_id")
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   /// How the console looks for this operator; system until they choose.
   theme        Theme    @default(system)
   createdAt    DateTime @map("created_at") @db.Timestamptz(3)
