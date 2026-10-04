@@ -39,6 +39,26 @@ describe('creating a fleet for the installation', () => {
     ]);
   });
 
+  it('creates no viewer ship unless asked for one', async () => {
+    unwrap(await createFleet(HEMMA));
+
+    expect(core.state.ships.map((ship) => ship.kind)).toEqual(['operator']);
+  });
+
+  it('creates the viewer ship with the fleet when asked, with its ShipCommissioned', async () => {
+    const { fleetId } = unwrap(await createFleet({ ...HEMMA, hasViewer: true }));
+
+    const viewer = core.state.ships.find((ship) => ship.kind === 'viewer');
+    expect(viewer).toMatchObject({ fleetId, name: 'viewer', type: 'viewer', scopes: ['fleet:read'] });
+    expect(core.state.events.filter((event) => event.type === 'ShipCommissioned').map((event) => event.shipId)).toEqual([expect.any(String), viewer?.id]);
+  });
+
+  it('refuses a create with a viewer under the request id of one without', async () => {
+    unwrap(await createFleet(HEMMA));
+
+    await expect(createFleet({ ...HEMMA, hasViewer: true })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+
   it('creates a fleet beside the fleets the installation already hosts', async () => {
     await initialiseFleet(core);
 

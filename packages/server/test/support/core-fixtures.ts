@@ -267,6 +267,13 @@ export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@exam
  * commissioning it: for a ship with other scopes, in another fleet or already
  * retired, which commissioning never makes.
  */
+/** Adds the fleet's viewer ship straight to the in-memory state, as an installation's create with a viewer would. */
+export function addViewerShip(core: InMemoryCore, ship: { fleetId: FleetId }): { shipId: ShipId } {
+  const shipId = core.ids('ship');
+  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null });
+  return { shipId };
+}
+
 export function addAgentShip(
   core: InMemoryCore,
   ship: { fleetId: FleetId; name?: string; type?: string; scopes?: Scope[]; retiredAt?: Date },
