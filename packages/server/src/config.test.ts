@@ -17,7 +17,19 @@ describe('loadConfig', () => {
       shouldTrustProxy: false,
       cookieDomain: undefined,
       consoleOrigin: publicUrl,
+      installationToken: undefined,
     });
+  });
+
+  it('reads the installation token, which opens the installation procedures; without one they are off', () => {
+    const token = 'aeolus_installation_0123456789abcdef0123';
+
+    expect(loadConfig({ ...required, INSTALLATION_TOKEN: token }).installationToken).toBe(token);
+  });
+
+  it('refuses an installation token under 32 characters, and never echoes it', () => {
+    expect(() => loadConfig({ ...required, INSTALLATION_TOKEN: 'short-token' })).toThrow(/INSTALLATION_TOKEN: .*32/);
+    expect(() => loadConfig({ ...required, INSTALLATION_TOKEN: 'short-token' })).not.toThrow(/short-token/);
   });
 
   it("takes the public URL's origin as the console origin when none is configured: web and server behind one host", () => {
