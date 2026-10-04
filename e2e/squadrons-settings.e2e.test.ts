@@ -81,8 +81,9 @@ async function settingsPage(): Promise<Page> {
   return page;
 }
 
-async function squadronsHealth(): Promise<string> {
-  return z.object({ connection: z.string() }).parse(await (await fetch(`${squadronsUrl}/api/health`)).json()).connection;
+/** How many fleets squadrons' health says it is connected to. */
+async function squadronsConnectedFleets(): Promise<number> {
+  return z.object({ connectedFleets: z.number() }).parse(await (await fetch(`${squadronsUrl}/api/health`)).json()).connectedFleets;
 }
 
 describe('Settings, Squadrons', () => {
@@ -128,7 +129,7 @@ describe('Settings, Squadrons', () => {
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1|Ship secret/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'squadrons', retiredAt: null } });
     expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] });
-    await expect(squadronsHealth()).resolves.toBe('connected');
+    await expect(squadronsConnectedFleets()).resolves.toBe(1);
   });
 
   it('connects the same ship again once the operator released it', async () => {
@@ -141,7 +142,7 @@ describe('Settings, Squadrons', () => {
 
     await page.getByText('Connected as').waitFor();
     await expect(database.ship.count({ where: { name: 'squadrons' } })).resolves.toBe(1);
-    await expect(squadronsHealth()).resolves.toBe('connected');
+    await expect(squadronsConnectedFleets()).resolves.toBe(1);
   });
 
   it('adds a repository that cannot be fetched: it is kept with why, and removing it after a confirm takes it out', async () => {
