@@ -7,6 +7,7 @@ import {
   operatorCaller,
   registryUseCases,
   secretOf,
+  withInstallationSettings,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -314,5 +315,34 @@ describe('a commission that comes again', () => {
     ['a key over 256 characters', 'k'.repeat(257)],
   ])('refuses %s', async (_label, idempotencyKey) => {
     await expect(commissionShip(argo, { ...scout, idempotencyKey })).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_IDEMPOTENCY_KEY' } });
+  });
+});
+
+describe("commissioning at the fleet's ship limit", () => {
+  it('takes ships up to the limit, argo included, then refuses the next and stores nothing', async () => {
+    withInstallationSettings(core, { defaultShipLimit: 3 });
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+    const before = structuredClone(core.state);
+
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'bosun', type: 'reviewer' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'SHIP_LIMIT_REACHED', message: 'The fleet is at its limit of 3 ships, so it takes no new one.' },
+    });
+    expect(core.state).toEqual(before);
+  });
+
+  it('does not count retired ships', async () => {
+    withInstallationSettings(core, { defaultShipLimit: 2 });
+    addAgentShip(core, { fleetId, retiredAt: core.clock.now() });
+
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('follows a limit set for the fleet over the default, and no limit sets none', async () => {
+    withInstallationSettings(core, { defaultShipLimit: 1 });
+    core.state.fleetLimitSettings.push({ fleetId, ships: { kind: 'fleet', limit: null }, dailyMessages: { kind: 'default' } });
+
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });
 });

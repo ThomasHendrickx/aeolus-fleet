@@ -37,7 +37,7 @@ describe('the Prisma unit of work', () => {
     });
 
     expect(result).toEqual(ok(fleet.id));
-    await expect(prisma.fleet.findUnique({ where: { id: fleet.id } })).resolves.toEqual({ ...fleet, lastEventSeq: 0n });
+    await expect(prisma.fleet.findUnique({ where: { id: fleet.id } })).resolves.toEqual({ ...fleet, lastEventSeq: 0n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null });
   });
 
   it('rolls back what the work wrote when it refuses, and returns the refusal', async () => {

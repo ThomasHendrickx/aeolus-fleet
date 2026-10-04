@@ -229,6 +229,19 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
   return unwrap(initialised);
 }
 
+/** Sets the installation's settings straight into the state: unset ones stay no limit. */
+export function withInstallationSettings(
+  core: InMemoryCore,
+  settings: Partial<{ defaultShipLimit: number | null; defaultDailyMessageLimit: number | null; fleetCap: number | null }>,
+): void {
+  core.state.installationSettings.splice(0, core.state.installationSettings.length, {
+    defaultShipLimit: null,
+    defaultDailyMessageLimit: null,
+    fleetCap: null,
+    ...settings,
+  });
+}
+
 /** A fleet a hosting installation created, through the use case: its argo and an operator without a password. */
 export async function hostedFleet(core: InMemoryCore, operatorEmail = 'lena@example.com'): Promise<{ fleetId: FleetId; operatorShipId: ShipId }> {
   const created = await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({
