@@ -26,14 +26,13 @@ export interface CommissionShipInput {
 }
 
 /**
- * The commissioned ship. On the first commission, its starting prompt and
- * crew line, shown once; on a repeat under the same key, neither (the secret
- * exists in plain text only once), and the state of its starting prompt.
+ * The commissioned ship. On the first commission, the secret of its starting
+ * prompt, shown once; on a repeat under the same key, none (the secret exists
+ * in plain text only once), and the state of its starting prompt.
  */
 export interface CommissionedShip {
   shipId: ShipId;
-  prompt: string | null;
-  crewLine: string | null;
+  secret: string | null;
   /** When its valid secret was issued and whether a session claimed it; null when it has none. */
   startingPrompt: { issuedAt: Date; isClaimed: boolean } | null;
 }
@@ -63,10 +62,6 @@ export function createCommissionShip(deps: {
   clock: Clock;
   ids: IdGenerator;
   secrets: Omit<SecretTools, 'ids'>;
-  /** Where a session reaches the fleet over MCP: the URL the starting prompt carries. */
-  mcpUrl: string;
-  /** The fleet's public URL: the one the crew line carries. */
-  fleetUrl: string;
 }): CommissionShip {
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<CommissionedShip, CommissionShipRefusal>> => {
@@ -89,8 +84,7 @@ export function createCommissionShip(deps: {
         const secret = await tx.credentials.findValidForShipForUpdate(fleetId, original.id);
         return ok({
           shipId: original.id,
-          prompt: null,
-          crewLine: null,
+          secret: null,
           startingPrompt: secret ? { issuedAt: secret.issuedAt, isClaimed: secret.claimedAt !== null } : null,
         });
       }
@@ -110,7 +104,7 @@ export function createCommissionShip(deps: {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
       const issued = await issueStartingPrompt(
-        { tx, secrets: { ...deps.secrets, ids: deps.ids }, mcpUrl: deps.mcpUrl, fleetUrl: deps.fleetUrl },
+        { tx, secrets: { ...deps.secrets, ids: deps.ids } },
         { fleetId, shipId: ship.id, actor, at },
       );
       return ok({ ...issued, startingPrompt: { issuedAt: at, isClaimed: false } });

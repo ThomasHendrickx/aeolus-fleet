@@ -7,9 +7,10 @@ import { z } from 'zod';
 import {
   addAgentShip,
   crewShip,
+  FLEET_URL,
+  historyUseCases,
   identityUseCases,
   initialiseFleet,
-  historyUseCases,
   messagingUseCases,
   OPERATOR,
   registryUseCases,
@@ -47,6 +48,7 @@ function start(
   } = {},
 ) {
   server = buildHttpServer({
+    fleetUrl: FLEET_URL,
     useCases: {
       ...identityUseCases(core),
       ...registryUseCases(core),
@@ -461,6 +463,7 @@ describe('a procedure that needs a scope', () => {
 
   it('answers 500 when the use case fails', async () => {
     server = buildHttpServer({
+      fleetUrl: FLEET_URL,
       useCases: {
         ...identityUseCases(core),
         ...registryUseCases(core),
@@ -494,6 +497,7 @@ describe('error responses', () => {
   /** A server whose ping fails as a lost database would, logging to `lines`. */
   function startWithFailingPing(lines: string[] = []): void {
     server = buildHttpServer({
+      fleetUrl: FLEET_URL,
       useCases: {
         ...identityUseCases(core),
         ...registryUseCases(core),

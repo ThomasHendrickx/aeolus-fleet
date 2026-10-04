@@ -7,7 +7,7 @@ import { createDismissDelivery } from '../src/core/messaging/dismiss-delivery.js
 import { createResendDelivery } from '../src/core/messaging/resend-delivery.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -25,9 +25,9 @@ let scout: Crew;
 let planner: Crew;
 
 async function crewed(ship: { name: string; type: string }): Promise<Crew> {
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
   const { crewToken } = unwrap(
-    await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
+    await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
   );
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }

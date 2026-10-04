@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Caller, Crew } from '../src/core/shared/caller.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -13,16 +13,16 @@ let core: PostgresCore;
 let argo: Caller;
 let scout: Crew;
 
-async function crewed(shipId: Crew['shipId'], prompt: string): Promise<Crew> {
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+async function crewed(shipId: Crew['shipId'], secret: string): Promise<Crew> {
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
 beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-  scout = await crewed(shipId, prompt ?? '');
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  scout = await crewed(shipId, secretOf(secret));
   core.clock.advance(60_000);
 });
 
@@ -56,9 +56,9 @@ describe("a crew's report on Postgres", () => {
   it("is none for the ship's next crew", async () => {
     unwrap(await core.useCases.report(scout, { state: 'blocked' }));
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
-    const { prompt } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scout.shipId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scout.shipId }));
 
-    await crewed(scout.shipId, prompt);
+    await crewed(scout.shipId, secret);
 
     await expect(listedReport()).resolves.toBeNull();
   });

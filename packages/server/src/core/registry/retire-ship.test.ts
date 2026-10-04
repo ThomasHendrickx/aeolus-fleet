@@ -8,7 +8,7 @@ import {
   messagingUseCases,
   operatorCaller,
   registryUseCases,
-  secretIn,
+  secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -34,7 +34,7 @@ beforeEach(async () => {
   messaging = messagingUseCases(core);
   const scout = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = scout.shipId;
-  scoutSecret = secretIn(scout.prompt);
+  scoutSecret = secretOf(scout.secret);
   const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
   core.clock.advance(60_000);

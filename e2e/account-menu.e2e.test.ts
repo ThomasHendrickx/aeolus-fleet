@@ -30,7 +30,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
 
   const webUrl = await reserveWebUrl();

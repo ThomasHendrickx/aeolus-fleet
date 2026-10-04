@@ -1,7 +1,6 @@
 import { createIdGenerator, type IdGenerator } from '@aeolus-fleet/common';
 
 import { argon2idPasswordHasher } from './adapters/crypto/passwords.js';
-import { mcpUrlOf } from './adapters/mcp/mcp-url.js';
 import { cryptoRandomTokens, sha256Hasher } from './adapters/crypto/secrets.js';
 import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
@@ -105,8 +104,7 @@ export const systemClock: Clock = { now: () => new Date() };
 
 /**
  * Wires every use case to Postgres through Prisma. The HTTP app and the server
- * commands share it. `fleetUrl` is where ships reach the fleet, the public
- * URL: every starting prompt carries the fleet's MCP URL under it.
+ * commands share it.
  *
  * `wakeups` wake a waiting receive; the HTTP app feeds them from the delivery
  * listener. Without them, nothing wakes a receive and it ends only at its
@@ -114,7 +112,6 @@ export const systemClock: Clock = { now: () => new Date() };
  */
 export function createUseCases(options: {
   prisma: PrismaClient;
-  fleetUrl: string;
   clock?: Clock;
   ids?: IdGenerator;
   wakeups?: ReceiverWakeups;
@@ -128,19 +125,18 @@ export function createUseCases(options: {
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
-  const mcpUrl = mcpUrlOf(options.fleetUrl);
   const wakeups = options.wakeups ?? createReceiverWakeups();
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
-    commissionShip: createCommissionShip({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
-    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
+    commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
+    getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
     retireShip: createRetireShip({ uow, clock, ids }),
     renameShip: createRenameShip({ uow, clock, ids }),
-    recrewShip: createRecrewShip({ uow, clock, ids, secrets, mcpUrl, fleetUrl: options.fleetUrl }),
+    recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),

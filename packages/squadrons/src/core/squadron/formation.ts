@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { FleetDoor, FleetRefusal, ManagementCrew } from '../management/ports.js';
+import type { FleetDoor, FleetRefusal, IssuedPrompt, ManagementCrew } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames } from './ports.js';
@@ -14,11 +14,11 @@ const ATTEMPT_SUFFIX_LENGTH = 8;
 export interface Formation {
   attemptId: string;
   /**
-   * Commissions one ship and answers its crew line. `slot` is its place in
+   * Commissions one ship and answers its secret and crew lines. `slot` is its place in
    * the squadron, so a name drawn twice in one attempt never repeats another
    * ship's key; `names` draws a name, again when the fleet holds it already.
    */
-  commission: (slot: string, ship: { names: () => string; type: string }) => Promise<Result<{ shipId: ShipId; name: string; crewLine: string }, FleetRefusal>>;
+  commission: (slot: string, ship: { names: () => string; type: string }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
   /** Retires every ship this attempt commissioned and finishes the attempt: it formed nothing. */
   retireCommissioned: () => Promise<void>;
 }
@@ -45,7 +45,7 @@ export async function beginFormation(
 
   // A lost answer is asked again under the same key, so the fleet commissions
   // no second ship; its repeat holds no secret, so the ship gets a new starting prompt.
-  const commissionOnce = async (ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId; crewLine: string }, FleetRefusal>> => {
+  const commissionOnce = async (ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId } & IssuedPrompt, FleetRefusal>> => {
     let made = await deps.door.commission(crew.crewToken, ship);
     if (!made.isOk && made.error.code === 'UNAVAILABLE') {
       made = await deps.door.commission(crew.crewToken, ship);
@@ -53,14 +53,14 @@ export async function beginFormation(
     if (!made.isOk) {
       return made;
     }
-    const { shipId, crewLine } = made.value;
+    const { shipId, secret, crewLines } = made.value;
     commissioned.push(shipId);
     await deps.attempts.commissioned(attemptId, { name: ship.name, shipId });
-    if (crewLine !== null) {
-      return ok({ shipId, crewLine });
+    if (secret !== null && crewLines !== null) {
+      return ok({ shipId, secret, crewLines });
     }
     const prompt = await deps.door.getStartingPrompt(crew.crewToken, { shipId });
-    return prompt.isOk ? ok({ shipId, crewLine: prompt.value.crewLine }) : prompt;
+    return prompt.isOk ? ok({ shipId, ...prompt.value }) : prompt;
   };
 
   return {

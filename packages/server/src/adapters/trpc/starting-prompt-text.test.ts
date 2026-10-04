@@ -1,13 +1,15 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { crewLine, startingPromptText } from './starting-prompt.js';
+import { presentStartingPrompt } from './starting-prompt-text.js';
 
 const shipId = createIdGenerator()('ship');
+const FLEET_URL = 'https://fleet.example.com';
 const MCP_URL = 'https://fleet.example.com/mcp';
+const presented = presentStartingPrompt({ fleetUrl: FLEET_URL, shipId, secret: 'aeolus_sk_v1_abc' });
 
 describe('the starting prompt text', () => {
-  const text = startingPromptText({ mcpUrl: MCP_URL, shipId, secret: 'aeolus_sk_v1_abc' });
+  const text = presented.prompt;
   const lines = text.split('\n');
 
   it('carries the fleet MCP URL, the ship id and the secret, one per line', () => {
@@ -59,10 +61,23 @@ describe('the starting prompt text', () => {
   });
 });
 
-describe('the crew line', () => {
-  it('crews the ship from a Claude Code session with the aeolus plugin, in one line: the fleet URL, the ship id and the secret', () => {
-    expect(crewLine({ fleetUrl: 'https://fleet.example.com', shipId, secret: 'aeolus_sk_v1_abc' })).toBe(
-      `/aeolus:crew https://fleet.example.com ${shipId} aeolus_sk_v1_abc`,
-    );
+describe('the crew lines', () => {
+  it('gives one crew line per harness with the aeolus plugin: Claude Code and Codex, each with the fleet URL, the ship id and the secret', () => {
+    expect(presented.crewLines).toEqual([
+      { harness: 'claude-code', line: `/aeolus:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+      { harness: 'codex', line: `$aeolus-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+    ]);
+  });
+});
+
+describe('a presented starting prompt', () => {
+  it('carries the ship id and the secret itself, for a client that registers the ship for a session of its own', () => {
+    expect(presented).toMatchObject({ shipId, secret: 'aeolus_sk_v1_abc' });
+  });
+
+  it('finds the MCP server under the fleet URL, keeping its path whether or not it ends in a slash', () => {
+    const underPath = presentStartingPrompt({ fleetUrl: 'http://127.0.0.1:4000/aeolus/', shipId, secret: 'aeolus_sk_v1_abc' });
+
+    expect(underPath.prompt).toContain('Fleet MCP URL: http://127.0.0.1:4000/aeolus/mcp');
   });
 });

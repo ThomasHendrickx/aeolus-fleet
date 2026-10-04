@@ -44,6 +44,8 @@ export interface HttpServerOptions {
   registerRateLimit?: RateLimit;
   /** The domain the session cookie is set for. Unset: the server's host only. */
   cookieDomain?: string;
+  /** Where ships reach the fleet, the public URL: what starting prompts and crew lines carry. */
+  fleetUrl: string;
   /**
    * The console's origin: state-changing console calls come only from it, and
    * a console on another host may call from it with credentials (CORS).
@@ -178,6 +180,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     caller: { credentials: RequestCredentials; canUseConsoleSession: boolean; sessionCookie: SessionCookie },
   ): Context => ({
     useCases: options.useCases,
+    fleetUrl: options.fleetUrl,
     fleetEvents,
     ...caller,
     userAgent: request.headers['user-agent'],

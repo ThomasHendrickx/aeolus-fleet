@@ -57,7 +57,7 @@ function consequencesOf(props: Pick<ReleaseDialogProps, 'shipName' | 'inFlightCo
     { icon: Undo2, text: inFlightLine(inFlightCount) },
     mode === 'release'
       ? { icon: CircleDashed, text: `${shipName} shows as Awaiting crew until you get a new starting prompt.` }
-      : { icon: FileKey, text: 'A new starting prompt and its crew line are shown once, for the new crew.' },
+      : { icon: FileKey, text: 'A new starting prompt and its crew lines are shown once, for the new crew.' },
   ];
 }
 

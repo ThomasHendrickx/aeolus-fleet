@@ -12,7 +12,7 @@ import type { Caller } from '../src/core/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createEmptyDatabase, createMigratedDatabase, prisma } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -56,7 +56,7 @@ describe('a database error at the doors', () => {
     databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
     );
     await refuseInserts(database, { name: 'messages', column: 'payload' });
     server = createApp({
@@ -74,13 +74,13 @@ describe('a database error at the doors', () => {
 
   /** A ship commissioned by argo and crewed through REST: its crew token. */
   async function crewToken(name: string): Promise<string> {
-    const { shipId, prompt } = unwrap(
-      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
+    const { shipId, secret } = unwrap(
+      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
     );
     const response = await fetch(`${address}/api/v1/ship/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
+      body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
     return z.object({ crewToken: z.string() }).parse(await response.json()).crewToken;
   }

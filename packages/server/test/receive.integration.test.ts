@@ -12,7 +12,7 @@ import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, modelOf, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -56,7 +56,7 @@ beforeEach(async () => {
     },
   });
   await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, fleetUrl: FLEET_URL, wakeups, receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
@@ -71,9 +71,9 @@ afterEach(async () => {
 
 /** A reviewer commissioned by argo and claimed with its secret: its crew, as its crew token makes it. */
 async function crewedReviewer(name: string): Promise<Crew> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   const { crewToken } = unwrap(
-    await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
+    await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }),
   );
   return unwrap(await useCases.authenticate.byCrewToken(crewToken));
 }

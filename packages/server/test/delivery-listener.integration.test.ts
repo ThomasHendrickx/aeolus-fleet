@@ -10,7 +10,7 @@ import {
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -63,8 +63,8 @@ beforeEach(async () => {
   const useCases = wired(SHORT_WAIT_MS);
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   argo = operatorCaller(fleet);
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretIn(prompt), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });
 
@@ -74,7 +74,7 @@ afterEach(async () => {
 });
 
 function wired(receiveWaitMs: number): UseCases {
-  return createUseCases({ prisma, clock: systemClock, fleetUrl: FLEET_URL, wakeups, receiveWaitMs });
+  return createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs });
 }
 
 /** Ends the listener's database connection from the server side, as a restart of Postgres or a network cut would. */

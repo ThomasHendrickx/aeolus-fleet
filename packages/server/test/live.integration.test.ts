@@ -9,7 +9,7 @@ import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notic
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -38,7 +38,7 @@ const browsers: WebSocket[] = [];
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, signInRateLimit: SIGN_IN_RATE_LIMIT });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -131,8 +131,8 @@ function lastSeq(following: Following): number {
 }
 
 async function commissionScout(name: string): Promise<{ shipId: ShipId; secret: string }> {
-  const { shipId, prompt } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
-  return { shipId, secret: secretIn(prompt) };
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
+  return { shipId, secret: secretOf(secret) };
 }
 
 describe('following the fleet live', () => {

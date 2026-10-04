@@ -34,7 +34,7 @@ let context: BrowserContext | undefined;
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });

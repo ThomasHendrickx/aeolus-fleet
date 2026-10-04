@@ -1,20 +1,20 @@
-import type { ShipDetail } from '@aeolus-fleet/common';
+import type { CrewLine, ShipDetail } from '@aeolus-fleet/common';
 import { FileText, Info, Inbox } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
 import { lastSeen } from '../../lib/relative-time';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
-import { CodeBlock } from '../atoms/code-block';
+import { CrewLines } from '../molecules/crew-lines';
 import { EmptyState } from '../molecules/empty-state';
 import { HealthIndicator } from '../molecules/health-indicator';
 import { LocationTag } from '../molecules/location-tag';
 import { ReportLine } from '../molecules/report-line';
 import { StatusBadge } from '../molecules/status-badge';
 
-/** A member's crew line and launch note, from the forming answer: shown once, never stored. */
+/** A member's crew lines and launch note, from the forming answer: shown once, never stored. */
 export interface IssuedCrewLine {
-  crewLine: string;
+  crewLines: readonly CrewLine[];
   launchNote: string | null;
 }
 
@@ -95,7 +95,7 @@ function RoleHeading({
  * each group headed by its template version and check-in interval. Each
  * member shows its health (on time, late, silent or not on station), and from the fleet its report, where
  * its session runs and its open deliveries. Right after forming, a member not on
- * station shows its crew line and launch note in its row: once. Each row ends
+ * station shows its crew lines and launch note in its row: once. Each row ends
  * with the actions the page gives it.
  */
 export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, renderActions }: MemberListProps) {
@@ -133,17 +133,11 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
                           </span>
                         </p>
                       )}
-                      <CodeBlock
-                        label={`Crew line for ${member.name}`}
-                        code={issued.crewLine}
-                        isWrapped
-                        copyLabel={`Copy the crew line for ${member.name}`}
-                        codeTestId="member-crew-line"
-                      />
+                      <CrewLines crewLines={issued.crewLines} subject={member.name} testIdPrefix="member-crew-line" />
                       <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
                         <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
                         <span>
-                          <span className="font-medium">Shown once.</span> Paste it into Claude Code started where the launch note says.
+                          <span className="font-medium">Shown once.</span> Paste a crew line into Claude Code or Codex started where the launch note says.
                         </span>
                       </p>
                     </div>

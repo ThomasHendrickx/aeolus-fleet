@@ -6,7 +6,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/server/src/ad
 import { createApp } from '../packages/server/src/app.js';
 import type { Caller } from '../packages/server/src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -34,7 +34,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   const webUrl = await reserveWebUrl();
@@ -142,7 +142,7 @@ describe('the live fleet overview', () => {
     await page.getByRole('banner').getByText(/^(Reconnecting|Offline)$/).waitFor({ timeout: LIVE_TIMEOUT_MS });
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     const pilot = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
-    unwrap(await useCases.claimShip({ shipId: pilot.shipId, secret: secretIn(pilot.prompt), location: { kind: 'SERVER' }, harness: 'claude-code' }));
+    unwrap(await useCases.claimShip({ shipId: pilot.shipId, secret: secretOf(pilot.secret), location: { kind: 'SERVER' }, harness: 'claude-code' }));
     await context.setOffline(false);
 
     await isLive(page);

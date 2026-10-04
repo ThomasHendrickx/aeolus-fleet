@@ -7,6 +7,23 @@ export const SHIP_ID: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 export const FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 
+/** What the fleet issues with a starting prompt: the secret and one crew line per harness. */
+export function issuedPrompt(shipId: ShipId, secret: string): { secret: string; crewLines: { harness: string; line: string }[] } {
+  return {
+    secret,
+    crewLines: [
+      { harness: 'claude-code', line: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` },
+      { harness: 'codex', line: `$aeolus-crew https://fleet.example.com ${shipId} ${secret}` },
+    ],
+  };
+}
+
+/** The crew lines a member is handed: the fleet's, each with the squadron id. */
+export function memberCrewLines(member: { shipId: ShipId; secret: string; squadronId: string }): { harness: string; line: string }[] {
+  const { shipId, secret, squadronId } = member;
+  return issuedPrompt(shipId, secret).crewLines.map(({ harness, line }) => ({ harness, line: `${line} ${squadronId}` }));
+}
+
 const notUsed = () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' }));
 
 /**

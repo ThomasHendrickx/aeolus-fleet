@@ -62,7 +62,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - ModelTag: the value exactly as the session stated it, stated time in title. Starts with @ or ends in @x.y.z → software (package mark, dashed outline); otherwise a model (sparkles mark). Empty for argo and ships without a session; "Not stated yet" for a crewed ship that has not stated one.
 - LastSeen: icon only, "Last seen 25 s ago" as title and accessible name. Under 1 min fresh, 1 to 15 min a while, over 15 min long ago; same for squadron members. No icon without a session.
 - FleetScopes: edit in CommissionForm, both off; read-only in the ShipHeader meta strip, "None" when empty.
-- StartingPromptBlock always shows CrewLineBlock under the prompt.
+- StartingPromptBlock always shows a CrewLineBlock per harness under the prompt: Claude Code, then Codex.
 
 ## Squadrons (only when enabled)
 - Off: no Squadrons destination, Squadron filter, flagship chip, squadron states, health or silent members. Nothing else changes.

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn, modelOf } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -21,8 +21,8 @@ let planner: Crew;
 
 async function crewed(ship: { name: string; type: string; location: { kind: 'DEVICE' | 'SERVER' } }): Promise<Crew> {
   const { name, type, location } = ship;
-  const { shipId, prompt } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretIn(prompt), location, harness: 'claude-code' }));
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 

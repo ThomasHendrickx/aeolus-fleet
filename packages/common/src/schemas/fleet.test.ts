@@ -15,6 +15,7 @@ import {
   retireShipInputSchema,
   retireShipOutputSchema,
   shipHandleSchema,
+  commissionShipOutputSchema,
   startingPromptOutputSchema,
 } from './fleet.js';
 
@@ -127,22 +128,43 @@ describe('getStartingPromptInputSchema', () => {
 });
 
 describe('startingPromptOutputSchema', () => {
-  it('accepts the ship id, the prompt and the crew line', () => {
-    const output = {
-      shipId: newId('ship'),
-      prompt: 'Ship secret: aeolus_sk_v1_abc',
-      crewLine: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc',
-    };
+  const output = {
+    shipId: newId('ship'),
+    prompt: 'Ship secret: aeolus_sk_v1_abc',
+    crewLines: [
+      { harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+      { harness: 'codex', line: '$aeolus-crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+    ],
+    secret: 'aeolus_sk_v1_abc',
+  };
 
+  it('accepts the ship id, the prompt, one crew line per harness, and the secret', () => {
     expect(startingPromptOutputSchema.parse(output)).toEqual(output);
   });
 
-  it('rejects a missing prompt', () => {
-    expect(startingPromptOutputSchema.safeParse({ shipId: newId('ship'), crewLine: '/aeolus:crew' }).success).toBe(false);
+  it.each([
+    ['a missing prompt', { ...output, prompt: undefined }],
+    ['missing crew lines', { ...output, crewLines: undefined }],
+    ['a crew line without its harness', { ...output, crewLines: [{ line: '/aeolus:crew' }] }],
+    ['a missing secret', { ...output, secret: undefined }],
+  ])('rejects %s', (_label, candidate) => {
+    expect(startingPromptOutputSchema.safeParse(candidate).success).toBe(false);
   });
+});
 
-  it('rejects a missing crew line', () => {
-    expect(startingPromptOutputSchema.safeParse({ shipId: newId('ship'), prompt: 'Ship secret: s' }).success).toBe(false);
+describe('commissionShipOutputSchema', () => {
+  it('accepts a first commission with its prompt, crew lines and secret, and a repeat with none of them', () => {
+    const first = {
+      shipId: newId('ship'),
+      prompt: 'Ship secret: aeolus_sk_v1_abc',
+      crewLines: [{ harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' }],
+      secret: 'aeolus_sk_v1_abc',
+      startingPrompt: { issuedAt: '2026-10-04T09:00:00.000Z', isClaimed: false },
+    };
+    const repeat = { ...first, prompt: null, crewLines: null, secret: null };
+
+    expect(commissionShipOutputSchema.parse(first)).toEqual(first);
+    expect(commissionShipOutputSchema.parse(repeat)).toEqual(repeat);
   });
 });
 

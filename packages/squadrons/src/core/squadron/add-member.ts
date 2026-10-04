@@ -1,9 +1,10 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { CrewLine, FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
+import { withSquadronId } from './crew-lines.js';
 import { beginFormation } from './formation.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 
@@ -11,12 +12,12 @@ const MEMBER_SUFFIX_LENGTH = 4;
 
 export type AddRefusal = DomainError<'MANAGEMENT_SHIP_NOT_CREWED' | 'SQUADRON_NOT_FOUND' | 'NOT_SAILING' | 'ROLE_NOT_FOUND' | 'ADDING_FAILED'>;
 
-/** The new member with its crew line, launch note and pinned model: shown once, never stored. */
+/** The new member with its crew lines, launch note and pinned model: shown once, never stored. */
 export interface AddedMember {
   shipId: ShipId;
   name: string;
   role: string;
-  crewLine: string;
+  crewLines: CrewLine[];
   launchNote: string | null;
   model: string | null;
 }
@@ -27,7 +28,7 @@ export type AddMember = (input: { fleetId: FleetId; squadronId: string; role: st
  * Use case: the operator adds a member of a role to a sailing squadron (#86,
  * B4). It is commissioned with forming's machinery as it is, from the
  * squadron's own snapshot of the role's template, named as forming names a
- * member of that role, and its crew line (with the squadron id), launch note
+ * member of that role, and its crew lines (with the squadron id), launch note
  * and pinned model are answered once. It checks in like any member; the
  * squadron stays Sailing. The member is stored and its attempt finished in
  * one unit of work, so a crash before that retires the ship at the next
@@ -73,7 +74,7 @@ export function createAddMember(deps: {
       await formation.retireCommissioned();
       return refuse('ADDING_FAILED', `The fleet refused a step, so no member was added: ${made.error.message}`);
     }
-    const { shipId, name, crewLine } = made.value;
+    const { shipId, name, crewLines } = made.value;
     await deps.squadrons.update({
       before: squadron,
       after: {
@@ -82,6 +83,6 @@ export function createAddMember(deps: {
       },
       finishesAttempt: formation.attemptId,
     });
-    return ok({ shipId, name, role: role.name, crewLine: `${crewLine} ${squadronId}`, launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ shipId, name, role: role.name, crewLines: withSquadronId(crewLines, squadronId), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }

@@ -61,7 +61,7 @@ export function useRetireShip() {
 
 /**
  * Re-crews a crewed ship whose session is gone: a release and a new starting
- * prompt at once. Its data holds the prompt and crew line, to show once.
+ * prompt at once. Its data holds the prompt and crew lines, to show once.
  */
 export function useRecrewShip() {
   const trpc = useTRPC();

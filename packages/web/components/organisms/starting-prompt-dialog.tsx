@@ -1,6 +1,7 @@
 'use client';
 
 import { CircleAlert, Info, RotateCw } from 'lucide-react';
+import type { CrewLine } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
@@ -9,6 +10,7 @@ import { CodeBlock } from '../atoms/code-block';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
 import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
+import { CrewLines } from '../molecules/crew-lines';
 import { InlineError } from '../molecules/inline-error';
 
 /** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
@@ -17,9 +19,9 @@ export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
 interface StartingPromptDialogProps {
   shipName: string;
   state: StartingPromptDialogState;
-  /** The prompt and its crew line, once issued: shown only now. */
+  /** The prompt and its crew lines, one per harness, once issued: shown only now. */
   prompt?: string;
-  crewLine?: string;
+  crewLines?: readonly CrewLine[];
   /** The unclaimed prompt that was out, which this one stops working. */
   replacesUnclaimed?: { issuedAt: string };
   /** Why issuing failed (error). */
@@ -30,8 +32,8 @@ interface StartingPromptDialogProps {
   onConfirm: () => void;
 }
 
-/** The prompt and the crew line, each with its copy button; says how to copy by hand when the clipboard refuses. */
-function IssuedPrompt({ shipName, prompt, crewLine }: { shipName: string; prompt: string; crewLine: string }) {
+/** The prompt and each crew line, each with its copy button; says how to copy by hand when the clipboard refuses. */
+function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; prompt: string; crewLines: readonly CrewLine[] }) {
   const [hasCopyFailed, setHasCopyFailed] = useState(false);
   const copied = () => {
     setHasCopyFailed(false);
@@ -59,16 +61,7 @@ function IssuedPrompt({ shipName, prompt, crewLine }: { shipName: string; prompt
         onCopied={copied}
         onCopyFailed={failed}
       />
-      <CodeBlock
-        label="Crew line, Claude Code with the aeolus plugin"
-        code={crewLine}
-        isWrapped
-        copyLabel={`Copy the crew line for ${shipName}`}
-        codeTestId="starting-prompt-crew-line"
-        copyTestId="starting-prompt-crew-line-copy"
-        onCopied={copied}
-        onCopyFailed={failed}
-      />
+      <CrewLines crewLines={crewLines} subject={shipName} testIdPrefix="starting-prompt-crew-line" onCopied={copied} onCopyFailed={failed} />
       <p role="status" className="flex items-center gap-1.5 text-meta text-destructive-text empty:hidden">
         {hasCopyFailed ? (
           <>
@@ -82,14 +75,14 @@ function IssuedPrompt({ shipName, prompt, crewLine }: { shipName: string; prompt
 }
 
 /**
- * Shows a freshly issued starting prompt and its crew line once
+ * Shows a freshly issued starting prompt and its crew lines once
  * (docs/design/png/StartingPromptDialog.png). For a ship whose unclaimed
  * prompt is still out it first says that a new one stops that one working,
  * and issues only on Get new prompt. Closing without copying is allowed; the
  * ship then offers a new prompt. Desktop: a dialog; phone: full screen.
  */
 export function StartingPromptDialog(props: StartingPromptDialogProps) {
-  const { shipName, state, prompt, crewLine, replacesUnclaimed, error, isOpen, onOpenChange, onConfirm } = props;
+  const { shipName, state, prompt, crewLines, replacesUnclaimed, error, isOpen, onOpenChange, onConfirm } = props;
   const isIssuing = state === 'issuing';
 
   return (
@@ -105,8 +98,8 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         <DialogHeader>
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
-            Paste it into the agent session that should crew this ship, or the crew line into Claude Code with the
-            aeolus plugin. Any earlier prompt for {shipName} stops working now.
+            Paste it into the agent session that should crew this ship, or a crew line into Claude Code or Codex with
+            the aeolus plugin. Any earlier prompt for {shipName} stops working now.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,8 +117,8 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
             <Skeleton className="h-40 w-full rounded-lg" />
           </div>
         ) : null}
-        {state === 'shown' && prompt !== undefined && crewLine !== undefined ? (
-          <IssuedPrompt shipName={shipName} prompt={prompt} crewLine={crewLine} />
+        {state === 'shown' && prompt !== undefined && crewLines !== undefined ? (
+          <IssuedPrompt shipName={shipName} prompt={prompt} crewLines={crewLines} />
         ) : null}
         {state === 'error' ? (
           <InlineError

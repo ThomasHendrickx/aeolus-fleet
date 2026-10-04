@@ -8,7 +8,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -37,7 +37,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   argo = operatorCaller(
-    unwrap(await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+    unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
   );
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -70,20 +70,20 @@ async function commissionedWithFleetScopes(
 ): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
   const name = `manager-${shipCount}`;
-  const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
+  const { shipId, secret } = unwrap(
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
   );
-  return { shipId, name, secret: secretIn(prompt) };
+  return { shipId, name, secret: secretOf(secret) };
 }
 
 /** A new agent ship, commissioned by argo: its id, name and the secret its starting prompt holds. */
 async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
   const name = `ship-${shipCount}`;
-  const { shipId, prompt } = unwrap(
-    await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
+  const { shipId, secret } = unwrap(
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
-  return { shipId, name, secret: secretIn(prompt) };
+  return { shipId, name, secret: secretOf(secret) };
 }
 
 const toolResultSchema = z.object({
@@ -205,7 +205,7 @@ describe('the ship tools at /mcp', () => {
     const session = await connect();
     const crewToken = await register(session, skiff);
     const { messageId } = unwrap(
-      await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).pingShip(argo, { shipId: skiff.shipId }),
+      await createUseCases({ prisma: database }).pingShip(argo, { shipId: skiff.shipId }),
     );
     const [ping] = (await call(session, { tool: tools.receive, arguments: { crewToken } })).deliveries;
 
@@ -265,7 +265,7 @@ describe('the ship tools at /mcp', () => {
 
     await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'blocked', note: 'waiting for review' } });
 
-    const listed = await createUseCases({ prisma: database, fleetUrl: FLEET_URL }).listFleet(argo);
+    const listed = await createUseCases({ prisma: database }).listFleet(argo);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
   });
 

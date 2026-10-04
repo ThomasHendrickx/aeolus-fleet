@@ -39,7 +39,7 @@ Every caller is a ship. A call is authorised by the caller's scopes, which live 
 
 | Context | Use cases |
 | --- | --- |
-| Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, re-crew ship (release and a new starting prompt in one transaction), retire ship, issue starting prompt, list fleet, get one ship |
+| Registry | Initialise fleet (creates `argo`), commission ship, rename ship, register session (claim lease), release ship, re-crew ship (release and a new starting prompt in one transaction), retire ship, issue starting prompt (core issues the secret only; the tRPC adapter presents the prompt, one crew line per harness and the secret, decision 0019), list fleet, get one ship |
 | Messaging | Send message, receive deliveries, check the inbox (count what the next receive would hand the crew, claiming nothing), acknowledge delivery, ping a ship and answer a ping with pong, resend or dismiss undeliverable, mark a message to `argo` read or done |
 | Shared (read models) | Read the fleet's events after a position (live updates); read a ship's timeline (events naming it or caused by it), its messages (sent, sent to it, or claimed by it as a ship of their type) and one message with its delivery's history from the event log |
 | Identity | Verify crew token (returns ship, fleet, kind and scopes), console sign in with email and password (takes `argo`'s lease over), sign out, reset operator password (server command), verify console session |

@@ -99,8 +99,6 @@ export function registryUseCases(core: InMemoryCore) {
     clock: core.clock,
     ids: core.ids,
     secrets: { hasher: core.hasher, random: core.random },
-    mcpUrl: FLEET_MCP_URL,
-    fleetUrl: FLEET_URL,
   };
   return {
     commissionShip: createCommissionShip(deps),
@@ -167,6 +165,14 @@ export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): Delivery
     throw new Error(`The send of ${messageId} stored no delivery`);
   }
   return delivery.id;
+}
+
+/** The ship secret a use case issued; a commission that comes again issues none. */
+export function secretOf(secret: string | null): string {
+  if (secret === null) {
+    throw new Error('No ship secret was issued');
+  }
+  return secret;
 }
 
 /** The ship secret a starting prompt holds. */

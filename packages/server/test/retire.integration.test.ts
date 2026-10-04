@@ -6,7 +6,7 @@ import { createSendMessage } from '../src/core/messaging/send-message.js';
 import { createRetireShip } from '../src/core/registry/retire-ship.js';
 import type { Caller, Crew } from '../src/core/shared/caller.js';
 import type { Selector } from '../src/core/shared/selector.js';
-import { OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
@@ -30,9 +30,9 @@ beforeEach(async () => {
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const scout = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = scout.shipId;
-  scoutSecret = secretIn(scout.prompt);
+  scoutSecret = secretOf(scout.secret);
   const lookoutShip = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
-  lookout = await crew(lookoutShip.shipId, secretIn(lookoutShip.prompt));
+  lookout = await crew(lookoutShip.shipId, secretOf(lookoutShip.secret));
 });
 
 afterEach(async () => {
@@ -174,6 +174,6 @@ describe('re-crewing a ship on Postgres', () => {
 
     await expect(core.useCases.receiveDeliveries(scout, {})).resolves.toMatchObject({ error: { kind: 'LEASE_ENDED' } });
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'pending' });
-    await expect(crew(scoutId, secretIn(issued.prompt))).resolves.toMatchObject({ shipId: scoutId });
+    await expect(crew(scoutId, secretOf(issued.secret))).resolves.toMatchObject({ shipId: scoutId });
   });
 });

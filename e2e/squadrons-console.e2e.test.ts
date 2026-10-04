@@ -13,7 +13,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/server/src/ad
 import { createApp } from '../packages/server/src/app.js';
 import type { Caller } from '../packages/server/src/core/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { newKey } from '../packages/server/test/support/keys.js';
 import { createTestClock } from '../packages/server/test/support/postgres-core.js';
@@ -76,7 +76,7 @@ beforeAll(async () => {
 
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  useCases = createUseCases({ prisma: database, clock, fleetUrl: FLEET_URL });
+  useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const management = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
@@ -94,7 +94,7 @@ beforeAll(async () => {
     clock,
     logger: false,
   });
-  unwrap(await squadrons.connect({ operatorFleetId: argo.fleetId, shipId: management.shipId, secret: secretIn(management.prompt) }));
+  unwrap(await squadrons.connect({ operatorFleetId: argo.fleetId, shipId: management.shipId, secret: secretOf(management.secret) }));
   await squadrons.refreshCatalogue();
   squadrons.startFlagships(200);
   const squadronsUrl = await squadrons.server.listen({ host: '127.0.0.1', port: 0 });
@@ -179,7 +179,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadron-header').waitFor();
     await expect(page.getByTestId('station-progress').textContent()).resolves.toBe('0 of 1 on station');
     await page.getByText('Start in the repository root.').waitFor();
-    const crewLine = (await page.getByTestId('member-crew-line').textContent()) ?? '';
+    const crewLine = (await page.getByTestId('member-crew-line-claude-code').textContent()) ?? '';
     expect(crewLine).toMatch(/^\/aeolus:crew \S+ shp_\S+ aeolus_sk_v1_\S+ team-[a-z0-9]{6}$/);
     const squadronId = crewLine.split(' ')[4] ?? '';
 
@@ -189,7 +189,7 @@ describe('the first squadron in the console', () => {
 
     await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('On time').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await expect(page.getByTestId('member-crew-line').count()).resolves.toBe(0);
+    await expect(page.getByTestId('member-crew-line-claude-code').count()).resolves.toBe(0);
     // From the fleet: where the member's session runs, and its open deliveries.
     await page.getByTestId('member-row').getByText('Device').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('member-inbox').textContent()).resolves.toMatch(/^\d+ open$/);
@@ -403,7 +403,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadrons-form').click();
     await page.getByTestId('form-squadron-preview').click();
     await page.getByTestId('form-squadron-submit').click();
-    const crewLine = (await page.getByTestId('member-crew-line').textContent()) ?? '';
+    const crewLine = (await page.getByTestId('member-crew-line-claude-code').textContent()) ?? '';
     const squadronId = crewLine.split(' ')[4] ?? '';
     grownSquadronId = squadronId;
     await bringOnStation({ call: await crewed(crewLine), squadronId });
@@ -415,7 +415,7 @@ describe('the first squadron in the console', () => {
 
     await page.getByTestId('crew-line-dialog').getByRole('heading', { name: /^Crew line for tester-[a-z0-9]{4}$/ }).waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('crew-line-launch-note').textContent()).resolves.toBe('Start in the repository root.');
-    await expect(page.getByTestId('crew-line-text').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${squadronId}$`));
+    await expect(page.getByTestId('crew-line-text-claude-code').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${squadronId}$`));
     await page.getByTestId('crew-line-done').click();
     await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
@@ -428,10 +428,10 @@ describe('the first squadron in the console', () => {
     await added.getByTestId('member-new-crew-line').click();
     await expect(page.getByTestId('crew-line-replaced').textContent()).resolves.toBe('The crew line issued earlier, not claimed yet, stops working.');
 
-    await expect(page.getByTestId('crew-line-text').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${grownSquadronId}$`));
+    await expect(page.getByTestId('crew-line-text-claude-code').textContent()).resolves.toMatch(new RegExp(`^/aeolus:crew \\S+ shp_\\S+ aeolus_sk_v1_\\S+ ${grownSquadronId}$`));
     await expect(page.getByTestId('crew-line-launch-note').textContent()).resolves.toBe('Start in the repository root.');
     await page.getByTestId('crew-line-done').click();
-    await expect(page.getByTestId('crew-line-text').count()).resolves.toBe(0);
+    await expect(page.getByTestId('crew-line-text-claude-code').count()).resolves.toBe(0);
   });
 
   it('removes a member with a clean inbox after one normal confirm: its ship retires and the squadron keeps sailing', async () => {

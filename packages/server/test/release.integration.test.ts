@@ -15,7 +15,7 @@ import type { Result } from '../src/core/shared/result.js';
 import type { Selector } from '../src/core/shared/selector.js';
 import type { UnitOfWork } from '../src/core/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from './support/core-fixtures.js';
+import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
@@ -74,18 +74,14 @@ beforeEach(async () => {
     },
   });
   await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, fleetUrl: FLEET_URL, wakeups, receiveWaitMs: WAIT_MS });
+  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  const { shipId: scoutId, prompt: scoutPrompt } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }),
-  );
-  scout = await register(scoutId, scoutPrompt ?? '');
-  const { shipId: lookoutId, prompt: lookoutPrompt } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }),
-  );
-  lookout = await register(lookoutId, lookoutPrompt ?? '');
+  const scoutShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  scout = await register(scoutShip.shipId, secretOf(scoutShip.secret));
+  const lookoutShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+  lookout = await register(lookoutShip.shipId, secretOf(lookoutShip.secret));
 });
 
 afterEach(async () => {
@@ -94,8 +90,7 @@ afterEach(async () => {
 });
 
 /** A session claims the ship with the secret its starting prompt holds. */
-async function register(shipId: Crew['shipId'], prompt: string): Promise<Crewed> {
-  const secret = secretIn(prompt);
+async function register(shipId: Crew['shipId'], secret: string): Promise<Crewed> {
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   const crew = unwrap(await useCases.authenticate.byCrewToken(crewToken));
   return { crew, crewToken, secret };
@@ -104,8 +99,8 @@ async function register(shipId: Crew['shipId'], prompt: string): Promise<Crewed>
 /** A new starting prompt for the crew's ship, and a new session claiming it with its secret. */
 async function nextCrewOf(crewed: Crewed): Promise<Crewed> {
   const { shipId } = crewed.crew;
-  const { prompt } = unwrap(await useCases.getStartingPrompt(argo, { shipId }));
-  return register(shipId, prompt);
+  const { secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId }));
+  return register(shipId, secret);
 }
 
 const toShip = (crewed: Crewed): Selector => ({ kind: 'ship', shipId: crewed.crew.shipId });

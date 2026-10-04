@@ -38,7 +38,7 @@ function fakes(start: { ships?: FleetShip[]; connection?: SquadronsConnection } 
       const ship: FleetShip = { id: `shp_${String(next)}`, name, type, status: 'awaitingCrew', secret: `aeolus_sk_v1_${String(next)}` };
       state.ships.push(ship);
       state.done.push(`commission ${name}`);
-      return Promise.resolve({ shipId: ship.id, crewLine: `/aeolus:crew https://fleet.example.com ${ship.id} ${String(ship.secret)}` });
+      return Promise.resolve({ shipId: ship.id, secret: ship.secret });
     },
     release: (shipId) => {
       const ship = state.ships.find((each) => each.id === shipId);
@@ -56,7 +56,7 @@ function fakes(start: { ships?: FleetShip[]; connection?: SquadronsConnection } 
       }
       ship.secret = `aeolus_sk_v1_new-${shipId}`;
       state.done.push(`new prompt ${shipId}`);
-      return Promise.resolve({ crewLine: `/aeolus:crew https://fleet.example.com ${shipId} ${ship.secret}` });
+      return Promise.resolve({ secret: ship.secret });
     },
   };
   return { state, calls };

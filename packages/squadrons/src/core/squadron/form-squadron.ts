@@ -1,4 +1,4 @@
-import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type ShipId } from '@aeolus-fleet/common';
+import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type ShipId } from '@aeolus-fleet/common';
 
 import type { Catalogue, TemplateReference } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
@@ -6,6 +6,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
+import { withSquadronId } from './crew-lines.js';
 import { beginFormation } from './formation.js';
 import type { Member } from './squadron.js';
 
@@ -19,8 +20,8 @@ export type FormRefusal = DomainError<
 export interface FormedSquadron {
   squadronId: string;
   flagship: { shipId: ShipId; name: string };
-  /** Each member with its crew line, launch note and pinned model: shown once, never stored. */
-  members: { shipId: ShipId; name: string; role: string; crewLine: string; launchNote: string | null; model: string | null }[];
+  /** Each member with its crew lines, launch note and pinned model: shown once, never stored. */
+  members: { shipId: ShipId; name: string; role: string; crewLines: CrewLine[]; launchNote: string | null; model: string | null }[];
 }
 
 export type FormSquadron = (input: {
@@ -32,18 +33,13 @@ function isHandle(value: string): boolean {
   return value.length <= SHIP_HANDLE_MAX_LENGTH && SHIP_HANDLE_PATTERN.test(value);
 }
 
-/** The ship's secret: the crew line is `/aeolus:crew <fleetUrl> <shipId> <secret>`. */
-function secretIn(crewLine: string): string {
-  return crewLine.trim().split(/\s+/).at(-1) ?? '';
-}
-
 /**
  * Use case: the operator forms a squadron from a blueprint version (#86, B2;
  * docs/squadrons.md, "Names"). Through the fleet's API, as its management
  * ship, squadrons commissions the flagship, named as the squadron and of type
  * `flagship`, and crews it at once with its secret; then each role's members,
  * `<role>-<4 random>` (or `<squadron>:<role>-<n>` when the blueprint chooses
- * prefixed names), of type `<squadron>:<role>`. Each member's crew line gets
+ * prefixed names), of type `<squadron>:<role>`. Each member's crew lines get
  * the squadron id and goes back once with its template's launch note;
  * squadrons keeps no member secret. The squadron is stored Forming, with the
  * blueprint and templates as they were. A step the fleet refuses retires every
@@ -94,7 +90,7 @@ export function createFormSquadron(deps: {
     if (!flagship.isOk) {
       return failed(flagship.error);
     }
-    const crewed = await deps.door.register({ shipId: flagship.value.shipId, secret: secretIn(flagship.value.crewLine) });
+    const crewed = await deps.door.register({ shipId: flagship.value.shipId, secret: flagship.value.secret });
     if (!crewed.isOk) {
       return failed(crewed.error);
     }
@@ -111,9 +107,9 @@ export function createFormSquadron(deps: {
         if (!member.isOk) {
           return failed(member.error);
         }
-        const { shipId, name: memberName, crewLine } = member.value;
+        const { shipId, name: memberName, crewLines } = member.value;
         members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null });
-        lines.push({ shipId, name: memberName, role: role.name, crewLine: `${crewLine} ${squadronId}`, launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
+        lines.push({ shipId, name: memberName, role: role.name, crewLines: withSquadronId(crewLines, squadronId), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
       }
     }
 

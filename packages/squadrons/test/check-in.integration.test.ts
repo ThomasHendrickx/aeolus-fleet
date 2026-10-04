@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { createApp } from '../../server/src/app.js';
 import { createPrismaClient, type PrismaClient } from '../../server/src/adapters/prisma/client.js';
 import { createUseCases } from '../../server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn } from '../../server/test/support/core-fixtures.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
@@ -82,9 +82,9 @@ beforeEach(async () => {
 
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
-  const useCases = createUseCases({ prisma: fleetDatabase, fleetUrl: FLEET_URL });
+  const useCases = createUseCases({ prisma: fleetDatabase });
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const { shipId, prompt } = unwrap(
+  const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
@@ -98,7 +98,7 @@ beforeEach(async () => {
     cacheDir: join(work, 'cache'),
     logger: false,
   });
-  unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretIn(prompt) }));
+  unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) }));
   await app.refreshCatalogue();
   address = await app.server.listen({ host: '127.0.0.1', port: 0 });
   app.startFlagships(200);
@@ -117,7 +117,7 @@ const formedSchema = z.object({
     data: z.object({
       squadronId: z.string(),
       flagship: z.object({ shipId: z.string(), name: z.string() }),
-      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() })),
+      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable(), model: z.string().nullable() })),
     }),
   }),
 });
@@ -169,7 +169,7 @@ async function squadronState(squadronId: string): Promise<string | undefined> {
 describe('the check-in at the flagship', () => {
   it("answers a member's check-in with its role and charter, and sails the squadron when the member confirms", async () => {
     const formed = await formTeam('team-one');
-    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
 
     await member.call('send', {
       selector: { kind: 'ship', name: 'team-one' },
@@ -209,7 +209,7 @@ describe('the check-in at the flagship', () => {
   it('shows a model mismatch on a member that checks in stating another model than its template pins', async () => {
     const formed = await formTeam('team-two');
     expect(formed.members[0]?.model).toBe('claude-opus-5-5');
-    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
 
     await member.call('send', {
       selector: { kind: 'ship', name: 'team-two' },
@@ -235,7 +235,7 @@ describe('the check-in at the flagship', () => {
 describe('a message the flagship does not handle', () => {
   it('is kept for the squadron page, and argo is told of it in its inbox', async () => {
     const formed = await formTeam('team-two');
-    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
 
     await member.call('send', { selector: { kind: 'ship', name: 'team-two' }, payload: 'Can I take the login task?', idempotencyKey: 'plain-1' });
 
@@ -260,7 +260,7 @@ describe('a message the flagship does not handle', () => {
 describe('standing a squadron down', () => {
   it('sends the member its stand-down, retires it once it stood down, then retires the flagship: the squadron is disbanded', async () => {
     const formed = await formTeam('team-three');
-    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
     await member.call('send', {
       selector: { kind: 'ship', name: 'team-three' },
       contentType: ON_STATION,
@@ -339,9 +339,9 @@ describe('forcing a stand down', () => {
 });
 
 describe('adding a member', () => {
-  it('commissions a member of a sailing squadron, answers its crew line with the squadron id once, and lists it not on station', async () => {
+  it('commissions a member of a sailing squadron, answers its crew lines with the squadron id once, and lists it not on station', async () => {
     const formed = await formTeam('team-six');
-    const member = await crewedMember(formed.members[0]?.crewLine ?? '');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
     await member.call('send', {
       selector: { kind: 'ship', name: 'team-six' },
       contentType: ON_STATION,
@@ -357,8 +357,11 @@ describe('adding a member', () => {
     });
 
     expect(response.status, await response.clone().text()).toBe(200);
-    const added = z.object({ result: z.object({ data: z.object({ name: z.string(), crewLine: z.string(), launchNote: z.string().nullable() }) }) }).parse(await response.json()).result.data;
-    expect(added.crewLine.split(' ').at(-1)).toBe('team-six');
+    const added = z.object({ result: z.object({ data: z.object({ name: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() }) }) }).parse(await response.json()).result.data;
+    expect(added.crewLines.map(({ harness, line }) => [harness, line.split(' ').at(-1)])).toEqual([
+      ['claude-code', 'team-six'],
+      ['codex', 'team-six'],
+    ]);
     expect(added.launchNote).toBe('Start in the repository root.');
     const listed = z
       .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ name: z.string(), health: z.string() })) })) }) })
@@ -373,7 +376,7 @@ describe('removing a member', () => {
   it('retires the member of a sailing squadron at once, and the list shows its ship retired', async () => {
     const formed = await formTeam('team-seven');
     const [first] = formed.members;
-    const member = await crewedMember(first?.crewLine ?? '');
+    const member = await crewedMember(first?.crewLines[0]?.line ?? '');
     await member.call('send', {
       selector: { kind: 'ship', name: 'team-seven' },
       contentType: ON_STATION,
@@ -404,7 +407,7 @@ describe("a member's new crew line", () => {
   it('releases the member from its session and answers a crew line with the squadron id, which claims the ship', async () => {
     const formed = await formTeam('team-eight');
     const [first] = formed.members;
-    await crewedMember(first?.crewLine ?? '');
+    await crewedMember(first?.crewLines[0]?.line ?? '');
 
     const response = await fetch(`${address}/trpc/squadrons.newCrewLine`, {
       method: 'POST',
@@ -413,8 +416,8 @@ describe("a member's new crew line", () => {
     });
 
     expect(response.status, await response.clone().text()).toBe(200);
-    const answered = z.object({ result: z.object({ data: z.object({ crewLine: z.string(), launchNote: z.string().nullable(), model: z.string().nullable() }) }) }).parse(await response.json()).result.data;
-    const [, , shipId = '', secret = '', squadronId] = answered.crewLine.split(' ');
+    const answered = z.object({ result: z.object({ data: z.object({ crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable(), model: z.string().nullable() }) }) }).parse(await response.json()).result.data;
+    const [, , shipId = '', secret = '', squadronId] = answered.crewLines[0]?.line.split(' ') ?? [];
     expect(squadronId).toBe('team-eight');
     expect(answered).toMatchObject({ launchNote: 'Start in the repository root.', model: 'claude-opus-5-5' });
     const registered = await fetch(`${fleetUrl}/api/v1/ship/register`, {

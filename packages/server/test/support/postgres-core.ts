@@ -3,7 +3,6 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../../src/adapters/prisma
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { UnitOfWork } from '../../src/core/shared/unit-of-work.js';
 import { createUseCases, type UseCases } from '../../src/wiring.js';
-import { FLEET_URL } from './core-fixtures.js';
 import { createMigratedDatabase } from './database.js';
 
 export interface TestClock extends Clock {
@@ -41,7 +40,7 @@ export async function createPostgresCore(): Promise<PostgresCore> {
     databaseUrl,
     prisma,
     clock,
-    useCases: createUseCases({ prisma, clock, fleetUrl: FLEET_URL }),
+    useCases: createUseCases({ prisma, clock }),
     close: () => prisma.$disconnect(),
   };
 }

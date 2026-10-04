@@ -36,7 +36,7 @@ function tabOf(value: unknown): Tab {
 /**
  * Squadrons: every squadron of the fleet, searched and filtered in the URL,
  * and Form squadron, which opens the new squadron's page with each member's
- * crew line and launch note. Tabs (in the URL) show the blueprints and the
+ * crew lines and launch note. Tabs (in the URL) show the blueprints and the
  * templates in git, read only.
  */
 export default function SquadronsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
