@@ -353,3 +353,28 @@ model ConsoleSession {
   @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: { endedAt: null })
   @@map("console_sessions")
 }
+
+enum InstallationRequestKind {
+  createFleet @map("create_fleet")
+  deleteFleet @map("delete_fleet")
+
+  @@map("installation_request_kind")
+}
+
+/// A create or delete of a fleet the installation carried out, under its caller's
+/// request id, so a replay answers the same (decision 0020). It belongs to the
+/// installation, not to a fleet, and keeps the request as a hash only. A create's
+/// row names the fleet and argo it answers with and is deleted with that fleet; a
+/// delete's row names nothing of the fleet.
+model InstallationRequest {
+  requestId      String                  @id @map("request_id")
+  kind           InstallationRequestKind
+  requestHash    String                  @map("request_hash")
+  /// The created fleet and its argo; null for a delete.
+  fleetId        String?                 @map("fleet_id")
+  operatorShipId String?                 @map("operator_ship_id")
+  at             DateTime                @db.Timestamptz(3)
+
+  @@index([fleetId])
+  @@map("installation_requests")
+}

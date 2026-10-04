@@ -28,6 +28,9 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       return row === undefined ? undefined : toFleet(row);
     },
     delete: async (fleetId) => {
+      // Events are append-only; naming the fleet for this transaction alone lets
+      // its events go with it, and no other fleet's (decision 0020).
+      await db.$queryRaw`SELECT set_config('aeolus.deleting_fleet', ${fleetId}, true)`;
       // Children first: every foreign key restricts deletes. A message may answer
       // or resend another of the fleet, so those links go before the messages.
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
@@ -39,6 +42,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
+      // The request that created the fleet names it, so it goes too; a delete's record names nothing of it.
+      await db.$executeRaw`DELETE FROM installation_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
     },
   };

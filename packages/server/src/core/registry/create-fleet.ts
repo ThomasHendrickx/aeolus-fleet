@@ -4,9 +4,11 @@ import { operatorEmail } from '../identity/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
+import type { SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { fleetName } from './fleet.js';
 import { foundFleet, type FoundFleetTx } from './found-fleet.js';
+import { installationRequestText } from './installation-request.js';
 import type { InstallationRequestRepository } from './ports.js';
 
 export interface CreateFleetTx extends FoundFleetTx {
@@ -30,7 +32,7 @@ export type CreateFleet = (input: { requestId: string; name: string; operatorEma
  * unique across the installation. Under its request id it runs once: a replay
  * answers the same fleet, and a different create under that id is refused.
  */
-export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock: Clock; ids: IdGenerator }): CreateFleet {
+export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock: Clock; ids: IdGenerator; hasher: SecretHasher }): CreateFleet {
   return async (input) => {
     const named = fleetName(input.name);
     if (!named.isOk) {
@@ -41,12 +43,13 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
       return email;
     }
     const name = named.value;
+    const requestHash = deps.hasher.hash(installationRequestText(['createFleet', name, email.value]));
 
     return deps.uow.run(async (tx): Promise<Result<FleetCreated, CreateFleetRefusal>> => {
       await tx.installationRequests.lock(input.requestId);
       const earlier = await tx.installationRequests.find(input.requestId);
       if (earlier) {
-        return earlier.kind === 'createFleet' && earlier.name === name && earlier.operatorEmail === email.value
+        return earlier.kind === 'createFleet' && earlier.requestHash === requestHash
           ? ok({ fleetId: earlier.fleetId, operatorShipId: earlier.operatorShipId })
           : refuse('IDEMPOTENCY_KEY_REUSED', 'This request id was used for another request: use a new one for every request');
       }
@@ -58,7 +61,7 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
 
       const at = deps.clock.now();
       const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { name, email: email.value, passwordHash: null, at });
-      await tx.installationRequests.record({ requestId: input.requestId, at, kind: 'createFleet', fleetId, name, operatorEmail: email.value, operatorShipId });
+      await tx.installationRequests.record({ requestId: input.requestId, at, requestHash, kind: 'createFleet', fleetId, operatorShipId });
       return ok({ fleetId, operatorShipId });
     });
   };

@@ -212,6 +212,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           const rows: { fleetId: FleetId }[] = state[table];
           rows.splice(0, rows.length, ...rows.filter((row) => row.fleetId !== fleetId));
         }
+        const { installationRequests } = state;
+        installationRequests.splice(
+          0,
+          installationRequests.length,
+          ...installationRequests.filter((request) => request.kind !== 'createFleet' || request.fleetId !== fleetId),
+        );
         return Promise.resolve();
       },
     },

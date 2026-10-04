@@ -28,8 +28,9 @@ export interface FleetRepository {
   findForUpdate(fleetId: FleetId): Promise<Fleet | undefined>;
   /**
    * Deletes the fleet and every record in it, for good: its ships, leases,
-   * secrets, operator account and console sessions, messages, deliveries and
-   * events (decision 0020).
+   * secrets, operator account and console sessions, messages, deliveries,
+   * events, and the installation's record of the request that created it
+   * (decision 0020).
    */
   delete(fleetId: FleetId): Promise<void>;
 }

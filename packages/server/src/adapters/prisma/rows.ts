@@ -223,7 +223,7 @@ const operatorAccountSqlRow = z
     id: idSchema('operator'),
     fleet_id: idSchema('fleet'),
     email: z.string(),
-    password_hash: z.string(),
+    password_hash: z.string().nullable(),
     theme: themeSchema,
     created_at: z.date(),
   })

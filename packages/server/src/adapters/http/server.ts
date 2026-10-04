@@ -16,6 +16,12 @@ import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
 import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
 import { runningVersions } from './version.js';
+import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation.js';
+
+/** A header's one value: a header sent twice counts as not sent. */
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
 
 /** Ten sign-in attempts per client per minute. */
 export const DEFAULT_SIGN_IN_RATE_LIMIT: RateLimit = { limit: 10, windowMs: 60_000 };
@@ -46,6 +52,8 @@ export interface HttpServerOptions {
   cookieDomain?: string;
   /** Where ships reach the fleet, the public URL: what starting prompts and crew lines carry. */
   fleetUrl: string;
+  /** The installation token that opens the installation procedures; unset, they are off. */
+  installationToken?: string;
   /**
    * The console's origin: state-changing console calls come only from it, and
    * a console on another host may call from it with credentials (CORS).
@@ -176,11 +184,13 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
 
   /** A call's context: who it says it is, how it may say so at this door, and where it came from. */
   const contextFor = (
-    request: Pick<FastifyRequest, 'headers' | 'ip' | 'id'>,
+    request: Pick<FastifyRequest, 'headers' | 'ip' | 'id' | 'log'>,
     caller: { credentials: RequestCredentials; canUseConsoleSession: boolean; sessionCookie: SessionCookie },
   ): Context => ({
     useCases: options.useCases,
     fleetUrl: options.fleetUrl,
+    installation: { configured: options.installationToken, presented: headerValue(request.headers[INSTALLATION_TOKEN_HEADER]) },
+    log: request.log,
     fleetEvents,
     ...caller,
     userAgent: request.headers['user-agent'],
@@ -242,6 +252,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             headers: req.headers,
             ip: req.socket.remoteAddress ?? '',
             id: randomUUID(),
+            log: server.log,
           },
           {
             credentials: { sessionToken: readSessionToken(req.headers.cookie) },
