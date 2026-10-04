@@ -77,7 +77,9 @@ describe('a console without squadrons', () => {
     await page.keyboard.press('Escape');
     await page.getByTestId('nav-attention').click();
     await page.getByRole('heading', { name: 'Needs attention' }).first().waitFor();
-    await page.getByTestId('nav-settings').click();
+    // Settings holds squadrons alone: without them it is not offered, and opened by its address it shows nothing of them.
+    await expect(page.getByTestId('nav-settings').count()).resolves.toBe(0);
+    await page.goto('/settings');
     await page.getByRole('heading', { name: 'Settings' }).first().waitFor();
 
     expect(shown.every((count) => count === 1)).toBe(true);

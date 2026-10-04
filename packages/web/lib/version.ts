@@ -9,11 +9,16 @@ const serverVersionSchema = z.object({
   migration: z.string().nullable(),
 });
 
-/** What squadrons' /api/version answers: the version its process runs, its latest migration and whether it is connected. */
+/**
+ * What squadrons' /api/version answers: the version its process runs, its
+ * latest migration, how many fleets it holds a crew token for, and whether its
+ * installation token is set.
+ */
 const squadronsVersionSchema = z.object({
   squadrons: z.string(),
   migration: z.string().nullable(),
-  connection: z.enum(['connected', 'not-connected']),
+  connectedFleets: z.int().min(0),
+  installation: z.enum(['enabled', 'open']),
 });
 
 export interface WebVersion {

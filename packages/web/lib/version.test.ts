@@ -37,7 +37,7 @@ describe('webVersion', () => {
   });
 
   it("passes on squadrons' own answer when the console has squadrons", async () => {
-    const squadrons = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connection: 'connected' };
+    const squadrons = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connectedFleets: 2, installation: 'enabled' };
 
     await expect(webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchSquadronsVersion: serverSays(200, squadrons), web: '0.7.0' })).resolves.toEqual({
       web: '0.7.0',

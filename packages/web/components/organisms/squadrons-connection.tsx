@@ -30,7 +30,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading squadrons" />;
   }
-  if (!settings.configured) {
+  if (!settings.configured || !settings.connection.isEnabled) {
     return null;
   }
   return (

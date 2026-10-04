@@ -15,7 +15,7 @@ interface FleetShip {
 function fakes(start: { ships?: FleetShip[]; connection?: SquadronsConnection } = {}) {
   const state = {
     ships: start.ships ?? [],
-    connection: start.connection ?? { state: 'not-connected', ship: null, lastShipId: null },
+    connection: start.connection ?? { isEnabled: true, state: 'not-connected', ship: null, lastShipId: null },
     done: new Array<string>(),
     handedOver: new Array<{ shipId: string; secret: string }>(),
   };
@@ -29,7 +29,7 @@ function fakes(start: { ships?: FleetShip[]; connection?: SquadronsConnection } 
         return Promise.reject(new Error('BAD_REQUEST'));
       }
       ship.status = 'crewed';
-      state.connection = { state: 'connected', ship: { shipId: ship.id, name: ship.name }, lastShipId: ship.id };
+      state.connection = { isEnabled: true, state: 'connected', ship: { shipId: ship.id, name: ship.name }, lastShipId: ship.id };
       return Promise.resolve(state.connection);
     },
     ships: () => Promise.resolve(state.ships.map(({ id, name, type, status }) => ({ id, name, type, status }))),
@@ -76,14 +76,14 @@ describe('connecting squadrons from the console', () => {
   it('commissions the management ship, squadrons of type squadrons, and hands its secret to squadrons', async () => {
     const { state, calls } = fakes();
 
-    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ state: 'connected', ship: { name: 'squadrons' } });
+    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ isEnabled: true, state: 'connected', ship: { name: 'squadrons' } });
 
     expect(state.done).toEqual(['commission squadrons']);
     expect(state.handedOver).toEqual([{ shipId: 'shp_1', secret: 'aeolus_sk_v1_1' }]);
   });
 
   it('does nothing while squadrons is connected', async () => {
-    const connected: SquadronsConnection = { state: 'connected', ship: { shipId: 'shp_9', name: 'squadrons' }, lastShipId: 'shp_9' };
+    const connected: SquadronsConnection = { isEnabled: true, state: 'connected', ship: { shipId: 'shp_9', name: 'squadrons' }, lastShipId: 'shp_9' };
     const { state, calls } = fakes({ connection: connected });
 
     await expect(connectSquadrons(calls, newKey)).resolves.toEqual(connected);
@@ -93,24 +93,24 @@ describe('connecting squadrons from the console', () => {
   it('releases the ship squadrons was last connected as, whose session is gone, and gives it a new starting prompt', async () => {
     const { state, calls } = fakes({
       ships: [{ id: 'shp_7', name: 'squadrons', type: 'squadrons', status: 'crewed', secret: null }],
-      connection: { state: 'not-connected', ship: null, lastShipId: 'shp_7' },
+      connection: { isEnabled: true, state: 'not-connected', ship: null, lastShipId: 'shp_7' },
     });
 
-    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ state: 'connected', lastShipId: 'shp_7' });
+    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ isEnabled: true, state: 'connected', lastShipId: 'shp_7' });
     expect(state.done).toEqual(['release shp_7', 'new prompt shp_7']);
   });
 
   it('gives an active squadrons ship awaiting crew a new starting prompt: a connect that failed halfway is finished', async () => {
     const { state, calls } = fakes({ ships: [{ id: 'shp_3', name: 'squadrons', type: 'squadrons', status: 'awaitingCrew', secret: 'lost' }] });
 
-    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ state: 'connected' });
+    await expect(connectSquadrons(calls, newKey)).resolves.toMatchObject({ isEnabled: true, state: 'connected' });
     expect(state.done).toEqual(['new prompt shp_3']);
   });
 
   it('commissions a new one when the last one was retired', async () => {
     const { state, calls } = fakes({
       ships: [{ id: 'shp_7', name: 'squadrons', type: 'squadrons', status: 'retired', secret: null }],
-      connection: { state: 'not-connected', ship: null, lastShipId: 'shp_7' },
+      connection: { isEnabled: true, state: 'not-connected', ship: null, lastShipId: 'shp_7' },
     });
 
     await connectSquadrons(calls, newKey);
