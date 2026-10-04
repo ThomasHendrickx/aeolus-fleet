@@ -14,7 +14,7 @@ import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../lib/squadrons';
-import { useAddRepository, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../lib/squadrons-api';
+import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../lib/squadrons-api';
 
 /** Settings: the installation's own settings, argo's alone: with squadrons, connecting it, and once connected, the repositories it reads; without, nothing of squadrons. */
 export default function SettingsPage() {
@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
+  const catalogue = useCatalogue();
   const addRepository = useAddRepository();
   const removeRepository = useRemoveRepository();
   const refreshCatalogue = useRefreshCatalogue();
@@ -67,6 +68,7 @@ export default function SettingsPage() {
       {connection === 'connected' && (
         <TemplateRepositories
           repositories={repositories.data ?? []}
+          {...(catalogue.data === undefined ? {} : { catalogue: catalogue.data })}
           state={repositories.isError ? 'error' : repositories.data ? 'ready' : 'loading'}
           error={repositories.error?.message}
           onRetry={() => {

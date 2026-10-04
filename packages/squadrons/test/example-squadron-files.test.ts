@@ -48,11 +48,11 @@ describe('the example squadron files', () => {
     const names = Object.keys(files).map((path) => path.replace(/^.*\/([^/]+)\.yaml$/, '$1'));
     github.repositories.set(REPOSITORY.owner, { tags: tagsAt({ files }, ...names.map((name) => `${name}@1`)) });
 
-    const { files: read } = await createGithubRepositoryReader({ apiUrl: github.apiUrl }).read(
+    const { files: read, tags } = await createGithubRepositoryReader({ apiUrl: github.apiUrl }).read(
       [{ fleetId: FLEET, name: REPOSITORY.name, url: `https://${REPOSITORY.name}`, path: DEFAULT_PATH, token: null }],
       { fetch: () => true },
     );
-    const catalogue = assembleCatalogue(read);
+    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags });
 
     expect(catalogue.problems).toEqual([]);
     expect(catalogue.templates.map((template) => `${template.name}@${String(template.version)}`).sort()).toEqual(['implementer@1', 'planner@1', 'reviewer@1', 'tester@1']);

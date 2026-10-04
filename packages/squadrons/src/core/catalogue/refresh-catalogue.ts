@@ -40,10 +40,10 @@ export function createRefreshCatalogue(deps: RefreshDeps): RefreshCatalogue {
 async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId; scope: RefreshScope }): Promise<void> {
   const repositories = await deps.store.list(fleetId);
   const isFetched = (name: string): boolean => scope === 'all' || (typeof scope === 'object' && scope.name === name);
-  const { files, fetched } = await deps.source.read(repositories, { fetch: isFetched });
+  const { files, tags, fetched } = await deps.source.read(repositories, { fetch: isFetched });
   const at = deps.clock.now();
   for (const { name, error } of fetched) {
     await deps.store.recordFetch(fleetId, { name, at, error });
   }
-  deps.holder.set(fleetId, assembleCatalogue(files));
+  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags }));
 }

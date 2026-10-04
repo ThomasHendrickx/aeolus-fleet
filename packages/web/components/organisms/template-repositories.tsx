@@ -1,10 +1,11 @@
 'use client';
 
-import { CircleAlert, KeyRound, Plus, RotateCw } from 'lucide-react';
+import { CircleAlert, KeyRound, Plus, RotateCw, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { relativeTime } from '../../lib/relative-time';
-import type { TemplateRepository } from '../../lib/squadrons-api';
+import { leftOutLabel, repositoryContents, type NamedVersions, type RepositoryContents } from '../../lib/repository';
+import type { Catalogue, TemplateRepository } from '../../lib/squadrons-api';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -28,6 +29,8 @@ const DEFAULT_PATH = '.aeolus/squadrons';
 
 interface TemplateRepositoriesProps {
   repositories: readonly TemplateRepository[];
+  /** What squadrons read from them; undefined until it is loaded. */
+  catalogue?: Catalogue;
   state: 'loading' | 'error' | 'ready';
   /** Why the list could not be read. */
   error?: string;
@@ -126,7 +129,51 @@ function AddRepository({ isAdding, addError, onAdd }: Pick<TemplateRepositoriesP
   );
 }
 
-function RepositoryRow({ repository, now, onRemove }: { repository: TemplateRepository; now: Date; onRemove: () => void }) {
+/** Templates as tester@1, 2; blueprints as team v1, v2: how the console shows their versions elsewhere. */
+function versionsLine(named: readonly NamedVersions[], kind: 'template' | 'blueprint'): string {
+  return named.map(({ name, versions }) => (kind === 'template' ? `${name}@${versions.join(', ')}` : `${name} v${versions.join(', v')}`)).join(' · ');
+}
+
+/** What squadrons found in a repository it fetched, and every version or tag it left out with why, so the operator can fix it in git. */
+function RepositoryFindings({ contents, path }: { contents: RepositoryContents; path: string }) {
+  const { templates, blueprints, leftOut } = contents;
+  return (
+    <>
+      <dl data-testid="repositories-found" className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-meta">
+        {templates.length === 0 && blueprints.length === 0 ? (
+          <>
+            <dt className="text-muted-foreground">Found</dt>
+            <dd>No templates or blueprints under {path}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-muted-foreground">Templates</dt>
+            <dd className="font-mono">{templates.length === 0 ? 'None' : versionsLine(templates, 'template')}</dd>
+            <dt className="text-muted-foreground">Blueprints</dt>
+            <dd className="font-mono">{blueprints.length === 0 ? 'None' : versionsLine(blueprints, 'blueprint')}</dd>
+          </>
+        )}
+      </dl>
+      {leftOut.length === 0 ? null : (
+        <div data-testid="repositories-left-out" className="flex flex-col gap-1.5 rounded-md border border-tone-attention-border bg-tone-attention-bg p-2.5 text-tone-attention-fg">
+          <p className="flex items-center gap-1.5 text-meta font-medium">
+            <TriangleAlert aria-hidden className="size-(--size-icon-sm) shrink-0" />
+            Left out: {leftOut.length}. Fix {leftOut.length === 1 ? 'it' : 'them'} in git, tag again, then refresh.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {leftOut.map((problem) => (
+              <li key={`${problem.kind} ${problem.name}@${String(problem.version)}`} data-testid="repositories-left-out-item" className="text-meta text-foreground">
+                <span className="font-mono">{leftOutLabel(problem)}</span>: {problem.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+function RepositoryRow({ repository, contents, now, onRemove }: { repository: TemplateRepository; contents?: RepositoryContents; now: Date; onRemove: () => void }) {
   const { lastFetch } = repository;
   return (
     <li data-testid="repositories-row" className="flex flex-col gap-1.5 px-3 py-2.5">
@@ -154,6 +201,9 @@ function RepositoryRow({ repository, now, onRemove }: { repository: TemplateRepo
           </span>
         </p>
       ) : null}
+      {contents === undefined || lastFetch === null || (lastFetch.error !== null && contents.templates.length + contents.blueprints.length + contents.leftOut.length === 0) ? null : (
+        <RepositoryFindings contents={contents} path={repository.path} />
+      )}
     </li>
   );
 }
@@ -161,13 +211,14 @@ function RepositoryRow({ repository, now, onRemove }: { repository: TemplateRepo
 /**
  * Settings, Squadrons, Repositories (#161, docs/squadrons.md "Template
  * repositories"): the repositories squadrons reads templates and blueprints
- * from, each with its last fetch and why it failed; add one by its https URL
+ * from, each with its last fetch and why it failed, what squadrons found in
+ * it, and every version or tag it left out with why; add one by its https URL
  * with an optional path and a write-only read token; remove one with a normal
  * confirm; Refresh fetches them all. Beyond these, squadrons fetches only once
  * when it connects and when it starts.
  */
 export function TemplateRepositories(props: TemplateRepositoriesProps) {
-  const { repositories, state, error, onRetry, isRemoving, removeError, onRemove, onRemoveClosed, isRefreshing, refreshError, onRefresh, now } = props;
+  const { repositories, catalogue, state, error, onRetry, isRemoving, removeError, onRemove, onRemoveClosed, isRefreshing, refreshError, onRefresh, now } = props;
   const [removing, setRemoving] = useState<string | undefined>(undefined);
   return (
     <section aria-labelledby="settings-repositories" data-testid="settings-repositories" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
@@ -195,6 +246,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
             <RepositoryRow
               key={repository.name}
               repository={repository}
+              {...(catalogue === undefined ? {} : { contents: repositoryContents(catalogue, repository.name) })}
               now={now}
               onRemove={() => {
                 setRemoving(repository.name);

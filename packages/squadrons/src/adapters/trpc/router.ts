@@ -258,7 +258,7 @@ export const catalogueOutputSchema = z.object({
     }),
   ),
   problems: z.array(
-    z.object({ repository: z.string(), kind: z.enum(['template', 'blueprint']), name: z.string(), version: z.number(), message: z.string() }),
+    z.object({ repository: z.string(), kind: z.enum(['template', 'blueprint', 'tag']), name: z.string(), version: z.number(), message: z.string() }),
   ),
 });
 

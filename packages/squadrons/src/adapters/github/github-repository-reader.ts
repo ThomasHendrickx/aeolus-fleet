@@ -3,7 +3,9 @@
  * through its REST API: no clone, no disk, and no git that could fall back
  * to the host's credentials (S5). A version is a tag `<name>@<n>`; its file
  * is `<path>/templates/<name>.yaml` or `<path>/blueprints/<name>.yaml` at the
- * tag's commit, a 404 meaning no such file. A repository is read with its
+ * tag's commit, a 404 meaning no such file; a version tag with neither file,
+ * or one whose name is not lowercase (`Tester@1`), is handed back so the
+ * catalogue can say why. A repository is read with its
  * own token only, as a bearer token, and unauthenticated without one.
  *
  * A tag's files at a commit never change, so each fleet's reader keeps them
@@ -14,7 +16,7 @@
 import { parse, YAMLParseError } from 'yaml';
 import { z } from 'zod';
 
-import type { RepositoryReader, RepositoryToRead, SourceFile } from '../../core/catalogue/ports.js';
+import type { RepositoryReader, RepositoryToRead, SourceFile, UnreadTag } from '../../core/catalogue/ports.js';
 
 /** GitHub's REST API, unless the reader is given another (a test's fake). */
 const GITHUB_API_URL = 'https://api.github.com';
@@ -30,6 +32,8 @@ const HTTP_NOT_FOUND = 404;
 const HTTP_UNAUTHORIZED = 401;
 
 const VERSION_TAG = /^([a-z0-9:-]+)@([1-9]\d*)$/;
+/** A tag shaped like a version tag whatever its name, such as `Tester@1`: read nothing at, but reported. */
+const VERSION_SHAPED_TAG = /^[^@\s]+@[1-9]\d*$/;
 const NEXT_PAGE = /<([^>]+)>;\s*rel="next"/;
 const KINDS = [
   { kind: 'template', folder: 'templates' },
@@ -57,6 +61,8 @@ interface Kept {
   tags: Map<string, ReadTag>;
   /** What its last fetch read. */
   files: SourceFile[];
+  /** The version tags its last fetch read no file at. */
+  unread: UnreadTag[];
 }
 
 function keyOf(repository: Pick<RepositoryToRead, 'fleetId' | 'url'>): string {
@@ -165,26 +171,33 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
   };
 
   /** Fetches the repository: its tags, and each tag's files not read yet at its commit. */
-  const fetchRepository = async (repository: RepositoryToRead): Promise<SourceFile[]> => {
+  const fetchRepository = async (repository: RepositoryToRead): Promise<void> => {
     const before = kept.get(keyOf(repository))?.tags ?? new Map<string, ReadTag>();
     const tags = new Map<string, ReadTag>();
+    const unread: UnreadTag[] = [];
     for (const { name: tagName, commit } of await tagsOf(repository)) {
       const version = VERSION_TAG.exec(tagName);
       if (!version) {
+        if (VERSION_SHAPED_TAG.test(tagName)) {
+          unread.push({ repository: repository.name, tag: tagName, path: repository.path });
+        }
         continue;
       }
       const [, name = '', number = ''] = version;
       const known = before.get(tagName);
-      tags.set(tagName, known?.commit === commit ? known : { commit, files: await readTag(repository, { name, version: Number(number), tagName, commit }) });
+      const read = known?.commit === commit ? known : { commit, files: await readTag(repository, { name, version: Number(number), tagName, commit }) };
+      tags.set(tagName, read);
+      if (read.files.length === 0) {
+        unread.push({ repository: repository.name, tag: tagName, path: repository.path });
+      }
     }
-    const files = [...tags.values()].flatMap((tag) => tag.files);
-    kept.set(keyOf(repository), { tags, files });
-    return files;
+    kept.set(keyOf(repository), { tags, files: [...tags.values()].flatMap((tag) => tag.files), unread });
   };
 
   return {
     read: async (repositories, { fetch: isFetched }) => {
       const files: SourceFile[] = [];
+      const tags: UnreadTag[] = [];
       const fetched: { name: string; error: string | null }[] = [];
       for (const repository of repositories) {
         if (isFetched(repository.name)) {
@@ -197,8 +210,9 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
           }
         }
         files.push(...(kept.get(keyOf(repository))?.files ?? []));
+        tags.push(...(kept.get(keyOf(repository))?.unread ?? []));
       }
-      return { files, fetched };
+      return { files, tags, fetched };
     },
     forget: (repository) => {
       kept.delete(keyOf(repository));

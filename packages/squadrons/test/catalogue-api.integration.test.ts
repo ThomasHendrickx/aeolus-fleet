@@ -137,6 +137,29 @@ describe('the catalogue at the squadrons API', () => {
     const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;
     expect(data.templates.map((template) => template.version).sort()).toEqual([1, 2]);
   });
+
+  it('gives every version and tag it left out with why, and nothing for a repository it read whole', async () => {
+    const cookie = await signIn();
+    const whole = listed.parse(await (await catalogueWith(cookie)).json()).result.data;
+    github.repositories.get('acme/templates')?.tags.push(...tagsAt({ files: { '.aeolus/squadrons/templates/planner.yaml': 'description: [unclosed\n' } }, 'planner@1', 'reviewer@1'));
+
+    await call(cookie, { procedure: 'catalogue.refresh', body: {} });
+
+    const { data } = listed.parse(await (await catalogueWith(cookie)).json()).result;
+    expect(whole.problems).toEqual([]);
+    const [, invalid] = data.problems;
+    expect(z.object({ message: z.string() }).parse(invalid).message).toMatch(/^the template is no valid YAML: [^\n]+$/);
+    expect(data.problems).toEqual([
+      {
+        repository: REPO,
+        kind: 'tag',
+        name: 'reviewer',
+        version: 1,
+        message: 'the tag reviewer@1 points at a commit with neither .aeolus/squadrons/templates/reviewer.yaml nor .aeolus/squadrons/blueprints/reviewer.yaml',
+      },
+      { repository: REPO, kind: 'template', name: 'planner', version: 1, message: z.object({ message: z.string() }).parse(invalid).message },
+    ]);
+  });
 });
 
 const repositoriesListed = z.object({

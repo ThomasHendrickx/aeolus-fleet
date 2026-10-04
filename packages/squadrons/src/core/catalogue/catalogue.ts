@@ -41,10 +41,10 @@ export interface BlueprintVersion {
   memberNames: 'plain' | 'prefixed';
 }
 
-/** A version left out of the catalogue, and why. */
+/** A version left out of the catalogue, or a version tag at which nothing was read, and why. */
 export interface CatalogueProblem {
   repository: string;
-  kind: 'template' | 'blueprint';
+  kind: 'template' | 'blueprint' | 'tag';
   name: string;
   version: number;
   message: string;

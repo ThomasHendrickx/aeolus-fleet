@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Catalogue } from '../../src/core/catalogue/catalogue.js';
-import type { CatalogueHolder, RepositoryReader, RepositoryStore, RepositoryToRead, SourceFile } from '../../src/core/catalogue/ports.js';
+import type { CatalogueHolder, RepositoryReader, RepositoryStore, RepositoryToRead, SourceFile, UnreadTag } from '../../src/core/catalogue/ports.js';
 import type { TemplateRepository } from '../../src/core/catalogue/template-repository.js';
 
 /** The repository store in memory, one row per fleet and name. */
@@ -33,12 +33,14 @@ export function memoryRepositoryStore(): RepositoryStore & { held: TemplateRepos
 }
 
 /**
- * Repositories as a fake git: each name holds files; a name in `failing`
+ * Repositories as a fake git: each name holds files, and the version tags
+ * read no file at; a name in `failing`
  * cannot be fetched; a repository read without fetching gives what its last
  * fetch gave, and nothing before its first.
  */
 export function fakeCatalogueSource(): RepositoryReader & {
   files: Map<string, SourceFile[]>;
+  tags: Map<string, UnreadTag[]>;
   failing: Map<string, string>;
   fetches: string[];
   tokens: Map<string, string | null>;
@@ -46,10 +48,11 @@ export function fakeCatalogueSource(): RepositoryReader & {
   /** Holds the next read back until the answered function is called. */
   holdNextRead: () => () => void;
 } {
-  const mirrored = new Map<string, SourceFile[]>();
+  const mirrored = new Map<string, { files: SourceFile[]; tags: UnreadTag[] }>();
   let held: Promise<void> | undefined;
   const source = {
     files: new Map<string, SourceFile[]>(),
+    tags: new Map<string, UnreadTag[]>(),
     failing: new Map<string, string>(),
     fetches: new Array<string>(),
     tokens: new Map<string, string | null>(),
@@ -71,6 +74,7 @@ export function fakeCatalogueSource(): RepositoryReader & {
       held = undefined;
       await hold;
       const files: SourceFile[] = [];
+      const tags: UnreadTag[] = [];
       const fetched: { name: string; error: string | null }[] = [];
       for (const repository of repositories) {
         if (options.fetch(repository.name)) {
@@ -78,13 +82,14 @@ export function fakeCatalogueSource(): RepositoryReader & {
           source.tokens.set(repository.name, repository.token);
           const failure = source.failing.get(repository.name);
           if (failure === undefined) {
-            mirrored.set(repository.name, source.files.get(repository.name) ?? []);
+            mirrored.set(repository.name, { files: source.files.get(repository.name) ?? [], tags: source.tags.get(repository.name) ?? [] });
           }
           fetched.push({ name: repository.name, error: failure ?? null });
         }
-        files.push(...(mirrored.get(repository.name) ?? []));
+        files.push(...(mirrored.get(repository.name)?.files ?? []));
+        tags.push(...(mirrored.get(repository.name)?.tags ?? []));
       }
-      return { files, fetched };
+      return { files, tags, fetched };
     },
   };
   return source;
