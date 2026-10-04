@@ -30,12 +30,12 @@ beforeEach(async () => {
 
 describe('removing a template repository', () => {
   it('forgets it, and its versions leave the catalogue at once, fetching nothing', async () => {
-    expect(holder.catalogue.templates).toHaveLength(1);
+    expect(holder.get(FLEET).templates).toHaveLength(1);
 
     await expect(removeRepository({ fleetId: FLEET, name: 'github.com/acme/templates' })).resolves.toEqual({ isOk: true, value: undefined });
 
     expect(store.held).toEqual([]);
-    expect(holder.catalogue.templates).toEqual([]);
+    expect(holder.get(FLEET).templates).toEqual([]);
     expect(source.fetches).toEqual([]);
   });
 
@@ -47,7 +47,7 @@ describe('removing a template repository', () => {
     await refresh(FLEET, { name: 'github.com/acme/templates' });
 
     expect(source.forgotten).toEqual([{ fleetId: FLEET, url: 'https://github.com/acme/templates' }]);
-    expect(holder.catalogue.templates).toEqual([]);
+    expect(holder.get(FLEET).templates).toEqual([]);
   });
 
   it('refuses a repository that is not there', async () => {

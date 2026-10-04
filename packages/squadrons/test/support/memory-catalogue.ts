@@ -92,14 +92,13 @@ export function fakeCatalogueSource(): RepositoryReader & {
 
 const EMPTY: Catalogue = { templates: [], blueprints: [], problems: [] };
 
-/** Holds the catalogue squadrons serves, in memory. */
-export function memoryCatalogueHolder(): CatalogueHolder & { catalogue: Catalogue } {
-  const holder = {
-    catalogue: EMPTY,
-    get: () => holder.catalogue,
-    set: (catalogue: Catalogue) => {
-      holder.catalogue = catalogue;
+/** The catalogue holder in memory, one catalogue per fleet. */
+export function memoryCatalogueHolder(): CatalogueHolder {
+  const held = new Map<FleetId, Catalogue>();
+  return {
+    get: (fleetId) => held.get(fleetId) ?? EMPTY,
+    set: (fleetId, catalogue) => {
+      held.set(fleetId, catalogue);
     },
   };
-  return holder;
 }

@@ -46,7 +46,7 @@ describe('refreshing the catalogue', () => {
 
     expect(source.fetches).toEqual(['github.com/acme/one', 'github.com/acme/two']);
     expect(source.tokens.get('github.com/acme/two')).toBe('ghp_two');
-    expect(holder.catalogue.templates.map((template) => template.repository)).toEqual(['github.com/acme/one', 'github.com/acme/two']);
+    expect(holder.get(FLEET).templates.map((template) => template.repository)).toEqual(['github.com/acme/one', 'github.com/acme/two']);
   });
 
   it('records when each repository was fetched, and why one could not be', async () => {
@@ -58,7 +58,7 @@ describe('refreshing the catalogue', () => {
       { name: 'github.com/acme/one', lastFetch: { at: NOW, error: null } },
       { name: 'github.com/acme/two', lastFetch: { at: NOW, error: 'Authentication failed' } },
     ]);
-    expect(holder.catalogue.templates.map((template) => template.repository)).toEqual(['github.com/acme/one']);
+    expect(holder.get(FLEET).templates.map((template) => template.repository)).toEqual(['github.com/acme/one']);
   });
 
   it('fetches only the named repository, and serves the others from what they last fetched', async () => {
@@ -68,7 +68,15 @@ describe('refreshing the catalogue', () => {
     await refresh(FLEET, { name: 'github.com/acme/two' });
 
     expect(source.fetches).toEqual(['github.com/acme/two']);
-    expect(holder.catalogue.templates).toHaveLength(2);
+    expect(holder.get(FLEET).templates).toHaveLength(2);
+  });
+
+  it("serves each fleet its own catalogue: a refresh never changes another fleet's", async () => {
+    await refresh(FLEET, 'all');
+    await refresh(OTHER_FLEET, 'none');
+
+    expect(holder.get(FLEET).templates).toHaveLength(2);
+    expect(holder.get(OTHER_FLEET).templates).toEqual([]);
   });
 
   it('runs one refresh at a time, so a refresh started later is never overwritten by one that read the repositories before it', async () => {
@@ -80,7 +88,7 @@ describe('refreshing the catalogue', () => {
 
     await Promise.all([earlier, later]);
 
-    expect(holder.catalogue.templates.map((template) => template.repository)).toEqual(['github.com/acme/one']);
+    expect(holder.get(FLEET).templates.map((template) => template.repository)).toEqual(['github.com/acme/one']);
   });
 
   it('runs the next refresh after one that failed', async () => {
@@ -92,14 +100,14 @@ describe('refreshing the catalogue', () => {
 
     await refreshing(FLEET, 'all');
 
-    expect(holder.catalogue.templates).toHaveLength(2);
+    expect(holder.get(FLEET).templates).toHaveLength(2);
   });
 
   it('fetches nothing when asked for none: the catalogue is built from what each repository last fetched', async () => {
     await refresh(FLEET, 'none');
 
     expect(source.fetches).toEqual([]);
-    expect(holder.catalogue.templates).toEqual([]);
+    expect(holder.get(FLEET).templates).toEqual([]);
     expect((await store.list(FLEET)).every((repository) => repository.lastFetch === null)).toBe(true);
   });
 });
