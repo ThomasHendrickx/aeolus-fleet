@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronsUpDown, CodeXml, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CircleUserRound, CodeXml, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -37,7 +37,12 @@ export interface AccountMenuProps {
   onSignOut: () => void;
   isSigningOut: boolean;
   now: Date;
+  /** The hosting service's account page (AEOLUS_HOSTED_ACCOUNT_URL): set, the menu offers Your account; unset, it does not. */
+  accountUrl?: string;
 }
+
+/** The menu's label for the hosting service's account page. */
+const YOUR_ACCOUNT = 'Your account';
 
 const THEME_ICONS: Record<Theme, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
 
@@ -91,10 +96,11 @@ function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
 /**
  * The account menu on desktop (docs/design/png/AccountMenu.png): the Sidebar's
  * account button opens a DropdownMenu upwards with who is signed in, this
- * session (signing in elsewhere ends it), Theme and Sign out without a
- * confirm. On the 64 px rail the button collapses to its avatar.
+ * session (signing in elsewhere ends it), Your account on a hosted
+ * installation, Theme and Sign out without a confirm. On the 64 px rail the
+ * button collapses to its avatar.
  */
-export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now }: AccountMenuProps) {
+export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl }: AccountMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -111,6 +117,19 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-64">
         <AccountHeader account={account} now={now} />
+        {accountUrl === undefined ? null : (
+          <DropdownMenuItem
+            data-testid="account-hosted"
+            render={(props) => (
+              <a {...props} href={accountUrl}>
+                {props.children}
+              </a>
+            )}
+          >
+            <CircleUserRound aria-hidden />
+            {YOUR_ACCOUNT}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -158,7 +177,7 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
  * same content as a bottom Sheet, with Theme as a segmented control and
  * Cancel at the bottom.
  */
-export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now }: AccountMenuProps) {
+export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -173,6 +192,16 @@ export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningO
       <SheetContent side="bottom" data-testid="account-sheet" className="gap-3">
         <SheetTitle className="sr-only">Account</SheetTitle>
         <AccountHeader account={account} now={now} />
+        {accountUrl === undefined ? null : (
+          <a
+            href={accountUrl}
+            data-testid="account-hosted"
+            className="flex h-(--size-control-touch) items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground"
+          >
+            <CircleUserRound aria-hidden />
+            {YOUR_ACCOUNT}
+          </a>
+        )}
         <div className="flex flex-col gap-1.5 border-t border-border pt-3">
           <p className="text-caption text-muted-foreground">Theme</p>
           <Tabs

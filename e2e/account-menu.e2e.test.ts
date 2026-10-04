@@ -115,6 +115,15 @@ describe.each([
     await expect(source.getAttribute('target')).resolves.toBe('_blank');
   });
 
+  it('offers no Your account on a self-hosted console', async () => {
+    const page = await signedInPage({ isPhone });
+
+    await visible(page, 'account-menu').click();
+
+    await visible(page, 'account-session').waitFor();
+    await expect(visible(page, 'account-hosted').count()).resolves.toBe(0);
+  });
+
   it('signs out from the menu', async () => {
     const page = await signedInPage({ isPhone });
 

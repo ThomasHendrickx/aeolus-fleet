@@ -18,7 +18,8 @@ import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The console at its fleet's limits, end to end: the installation sets them,
-// and the console says so where the operator acts (canvas 12.1 to 12.3).
+// and the console says so where the operator acts (canvas 12.1 to 12.3). The
+// console is hosted: its account menu links to the hosting service's account.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const ACCOUNT_URL = 'https://pagasae.example.com/account';
@@ -69,6 +70,18 @@ async function signedInPage(): Promise<Page> {
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   return page;
 }
+
+describe('a hosted console', () => {
+  it('offers Your account in the account menu, opening the hosting service\'s account page', async () => {
+    const page = await signedInPage();
+
+    await page.locator('[data-testid="account-menu"]:visible').click();
+
+    const link = page.locator('[data-testid="account-hosted"]:visible');
+    await expect(link.textContent()).resolves.toBe('Your account');
+    await expect(link.getAttribute('href')).resolves.toBe(ACCOUNT_URL);
+  });
+});
 
 describe('a console at its limits', () => {
   it('says in Commission that the fleet is at its ship limit, with View limits, and commissions nothing', async () => {

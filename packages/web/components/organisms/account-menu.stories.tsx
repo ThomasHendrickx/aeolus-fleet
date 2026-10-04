@@ -61,6 +61,14 @@ export const Loading: Story = {
   },
 };
 
+/** Hosted: Your account, under who is signed in, opens the hosting service's account page. */
+export const Hosted: Story = {
+  args: { accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+  },
+};
+
 /** Dark chosen, on a session that began on another day. */
 export const DarkSinceYesterday: Story = {
   args: {
@@ -100,6 +108,16 @@ export const PhoneOpen: Story = {
 /** Phone, signing out. */
 export const PhoneSigningOut: Story = {
   args: { isSigningOut: true },
+  render: (args) => <AccountMenuSheet {...args} />,
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+  },
+};
+
+/** Phone, hosted: Your account under who is signed in. */
+export const PhoneHosted: Story = {
+  args: { accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },
   render: (args) => <AccountMenuSheet {...args} />,
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
