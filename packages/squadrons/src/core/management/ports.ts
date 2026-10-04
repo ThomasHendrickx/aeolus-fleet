@@ -107,15 +107,20 @@ export interface ManagementBinding {
   shipId: ShipId;
 }
 
-/** Outbound port: where squadrons keeps its management ship's crew token across restarts. */
+/**
+ * Outbound port: where squadrons keeps each fleet's management ship crew
+ * token across restarts. One install serves many fleets, one connection each.
+ */
 export interface ManagementCrewStore {
-  /** The crew, while squadrons holds a crew token: while it is connected. */
-  find(): Promise<ManagementCrew | undefined>;
-  /** The last connection's fleet and ship, with or without a crew token; none before the first. */
-  binding(): Promise<ManagementBinding | undefined>;
+  /** The fleet's crew, while squadrons holds a crew token for it: while it is connected to that fleet. */
+  find(fleetId: FleetId): Promise<ManagementCrew | undefined>;
+  /** The fleet's last connection, with or without a crew token; none before its first. */
+  binding(fleetId: FleetId): Promise<ManagementBinding | undefined>;
+  /** Every fleet's crew squadrons holds a crew token for: the fleets it is connected to. */
+  connected(): Promise<ManagementCrew[]>;
   save(crew: ManagementCrew): Promise<void>;
-  /** Forgets the crew token, keeping the binding: squadrons is not connected. */
-  drop(): Promise<void>;
+  /** Forgets the fleet's crew token, keeping its binding: squadrons is not connected to that fleet. */
+  drop(fleetId: FleetId): Promise<void>;
 }
 
 /**

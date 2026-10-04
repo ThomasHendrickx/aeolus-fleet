@@ -94,11 +94,19 @@ The lifecycle of a squadron and its members (states, transitions, stand down, fo
 
 ## Connection
 
-squadrons starts not connected: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read` and `fleet:manage`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds both scopes (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
+One squadrons install serves every fleet at its `FLEET_URL`, with one connection per fleet (decision 0021): each fleet's operator connects it for their own fleet, and works on that fleet only. squadrons starts not connected to a fleet: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read` and `fleet:manage`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds both scopes (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
 
-- **Not connected:** forming and the flagships wait, and the squadrons API answers that squadrons is not connected; `/api/health` and `/api/version` say `not-connected`.
-- **Connected:** squadrons crews the ship again with its kept crew token after a restart.
-- **Released:** when the operator releases the management ship, squadrons drops the crew token and is not connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
+- **Not connected:** that fleet's forming and flagships wait, and the squadrons API answers its operator that squadrons is not connected; `/api/health` and `/api/version` count the fleets squadrons is connected to.
+- **Connected:** squadrons crews each fleet's ship again with its kept crew token after a restart.
+- **Released:** when the operator releases the management ship, squadrons drops that fleet's crew token and is not connected to it; other fleets stay connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
+
+## Switched per fleet
+
+A hosting service can switch squadrons on or off per fleet (decision 0021). With no installation token configured the installation is open: every fleet is served, and nothing below applies.
+
+- **Off until switched on:** with an installation token, a fleet is off until the hosting service switches it on.
+- **Off:** squadrons does nothing for the fleet. Its console shows nothing of squadrons; the squadrons API answers only `connection.status` (with `enabled: false`) and refuses the rest, Connect included; its flagships stop receiving and its stand-downs wait. Everything is kept: on again, it resumes as it was.
+- **Delete:** squadrons forgets everything it holds of the fleet: its repositories and their tokens, its catalogue, its squadrons and what their flagships kept, its formation attempts, its connection and its switch. The fleet is told nothing; its ships stay there.
 
 ## Template repositories
 

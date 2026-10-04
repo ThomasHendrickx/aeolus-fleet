@@ -111,6 +111,7 @@ export function createHandleFlagshipDelivery(deps: {
         receivedAt: deps.clock.now(),
       });
       await deps.operator.tell({
+        fleetId: squadron.fleetId,
         text: `The flagship of the squadron ${squadron.id} got a message it does not handle, from ${senderName} (${contentType}). squadrons keeps it for the squadron page; nothing was forwarded.`,
         key: `kept-${deliveryId}`,
       });
@@ -165,7 +166,7 @@ export function createHandleFlagshipDelivery(deps: {
       // Acked before the stand-downs advance: retiring the last member retires the flagship, which could ack no more.
       const handled = await acked('stood-down');
       if (handled.isOk) {
-        await deps.advanceStandDowns();
+        await deps.advanceStandDowns(squadron.fleetId);
       }
       return handled;
     }

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * `aeolus-squadrons start`: takes the process lock (one squadrons process per
- * database), migrates squadrons' database, connects again with the kept crew
- * token if it has one (otherwise it serves not connected, until the operator
- * connects it in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
+ * database), migrates squadrons' database, connects again to every fleet with
+ * its kept crew token (a fleet without one is not connected until its operator
+ * connects squadrons in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
@@ -32,16 +32,18 @@ async function start(): Promise<void> {
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
     logger: { level: config.logLevel },
+    ...(config.installationToken === undefined ? {} : { installationToken: config.installationToken }),
   });
-  const connection = await app.readConnection();
-  if (connection.state === 'connected') {
-    app.server.log.info({ ship: connection.ship?.name }, 'connected as the management ship');
-    const recovered = await app.recoverFormations();
-    if (recovered.isOk && recovered.value.recovered > 0) {
-      app.server.log.warn(recovered.value, 'retired what formations a crash left unfinished had commissioned');
+  // Every fleet squadrons was connected to, connected again with its kept crew token.
+  const restored = await app.restoreConnections();
+  for (const { fleetId, ship, recovered, retired } of restored) {
+    app.server.log.info({ fleet: fleetId, ship }, 'connected as the management ship');
+    if (recovered > 0) {
+      app.server.log.warn({ fleet: fleetId, recovered, retired }, 'retired what formations a crash left unfinished had commissioned');
     }
-  } else {
-    app.server.log.warn('not connected: connect squadrons in the console (Settings, Connect squadrons)');
+  }
+  if (restored.length === 0) {
+    app.server.log.warn('connected to no fleet: an operator connects squadrons in the console (Settings, Connect squadrons)');
   }
   // The template repositories the operator set, each fetched once: squadrons keeps nothing of them across a restart.
   await app.refreshCatalogue();

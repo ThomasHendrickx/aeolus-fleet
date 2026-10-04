@@ -2,7 +2,7 @@ import type { DeliveryId, MessageId, ShipId } from '@aeolus-fleet/common';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { FLEET_ID, SHIP_ID, fakeManagementFleet, memoryManagementStore } from '../../../test/support/management-fakes.js';
+import { FLEET_ID, OTHER_FLEET_ID, SHIP_ID, fakeManagementFleet, memoryManagementStore } from '../../../test/support/management-fakes.js';
 import type { FleetDoor } from '../../core/management/ports.js';
 import { err, ok, type Result } from '../../core/shared/result.js';
 import type { FlagshipOutcome } from '../../core/squadron/handle-flagship-delivery.js';
@@ -65,6 +65,7 @@ describe('stopping the flagship watch', () => {
         return ok('kept');
       },
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -86,6 +87,83 @@ describe('stopping the flagship watch', () => {
   });
 });
 
+describe('the flagships of every connected fleet', () => {
+  it("receive on each fleet's squadrons, two squadrons of one id in two fleets included, and advance each fleet's stand-downs", async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
+    const theirs: Squadron = { ...forming, fleetId: OTHER_FLEET_ID, flagship: { ...forming.flagship, crewToken: 'aeolus_ct_v1_their_flagship' } };
+    const receivedAs = new Set<string>();
+    const advanced: string[] = [];
+    const watch = watchFlagships({
+      door: {
+        ...fakeManagementFleet().door,
+        receive: (crewToken, until) => {
+          receivedAs.add(crewToken);
+          return new Promise((_resolve, reject) => {
+            until?.signal.addEventListener('abort', () => {
+              reject(new Error('aborted'));
+            });
+          });
+        },
+      },
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: (fleetId) => Promise.resolve(fleetId === FLEET_ID ? [forming] : [theirs]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: (fleetId) => {
+        advanced.push(fleetId);
+        return Promise.resolve();
+      },
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await expect.poll(() => receivedAs.size).toBe(2);
+    await watch.stop();
+
+    expect([...receivedAs].sort()).toEqual(['aeolus_ct_v1_flagship', 'aeolus_ct_v1_their_flagship']);
+    expect(advanced.sort()).toEqual([FLEET_ID, OTHER_FLEET_ID].sort());
+  });
+});
+
+describe('the flagships of a fleet squadrons does not serve', () => {
+  it('do not receive, and its stand-downs do not advance, while the fleet is off', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    let receives = 0;
+    const advanced: string[] = [];
+    const watch = watchFlagships({
+      door: {
+        ...fakeManagementFleet().door,
+        receive: () => {
+          receives += 1;
+          return Promise.resolve(ok([]));
+        },
+      },
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: (fleetId) => {
+        advanced.push(fleetId);
+        return Promise.resolve();
+      },
+      isServed: () => Promise.resolve(false),
+      operator: { tell: () => Promise.resolve() },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.stop();
+
+    expect(receives).toBe(0);
+    expect(advanced).toEqual([]);
+  });
+});
+
 describe('a released flagship', () => {
   it('is told to argo once: later rescans neither receive on it again nor tell argo again', async () => {
     const store = memoryManagementStore();
@@ -104,6 +182,7 @@ describe('a released flagship', () => {
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
           told.push(notice);
@@ -135,6 +214,7 @@ describe('a released flagship', () => {
         squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
         handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
         advanceStandDowns: () => Promise.resolve(),
+        isServed: () => Promise.resolve(true),
         operator: {
           tell: (notice) => {
             keys.push(notice.key);
@@ -185,6 +265,7 @@ describe('the flagship of a squadron standing down', () => {
         return Promise.resolve(ok('kept'));
       },
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,
@@ -213,6 +294,7 @@ describe('the flagship of a squadron standing down', () => {
       },
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
           told.push(notice.text);
@@ -240,6 +322,7 @@ describe('the flagship of a squadron standing down', () => {
         advances += 1;
         return Promise.resolve();
       },
+      isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       log: silentLog,
       rescanMs: 60_000,

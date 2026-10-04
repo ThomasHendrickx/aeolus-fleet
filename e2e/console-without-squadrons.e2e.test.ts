@@ -52,7 +52,7 @@ afterAll(async () => {
 });
 
 describe('a console without squadrons', () => {
-  it("makes no squadrons call and keeps a ship's plain actions steady", async () => {
+  it("makes no squadrons call, shows no trace of squadrons, and keeps a ship's plain actions steady", async () => {
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-02', type: 'reviewer' }));
     context = await browser.newContext({ baseURL: web.url });
     const page = await context.newPage();
@@ -77,11 +77,15 @@ describe('a console without squadrons', () => {
     await page.keyboard.press('Escape');
     await page.getByTestId('nav-attention').click();
     await page.getByRole('heading', { name: 'Needs attention' }).first().waitFor();
-    await page.getByTestId('nav-settings').click();
+    // Settings holds squadrons alone: without them it is not offered, and opened by its address it shows nothing of them.
+    await expect(page.getByTestId('nav-settings').count()).resolves.toBe(0);
+    await page.goto('/settings');
     await page.getByRole('heading', { name: 'Settings' }).first().waitFor();
 
     expect(shown.every((count) => count === 1)).toBe(true);
     expect(squadronsCalls).toEqual([]);
     await expect(page.getByTestId('nav-squadrons').count()).resolves.toBe(0);
+    await expect(page.getByTestId('settings-squadrons').count()).resolves.toBe(0);
+    await expect(page.getByText(/squadrons/i).count()).resolves.toBe(0);
   });
 });

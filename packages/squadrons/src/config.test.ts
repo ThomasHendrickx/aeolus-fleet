@@ -15,7 +15,12 @@ describe('loadConfig', () => {
       host: '127.0.0.1',
       port: 4100,
       logLevel: 'info',
+      installationToken: undefined,
     });
+  });
+
+  it('reads the installation token, which turns on the installation procedures', () => {
+    expect(loadConfig({ ...environment, INSTALLATION_TOKEN: 'x'.repeat(32) }).installationToken).toBe('x'.repeat(32));
   });
 
   it('reads no management ship and no secret: the operator connects squadrons in the console', () => {
@@ -27,6 +32,7 @@ describe('loadConfig', () => {
   it.each([
     ['no database', { ...environment, DATABASE_URL: undefined }],
     ['a fleet URL that is not http', { ...environment, FLEET_URL: 'ftp://fleet.example.com' }],
+    ['an installation token shorter than 32 characters', { ...environment, INSTALLATION_TOKEN: 'x'.repeat(31) }],
   ])('refuses %s', (_label, invalid) => {
     expect(() => loadConfig(invalid)).toThrow(ConfigError);
   });

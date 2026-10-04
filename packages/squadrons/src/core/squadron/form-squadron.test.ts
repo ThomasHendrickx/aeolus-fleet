@@ -148,9 +148,11 @@ function memorySquadrons(attempts: ReturnType<typeof memoryAttempts>): SquadronR
   return repository;
 }
 
+/** The management ship of each fleet squadrons is connected to: both fleets here. */
 const managementStore: ManagementCrewStore = {
-  find: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
-  binding: () => Promise.resolve({ fleetId: FLEET, shipId: MANAGEMENT }),
+  find: (fleetId) => Promise.resolve({ fleetId, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+  binding: (fleetId) => Promise.resolve({ fleetId, shipId: MANAGEMENT }),
+  connected: () => Promise.resolve([FLEET, OTHER_FLEET].map((fleetId) => ({ fleetId, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }))),
   save: () => Promise.resolve(),
   drop: () => Promise.resolve(),
 };
@@ -185,7 +187,7 @@ beforeEach(() => {
   form = formWith();
 });
 
-const fromHemmaFeature = { blueprint: { repository: REPO, name: 'hemma-feature', version: 4 } };
+const fromHemmaFeature = { fleetId: FLEET, blueprint: { repository: REPO, name: 'hemma-feature', version: 4 } };
 
 describe('forming a squadron', () => {
   it('names it after the blueprint with six random characters, and names its flagship the same, of type flagship', async () => {
@@ -298,19 +300,20 @@ describe('the formation attempt', () => {
 
 describe('a squadron not formed', () => {
   it('refuses a blueprint version the catalogue does not hold', async () => {
-    await expect(form({ blueprint: { repository: REPO, name: 'hemma-feature', version: 9 } })).resolves.toMatchObject({
+    await expect(form({ fleetId: FLEET, blueprint: { repository: REPO, name: 'hemma-feature', version: 9 } })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'BLUEPRINT_NOT_FOUND' },
     });
   });
 
-  it("refuses a blueprint only another fleet's catalogue holds: it reads the catalogue of the fleet squadrons is connected to", async () => {
-    const otherFleet: ManagementCrewStore = {
-      ...managementStore,
-      find: () => Promise.resolve({ fleetId: OTHER_FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
-    };
+  it("refuses a blueprint only another fleet's catalogue holds: it reads the catalogue of the fleet it forms in", async () => {
+    await expect(form({ ...fromHemmaFeature, fleetId: OTHER_FLEET })).resolves.toMatchObject({ isOk: false, error: { kind: 'BLUEPRINT_NOT_FOUND' } });
+  });
 
-    await expect(formWith({ store: otherFleet })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'BLUEPRINT_NOT_FOUND' } });
+  it('refuses in a fleet squadrons is not connected to, though another fleet is connected', async () => {
+    const onlyOther: ManagementCrewStore = { ...managementStore, find: (fleetId) => (fleetId === OTHER_FLEET ? managementStore.find(fleetId) : Promise.resolve(undefined)) };
+
+    await expect(formWith({ store: onlyOther })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
   });
 
   it('refuses a squadron id that is no handle', async () => {
@@ -361,7 +364,7 @@ describe('a squadron not formed', () => {
   });
 
   it('refuses while squadrons crews no management ship', async () => {
-    const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), binding: () => Promise.resolve(undefined), save: () => Promise.resolve(), drop: () => Promise.resolve() };
+    const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), binding: () => Promise.resolve(undefined), connected: () => Promise.resolve([]), save: () => Promise.resolve(), drop: () => Promise.resolve() };
 
     await expect(formWith({ store: empty })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
   });

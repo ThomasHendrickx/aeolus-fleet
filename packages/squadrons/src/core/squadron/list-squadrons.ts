@@ -32,7 +32,7 @@ export type ListSquadrons = (fleetId: FleetId) => Promise<Result<ListedSquadron[
  */
 export function createListSquadrons(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; clock: Clock }): ListSquadrons {
   return async (fleetId) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }

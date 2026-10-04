@@ -25,6 +25,8 @@ export interface FormedSquadron {
 }
 
 export type FormSquadron = (input: {
+  /** The fleet it forms in: the operator's. */
+  fleetId: FleetId;
   blueprint: TemplateReference;
   squadronId?: string;
 }) => Promise<Result<FormedSquadron, FormRefusal>>;
@@ -60,11 +62,11 @@ export function createFormSquadron(deps: {
   clock: Clock;
 }): FormSquadron {
   return async (input) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(input.fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }
-    const { blueprints, templates } = deps.catalogue(crew.fleetId);
+    const { blueprints, templates } = deps.catalogue(input.fleetId);
     const { repository, name, version } = input.blueprint;
     const blueprint = blueprints.find((held) => held.repository === repository && held.name === name && held.version === version);
     if (!blueprint) {

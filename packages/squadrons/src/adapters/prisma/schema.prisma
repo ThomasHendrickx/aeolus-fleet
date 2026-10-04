@@ -17,11 +17,10 @@ datasource db {
   provider = "postgresql"
 }
 
-/// The crew token squadrons holds for its management ship, so a restart crews it
-/// again without a new secret. One row at most: the singleton key is always "management".
+/// The crew token squadrons holds for each fleet's management ship, so a restart
+/// crews it again without a new secret. One row per fleet: one install serves many fleets.
 model ManagementCrew {
-  key       String   @id
-  fleetId   String   @map("fleet_id")
+  fleetId   String   @id @map("fleet_id")
   shipId    String   @map("ship_id")
   shipName  String   @map("ship_name")
   /// Null while squadrons is not connected: the fleet and ship stay, as the last connection.
@@ -139,4 +138,29 @@ model TemplateRepository {
 
   @@id([fleetId, name])
   @@map("template_repositories")
+}
+
+/// Each fleet's switch, as the hosting service set it through the installation
+/// procedures (decision 0021). Read only when squadrons has an installation token.
+model FleetSwitch {
+  fleetId   String   @id @map("fleet_id")
+  enabled   Boolean
+  changedAt DateTime @map("changed_at") @db.Timestamptz(3)
+
+  @@map("fleet_switches")
+}
+
+/// The installation's requests, by the caller's request id, so a replay answers
+/// what the first call answered. A switch names its fleet and goes with it; a
+/// delete keeps only the request's hash, so nothing of the deleted fleet stays.
+model InstallationRequest {
+  requestId   String   @id @map("request_id")
+  kind        String
+  requestHash String   @map("request_hash")
+  fleetId     String?  @map("fleet_id")
+  enabled     Boolean?
+  at          DateTime @db.Timestamptz(3)
+
+  @@index([fleetId])
+  @@map("installation_requests")
 }

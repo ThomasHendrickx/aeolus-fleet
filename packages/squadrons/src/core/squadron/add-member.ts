@@ -43,7 +43,7 @@ export function createAddMember(deps: {
   clock: Clock;
 }): AddMember {
   return async ({ fleetId, squadronId, role: roleName }) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }

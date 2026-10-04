@@ -1,6 +1,7 @@
 /**
- * Tells argo, the operator, when something goes wrong: a plain message from
- * squadrons' management ship, which lands in the operator inbox.
+ * Tells argo, the operator of a fleet, when something goes wrong: a plain
+ * message from squadrons' management ship of that fleet, which lands in its
+ * operator inbox.
  */
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
 import type { OperatorNotices } from '../../core/squadron/ports.js';
@@ -10,8 +11,8 @@ const OPERATOR_SHIP_NAME = 'argo';
 
 export function createOperatorNotices(deps: { door: FleetDoor; management: ManagementCrewStore }): OperatorNotices {
   return {
-    tell: async ({ text, key }) => {
-      const crew = await deps.management.find();
+    tell: async ({ fleetId, text, key }) => {
+      const crew = await deps.management.find(fleetId);
       if (!crew) {
         return;
       }

@@ -1,7 +1,15 @@
+import { z } from 'zod';
+
 export type Status = 'up' | 'down';
 
-/** Squadrons' health: up with its connection, or down when it does not answer or its database is unreachable. */
-export type SquadronsHealth = { status: 'up'; connection: 'connected' | 'not-connected' } | { status: 'down' };
+/**
+ * Squadrons' health: up, with how many fleets it holds a crew token for and
+ * whether its installation token is set ('enabled') or not ('open'); or down
+ * when it does not answer or its database is unreachable.
+ */
+export type SquadronsHealth = { status: 'up'; connectedFleets: number; installation: 'enabled' | 'open' } | { status: 'down' };
+
+const squadronsHealthSchema = z.object({ connectedFleets: z.int().min(0), installation: z.enum(['enabled', 'open']) });
 
 export interface WebHealth {
   web: 'up';
@@ -27,9 +35,8 @@ async function serverPart(fetchServerHealth: () => Promise<Response>): Promise<P
 async function squadronsPart(fetchSquadronsHealth: () => Promise<Response>): Promise<SquadronsHealth> {
   try {
     const response = await fetchSquadronsHealth();
-    const reported: unknown = await response.json();
-    const connection = typeof reported === 'object' && reported !== null && 'connection' in reported ? reported.connection : undefined;
-    return response.ok && (connection === 'connected' || connection === 'not-connected') ? { status: 'up', connection } : { status: 'down' };
+    const reported = squadronsHealthSchema.safeParse(await response.json());
+    return response.ok && reported.success ? { status: 'up', ...reported.data } : { status: 'down' };
   } catch {
     return { status: 'down' };
   }

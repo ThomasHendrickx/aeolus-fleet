@@ -1,8 +1,12 @@
 /**
- * The flagships at work: one long-poll receive per squadron that is forming,
- * sailing or standing down, each delivery handed to the flagship's rule with
+ * The flagships at work, in every fleet squadrons is connected to: one
+ * long-poll receive per squadron that is forming, sailing or standing down, each delivery handed to the flagship's rule with
  * the squadron as it is stored then. A rescan, every interval and after each
- * forming, starts the receive of a new squadron and advances every stand-down.
+ * forming, starts the receive of a new squadron and advances every stand-down,
+ * fleet by fleet. Squadrons are told apart by fleet and id: two fleets may
+ * each have a squadron of one id. A fleet squadrons does not serve (switched
+ * off) rests: its flagships stop receiving after their current receive, and
+ * a rescan once it is on again starts them anew.
  * A flagship whose lease ended (the operator released it) is no longer
  * watched, says so in the log, and argo is told once; one squadrons retired
  * as its squadron disbanded just stops.
@@ -11,6 +15,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
+import type { IsServed } from '../../core/installation/served.js';
 import type { AdvanceStandDowns } from '../../core/squadron/advance-stand-downs.js';
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
 import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
@@ -37,14 +42,17 @@ export function watchFlagships(deps: {
   squadrons: SquadronRepository;
   handle: HandleFlagshipDelivery;
   advanceStandDowns: AdvanceStandDowns;
+  isServed: IsServed;
   operator: OperatorNotices;
   log: FastifyBaseLogger;
   rescanMs: number;
 }): FlagshipWatch {
   const stopping = new AbortController();
+  // Squadrons by `<fleet> <id>`.
   const watched = new Set<string>();
   // Squadrons whose flagship's lease ended: a rescan does not receive on them again.
   const ended = new Set<string>();
+  const keyOf = (fleetId: FleetId, squadronId: string): string => `${fleetId} ${squadronId}`;
   // What runs in the background, so stop can wait for it.
   const running = new Set<Promise<void>>();
   const track = (work: Promise<void>): Promise<void> => {
@@ -66,7 +74,7 @@ export function watchFlagships(deps: {
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
       const squadron = (await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId);
-      if (!isReceiving(squadron)) {
+      if (!isReceiving(squadron) || !(await deps.isServed(fleetId))) {
         break;
       }
       try {
@@ -77,8 +85,9 @@ export function watchFlagships(deps: {
               break;
             }
             deps.log.warn({ squadron: squadronId }, 'the flagship was released: squadrons no longer receives on it');
-            ended.add(squadronId);
+            ended.add(keyOf(fleetId, squadronId));
             await deps.operator.tell({
+              fleetId,
               text: `The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`,
               // A released flagship is never crewed again, so one key per squadron tells argo once, across restarts too.
               key: `released-${squadronId}`,
@@ -104,24 +113,32 @@ export function watchFlagships(deps: {
         await pause(RETRY_MS);
       }
     }
-    watched.delete(squadronId);
+    watched.delete(keyOf(fleetId, squadronId));
   };
 
-  const rescan = async (): Promise<void> => {
-    const crew = await deps.management.find();
-    if (!crew || stopping.signal.aborted) {
-      return;
-    }
-    for (const squadron of await deps.squadrons.list(crew.fleetId)) {
-      if (isReceiving(squadron) && !watched.has(squadron.id) && !ended.has(squadron.id)) {
-        watched.add(squadron.id);
-        void track(watch(crew.fleetId, squadron.id));
+  const rescanFleet = async (fleetId: FleetId): Promise<void> => {
+    for (const squadron of await deps.squadrons.list(fleetId)) {
+      const key = keyOf(fleetId, squadron.id);
+      if (isReceiving(squadron) && !watched.has(key) && !ended.has(key)) {
+        watched.add(key);
+        void track(watch(fleetId, squadron.id));
       }
     }
     try {
-      await deps.advanceStandDowns();
+      await deps.advanceStandDowns(fleetId);
     } catch (error) {
-      deps.log.error({ err: error }, 'the stand-downs could not advance');
+      deps.log.error({ err: error, fleet: fleetId }, 'the stand-downs could not advance');
+    }
+  };
+
+  const rescan = async (): Promise<void> => {
+    for (const crew of await deps.management.connected()) {
+      if (stopping.signal.aborted) {
+        return;
+      }
+      if (await deps.isServed(crew.fleetId)) {
+        await rescanFleet(crew.fleetId);
+      }
     }
   };
 

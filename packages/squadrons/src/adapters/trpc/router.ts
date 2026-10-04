@@ -1,9 +1,15 @@
 /**
  * squadrons' API: one tRPC router, which the web app's server calls with the
- * console's session cookie (decision 0017). Every procedure is the
- * operator's: the cookie must be a signed-in console session of the fleet
- * squadrons serves. Only `connection` works before squadrons is connected.
+ * console's session cookie (decision 0017). Every procedure but the
+ * installation's is the operator's: the cookie must be a signed-in console
+ * session of a fleet at the fleet's URL, and the procedure works on that
+ * fleet. A fleet squadrons does not serve (switched off) gets only
+ * `connection.status`; only `connection` works before squadrons is connected
+ * to the fleet. The installation procedures take the installation token
+ * instead (decision 0021).
  */
+import { timingSafeEqual } from 'node:crypto';
+
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -12,6 +18,11 @@ import type { Catalogue } from '../../core/catalogue/catalogue.js';
 import type { ListRepositories } from '../../core/catalogue/list-repositories.js';
 import type { RemoveRepository } from '../../core/catalogue/remove-repository.js';
 import type { ListedRepository } from '../../core/catalogue/template-repository.js';
+import type { DeleteFleet } from '../../core/installation/delete-fleet.js';
+import type { InstallationMode } from '../../core/installation/ports.js';
+import type { ReadFleet } from '../../core/installation/read-fleet.js';
+import type { IsServed } from '../../core/installation/served.js';
+import type { SetFleetEnabled } from '../../core/installation/set-fleet-enabled.js';
 import type { Connect } from '../../core/management/connect.js';
 import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
@@ -24,13 +35,23 @@ import type { RemoveMember } from '../../core/squadron/remove-member.js';
 import type { NewCrewLine } from '../../core/squadron/new-crew-line.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
-import { crewLineSchema, idSchema, type FleetId } from '@aeolus-fleet/common';
+import { crewLineSchema, idempotencyKeySchema, idSchema, type FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
   /** The Cookie header the web app's server forwarded. */
   cookie: string | undefined;
   authenticateOperator: AuthenticateOperator;
-  isConnected: () => Promise<boolean>;
+  /** Whether squadrons is connected to the fleet. */
+  isConnected: (fleetId: FleetId) => Promise<boolean>;
+  isServed: IsServed;
+  /** The fleet's connection as squadrons holds it, without asking the fleet: what a fleet that is off reads. */
+  heldConnection: ReadConnection;
+  /** The installation token header the caller sent, if any. */
+  installationTokenSent: string | undefined;
+  installation: { mode: InstallationMode; token: string | undefined };
+  setFleetEnabled: SetFleetEnabled;
+  readFleet: ReadFleet;
+  deleteFleet: DeleteFleet;
   readConnection: ReadConnection;
   connect: Connect;
   /** The catalogue squadrons serves a fleet. */
@@ -66,10 +87,40 @@ const operatorProcedure = t.procedure.use(async ({ ctx, next }) => {
   return next({ ctx: { fleetId: operator.value.fleetId } });
 });
 
-/** The operator's procedures that need squadrons connected: until then, PRECONDITION_FAILED. */
-const connectedProcedure = operatorProcedure.use(async ({ ctx, next }) => {
-  if (!(await ctx.isConnected())) {
-    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'squadrons is not connected: connect it in the console' });
+/** Whether the token sent is the installation token, compared in constant time. */
+function isInstallationToken(sent: string | undefined, token: string): boolean {
+  const expected = Buffer.from(token);
+  const given = Buffer.from(sent ?? '');
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+/**
+ * The installation's procedures (decision 0021): with no installation token
+ * configured they do not exist (NOT_FOUND); with one, the caller presents it
+ * in `x-aeolus-installation-token` or is refused (UNAUTHORIZED).
+ */
+const installationProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (ctx.installation.mode === 'open' || ctx.installation.token === undefined) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'No such procedure' });
+  }
+  if (!isInstallationToken(ctx.installationTokenSent, ctx.installation.token)) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'The installation token is missing or wrong' });
+  }
+  return next();
+});
+
+/** The operator's procedures that need squadrons to serve their fleet: while it is off, FORBIDDEN. */
+const servedProcedure = operatorProcedure.use(async ({ ctx, next }) => {
+  if (!(await ctx.isServed(ctx.fleetId))) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'squadrons is off for this fleet' });
+  }
+  return next();
+});
+
+/** The operator's procedures that need squadrons connected to their fleet: until then, PRECONDITION_FAILED. */
+const connectedProcedure = servedProcedure.use(async ({ ctx, next }) => {
+  if (!(await ctx.isConnected(ctx.fleetId))) {
+    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'squadrons is not connected to this fleet: connect it in the console' });
   }
   return next();
 });
@@ -82,7 +133,9 @@ const CONNECT_CODES = {
   MISSING_SCOPES: 'BAD_REQUEST',
 } as const satisfies Record<string, TRPCError['code']>;
 
-const connectionOutputSchema = z.object({
+/** The connection as the console reads it: whether squadrons serves the fleet, and its connection. */
+const connectionStatusOutputSchema = z.object({
+  enabled: z.boolean(),
   state: z.enum(['not-connected', 'connected']),
   ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
   lastShipId: z.string().nullable(),
@@ -265,22 +318,29 @@ function squadronOutputOf(squadron: ListedSquadron): z.infer<typeof squadronOutp
 
 export const squadronsRouter = t.router({
   connection: t.router({
-    /** Whether squadrons is connected, as which ship, and the ship it was last connected as. */
-    status: operatorProcedure.output(connectionOutputSchema).query(({ ctx }) => ctx.readConnection()),
+    /** Whether squadrons is connected to the operator's fleet, as which ship, and the ship it was last connected as. */
+    status: operatorProcedure.output(connectionStatusOutputSchema).query(async ({ ctx }) => {
+      // A fleet that is off is read from what squadrons holds: squadrons asks its fleet nothing then.
+      const isServed = await ctx.isServed(ctx.fleetId);
+      const connection = isServed ? await ctx.readConnection(ctx.fleetId) : await ctx.heldConnection(ctx.fleetId);
+      return { enabled: isServed, ...connection };
+    }),
     /**
      * Connects squadrons with the management ship's secret, which the web
      * app's server hands over server to server: squadrons registers with it
-     * and keeps only the crew token. Only while not connected.
+     * and keeps only the crew token. Only while not connected, and while
+     * squadrons serves the fleet.
      */
-    connect: operatorProcedure
+    connect: servedProcedure
       .input(z.object({ shipId: idSchema('ship'), secret: z.string().min(1) }))
-      .output(connectionOutputSchema)
+      .output(connectionStatusOutputSchema)
       .mutation(async ({ ctx, input }) => {
         const connected = await ctx.connect({ operatorFleetId: ctx.fleetId, ...input });
         if (!connected.isOk) {
           throw new TRPCError({ code: CONNECT_CODES[connected.error.kind], message: connected.error.message });
         }
-        return connected.value;
+        // Answered as connection.status answers: connect works only while squadrons serves the fleet.
+        return { enabled: true, ...connected.value };
       }),
   }),
   squadrons: t.router({
@@ -411,7 +471,7 @@ export const squadronsRouter = t.router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const formed = await ctx.formSquadron(input);
+        const formed = await ctx.formSquadron({ fleetId: ctx.fleetId, ...input });
         if (!formed.isOk) {
           throw new TRPCError({ code: FORM_CODES[formed.error.kind], message: formed.error.message });
         }
@@ -464,6 +524,38 @@ export const squadronsRouter = t.router({
       await ctx.refreshCatalogue(ctx.fleetId);
       return {};
     }),
+  }),
+  installation: t.router({
+    /** Switches squadrons on or off for a fleet; off keeps everything of it. A replayed request id answers its first answer. */
+    setEnabled: installationProcedure
+      .input(z.strictObject({ requestId: idempotencyKeySchema, fleetId: idSchema('fleet'), enabled: z.boolean() }))
+      .output(z.object({ fleetId: z.string(), enabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const set = await ctx.setFleetEnabled({ requestId: input.requestId, fleetId: input.fleetId, isEnabled: input.enabled });
+        if (!set.isOk) {
+          throw new TRPCError({ code: 'CONFLICT', message: set.error.message });
+        }
+        return { fleetId: set.value.fleetId, enabled: set.value.isEnabled };
+      }),
+    /** Whether squadrons serves the fleet, and whether it is connected to it. */
+    get: installationProcedure
+      .input(z.strictObject({ fleetId: idSchema('fleet') }))
+      .output(z.object({ enabled: z.boolean(), connected: z.boolean() }))
+      .query(async ({ ctx, input }) => {
+        const fleet = await ctx.readFleet({ fleetId: input.fleetId });
+        return { enabled: fleet.isEnabled, connected: fleet.isConnected };
+      }),
+    /** Forgets everything squadrons holds of the fleet. A replayed request id answers its first answer. */
+    delete: installationProcedure
+      .input(z.strictObject({ requestId: idempotencyKeySchema, fleetId: idSchema('fleet') }))
+      .output(z.strictObject({}))
+      .mutation(async ({ ctx, input }) => {
+        const deleted = await ctx.deleteFleet(input);
+        if (!deleted.isOk) {
+          throw new TRPCError({ code: 'CONFLICT', message: deleted.error.message });
+        }
+        return {};
+      }),
   }),
 });
 

@@ -1,6 +1,5 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { ManagementCrewStore } from '../management/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { ConsoleSessions } from './ports.js';
@@ -10,13 +9,12 @@ export type AuthenticateOperator = (cookie: string | undefined) => Promise<Resul
 /**
  * Use case: whether a request comes from the operator. squadrons has no login
  * of its own: the web app's server forwards the console session cookie, and
- * the fleet says whose session it is (decision 0017). Once squadrons was
- * connected, only the operator of that fleet, the fleet of its management
- * ship, is let through; before, any operator of the fleet at its FLEET_URL,
- * who may connect it.
+ * the fleet says whose session it is (decision 0017). squadrons serves every
+ * fleet at its FLEET_URL, each with its own connection, so any signed-in
+ * operator there is let through as the operator of their own fleet.
  */
-export function createAuthenticateOperator(deps: { sessions: ConsoleSessions; store: ManagementCrewStore }): AuthenticateOperator {
-  const refusal = refuse('NOT_THE_OPERATOR', 'Sign in to the console of the fleet squadrons serves');
+export function createAuthenticateOperator(deps: { sessions: ConsoleSessions }): AuthenticateOperator {
+  const refusal = refuse('NOT_THE_OPERATOR', 'Sign in to the console of your fleet');
   return async (cookie) => {
     if (cookie === undefined) {
       return refusal;
@@ -25,7 +23,6 @@ export function createAuthenticateOperator(deps: { sessions: ConsoleSessions; st
     if (!session.isOk) {
       return refusal;
     }
-    const binding = await deps.store.binding();
-    return binding === undefined || binding.fleetId === session.value.fleetId ? ok({ fleetId: session.value.fleetId }) : refusal;
+    return ok({ fleetId: session.value.fleetId });
   };
 }

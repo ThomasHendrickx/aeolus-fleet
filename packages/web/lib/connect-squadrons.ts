@@ -12,6 +12,8 @@ import type { ShipStatus } from '@aeolus-fleet/common';
 export const MANAGEMENT_SHIP = 'squadrons';
 
 export interface SquadronsConnection {
+  /** False when squadrons is off for this operator's fleet: the console then shows nothing of squadrons. */
+  isEnabled: boolean;
   state: 'not-connected' | 'connected';
   ship: { shipId: string; name: string } | null;
   lastShipId: string | null;

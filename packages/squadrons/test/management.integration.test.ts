@@ -56,7 +56,7 @@ afterEach(async () => {
 async function started(): Promise<{ app: SquadronsApp; address: string }> {
   const app = createSquadronsApp({ databaseUrl: squadronsDatabaseUrl, fleetUrl, logger: false });
   apps.push(app);
-  await app.readConnection();
+  await app.restoreConnections();
   return { app, address: await app.server.listen({ host: '127.0.0.1', port: 0 }) };
 }
 
@@ -70,7 +70,7 @@ async function status(address: string) {
 
 async function healthOf(address: string) {
   const response = await fetch(`${address}/api/health`);
-  return { status: response.status, body: z.object({ status: z.string(), connection: z.string() }).parse(await response.json()) };
+  return { status: response.status, body: z.object({ status: z.string(), connectedFleets: z.number(), installation: z.string() }).parse(await response.json()) };
 }
 
 describe('a squadrons process that was never connected', () => {
@@ -78,10 +78,10 @@ describe('a squadrons process that was never connected', () => {
     const { address } = await started();
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: null });
-    await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok', connection: 'not-connected' } });
-    const version = z.object({ squadrons: z.string(), migration: z.string(), connection: z.string() }).parse(await (await fetch(`${address}/api/version`)).json());
-    expect(version.connection).toBe('not-connected');
-    expect(version.migration).toMatch(/^\d{14}_template_repositories$/);
+    await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok', connectedFleets: 0, installation: 'open' } });
+    const version = z.object({ squadrons: z.string(), migration: z.string(), connectedFleets: z.number() }).parse(await (await fetch(`${address}/api/version`)).json());
+    expect(version.connectedFleets).toBe(0);
+    expect(version.migration).toMatch(/^\d{14}_installation$/);
     expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
   });
 
@@ -101,8 +101,10 @@ describe('connecting squadrons', () => {
     const connected = await connectSquadrons(address, { cookie, shipId, secret });
 
     expect(connected.status, await connected.clone().text()).toBe(200);
+    // It answers as connection.status does: squadrons serves the fleet it connected to.
+    await expect(connected.json()).resolves.toEqual({ result: { data: { enabled: true, state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId } } });
     await expect(status(address)).resolves.toEqual({ state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connection: 'connected' } });
+    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 1 } });
     await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER', harness: 'aeolus-squadrons' });
   });
 
@@ -140,6 +142,6 @@ describe('connecting squadrons', () => {
     unwrap(await useCases.releaseShip(argo, { shipId }));
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connection: 'not-connected' } });
+    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 0 } });
   });
 });

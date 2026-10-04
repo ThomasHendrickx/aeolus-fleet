@@ -80,8 +80,9 @@ const door: FleetDoor = {
 
 let crew: ManagementCrew | undefined;
 const management: ManagementCrewStore = {
-  find: () => Promise.resolve(crew),
-  binding: () => Promise.resolve(crew && { fleetId: crew.fleetId, shipId: crew.shipId }),
+  find: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? crew : undefined),
+  binding: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? { fleetId: crew.fleetId, shipId: crew.shipId } : undefined),
+  connected: () => Promise.resolve(crew ? [crew] : []),
   save: () => Promise.resolve(),
   drop: () => Promise.resolve(),
 };
@@ -155,7 +156,11 @@ describe('forcing a stand down', () => {
   });
 
   it('refuses a squadron the fleet does not have', async () => {
-    await expect(forceStandDown({ fleetId: OTHER_FLEET, squadronId: 'team-a1b2c3' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SQUADRON_NOT_FOUND' } });
+    await expect(forceStandDown({ fleetId: FLEET, squadronId: 'team-zzzzzz' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SQUADRON_NOT_FOUND' } });
+  });
+
+  it('refuses in a fleet squadrons is not connected to, though another fleet is connected', async () => {
+    await expect(forceStandDown({ fleetId: OTHER_FLEET, squadronId: 'team-a1b2c3' })).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
   });
 
   it('refuses while squadrons is not connected', async () => {

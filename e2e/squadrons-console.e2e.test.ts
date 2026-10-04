@@ -448,12 +448,13 @@ describe('the first squadron in the console', () => {
       web: 'up',
       server: 'up',
       database: 'up',
-      squadrons: { status: 'up', connection: 'connected' },
+      // Self-hosted: squadrons runs without an installation token, connected to this one fleet.
+      squadrons: { status: 'up', connectedFleets: 1, installation: 'open' },
     });
     const version = z
-      .object({ squadrons: z.object({ squadrons: z.string(), migration: z.string().nullable(), connection: z.string() }) })
+      .object({ squadrons: z.object({ squadrons: z.string(), migration: z.string().nullable(), connectedFleets: z.number(), installation: z.string() }) })
       .parse(await fetch(`${web.url}/version`).then((response) => response.json()));
-    expect(version.squadrons.connection).toBe('connected');
+    expect(version.squadrons).toMatchObject({ connectedFleets: 1, installation: 'open' });
     expect(version.squadrons.migration).toMatch(/^\d{14}_/);
   });
 });

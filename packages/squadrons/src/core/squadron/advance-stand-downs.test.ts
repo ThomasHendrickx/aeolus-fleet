@@ -102,8 +102,9 @@ const door: FleetDoor = {
 
 let crew: ManagementCrew | undefined;
 const management: ManagementCrewStore = {
-  find: () => Promise.resolve(crew),
-  binding: () => Promise.resolve(crew && { fleetId: crew.fleetId, shipId: crew.shipId }),
+  find: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? crew : undefined),
+  binding: (fleetId) => Promise.resolve(crew?.fleetId === fleetId ? { fleetId: crew.fleetId, shipId: crew.shipId } : undefined),
+  connected: () => Promise.resolve(crew ? [crew] : []),
   save: () => Promise.resolve(),
   drop: () => Promise.resolve(),
 };
@@ -144,7 +145,7 @@ beforeEach(() => {
 
 describe('a squadron standing down', () => {
   it('sends each member on station its stand-down from the flagship, and keeps which message it was', async () => {
-    await advance();
+    await advance(FLEET);
 
     expect(sent).toEqual([
       { selector: { kind: 'ship', shipId: PLANNER }, contentType: STAND_DOWN, payload: JSON.stringify({ squadron: 'team-a1b2c3' }), idempotencyKey: `stand-down-team-a1b2c3-${PLANNER}` },
@@ -154,38 +155,38 @@ describe('a squadron standing down', () => {
   });
 
   it('sends each member its stand-down once, however often it advances', async () => {
-    await advance();
-    await advance();
+    await advance(FLEET);
+    await advance(FLEET);
 
     expect(sent).toHaveLength(2);
   });
 
   it('never retires a member that has not sent stood-down, though it has its stand-down: it finishes and wraps up first', async () => {
-    await advance();
+    await advance(FLEET);
 
-    await advance();
+    await advance(FLEET);
 
     expect(retired).toEqual([]);
     expect(held.state).toBe('standing-down');
   });
 
   it('does not retire a member that stood down but still holds open or in-flight deliveries', async () => {
-    await advance();
+    await advance(FLEET);
     standDown(PLANNER, TESTER);
     ships.set(PLANNER, aShip({ openDeliveries: 1, inFlightDeliveries: 0 }));
     ships.set(TESTER, aShip({ openDeliveries: 0, inFlightDeliveries: 1 }));
 
-    await advance();
+    await advance(FLEET);
 
     expect(retired).toEqual([]);
   });
 
   it('retires a member once it stood down and holds no open deliveries', async () => {
-    await advance();
+    await advance(FLEET);
     standDown(PLANNER, TESTER);
     ships.set(TESTER, aShip({ openDeliveries: 2, inFlightDeliveries: 0 }));
 
-    await advance();
+    await advance(FLEET);
 
     expect(retired).toEqual([PLANNER]);
     expect(member(PLANNER)?.retiredAt).toEqual(NOW);
@@ -195,27 +196,27 @@ describe('a squadron standing down', () => {
   it('retires at once a member that never came on station: it holds no work, so it gets no stand-down', async () => {
     held = { ...held, members: [aMember(PLANNER, { role: 'planner', onStationAt: FORMED }), aMember(TESTER, { role: 'tester', onStationAt: null })] };
 
-    await advance();
+    await advance(FLEET);
 
     expect(retired).toEqual([TESTER]);
     expect(sent.map((each) => each.selector)).toEqual([{ kind: 'ship', shipId: PLANNER }]);
   });
 
   it('counts a member whose ship is retired already as retired', async () => {
-    await advance();
+    await advance(FLEET);
     standDown(PLANNER);
     ships.set(PLANNER, { ...aShip(), status: 'retired' });
 
-    await advance();
+    await advance(FLEET);
 
     expect(member(PLANNER)?.retiredAt).toEqual(NOW);
   });
 
   it('retires the flagship once every member is retired, and the squadron is disbanded, its history kept', async () => {
-    await advance();
+    await advance(FLEET);
     standDown(PLANNER, TESTER);
 
-    await advance();
+    await advance(FLEET);
 
     expect(retired).toEqual([PLANNER, TESTER, FLAGSHIP]);
     expect(held.state).toBe('disbanded');
@@ -226,7 +227,7 @@ describe('a squadron standing down', () => {
     standDown(PLANNER);
     isFleetDown = true;
 
-    await advance();
+    await advance(FLEET);
 
     expect(held.members.map((each) => ({ standDownMessageId: each.standDownMessageId, retiredAt: each.retiredAt }))).toEqual([
       { standDownMessageId: null, retiredAt: null },
@@ -237,7 +238,7 @@ describe('a squadron standing down', () => {
   it.each<SquadronState>(['forming', 'sailing', 'disbanded'])('leaves a %s squadron alone', async (state) => {
     held = aSquadron(state);
 
-    await advance();
+    await advance(FLEET);
 
     expect(sent).toEqual([]);
     expect(retired).toEqual([]);
@@ -246,7 +247,7 @@ describe('a squadron standing down', () => {
   it('does nothing while squadrons is not connected', async () => {
     crew = undefined;
 
-    await advance();
+    await advance(FLEET);
 
     expect(sent).toEqual([]);
   });

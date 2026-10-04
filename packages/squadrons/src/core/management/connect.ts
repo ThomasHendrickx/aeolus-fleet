@@ -17,13 +17,14 @@ const MANAGEMENT_SCOPES = ['fleet:read', 'fleet:manage'];
  * the management ship's secret, server to server; squadrons registers with it
  * as a server and keeps only the crew token. The ship must be of the
  * operator's fleet and hold fleet:read and fleet:manage, or squadrons lets it
- * go again and keeps nothing. Connect works only while squadrons is not
- * connected. The secret is never kept or logged.
+ * go again and keeps nothing. Each fleet has its own connection: connect
+ * works only while squadrons is not connected to the operator's fleet,
+ * whatever other fleets it serves. The secret is never kept or logged.
  */
 export function createConnect(deps: { door: FleetDoor; store: ManagementCrewStore; clock: Clock }): Connect {
   return async ({ operatorFleetId, shipId, secret }) => {
-    if (await deps.store.find()) {
-      return refuse('ALREADY_CONNECTED', 'squadrons is connected already');
+    if (await deps.store.find(operatorFleetId)) {
+      return refuse('ALREADY_CONNECTED', 'squadrons is connected to this fleet already');
     }
     const registered = await deps.door.register({ shipId, secret });
     if (!registered.isOk) {

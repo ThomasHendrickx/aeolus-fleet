@@ -10,6 +10,7 @@ const settingsSchema = z.union([
   z.object({
     configured: z.literal(true),
     connection: z.object({
+      isEnabled: z.boolean(),
       state: z.enum(['not-connected', 'connected']),
       ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
       lastShipId: z.string().nullable(),
@@ -59,14 +60,19 @@ export function useConnectSquadrons() {
   });
 }
 
-/** Whether this console has squadrons: AEOLUS_SQUADRONS_URL is set. The navigation shows Squadrons only then. */
+/**
+ * Whether this console shows squadrons: AEOLUS_SQUADRONS_URL is set and
+ * squadrons is on for this fleet. Until squadrons answers, it shows nothing of
+ * it, so an operator whose fleet has it off never sees it come and go.
+ */
 export function useHasSquadrons(): boolean {
-  return useContext(SquadronsConfiguredContext);
+  const settings = useSquadronsSettings();
+  return settings.data?.configured === true && settings.data.connection.isEnabled;
 }
 
 /**
- * Where squadrons stands for this console: none without AEOLUS_SQUADRONS_URL;
- * unknown until its connection is read; not connected; connected. Not
+ * Where squadrons stands for this console: none without AEOLUS_SQUADRONS_URL
+ * or while it is off for this fleet; unknown until its connection is read; not connected; connected. Not
  * configured and not connected are normal states: the console is then a
  * console without squadrons, and only a connected squadrons is asked for
  * squadron data. A connection that cannot be read counts as not connected.
@@ -78,5 +84,5 @@ export function useSquadronsConnection(): SquadronsConnection {
   if (settings.data === undefined) {
     return settings.isError ? 'not-connected' : 'unknown';
   }
-  return settings.data.configured ? settings.data.connection.state : 'none';
+  return settings.data.configured && settings.data.connection.isEnabled ? settings.data.connection.state : 'none';
 }
