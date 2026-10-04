@@ -4,6 +4,7 @@ export * from './fleet.js';
 export * from './follow.js';
 export * from './history.js';
 export * from './idempotency-key.js';
+export * from './installation.js';
 export * from './message.js';
 export * from './needs-attention.js';
 export * from './operator-inbox.js';
