@@ -35,6 +35,9 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),
     notices: of(state.notices),
+    fleetLimitSettings: of(state.fleetLimitSettings),
+    // The installation's settings belong to no fleet.
+    installationSettings: 0,
     installationRequests: state.installationRequests.filter((request) => request.kind === 'createFleet' && request.fleetId === fleetId).length,
   };
 }

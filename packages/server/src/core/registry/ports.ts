@@ -3,6 +3,7 @@ import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } f
 import type { Recipient } from '../shared/selector.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
+import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
@@ -33,6 +34,15 @@ export interface FleetRepository {
    * (decision 0020).
    */
   delete(fleetId: FleetId): Promise<void>;
+  /** How the fleet's limits are set; undefined when there is no such fleet. */
+  limitSettings(fleetId: FleetId): Promise<FleetLimitSettings | undefined>;
+  setLimitSettings(fleetId: FleetId, settings: FleetLimitSettings): Promise<void>;
+}
+
+/** Outbound port: the installation's settings, one set for the whole installation, not scoped to a fleet (decision 0020). */
+export interface InstallationSettingsRepository {
+  read(): Promise<InstallationSettings>;
+  write(settings: InstallationSettings): Promise<void>;
 }
 
 /** Outbound port: the installation's requests, by request id; not scoped to a fleet (decision 0020). */
