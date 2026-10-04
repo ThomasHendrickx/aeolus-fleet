@@ -55,9 +55,23 @@ describe('installationFleetSchema', () => {
     messagesLast7Days: 12,
     lastActivityAt: '2026-10-04T12:30:00.000Z',
     storage: 4096,
+    messagesToday: 3,
+    messagesPerDay: [
+      { date: '2026-09-28', count: 0 },
+      { date: '2026-09-29', count: 1 },
+      { date: '2026-09-30', count: 2 },
+      { date: '2026-10-01', count: 0 },
+      { date: '2026-10-02', count: 4 },
+      { date: '2026-10-03', count: 2 },
+      { date: '2026-10-04', count: 3 },
+    ],
+    limits: {
+      ships: { setting: { kind: 'default' }, applies: 10 },
+      dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+    },
   };
 
-  it('describes a fleet: id, name, operator email, created, ships not retired, messages of the last 7 days, last activity and storage', () => {
+  it('describes a fleet: its measures, its messages today and per UTC day of the last 7 days, and the limits that apply', () => {
     expect(installationFleetSchema.parse(fleet)).toEqual(fleet);
   });
 
@@ -70,6 +84,8 @@ describe('installationFleetSchema', () => {
     ['a fractional message count', { ...fleet, messagesLast7Days: 1.5 }],
     ['a missing storage', { ...fleet, storage: undefined }],
     ['a negative storage', { ...fleet, storage: -1 }],
+    ['a day that is no date', { ...fleet, messagesPerDay: [{ date: 'yesterday', count: 1 }] }],
+    ['missing limits', { ...fleet, limits: undefined }],
   ])('refuses %s', (_case, input) => {
     expect(installationFleetSchema.safeParse(input).success).toBe(false);
   });
