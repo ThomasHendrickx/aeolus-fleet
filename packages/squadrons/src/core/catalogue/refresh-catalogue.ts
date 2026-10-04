@@ -45,5 +45,5 @@ async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId
   for (const { name, error } of fetched) {
     await deps.store.recordFetch(fleetId, { name, at, error });
   }
-  deps.holder.set(assembleCatalogue(files));
+  deps.holder.set(fleetId, assembleCatalogue(files));
 }

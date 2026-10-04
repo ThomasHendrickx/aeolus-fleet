@@ -53,8 +53,8 @@ export interface RepositoryStore {
   recordFetch(fleetId: FleetId, fetch: { name: string; at: Date; error: string | null }): Promise<void>;
 }
 
-/** Outbound port: the catalogue squadrons serves, built at each refresh. */
+/** Outbound port: the catalogue squadrons serves each fleet, built at each refresh of that fleet; empty for a fleet not refreshed. */
 export interface CatalogueHolder {
-  get(): Catalogue;
-  set(catalogue: Catalogue): void;
+  get(fleetId: FleetId): Catalogue;
+  set(fleetId: FleetId, catalogue: Catalogue): void;
 }

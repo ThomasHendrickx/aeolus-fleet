@@ -1,4 +1,4 @@
-import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type ShipId } from '@aeolus-fleet/common';
+import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { Catalogue, TemplateReference } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
@@ -54,7 +54,8 @@ export function createFormSquadron(deps: {
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   attempts: FormationAttempts;
-  catalogue: () => Catalogue;
+  /** The catalogue of a fleet. */
+  catalogue: (fleetId: FleetId) => Catalogue;
   random: RandomNames;
   clock: Clock;
 }): FormSquadron {
@@ -63,7 +64,7 @@ export function createFormSquadron(deps: {
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }
-    const { blueprints, templates } = deps.catalogue();
+    const { blueprints, templates } = deps.catalogue(crew.fleetId);
     const { repository, name, version } = input.blueprint;
     const blueprint = blueprints.find((held) => held.repository === repository && held.name === name && held.version === version);
     if (!blueprint) {
