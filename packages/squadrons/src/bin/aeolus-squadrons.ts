@@ -31,7 +31,6 @@ async function start(): Promise<void> {
   const app = createSquadronsApp({
     databaseUrl: config.databaseUrl,
     fleetUrl: config.fleetUrl,
-    cacheDir: config.cacheDir,
     logger: { level: config.logLevel },
   });
   const connection = await app.readConnection();

@@ -5,7 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
-import { createGitRepositoryReader } from './adapters/git/git-catalogue-source.js';
+import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
@@ -66,8 +66,8 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  /** The folder squadrons keeps its own aeolus-squadrons folder of template repository mirrors in. */
-  cacheDir: string;
+  /** GitHub's REST API, where the template repositories are read; api.github.com unless a test gives a fake. */
+  githubApiUrl?: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
 }): SquadronsApp {
@@ -120,7 +120,7 @@ export function createSquadronsApp(options: {
     return formed;
   };
   const repositories = createPrismaRepositoryStore(prisma);
-  const source = createGitRepositoryReader({ cacheDir: options.cacheDir });
+  const source = createGithubRepositoryReader(options.githubApiUrl === undefined ? {} : { apiUrl: options.githubApiUrl });
   const refresh = createRefreshCatalogue({
     store: repositories,
     source,
