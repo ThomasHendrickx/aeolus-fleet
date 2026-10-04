@@ -78,12 +78,10 @@ export default function SettingsPage() {
           isRemoving={removeRepository.isPending}
           removeError={removeRepository.error?.message}
           onRemove={(name, done) => {
-            removeRepository.mutate(name, {
-              onSuccess: () => {
-                removeRepository.reset();
-                done();
-              },
-            });
+            removeRepository.mutate(name, { onSuccess: done });
+          }}
+          onRemoveClosed={() => {
+            removeRepository.reset();
           }}
           isRefreshing={refreshCatalogue.isPending}
           refreshError={refreshCatalogue.error?.message}
