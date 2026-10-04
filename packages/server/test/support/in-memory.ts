@@ -3,10 +3,12 @@ import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type FleetId, type IdGe
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
 import type { OperatorAccount } from '../../src/core/identity/operator-account.js';
+import type { SignInTicket } from '../../src/core/identity/sign-in-ticket.js';
 import type {
   AuthenticatedShip,
   CallerLookup,
   ConsoleSessionRepository,
+  SignInTicketRepository,
   CredentialRepository,
   OperatorAccountLookup,
   OperatorAccountRepository,
@@ -64,6 +66,7 @@ export interface InMemoryState {
   credentials: Credential[];
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
+  signInTickets: SignInTicket[];
   messages: Message[];
   deliveries: Delivery[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
@@ -87,6 +90,7 @@ export interface InMemoryTx {
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
+  signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: EventLog;
@@ -146,6 +150,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     credentials: [],
     operatorAccounts: [],
     consoleSessions: [],
+    signInTickets: [],
     messages: [],
     deliveries: [],
     deliveryReads: [],
@@ -586,6 +591,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    signInTickets: {
+      create: (ticket) => {
+        state.signInTickets.push({ ...ticket });
+        return Promise.resolve();
+      },
+      redeem: (tokenHash, at) => {
+        const ticket = state.signInTickets.find((held) => held.tokenHash === tokenHash && held.usedAt === null && held.expiresAt > at);
+        if (!ticket) {
+          return Promise.resolve(undefined);
+        }
+        ticket.usedAt = at;
+        return Promise.resolve(ticket.fleetId);
+      },
+    },
     installationRequests: {
       lock: () => Promise.resolve(),
       find: (requestId) => {
@@ -1009,6 +1028,7 @@ const FLEET_TABLES = [
   'credentials',
   'operatorAccounts',
   'consoleSessions',
+  'signInTickets',
   'messages',
   'deliveries',
   'deliveryReads',
@@ -1025,6 +1045,7 @@ const TABLES = [
   'credentials',
   'operatorAccounts',
   'consoleSessions',
+  'signInTickets',
   'messages',
   'deliveries',
   'deliveryReads',
