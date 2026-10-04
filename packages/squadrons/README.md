@@ -92,7 +92,7 @@ The flagship handles check-in, on-station and stood-down from its own members. A
 | `FLEET_URL` | yes | The fleet's public URL; squadrons calls its ship API at `<FLEET_URL>/api/v1` and checks console sessions there. Not a secret; fixed here, so no caller can point squadrons at another fleet |
 | `HOST`, `PORT` | no | Where it listens; `127.0.0.1:4100` by default |
 | `LOG_LEVEL` | no | `info` by default |
-| `SQUADRONS_CACHE_DIR` | no | Where the repositories' mirrors are kept, in a folder only squadrons' user can open; `aeolus-squadrons` in the user's cache folder (`$XDG_CACHE_HOME`, or `~/.cache`) by default |
+| `SQUADRONS_CACHE_DIR` | no | The folder squadrons keeps the repositories' mirrors in, within its own `aeolus-squadrons` folder that only squadrons' user can open; the user's cache folder (`$XDG_CACHE_HOME`, or `~/.cache`) by default |
 
 The template repositories are no part of this configuration: the operator adds them in the console, under Settings (docs/squadrons.md, "Template repositories"). squadrons runs `git`, so the host needs it.
 
@@ -102,6 +102,8 @@ The template repositories are no part of this configuration: the operator adds t
 Until it is connected, `catalogue.*` and `squadrons.*` answer PRECONDITION_FAILED. When the operator releases the management ship, squadrons drops its crew token and is not connected again: Connect squadrons, the same button, issues a new starting prompt for the same ship.
 
 One squadrons process runs per database: a second start on the same database refuses and says so, so stop the old process before starting a new one (a rolling deploy cannot overlap them). A process whose lock connection fails stops.
+
+Upgrading from a version before 0.12.0: squadrons kept the mirrors in `aeolus-squadrons` in the system's temporary folder (`/tmp/aeolus-squadrons` on most hosts), where other users could read them, private repositories included. squadrons no longer uses that folder and does not delete it: delete it yourself.
 
 ## Paths
 

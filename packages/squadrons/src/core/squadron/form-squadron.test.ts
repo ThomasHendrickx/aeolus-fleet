@@ -11,6 +11,7 @@ import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
+const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 const AT = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
@@ -168,7 +169,8 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     management: overrides.store ?? managementStore,
     squadrons,
     attempts,
-    catalogue: () => overrides.catalogue ?? catalogue,
+    // The catalogue is held per fleet: another fleet's holds nothing here.
+    catalogue: (fleetId) => (fleetId === OTHER_FLEET ? { templates: [], blueprints: [], problems: [] } : (overrides.catalogue ?? catalogue)),
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
     random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
@@ -300,6 +302,15 @@ describe('a squadron not formed', () => {
       isOk: false,
       error: { kind: 'BLUEPRINT_NOT_FOUND' },
     });
+  });
+
+  it("refuses a blueprint only another fleet's catalogue holds: it reads the catalogue of the fleet squadrons is connected to", async () => {
+    const otherFleet: ManagementCrewStore = {
+      ...managementStore,
+      find: () => Promise.resolve({ fleetId: OTHER_FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT }),
+    };
+
+    await expect(formWith({ store: otherFleet })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'BLUEPRINT_NOT_FOUND' } });
   });
 
   it('refuses a squadron id that is no handle', async () => {

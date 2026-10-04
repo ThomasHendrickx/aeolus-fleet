@@ -150,22 +150,21 @@ describe('the git repository reader', () => {
     await expect(reading.unfetched().then((files) => files.map((file) => file.name))).resolves.toEqual(['tester']);
   });
 
-  it('keeps its mirrors in a folder only its own user can open, even one that existed open to others', async () => {
+  it('keeps its mirrors in its own aeolus-squadrons folder, which only its user can open, leaving the folder it is given as it was', async () => {
     write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
     await git('add', '.');
     await git('commit', '--quiet', '-m', 'tester');
     await git('tag', 'tester@1');
-    const fresh = join(work, 'fresh', 'cache');
-    const open = join(work, 'open');
-    mkdirSync(open, { mode: 0o755 });
-    chmodSync(open, 0o755);
+    const shared = join(work, 'shared');
+    mkdirSync(shared, { mode: 0o755 });
+    chmodSync(shared, 0o755);
     const repository = { fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null };
 
-    for (const cacheDir of [fresh, open]) {
-      await createGitRepositoryReader({ cacheDir }).read([repository], { fetch: () => true });
-    }
+    await createGitRepositoryReader({ cacheDir: shared }).read([repository], { fetch: () => true });
 
-    expect([fresh, open].map((cacheDir) => statSync(cacheDir).mode & 0o777)).toEqual([0o700, 0o700]);
+    expect(statSync(shared).mode & 0o777).toBe(0o755);
+    expect(statSync(join(shared, 'aeolus-squadrons')).mode & 0o777).toBe(0o700);
+    expect(readdirSync(shared)).toEqual(['aeolus-squadrons']);
   });
 
   it('gives nothing from a mirror it cannot read, rather than failing the read', async () => {
@@ -175,10 +174,24 @@ describe('the git repository reader', () => {
     await git('tag', 'tester@1');
     const reading = source();
     await reading.files();
-    for (const mirror of readdirSync(join(work, 'cache'))) {
-      rmSync(join(work, 'cache', mirror, 'HEAD'));
+    for (const mirror of readdirSync(join(work, 'cache', 'aeolus-squadrons'))) {
+      rmSync(join(work, 'cache', 'aeolus-squadrons', mirror, 'HEAD'));
     }
 
+    await expect(reading.unfetched()).resolves.toEqual([]);
+  });
+
+  it('deletes the mirror of a repository it forgets: read again, it holds nothing before its next fetch', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const reading = source();
+    await reading.files();
+
+    await reading.reader.forget({ fleetId: FLEET, name: 'example.com/templates', url: `file://${origin}` });
+
+    expect(readdirSync(join(work, 'cache', 'aeolus-squadrons'))).toEqual([]);
     await expect(reading.unfetched()).resolves.toEqual([]);
   });
 
@@ -226,11 +239,35 @@ describe('the git repository reader', () => {
   });
 });
 
+/**
+ * Puts a `git` first on PATH that logs each call's arguments and git
+ * environment, then runs `then` (by default the real git) with them.
+ */
+async function fakeGit(then?: string): Promise<{ log: string; restore: () => void }> {
+  const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
+  const bin = join(work, 'bin');
+  const log = join(work, 'git.log');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    join(bin, 'git'),
+    `#!/bin/sh\nprintf 'argv %s\\n' "$*" >> '${log}'\nenv | grep -E '^GIT_(CONFIG_VALUE|TERMINAL_PROMPT)' >> '${log}'\n${then ?? `exec '${realGit}' "$@"`}\n`,
+  );
+  chmodSync(join(bin, 'git'), 0o755);
+  const path = process.env.PATH;
+  process.env.PATH = `${bin}:${path ?? ''}`;
+  return {
+    log,
+    restore: () => {
+      process.env.PATH = path;
+    },
+  };
+}
+
 describe('a private repository', () => {
-  let path: string | undefined;
+  let restore: (() => void) | undefined;
 
   afterEach(() => {
-    process.env.PATH = path;
+    restore?.();
   });
 
   it("hands git its token outside the command line: never in any git process's arguments", async () => {
@@ -238,14 +275,8 @@ describe('a private repository', () => {
     await git('add', '.');
     await git('commit', '--quiet', '-m', 'tester');
     await git('tag', 'tester@1');
-    const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
-    const bin = join(work, 'bin');
-    const log = join(work, 'git.log');
-    mkdirSync(bin);
-    writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf 'argv %s\\n' "$*" >> '${log}'\nenv | grep '^GIT_CONFIG_VALUE' >> '${log}'\nexec '${realGit}' "$@"\n`);
-    chmodSync(join(bin, 'git'), 0o755);
-    path = process.env.PATH;
-    process.env.PATH = `${bin}:${path ?? ''}`;
+    const faked = await fakeGit();
+    restore = faked.restore;
     const token = 'ghp_secret_token_value';
     const credentials = Buffer.from(`x-access-token:${token}`).toString('base64');
     const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
@@ -253,11 +284,56 @@ describe('a private repository', () => {
     const { files } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token }], { fetch: () => true });
 
     expect(files.map((file) => file.name)).toEqual(['tester']);
-    const lines = readFileSync(log, 'utf8').split('\n');
+    const lines = readFileSync(faked.log, 'utf8').split('\n');
     const argv = lines.filter((line) => line.startsWith('argv '));
     expect(argv.length).toBeGreaterThan(0);
     expect(argv.join('\n')).not.toContain(token);
     expect(argv.join('\n')).not.toContain(credentials);
     expect(lines).toContain(`GIT_CONFIG_VALUE_0=Authorization: Basic ${credentials}`);
+  });
+});
+
+describe('a mirror git cannot read after a fetch', () => {
+  let restore: (() => void) | undefined;
+
+  afterEach(() => {
+    restore?.();
+  });
+
+  it('says why as the fetch error', async () => {
+    write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\n');
+    await git('add', '.');
+    await git('commit', '--quiet', '-m', 'tester');
+    await git('tag', 'tester@1');
+    const realGit = (await run('sh', ['-c', 'command -v git'])).stdout.trim();
+    const faked = await fakeGit(`case "$*" in *for-each-ref*) echo 'fatal: bad object refs/tags/tester@1' >&2; exit 128;; esac\nexec '${realGit}' "$@"`);
+    restore = faked.restore;
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache') });
+
+    const { files, fetched } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null }], { fetch: () => true });
+
+    expect(files).toEqual([]);
+    expect(fetched).toEqual([{ name: 'example.com/templates', error: 'bad object refs/tags/tester@1' }]);
+  });
+});
+
+describe('a git that does not answer', () => {
+  let restore: (() => void) | undefined;
+
+  afterEach(() => {
+    restore?.();
+  });
+
+  it('is stopped after the time allowed, and the read says so, so no later refresh waits on it; git never asks for a password', async () => {
+    const faked = await fakeGit('exec sleep 30');
+    restore = faked.restore;
+    const reader = createGitRepositoryReader({ cacheDir: join(work, 'cache'), timeoutMs: 300 });
+    const started = Date.now();
+
+    const { fetched } = await reader.read([{ fleetId: FLEET, url: `file://${origin}`, name: 'example.com/templates', path: DEFAULT_PATH, token: null }], { fetch: () => true });
+
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(fetched).toEqual([{ name: 'example.com/templates', error: 'git did not answer within 0.3 seconds' }]);
+    expect(readFileSync(faked.log, 'utf8').split('\n')).toContain('GIT_TERMINAL_PROMPT=0');
   });
 });

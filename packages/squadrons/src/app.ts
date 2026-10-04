@@ -1,3 +1,4 @@
+import type { FleetId } from '@aeolus-fleet/common';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
@@ -65,7 +66,7 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  /** Where the template repositories' mirrors are kept. */
+  /** The folder squadrons keeps its own aeolus-squadrons folder of template repository mirrors in. */
   cacheDir: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
@@ -106,7 +107,10 @@ export function createSquadronsApp(options: {
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
   let flagships: FlagshipWatch | undefined;
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: () => catalogue, random: cryptoRandomNames, clock });
+  // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
+  const catalogues = new Map<FleetId, Catalogue>();
+  const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -115,15 +119,15 @@ export function createSquadronsApp(options: {
     }
     return formed;
   };
-  let catalogue: Catalogue = { templates: [], blueprints: [], problems: [] };
   const repositories = createPrismaRepositoryStore(prisma);
+  const source = createGitRepositoryReader({ cacheDir: options.cacheDir });
   const refresh = createRefreshCatalogue({
     store: repositories,
-    source: createGitRepositoryReader({ cacheDir: options.cacheDir }),
+    source,
     holder: {
-      get: () => catalogue,
-      set: (built) => {
-        catalogue = built;
+      get: catalogueOf,
+      set: (fleetId, built) => {
+        catalogues.set(fleetId, built);
       },
     },
     clock,
@@ -142,7 +146,7 @@ export function createSquadronsApp(options: {
   };
   const listRepositories = createListRepositories({ store: repositories });
   const addRepository = createAddRepository({ store: repositories, refresh, clock });
-  const removeRepository = createRemoveRepository({ store: repositories, refresh });
+  const removeRepository = createRemoveRepository({ store: repositories, source, refresh });
 
   const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
   const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
@@ -191,7 +195,7 @@ export function createSquadronsApp(options: {
         isConnected: async () => (await connectionOf()) === 'connected',
         readConnection,
         connect,
-        catalogue: () => catalogue,
+        catalogue: catalogueOf,
         refreshCatalogue: (fleetId) => refresh(fleetId, 'all'),
         listRepositories,
         addRepository,

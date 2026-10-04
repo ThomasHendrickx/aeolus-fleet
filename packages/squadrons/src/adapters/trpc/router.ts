@@ -33,7 +33,8 @@ export interface Context {
   isConnected: () => Promise<boolean>;
   readConnection: ReadConnection;
   connect: Connect;
-  catalogue: () => Catalogue;
+  /** The catalogue squadrons serves a fleet. */
+  catalogue: (fleetId: FleetId) => Catalogue;
   refreshCatalogue: (fleetId: FleetId) => Promise<void>;
   listRepositories: ListRepositories;
   addRepository: AddRepository;
@@ -451,7 +452,7 @@ export const squadronsRouter = t.router({
   catalogue: t.router({
     /** Every template and blueprint version tagged in git, and every version left out with its problem. */
     list: connectedProcedure.output(catalogueOutputSchema).query(({ ctx }) => {
-      const { templates, blueprints, problems } = ctx.catalogue();
+      const { templates, blueprints, problems } = ctx.catalogue(ctx.fleetId);
       return {
         templates: templates.map((template) => ({ ...template, committedAt: template.committedAt.toISOString() })),
         blueprints: blueprints.map((blueprint) => ({ ...blueprint, committedAt: blueprint.committedAt.toISOString() })),

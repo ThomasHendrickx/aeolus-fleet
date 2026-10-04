@@ -9,19 +9,19 @@ const environment = {
 };
 
 describe('loadConfig', () => {
-  it("reads the database and the fleet, listens on 127.0.0.1:4100 and keeps the mirrors in the user's cache folder by default", () => {
+  it("reads the database and the fleet, listens on 127.0.0.1:4100 and keeps the mirrors under the user's cache folder by default", () => {
     expect(loadConfig(environment)).toEqual({
       databaseUrl: environment.DATABASE_URL,
       fleetUrl: 'https://fleet.example.com',
       host: '127.0.0.1',
       port: 4100,
       logLevel: 'info',
-      cacheDir: '/home/squadrons/.cache/aeolus-squadrons',
+      cacheDir: '/home/squadrons/.cache',
     });
   });
 
-  it('keeps the mirrors under XDG_CACHE_HOME when it is set, and where SQUADRONS_CACHE_DIR says when that is set', () => {
-    expect(loadConfig({ ...environment, XDG_CACHE_HOME: '/var/cache/squadrons' }).cacheDir).toBe('/var/cache/squadrons/aeolus-squadrons');
+  it('keeps the mirrors under XDG_CACHE_HOME when it is set, and under SQUADRONS_CACHE_DIR when that is set', () => {
+    expect(loadConfig({ ...environment, XDG_CACHE_HOME: '/var/cache/squadrons' }).cacheDir).toBe('/var/cache/squadrons');
     expect(loadConfig({ ...environment, XDG_CACHE_HOME: '/var/cache/squadrons', SQUADRONS_CACHE_DIR: '/srv/mirrors' }).cacheDir).toBe('/srv/mirrors');
   });
 

@@ -42,6 +42,7 @@ export function fakeCatalogueSource(): RepositoryReader & {
   failing: Map<string, string>;
   fetches: string[];
   tokens: Map<string, string | null>;
+  forgotten: { fleetId: FleetId; url: string }[];
   /** Holds the next read back until the answered function is called. */
   holdNextRead: () => () => void;
 } {
@@ -52,6 +53,12 @@ export function fakeCatalogueSource(): RepositoryReader & {
     failing: new Map<string, string>(),
     fetches: new Array<string>(),
     tokens: new Map<string, string | null>(),
+    forgotten: new Array<{ fleetId: FleetId; url: string }>(),
+    forget: (repository: Pick<RepositoryToRead, 'fleetId' | 'name' | 'url'>) => {
+      source.forgotten.push({ fleetId: repository.fleetId, url: repository.url });
+      mirrored.delete(repository.name);
+      return Promise.resolve();
+    },
     holdNextRead: () => {
       let release = (): void => undefined;
       held = new Promise((resolve) => {
@@ -85,14 +92,13 @@ export function fakeCatalogueSource(): RepositoryReader & {
 
 const EMPTY: Catalogue = { templates: [], blueprints: [], problems: [] };
 
-/** Holds the catalogue squadrons serves, in memory. */
-export function memoryCatalogueHolder(): CatalogueHolder & { catalogue: Catalogue } {
-  const holder = {
-    catalogue: EMPTY,
-    get: () => holder.catalogue,
-    set: (catalogue: Catalogue) => {
-      holder.catalogue = catalogue;
+/** The catalogue holder in memory, one catalogue per fleet. */
+export function memoryCatalogueHolder(): CatalogueHolder {
+  const held = new Map<FleetId, Catalogue>();
+  return {
+    get: (fleetId) => held.get(fleetId) ?? EMPTY,
+    set: (fleetId, catalogue) => {
+      held.set(fleetId, catalogue);
     },
   };
-  return holder;
 }
