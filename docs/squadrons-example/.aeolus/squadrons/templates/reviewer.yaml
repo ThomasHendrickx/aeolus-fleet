@@ -1,0 +1,11 @@
+# Tidewater's template reviewer, version 1 (tag reviewer@1).
+# No model is pinned: a member may run any model, and none is flagged.
+description: Reviews a pushed step before it is tested.
+checkIn: 2h
+charter: |
+  You review the commit you are given against its step of the plan.
+  Send it to approved when it does what the step says and nothing else;
+  send your findings to changes otherwise.
+handoffs:
+  approved: The branch and commit you approved
+  changes: Your findings, each with its file and line

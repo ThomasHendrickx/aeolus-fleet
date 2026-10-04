@@ -1,0 +1,13 @@
+# Tidewater's blueprint tidewater-fix, version 1 (tag tidewater-fix@1): a
+# smaller squadron for one bug, reusing two of the same templates.
+description: Fixes one bug in Tidewater and proves it with a test.
+memberNames: prefixed
+roles:
+  implementer:
+    template: github.com/tidewater-labs/squadron-templates#implementer@1
+  tester:
+    template: github.com/tidewater-labs/squadron-templates#tester@1
+handoffs:
+  implementer.done: tester
+  tester.on-fail: implementer
+  tester.on-pass: flagship

@@ -1,0 +1,10 @@
+# Tidewater's template tester, version 1 (tag tester@1).
+description: Runs the end-to-end suite on a branch and reports the result.
+checkIn: 30m
+charter: |
+  You test the branch you are given with the whole end-to-end suite.
+  When tests fail, send the failing tests and their output to on-fail.
+  When they pass, send the branch and the run to on-pass.
+handoffs:
+  on-fail: The failing tests and their output
+  on-pass: The branch and the run that passed

@@ -4,7 +4,7 @@ Model and decisions: #79, #86, decision 0017. Aeolus knows nothing of what is de
 
 ## Files in git
 
-Ship templates and squadron blueprints are YAML files in GitHub repositories, as Dockerfiles and compose files are. squadrons reads them from the repositories it is configured with, through GitHub's REST API: it never clones a repository, keeps no files on disk, and never edits them. Other hosts get a reader when someone asks for one.
+Ship templates and squadron blueprints are YAML files in GitHub repositories, as Dockerfiles and compose files are. squadrons reads them from the repositories it is configured with, through GitHub's REST API: it never clones a repository, keeps no files on disk, and never edits them. Other hosts get a reader when someone asks for one. To write your first ones, start at [Writing them](#writing-them).
 
 - **Where:** in each configured repository, `templates/*.yaml` and `blueprints/*.yaml` under its folder: `.aeolus/squadrons/` unless the repository's entry in the configuration sets a `path`. One file is one template or one blueprint, and the file name (without `.yaml`) is its name.
 - **Versions are git tags.** A template's version `n` is the tag `<name>@<n>` (`tester@4`), a blueprint's likewise (`hemma-feature@4`), each a whole number from 1. The tag's commit holds that version of the file; a tag whose commit has no such file is ignored. The console shows templates as `tester@4`, blueprints as `v4`, and each version with its short commit (`4f2a91c`). A file changed without a new tag is no new version.
@@ -14,26 +14,12 @@ Ship templates and squadron blueprints are YAML files in GitHub repositories, as
 
 A reusable role, like an image: what a ship in this role does, how often it checks in, how it is launched, and the hand-offs it accepts, like the environment variables an image accepts.
 
-```yaml
-# .aeolus/squadrons/templates/tester.yaml
-description: Runs the end-to-end suite on a branch and reports the result.
-checkIn: 30m                 # how often a member reports; late after 1 interval, silent after 3
-model: claude-opus-5-5       # optional: the exact model a member of this role runs
-launchNote: |
-  Start in the repository's root, on the branch the planner names.
-charter: |
-  You test the branch you are given...
-  When tests fail, send the report to your on-fail hand-off.
-  When they pass, send it to on-pass.
-handoffs:                    # the hand-offs the charter refers to, by name, with what each carries
-  on-fail: The failing tests and their output
-  on-pass: The branch and the run that passed
-```
+An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.yaml), and its siblings in the [example set](#example-set).
 
 | Field | Required | Rule |
 | --- | --- | --- |
 | `description` | yes | One line, for the template lists |
-| `checkIn` | yes | A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
+| `checkIn` | yes | How often a member reports, late after one interval and silent after three. A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
 | `model` | no | The exact model id a member runs (`claude-opus-5-5`), never an alias: lowercase letters, digits, dots and hyphens, with at least one digit, not ending in `-latest`. Shown with the launch note; a member that states another model at check-in is flagged, not stopped |
 | `launchNote` | no | Shown once with each member's crew lines: where to start the session |
 | `charter` | yes | The role's instructions, given to the member at check-in, as written. At most 48 KB (UTF-8), so the role message stays within the 64 KB payload limit |
@@ -43,22 +29,7 @@ handoffs:                    # the hand-offs the charter refers to, by name, wit
 
 A compose file: which roles, how many ships each, which template version each runs, and where each hand-off goes.
 
-```yaml
-# .aeolus/squadrons/blueprints/hemma-feature.yaml
-description: Plans, builds and tests one feature of Hemma.
-roles:
-  planner:
-    template: github.com/thomashendrickx/squadron-templates#planner@3
-  implementer:
-    template: github.com/thomashendrickx/squadron-templates#implementer@5
-    count: 2
-  tester:
-    template: github.com/thomashendrickx/squadron-templates#tester@4
-handoffs:
-  tester.on-fail: implementer
-  tester.on-pass: flagship
-  implementer.done: tester
-```
+An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/blueprints/tidewater-feature.yaml), and [tidewater-fix.yaml](squadrons-example/.aeolus/squadrons/blueprints/tidewater-fix.yaml) with prefixed member names.
 
 | Field | Required | Rule |
 | --- | --- | --- |
@@ -66,6 +37,31 @@ handoffs:
 | `roles` | yes | Role names (handles) to a template reference and a `count` (1 when left out, at most 20) |
 | `roles.<role>.template` | yes | `<repository>#<name>@<n>`: a configured repository, the template's name, and its version, the tag `<name>@<n>` in that repository. Only tags: never a branch or a commit |
 | `handoffs` | no | `<role>.<hand-off>: <role or flagship>`. Every hand-off a template declares must be bound; a binding to a hand-off no template declares is refused |
+| `memberNames` | no | `plain` (when left out) or `prefixed`; see [Names](#names) |
+
+## Writing them
+
+### Example set
+
+[docs/squadrons-example](squadrons-example) is a complete set for an invented project, Tidewater: four templates (planner, implementer, reviewer, tester) and two blueprints (`tidewater-feature`, `tidewater-fix`) in a repository named `github.com/tidewater-labs/squadron-templates`. Each file is version 1, as its tag `<name>@1` would make it. A test reads the set through squadrons' own reader and leaves nothing out, so it stays valid.
+
+### Step by step
+
+1. Write the template in `.aeolus/squadrons/templates/<name>.yaml`, with the fields of [Ship template](#ship-template). The name is a handle: lowercase letters, digits, hyphens or colons.
+2. Commit it, tag that commit `<name>@1`, and push the tag: `git tag tester@1 && git push origin tester@1`. The next version is a new commit tagged `tester@2`; never move a tag.
+3. Write the blueprint in `.aeolus/squadrons/blueprints/<name>.yaml`, with the fields of [Squadron blueprint](#squadron-blueprint). Each role names its template as `<repository>#<template>@<n>`, where the repository is the name squadrons gives it under [Template repositories](#template-repositories) and `<n>` a version tagged in step 2. Bind every hand-off the templates declare.
+4. Commit it, tag that commit `<name>@1` and push the tag. The blueprint's tag and its templates' tags may point at different commits: each file is read at its own tag.
+5. In the console, Settings, Repositories: add the repository, or Refresh when it is added already. squadrons never fetches on a timer.
+
+### Common mistakes
+
+- **A change without a tag.** Editing a file on main changes nothing: only a new tag is a new version.
+- **A tag that does not match the file.** The tag `tester@1` reads `templates/tester.yaml` and `blueprints/tester.yaml` at its commit, nothing else. `Tester@1`, `tester-1`, `tester@v1` and `tester@1.0` are no versions, and a file named `Tester.yaml` or `tester.yml` is not read.
+- **Letter case in a reference.** A reference's repository must be the repository's name exactly, letter case too: a repository added as `https://github.com/Tidewater-Labs/squadron-templates` is named `github.com/Tidewater-Labs/squadron-templates`, and a reference to `github.com/tidewater-labs/squadron-templates` does not find it.
+- **A reference to a version that is not tagged**, or to a branch or a commit: a role's template is always `<name>@<n>`, a tag that exists.
+- **A hand-off left unbound**, or bound to a role the blueprint does not have. A blueprint binds exactly the hand-offs its templates declare, each to one of its roles or to `flagship`.
+- **A duration or model in another form.** `checkIn` is `30m` or `2h`, not `30 min`, `90s` or `2d`. `model` is an exact id such as `claude-opus-5-5`, never `opus` or `claude-opus-latest`.
+- **A template and a blueprint of one name.** One tag reads both folders, so `tester@1` would be both a template and a blueprint version; give them different names.
 
 ## Names
 
