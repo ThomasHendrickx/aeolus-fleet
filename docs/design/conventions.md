@@ -68,7 +68,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Off: no Squadrons destination, Squadron filter, flagship chip, squadron states, health or silent members. Nothing else changes.
 - On: Squadrons second in Sidebar and TabBar (TabBar gets 5 tabs); Squadron filter in the FleetTable toolbar and phone filter Sheet; CommandPalette adds squadrons, blueprints and squadron actions.
 - Member name: the ship name as is; a squadron may prefix names but the console never parses them. Membership shows as SquadronTag, from the squadrons API.
-- Flagship: like argo, never Release, Rename or Retire; actions Open squadron, Message, Copy ship id; retires when its squadron disbands. Message on a squadron goes to its flagship.
+- Flagship: like argo, never Release, Rename or Retire; its only action is Open squadron; retires when its squadron disbands. Message on a squadron goes to its flagship.
 - Member: no Rename. Retire → Remove from squadron (RemoveMemberDialog). Get starting prompt → Get new crew line (CrewLineDialog). Silent: Get new crew line is the primary action.
 - Crew lines carry the secret: CrewLineBlock shows them once, with the template's launch note; afterwards only "Crew line issued … not claimed yet".
 - Forming: FormSquadronDialog (blueprint and version, then preview) → squadron page in Forming: StationProgress plus crew lines in MemberList rows. All on station: Sailing, Toast "<id> is sailing".
