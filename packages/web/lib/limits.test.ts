@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { composeRefusedNotice, messageLimitNotice, messageLimitReached, resetTime, shipLimitNotice, shipLimitReached } from './limits';
+import { composeRefusedNotice, hasLimits, messageLimitNotice, messageLimitReached, meterCaption, meterState, resetTime, shipLimitNotice, shipLimitReached } from './limits';
 
 const RESETS = '2026-10-05T00:00:00.000Z';
 
@@ -35,5 +35,29 @@ describe('the limits the console shows', () => {
       title: 'This message wasn’t sent',
       description: 'Your fleet reached its limit of 1,000 messages today. Sending works again after the limit resets at 00:00 UTC.',
     });
+  });
+});
+
+describe('the limit meters', () => {
+  it('stand below, at or over the limit, or show no limit when none applies', () => {
+    expect(meterState({ count: 7, limit: 10 })).toBe('below');
+    expect(meterState({ count: 10, limit: 10 })).toBe('at');
+    expect(meterState({ count: 12, limit: 10 })).toBe('over');
+    expect(meterState({ count: 5, limit: null })).toBe('none');
+  });
+
+  it('say what is left, that the limit is reached, or how far over it the count is', () => {
+    expect(meterCaption({ count: 7, limit: 10 })).toBe('3 left');
+    expect(meterCaption({ count: 588, limit: 2000 })).toBe('1,412 left');
+    expect(meterCaption({ count: 10, limit: 10 })).toBe('Limit reached');
+    expect(meterCaption({ count: 12, limit: 10 })).toBe('2 over the limit');
+    expect(meterCaption({ count: 5, limit: null })).toBeUndefined();
+  });
+
+  it('are shown when any limit applies, and not without one', () => {
+    expect(hasLimits({ ships: { limit: 10, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS } })).toBe(true);
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 0, resetsAt: RESETS } })).toBe(true);
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS } })).toBe(false);
+    expect(hasLimits(undefined)).toBe(false);
   });
 });
