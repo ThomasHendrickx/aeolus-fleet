@@ -15,7 +15,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
 import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
-import { startFakeGithub, type FakeGithub } from '../packages/squadrons/test/support/fake-github.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../packages/squadrons/test/support/fake-github.js';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -164,5 +164,42 @@ describe('Settings, Squadrons', () => {
     await page.getByTestId('repositories-remove-confirm').click();
 
     await repositories.getByText('No repositories yet').waitFor();
+  });
+
+  it('shows per repository what squadrons found, and every file and tag it left out with why; a repository read whole shows nothing left out', async () => {
+    const tester = 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n';
+    github.repositories.set('acme/whole', { tags: tagsAt({ files: { '.aeolus/squadrons/templates/tester.yaml': tester } }, 'tester@1') });
+    github.repositories.set('acme/mixed', {
+      tags: tagsAt(
+        {
+          files: {
+            '.aeolus/squadrons/templates/tester.yaml': tester,
+            '.aeolus/squadrons/templates/planner.yaml': 'description: Plans.\ncheckIn: often\ncharter: You plan.\n',
+            '.aeolus/squadrons/blueprints/team.yaml': 'description: A team.\nroles:\n  tester:\n    template: github.com/Acme/mixed#tester@1\n',
+          },
+        },
+        'tester@1', 'planner@1', 'team@1', 'reviewer@1', 'v1.0.0',
+      ),
+    });
+    const page = await settingsPage();
+    const repositories = page.getByTestId('settings-repositories');
+
+    for (const url of ['https://github.com/acme/whole.git', 'https://github.com/acme/mixed.git']) {
+      await page.getByTestId('repositories-url').fill(url);
+      await page.getByTestId('repositories-add-submit').click();
+      await expect.poll(() => page.getByTestId('repositories-url').inputValue()).toBe('');
+    }
+
+    const whole = repositories.getByTestId('repositories-row').filter({ hasText: 'acme/whole' });
+    const mixed = repositories.getByTestId('repositories-row').filter({ hasText: 'acme/mixed' });
+    await mixed.getByTestId('repositories-left-out').waitFor();
+    await expect(whole.getByTestId('repositories-found').textContent()).resolves.toBe('Templatestester@1BlueprintsNone');
+    await expect(whole.getByTestId('repositories-left-out').count()).resolves.toBe(0);
+    await expect(mixed.getByTestId('repositories-found').textContent()).resolves.toBe('Templatestester@1BlueprintsNone');
+    await expect(mixed.getByTestId('repositories-left-out-item').allTextContents()).resolves.toEqual([
+      'tag reviewer@1: the tag reviewer@1 points at a commit with neither .aeolus/squadrons/templates/reviewer.yaml nor .aeolus/squadrons/blueprints/reviewer.yaml',
+      'template planner@1: checkIn must be a duration such as 30m or 2h',
+      'blueprint team v1: roles.tester.template: squadrons knows no repository github.com/Acme/mixed; it knows github.com/acme/mixed, and a reference must match its name exactly, letter case too',
+    ]);
   });
 });

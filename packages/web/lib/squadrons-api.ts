@@ -62,11 +62,22 @@ export const catalogueSchema = z.object({
       file: z.string(),
     }),
   ),
+  /** Every version left out, and every version tag nothing was read at, with why (docs/squadrons.md, "Common mistakes"). */
+  problems: z.array(
+    z.object({
+      repository: z.string(),
+      kind: z.enum(['template', 'blueprint', 'tag']),
+      name: z.string(),
+      version: z.number(),
+      message: z.string(),
+    }),
+  ),
 });
 
 export type Catalogue = z.infer<typeof catalogueSchema>;
 export type BlueprintVersion = Catalogue['blueprints'][number];
 export type TemplateVersion = Catalogue['templates'][number];
+export type CatalogueProblem = Catalogue['problems'][number];
 
 export const squadronSchema = z.object({
   id: z.string(),
