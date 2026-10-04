@@ -18,6 +18,9 @@ function isOrigin(value: string): boolean {
   );
 }
 
+/** The shortest installation token the server takes: long enough that guessing it is hopeless. */
+const INSTALLATION_TOKEN_MIN_LENGTH = 32;
+
 const environmentSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// or postgresql:// URL' }),
   PUBLIC_URL: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }),
@@ -31,6 +34,7 @@ const environmentSchema = z.object({
     .refine(isOrigin, 'must be an origin without a path, like https://console.example.com')
     .transform((origin) => new URL(origin).origin)
     .optional(),
+  INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, `must be at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters`).optional(),
 });
 
 /** What `aeolus-server migrate` reads: the database alone. */
@@ -53,6 +57,12 @@ export interface Config {
    * Defaults to the public URL's origin: web and server behind one host.
    */
   consoleOrigin: string;
+  /**
+   * The token a hosting service presents to the installation procedures
+   * (docs/architecture.md, "Installation"). Unset: they are off, as on a
+   * self-hosted server.
+   */
+  installationToken: string | undefined;
 }
 
 export class ConfigError extends Error {
@@ -85,7 +95,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     throw configErrorOf(result.error);
   }
 
-  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN } = result.data;
+  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN } = result.data;
   return {
     databaseUrl: DATABASE_URL,
     publicUrl: PUBLIC_URL,
@@ -95,5 +105,6 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     shouldTrustProxy: TRUST_PROXY === 'true',
     cookieDomain: COOKIE_DOMAIN,
     consoleOrigin: CONSOLE_ORIGIN ?? new URL(PUBLIC_URL).origin,
+    installationToken: INSTALLATION_TOKEN,
   };
 }

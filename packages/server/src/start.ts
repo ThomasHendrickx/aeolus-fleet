@@ -17,6 +17,7 @@ export async function start(): Promise<void> {
     shouldTrustProxy: config.shouldTrustProxy,
     cookieDomain: config.cookieDomain,
     consoleOrigin: config.consoleOrigin,
+    installationToken: config.installationToken,
   });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
