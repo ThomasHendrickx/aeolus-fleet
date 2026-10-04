@@ -14,6 +14,7 @@ export interface InstallationFleet {
   shipCount: number;
   messagesLast7Days: number;
   lastActivityAt: Date | null;
+  storage: number;
 }
 
 /** The start of the message window for a read at `now`: 7 days before it, counted inclusive. */

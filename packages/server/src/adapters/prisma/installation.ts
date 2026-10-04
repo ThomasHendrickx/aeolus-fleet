@@ -54,6 +54,7 @@ const factsRow = z.object({
   shipCount: z.bigint(),
   messagesSince: z.bigint(),
   lastActivityAt: z.date().nullable(),
+  storage: z.bigint(),
 });
 
 function toFacts(row: unknown): InstallationFleetFacts {
@@ -63,6 +64,7 @@ function toFacts(row: unknown): InstallationFleetFacts {
     operatorEmail: facts.operatorEmail ?? '',
     shipCount: Number(facts.shipCount),
     messagesSince: Number(facts.messagesSince),
+    storage: Number(facts.storage),
   };
 }
 
@@ -74,7 +76,9 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
         SELECT f.id AS "fleetId", f.name, o.email AS "operatorEmail", f.created_at AS "createdAt",
           (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
           (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${since}) AS "messagesSince",
-          (SELECT max(e.occurred_at) FROM events e WHERE e.fleet_id = f.id) AS "lastActivityAt"
+          (SELECT max(e.occurred_at) FROM events e WHERE e.fleet_id = f.id) AS "lastActivityAt",
+          -- A payload's UTF-8 bytes, whatever the database encoding.
+          (SELECT coalesce(sum(octet_length(convert_to(m.payload, 'UTF8'))), 0)::bigint FROM messages m WHERE m.fleet_id = f.id) AS "storage"
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
         WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}

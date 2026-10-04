@@ -187,6 +187,8 @@ export interface InstallationFleetFacts {
   messagesSince: number;
   /** The time of its newest event of any kind; null before any. */
   lastActivityAt: Date | null;
+  /** The UTF-8 bytes of every message payload it ever stored. */
+  storage: number;
 }
 
 /** Outbound port: the fleets read across the installation; reachable only with the installation token. */

@@ -735,6 +735,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
       messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= since).length,
       lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
+      storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + Buffer.byteLength(message.payload, 'utf8'), 0),
     };
   };
   const installationFleets: InstallationFleets = {
