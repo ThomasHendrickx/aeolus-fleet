@@ -8,11 +8,15 @@ export const DEFAULT_PATH = '.aeolus/squadrons';
 
 /** The longest read token squadrons takes. */
 const TOKEN_MAX_LENGTH = 1024;
+/** The one host squadrons reads repositories from, through its API (S5); other hosts get an adapter when asked for. */
+const GITHUB_HOST = 'github.com';
+/** A GitHub repository's path: its owner and its name. */
+const GITHUB_REPOSITORY_PATH = /^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 /** A path within a repository: folders of letters, digits, dots, underscores and hyphens. */
 const PATH_PATTERN = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 
 /**
- * A git repository squadrons reads templates and blueprints from (#161), set
+ * A GitHub repository squadrons reads templates and blueprints from (#161), set
  * by the operator in the console: runtime configuration, never a file.
  */
 export interface TemplateRepository {
@@ -49,8 +53,8 @@ function isSafePath(path: string): boolean {
 }
 
 /**
- * What the operator gives for a repository, checked: an https URL of a
- * repository, with no credentials, query or fragment (a token is given apart),
+ * What the operator gives for a repository, checked: the https URL of a
+ * GitHub repository, with no credentials, query or fragment (a token is given apart),
  * a path inside the repository, and a token of 1 to 1024 characters.
  */
 export function parseRepositoryInput(input: {
@@ -67,6 +71,9 @@ export function parseRepositoryInput(input: {
   const repositoryPath = url.pathname.replace(/\/+$/, '').replace(/\.git$/, '');
   if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || repositoryPath === '') {
     return refuse('INVALID_REPOSITORY', 'Give the repository\'s https URL, with no credentials in it: a private repository takes a read token instead');
+  }
+  if (url.host !== GITHUB_HOST || !GITHUB_REPOSITORY_PATH.test(repositoryPath)) {
+    return refuse('INVALID_REPOSITORY', 'squadrons reads GitHub repositories only: give https://github.com/<owner>/<repository>');
   }
   const path = input.path ?? DEFAULT_PATH;
   if (!isSafePath(path)) {

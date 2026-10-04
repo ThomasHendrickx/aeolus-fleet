@@ -1,9 +1,3 @@
-import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
-
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -16,6 +10,7 @@ import { createMigratedDatabase } from '../../server/test/support/database.js';
 import { unwrap } from '../../server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from './support/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
 import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../server/test/support/keys.js';
 
@@ -23,11 +18,9 @@ import { newKey } from '../../server/test/support/keys.js';
 // in at its flagship, gets its role and charter back, confirms it, and the
 // squadron sails once every member is on station.
 
-const run = promisify(execFile);
-const REPO = 'example.com/templates';
+const REPO = 'github.com/acme/templates';
 
-let work: string;
-let origin: string;
+let github: FakeGithub;
 let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
 let fleetUrl: string;
@@ -44,17 +37,6 @@ const RESCANS_MS = 1_000;
 /** A live change shows within this. */
 const LIVE_TIMEOUT_MS = 20_000;
 
-async function git(...args: string[]): Promise<void> {
-  await run('git', ['-C', origin, ...args], {
-    env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 't@example.com' },
-  });
-}
-
-function write(path: string, content: string): void {
-  mkdirSync(join(origin, path, '..'), { recursive: true });
-  writeFileSync(join(origin, path), content);
-}
-
 async function signIn(): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.signIn`, {
     method: 'POST',
@@ -66,19 +48,18 @@ async function signIn(): Promise<string> {
 }
 
 beforeEach(async () => {
-  work = mkdtempSync(join(tmpdir(), 'aeolus-forming-api-'));
-  origin = join(work, 'templates');
-  mkdirSync(origin);
-  await git('init', '--quiet', '--initial-branch=main');
-  write('.aeolus/squadrons/templates/tester.yaml', 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\nlaunchNote: Start in the repository root.\ncharter: You test.\n');
-  write(
-    '.aeolus/squadrons/blueprints/team.yaml',
-    `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`,
-  );
-  await git('add', '.');
-  await git('commit', '--quiet', '-m', 'team');
-  await git('tag', 'tester@1');
-  await git('tag', 'team@1');
+  github = await startFakeGithub();
+  github.repositories.set('acme/templates', {
+    tags: tagsAt(
+      {
+        files: {
+          '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\nlaunchNote: Start in the repository root.\ncharter: You test.\n',
+          '.aeolus/squadrons/blueprints/team.yaml': `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`,
+        },
+      },
+      'tester@1', 'team@1',
+    ),
+  });
 
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
@@ -91,11 +72,11 @@ beforeEach(async () => {
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
   const squadronsDatabaseUrl = await createSquadronsDatabase();
-  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: `file://${origin}` });
+  await seedRepository(squadronsDatabaseUrl, { fleetId: argo.fleetId, name: REPO, url: 'https://github.com/acme/templates' });
   app = createSquadronsApp({
     databaseUrl: squadronsDatabaseUrl,
     fleetUrl,
-    cacheDir: join(work, 'cache'),
+    githubApiUrl: github.apiUrl,
     logger: false,
   });
   unwrap(await app.connect({ operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) }));
@@ -109,7 +90,7 @@ afterEach(async () => {
   await app.close();
   await fleet.close();
   await fleetDatabase.$disconnect();
-  rmSync(work, { recursive: true, force: true });
+  await github.close();
 });
 
 const formedSchema = z.object({

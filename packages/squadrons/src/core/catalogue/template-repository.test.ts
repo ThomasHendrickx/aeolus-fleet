@@ -12,9 +12,9 @@ describe('a template repository the operator adds', () => {
 
   it('reads from .aeolus/squadrons unless it gives its own path', () => {
     expect(DEFAULT_PATH).toBe('.aeolus/squadrons');
-    expect(parseRepositoryInput({ url: 'https://gitlab.example.com/ops/fleet', path: 'ops/squadrons' })).toMatchObject({
+    expect(parseRepositoryInput({ url: 'https://github.com/ops/fleet', path: 'ops/squadrons' })).toMatchObject({
       isOk: true,
-      value: { name: 'gitlab.example.com/ops/fleet', path: 'ops/squadrons' },
+      value: { name: 'github.com/ops/fleet', path: 'ops/squadrons' },
     });
   });
 
@@ -32,6 +32,18 @@ describe('a template repository the operator adds', () => {
     ['no URL at all', 'templates'],
   ])('refuses %s: only an https URL of a repository, its token given apart', (_label, url) => {
     expect(parseRepositoryInput({ url })).toMatchObject({ isOk: false, error: { kind: 'INVALID_REPOSITORY' } });
+  });
+
+  it.each([
+    ['another host', 'https://gitlab.example.com/ops/fleet'],
+    ['a GitHub address that is no repository', 'https://github.com/acme'],
+    ['a page within a GitHub repository', 'https://github.com/acme/templates/tree/main'],
+    ['another GitHub host name', 'https://www.github.com/acme/templates'],
+  ])('refuses %s, saying it reads GitHub repositories only', (_label, url) => {
+    expect(parseRepositoryInput({ url })).toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_REPOSITORY', message: 'squadrons reads GitHub repositories only: give https://github.com/<owner>/<repository>' },
+    });
   });
 
   it.each([

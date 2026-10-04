@@ -4,7 +4,7 @@ Model and decisions: #79, #86, decision 0017. Aeolus knows nothing of what is de
 
 ## Files in git
 
-Ship templates and squadron blueprints are YAML files in git repositories, as Dockerfiles and compose files are. squadrons reads them from the repositories it is configured with; it never edits them.
+Ship templates and squadron blueprints are YAML files in GitHub repositories, as Dockerfiles and compose files are. squadrons reads them from the repositories it is configured with, through GitHub's REST API: it never clones a repository, keeps no files on disk, and never edits them. Other hosts get a reader when someone asks for one.
 
 - **Where:** in each configured repository, `templates/*.yaml` and `blueprints/*.yaml` under its folder: `.aeolus/squadrons/` unless the repository's entry in the configuration sets a `path`. One file is one template or one blueprint, and the file name (without `.yaml`) is its name.
 - **Versions are git tags.** A template's version `n` is the tag `<name>@<n>` (`tester@4`), a blueprint's likewise (`hemma-feature@4`), each a whole number from 1. The tag's commit holds that version of the file; a tag whose commit has no such file is ignored. The console shows templates as `tester@4`, blueprints as `v4`, and each version with its short commit (`4f2a91c`). A file changed without a new tag is no new version.
@@ -104,8 +104,8 @@ squadrons starts not connected: no management ship and no secret in its environm
 
 The repositories squadrons reads are runtime configuration: the operator adds them in the console, under Settings, never in a file. Each has:
 
-- **URL:** the repository's https URL, such as `https://github.com/thomashendrickx/squadron-templates.git`. Its name, what blueprints reference, is the URL without the scheme and `.git`: `github.com/thomashendrickx/squadron-templates`.
+- **URL:** the repository's https URL on github.com, such as `https://github.com/thomashendrickx/squadron-templates.git`; any other URL is refused. Its name, what blueprints reference, is the URL without the scheme and `.git`: `github.com/thomashendrickx/squadron-templates`.
 - **Path:** the folder holding `templates/` and `blueprints/`; `.aeolus/squadrons` when left out.
-- **Token:** a read token for a private repository, entered once and never shown again.
+- **Token:** a read token for a private repository, entered once and never shown again. squadrons reads a repository with its own token only, and with no token unauthenticated: a private repository without a token that can read it is not read, whatever credentials the host holds.
 
-squadrons fetches a repository when the operator adds it and when the operator refreshes, never by itself. A fetch that fails keeps the repository, with why. Removing a repository takes its versions out of the catalogue at once; formed squadrons keep the versions they formed from.
+squadrons fetches a repository when the operator adds it, every repository when the operator refreshes, and every repository once when it connects or starts, since it keeps nothing across a restart; never on a timer. A fetch reads the repository's tags and, for each tag `<name>@<n>` it has not read yet at that commit, its files: a tag never changes, so its files are read once. A fetch that fails keeps the repository, with why, and keeps what it last read. Removing a repository takes its versions out of the catalogue at once; formed squadrons keep the versions they formed from.

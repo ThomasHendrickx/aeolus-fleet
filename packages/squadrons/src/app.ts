@@ -5,7 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
-import { createGitRepositoryReader } from './adapters/git/git-catalogue-source.js';
+import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
@@ -46,10 +46,8 @@ export interface SquadronsApp {
   readConnection: ReadConnection;
   /** Connects squadrons as the operator's management ship, then recovers formations and starts the flagships. */
   connect: Connect;
-  /** Fetches every template repository of the connected fleet and rebuilds the catalogue; a failure is logged. */
+  /** Fetches every template repository of the connected fleet and rebuilds the catalogue, at start and on Refresh; a failure is logged. */
   refreshCatalogue: () => Promise<void>;
-  /** Builds the catalogue from what each repository last fetched, fetching none: at start and on connecting. */
-  loadCatalogue: () => Promise<void>;
   /** Retires what formations a crash left unfinished commissioned: run once connected, before anything else forms. */
   recoverFormations: RecoverFormations;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
@@ -66,8 +64,8 @@ export interface SquadronsApp {
 export function createSquadronsApp(options: {
   databaseUrl: string;
   fleetUrl: string;
-  /** The folder squadrons keeps its own aeolus-squadrons folder of template repository mirrors in. */
-  cacheDir: string;
+  /** GitHub's REST API, where the template repositories are read; api.github.com unless a test gives a fake. */
+  githubApiUrl?: string;
   clock?: Clock;
   logger?: FastifyServerOptions['logger'];
 }): SquadronsApp {
@@ -120,7 +118,7 @@ export function createSquadronsApp(options: {
     return formed;
   };
   const repositories = createPrismaRepositoryStore(prisma);
-  const source = createGitRepositoryReader({ cacheDir: options.cacheDir });
+  const source = createGithubRepositoryReader(options.githubApiUrl === undefined ? {} : { apiUrl: options.githubApiUrl });
   const refresh = createRefreshCatalogue({
     store: repositories,
     source,
@@ -166,7 +164,7 @@ export function createSquadronsApp(options: {
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
   const readConnection = createReadConnection({ door, store });
   const connectOnly = createConnect({ door, store, clock });
-  // Once connected, what waited for it: formations a crash left unfinished, then the flagships.
+  // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
     const connected = await connectOnly(input);
     if (connected.isOk) {
@@ -174,7 +172,7 @@ export function createSquadronsApp(options: {
       if (!recovered.isOk) {
         server.log.error({ refusal: recovered.error }, 'formations a crash left unfinished could not be recovered');
       }
-      await refreshConnectedFleet('none');
+      await refreshConnectedFleet('all');
       await flagships?.rescan();
     }
     return connected;
@@ -223,7 +221,6 @@ export function createSquadronsApp(options: {
     readConnection,
     connect,
     refreshCatalogue: () => refreshConnectedFleet('all'),
-    loadCatalogue: () => refreshConnectedFleet('none'),
     recoverFormations,
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({

@@ -15,6 +15,7 @@ import { createTestClock } from '../packages/server/test/support/postgres-core.j
 import { unwrap } from '../packages/server/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
 import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
+import { startFakeGithub, type FakeGithub } from '../packages/squadrons/test/support/fake-github.js';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -35,6 +36,7 @@ let useCases: UseCases;
 let argo: Caller;
 let server: FastifyInstance;
 let squadrons: SquadronsApp;
+let github: FakeGithub;
 let squadronsUrl: string;
 let web: RunningWeb;
 let browser: Browser;
@@ -49,7 +51,8 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, cacheDir: '/tmp/aeolus-squadrons-e2e', logger: false });
+  github = await startFakeGithub();
+  squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, githubApiUrl: github.apiUrl, logger: false });
   await squadrons.readConnection();
   squadronsUrl = await squadrons.server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl, squadronsUrl });
@@ -61,6 +64,7 @@ afterAll(async () => {
   await browser.close();
   await web.stop();
   await squadrons.close();
+  await github.close();
   await server.close();
   await database.$disconnect();
 });
@@ -145,17 +149,17 @@ describe('Settings, Squadrons', () => {
     const repositories = page.getByTestId('settings-repositories');
     await repositories.getByText('No repositories yet').waitFor();
 
-    // Nothing answers on port 1: the fetch fails at once, and squadrons keeps the repository with why.
-    await page.getByTestId('repositories-url').fill('https://127.0.0.1:1/missing.git');
+    // GitHub has no such repository: the fetch fails, and squadrons keeps the repository with why.
+    await page.getByTestId('repositories-url').fill('https://github.com/acme/missing.git');
     await page.getByTestId('repositories-add-submit').click();
 
     const row = repositories.getByTestId('repositories-row');
-    await row.getByText('127.0.0.1:1/missing', { exact: true }).waitFor();
+    await row.getByText('acme/missing', { exact: true }).waitFor();
     await row.getByTestId('repositories-error').waitFor();
     await expect(page.getByTestId('repositories-url').inputValue()).resolves.toBe('');
 
     await row.getByTestId('repositories-remove').click();
-    await page.getByTestId('repositories-remove-dialog').getByText('Remove 127.0.0.1:1/missing?').waitFor();
+    await page.getByTestId('repositories-remove-dialog').getByText('Remove github.com/acme/missing?').waitFor();
     await page.getByTestId('repositories-remove-confirm').click();
 
     await repositories.getByText('No repositories yet').waitFor();
