@@ -244,3 +244,15 @@ export const fleetStreamItemSchema = z.discriminatedUnion('kind', [
 ]);
 
 export type FleetStreamItem = z.infer<typeof fleetStreamItemSchema>;
+
+/**
+ * The calling fleet's ship and daily message limits, with what each counts:
+ * its ships that are not retired (argo included), and the messages it stored
+ * since 00:00 UTC, which count again from `resetsAt`. A limit of null is none.
+ */
+export const fleetLimitsOutputSchema = z.object({
+  ships: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0) }),
+  dailyMessages: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0), resetsAt: z.iso.datetime() }),
+});
+
+export type FleetLimitsOutput = z.infer<typeof fleetLimitsOutputSchema>;
