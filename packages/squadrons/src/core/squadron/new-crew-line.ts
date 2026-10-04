@@ -27,7 +27,7 @@ export type NewCrewLine = (input: { fleetId: FleetId; squadronId: string; shipId
  */
 export function createNewCrewLine(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository }): NewCrewLine {
   return async ({ fleetId, squadronId, shipId }) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }

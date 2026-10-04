@@ -42,14 +42,20 @@ export const systemClock: Clock = { now: () => new Date() };
 export interface SquadronsApp {
   /** The HTTP server: `/api/health` and `/api/version` for whoever operates the installation. */
   server: FastifyInstance;
-  /** Whether squadrons is connected; a kept crew token the fleet no longer takes is dropped. Read at start. */
+  /** Whether squadrons is connected to a fleet; a kept crew token the fleet no longer takes is dropped. */
   readConnection: ReadConnection;
-  /** Connects squadrons as the operator's management ship, then recovers formations and starts the flagships. */
+  /** Connects squadrons to the operator's fleet as its management ship, then recovers that fleet's formations, fetches its catalogue and starts its flagships. */
   connect: Connect;
-  /** Fetches every template repository of the connected fleet and rebuilds the catalogue, at start and on Refresh; a failure is logged. */
+  /** Fetches every template repository of every connected fleet and rebuilds each fleet's catalogue, at start; a failure is logged. */
   refreshCatalogue: () => Promise<void>;
-  /** Retires what formations a crash left unfinished commissioned: run once connected, before anything else forms. */
+  /** Retires what formations of a fleet a crash left unfinished commissioned: run once connected, before anything else forms. */
   recoverFormations: RecoverFormations;
+  /**
+   * At start: reads every fleet's kept connection (dropping a crew token its
+   * fleet no longer takes) and recovers each connected fleet's formations;
+   * answers each fleet still connected, as which ship, and what it recovered.
+   */
+  restoreConnections: () => Promise<{ fleetId: FleetId; ship: string; recovered: number; retired: number }[]>;
   /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
   startFlagships: (rescanMs: number) => void;
   /** Stops the server and disconnects the database. */
@@ -73,7 +79,7 @@ export function createSquadronsApp(options: {
   const server = Fastify({ logger: options.logger ?? true });
   const store = createPrismaManagementCrewStore(prisma);
   // From what squadrons holds, without asking the fleet: health and version stay quick.
-  const connectionOf = async (): Promise<'connected' | 'not-connected'> => ((await store.find()) ? 'connected' : 'not-connected');
+  const connectionOf = async (): Promise<'connected' | 'not-connected'> => ((await store.connected()).length > 0 ? 'connected' : 'not-connected');
 
   // The version this process runs and its database's latest migration. No authentication, no fleet data.
   const version = runningVersion();
@@ -130,16 +136,12 @@ export function createSquadronsApp(options: {
     },
     clock,
   });
-  // squadrons serves the fleet it was last connected to.
-  const refreshConnectedFleet = async (scope: RefreshScope): Promise<void> => {
-    const binding = await store.binding();
-    if (!binding) {
-      return;
-    }
+  // Each connected fleet's catalogue, fetched; one fleet's failure leaves the others' as they are.
+  const refreshFleet = async (fleetId: FleetId, scope: RefreshScope): Promise<void> => {
     try {
-      await refresh(binding.fleetId, scope);
+      await refresh(fleetId, scope);
     } catch (error) {
-      server.log.error({ err: error }, 'the template repositories could not be read; the catalogue stays as it was');
+      server.log.error({ err: error, fleet: fleetId }, "the fleet's template repositories could not be read; its catalogue stays as it was");
     }
   };
   const listRepositories = createListRepositories({ store: repositories });
@@ -168,11 +170,11 @@ export function createSquadronsApp(options: {
   const connect: Connect = async (input) => {
     const connected = await connectOnly(input);
     if (connected.isOk) {
-      const recovered = await recoverFormations();
+      const recovered = await recoverFormations(input.operatorFleetId);
       if (!recovered.isOk) {
-        server.log.error({ refusal: recovered.error }, 'formations a crash left unfinished could not be recovered');
+        server.log.error({ refusal: recovered.error, fleet: input.operatorFleetId }, 'formations a crash left unfinished could not be recovered');
       }
-      await refreshConnectedFleet('all');
+      await refreshFleet(input.operatorFleetId, 'all');
       await flagships?.rescan();
     }
     return connected;
@@ -189,8 +191,8 @@ export function createSquadronsApp(options: {
       },
       createContext: ({ req }) => ({
         cookie: req.headers.cookie,
-        authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl), store }),
-        isConnected: async () => (await connectionOf()) === 'connected',
+        authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl) }),
+        isConnected: async (fleetId) => (await store.find(fleetId)) !== undefined,
         readConnection,
         connect,
         catalogue: catalogueOf,
@@ -220,8 +222,27 @@ export function createSquadronsApp(options: {
     server,
     readConnection,
     connect,
-    refreshCatalogue: () => refreshConnectedFleet('all'),
+    refreshCatalogue: async () => {
+      for (const crew of await store.connected()) {
+        await refreshFleet(crew.fleetId, 'all');
+      }
+    },
     recoverFormations,
+    restoreConnections: async () => {
+      const restored: { fleetId: FleetId; ship: string; recovered: number; retired: number }[] = [];
+      for (const crew of await store.connected()) {
+        const connection = await readConnection(crew.fleetId);
+        if (connection.state !== 'connected') {
+          continue;
+        }
+        const recovered = await recoverFormations(crew.fleetId);
+        if (!recovered.isOk) {
+          server.log.error({ refusal: recovered.error, fleet: crew.fleetId }, 'formations a crash left unfinished could not be recovered');
+        }
+        restored.push({ fleetId: crew.fleetId, ship: connection.ship?.name ?? crew.name, ...(recovered.isOk ? recovered.value : { recovered: 0, retired: 0 }) });
+      }
+      return restored;
+    },
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({
         door,

@@ -22,7 +22,7 @@ export type RemoveMember = (input: { fleetId: FleetId; squadronId: string; shipI
  */
 export function createRemoveMember(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; clock: Clock }): RemoveMember {
   return async ({ fleetId, squadronId, shipId }) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }

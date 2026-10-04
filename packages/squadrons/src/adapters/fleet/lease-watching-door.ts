@@ -2,16 +2,20 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../../core/ma
 import type { Result } from '../../core/shared/result.js';
 
 /**
- * The fleet door, watching the management ship's lease: when a call made with
- * squadrons' management crew token answers LEASE_ENDED, the operator released
- * the ship, so the token is dropped and squadrons is not connected until the
- * operator connects it again. Calls with a flagship's token pass untouched.
+ * The fleet door, watching each fleet's management ship lease: when a call
+ * made with a fleet's management crew token answers LEASE_ENDED, its operator
+ * released the ship, so that token is dropped and squadrons is not connected
+ * to that fleet until its operator connects it again; other fleets stay
+ * connected. Calls with a flagship's token pass untouched.
  */
 export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore): FleetDoor {
   const watched = async <T>(crewToken: string, call: Promise<Result<T, FleetRefusal>>): Promise<Result<T, FleetRefusal>> => {
     const result = await call;
-    if (!result.isOk && result.error.code === 'LEASE_ENDED' && (await store.find())?.crewToken === crewToken) {
-      await store.drop();
+    if (!result.isOk && result.error.code === 'LEASE_ENDED') {
+      const released = (await store.connected()).find((crew) => crew.crewToken === crewToken);
+      if (released) {
+        await store.drop(released.fleetId);
+      }
     }
     return result;
   };

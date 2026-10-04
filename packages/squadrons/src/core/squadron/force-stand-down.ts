@@ -22,7 +22,7 @@ export type ForceStandDown = (input: { fleetId: FleetId; squadronId: string }) =
  */
 export function createForceStandDown(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; clock: Clock }): ForceStandDown {
   return async ({ fleetId, squadronId }) => {
-    const crew = await deps.management.find();
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }

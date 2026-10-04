@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
@@ -8,11 +8,11 @@ import type { SquadronRepository } from './ports.js';
 import { retireShip } from './retire-ship.js';
 import type { Member, Squadron } from './squadron.js';
 
-export type AdvanceStandDowns = () => Promise<void>;
+export type AdvanceStandDowns = (fleetId: FleetId) => Promise<void>;
 
 /**
- * Use case: squadrons moves every squadron standing down one step further
- * (#86, B4), at each flagship rescan. A member that never came on station
+ * Use case: squadrons moves every squadron of a fleet standing down one step
+ * further (#86, B4), at each flagship rescan. A member that never came on station
  * holds no work and is retired at once. Every other member gets its
  * stand-down from the flagship, once, and is retired only after it sent
  * stood-down (it finishes and wraps up first) and holds no open or in-flight
@@ -23,8 +23,8 @@ export type AdvanceStandDowns = () => Promise<void>;
  * so a crash or a fleet that does not answer only delays the next one.
  */
 export function createAdvanceStandDowns(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; clock: Clock }): AdvanceStandDowns {
-  return async () => {
-    const crew = await deps.management.find();
+  return async (fleetId) => {
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return;
     }

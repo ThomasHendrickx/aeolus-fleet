@@ -30,7 +30,8 @@ export interface Context {
   /** The Cookie header the web app's server forwarded. */
   cookie: string | undefined;
   authenticateOperator: AuthenticateOperator;
-  isConnected: () => Promise<boolean>;
+  /** Whether squadrons is connected to the fleet. */
+  isConnected: (fleetId: FleetId) => Promise<boolean>;
   readConnection: ReadConnection;
   connect: Connect;
   /** The catalogue squadrons serves a fleet. */
@@ -66,10 +67,10 @@ const operatorProcedure = t.procedure.use(async ({ ctx, next }) => {
   return next({ ctx: { fleetId: operator.value.fleetId } });
 });
 
-/** The operator's procedures that need squadrons connected: until then, PRECONDITION_FAILED. */
+/** The operator's procedures that need squadrons connected to their fleet: until then, PRECONDITION_FAILED. */
 const connectedProcedure = operatorProcedure.use(async ({ ctx, next }) => {
-  if (!(await ctx.isConnected())) {
-    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'squadrons is not connected: connect it in the console' });
+  if (!(await ctx.isConnected(ctx.fleetId))) {
+    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'squadrons is not connected to this fleet: connect it in the console' });
   }
   return next();
 });
@@ -265,8 +266,8 @@ function squadronOutputOf(squadron: ListedSquadron): z.infer<typeof squadronOutp
 
 export const squadronsRouter = t.router({
   connection: t.router({
-    /** Whether squadrons is connected, as which ship, and the ship it was last connected as. */
-    status: operatorProcedure.output(connectionOutputSchema).query(({ ctx }) => ctx.readConnection()),
+    /** Whether squadrons is connected to the operator's fleet, as which ship, and the ship it was last connected as. */
+    status: operatorProcedure.output(connectionOutputSchema).query(({ ctx }) => ctx.readConnection(ctx.fleetId)),
     /**
      * Connects squadrons with the management ship's secret, which the web
      * app's server hands over server to server: squadrons registers with it
@@ -411,7 +412,7 @@ export const squadronsRouter = t.router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const formed = await ctx.formSquadron(input);
+        const formed = await ctx.formSquadron({ fleetId: ctx.fleetId, ...input });
         if (!formed.isOk) {
           throw new TRPCError({ code: FORM_CODES[formed.error.kind], message: formed.error.message });
         }

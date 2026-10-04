@@ -1,22 +1,22 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts } from './ports.js';
 
-export type RecoverFormations = () => Promise<Result<{ recovered: number; retired: number }, FleetRefusal>>;
+export type RecoverFormations = (fleetId: FleetId) => Promise<Result<{ recovered: number; retired: number }, FleetRefusal>>;
 
 /**
- * Use case: at start, squadrons undoes every formation a crash left
- * unfinished, so forming stays all or nothing across a crash (a controller is
+ * Use case: at start, and on connecting, squadrons undoes every formation of a
+ * fleet a crash left unfinished, so forming stays all or nothing across a crash (a controller is
  * safe to kill at any moment and recomputes from what it stored). Every ship
  * the attempt recorded is retired: by its id, or, for one commissioned but
  * killed before its id was recorded, by its name among the fleet's ships. A
  * ship retired already is fine. Then the attempt is finished.
  */
 export function createRecoverFormations(deps: { door: FleetDoor; management: ManagementCrewStore; attempts: FormationAttempts }): RecoverFormations {
-  return async () => {
-    const crew = await deps.management.find();
+  return async (fleetId) => {
+    const crew = await deps.management.find(fleetId);
     if (!crew) {
       return ok({ recovered: 0, retired: 0 });
     }

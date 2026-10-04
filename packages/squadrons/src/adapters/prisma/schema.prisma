@@ -17,11 +17,10 @@ datasource db {
   provider = "postgresql"
 }
 
-/// The crew token squadrons holds for its management ship, so a restart crews it
-/// again without a new secret. One row at most: the singleton key is always "management".
+/// The crew token squadrons holds for each fleet's management ship, so a restart
+/// crews it again without a new secret. One row per fleet: one install serves many fleets.
 model ManagementCrew {
-  key       String   @id
-  fleetId   String   @map("fleet_id")
+  fleetId   String   @id @map("fleet_id")
   shipId    String   @map("ship_id")
   shipName  String   @map("ship_name")
   /// Null while squadrons is not connected: the fleet and ship stay, as the last connection.
