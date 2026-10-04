@@ -69,7 +69,7 @@ function sessionLocationOf(ship: ListedShip): string | null {
 
 /**
  * A ship's actions, each behind its designed dialog (docs/design/conventions.md,
- * "Confirm"), in the layout asked for: buttons on its page; FleetTable's row
+ * "Destructive actions"), in the layout asked for: buttons on its page; FleetTable's row
  * menu, a DropdownMenu on desktop and a bottom Sheet on phone; or the row's
  * one next step (Get starting prompt for a ship awaiting crew, Get new crew
  * line for a silent member). The menu holds every action
@@ -157,25 +157,24 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
           );
         },
         onError: (error) => {
-          showToast({ title: `Couldn't ping ${ship.name}`, description: error.message, tone: 'error' });
+          showToast({ title: `Couldn’t ping ${ship.name}`, description: error.message, tone: 'error' });
         },
       },
     );
   };
 
-  const copyId = () => {
-    void navigator.clipboard.writeText(ship.id).then(
-      () => {
-        showToast({ title: 'Ship id copied', description: ship.id, tone: 'success' });
-      },
-      () => {
-        showToast({ title: "Couldn't copy the ship id", description: ship.id, tone: 'error' });
-      },
-    );
+  const copyId = async () => {
+    // The clipboard is missing outside a secure context, and may refuse: either way the id is shown to copy by hand.
+    try {
+      await navigator.clipboard.writeText(ship.id);
+      showToast({ title: 'Ship id copied', description: ship.id, tone: 'success' });
+    } catch {
+      showToast({ title: 'Couldn’t copy the ship id', description: ship.id, tone: 'error' });
+    }
   };
   const isFlagship = squadron?.flagship.shipId === ship.id;
   const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', icon: SquarePen, testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true };
-  const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', icon: Copy, testId: 'fleet-ship-copy-id', onSelect: copyId, isMenuOnly: true };
+  const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', icon: Copy, testId: 'fleet-ship-copy-id', onSelect: () => { void copyId(); }, isMenuOnly: true };
   // Only a session can answer a ping: none is offered while the ship awaits crew.
   const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', icon: Radio, testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending }] : [];
   const actions: ShipAction[] = [];

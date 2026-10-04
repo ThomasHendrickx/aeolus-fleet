@@ -116,7 +116,7 @@ function AddRepository({ isAdding, addError, onAdd }: Pick<TemplateRepositoriesP
         />
         <p className="text-meta text-muted-foreground">Entered once and never shown again. To change it, remove the repository and add it again.</p>
       </div>
-      {addError === undefined ? null : <InlineError title="Couldn't add the repository" description={`${addError} The list shows what squadrons holds.`} />}
+      {addError === undefined ? null : <InlineError title="Couldn’t add the repository" description={`${addError} The list shows what squadrons holds.`} />}
       <div className="flex justify-end">
         <Button type="submit" variant="primary" icon={<Plus aria-hidden />} isLoading={isAdding} disabled={url.trim() === ''} data-testid="repositories-add-submit">
           {isAdding ? 'Adding' : 'Add repository'}
@@ -181,11 +181,11 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
       <p className="text-meta text-muted-foreground">
         squadrons reads templates and blueprints from these repositories, under {DEFAULT_PATH} unless a repository sets its own path. It fetches one when you add it and when you refresh.
       </p>
-      {refreshError === undefined ? null : <InlineError variant="section" title="Couldn't refresh" description={refreshError} />}
+      {refreshError === undefined ? null : <InlineError variant="section" title="Couldn’t refresh" description={refreshError} />}
       {state === 'loading' ? (
         <LoadingSkeleton variant="list" rows={2} label="Loading the repositories" />
       ) : state === 'error' ? (
-        <InlineError title="Couldn't read the repositories" description={error} onRetry={onRetry} />
+        <InlineError title="Couldn’t read the repositories" description={error} onRetry={onRetry} />
       ) : repositories.length === 0 ? (
         <EmptyState variant="section" title="No repositories yet" description="Add one to read its templates and blueprints." />
       ) : (
@@ -219,7 +219,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
               Its templates and blueprints leave the catalogue at once. Squadrons formed from them keep the versions they formed from.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {removeError === undefined ? null : <InlineError title="Couldn't remove the repository" description={`${removeError} The list shows what squadrons holds.`} />}
+          {removeError === undefined ? null : <InlineError title="Couldn’t remove the repository" description={`${removeError} The list shows what squadrons holds.`} />}
           <AlertDialogFooter>
             <AlertDialogClose render={<Button disabled={isRemoving} />}>Cancel</AlertDialogClose>
             <Button

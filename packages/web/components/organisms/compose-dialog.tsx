@@ -89,7 +89,7 @@ function ComposeForm({ ships, types, state, error, onSend, draft }: ComposeFormP
       </div>
       {state === 'failed' && error !== undefined ? (
         <InlineError
-          title="Couldn't send the message"
+          title="Couldn’t send the message"
           description={`${error} Nothing was sent; your message is kept here.`}
         />
       ) : null}

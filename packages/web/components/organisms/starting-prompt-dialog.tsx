@@ -76,9 +76,9 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
 
 /**
  * Shows a freshly issued starting prompt and its crew lines once
- * (docs/design/png/StartingPromptDialog.png). For a ship whose unclaimed
- * prompt is still out it first says that a new one stops that one working,
- * and issues only on Get new prompt. Closing without copying is allowed; the
+ * (docs/design/png/StartingPromptDialog.png). It is issued at once, with no
+ * confirm; for a ship whose unclaimed prompt was still out it says that the
+ * new one stops that one working. Closing without copying is allowed; the
  * ship then offers a new prompt. Desktop: a dialog; phone: full screen.
  */
 export function StartingPromptDialog(props: StartingPromptDialogProps) {

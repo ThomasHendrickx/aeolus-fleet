@@ -25,7 +25,7 @@ interface SquadronsConnectionProps {
  */
 export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, onConnect }: SquadronsConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn't read squadrons" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={onRetry} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading squadrons" />;
@@ -52,7 +52,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
               Connect squadrons
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn't connect squadrons" description={connectError} />}
+          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect squadrons" description={connectError} />}
         </>
       )}
     </section>

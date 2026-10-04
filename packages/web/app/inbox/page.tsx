@@ -112,13 +112,13 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
           void inbox.refetch();
         }}
         onMarkDone={(deliveryId) => {
-          act({ deliveryId, run: () => markDone.mutateAsync({ deliveryId }), failure: "Couldn't mark the message done" });
+          act({ deliveryId, run: () => markDone.mutateAsync({ deliveryId }), failure: "Couldn’t mark the message done" });
         }}
         onMarkUnread={(deliveryId) => {
           act({
             deliveryId,
             run: () => markRead.mutateAsync({ deliveryId, isRead: false }),
-            failure: "Couldn't mark the message unread",
+            failure: "Couldn’t mark the message unread",
           });
           show({ filter });
         }}
@@ -126,7 +126,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
           act({
             deliveryId,
             run: () => reply.mutateAsync({ deliveryId, payload, idempotencyKey: `reply-${deliveryId}-${crypto.randomUUID()}` }),
-            failure: "Couldn't send the reply",
+            failure: "Couldn’t send the reply",
           });
         }}
         pendingIds={pendingIds}

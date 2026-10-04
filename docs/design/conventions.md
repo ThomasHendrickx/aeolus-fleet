@@ -103,7 +103,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Times: relative under 24 h ("6 min ago"); durations "1 d 2 h", "11 min"; otherwise "28 Sep, 14:21" (24 h clock); envelopes and meta strips "28 Sep 2026, 14:05:51"; seconds only in DeliveryHistory and envelopes; relative times carry the absolute in `title`.
 - Numbers as digits: "1 open", "3 deliveries".
 - Buttons: verb + object, max 4 words ("Commission ship", "Send reply"); "Try again" for retries; "Cancel" before anything is done, "Close" after.
-- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, claude-chat, codex and console show icon plus Claude Code, Claude chat, Codex, Console; any other harness plain text as stored.
+- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, codex, claude-chat, chatgpt, grok, grokbot and console show icon plus Claude Code, Codex, Claude chat, ChatGPT, Grok, Grokbot, Console; any other harness plain text as stored.
 - Versions: blueprints "v4", templates "tester@4", commits short (`4f2a91c`).
 - No em dashes; use a colon, comma or full stop. Curly quotes and apostrophes.
 

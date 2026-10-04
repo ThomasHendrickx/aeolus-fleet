@@ -69,8 +69,8 @@ export default function TemplatePage({
         <SquadronsNotConnected />
       ) : catalogue.isError ? (
         <InlineError
-          title="Couldn't read the template"
-          description="The squadron manager couldn't read the catalogue. Members using it keep working."
+          title="Couldn’t read the template"
+          description="The squadron manager couldn’t read the catalogue. Members using it keep working."
           detail={catalogue.error.message}
           onRetry={() => {
             void catalogue.refetch();

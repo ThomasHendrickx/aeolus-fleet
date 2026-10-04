@@ -99,7 +99,7 @@ function RemoveMemberBody(props: RemoveMemberDialogProps) {
         </p>
       )}
       {isTypingNeeded ? <TypedConfirm expected={member.name} value={typed} onValueChange={setTyped} /> : null}
-      {error !== undefined && <InlineError title="Couldn't remove the member" description={`${error} Nothing changed.`} />}
+      {error !== undefined && <InlineError title="Couldn’t remove the member" description={`${error} Nothing changed.`} />}
       <AlertDialogFooter>
         <AlertDialogClose render={<Button disabled={isPending} />}>Cancel</AlertDialogClose>
         <Button variant="destructive" isLoading={isPending} disabled={!isConfirmed} onClick={onConfirm} data-testid="remove-member-confirm">

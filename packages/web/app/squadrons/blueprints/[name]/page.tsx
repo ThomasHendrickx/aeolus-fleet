@@ -75,8 +75,8 @@ export default function BlueprintPage({
         <SquadronsNotConnected />
       ) : catalogue.isError ? (
         <InlineError
-          title="Couldn't read the blueprint"
-          description="The squadron manager couldn't read the catalogue. Squadrons formed from it keep sailing."
+          title="Couldn’t read the blueprint"
+          description="The squadron manager couldn’t read the catalogue. Squadrons formed from it keep sailing."
           detail={catalogue.error.message}
           onRetry={() => {
             void catalogue.refetch();

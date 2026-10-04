@@ -86,7 +86,7 @@ export function CrewLineDialog({ memberName, state, template, launchNote = null,
         {state === 'shown' && crewLines !== undefined && <IssuedLines memberName={memberName} template={template} launchNote={launchNote} crewLines={crewLines} />}
         {state === 'error' && (
           <InlineError
-            title="Couldn't issue a crew line"
+            title="Couldn’t issue a crew line"
             description={`${error ?? 'The squadron manager did not answer.'} No new secret was created; an earlier crew line still works.`}
           />
         )}
