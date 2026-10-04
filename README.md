@@ -118,6 +118,10 @@ npm run dev --workspace @aeolus-fleet/web               # console on http://loca
 
 Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
 
+## Community
+
+Questions, ideas, and fleets you built: [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions).
+
 ## Contributing
 
 - Branch from `main` and open a pull request.
