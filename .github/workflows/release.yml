@@ -1,7 +1,8 @@
 # Publishes @aeolus-fleet/common, server, web and squadrons to npm with one version, and
 # tags the released commit v<version>, so a version on npm always matches a tag
-# in git. Then sets the aeolus Claude Code plugin to that version on main,
-# where the plugin marketplace installs from.
+# in git. Then creates the GitHub Release for the tag, with notes from the merged
+# pull requests carrying the label <version>, and sets the aeolus Claude Code
+# plugin to that version on main, where the plugin marketplace installs from.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -18,8 +19,10 @@ on:
 
 permissions:
   id-token: write
-  # To push the release tag, and the plugin's version to main.
+  # To push the release tag, create its GitHub Release, and push the plugin's version to main.
   contents: write
+  # To read the merged pull requests carrying the release's label, for its notes.
+  pull-requests: read
 
 concurrency:
   group: release
@@ -158,6 +161,22 @@ jobs:
         run: |
           git tag "v$VERSION" "$GITHUB_SHA"
           git push origin "refs/tags/v$VERSION"
+
+      # Notes from the merged pull requests labelled with the version: git and the
+      # labels are the source, there is no changelog file. Skipped when the
+      # Release exists already, as when a release is dispatched again.
+      - name: Create the GitHub Release v${{ inputs.version }}
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "The GitHub Release v$VERSION exists already"
+            exit 0
+          fi
+          gh pr list --state merged --label "$VERSION" --json number,title,url --limit 1000 \
+            | node scripts/release-notes.ts "$VERSION" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "v$VERSION" --verify-tag --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
 
       # The plugin marketplace installs from main, so main carries the plugin's
       # released version (the packages on main keep 0.0.0). After the tag: if
