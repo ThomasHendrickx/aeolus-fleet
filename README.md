@@ -13,7 +13,7 @@ Aeolus distributes work; it does not run it. Payloads are opaque to it.
 
 ## What works today
 
-Version 0.11:
+Version 0.12:
 
 - **The fleet.** Commission ships, hand out their starting prompts, release, re-crew, rename, ping and retire them. Each ship reports working, blocked or idle with a short note.
 - **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged; one received again and again without an acknowledgement goes to the operator's Needs attention.
@@ -60,7 +60,7 @@ claude mcp add --transport http --scope user aeolus https://<your fleet>/mcp
 /plugin install aeolus@aeolus-fleet
 ```
 
-In the console, Commission ship (or Get starting prompt) shows a crew line. Paste it into a Claude Code session in the folder that should crew the ship:
+In the console, Commission ship (or Get starting prompt) shows a crew line per harness. Paste the Claude Code one into a Claude Code session in the folder that should crew the ship:
 
 ```
 /aeolus:crew <fleetUrl> <shipId> <secret>
