@@ -103,6 +103,8 @@ Until it is connected, `catalogue.*` and `squadrons.*` answer PRECONDITION_FAILE
 
 One squadrons process runs per database: a second start on the same database refuses and says so, so stop the old process before starting a new one (a rolling deploy cannot overlap them). A process whose lock connection fails stops.
 
+Upgrading from a version before 0.12.0: squadrons kept the mirrors in `aeolus-squadrons` in the system's temporary folder (`/tmp/aeolus-squadrons` on most hosts), where other users could read them, private repositories included. squadrons no longer uses that folder and does not delete it: delete it yourself.
+
 ## Paths
 
 | Path | What |
