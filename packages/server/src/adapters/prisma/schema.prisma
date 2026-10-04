@@ -43,6 +43,7 @@ model Fleet {
   deliveries      Delivery[]
   events          Event[]
   consoleSessions ConsoleSession[]
+  signInTickets   SignInTicket[]
   operator        Operator?
 
   @@map("fleets")
@@ -352,6 +353,23 @@ model ConsoleSession {
   /// At most one live session per fleet: signing in ends the previous one.
   @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: { endedAt: null })
   @@map("console_sessions")
+}
+
+/// A one-time sign-in ticket for the fleet's operator, issued by a hosting
+/// installation and redeemed in the console (decision 0020). Only its hash is
+/// stored, unique across all fleets: redeeming finds it before the fleet is known.
+model SignInTicket {
+  tokenHash String    @id @map("token_hash")
+  fleetId   String    @map("fleet_id")
+  issuedAt  DateTime  @map("issued_at") @db.Timestamptz(3)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// When it signed in; null while unused.
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@index([fleetId])
+  @@map("sign_in_tickets")
 }
 
 enum InstallationRequestKind {

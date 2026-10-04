@@ -3,6 +3,7 @@ import {
   consoleSessionOutputSchema,
   setThemeInputSchema,
   setThemeOutputSchema,
+  redeemSignInTicketInputSchema,
   signInInputSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
@@ -34,6 +35,18 @@ export const consoleRouter = router({
       const { token, expiresAt } = okOrThrow(await ctx.useCases.signIn({ ...input, device: deviceLabelOf(ctx.userAgent) }));
       ctx.sessionCookie.set(token, expiresAt);
     }),
+
+  /**
+   * Exchanges a sign-in ticket a hosting installation issued for a session
+   * cookie, as a password sign-in does (docs/blueprint.md, "Installation"). The
+   * console's own server calls it with the browser's ticket and passes the
+   * cookie on, so it takes no console origin: the ticket is the credential,
+   * and it signs in once.
+   */
+  redeemSignInTicket: publicProcedure.input(redeemSignInTicketInputSchema).mutation(async ({ ctx, input }) => {
+    const { token, expiresAt } = okOrThrow(await ctx.useCases.redeemSignInTicket({ ...input, device: deviceLabelOf(ctx.userAgent) }));
+    ctx.sessionCookie.set(token, expiresAt);
+  }),
 
   /** The signed-in operator: email, theme, and this console session's device and start. */
   account: authenticatedProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
