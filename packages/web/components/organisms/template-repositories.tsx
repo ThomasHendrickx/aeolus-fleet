@@ -163,7 +163,8 @@ function RepositoryRow({ repository, now, onRemove }: { repository: TemplateRepo
  * repositories"): the repositories squadrons reads templates and blueprints
  * from, each with its last fetch and why it failed; add one by its https URL
  * with an optional path and a write-only read token; remove one with a normal
- * confirm; Refresh fetches them all. squadrons never fetches by itself.
+ * confirm; Refresh fetches them all. Beyond these, squadrons fetches only once
+ * when it connects and when it starts.
  */
 export function TemplateRepositories(props: TemplateRepositoriesProps) {
   const { repositories, state, error, onRetry, isRemoving, removeError, onRemove, onRemoveClosed, isRefreshing, refreshError, onRefresh, now } = props;
@@ -179,7 +180,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
         </Button>
       </div>
       <p className="text-meta text-muted-foreground">
-        squadrons reads templates and blueprints from these repositories, under {DEFAULT_PATH} unless a repository sets its own path. It fetches one when you add it and when you refresh.
+        squadrons reads templates and blueprints from these repositories, under {DEFAULT_PATH} unless a repository sets its own path. It fetches one when you add it, when you refresh, and once each time squadrons connects or starts.
       </p>
       {refreshError === undefined ? null : <InlineError variant="section" title="Couldn’t refresh" description={refreshError} />}
       {state === 'loading' ? (

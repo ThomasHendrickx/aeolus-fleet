@@ -16,7 +16,7 @@ import { useLiveFleet } from '../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../lib/squadrons';
 import { useAddRepository, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../lib/squadrons-api';
 
-/** Settings: the installation's own settings, argo's alone: connecting squadrons, and once connected, the repositories it reads. */
+/** Settings: the installation's own settings, argo's alone: with squadrons, connecting it, and once connected, the repositories it reads; without, nothing of squadrons. */
 export default function SettingsPage() {
   const now = useNow();
   const accountMenu = useAccountMenu(now);
@@ -50,18 +50,20 @@ export default function SettingsPage() {
       }}
       account={accountMenu}
     >
-      <SquadronsConnection
-        settings={settings.data}
-        loadError={settings.isError ? settings.error.message : undefined}
-        onRetry={() => {
-          void settings.refetch();
-        }}
-        isConnecting={connect.isPending}
-        connectError={connect.isError ? connect.error.message : undefined}
-        onConnect={() => {
-          connect.mutate();
-        }}
-      />
+      {hasSquadrons && (
+        <SquadronsConnection
+          settings={settings.data}
+          loadError={settings.isError ? settings.error.message : undefined}
+          onRetry={() => {
+            void settings.refetch();
+          }}
+          isConnecting={connect.isPending}
+          connectError={connect.isError ? connect.error.message : undefined}
+          onConnect={() => {
+            connect.mutate();
+          }}
+        />
+      )}
       {connection === 'connected' && (
         <TemplateRepositories
           repositories={repositories.data ?? []}
