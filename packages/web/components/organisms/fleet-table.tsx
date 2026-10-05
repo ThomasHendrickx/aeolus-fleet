@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import {
+  activeFilterLabels,
   DEFAULT_FLEET_VIEW,
   filterFleet,
   fleetSquadrons,
@@ -21,7 +22,7 @@ import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
-import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../atoms/sheet';
+import { Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../atoms/sheet';
 import { Switch } from '../atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
@@ -67,6 +68,15 @@ const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
 
 function isStatusFilter(value: string): value is FleetFilters['status'] {
   return Object.hasOwn(STATUS_ITEMS, value);
+}
+
+/** What the no-results action clears: the search, the filters, or both. */
+function clearLabel(query: string, filters: FleetFilters): string {
+  const isFiltered = activeFilterLabels(filters).length > 0;
+  if (query === '') {
+    return 'Clear filters';
+  }
+  return isFiltered ? 'Clear search and filters' : 'Clear search';
 }
 
 /** Whether only argo sails: nothing but the operator, retired ships aside. */
@@ -274,6 +284,18 @@ function FilterControls({
           </SelectContent>
         </Select>
       )}
+      {activeFilterLabels(filters).length > 0 && !isTouch ? (
+        <Button
+          variant="ghost"
+          size="xs"
+          data-testid="fleet-filters-clear"
+          onClick={() => {
+            onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
+          }}
+        >
+          Clear filters
+        </Button>
+      ) : null}
       <div className={classNames('inline-flex items-center gap-2', isTouch ? 'py-2' : 'sm:ml-auto')}>
         <Switch
           id={switchId}
@@ -291,6 +313,174 @@ function FilterControls({
         </Label>
       </div>
     </>
+  );
+}
+
+/** A phone filter option: a full-width segment or a chip, on when chosen. */
+function FilterOption({ label, isOn, kind, onPick }: { label: string; isOn: boolean; kind: 'radio' | 'toggle'; onPick: () => void }) {
+  return (
+    <Button
+      variant={isOn ? 'primary' : 'secondary'}
+      size="touch"
+      role={kind === 'radio' ? 'radio' : undefined}
+      aria-checked={kind === 'radio' ? isOn : undefined}
+      aria-pressed={kind === 'toggle' ? isOn : undefined}
+      onClick={onPick}
+    >
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * The phone's filters in a bottom Sheet (canvas, MOverviewFilters): Status as
+ * segments, Type and Squadron as chips, Show retired ships, and Show N ships
+ * to close it. Reset puts every filter back; the search stays.
+ */
+function PhoneFilters({
+  ships,
+  view,
+  onViewChange,
+  shownCount,
+  squadronsOf,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { shownCount: number }) {
+  const { filters } = view;
+  const change = (next: Partial<FleetFilters>) => {
+    onViewChange({ ...view, filters: { ...filters, ...next } });
+  };
+  const active = activeFilterLabels(filters).length;
+  const retired = retiredCount(ships);
+  return (
+    <Sheet>
+      <SheetTrigger
+        render={
+          <Button
+            size="touch"
+            isIconOnly
+            aria-label={active > 0 ? `Filter ships, ${String(active)} active` : 'Filter ships'}
+            data-testid="fleet-filters-open"
+            icon={<SlidersHorizontal />}
+            className="relative sm:hidden"
+          >
+            {active > 0 ? <span aria-hidden className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" /> : null}
+          </Button>
+        }
+      />
+      <SheetContent side="bottom">
+        <SheetHeader className="flex-row items-center justify-between">
+          <SheetTitle>Filter ships</SheetTitle>
+          <Button
+            variant="ghost"
+            size="touch"
+            data-testid="fleet-filters-reset"
+            onClick={() => {
+              onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
+            }}
+          >
+            Reset
+          </Button>
+        </SheetHeader>
+        <SheetBody className="flex flex-col gap-4 pb-4">
+          <div className="flex flex-col gap-2">
+            <span id="fleet-filter-status-label" className="text-meta font-medium text-muted-foreground">
+              Status
+            </span>
+            <div role="radiogroup" aria-labelledby="fleet-filter-status-label" className="flex gap-1.5 [&>*]:flex-1">
+              {Object.entries(STATUS_ITEMS).map(([value, label]) => (
+                <FilterOption
+                  key={value}
+                  label={label}
+                  kind="radio"
+                  isOn={filters.status === value}
+                  onPick={() => {
+                    if (isStatusFilter(value)) {
+                      change({ status: value });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-meta font-medium text-muted-foreground">Type</span>
+            <div role="group" aria-label="Type" className="flex flex-wrap gap-1.5">
+              {['all', ...fleetTypes(ships, filters.isRetiredShown)].map((type) => (
+                <FilterOption
+                  key={type}
+                  label={type === 'all' ? 'All types' : type}
+                  kind="toggle"
+                  isOn={filters.type === type}
+                  onPick={() => {
+                    change({ type });
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          {squadronsOf && (
+            <div className="flex flex-col gap-2">
+              <span id="fleet-filter-squadron-label" className="text-meta font-medium text-muted-foreground">
+                Squadron
+              </span>
+              <div role="radiogroup" aria-labelledby="fleet-filter-squadron-label" className="flex flex-wrap gap-1.5">
+                {['all', ...fleetSquadrons(squadronsOf)].map((squadron) => (
+                  <FilterOption
+                    key={squadron}
+                    label={squadron === 'all' ? 'All' : squadron}
+                    kind="radio"
+                    isOn={filters.squadron === squadron}
+                    onPick={() => {
+                      change({ squadron });
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 py-1">
+            <Label htmlFor="fleet-show-retired-touch" className="text-body-touch font-normal">
+              Show retired ships <span className="text-muted-foreground">({retired})</span>
+            </Label>
+            <Switch
+              id="fleet-show-retired-touch"
+              checked={filters.isRetiredShown}
+              onCheckedChange={(isChecked) => {
+                change({ isRetiredShown: isChecked });
+              }}
+            />
+          </div>
+          <SheetClose render={<Button size="touch" data-testid="fleet-filters-apply" />}>
+            {shownCount === 1 ? 'Show 1 ship' : `Show ${String(shownCount)} ships`}
+          </SheetClose>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The filters in force as chips under the phone's search, with Clear filters. */
+function PhoneFilterChips({ view, onViewChange }: Pick<FleetTableProps, 'view' | 'onViewChange'>) {
+  const labels = activeFilterLabels(view.filters);
+  if (labels.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex w-full flex-wrap items-center gap-1.5 sm:hidden" data-testid="fleet-filter-chips">
+      {labels.map((label) => (
+        <Badge key={label} variant="outline" className="max-w-full truncate">
+          {label}
+        </Badge>
+      ))}
+      <Button
+        variant="ghost"
+        size="touch"
+        onClick={() => {
+          onViewChange({ ...view, filters: DEFAULT_FLEET_VIEW.filters });
+        }}
+      >
+        Clear filters
+      </Button>
+    </div>
   );
 }
 
@@ -320,21 +510,8 @@ function Toolbar({
       <div className="flex flex-wrap items-center gap-2 max-sm:hidden sm:flex-1">
         <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} size="sm" />
       </div>
-      <Sheet>
-        <SheetTrigger
-          render={
-            <Button size="touch" isIconOnly aria-label="Filters" icon={<SlidersHorizontal />} className="sm:hidden" />
-          }
-        />
-        <SheetContent side="bottom">
-          <SheetHeader>
-            <SheetTitle>Filters</SheetTitle>
-          </SheetHeader>
-          <SheetBody className="flex flex-col gap-3 pb-4 [&_[data-slot=select-trigger]]:w-full">
-            <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} size="touch" />
-          </SheetBody>
-        </SheetContent>
-      </Sheet>
+      <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} />
+      <PhoneFilterChips view={view} onViewChange={onViewChange} />
       <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums max-sm:w-full">
         {shownCount} of {ships.length} ships
       </p>
@@ -483,7 +660,7 @@ export function FleetTable({
       <InlineError
         variant="page"
         title="Couldn’t load the fleet"
-        description="This page couldn’t reach the fleet server. Nothing is lost; try again."
+        description="This page couldn’t reach the fleet server. Check that the server is running and reachable from this browser, then try again."
         detail={error?.detail}
         retryNote={error?.retryNote}
         onRetry={error?.onRetry}
@@ -525,7 +702,7 @@ export function FleetTable({
                 onViewChange(DEFAULT_FLEET_VIEW);
               }}
             >
-              {query === '' ? 'Clear filters' : 'Clear search'}
+              {clearLabel(query, view.filters)}
             </Button>
           }
         />

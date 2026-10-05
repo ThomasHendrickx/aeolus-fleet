@@ -62,9 +62,11 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
-async function signedIn(): Promise<Page> {
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+
+async function signedIn(device: Record<string, unknown> = {}): Promise<Page> {
   const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
-  const context = await browser.newContext({ baseURL: web.url });
+  const context = await browser.newContext({ baseURL: web.url, ...device });
   contexts.push(context);
   const page = await context.newPage();
   await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
@@ -109,5 +111,22 @@ describe('the overview rows', () => {
     await page.getByTestId('fleet-show-retired').click();
 
     await page.getByRole('row', { name: /old/ }).getByTestId('fleet-retired-on').getByText(/^Retired \d+ [A-Z][a-z]{2}$/).waitFor();
+  });
+});
+
+describe('the phone filters', () => {
+  it('filters to the ships awaiting crew in the sheet, shows the filter as a chip and clears it', async () => {
+    const page = await signedIn(PHONE);
+    await page.getByTestId('fleet-card-builder').waitFor();
+
+    await page.getByRole('button', { name: 'Filter ships' }).click();
+    await page.getByRole('radio', { name: 'Awaiting crew' }).click();
+    await page.getByRole('button', { name: 'Show 1 ship' }).click();
+
+    await page.getByTestId('fleet-filter-chips').getByText('Status: Awaiting crew').waitFor();
+    await page.getByRole('button', { name: 'Filter ships, 1 active' }).waitFor();
+    await expect(page.getByTestId('fleet-card-builder').count()).resolves.toBe(0);
+    await page.getByTestId('fleet-filter-chips').getByRole('button', { name: 'Clear filters' }).click();
+    await page.getByTestId('fleet-card-builder').waitFor();
   });
 });
