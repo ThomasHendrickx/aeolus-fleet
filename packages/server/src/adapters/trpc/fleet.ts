@@ -213,6 +213,7 @@ export const fleetRouter = router({
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
+        retiredAt: ship.retiredAt?.toISOString() ?? null,
       })),
     ),
 
