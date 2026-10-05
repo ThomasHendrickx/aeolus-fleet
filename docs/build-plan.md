@@ -1,6 +1,6 @@
 # Aeolus: build plan
 
-Owner: Thomas Hendrickx. Last updated 2026-09-30.
+Owner: Thomas Hendrickx. Last updated 2026-10-05.
 
 This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two ships exchange messages back and forth) in Claude Code sessions, one PR each. A slice with a written prompt below uses it; any other uses the template.
 
@@ -31,6 +31,22 @@ One session per row, one PR per session, merged before the next starts. Slices 0
 After hardening: Thomas runs the Release workflow for `0.1.0`; the infra repo deploys that version. Thomas's decision session is an agent ship (messages only); he commissions and releases ships in the bare console.
 
 Then, in this order: the console in atomic design (set up Storybook first, then atoms to templates, each with a story per meaningful state; live updates over WebSocket subscriptions; first design how a reconnecting browser resumes without missing an event, because event ids are not in commit order under concurrent transactions), retire with the typed confirm (retire locks the ship `FOR NO KEY UPDATE` before abandoning direct deliveries, so a racing send's `FOR SHARE` serialises with it), Needs attention (resend as a new message naming the original, dismiss as a delivery state), the operator inbox (messages to `argo`).
+
+## Epic: the trierarch
+
+The design is in the blueprint ("Crew ships with a trierarch"), the architecture ("The trierarch") and decisions 0002, 0026 and 0027. One PR per slice, labelled with its release.
+
+Build order: D1, D3, D2a, D2b, D4. D2b's Claude Code adapter needs D3's identity line and turn marker.
+
+| # | Slice | Builds | Done when |
+| --- | --- | --- | --- |
+| D1 | `fleet:crew` and the protocol schemas | `fleet:crew` in `common`'s scopes and fleet scopes. The server takes it for `fleet.ship`, `fleet.getStartingPrompt` and `fleet.release` (tRPC, REST, MCP) and for nothing else. The console's commission dialog offers it. The trierarch protocol and configuration schemas in `common` | Strict TDD. A ship with only `fleet:crew` reads one ship, gets a starting prompt and releases, and every other fleet procedure refuses it (`FORBIDDEN`), each through tRPC, REST and MCP. Commissioning with `fleet:crew` stores it. The protocol schemas take every example in decision 0027 and refuse unknown fields. Typecheck, lint and tests green |
+| D3 | The plugin, for a trierarch's sessions | `aeolus-identity.sh write` keeps `wakeBy=trierarch` when asked. With it, the SessionStart and Stop hooks and the watcher guard ask for no watcher. UserPromptSubmit and Stop hooks write the turn marker (busy or idle, with when) | Plugin tests: a folder with `wakeBy=trierarch` gets no watcher from any hook, and the turn marker reads busy during a turn and idle after it. Claude Code and Codex alike where the hook exists. A folder without the line behaves as today |
+| D2a | The trierarch's core | `packages/trierarch`: package, `bin`, lint boundaries as in squadrons. Core: WantedList, Reconciler, RestartPolicy and the entry states, with in-memory ports for fleet, harness, processes, workspace and state | Strict TDD. Unit tests for every row of the blueprint's lifecycle table and every gap rule: idempotent by message id, saved before ack, refused with the field named, the restart budget, drop on lease ended, strays stopped, orphans reported and never deleted, dirty worktrees kept |
+| D2b | The trierarch's adapters and command | The REST fleet client (its own crew token and `fleet:crew`), tmux, git worktree and folder, the Claude Code harness, the JSON state store, and `aeolus-trierarch init`, `run`, `config check` and `install` (a launchd agent, and a systemd user unit if cheap) | A Testcontainers test: a want on a real server crews the ship and writes its identity, and release ends the lease. Adapter tests against real tmux and git in a temporary folder. `config check` prints the effective flags. The README says how to install and configure it |
+| D4 | The trial on the Mac mini | No new code unless the trial needs it | Written up in the PR:<br>- a want crews a ship unattended;<br>- a killed pane comes back with no new secret;<br>- a message wakes an idle session;<br>- a restart of the Mac brings the ships back under launchd;<br>- release removes a clean worktree and keeps one with changes.<br><br>It also answers whether Claude Code's folder trust and the one-time skip-permissions acceptance can be given ahead of time, and how; if they cannot, it says so as a finding |
+
+Later, each with its own design pass: Codex, pi and herdr adapters; the console's Start session; squadrons' setups; a batched inbox for many ships.
 
 ## Kickoff prompt: slice 9 (hardening)
 
