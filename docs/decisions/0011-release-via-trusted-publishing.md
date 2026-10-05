@@ -1,6 +1,7 @@
 # 0011 Releases only via trusted publishing
 
 - Only `.github/workflows/release.yml` publishes, via npm OIDC. Packages require 2FA and disallow tokens. No npm token anywhere.
+- Release only releases: it sets the version, builds, dry runs, publishes and tags, with no second test run, since main takes a commit only after CI passed on it.
 - One version for all four packages (squadrons published last); the workflow tags the commit `v<version>` (`contents: write`).
 - After the tag, the workflow creates the GitHub Release `v<version>`, its notes built by `scripts/release-notes.ts` from the merged pull requests carrying the label `<version>`: titles with links, grouped into features, fixes and other changes. No changelog file: git and the labels are the source.
 - The aeolus Claude Code plugin carries the same version. The marketplace installs it from main, so after the tag the workflow commits the plugin's version to main; the packages on main keep 0.0.0.
@@ -8,4 +9,4 @@
 
 Why: A leaked token cannot publish; npm and git versions always match.
 
-Rejected: `NPM_TOKEN` secret; publishing releases from a laptop.
+Rejected: `NPM_TOKEN` secret; publishing releases from a laptop; running the tests again in the release (the same gate twice).

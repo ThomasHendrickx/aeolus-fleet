@@ -79,11 +79,8 @@ jobs:
           fi
           npm --version
 
+      # No second test run: main takes a commit only after CI passed on it (ADR 0011).
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
 
       - name: Set the version on all four packages
         env:
