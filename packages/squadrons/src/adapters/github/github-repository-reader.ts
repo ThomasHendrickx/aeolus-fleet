@@ -8,10 +8,16 @@
  * catalogue can say why. A repository is read with its
  * own token only, as a bearer token, and unauthenticated without one.
  *
- * A tag's files at a commit never change, so each fleet's reader keeps them
- * and reads a tag again only when it points at another commit. What a
- * repository last fetched is kept per fleet, in memory, for reads without a
- * fetch; nothing is kept before its first fetch or after it is forgotten.
+ * What a commit holds never changes, so what is read at one is kept by
+ * repository and commit, for every fleet: a commit's tree and time, and each
+ * file read at it. A fetch asks for the tag list with the ETag of the last
+ * answer, so an unchanged repository costs a 304, which GitHub does not count
+ * against its rate limit, and reads nothing more. A new commit costs one tree
+ * and one commit call, and one read per file that exists there: no 404s.
+ * Each fleet asks for the tag list itself, with its own token, before it is
+ * given anything kept; an ETag is kept per token. What a repository last
+ * fetched is kept per fleet, in memory, for reads without a fetch; nothing is
+ * kept before its first fetch or after it is forgotten.
  */
 import { parse, YAMLParseError } from 'yaml';
 import { z } from 'zod';
@@ -29,6 +35,7 @@ const TAGS_PER_PAGE = 100;
 /** The longest account of a failed fetch squadrons keeps. */
 const FETCH_ERROR_MAX_LENGTH = 300;
 const HTTP_NOT_FOUND = 404;
+const HTTP_NOT_MODIFIED = 304;
 const HTTP_UNAUTHORIZED = 401;
 
 const VERSION_TAG = /^([a-z0-9:-]+)@([1-9]\d*)$/;
@@ -42,6 +49,7 @@ const KINDS = [
 
 const tagsSchema = z.array(z.object({ name: z.string(), commit: z.object({ sha: z.string() }) }));
 const commitSchema = z.object({ commit: z.object({ committer: z.object({ date: z.iso.datetime({ offset: true }) }) }) });
+const treeSchema = z.object({ tree: z.array(z.object({ path: z.string(), type: z.string() })), truncated: z.boolean() });
 const errorSchema = z.object({ message: z.string() });
 
 /** Why a fetch failed, as the operator reads it; never holds the token. */
@@ -49,16 +57,21 @@ class FetchFailure extends Error {
   override name = 'FetchFailure';
 }
 
-/** One tag's versions, read at the commit it pointed at. */
-interface ReadTag {
-  commit: string;
-  files: SourceFile[];
+/** What a commit holds, as far as squadrons reads it: its time, and the paths of its files (undefined when GitHub cut the tree short). */
+interface Commit {
+  committedAt: Date;
+  paths: ReadonlySet<string> | undefined;
+}
+
+/** One page of a tag list as last answered, with its ETag. */
+interface TagPage {
+  etag: string;
+  tags: { name: string; commit: string }[];
+  next: string | undefined;
 }
 
 /** What the reader keeps of one fleet's repository. */
 interface Kept {
-  /** Each tag read, by tag name. */
-  tags: Map<string, ReadTag>;
   /** What its last fetch read. */
   files: SourceFile[];
   /** The version tags its last fetch read no file at. */
@@ -102,9 +115,15 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
   const apiUrl = options.apiUrl ?? GITHUB_API_URL;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const kept = new Map<string, Kept>();
+  /** Each commit read, by `<repository> <sha>`, for every fleet. */
+  const commits = new Map<string, Commit>();
+  /** Each file read, by `<repository> <sha> <path>`, for every fleet. */
+  const texts = new Map<string, string>();
+  /** Each tag list page last answered, by its URL and the token it was asked with. */
+  const tagPages = new Map<string, TagPage>();
 
-  /** A GET with the repository's own token, if any; a 404 answers undefined when `isMissingFine`. */
-  const get = async (url: string, request: { token: string | null; accept: string; isMissingFine?: boolean }): Promise<Response | undefined> => {
+  /** A GET with the repository's own token, if any; a 404 answers undefined when `isMissingFine`; a 304 answers as it is. */
+  const get = async (url: string, request: { token: string | null; accept: string; isMissingFine?: boolean; etag?: string }): Promise<Response | undefined> => {
     let response: Response;
     try {
       response = await fetch(url, {
@@ -113,6 +132,7 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
           'x-github-api-version': GITHUB_API_VERSION,
           'user-agent': 'aeolus-squadrons',
           ...(request.token === null ? {} : { authorization: `Bearer ${request.token}` }),
+          ...(request.etag === undefined ? {} : { 'if-none-match': request.etag }),
         },
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -124,6 +144,9 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
     }
     if (response.status === HTTP_NOT_FOUND && request.isMissingFine === true) {
       return undefined;
+    }
+    if (response.status === HTTP_NOT_MODIFIED && request.etag !== undefined) {
+      return response;
     }
     if (!response.ok) {
       throw await refusalOf(response);
@@ -137,43 +160,95 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
     return { body: await response?.json(), next };
   };
 
+  /** One page of the tag list, asked with the ETag of its last answer under this token: a 304 gives that answer again, free. */
+  const tagPageOf = async (url: string, token: string | null): Promise<TagPage> => {
+    const pageKey = `${url} ${token ?? ''}`;
+    const known = tagPages.get(pageKey);
+    const response = await get(url, { token, accept: 'application/vnd.github+json', ...(known === undefined ? {} : { etag: known.etag }) });
+    if (known !== undefined && response?.status === HTTP_NOT_MODIFIED) {
+      return known;
+    }
+    const page: TagPage = {
+      etag: response?.headers.get('etag') ?? '',
+      tags: tagsSchema.parse(await response?.json()).map((tag) => ({ name: tag.name, commit: tag.commit.sha })),
+      next: NEXT_PAGE.exec(response?.headers.get('link') ?? '')?.[1],
+    };
+    if (page.etag !== '') {
+      tagPages.set(pageKey, page);
+    }
+    return page;
+  };
+
   /** Every tag of the repository with the commit it points at, page by page. */
   const tagsOf = async (repository: RepositoryToRead): Promise<{ name: string; commit: string }[]> => {
     const tags: { name: string; commit: string }[] = [];
     let url: string | undefined = `${apiUrl}/repos/${slugOf(repository)}/tags?per_page=${String(TAGS_PER_PAGE)}`;
     while (url !== undefined) {
-      const page: { body: unknown; next: string | undefined } = await json(url, repository.token);
-      tags.push(...tagsSchema.parse(page.body).map((tag) => ({ name: tag.name, commit: tag.commit.sha })));
+      const page: TagPage = await tagPageOf(url, repository.token);
+      tags.push(...page.tags);
       url = page.next;
     }
     return tags;
   };
 
+  /** A commit's time and the paths of its files: read once, by its tree and its commit, for every fleet. */
+  const commitOf = async (repository: RepositoryToRead, sha: string): Promise<Commit> => {
+    const commitKey = `${repository.name} ${sha}`;
+    const known = commits.get(commitKey);
+    if (known !== undefined) {
+      return known;
+    }
+    const tree = treeSchema.parse((await json(`${apiUrl}/repos/${slugOf(repository)}/git/trees/${sha}?recursive=1`, repository.token)).body);
+    const committed = commitSchema.parse((await json(`${apiUrl}/repos/${slugOf(repository)}/commits/${sha}`, repository.token)).body);
+    const commit: Commit = {
+      committedAt: new Date(committed.commit.committer.date),
+      paths: tree.truncated ? undefined : new Set(tree.tree.filter((entry) => entry.type === 'blob').map((entry) => entry.path)),
+    };
+    commits.set(commitKey, commit);
+    return commit;
+  };
+
+  /** A file's text at a commit, read once for every fleet; undefined when the commit holds no such file. */
+  const textOf = async (repository: RepositoryToRead, at: { sha: string; commit: Commit; file: string }): Promise<string | undefined> => {
+    const textKey = `${repository.name} ${at.sha} ${at.file}`;
+    const known = texts.get(textKey);
+    if (known !== undefined) {
+      return known;
+    }
+    if (at.commit.paths !== undefined && !at.commit.paths.has(at.file)) {
+      return undefined;
+    }
+    const path = at.file.split('/').map(encodeURIComponent).join('/');
+    const response = await get(`${apiUrl}/repos/${slugOf(repository)}/contents/${path}?ref=${at.sha}`, {
+      token: repository.token,
+      accept: 'application/vnd.github.raw+json',
+      isMissingFine: true,
+    });
+    if (!response) {
+      return undefined;
+    }
+    const text = await response.text();
+    texts.set(textKey, text);
+    return text;
+  };
+
   /** The tag's template and blueprint of its name at its commit, with the commit's time. */
-  const readTag = async (repository: RepositoryToRead, tag: { name: string; version: number; tagName: string; commit: string }): Promise<SourceFile[]> => {
+  const readTag = async (repository: RepositoryToRead, tag: { name: string; version: number; commit: string }): Promise<SourceFile[]> => {
+    const commit = await commitOf(repository, tag.commit);
     const files: SourceFile[] = [];
-    let committedAt: Date | undefined;
     for (const { kind, folder } of KINDS) {
       const file = `${repository.path}/${folder}/${tag.name}.yaml`;
-      const path = file.split('/').map(encodeURIComponent).join('/');
-      const response = await get(`${apiUrl}/repos/${slugOf(repository)}/contents/${path}?ref=${tag.commit}`, {
-        token: repository.token,
-        accept: 'application/vnd.github.raw+json',
-        isMissingFine: true,
-      });
-      if (response) {
-        const text = await response.text();
-        committedAt ??= new Date(commitSchema.parse((await json(`${apiUrl}/repos/${slugOf(repository)}/commits/${tag.commit}`, repository.token)).body).commit.committer.date);
-        files.push({ repository: repository.name, kind, name: tag.name, version: tag.version, file, commit: tag.commit, committedAt, ...parsed(text) });
+      const text = await textOf(repository, { sha: tag.commit, commit, file });
+      if (text !== undefined) {
+        files.push({ repository: repository.name, kind, name: tag.name, version: tag.version, file, commit: tag.commit, committedAt: commit.committedAt, ...parsed(text) });
       }
     }
     return files;
   };
 
-  /** Fetches the repository: its tags, and each tag's files not read yet at its commit. */
+  /** Fetches the repository: its tags, and each tag's files from what is kept of its commit, read only when new. */
   const fetchRepository = async (repository: RepositoryToRead): Promise<void> => {
-    const before = kept.get(keyOf(repository))?.tags ?? new Map<string, ReadTag>();
-    const tags = new Map<string, ReadTag>();
+    const files: SourceFile[] = [];
     const unread: UnreadTag[] = [];
     for (const { name: tagName, commit } of await tagsOf(repository)) {
       const version = VERSION_TAG.exec(tagName);
@@ -184,14 +259,13 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
         continue;
       }
       const [, name = '', number = ''] = version;
-      const known = before.get(tagName);
-      const read = known?.commit === commit ? known : { commit, files: await readTag(repository, { name, version: Number(number), tagName, commit }) };
-      tags.set(tagName, read);
-      if (read.files.length === 0) {
+      const read = await readTag(repository, { name, version: Number(number), commit });
+      files.push(...read);
+      if (read.length === 0) {
         unread.push({ repository: repository.name, tag: tagName, path: repository.path });
       }
     }
-    kept.set(keyOf(repository), { tags, files: [...tags.values()].flatMap((tag) => tag.files), unread });
+    kept.set(keyOf(repository), { files, unread });
   };
 
   return {
