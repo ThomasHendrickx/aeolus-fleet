@@ -1,6 +1,6 @@
 'use client';
 
-import { CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, TriangleAlert, type LucideIcon } from 'lucide-react';
+import { CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, TriangleAlert, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 import { useId, useState, type KeyboardEvent } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -62,6 +62,15 @@ function ItemContent({ item }: { item: PaletteItem }) {
         <DraftingCompass aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate font-mono text-body text-foreground">{item.name}</span>
         <span className="text-meta text-muted-foreground">v{item.version}</span>
+      </>
+    );
+  }
+  if (item.kind === 'squadron-action') {
+    const ActionIcon = item.action === 'add-member' ? UserPlus : Waves;
+    return (
+      <>
+        <ActionIcon aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate">{item.label}</span>
       </>
     );
   }
