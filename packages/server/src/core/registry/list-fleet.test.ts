@@ -173,7 +173,7 @@ describe('listing the fleet', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        status: 'awaitingCrew',
+        status: 'crewed',
         startingPrompt: null,
         location: null,
         lastSeenAt: null,
@@ -182,7 +182,7 @@ describe('listing the fleet', () => {
         report: null,
         harness: null,
         model: null,
-        awaitingCrewSince: commissionedAt,
+        awaitingCrewSince: null,
         retiredAt: null,
       },
       {

@@ -13,7 +13,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0009](0009-stack.md) **Stack.** Node 26, Fastify, tRPC, Next.js, Prisma, Zod, Vitest, Testcontainers, Playwright.
 - [0010](0010-leases-without-heartbeats.md) **Leases until released.** No heartbeats; second claim fails (except `argo` takeover); release and deregister invalidate the secret; location reported on claim.
 - [0011](0011-release-via-trusted-publishing.md) **Release via trusted publishing.** Only `release.yml` publishes, no tokens, no second test run, tags `v<version>`, creates its GitHub Release with notes from the PRs labelled `<version>`, and commits the plugin's version to main.
-- [0012](0012-operator-is-a-ship.md) **Operator is the ship `argo`.** Permanent, all scopes, no secret; crewed only by the operator's email and password login; one session at a time; another service checks a console session with `console.session`, from the forwarded cookie.
+- [0012](0012-operator-is-a-ship.md) **Operator is the ship `argo`.** Permanent, all scopes, no secret, always shown as crewed; its lease taken only by the operator's email and password login; one session at a time; another service checks a console session with `console.session`, from the forwarded cookie.
 - [0013](0013-breaking-changes-before-1-0.md) **Breaking changes before 1.0.0.** Allowed; no compatibility layers.
 - [0014](0014-strict-test-driven-development.md) **Strict TDD.** Server and common test first, `(red)` commit then green; push green only.
 - [0015](0015-ship-identity-per-conversation.md) **Identity per conversation, per folder with the plugin.** `register` returns a crew token; later calls carry it; MCP connection has no ship credential; the plugin keeps the token per working folder.
