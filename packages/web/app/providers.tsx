@@ -6,6 +6,7 @@ import { createTRPCClient, createWSClient, httpBatchLink, splitLink, wsLink } fr
 import { useState, type ReactNode } from 'react';
 
 import { Toaster } from '../components/atoms/toast';
+import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
 import { SquadronsConfiguredContext } from '../lib/squadrons';
@@ -49,19 +50,28 @@ function createClient(serverUrl: string) {
   });
 }
 
+/** Tracks a pageview per page shown, while analytics is on. */
+function Pageviews(): null {
+  useAnalyticsPageviews();
+  return null;
+}
+
 /**
  * isSquadronsConfigured: whether AEOLUS_SQUADRONS_URL is set, read on the server per request; without it the console makes no squadrons call.
  * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
+ * isAnalyticsOn: whether AEOLUS_HOSTED_ANALYTICS_* configure an adapter (decision 0025); off, the console sends no analytics.
  */
 export function Providers({
   serverUrl,
   isSquadronsConfigured,
   hostedAccountUrl,
+  isAnalyticsOn,
   children,
 }: {
   serverUrl: string;
   isSquadronsConfigured: boolean;
   hostedAccountUrl?: string;
+  isAnalyticsOn: boolean;
   children: ReactNode;
 }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
@@ -72,8 +82,11 @@ export function Providers({
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <SquadronsConfiguredContext value={isSquadronsConfigured}>
           <HostedAccountUrlContext value={hostedAccountUrl}>
-            {children}
-            <Toaster />
+            <AnalyticsContext value={isAnalyticsOn}>
+              <Pageviews />
+              {children}
+              <Toaster />
+            </AnalyticsContext>
           </HostedAccountUrlContext>
         </SquadronsConfiguredContext>
       </TRPCProvider>

@@ -82,6 +82,23 @@ describe('the guide', () => {
     await expect(page.getByTestId('tour-step-count').textContent()).resolves.toBe('1 of 3');
   });
 
+  it('sends no analytics while none is configured, not even to its own server (decision 0025)', async () => {
+    const page = await signedIn('viewer');
+    const analytics: string[] = [];
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/analytics') {
+        analytics.push(request.url());
+      }
+    });
+
+    await page.getByTestId('tour-step-next').click();
+    await page.waitForURL(/\/inbox$/);
+    await page.getByTestId('tour-step-skip').click();
+    await page.getByTestId('tour-step').waitFor({ state: 'detached' });
+
+    expect(analytics).toEqual([]);
+  });
+
   it('goes to the next step on its page, centred when its anchor is not there, and back again', async () => {
     const page = await signedIn('viewer');
     await page.getByTestId('tour-step-next').click();

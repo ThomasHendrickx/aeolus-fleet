@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crewLineSchema, type CrewLine } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import { useAnalytics } from './analytics-client';
 import { useSquadronsConnection } from './squadrons';
 
 /**
@@ -205,6 +206,7 @@ export function useCatalogue() {
  */
 export function useFormSquadron() {
   const queryClient = useQueryClient();
+  const { track } = useAnalytics();
   return useMutation({
     mutationFn: (blueprint: { repository: string; name: string; version: number }) =>
       call('squadrons.form', {
@@ -213,6 +215,7 @@ export function useFormSquadron() {
         answers: formedSquadronSchema,
       }),
     onSuccess: async (formed) => {
+      track({ name: 'squadron_formed', roleCount: new Set(formed.members.map((member) => member.role)).size });
       // In this browser's memory only, for the squadron page to show once; never in storage.
       queryClient.setQueryData(crewLinesKey(formed.squadronId), formed.members);
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });

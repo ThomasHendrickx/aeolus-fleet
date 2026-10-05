@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAnalytics } from './analytics-client';
 import { useTRPC } from './trpc';
 
 /**
@@ -25,7 +26,15 @@ function useRefreshFleetSnapshot(): () => Promise<void> {
 export function useCommissionShip() {
   const trpc = useTRPC();
   const refresh = useRefreshFleetSnapshot();
-  return useMutation(trpc.fleet.commission.mutationOptions({ onSuccess: refresh }));
+  const { track } = useAnalytics();
+  return useMutation(
+    trpc.fleet.commission.mutationOptions({
+      onSuccess: async () => {
+        track({ name: 'ship_commissioned' });
+        await refresh();
+      },
+    }),
+  );
 }
 
 /** Gets a new starting prompt for a ship awaiting crew. Its data holds the prompt, to show once. */
