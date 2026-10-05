@@ -1,6 +1,7 @@
 # 0012 The operator is the ship `argo`
 
 - One `argo` per fleet, kind `operator`; agent ships kind `agent`; the viewer ship kind `viewer` (0022). Name reserved; never retired, released or renamed.
+- `argo` is always crewed: the console is its crew, whether or not the operator is signed in, so it never shows Awaiting crew. Signing in still takes its lease over.
 - `argo` has no secret. `register` with a secret is refused for `argo`. The only way to crew it is the operator's console login.
 - Operator login: email and password (Argon2id), one account in v1. A server command creates fleet, `argo` and account; another resets the password and ends all sessions. No public setup page.
 - Sign-in gives a session token: random, SHA-256 stored, httpOnly secure cookie, 30 days after last use. Cookie domain and allowed console origin are configured, so web and server may run on different hosts under one domain.

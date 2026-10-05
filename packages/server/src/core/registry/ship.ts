@@ -168,8 +168,9 @@ export function shipStatus(ship: Ship, lease: { isCrewed: boolean }): ShipStatus
   if (ship.retiredAt !== null) {
     return 'retired';
   }
-  // The viewer ship holds no lease: it is a door into the console, always open (decision 0022).
-  return lease.isCrewed || ship.kind === 'viewer' ? 'crewed' : 'awaitingCrew';
+  // argo and the viewer ship are the console's own: argo's crew is the console, signed in or not
+  // (decision 0012), and the viewer ship is a door into it, always open (decision 0022).
+  return lease.isCrewed || ship.kind !== 'agent' ? 'crewed' : 'awaitingCrew';
 }
 
 const STATUS_WORDS: Record<ShipStatus, string> = {
