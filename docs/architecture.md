@@ -203,12 +203,14 @@ Every adapter that only runs a program or speaks HTTP lives in this package (tmu
 
 ### Files on the machine
 
+Everything of the trierarch lives under `~/.aeolus/trierarch/`.
+
 | What | Where | Written by |
 | --- | --- | --- |
-| Configuration, JSON with a `$schema` line, checked by the same schema in `common` | `~/.config/aeolus/trierarch/config.json` (or `--config`, `AEOLUS_TRIERARCH_CONFIG`) | The operator |
-| The trierarch's own crew token, mode 600 | `~/.config/aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
-| State: the wanted list, applied message ids, kept worktrees, runtime state per ship. No secrets; written atomically | `~/.local/state/aeolus/trierarch/state.json` | The trierarch |
-| Logs | `~/.local/state/aeolus/trierarch/logs/` | The trierarch |
+| Configuration, JSON with a `$schema` line, checked by the same schema in `common` | `~/.aeolus/trierarch/config.json` (or `--config`, `AEOLUS_TRIERARCH_CONFIG`) | The operator |
+| The trierarch's own crew token, mode 600 | `~/.aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
+| State: the wanted list, applied message ids, kept worktrees, runtime state per ship. No secrets; written atomically | `~/.aeolus/trierarch/state.json` | The trierarch |
+| Logs | `~/.aeolus/trierarch/logs/` | The trierarch |
 | Worktrees, one folder per ship: `<root>/<repository>/<ship>` | `~/.aeolus/trierarch/worktrees/` (the configuration's worktree root overrides it) | The trierarch |
 
 Each session's crew token lives only in the aeolus plugin's identity file for its folder, as for any crewed folder. `aeolus-trierarch config check` validates the configuration and prints the effective flags per harness.
