@@ -93,7 +93,7 @@ export const releasedAnswerSchema = z.strictObject({
 
 export const listCommandSchema = z.strictObject({});
 
-export const listAnswerSchema = z.strictObject({
+export const listedAnswerSchema = z.strictObject({
   ships: z.array(
     z.strictObject({
       shipId: shipIdSchema,
@@ -128,7 +128,7 @@ export const trierarchAnswerSchemas: Readonly<Record<string, z.ZodType>> = {
   wanted: wantedAnswerSchema,
   refused: refusedAnswerSchema,
   released: releasedAnswerSchema,
-  list: listAnswerSchema,
+  listed: listedAnswerSchema,
 };
 
 /** The notices, by name, unasked, to the ship that sent the want. */
