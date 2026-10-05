@@ -87,6 +87,8 @@ describe('paletteItemsOf', () => {
       'action:form-squadron',
       'action:compose',
       'squadron:team-a1b2c3',
+      'squadron-action:add-member:team-a1b2c3',
+      'squadron-action:stand-down:team-a1b2c3',
       'blueprint:example.com/t#team',
       'page:overview',
       'page:squadrons',
@@ -102,6 +104,37 @@ describe('paletteItemsOf', () => {
     });
 
     expect(paletteGroups(items, 'hemma').map((group) => [group.key, group.items.length])).toEqual([['squadrons', 1]]);
+  });
+});
+
+describe("a squadron's actions in the palette", () => {
+  const items = paletteItemsOf([], {
+    squadrons: [
+      { id: 'aeolus-a1b2c3', state: 'sailing', blueprint: { repository: 'r', name: 'aeolus', version: 3, commit: 'c' } },
+      { id: 'hemma-k9m4p2', state: 'forming', blueprint: { repository: 'r', name: 'hemma', version: 2, commit: 'c' } },
+    ],
+    blueprints: [],
+  });
+
+  it('offers Add member and Stand down for a Sailing squadron the query finds, among the actions', () => {
+    const actions = paletteGroups(items, 'aeolus').find((group) => group.key === 'actions');
+
+    expect(actions?.items.map((item) => (item.kind === 'squadron-action' ? [item.label, item.href] : undefined))).toEqual([
+      ['Add member to aeolus-a1b2c3…', '/squadrons/aeolus-a1b2c3?action=add-member'],
+      ['Stand down aeolus-a1b2c3…', '/squadrons/aeolus-a1b2c3?action=stand-down'],
+    ]);
+  });
+
+  it('offers none before the operator types', () => {
+    expect(paletteGroups(items, '').flatMap((group) => group.items).some((item) => item.kind === 'squadron-action')).toBe(false);
+  });
+
+  it('offers none for a squadron that is not Sailing', () => {
+    expect(paletteGroups(items, 'hemma').find((group) => group.key === 'actions')).toBeUndefined();
+  });
+
+  it('offers none to a session that may not manage the fleet', () => {
+    expect(allowedPaletteItems(items, { canManage: false, canSend: true }).some((item) => item.kind === 'squadron-action')).toBe(false);
   });
 });
 
