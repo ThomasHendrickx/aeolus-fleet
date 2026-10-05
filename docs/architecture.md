@@ -1,6 +1,6 @@
 # Aeolus: solution and technical architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-09-30.
+Owner: Thomas Hendrickx. Last updated 2026-10-05.
 
 ## Summary
 
@@ -28,7 +28,7 @@ The server has exactly one API door: a tRPC router. The web app calls it like an
 | Procedure group | Authenticated by | Reachable as | Examples |
 | --- | --- | --- | --- |
 | Ship procedures | `register`: ship id and secret. Every other call: the crew token `register` returned (a header for tRPC and REST, a tool argument for MCP) | tRPC, REST, MCP | Register, whoami, receive, send, acknowledge, pong, report, deregister |
-| Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope | tRPC; the fleet actions (list, ship, commission, get starting prompt, release, re-crew, retire, ping, follow) also REST (`/api/v1/fleet/<call>`) and MCP (`fleet_<call>` tools) for a crewed ship with those scopes | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
+| Fleet procedures | Crew token or console session, plus the `fleet:read` or `fleet:manage` scope; reading one ship, getting a starting prompt and releasing also take `fleet:crew` | tRPC; the fleet actions (list, ship, commission, get starting prompt, release, re-crew, retire, ping, follow) also REST (`/api/v1/fleet/<call>`) and MCP (`fleet_<call>` tools) for a crewed ship with those scopes | Commission, rename, release, retire, get starting prompt, resend, dismiss, fleet snapshot |
 | Console procedures | Email and password, then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out, and `console.session`: another service's server forwards the browser's cookie and learns whether the operator or a viewer is signed in (fleet, expiry, kind and scopes, or `UNAUTHORIZED`), so it serves its pages beside the console without a login of its own |
 | Installation procedures | The installation token, in the `x-aeolus-installation-token` header; never a crew token or console session | tRPC only | `installation.fleets.create`, `list`, `get`, `delete`: see Installation below |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
@@ -117,6 +117,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | `web` | Any Next.js host | Vercel, any Node host, a container |
 | `server` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
 | `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision 0021), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
+| `trierarch` (optional) | A long-running Node process on the machine where the sessions it crews run, kept alive by launchd or a systemd user unit, with its files under the operator's home folder. It needs no public address: it calls the fleet's API | The operator's own machine (a Mac, a Linux host) |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
 ## Technology choices
@@ -185,9 +186,154 @@ Ping (`fleet.ping`, `fleet:manage`): in one transaction, lock the ship (`FOR UPD
 
 The same event rows feed three things at once: ship and message timelines, the audit trail, and live updates to the web app (through `NOTIFY` and tRPC subscriptions over WebSocket).
 
+## The trierarch
+
+`@aeolus-fleet/trierarch` crews ships on the machine it runs on: it keeps the ships on its wanted list crewed, and starts, restarts, wakes and stops their sessions. What it does is in [trierarch.md](trierarch.md); decisions 0026 and 0027 say why. It is a Node command, `aeolus-trierarch run`, kept alive by the operating system: a launchd agent on macOS, a systemd user unit on Linux. It depends on `common` only. The server never imports it and knows nothing about it beyond its ship.
+
+### Parts
+
+| Layer | Pieces |
+| --- | --- |
+| Core (pure) | **WantedList**: entries by ship id, edited only by messages, idempotent by message id. **Reconciler**: a pure function from (wanted, observed, now) to actions (crew, launch, relaunch, stop, wake, release, remove workspace, notify), the only place that decides. **RestartPolicy**: waits 5 s, 30 s, 2 min, then 10 min, with a budget of 5 restarts an hour, after which the entry is crashed. Entry states: wanted, crewing, running (idle or busy), restarting, crashed, releasing |
+| Ports | **FleetClient**: the trierarch's own crew (receive, ack, send, report) and its `fleet:crew` calls (ship, getStartingPrompt, release), `register` with a secret, and `inbox` and `report` with a session's crew token. **HarnessAdapter**, one per harness: describe (its options as a JSON Schema and what it needs on the machine), prepare identity (through the aeolus plugin's own `aeolus-identity.sh`, never a copy of how the plugin names its files), the launch command, the turn state (idle or busy), and wake. **ProcessSupervisor**: start, stop, list, send text. **WorkspaceAdapter**: prepare, is clean, remove. **StateStore**: the wanted list, applied message ids, kept worktrees, runtime state per ship. **Clock**, **Logger** |
+| First adapters | REST for the fleet. tmux for processes (one tmux session per ship, named after its ship id, kept on exit so an exit is seen). git worktree for workspaces, plus a configured folder used as it is. Claude Code for harnesses (`claude` in the folder, `--continue` on a restart; wake types `/aeolus:wake` when the plugin's turn marker says idle). Codex comes next (`codex queue --thread`) |
+| Local configuration | Caps (ships, running), harnesses offered, repositories by name, the worktree root, folders usable as they are, and launch flags per harness (for example `--dangerously-skip-permissions`, `--remote-control`, the model), overridable per setup. Skip-permissions is an explicit value, never a default. A want picks named options only; it never adds a flag, and messages never carry paths or flags. Describe shows the effective flags |
+
+Every adapter that only runs a program or speaks HTTP lives in this package (tmux, herdr, a child process; claude-code, codex, pi; git worktree, folder). An adapter gets its own package only when it needs a vendor SDK or runs somewhere else.
+
+### Files on the machine
+
+Everything of the trierarch lives under `~/.aeolus/trierarch/`.
+
+| What | Where | Written by |
+| --- | --- | --- |
+| Configuration, JSON with a `$schema` line, checked by the same schema in `common` | `~/.aeolus/trierarch/config.json` (or `--config`, `AEOLUS_TRIERARCH_CONFIG`) | The operator |
+| The trierarch's own crew token, mode 600 | `~/.aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
+| State: the wanted list, applied message ids, kept worktrees, runtime state per ship. No secrets; written atomically | `~/.aeolus/trierarch/state.json` | The trierarch |
+| Logs | `~/.aeolus/trierarch/logs/` | The trierarch |
+| Worktrees, one folder per ship: `<root>/<repository>/<ship>` | `~/.aeolus/trierarch/worktrees/` (the configuration's worktree root overrides it) | The trierarch |
+
+Each session's crew token lives only in the aeolus plugin's identity file for its folder, as for any crewed folder. `aeolus-trierarch config check` validates the configuration and prints the effective flags per harness.
+
+### The protocol
+
+The commands, answers and notices, and the behaviour they drive, are in [trierarch.md](trierarch.md#the-protocol). The schemas live in `common`, beside the configuration's schema.
+
+### Want a ship and its first crew
+
+```mermaid
+sequenceDiagram
+  participant R as Requester
+  participant F as Fleet server
+  participant T as Trierarch
+  participant W as Worktree
+  participant X as tmux and harness
+  R->>F: commission ship (fleet:manage)
+  R->>F: send to trierarch: want {shipId, harness, workspace, options}
+  F-->>T: receive
+  T->>T: check against describe, save entry and message id
+  T->>F: ack, then send R: wanted
+  T->>F: getStartingPrompt(shipId) (fleet:crew)
+  T->>F: register with the secret, gets the crew token
+  T->>T: save the entry as crewing
+  T->>W: git worktree add, write identity (wakeBy=trierarch, squadron?)
+  T->>X: start claude in the folder, first prompt /aeolus:wake
+  X->>F: whoami, receive, report (its crew token)
+  T->>F: send R: running
+```
+
+The secret lives only in the trierarch's memory, between getting the starting prompt and registering.
+
+### A session dies, and the machine restarts
+
+```mermaid
+sequenceDiagram
+  participant OS as launchd
+  participant T as Trierarch
+  participant F as Fleet
+  participant X as tmux
+  participant R as Requester
+  T->>X: list: pane dead
+  T->>T: restart policy: wait, attempt n
+  T->>X: start again in the same folder (claude --continue)
+  Note over T,X: same crew token, lease still held, no new secret
+  alt budget spent
+    T->>R: crashed {shipId, exits}
+  end
+  OS->>T: start at login
+  T->>T: load the wanted list
+  loop each wanted ship
+    T->>F: inbox with the ship's crew token
+    alt token valid
+      T->>X: start again in its folder, /aeolus:wake
+    else LEASE_ENDED
+      T->>R: leaseEnded, entry dropped
+    end
+  end
+```
+
+### A delivery for an idle ship, and release
+
+```mermaid
+sequenceDiagram
+  participant S as Sender
+  participant F as Fleet
+  participant T as Trierarch
+  participant X as Session
+  participant W as Worktree
+  S->>F: send to ship
+  T->>F: inbox wait with the ship's crew token
+  F-->>T: waiting 1
+  alt session idle
+    T->>X: wake (Claude Code: /aeolus:wake; Codex: codex queue)
+  else busy
+    T->>T: wake once when it turns idle
+  end
+  X->>F: receive, ack, work, reply
+  S->>F: send to trierarch: release {shipId}
+  F-->>T: receive, save releasing, ack
+  T->>X: stop the session
+  T->>F: release(shipId) (fleet:crew)
+  alt worktree clean
+    T->>W: remove worktree and identity
+  else changes
+    T->>W: keep the folder, remove the identity
+  end
+  T->>S: released {workspace removed or kept}
+```
+
+One wake per rise in the waiting count, and nothing more until the session has received.
+
+### Dependencies
+
+```mermaid
+flowchart LR
+  common[(common: schemas, scopes, trierarch protocol)]
+  server[server] --> common
+  web[web console] --> common
+  squadrons[squadrons] --> common
+  trierarch[trierarch] --> common
+  web -- tRPC --> server
+  squadrons -- REST --> server
+  trierarch -- REST with fleet:crew --> server
+  web -. fleet messages .-> trierarch
+  squadrons -. fleet messages .-> trierarch
+  trierarch -- runs --> tmux[tmux]
+  trierarch -- runs --> git[git]
+  trierarch -- runs --> plugin[aeolus plugin scripts]
+  tmux --> session[Claude Code or Codex session]
+  session -- its own crew token --> server
+```
+
+Solid arrows are code or API calls; dotted arrows are fleet messages, opaque to the server. The console's Start session and squadrons' setups come later; neither is coupled to a trierarch now.
+
+### What the aeolus plugin does for it
+
+The identity file of a folder a trierarch crews says `wakeBy=trierarch`. The plugin then asks for no watcher of its own: the SessionStart and Stop hooks and the watcher guard leave waking to the trierarch. A turn marker (busy or idle, with when), written by the plugin's UserPromptSubmit and Stop hooks, tells the trierarch when a Claude Code session may be woken. `/aeolus:wake` is both the first prompt and the wake.
+
 ## Code structure
 
-Five parts. The first four are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` is optional). The fifth is your private setup and consumes the packages like any other installer would.
+Six parts. The first five are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` and `trierarch` are optional). The sixth is your private setup and consumes the packages like any other installer would.
 
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
@@ -195,6 +341,7 @@ Five parts. The first four are npm packages under the `aeolus-fleet` organisatio
 | `@aeolus-fleet/server` | Public repo, `packages/server` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
 | `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`), and GitHub's REST API for the template repositories, with no clone and no files on disk. Optional | `common` |
+| `@aeolus-fleet/trierarch` | Public repo, `packages/trierarch` | Crews ships on its machine from a wanted list (decision 0026): its own core and ports, adapters for the fleet's REST API (as its own ship, with `fleet:crew`), tmux, git and the harnesses, and its command `aeolus-trierarch`. Optional | `common` |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
 Layers, not folders (the code shows the folders):
@@ -204,6 +351,7 @@ Layers, not folders (the code shows the folders):
 - Composition: the server's entry points build the adapters and inject them into the use cases.
 - `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
 - `squadrons/src/core` and `squadrons/src/adapters` follow the same split; squadrons reaches the fleet only through the fleet's public API, never its tables.
+- `trierarch/src/core` and `trierarch/src/adapters` follow the same split; the trierarch reaches the fleet only through its public API.
 - Every repository call takes a fleet scope (exception: decision 0007).
 
 Lint and CI enforce these rules (slice 1b).

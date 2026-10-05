@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-09-30.
+Owner: Thomas Hendrickx. Last updated 2026-10-05.
 
 ## Purpose
 
@@ -32,7 +32,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
-| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read` and/or `fleet:manage`, so a ship can read or manage the fleet as the console does. Scopes never change after commissioning |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them, `fleet:crew` included; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage` and/or `fleet:crew`, so a ship can read or manage the fleet as the console does, or crew other ships as a trierarch does. Scopes never change after commissioning |
 | Starting prompt | Identity only: the fleet's MCP URL and how to add it, the ship's id and secret, how to pick the location, and "call register". How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
@@ -112,7 +112,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Installation | One server and the fleets it hosts. A service that hosts fleets for others (pagasae, for hosted Aeolus) creates, describes and deletes them through the installation procedures, with the installation token; a self-hosted server has none of them |
 | Operator | The human running the fleet, crewing the ship `argo` through the web console |
 | `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
-| Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage` |
+| Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`, `fleet:crew`. `fleet:crew` allows only reading one ship, getting its starting prompt and releasing it, for any ship of the fleet (decision 0002) |
 | Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type and a status. The name is a handle (lowercase letters, digits, hyphens, colons, max 48 characters; a colon is an ordinary character, so a prefix can group ships, as in `hemma:planner`), unique among active ships and reusable after retirement |
 | Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored ship class later. Used for addressing, never interpreted |
 | Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
@@ -135,6 +135,10 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Every call of `report` sets when it last reported, even with the same state and note. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
 | Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out needs no confirmation; the dialog states that the outstanding one stops working |
 | Crew line | The same identity in one line, one per harness with the `aeolus` plugin, shown with every starting prompt: `/aeolus:crew <fleetUrl> <shipId> <secret>` for Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits. A starting prompt is answered with its prompt, its crew lines and the secret itself, so a client that crews the ship for a session of its own (squadrons, the console connecting squadrons) reads the secret instead of parsing a line (decision 0019) |
+| Trierarch | A dispatcher: a plain process on a machine, not an AI, crewing a ship of type `trierarch` with `fleet:crew`. It starts, restarts, wakes and stops agent sessions for the ships on its wanted list. It crews ships; it never commissions or retires them. Aeolus knows nothing about it beyond its ship (decision 0026). What it does: [trierarch.md](trierarch.md) |
+| Wanted list | A trierarch's saved list of ships to keep crewed, each with the settings to start it: harness, workspace, an optional first prompt and options. Only messages edit it; the trierarch's loop makes what runs match it |
+| Want | The message that puts a ship on a trierarch's wanted list, or replaces its entry, by ship id. Any ship that can message the trierarch may send it |
+| Describe | The message that asks a trierarch what it offers: harnesses, workspaces and each harness's options as a schema, read from its local configuration. A want is checked against it (decision 0027) |
 | Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says only which ship |
 | Retire | End a ship for good. Its id can never be claimed or addressed again |
 
@@ -352,7 +356,6 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
 | Group and fleet-wide addressing (n-to-n) | Selector with a kind, one delivery row per recipient |
 | Usage and limit tracking for Claude and OpenAI subscriptions | Heartbeat payload can carry usage numbers |
-| Automatic session launching | A session needs only the ship id and secret to register |
 | Payload encryption with AES-256-GCM and a random IV per message | Payloads are already opaque to the fleet |
 
 ## Open decisions
