@@ -28,6 +28,8 @@ interface ListLayoutProps {
   onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
+  /** The installation's notices for this session, above the page on desktop and phone. */
+  banner?: ReactNode;
   children: ReactNode;
 }
 
@@ -49,6 +51,7 @@ export function ListLayout({
   onCompose,
   onSearch,
   account,
+  banner,
   children,
 }: ListLayoutProps) {
   return (
@@ -63,6 +66,7 @@ export function ListLayout({
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={title} live={live} onCompose={onCompose} onSearch={onSearch} />
+        {banner}
         <TopBar
           title={title}
           live={live}

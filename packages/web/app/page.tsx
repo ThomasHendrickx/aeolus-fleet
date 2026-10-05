@@ -5,6 +5,7 @@ import { use, useState } from 'react';
 
 import { ComposeMessage } from '../components/organisms/compose-message';
 import { ConsoleCommands } from '../components/organisms/console-commands';
+import { ConsoleNotices } from '../components/organisms/console-notices';
 import { CommissionShip } from '../components/organisms/commission-ship';
 import { FleetLimits } from '../components/organisms/fleet-limits';
 import { FleetOverview } from '../components/organisms/fleet-overview';
@@ -99,6 +100,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <FleetLimits />

@@ -3,6 +3,7 @@ import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, Ship
 import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
+import type { Notice } from './notice.js';
 import type { OperatorAccount } from './operator-account.js';
 import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
 
@@ -119,4 +120,18 @@ export interface CallerLookup {
   useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: Caller | Crew; expiresAt: Date } | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
   consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
+}
+
+/** Outbound port: the installation's notices (decision 0023), kept in its order; they belong to no fleet. */
+export interface NoticeRepository {
+  read(): Promise<Notice[]>;
+  /** Replaces every notice with these, in this order. */
+  replace(notices: readonly Notice[]): Promise<void>;
+}
+
+/** Outbound port: the notices each console session dismissed, by notice id; they go with the session's fleet. */
+export interface NoticeDismissals {
+  dismissed(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<string[]>;
+  /** Records the dismissal; one already recorded stays as it was. */
+  dismiss(dismissal: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }): Promise<void>;
 }

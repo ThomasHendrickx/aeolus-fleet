@@ -1,6 +1,8 @@
 import {
   accountOutputSchema,
+  consoleNoticesOutputSchema,
   consoleSessionOutputSchema,
+  dismissNoticeInputSchema,
   setThemeInputSchema,
   setThemeOutputSchema,
   redeemSignInTicketInputSchema,
@@ -9,6 +11,7 @@ import {
 import { TRPCError } from '@trpc/server';
 
 import { deviceLabelOf } from '../http/device-label.js';
+import { noticeOutputOf } from './installation.js';
 import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, router } from './trpc.js';
 
 /**
@@ -86,6 +89,14 @@ export const consoleRouter = router({
       okOrThrow(await ctx.useCases.setTheme(ctx.caller, input));
       return {};
     }),
+
+  /** The notices this console session shows above every page (decision 0023): those of its audience it has not dismissed. */
+  notices: authenticatedProcedure.output(consoleNoticesOutputSchema).query(async ({ ctx }) => (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf)),
+
+  /** Dismisses a dismissible notice for this console session only. */
+  dismissNotice: authenticatedProcedure.input(dismissNoticeInputSchema).mutation(async ({ ctx, input }) => {
+    okOrThrow(await ctx.useCases.dismissNotice(ctx.caller, input));
+  }),
 
   /** Ends the console session in the cookie and releases argo's lease. Always clears the cookie. */
   signOut: consoleProcedure.mutation(async ({ ctx }) => {

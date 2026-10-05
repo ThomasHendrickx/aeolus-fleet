@@ -11,15 +11,24 @@ import {
   createPrismaFleetRepository,
   createPrismaShipRepository,
 } from './adapters/prisma/registry.js';
-import { createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
+import { createPrismaNoticeDismissals, createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
-import { createPrismaFleetLimitReads, createPrismaInstallationFleets, createPrismaInstallationSettings } from './adapters/prisma/installation.js';
+import {
+  createPrismaFleetLimitReads,
+  createPrismaInstallationFleets,
+  createPrismaInstallationSettings,
+  createPrismaNoticeRepository,
+} from './adapters/prisma/installation.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
+import { createDismissNotice, type DismissNotice } from './core/identity/dismiss-notice.js';
+import { createGetNotices, type GetNotices } from './core/identity/get-notices.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './core/identity/issue-sign-in-ticket.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './core/identity/redeem-sign-in-ticket.js';
 import { createReadAccount, type ReadAccount } from './core/identity/read-account.js';
+import { createReadNotices, type ReadNotices } from './core/identity/read-notices.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
+import { createSetNotices, type SetNotices } from './core/identity/set-notices.js';
 import { createSetTheme, type SetTheme } from './core/identity/set-theme.js';
 import { createSignIn, type SignIn } from './core/identity/sign-in.js';
 import { createSignOut, type SignOut } from './core/identity/sign-out.js';
@@ -108,6 +117,10 @@ export interface UseCases {
   signOut: SignOut;
   readAccount: ReadAccount;
   setTheme: SetTheme;
+  setNotices: SetNotices;
+  getNotices: GetNotices;
+  readNotices: ReadNotices;
+  dismissNotice: DismissNotice;
   resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
   createFleet: CreateFleet;
@@ -149,6 +162,8 @@ export function createUseCases(options: {
   const uow = createPrismaUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const wakeups = options.wakeups ?? createReceiverWakeups();
+  const notices = createPrismaNoticeRepository(prisma);
+  const dismissals = createPrismaNoticeDismissals(prisma);
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -161,6 +176,10 @@ export function createUseCases(options: {
     setInstallationSettings: createSetInstallationSettings({ uow }),
     getFleetLimits: createGetFleetLimits({ uow }),
     setFleetLimits: createSetFleetLimits({ uow, clock, ids }),
+    setNotices: createSetNotices({ notices }),
+    getNotices: createGetNotices({ notices }),
+    readNotices: createReadNotices({ notices, dismissals }),
+    dismissNotice: createDismissNotice({ notices, dismissals, clock }),
     readFleetLimits: createReadFleetLimits({ limits: createPrismaFleetLimitReads(prisma), clock }),
     redeemSignInTicket: createRedeemSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),

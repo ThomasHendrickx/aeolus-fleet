@@ -28,6 +28,8 @@ interface DetailLayoutProps {
   onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
+  /** The installation's notices for this session, above the page on desktop and phone. */
+  banner?: ReactNode;
 }
 
 /**
@@ -48,6 +50,7 @@ export function DetailLayout({
   onCompose,
   onSearch,
   account,
+  banner,
 }: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -61,6 +64,7 @@ export function DetailLayout({
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} onSearch={onSearch} />
+        {banner}
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           {header}
