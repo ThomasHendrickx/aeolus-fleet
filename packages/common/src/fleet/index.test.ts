@@ -11,7 +11,7 @@ import {
 } from './index.js';
 
 describe('scopeSchema', () => {
-  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'])('accepts %s', (scope) => {
+  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'])('accepts %s', (scope) => {
     expect(scopeSchema.parse(scope)).toBe(scope);
   });
 
