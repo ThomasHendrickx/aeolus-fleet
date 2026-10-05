@@ -209,6 +209,7 @@ Every adapter that only runs a program or speaks HTTP lives in this package (tmu
 | The trierarch's own crew token, mode 600 | `~/.config/aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
 | State: the wanted list, applied message ids, kept worktrees, runtime state per ship. No secrets; written atomically | `~/.local/state/aeolus/trierarch/state.json` | The trierarch |
 | Logs | `~/.local/state/aeolus/trierarch/logs/` | The trierarch |
+| Worktrees, one folder per ship: `<root>/<repository>/<ship>` | `~/.aeolus/trierarch/worktrees/` (the configuration's worktree root overrides it) | The trierarch |
 
 Each session's crew token lives only in the aeolus plugin's identity file for its folder, as for any crewed folder. `aeolus-trierarch config check` validates the configuration and prints the effective flags per harness.
 
