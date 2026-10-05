@@ -117,8 +117,10 @@ describe('the guide', () => {
   it('ends with Finish on its last step, and stays hidden', async () => {
     const page = await signedIn('viewer');
     await page.getByTestId('tour-step-next').click();
+    await page.waitForURL(/\/inbox$/);
     await page.getByTestId('tour-step').getByText('Messages to argo').waitFor();
     await page.getByTestId('tour-step-next').click();
+    await page.waitForURL((url) => url.pathname === '/');
     await page.getByTestId('tour-step').getByText('That is all').waitFor();
     await expect(page.getByTestId('tour-step-skip').count()).resolves.toBe(0);
 
