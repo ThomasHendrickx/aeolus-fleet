@@ -187,6 +187,8 @@ export interface ShipFacts {
   lastPing: { sentAt: Date; deliveryState: DeliveryState; answeredWithPongAt: Date | null } | null;
   /** The last model the ship's sessions stated on a send, and when, resends left out; null before any. */
   lastModel: { id: string; statedAt: Date } | null;
+  /** The viewer ship's: when one of its viewer sessions, which hold no lease, was last used; null before any (decision 0022). */
+  lastViewedAt: Date | null;
 }
 
 /**

@@ -787,6 +787,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
+      lastViewedAt:
+        state.consoleSessions
+          .filter((session) => session.shipId === held.id && session.leaseId === null)
+          .map((session) => session.lastUsedAt)
+          .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
     };
   };
   const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {
