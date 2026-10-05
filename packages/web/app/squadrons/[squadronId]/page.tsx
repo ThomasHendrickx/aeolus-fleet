@@ -1,6 +1,7 @@
 'use client';
 
 import { idSchema } from '@aeolus-fleet/common';
+import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
@@ -49,8 +50,17 @@ import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, 
  * launch note once. It asks again every few seconds, so members show on
  * station as they check in.
  */
-export default function SquadronPage({ params }: { params: Promise<{ squadronId: string }> }) {
+export default function SquadronPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ squadronId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { squadronId } = use(params);
+  // The command palette's Add member and Stand down land here with their dialog asked for.
+  const asked = use(searchParams).action;
+  const router = useRouter();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
@@ -89,6 +99,17 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
   // The squadron manager's answer names the flagship by a plain string: parsed, as outside data is.
   const flagshipId = squadron ? idSchema('ship').safeParse(squadron.flagship.shipId).data : undefined;
+  const offered = squadron
+    ? squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })
+    : undefined;
+  const isAddAsked = asked === 'add-member' && offered?.canAddMember === true;
+  const isStandDownAsked = asked === 'stand-down' && offered?.canStandDown === true;
+  /** Closes a dialog the palette asked for: the page's URL drops the ask, so it opens no more. */
+  const settleAsk = () => {
+    if (asked !== undefined) {
+      router.replace(`/squadrons/${squadronId}`, { scroll: false });
+    }
+  };
   const isLosingMembersAllowed = squadron?.state === 'sailing' || squadron?.state === 'standing-down';
 
   return (
@@ -97,10 +118,10 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
-            squadron ? (
+            squadron && offered ? (
               <SquadronActions
                 squadronId={squadron.id}
-                offered={squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })}
+                offered={offered}
                 onAddMember={() => {
                   addMember.reset();
                   setIsAdding(true);
@@ -201,14 +222,20 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           memberCount={squadron.members.length}
           openDeliveries={openDeliveries}
           inFlightDeliveries={inFlightDeliveries}
-          isOpen={isStandingDown}
-          onOpenChange={setIsStandingDown}
+          isOpen={isStandingDown || isStandDownAsked}
+          onOpenChange={(isNowOpen) => {
+            setIsStandingDown(isNowOpen);
+            if (!isNowOpen) {
+              settleAsk();
+            }
+          }}
           isPending={standDown.isPending}
           error={standDown.error?.message}
           onConfirm={() => {
             standDown.mutate(squadron.id, {
               onSuccess: () => {
                 setIsStandingDown(false);
+                settleAsk();
               },
             });
           }}
@@ -239,8 +266,13 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           squadronId={squadron.id}
           blueprint={`${squadron.blueprint.name} v${String(squadron.blueprint.version)}`}
           roles={roles}
-          isOpen={isAdding}
-          onOpenChange={setIsAdding}
+          isOpen={isAdding || isAddAsked}
+          onOpenChange={(isNowOpen) => {
+            setIsAdding(isNowOpen);
+            if (!isNowOpen) {
+              settleAsk();
+            }
+          }}
           isPending={addMember.isPending}
           error={addMember.error?.message}
           onSubmit={(role) => {
@@ -249,6 +281,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
               {
                 onSuccess: (member) => {
                   setIsAdding(false);
+                  settleAsk();
                   setAdded(member);
                 },
               },

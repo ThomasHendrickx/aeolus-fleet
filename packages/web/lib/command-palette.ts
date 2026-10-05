@@ -15,6 +15,7 @@ export type PaletteItem =
   | { kind: 'page'; id: 'overview' | 'squadrons' | 'inbox' | 'attention'; label: string; href: string }
   | { kind: 'ship'; id: ShipId; name: string; type: string; status: ShipStatus; href: string }
   | { kind: 'squadron'; id: string; blueprint: string; state: SquadronState; href: string }
+  | { kind: 'squadron-action'; id: string; squadronId: string; action: SquadronPaletteAction; label: string; href: string }
   | { kind: 'blueprint'; id: string; name: string; version: number; href: string };
 
 export interface PaletteGroup {
@@ -23,13 +24,24 @@ export interface PaletteGroup {
   items: PaletteItem[];
 }
 
+/** What the palette offers on a Sailing squadron it finds (canvas, SqPaletteQuery); its page opens the dialog. */
+export type SquadronPaletteAction = 'add-member' | 'stand-down';
+
 /** Ships shown before the operator types: the first few, so the other groups stay in view. */
 export const SHIPS_BEFORE_QUERY = 8;
 
 /** Whether the item matches the query: its label, or a ship's name or type, in any case. */
 function matches(item: PaletteItem, query: string): boolean {
   const words =
-    item.kind === 'ship' ? [item.name, item.type] : item.kind === 'squadron' ? [item.id, item.blueprint] : item.kind === 'blueprint' ? [item.name] : [item.label];
+    item.kind === 'ship'
+      ? [item.name, item.type]
+      : item.kind === 'squadron'
+        ? [item.id, item.blueprint]
+        : item.kind === 'squadron-action'
+          ? [item.squadronId]
+          : item.kind === 'blueprint'
+            ? [item.name]
+            : [item.label];
   return words.some((word) => word.toLowerCase().includes(query));
 }
 
@@ -40,10 +52,11 @@ function matches(item: PaletteItem, query: string): boolean {
  */
 export function paletteGroups(items: readonly PaletteItem[], query: string): PaletteGroup[] {
   const wanted = query.trim().toLowerCase();
-  const kept = items.filter((item) => wanted === '' || matches(item, wanted));
+  // A squadron's actions show only once the operator types and finds it.
+  const kept = items.filter((item) => (wanted === '' ? item.kind !== 'squadron-action' : matches(item, wanted)));
   const ships = kept.filter((item) => item.kind === 'ship');
   const groups: PaletteGroup[] = [
-    { key: 'actions', label: 'Actions', items: kept.filter((item) => item.kind === 'action') },
+    { key: 'actions', label: 'Actions', items: kept.filter((item) => item.kind === 'action' || item.kind === 'squadron-action') },
     { key: 'ships', label: 'Ships', items: wanted === '' ? ships.slice(0, SHIPS_BEFORE_QUERY) : ships },
     { key: 'squadrons', label: 'Squadrons', items: kept.filter((item) => item.kind === 'squadron') },
     { key: 'blueprints', label: 'Blueprints', items: kept.filter((item) => item.kind === 'blueprint') },
@@ -61,7 +74,7 @@ const ACTION_NEEDS = { compose: 'canSend', commission: 'canManage', 'form-squadr
  * searches and goes to, and offers no action (lib/access).
  */
 export function allowedPaletteItems(items: readonly PaletteItem[], access: Pick<Access, 'canManage' | 'canSend'>): PaletteItem[] {
-  return items.filter((item) => item.kind !== 'action' || access[ACTION_NEEDS[item.id]]);
+  return items.filter((item) => (item.kind === 'action' ? access[ACTION_NEEDS[item.id]] : item.kind !== 'squadron-action' || access.canManage));
 }
 
 /** The key an item goes by in the list: its kind and id, unique across groups. */
@@ -98,6 +111,12 @@ export function paletteItemsOf(
     ...(squadrons?.squadrons ?? [])
       .filter((squadron) => squadron.state !== 'disbanded')
       .map((squadron): PaletteItem => ({ kind: 'squadron', id: squadron.id, blueprint: squadron.blueprint.name, state: squadron.state, href: `/squadrons/${squadron.id}` })),
+    ...(squadrons?.squadrons ?? [])
+      .filter((squadron) => squadron.state === 'sailing')
+      .flatMap((squadron): PaletteItem[] => [
+        { kind: 'squadron-action', id: `add-member:${squadron.id}`, squadronId: squadron.id, action: 'add-member', label: `Add member to ${squadron.id}…`, href: `/squadrons/${squadron.id}?action=add-member` },
+        { kind: 'squadron-action', id: `stand-down:${squadron.id}`, squadronId: squadron.id, action: 'stand-down', label: `Stand down ${squadron.id}…`, href: `/squadrons/${squadron.id}?action=stand-down` },
+      ]),
     ...(squadrons?.blueprints ?? []).map(
       (blueprint): PaletteItem => ({ kind: 'blueprint', id: blueprint.key, name: blueprint.name, version: blueprint.versions[0]?.version ?? 0, href: blueprintPath(blueprint) }),
     ),

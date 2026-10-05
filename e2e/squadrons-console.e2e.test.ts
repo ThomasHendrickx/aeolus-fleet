@@ -325,6 +325,24 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('form-squadron-dialog').waitFor();
   });
 
+  it('offers Add member and Stand down on a sailing squadron in the palette, opening the dialog on its page', async () => {
+    const page = await squadronsPage();
+    await page.getByTestId('squadrons-row').first().waitFor();
+
+    await page.keyboard.press('Control+k');
+    await page.getByTestId('command-palette-input').fill('team-');
+    await page.locator('[data-testid="command-palette-item"][data-item-kind="squadron-action"]').getByText(/^Add member to team-/).click();
+    await page.getByTestId('add-member-dialog').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.keyboard.press('Escape');
+    await page.getByTestId('add-member-dialog').waitFor({ state: 'hidden' });
+    await expect.poll(() => page.url()).not.toContain('action=');
+
+    await page.keyboard.press('Control+k');
+    await page.getByTestId('command-palette-input').fill('team-');
+    await page.locator('[data-testid="command-palette-item"][data-item-kind="squadron-action"]').getByText(/^Stand down team-/).click();
+    await page.getByTestId('stand-down-dialog').waitFor({ timeout: LIVE_TIMEOUT_MS });
+  });
+
   // Last: it moves the clock past three check-in intervals.
   it('sends a member silent for three check-in intervals to Needs attention, and counts it', async () => {
     const THREE_INTERVALS_AND_MORE_MS = 2 * 60 * 60 * 1000;
