@@ -134,7 +134,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         onRetry={() => {
           void squadrons.refetch();
         }}
-        onForm={openForm}
+        onForm={access.canManage ? openForm : undefined}
         view={view}
         onViewChange={changeView}
       />

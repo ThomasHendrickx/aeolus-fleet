@@ -91,7 +91,8 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
-            squadron && squadron.state !== 'disbanded' ? (
+            // A session that may not manage the fleet (a viewer's) reads the squadron only.
+            access.canManage && squadron && squadron.state !== 'disbanded' ? (
               <>
                 {squadron.state === 'sailing' && roles.length > 0 && (
                   <Button
@@ -157,7 +158,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           now={now}
           renderActions={(member) => {
             const ship = ships.get(member.shipId);
-            if (member.crew.status === 'retired' || ship?.status === 'retired') {
+            if (!access.canManage || member.crew.status === 'retired' || ship?.status === 'retired') {
               return null;
             }
             return (

@@ -8,7 +8,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/server/src/ad
 import { createApp } from '../packages/server/src/app.js';
 import type { AppRouter } from '../packages/server/src/index.js';
 import { createUseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
+import { FLEET_URL, modelOf, secretOf } from '../packages/server/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/server/test/support/database.js';
 import { newKey } from '../packages/server/test/support/keys.js';
 import { unwrap } from '../packages/server/test/support/result.js';
@@ -43,7 +43,11 @@ beforeAll(async () => {
   const created = await installation().fleets.create.mutate({ requestId: newKey(), name: 'demo', operatorEmail: 'demo@example.com', viewer: true });
   fleetId = created.fleetId;
   const argo = { fleetId, shipId: created.operatorShipId, kind: 'operator' as const, scopes: [...SCOPES] };
-  unwrap(await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const core = createUseCases({ prisma: database });
+  const { shipId, secret } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { crewToken } = unwrap(await core.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  const scout = unwrap(await core.authenticate.byCrewToken(crewToken));
+  unwrap(await core.sendMessage(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: created.operatorShipId }, payload: 'Run 71 passed', idempotencyKey: newKey() }));
 });
 
 afterAll(async () => {
@@ -89,6 +93,30 @@ describe('the console of a viewer session', () => {
     const page = await signedIn('viewer');
 
     await page.getByRole('row', { name: /viewer/ }).getByTestId('fleet-viewer').waitFor();
+  });
+});
+
+describe("a viewer session's read-only pages", () => {
+  it("shows argo's inbox and opens a message, with no reply, no Mark done and a note that it is read-only", async () => {
+    const page = await signedIn('viewer');
+
+    await page.goto('/inbox');
+    await page.getByText('Run 71 passed').first().click();
+
+    await page.getByTestId('inbox-read-only').first().waitFor();
+    await expect(page.getByTestId('inbox-reply').count()).resolves.toBe(0);
+    await expect(page.getByTestId('inbox-mark-done').count()).resolves.toBe(0);
+  });
+
+  it('leaves the message unread for the operator: opening it as a viewer marks nothing', async () => {
+    const viewer = await signedIn('viewer');
+    await viewer.goto('/inbox');
+    await viewer.getByText('Run 71 passed').first().click();
+    await viewer.getByTestId('inbox-read-only').first().waitFor();
+
+    const unread = await database.delivery.count({ where: { fleetId, readAt: null } });
+
+    expect(unread).toBe(1);
   });
 });
 

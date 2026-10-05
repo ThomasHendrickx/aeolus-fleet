@@ -99,6 +99,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       }}
     >
       <OperatorInbox
+        isReadOnly={!access.canReceive}
         messages={messagesFor(all, filter)}
         filter={filter}
         onFilterChange={(next) => {
@@ -109,7 +110,8 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
         onSelect={(deliveryId) => {
           show({ filter, deliveryId });
           const chosen = all.find((message) => message.deliveryId === deliveryId);
-          if (deliveryId !== undefined && chosen?.readAt === null) {
+          // A read-only session (a viewer's) marks nothing read: opening a message changes nothing.
+          if (deliveryId !== undefined && chosen?.readAt === null && access.canReceive) {
             markRead.mutate({ deliveryId, isRead: true });
           }
         }}

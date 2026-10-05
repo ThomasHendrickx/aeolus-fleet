@@ -37,6 +37,8 @@ interface OperatorInboxProps {
   /** Deliveries whose mark done or reply is in flight. */
   pendingIds: ReadonlySet<DeliveryId>;
   now: Date;
+  /** A session that may not receive (a viewer's): no Mark done, Mark as unread or Reply, and a note that says so. */
+  isReadOnly?: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -258,7 +260,8 @@ function MessagePane({
   onReply,
   pendingIds,
   isPhone,
-}: Pick<OperatorInboxProps, 'onMarkDone' | 'onMarkUnread' | 'onReply' | 'pendingIds'> & {
+  isReadOnly = false,
+}: Pick<OperatorInboxProps, 'onMarkDone' | 'onMarkUnread' | 'onReply' | 'pendingIds' | 'isReadOnly'> & {
   message: InboxMessage;
   isPhone: boolean;
 }) {
@@ -283,7 +286,7 @@ function MessagePane({
             </time>
           </p>
         </div>
-        {isDone(message) ? null : (
+        {isDone(message) || isReadOnly ? null : (
           <div className="flex items-center gap-1.5">
             <Button
               size={isPhone ? 'touch' : 'sm'}
@@ -314,6 +317,11 @@ function MessagePane({
       <div className="min-h-0 grow overflow-y-auto">
         <Payload message={message} />
       </div>
+      {isReadOnly ? (
+        <p data-testid="inbox-read-only" className="border-t border-border pt-3 text-meta text-muted-foreground">
+          Read-only: you see argo’s inbox, and can’t reply or mark messages done.
+        </p>
+      ) : (
       <div className={isPhone ? 'sticky bottom-0 bg-background pb-[env(safe-area-inset-bottom)]' : undefined}>
         <ReplyBox
           // A message that becomes done starts a fresh reply; a failed reply keeps its draft.
@@ -324,6 +332,7 @@ function MessagePane({
           isPhone={isPhone}
         />
       </div>
+      )}
     </article>
   );
 }
@@ -335,7 +344,8 @@ function MessagePane({
  * back the dot. Open, Done and All filter the list. Desktop is two panes, the
  * list beside the open message with its reply box. Phone is the list, and an
  * open message is a pushed page with the reply pinned to the bottom; the page
- * hides the TabBar there.
+ * hides the TabBar there. Read-only, for a viewer session, it shows the
+ * messages and nothing that changes them (decision 0022).
  */
 export function OperatorInbox({
   messages,
@@ -402,7 +412,7 @@ export function OperatorInbox({
             <MessagePane message={selected} isPhone={false} {...actions} />
           ) : (
             <p className="m-auto text-meta text-muted-foreground">
-              {messages.length === 0 ? null : 'Choose a message to read it and reply.'}
+              {messages.length === 0 ? null : actions.isReadOnly === true ? 'Choose a message to read it.' : 'Choose a message to read it and reply.'}
             </p>
           )}
         </div>

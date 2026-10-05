@@ -102,8 +102,8 @@ export default function NeedsAttentionPage() {
       onRetry={() => {
         void attention.refetch();
       }}
-      onResend={onResend}
-      onDismiss={onDismiss}
+      onResend={access.canManage ? onResend : undefined}
+      onDismiss={access.canManage ? onDismiss : undefined}
       onOpen={(delivery) => {
         router.push(messagePathOf(delivery));
       }}
@@ -146,9 +146,13 @@ export default function NeedsAttentionPage() {
               members={silent}
               ships={shipsById}
               now={now}
-              renderAction={({ squadronId, member }) => (
-                <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
-              )}
+              renderAction={
+                access.canManage
+                  ? ({ squadronId, member }) => (
+                      <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
+                    )
+                  : undefined
+              }
             />
             <p className="text-meta text-muted-foreground">
               A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.

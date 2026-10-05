@@ -102,10 +102,14 @@ export default function BlueprintPage({
             }}
             templates={catalogue.data.templates}
             squadrons={squadronsFromBlueprint(squadrons.data ?? [], blueprint)}
-            onForm={() => {
-              form.reset();
-              setIsForming(true);
-            }}
+            onForm={
+              access.canManage
+                ? () => {
+                    form.reset();
+                    setIsForming(true);
+                  }
+                : undefined
+            }
           />
           <FormSquadronDialog
             key={`${blueprint.key}@${String(version)}`}

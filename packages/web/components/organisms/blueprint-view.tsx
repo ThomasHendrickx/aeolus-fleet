@@ -21,7 +21,8 @@ interface BlueprintViewProps {
   templates: readonly TemplateVersion[];
   /** The squadrons formed from this blueprint, any version. */
   squadrons: readonly Squadron[];
-  onForm: () => void;
+  /** Starts forming from this version; left out for a session that may not manage the fleet (a viewer's). */
+  onForm?: () => void;
 }
 
 /**
@@ -67,9 +68,11 @@ export function BlueprintView({ blueprint, version, onVersionChange, templates, 
         <span data-testid="blueprint-source" className="text-meta text-muted-foreground">
           <span className="font-mono">{shown.file}</span> at <span className="font-mono">{shown.commit.slice(0, 7)}</span>, {dayDate(new Date(shown.committedAt))}
         </span>
-        <Button variant="primary" icon={<Plus aria-hidden />} onClick={onForm} className="ml-auto" data-testid="blueprint-form">
-          Form squadron
-        </Button>
+        {onForm && (
+          <Button variant="primary" icon={<Plus aria-hidden />} onClick={onForm} className="ml-auto" data-testid="blueprint-form">
+            Form squadron
+          </Button>
+        )}
       </div>
       <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-meta text-muted-foreground">
         <Lock aria-hidden className="size-(--size-icon-sm) shrink-0" />

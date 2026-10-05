@@ -116,9 +116,13 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
               show({ tab });
             }
           }}
-          onReply={(replied) => {
-            setReplyTo({ messageId: replied.id, sender: replied.sender });
-          }}
+          onReply={
+            access.canSend
+              ? (replied) => {
+                  setReplyTo({ messageId: replied.id, sender: replied.sender });
+                }
+              : undefined
+          }
         />
       }
     >

@@ -89,3 +89,6 @@ export const Pending: Story = { args: { pendingIds: new Set([fromArgo.deliveryId
 
 /** One card per delivery, Dismiss and Resend full width. */
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** A viewer session (decision 0022): the deliveries, read-only, with no Resend or Dismiss. */
+export const ReadOnly: Story = { args: { onResend: undefined, onDismiss: undefined } };
