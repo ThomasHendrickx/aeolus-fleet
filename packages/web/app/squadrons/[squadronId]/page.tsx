@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { Button } from '../../../components/atoms/button';
 import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
@@ -149,6 +150,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />

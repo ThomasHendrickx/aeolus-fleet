@@ -7,6 +7,7 @@ import { use, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
 import { ShipActions } from '../../../components/organisms/ship-actions';
@@ -96,6 +97,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
       header={
         <ShipHeader
           ship={ship.data}
