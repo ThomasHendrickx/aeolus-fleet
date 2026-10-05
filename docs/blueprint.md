@@ -32,7 +32,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
-| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage` and/or `fleet:crew`, so a ship can read or manage the fleet as the console does, or crew other ships as a trierarch does. Scopes never change after commissioning |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them, `fleet:crew` included; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage` and/or `fleet:crew`, so a ship can read or manage the fleet as the console does, or crew other ships as a trierarch does. Scopes never change after commissioning |
 | Starting prompt | Identity only: the fleet's MCP URL and how to add it, the ship's id and secret, how to pick the location, and "call register". How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
@@ -135,7 +135,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), and when it last reported. It belongs to the lease, so the ship's next crew starts with none. Every call of `report` sets when it last reported, even with the same state and note. Plain data: shown in the console and readable with `fleet:read`; Aeolus acts on none of it (decision 0016) |
 | Starting prompt | The text the operator pastes into a new session: the fleet's MCP URL, ship id, ship secret, how to pick the location, and to call register. Getting a new one while an unclaimed prompt is still out needs no confirmation; the dialog states that the outstanding one stops working |
 | Crew line | The same identity in one line, one per harness with the `aeolus` plugin, shown with every starting prompt: `/aeolus:crew <fleetUrl> <shipId> <secret>` for Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits. A starting prompt is answered with its prompt, its crew lines and the secret itself, so a client that crews the ship for a session of its own (squadrons, the console connecting squadrons) reads the secret instead of parsing a line (decision 0019) |
-| Trierarch | A dispatcher: a plain process on a machine, not an AI, crewing a ship of type `trierarch` with `fleet:crew`. It starts, restarts, wakes and stops agent sessions for the ships on its wanted list. It crews ships; it never commissions or retires them. Aeolus knows nothing about it beyond its ship (decision 0026) |
+| Trierarch | A dispatcher: a plain process on a machine, not an AI, crewing a ship of type `trierarch` with `fleet:crew`. It starts, restarts, wakes and stops agent sessions for the ships on its wanted list. It crews ships; it never commissions or retires them. Aeolus knows nothing about it beyond its ship (decision 0026). What it does: [trierarch.md](trierarch.md) |
 | Wanted list | A trierarch's saved list of ships to keep crewed, each with the settings to start it: harness, workspace, an optional first prompt and options. Only messages edit it; the trierarch's loop makes what runs match it |
 | Want | The message that puts a ship on a trierarch's wanted list, or replaces its entry, by ship id. Any ship that can message the trierarch may send it |
 | Describe | The message that asks a trierarch what it offers: harnesses, workspaces and each harness's options as a schema, read from its local configuration. A want is checked against it (decision 0027) |
@@ -250,64 +250,6 @@ A hosting service such as pagasae drives the installation with its token (docs/a
 3. The operator pastes that prompt into a new session on any machine, or a crew line into Claude Code or Codex with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.
-
-### Crew ships with a trierarch
-
-A trierarch keeps the ships on its wanted list crewed on its machine (decisions 0026, 0027). It is a ship like any other, commissioned with `fleet:crew`, one per machine, found by listing ships of type `trierarch`. Releasing the trierarch's own ship is the kill switch.
-
-1. Anything with `fleet:manage` commissions a ship: the console as `argo`, squadrons, an orchestrator. There are no naming rules.
-2. It sends the trierarch a want: the ship id, the harness, the workspace (a new git worktree of a repository, or a folder, each named in the trierarch's local configuration), an optional first prompt (at most 8 KB, given on the first start only), and options from what describe offers.
-3. The trierarch checks the want against what it describes, saves the entry before it acks, and answers wanted (or refused, naming the field). A message it has applied before changes nothing.
-4. Its loop crews the ship:
-   - it gets a starting prompt with `fleet:crew` and registers with the secret, so the session never sees the secret;
-   - it writes the folder's identity through the aeolus plugin, saying the trierarch wakes it;
-   - it starts the harness in the folder, with `/aeolus:wake` as the first prompt.
-
-   It answers running.
-5. From then on the trierarch watches the ship's inbox while the session runs. It wakes the session when deliveries wait and the session is idle, and restarts a session that dies.
-
-Replies go to the sender of a command, and notices (running, crashed, leaseEnded) to the ship that sent the want. Nothing more.
-
-The ship, its wanted entry, its session and its worktree live and end together:
-
-| # | Event | Ship (fleet) | Wanted entry | Session | Worktree |
-| --- | --- | --- | --- | --- | --- |
-| 1 | want | must exist and await crew | added | none yet | none yet |
-| 2 | first crew | crewed (the trierarch registers) | running | started | created, identity written |
-| 3 | session dies | crewed, lease held | restarting | started again in the same folder, same crew token | kept |
-| 4 | restart budget spent | crewed, lease held | crashed, the requester notified | stopped | kept |
-| 5 | the machine restarts | crewed, lease held | unchanged | started again by the loop | kept |
-| 6 | release (by message) | awaiting crew, lease ended | removed | stopped | removed if clean; kept and reported if not |
-| 7 | released or re-crewed elsewhere (the console, another trierarch) | awaiting crew, or crewed by another session | dropped, the requester notified leaseEnded | stopped | as in 6 |
-| 8 | retired while wanted | retired | dropped, the requester notified leaseEnded | stopped | as in 6 |
-| 9 | the trierarch stops mid-crew | perhaps crewed | still on the list (saved before ack) | none, or a stray | perhaps half made |
-| 10 | the trierarch is uninstalled | crewed | gone with the trierarch | stopped first | uninstall lists kept worktrees and deletes nothing |
-
-The rules that close the gaps:
-
-1. The trierarch removes only what it made: worktrees under its own worktree root, never a configured folder and never a worktree with changes. A kept worktree is reported by describe and list until a human, or a release with force, clears it.
-2. Every pass of the loop also looks for strays. A session of the trierarch with no entry is stopped. A worktree under its root with no entry is reported as an orphan, never deleted.
-3. After a stop mid-crew, the loop resumes from the saved list. A half-made worktree of a wanted ship is used; one of a ship no longer wanted is an orphan (rule 2).
-4. A worktree with changes never holds up releasing the ship: the lease ends either way, so the ship can be crewed elsewhere.
-5. The trierarch watches a ship's inbox only while its session runs, so "last seen" still means the session is alive. It reports on the ship's behalf when its session crashes or restarts ("blocked: session crashed, restarting").
-
-```mermaid
-stateDiagram-v2
-  [*] --> Wanted: want
-  Wanted --> Running: crew, create worktree, start session
-  Running --> Restarting: session dies
-  Restarting --> Running: start again, same folder and crew token
-  Restarting --> Crashed: restart budget spent
-  Crashed --> Running: want again
-  Running --> Releasing: release, lease ended elsewhere, or retired
-  Crashed --> Releasing: release
-  Releasing --> Removed: worktree clean
-  Releasing --> Kept: worktree has changes
-  Removed --> [*]
-  Kept --> [*]: cleared by a human or a release with force
-```
-
-Release is the one command that stops a ship: it stops the session, ends the lease, removes the entry, and removes the worktree when it is clean. A restart of the machine is no release. Retire stays separate, for whoever holds `fleet:manage`.
 
 ### Send, receive, acknowledge
 

@@ -188,7 +188,7 @@ The same event rows feed three things at once: ship and message timelines, the a
 
 ## The trierarch
 
-`@aeolus-fleet/trierarch` crews ships on the machine it runs on: it keeps the ships on its wanted list crewed, and starts, restarts, wakes and stops their sessions. The behaviour is in the blueprint ("Crew ships with a trierarch"); decisions 0026 and 0027 say why. It is a Node command, `aeolus-trierarch run`, kept alive by the operating system: a launchd agent on macOS, a systemd user unit on Linux. It depends on `common` only. The server never imports it and knows nothing about it beyond its ship.
+`@aeolus-fleet/trierarch` crews ships on the machine it runs on: it keeps the ships on its wanted list crewed, and starts, restarts, wakes and stops their sessions. What it does is in [trierarch.md](trierarch.md); decisions 0026 and 0027 say why. It is a Node command, `aeolus-trierarch run`, kept alive by the operating system: a launchd agent on macOS, a systemd user unit on Linux. It depends on `common` only. The server never imports it and knows nothing about it beyond its ship.
 
 ### Parts
 
@@ -214,16 +214,7 @@ Each session's crew token lives only in the aeolus plugin's identity file for it
 
 ### The protocol
 
-Fleet messages to and from the trierarch's ship, with content types `application/vnd.aeolus.trierarch.<name>+json`, by convention: Aeolus reads none of them. The schemas live in `common`, beside the configuration's schema, so the trierarch, the console and squadrons share them.
-
-| Command | Answer |
-| --- | --- |
-| `describe` `{}` | `described` `{ harnesses: [{ harness, options (JSON Schema), flags }], workspaces: { repositories, folders }, caps, kept, version }` |
-| `want` `{ shipId, harness, workspace: { kind: worktree, repository, ref? } \| { kind: folder, name }, firstPrompt?, options }` | `wanted` `{ shipId }` or `refused` `{ shipId, field?, reason }` |
-| `release` `{ shipId, force? }` | `released` `{ shipId, workspace: removed \| kept, path? }` |
-| `list` `{}` | `list` `{ ships: [{ shipId, harness, state, since, restarts }], kept, orphans }` |
-
-Notices, unasked, to the ship that sent the want: `running`, `crashed` `{ shipId, exits }` and `leaseEnded` `{ shipId }`. Every answer goes `inReplyTo` its command.
+The commands, answers and notices, and the behaviour they drive, are in [trierarch.md](trierarch.md#the-protocol). The schemas live in `common`, beside the configuration's schema.
 
 ### Want a ship and its first crew
 
@@ -241,7 +232,8 @@ sequenceDiagram
   T->>F: ack, then send R: wanted
   T->>F: getStartingPrompt(shipId) (fleet:crew)
   T->>F: register with the secret, gets the crew token
-  T->>W: git worktree add, write identity (wakeBy=trierarch)
+  T->>T: save the entry as crewing
+  T->>W: git worktree add, write identity (wakeBy=trierarch, squadron?)
   T->>X: start claude in the folder, first prompt /aeolus:wake
   X->>F: whoami, receive, report (its crew token)
   T->>F: send R: running
