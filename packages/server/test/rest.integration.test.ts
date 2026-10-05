@@ -1,9 +1,10 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetScope, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { SHIP_CALLS } from '../src/adapters/trpc/ship-contract.js';
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
@@ -53,7 +54,7 @@ async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: s
 }
 
 /** A new ship commissioned by argo with fleet scopes, claimed with its secret: its name and crew token. */
-async function crewedWithFleetScopes(fleetScopes: ('fleet:read' | 'fleet:manage')[]): Promise<{ name: string; crewToken: string }> {
+async function crewedWithFleetScopes(fleetScopes: FleetScope[]): Promise<{ name: string; crewToken: string }> {
   shipCount += 1;
   const name = `rest-manager-${shipCount}`;
   const { shipId, secret } = unwrap(
@@ -305,6 +306,41 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const { events } = await ok(request('fleet/follow', { crewToken: reader.crewToken, body: { afterSeq: lastSeq } }), followed);
 
     expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+  });
+
+  it('serve a ship with fleet:crew one ship, its starting prompt and its release', async () => {
+    const trierarch = await crewedWithFleetScopes(['fleet:crew']);
+    const awaiting = await commissioned();
+    const crewed = await commissioned();
+    await register(crewed);
+
+    const read = await ok(request('fleet/ship', { crewToken: trierarch.crewToken, body: { shipId: awaiting.shipId } }), z.object({ id: z.string() }));
+    const prompt = await ok(
+      request('fleet/getStartingPrompt', { crewToken: trierarch.crewToken, body: { shipId: awaiting.shipId } }),
+      z.object({ prompt: z.string() }),
+    );
+    await ok(request('fleet/release', { crewToken: trierarch.crewToken, body: { shipId: crewed.shipId } }), z.object({}));
+
+    expect(read.id).toBe(awaiting.shipId);
+    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
+    await expect(database.lease.count({ where: { shipId: crewed.shipId, endedAt: null } })).resolves.toBe(0);
+  });
+
+  it('refuse every other fleet route with 403 to a ship with only fleet:crew', async () => {
+    const trierarch = await crewedWithFleetScopes(['fleet:crew']);
+    const others = SHIP_CALLS.filter(
+      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release'].includes(each.route),
+    );
+
+    const answers = await Promise.all(
+      others.map(async (each) => {
+        const answer = await request(each.route.slice(1), { crewToken: trierarch.crewToken, method: each.method, ...(each.method === 'POST' && { body: {} }) });
+        return [each.route, answer.status];
+      }),
+    );
+
+    expect(others.length).toBeGreaterThan(0);
+    expect(Object.fromEntries(answers)).toEqual(Object.fromEntries(others.map((each) => [each.route, 403])));
   });
 
   it('refuse the fleet list with 403 to a ship without fleet:read', async () => {

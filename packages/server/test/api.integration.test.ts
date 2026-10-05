@@ -8,6 +8,7 @@ import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
+import { appRouter } from '../src/adapters/trpc/router.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
@@ -175,6 +176,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_viewer_sessions$/),
       expect.stringMatching(/^\d{14}_notices$/),
       expect.stringMatching(/^\d{14}_guide$/),
+      expect.stringMatching(/^\d{14}_fleet_crew_scope$/),
     ]);
   });
 });
@@ -294,6 +296,53 @@ describe('the fleet procedures at the API', () => {
     await expect(codeOf(reader.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'stowaway', type: 'reviewer' }))).resolves.toBe(
       'FORBIDDEN',
     );
+  });
+
+  it('serve a ship with fleet:crew one ship, its starting prompt and its release', async () => {
+    const trierarch = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:crew'])}` });
+    const awaiting = await agentShip();
+    const { shipId: crewed } = await agentShip();
+    await database.lease.create({
+      data: { id: newId('lease'), fleetId, shipId: crewed, location: 'DEVICE', crewTokenHash: sha256Hasher.hash(newId('lease')), startedAt: clock.now() },
+    });
+
+    const read = await trierarch.fleet.ship.query({ shipId: awaiting.shipId });
+    const prompt = await trierarch.fleet.getStartingPrompt.mutate({ shipId: awaiting.shipId });
+    await trierarch.fleet.release.mutate({ shipId: crewed });
+
+    expect(read.id).toBe(awaiting.shipId);
+    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
+    await expect(database.lease.count({ where: { shipId: crewed, endedAt: null } })).resolves.toBe(0);
+  });
+
+  it('refuse every other fleet procedure to a ship with only fleet:crew', async () => {
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:crew']);
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release'].includes(name));
+    // argo's inbox takes the message scopes every agent ship holds, and refuses any ship but argo once its input parses.
+    const deliveryId = newId('delivery');
+    const inputs: Record<string, unknown> = {
+      markRead: { deliveryId, isRead: true },
+      markDone: { deliveryId },
+      reply: { deliveryId, payload: 'hi', idempotencyKey: newKey() },
+    };
+
+    const codes = await Promise.all(
+      others.map(async ([name, procedure]) => {
+        const isQuery = procedure._def.type !== 'mutation';
+        const input = JSON.stringify(inputs[name] ?? {});
+        const url = `${address}/trpc/fleet.${name}${isQuery ? `?input=${encodeURIComponent(input)}` : ''}`;
+        const response = await fetch(url, {
+          method: isQuery ? 'GET' : 'POST',
+          headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+          ...(!isQuery && { body: input }),
+        });
+        // A subscription answers as server-sent events, its refusal among them; the others as JSON.
+        return [name, /"code":"([A-Z_]+)"/.exec(await response.text())?.[1]];
+      }),
+    );
+
+    expect(others.length).toBeGreaterThan(0);
+    expect(Object.fromEntries(codes)).toEqual(Object.fromEntries(others.map(([name]) => [name, 'FORBIDDEN'])));
   });
 
   it('commission a ship as argo: listed as awaiting crew, its prompt unclaimed', async () => {
@@ -1464,7 +1513,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_guide$/);
+    expect(migration).toMatch(/^\d{14}_fleet_crew_scope$/);
   });
 });
 

@@ -72,7 +72,7 @@ describe('the operator ship', () => {
       name: 'argo',
       type: 'operator',
       kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'],
       retiredAt: null,
     });
   });

@@ -1,10 +1,11 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { FleetScope, ShipId } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { SHIP_CALLS } from '../src/adapters/trpc/ship-contract.js';
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/core/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
@@ -66,7 +67,7 @@ async function connect(era: Era = '2025 handshake'): Promise<Client> {
 
 /** A new ship commissioned by argo with fleet scopes: its id, name and secret. */
 async function commissionedWithFleetScopes(
-  fleetScopes: ('fleet:read' | 'fleet:manage')[],
+  fleetScopes: FleetScope[],
 ): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
   const name = `manager-${shipCount}`;
@@ -246,6 +247,45 @@ describe('the ship tools at /mcp', () => {
     const { events } = await call(session, { tool: followed, arguments: { crewToken, afterSeq: lastSeq } });
 
     expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+  });
+
+  it('serves a ship with fleet:crew one ship, its starting prompt and its release', async () => {
+    const trierarch = await commissionedWithFleetScopes(['fleet:crew']);
+    const awaiting = await commissioned();
+    const crewed = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, trierarch);
+    await register(await connect(), crewed);
+
+    const read = await call(session, { tool: { name: 'fleet_ship', answers: z.object({ id: z.string() }) }, arguments: { crewToken, shipId: awaiting.shipId } });
+    const prompt = await call(session, {
+      tool: { name: 'fleet_getStartingPrompt', answers: z.object({ prompt: z.string() }) },
+      arguments: { crewToken, shipId: awaiting.shipId },
+    });
+    await call(session, { tool: { name: 'fleet_release', answers: z.object({}) }, arguments: { crewToken, shipId: crewed.shipId } });
+
+    expect(read.id).toBe(awaiting.shipId);
+    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
+    await expect(database.lease.count({ where: { shipId: crewed.shipId, endedAt: null } })).resolves.toBe(0);
+    await expect(database.ship.findUniqueOrThrow({ where: { id: trierarch.shipId } })).resolves.toMatchObject({
+      scopes: ['messages:send', 'messages:receive', 'fleet:crew'],
+    });
+  });
+
+  it('refuses every other fleet tool to a ship with only fleet:crew', async () => {
+    const trierarch = await commissionedWithFleetScopes(['fleet:crew']);
+    const session = await connect();
+    const crewToken = await register(session, trierarch);
+    const others = SHIP_CALLS.map((each) => each.name).filter(
+      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release'].includes(name),
+    );
+
+    const refusals = await Promise.all(others.map(async (name) => [name, await refusalOf(session, { name, arguments: { crewToken } })]));
+
+    expect(others.length).toBeGreaterThan(0);
+    for (const [name, refusal] of refusals) {
+      expect(refusal, name).toMatch(/^FORBIDDEN: /);
+    }
   });
 
   it('refuses a fleet tool to a ship without its scope, with the code first', async () => {
