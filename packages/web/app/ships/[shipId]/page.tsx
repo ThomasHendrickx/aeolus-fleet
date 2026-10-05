@@ -10,6 +10,7 @@ import { ConsoleCommands } from '../../../components/organisms/console-commands'
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
+import { ShipSquadron } from '../../../components/organisms/ship-squadron';
 import { ShipActions } from '../../../components/organisms/ship-actions';
 import { ShipHeader } from '../../../components/organisms/ship-header';
 import { ShipTimeline } from '../../../components/organisms/ship-timeline';
@@ -99,6 +100,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       account={accountMenu}
       banner={<ConsoleNotices />}
       header={
+        <>
         <ShipHeader
           ship={ship.data}
           shipId={shipId}
@@ -106,6 +108,8 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           now={now}
           actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
         />
+        {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
+        </>
       }
       sheet={
         <MessageSheet

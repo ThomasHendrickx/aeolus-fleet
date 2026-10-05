@@ -1,3 +1,5 @@
+import type { ReportState } from '@aeolus-fleet/common';
+
 import type { BlueprintVersion, Catalogue, MemberHealth, Squadron, TemplateVersion } from './squadrons-api';
 
 /** A ship's place in a squadron: a member with its role, or the flagship (role null). */
@@ -267,4 +269,32 @@ export function squadronActionsOffered(
     canStandDown: session.canManage && isSailing,
     canForceStandDown: session.canManage && squadron.state !== 'disbanded',
   };
+}
+
+/** How many crewed members report each work state, in the order the summary says them (working, idle, blocked); states no member reports are left out. */
+export function workCounts(reports: readonly ({ state: ReportState } | null)[]): { state: ReportState; count: number }[] {
+  const order: ReportState[] = ['working', 'idle', 'blocked'];
+  return order.map((state) => ({ state, count: reports.filter((report) => report?.state === state).length })).filter((each) => each.count > 0);
+}
+
+/**
+ * A role's hand-offs in its blueprint, by role (canvas, SqMemberShip): the
+ * roles that hand off to it, and where its own hand-offs go (a role or
+ * `flagship`), each named once, in blueprint order.
+ */
+export function handoffsOf(blueprint: Pick<BlueprintVersion, 'handoffs'>, role: string): { from: string[]; to: string[] } {
+  const unique = (names: readonly string[]) => [...new Set(names)];
+  return {
+    from: unique(blueprint.handoffs.filter((handoff) => handoff.to === role).map((handoff) => handoff.role)),
+    to: unique(blueprint.handoffs.filter((handoff) => handoff.role === role).map((handoff) => handoff.to)),
+  };
+}
+
+/** "from implementer · to implementer, flagship": a role's hand-offs in words; "None" when it has none. */
+export function handoffsText(handoffs: { from: readonly string[]; to: readonly string[] }): string {
+  const parts = [
+    handoffs.from.length > 0 ? `from ${handoffs.from.join(', ')}` : undefined,
+    handoffs.to.length > 0 ? `to ${handoffs.to.join(', ')}` : undefined,
+  ].filter((part) => part !== undefined);
+  return parts.length === 0 ? 'None' : parts.join(' · ');
 }
