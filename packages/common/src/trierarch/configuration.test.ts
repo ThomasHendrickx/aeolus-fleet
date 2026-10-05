@@ -56,16 +56,16 @@ describe('the trierarch configuration', () => {
     expect(trierarchConfigurationSchema.safeParse(aConfiguration({ repositories })).success).toBe(false);
   });
 
-  it('refuses skip-permissions among the flags every launch gets: it is an explicit value, never a default', () => {
+  it('takes skip-permissions among the flags every launch gets: no policy, the operator configures it', () => {
     const harnesses = { 'claude-code': { flags: [SKIP_PERMISSIONS], options: {} } };
 
-    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ harnesses })).success).toBe(false);
+    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ harnesses })).error).toBeUndefined();
   });
 
-  it('refuses skip-permissions as the default value of an option', () => {
+  it('takes skip-permissions as the default value of an option', () => {
     const harnesses = { 'claude-code': { flags: [], options: { permissions: { values: { skip: [SKIP_PERMISSIONS] }, default: 'skip' } } } };
 
-    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ harnesses })).success).toBe(false);
+    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ harnesses })).error).toBeUndefined();
   });
 
   it('refuses a default that is none of the option values', () => {

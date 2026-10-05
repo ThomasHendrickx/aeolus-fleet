@@ -5,7 +5,7 @@ import type { z } from 'zod';
 
 import {
   FIRST_PROMPT_MAX_BYTES,
-  listAnswerSchema,
+  listedAnswerSchema,
   trierarchAnswerSchemas,
   trierarchCommandSchemas,
   trierarchContentType,
@@ -69,7 +69,7 @@ describe('the trierarch protocol', () => {
   it.each([
     ['wanted', { shipId: SHIP_ID }],
     ['released', { shipId: SHIP_ID, workspace: 'removed' }],
-    ['list', { ships: [], kept: [], orphans: [] }],
+    ['listed', { ships: [], kept: [], orphans: [] }],
   ])('refuses an unknown field in the %s answer', (name, payload) => {
     expect(trierarchAnswerSchemas[name]?.safeParse({ ...payload, extra: true }).success).toBe(false);
   });
@@ -124,10 +124,10 @@ describe('a want', () => {
   });
 });
 
-describe('the list answer', () => {
+describe('the listed answer', () => {
   it('refuses a ship in a state no entry has', () => {
     const ship = { shipId: SHIP_ID, harness: 'claude-code', state: 'sleeping', since: '2026-10-06T08:00:00.000Z', restarts: 0 };
 
-    expect(listAnswerSchema.safeParse({ ships: [ship], kept: [], orphans: [] }).success).toBe(false);
+    expect(listedAnswerSchema.safeParse({ ships: [ship], kept: [], orphans: [] }).success).toBe(false);
   });
 });
