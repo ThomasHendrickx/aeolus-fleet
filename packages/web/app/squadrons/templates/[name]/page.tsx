@@ -56,7 +56,7 @@ export default function TemplatePage({
   return (
     <DetailLayout
       title={name}
-      parent={{ href: '/squadrons?tab=templates', label: 'Templates' }}
+      parents={[{ href: '/squadrons', label: 'Squadrons' }, { href: '/squadrons?tab=templates', label: 'Templates' }]}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
       nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}

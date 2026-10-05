@@ -12,7 +12,7 @@ const meta = {
   component: DetailLayout,
   args: {
     title: 'reviewer-01',
-    parent: { href: '/', label: 'Fleet overview' },
+    parents: [{ href: '/', label: 'Fleet overview' }],
     live: 'live',
     nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
     onCompose: fn(),

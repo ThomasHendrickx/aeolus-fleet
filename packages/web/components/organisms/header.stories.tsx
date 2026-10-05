@@ -21,3 +21,14 @@ export const WithoutCompose: Story = { args: { onCompose: undefined } };
 
 /** Without the CommandPalette: no search trigger. */
 export const WithoutSearch: Story = { args: { onSearch: undefined } };
+
+/** A member's page: every level above it links up to it. */
+export const WithParents: Story = {
+  args: {
+    breadcrumb: 'tester-a1b2',
+    parents: [
+      { href: '/squadrons', label: 'Squadrons' },
+      { href: '/squadrons/team-a1b2c3', label: 'team-a1b2c3' },
+    ],
+  },
+};

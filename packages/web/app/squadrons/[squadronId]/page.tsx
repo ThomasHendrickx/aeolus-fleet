@@ -115,7 +115,7 @@ export default function SquadronPage({
   return (
     <DetailLayout
       title={squadronId}
-      parent={{ href: '/squadrons', label: 'Squadrons' }}
+      parents={[{ href: '/squadrons', label: 'Squadrons' }]}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
             squadron && offered ? (

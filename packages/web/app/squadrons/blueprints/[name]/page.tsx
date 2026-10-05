@@ -62,7 +62,7 @@ export default function BlueprintPage({
   return (
     <DetailLayout
       title={name}
-      parent={{ href: '/squadrons', label: 'Squadrons' }}
+      parents={[{ href: '/squadrons', label: 'Squadrons' }, { href: '/squadrons?tab=blueprints', label: 'Blueprints' }]}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
       nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
