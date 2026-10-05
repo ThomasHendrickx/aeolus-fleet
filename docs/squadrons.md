@@ -84,6 +84,8 @@ A ship crewed with a squadron id checks in at its flagship before it does anythi
 
 The other two messages of this convention, `application/vnd.aeolus.squadron.stand-down+json` from the flagship and `application/vnd.aeolus.squadron.stood-down+json` from the member, are described once, in [Stand down](../packages/squadrons/README.md#stand-down).
 
+A ship's Messages tab in the console says each of these five in words, by its content type: "Checked in at its flagship", "Given the role: reviewer", "Took up the role: reviewer", "Asked to stand down", "Stood down". The message sheet keeps the payload, formatted and raw. Any other JSON payload shows there as its top-level fields in one compact line. The server knows none of these types.
+
 ## Lifecycle
 
 The lifecycle of a squadron and its members (states, transitions, stand down, force stand down, adding and removing members, a new crew line, health, and what squadrons does not handle) is described once, in [the squadrons package README](../packages/squadrons/README.md#lifecycle).

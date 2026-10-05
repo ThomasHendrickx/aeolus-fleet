@@ -1,6 +1,8 @@
 import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
 import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
 
+import { classNames } from '../../lib/class-names';
+import { messageLine } from '../../lib/message-line';
 import { fullDateTime, relativeTime } from '../../lib/relative-time';
 import { ship, text, type SentencePart } from '../../lib/sentence';
 import { threadsOf } from '../../lib/threads';
@@ -42,13 +44,14 @@ function MessageRow({
   const isSent = message.sender.id === shipId;
   const Direction = isSent ? ArrowUpRight : ArrowDownLeft;
   const at = new Date(message.sentAt);
+  const line = messageLine(message);
   return (
     <li className="border-b border-border last:border-b-0">
       <button
         type="button"
         data-testid="message-row"
         data-message-id={message.id}
-        aria-label={`${isSent ? 'Sent' : 'Received'} message: ${message.preview}`}
+        aria-label={`${isSent ? 'Sent' : 'Received'} message: ${line.text}`}
         className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors duration-(--duration-fast) hover:bg-accent"
         onClick={() => {
           onOpenMessage(message.id);
@@ -65,7 +68,9 @@ function MessageRow({
             <Sentence parts={counterparty(message, isSent)} className="text-body text-foreground max-sm:text-body-touch" />
             <StatusBadge status={message.delivery.state} />
           </span>
-          <span className="truncate text-meta text-muted-foreground">{message.preview}</span>
+          <span data-testid="message-line" className={classNames('truncate text-muted-foreground', line.isCode ? 'font-mono text-id' : 'text-meta')}>
+            {line.text}
+          </span>
           <time dateTime={message.sentAt} title={fullDateTime(at)} className="text-meta text-muted-foreground tabular-nums">
             {relativeTime(at, now)}
           </time>
@@ -78,8 +83,9 @@ function MessageRow({
 /**
  * The ship's messages as threads: a reply sits under the message it answers,
  * oldest first, and the thread with the latest message comes first. Each
- * message shows its direction, the other party, its delivery state and a
- * preview, and opens in the MessageSheet.
+ * message shows its direction, the other party, its delivery state and one
+ * line (a squadron message in words, other JSON compact), and opens in the
+ * MessageSheet with its whole payload.
  */
 export function MessageThreads({ shipId, messages, state, onRetry, now, onOpenMessage }: MessageThreadsProps) {
   if (state === 'loading') {

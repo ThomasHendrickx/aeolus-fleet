@@ -460,6 +460,18 @@ describe('the first squadron in the console', () => {
     await page.waitForURL(new RegExp(`/squadrons/${grownSquadronId}$`));
   });
 
+  it("says a member's check-in and role in words on its ship page's Messages tab, the raw payload in the message sheet", async () => {
+    const page = await squadronsPage();
+    await page.goto(`/squadrons/${grownSquadronId}`);
+    await page.getByTestId('member-row').first().getByTestId('member-name').click();
+    await page.getByRole('tab', { name: 'Messages' }).click();
+
+    const lines = page.getByTestId('message-line');
+    await lines.getByText('Checked in at its flagship').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await lines.getByText('Given the role: tester').click();
+    await expect(page.getByTestId('message-payload').textContent()).resolves.toContain('"role": "tester"');
+  });
+
   it("links every level above a member's ship page in the breadcrumb: Squadrons, then its squadron", async () => {
     const page = await squadronsPage();
     await page.goto(`/squadrons/${grownSquadronId}`);

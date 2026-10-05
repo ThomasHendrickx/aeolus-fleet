@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
 import { MessageThreads } from './message-threads';
-import { MESSAGES, NOW, REVIEWER } from './ship-page.fixtures';
+import { MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from './ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/MessageThreads',
@@ -24,4 +24,6 @@ export const Threads: Story = {};
 export const Empty: Story = { args: { messages: [] } };
 export const Loading: Story = { args: { state: 'loading' } };
 export const Error: Story = { args: { state: 'error' } };
+/** A member's check-in and role: each in words, its raw payload in the message sheet. */
+export const SquadronCheckIn: Story = { args: { messages: SQUADRON_MESSAGES } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
