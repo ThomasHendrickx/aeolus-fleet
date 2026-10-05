@@ -417,6 +417,7 @@ describe('listing the fleet on Postgres', () => {
         harness: null,
         model: null,
         awaitingCrewSince: null,
+        retiredAt: null,
       },
       {
         id: shipId,
@@ -433,6 +434,7 @@ describe('listing the fleet on Postgres', () => {
         harness: null,
         model: null,
         awaitingCrewSince: commissionedAt,
+        retiredAt: null,
       },
     ]);
   });
@@ -477,6 +479,7 @@ describe('listing the fleet on Postgres', () => {
 
     const listed = await core.useCases.listFleet(argo);
 
+    expect(listed.find((ship) => ship.name === 'lookout')?.retiredAt).toEqual(core.clock.now());
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([
       ['argo', 'awaitingCrew', null, null],
       ['scout', 'crewed', true, { kind: 'SERVER', description: null }],

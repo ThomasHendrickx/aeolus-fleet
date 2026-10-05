@@ -97,6 +97,20 @@ describe('since when a ship awaits crew', () => {
   });
 });
 
+describe('when a ship was retired', () => {
+  it('is null while the ship is active', async () => {
+    await expect(listedScout()).resolves.toMatchObject({ retiredAt: null });
+  });
+
+  it('is when the operator retired it', async () => {
+    const retiredAt = core.clock.now();
+
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ status: 'retired', retiredAt });
+  });
+});
+
 describe('the model and harness a ship shows', () => {
   async function sendAs(shipId: ShipId, model: string): Promise<string> {
     const { messageId } = unwrap(
@@ -169,6 +183,7 @@ describe('listing the fleet', () => {
         harness: null,
         model: null,
         awaitingCrewSince: commissionedAt,
+        retiredAt: null,
       },
       {
         id: scoutId,
@@ -185,6 +200,7 @@ describe('listing the fleet', () => {
         harness: null,
         model: null,
         awaitingCrewSince: commissionedAt,
+        retiredAt: null,
       },
     ]);
   });
