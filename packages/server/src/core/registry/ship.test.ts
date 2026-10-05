@@ -98,6 +98,10 @@ describe('the operator ship', () => {
     });
   });
 
+  it('is always crewed: the console is its crew, whether or not the operator is signed in', () => {
+    expect(shipStatus(argo, { isCrewed: false })).toBe('crewed');
+  });
+
   it("refuses a secret claim: it has no secret, and only the operator's sign-in crews it", () => {
     expect(claimShip({ ship: argo, heldLease: undefined }, aClaim())).toEqual({
       isOk: false,
