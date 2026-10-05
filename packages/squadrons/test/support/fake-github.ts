@@ -5,8 +5,10 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  * GitHub's REST API as squadrons reads it, in memory: a repository's tags,
  * the commit each points at with its time, and the files at that commit. A
  * private repository answers only a request with its token, and 404 like
- * GitHub to any other. Every request is logged, so tests can see what was
- * read and how often.
+ * GitHub to any other. A tag list carries an ETag and answers 304 to a
+ * request that names it, as GitHub does without counting it against the
+ * rate limit. Every request is logged with its answer's status, so tests can
+ * see what was read, how often, and what it cost.
  */
 
 export interface FakeTag {
@@ -28,8 +30,8 @@ export interface FakeGithub {
   apiUrl: string;
   /** The repositories, by `<owner>/<name>`; change them freely between reads. */
   repositories: Map<string, FakeRepository>;
-  /** Every request: its path (with query) and its authorization header. */
-  requests: { path: string; authorization: string | undefined }[];
+  /** Every request: its path (with query), its authorization header and the status it was answered with. */
+  requests: { path: string; authorization: string | undefined; status: number }[];
   /** How long to wait before answering, for timeouts. */
   delayMs: number;
   close: () => Promise<void>;
@@ -43,26 +45,37 @@ export function shaOf(label: string): string {
 const TAGS = /^\/repos\/([^/]+\/[^/]+)\/tags$/;
 const COMMIT = /^\/repos\/([^/]+\/[^/]+)\/commits\/([0-9a-f]{40})$/;
 const CONTENTS = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/;
+const TREE = /^\/repos\/([^/]+\/[^/]+)\/git\/trees\/([0-9a-f]{40})$/;
 const NOT_FOUND = { message: 'Not Found', documentation_url: 'https://docs.github.com/rest' };
 
-function send(response: ServerResponse, { status, body, headers = {} }: { status: number; body: unknown; headers?: Record<string, string> }): void {
+/** The request being answered and its log entry, which records the status it is answered with. */
+interface Exchange {
+  request: IncomingMessage;
+  response: ServerResponse;
+  logged: { status: number };
+}
+
+function send({ response, logged }: Exchange, { status, body, headers = {} }: { status: number; body: unknown; headers?: Record<string, string> }): void {
+  logged.status = status;
   response.writeHead(status, { 'content-type': 'application/json', ...headers });
-  response.end(JSON.stringify(body));
+  response.end(status === 304 ? undefined : JSON.stringify(body));
 }
 
 function answer(github: FakeGithub, { request, response }: { request: IncomingMessage; response: ServerResponse }): void {
   const url = new URL(request.url ?? '/', github.apiUrl);
   const authorization = request.headers.authorization;
-  github.requests.push({ path: `${url.pathname}${url.search}`, authorization });
-  const owner = TAGS.exec(url.pathname)?.[1] ?? COMMIT.exec(url.pathname)?.[1] ?? CONTENTS.exec(url.pathname)?.[1] ?? '';
+  const logged = { path: `${url.pathname}${url.search}`, authorization, status: 0 };
+  github.requests.push(logged);
+  const exchange: Exchange = { request, response, logged };
+  const owner = TAGS.exec(url.pathname)?.[1] ?? COMMIT.exec(url.pathname)?.[1] ?? CONTENTS.exec(url.pathname)?.[1] ?? TREE.exec(url.pathname)?.[1] ?? '';
   const repository = github.repositories.get(owner);
   if (!repository) {
-    send(response, { status: 404, body: NOT_FOUND });
+    send(exchange, { status: 404, body: NOT_FOUND });
     return;
   }
   if (repository.token !== undefined && authorization !== `Bearer ${repository.token}`) {
     // GitHub answers a wrong token 401 and a private repository read without one 404.
-    send(response, authorization === undefined ? { status: 404, body: NOT_FOUND } : { status: 401, body: { message: 'Bad credentials' } });
+    send(exchange, authorization === undefined ? { status: 404, body: NOT_FOUND } : { status: 401, body: { message: 'Bad credentials' } });
     return;
   }
   if (TAGS.test(url.pathname)) {
@@ -72,16 +85,31 @@ function answer(github: FakeGithub, { request, response }: { request: IncomingMe
     const hasNext = page * perPage < repository.tags.length;
     const next = new URL(url);
     next.searchParams.set('page', String(page + 1));
-    send(response, { status: 200, body: tags, headers: hasNext ? { link: `<${next.toString()}>; rel="next"` } : {} });
+    const etag = `W/"${shaOf(JSON.stringify(tags))}"`;
+    if (request.headers['if-none-match'] === etag) {
+      send(exchange, { status: 304, body: undefined, headers: { etag } });
+      return;
+    }
+    send(exchange, { status: 200, body: tags, headers: { etag, ...(hasNext ? { link: `<${next.toString()}>; rel="next"` } : {}) } });
+    return;
+  }
+  const tree = TREE.exec(url.pathname);
+  if (tree) {
+    const tag = repository.tags.find((each) => each.sha === tree[2]);
+    if (tag && url.searchParams.get('recursive') === '1') {
+      send(exchange, { status: 200, body: { sha: tag.sha, tree: Object.keys(tag.files).map((path) => ({ path, type: 'blob' })), truncated: false } });
+    } else {
+      send(exchange, { status: 404, body: NOT_FOUND });
+    }
     return;
   }
   const commit = COMMIT.exec(url.pathname);
   if (commit) {
     const tag = repository.tags.find((each) => each.sha === commit[2]);
     if (tag) {
-      send(response, { status: 200, body: { sha: tag.sha, commit: { committer: { date: tag.committedAt.toISOString() } } } });
+      send(exchange, { status: 200, body: { sha: tag.sha, commit: { committer: { date: tag.committedAt.toISOString() } } } });
     } else {
-      send(response, { status: 404, body: NOT_FOUND });
+      send(exchange, { status: 404, body: NOT_FOUND });
     }
     return;
   }
@@ -89,9 +117,10 @@ function answer(github: FakeGithub, { request, response }: { request: IncomingMe
   const tag = repository.tags.find((each) => each.sha === url.searchParams.get('ref'));
   const text = tag?.files[decodeURIComponent(contents?.[2] ?? '')];
   if (text === undefined || request.headers.accept !== 'application/vnd.github.raw+json') {
-    send(response, { status: 404, body: NOT_FOUND });
+    send(exchange, { status: 404, body: NOT_FOUND });
     return;
   }
+  logged.status = 200;
   response.writeHead(200, { 'content-type': 'application/vnd.github.raw+json' });
   response.end(text);
 }
