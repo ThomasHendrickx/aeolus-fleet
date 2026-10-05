@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGithubRepositoryReader } from '../src/adapters/github/github-repository-reader.js';
 import type { RepositoryToRead } from '../src/core/catalogue/ports.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
-import { shaOf, startFakeGithub, type FakeGithub, type FakeTag } from './support/fake-github.js';
+import { shaOf, startFakeGithub, tagsAt, type FakeGithub, type FakeTag } from './support/fake-github.js';
 
 // The GitHub reader against a fake GitHub API (S5): tags <name>@<n>, each read
 // at its commit from the repository's path, a missing file meaning no such
@@ -226,6 +226,70 @@ describe('reading again', () => {
 
     expect(files.map((file) => file.name)).toEqual(['tester']);
     expect(fetched[0]?.error).toMatch(/^GitHub answered 404/);
+  });
+});
+
+describe('what a read costs', () => {
+  const PLANNER = 'description: Plans.\ncheckIn: 30m\ncharter: You plan.\n';
+  // Three tags on one commit, as one `git tag` run after another gives, and a fourth on a later commit.
+  const release = { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER, '.aeolus/squadrons/templates/planner.yaml': PLANNER, '.aeolus/squadrons/blueprints/team.yaml': 'description: A team.\n' } };
+  const tags = () => [...tagsAt(release, 'tester@1', 'planner@1', 'team@1'), aTag('tester@2', { files: { '.aeolus/squadrons/templates/tester.yaml': 'description: Tests well.\ncheckIn: 15m\ncharter: You test.\n' } })];
+  const counted = () => github.requests.filter((request) => request.status !== 304);
+
+  beforeEach(() => {
+    github.repositories.set('acme/templates', { tags: tags() });
+  });
+
+  it('is one tag list, one tree and one commit per distinct commit, and one read per file that exists, never a 404', async () => {
+    const { files } = await reader().read([aRepository()], fetchAll);
+
+    expect(files).toHaveLength(4);
+    expect(github.requests.filter((request) => request.path.includes('/tags'))).toHaveLength(1);
+    expect(github.requests.filter((request) => request.path.includes('/git/trees/'))).toHaveLength(2);
+    expect(github.requests.filter((request) => request.path.includes('/commits/'))).toHaveLength(2);
+    expect(github.requests.filter((request) => request.path.includes('/contents/'))).toHaveLength(4);
+    expect(github.requests.some((request) => request.status === 404)).toBe(false);
+  });
+
+  it('is nothing for an unchanged repository: one conditional tag list, answered 304, which GitHub does not count', async () => {
+    const reading = reader();
+    const first = await reading.read([aRepository()], fetchAll);
+    github.requests.length = 0;
+
+    const again = await reading.read([aRepository()], fetchAll);
+
+    expect(github.requests.map((request) => request.status)).toEqual([304]);
+    expect(counted()).toEqual([]);
+    expect(again.files).toEqual(first.files);
+  });
+
+  it('is nothing for a new fleet reading a repository another fleet read with the same token: content at a commit never changes', async () => {
+    const reading = reader();
+    const first = await reading.read([aRepository()], fetchAll);
+    github.requests.length = 0;
+
+    const other = await reading.read([aRepository({ fleetId: OTHER_FLEET })], fetchAll);
+
+    expect(counted()).toEqual([]);
+    expect(other.files).toEqual(first.files);
+  });
+
+  it('reads only the commit that is new when a tag is added', async () => {
+    const reading = reader();
+    await reading.read([aRepository()], fetchAll);
+    github.requests.length = 0;
+    const planner2 = aTag('planner@2', { files: { '.aeolus/squadrons/templates/planner.yaml': PLANNER } });
+    github.repositories.get('acme/templates')?.tags.push(planner2);
+
+    const { files } = await reading.read([aRepository()], fetchAll);
+
+    expect(files).toHaveLength(5);
+    expect(counted().map((request) => request.path.replace(/\?.*$/, ''))).toEqual([
+      '/repos/acme/templates/tags',
+      `/repos/acme/templates/git/trees/${planner2.sha}`,
+      `/repos/acme/templates/commits/${planner2.sha}`,
+      '/repos/acme/templates/contents/.aeolus/squadrons/templates/planner.yaml',
+    ]);
   });
 });
 
