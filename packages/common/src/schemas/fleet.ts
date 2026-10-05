@@ -192,6 +192,8 @@ export const listedShipSchema = z.object({
       reportedAt: z.iso.datetime(),
     })
     .nullable(),
+  /** Since when the ship awaits crew (ISO 8601 in UTC): its commission, or the end of its last session. Null unless it awaits crew. */
+  awaitingCrewSince: z.iso.datetime().nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

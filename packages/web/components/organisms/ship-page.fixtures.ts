@@ -39,7 +39,7 @@ export const CREWED_SHIP: ShipDetail = {
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
-  report: null, harness: null, model: null,
+  report: null, harness: null, model: null, awaitingCrewSince: null,
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   retiredAt: null,
@@ -60,6 +60,7 @@ export const AWAITING_SHIP: ShipDetail = {
   scopes: ['messages:send', 'messages:receive'],
   report: null,
   crewedSince: null,
+  awaitingCrewSince: minutesAgo(40),
 };
 
 export const ARGO_SHIP: ShipDetail = {

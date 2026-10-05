@@ -189,6 +189,8 @@ export interface ShipFacts {
   lastModel: { id: string; statedAt: Date } | null;
   /** The viewer ship's: when one of its viewer sessions, which hold no lease, was last used; null before any (decision 0022). */
   lastViewedAt: Date | null;
+  /** When the ship's last ended lease ended (a release, deregister or takeover); null before any. */
+  lastLeaseEndedAt: Date | null;
 }
 
 /**

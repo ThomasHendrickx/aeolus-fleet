@@ -35,6 +35,8 @@ export interface ListedShip {
   harness: string | null;
   /** The ship's current model: the last its sessions stated on a send, and when; null before any. */
   model: { id: string; statedAt: Date } | null;
+  /** Since when the ship awaits crew: its commission, or when its last session ended (a release or deregister). Null unless it awaits crew. */
+  awaitingCrewSince: Date | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -49,13 +51,14 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */
-export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel, lastViewedAt }: ShipFacts): ListedShip {
+export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel, lastViewedAt, lastLeaseEndedAt }: ShipFacts): ListedShip {
+  const status = shipStatus(ship, { isCrewed: openLease !== null });
   return {
     id: ship.id,
     name: ship.name,
     type: ship.type,
     kind: ship.kind,
-    status: shipStatus(ship, { isCrewed: openLease !== null }),
+    status,
     startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
     location: openLease?.location ?? null,
     // The viewer ship holds no lease: it was last seen when its most recent viewer session was used.
@@ -65,5 +68,10 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel
     report: openLease?.report ?? null,
     harness: openLease?.harness ?? null,
     model: lastModel,
+    awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
   };
+}
+
+function latestOf(first: Date, second: Date | null): Date {
+  return second !== null && second > first ? second : first;
 }
