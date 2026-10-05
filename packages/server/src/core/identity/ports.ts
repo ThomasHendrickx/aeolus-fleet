@@ -3,6 +3,7 @@ import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, Ship
 import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
+import type { Guide, GuideProgress } from './guide.js';
 import type { Notice } from './notice.js';
 import type { OperatorAccount } from './operator-account.js';
 import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
@@ -134,4 +135,18 @@ export interface NoticeDismissals {
   dismissed(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<string[]>;
   /** Records the dismissal; one already recorded stays as it was. */
   dismiss(dismissal: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }): Promise<void>;
+}
+
+/** Outbound port: the installation's guide (decision 0024), one or none; it belongs to no fleet. */
+export interface GuideRepository {
+  read(): Promise<Guide | null>;
+  /** Replaces the guide with this one; null clears it. */
+  replace(guide: Guide | null): Promise<void>;
+}
+
+/** Outbound port: where each console session is in the guide; it goes with the session's fleet. */
+export interface GuideProgressRepository {
+  progress(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<GuideProgress | null>;
+  /** Records the session's progress over any it recorded before. */
+  record(progress: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress): Promise<void>;
 }

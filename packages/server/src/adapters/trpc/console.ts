@@ -1,8 +1,10 @@
 import {
   accountOutputSchema,
+  consoleGuideOutputSchema,
   consoleNoticesOutputSchema,
   consoleSessionOutputSchema,
   dismissNoticeInputSchema,
+  setGuideProgressInputSchema,
   setThemeInputSchema,
   setThemeOutputSchema,
   redeemSignInTicketInputSchema,
@@ -11,7 +13,7 @@ import {
 import { TRPCError } from '@trpc/server';
 
 import { deviceLabelOf } from '../http/device-label.js';
-import { noticeOutputOf } from './installation.js';
+import { guideStepsOutputOf, noticeOutputOf } from './installation.js';
 import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, router } from './trpc.js';
 
 /**
@@ -92,6 +94,17 @@ export const consoleRouter = router({
 
   /** The notices this console session shows above every page (decision 0023): those of its audience it has not dismissed. */
   notices: authenticatedProcedure.output(consoleNoticesOutputSchema).query(async ({ ctx }) => (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf)),
+
+  /** The guide this console session shows (decision 0024), with where it is in it; null when no guide is for its audience. */
+  guide: authenticatedProcedure.output(consoleGuideOutputSchema).query(async ({ ctx }) => {
+    const guide = await ctx.useCases.readGuide(ctx.caller);
+    return guide === null ? null : { steps: guideStepsOutputOf(guide.steps), progress: guide.progress };
+  }),
+
+  /** Records where this console session is in the guide, for itself only. */
+  recordGuideProgress: authenticatedProcedure.input(setGuideProgressInputSchema).mutation(async ({ ctx, input }) => {
+    okOrThrow(await ctx.useCases.recordGuideProgress(ctx.caller, input));
+  }),
 
   /** Dismisses a dismissible notice for this console session only. */
   dismissNotice: authenticatedProcedure.input(dismissNoticeInputSchema).mutation(async ({ ctx, input }) => {

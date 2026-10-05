@@ -36,11 +36,14 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     events: of(state.events),
     notices: of(state.notices),
     noticeDismissals: of(state.noticeDismissals),
+    guideProgress: of(state.guideProgress),
     fleetLimitSettings: of(state.fleetLimitSettings),
     // The installation's settings belong to no fleet.
     installationSettings: 0,
     // Neither do its console notices (decision 0023).
     installationNotices: 0,
+    // Nor its guide (decision 0024).
+    installationGuide: 0,
     installationRequests: state.installationRequests.filter((request) => request.kind === 'createFleet' && request.fleetId === fleetId).length,
   };
 }

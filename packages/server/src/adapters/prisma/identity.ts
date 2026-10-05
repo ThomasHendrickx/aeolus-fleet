@@ -2,6 +2,7 @@ import type {
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  GuideProgressRepository,
   NoticeDismissals,
   OperatorAccountLookup,
   OperatorAccountRepository,
@@ -223,6 +224,20 @@ export function createPrismaNoticeDismissals(db: Db): NoticeDismissals {
       (await db.noticeDismissal.findMany({ where: { fleetId, consoleSessionId }, select: { noticeId: true } })).map(({ noticeId }) => noticeId),
     dismiss: async ({ fleetId, consoleSessionId, noticeId, at }) => {
       await db.noticeDismissal.createMany({ data: [{ fleetId, consoleSessionId, noticeId, dismissedAt: at }], skipDuplicates: true });
+    },
+  };
+}
+
+export function createPrismaGuideProgress(db: Db): GuideProgressRepository {
+  return {
+    progress: async ({ fleetId, consoleSessionId }) =>
+      await db.guideProgress.findFirst({ where: { fleetId, consoleSessionId }, select: { step: true, state: true } }),
+    record: async ({ fleetId, consoleSessionId, step, state, at }) => {
+      await db.guideProgress.upsert({
+        where: { consoleSessionId },
+        create: { fleetId, consoleSessionId, step, state, recordedAt: at },
+        update: { step, state, recordedAt: at },
+      });
     },
   };
 }

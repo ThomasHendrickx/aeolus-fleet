@@ -9,6 +9,7 @@ import { SquadronsNotConnected } from '../../../../components/molecules/squadron
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { ComposeMessage } from '../../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../../components/organisms/console-notices';
 import { TemplateView } from '../../../../components/organisms/template-view';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
@@ -71,7 +72,12 @@ export default function TemplatePage({
         setIsSearching(true);
       }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />

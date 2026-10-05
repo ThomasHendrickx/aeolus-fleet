@@ -9,6 +9,7 @@ import { LoadingSkeleton } from '../../../../components/molecules/loading-skelet
 import { BlueprintView } from '../../../../components/organisms/blueprint-view';
 import { ComposeMessage } from '../../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../../components/organisms/console-notices';
 import { FormSquadronDialog } from '../../../../components/organisms/form-squadron-dialog';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
@@ -77,7 +78,12 @@ export default function BlueprintPage({
         setIsSearching(true);
       }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />

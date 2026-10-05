@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { SquadronsConnection } from '../../components/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../components/organisms/template-repositories';
@@ -57,7 +58,12 @@ export default function SettingsPage() {
         setIsSearching(true);
       }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
     >
       {hasSquadrons && (
         <SquadronsConnection

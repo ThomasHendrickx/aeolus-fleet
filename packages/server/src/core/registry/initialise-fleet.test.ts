@@ -188,6 +188,8 @@ describe('initialise fleet', () => {
       notices: [],
       installationNotices: [],
       noticeDismissals: [],
+      installationGuide: null,
+      guideProgress: [],
     });
   });
 });

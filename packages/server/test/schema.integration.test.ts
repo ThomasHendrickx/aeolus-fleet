@@ -101,6 +101,8 @@ describe('migrations', () => {
       'deliveries',
       'events',
       'fleets',
+      'guide_progress',
+      'guides',
       'installation_requests',
       'installation_settings',
       'leases',
@@ -111,8 +113,8 @@ describe('migrations', () => {
       'ships',
       'sign_in_tickets',
     ]);
-    // The installation's settings and notices belong to no fleet (decisions 0020 and 0023).
-    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'installation_settings', 'notices']);
+    // The installation's settings, notices and guide belong to no fleet (decisions 0020, 0023 and 0024).
+    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'guides', 'installation_settings', 'notices']);
   });
 });
 

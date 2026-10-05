@@ -10,6 +10,7 @@ import { BlueprintTable } from '../../components/organisms/blueprint-table';
 import { TemplateTable } from '../../components/organisms/template-table';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { FormSquadronDialog } from '../../components/organisms/form-squadron-dialog';
 import { SquadronTable } from '../../components/organisms/squadron-table';
@@ -104,7 +105,12 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         setIsSearching(true);
       }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />

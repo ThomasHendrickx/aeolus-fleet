@@ -1,8 +1,8 @@
-import { idSchema, noticeLinkSchema, type FleetId } from '@aeolus-fleet/common';
+import { guideStepSchema, idSchema, noticeLinkSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { Notice } from '../../core/identity/notice.js';
-import type { NoticeRepository } from '../../core/identity/ports.js';
+import type { GuideRepository, NoticeRepository } from '../../core/identity/ports.js';
 import type { InstallationRequest } from '../../core/registry/installation-request.js';
 import { appliedLimits } from '../../core/registry/applied-limits.js';
 import { NO_INSTALLATION_SETTINGS } from '../../core/registry/limits.js';
@@ -137,6 +137,25 @@ export function createPrismaInstallationSettings(db: Db): InstallationSettingsRe
 }
 
 const noticeLinksSchema = z.array(noticeLinkSchema);
+const guideStepsSchema = z.array(guideStepSchema);
+/** The guide's one row: the installation has one guide or none. */
+const GUIDE_ROW_ID = 'guide';
+
+/** The installation's guide (decision 0024). Replacing it is one transaction, so a reader sees the old guide or the new one. */
+export function createPrismaGuideRepository(prisma: PrismaClient): GuideRepository {
+  return {
+    read: async () => {
+      const row = await prisma.guide.findUnique({ where: { id: GUIDE_ROW_ID } });
+      return row === null ? null : { audience: row.audience, steps: guideStepsSchema.parse(row.steps) };
+    },
+    replace: async (guide) => {
+      await prisma.$transaction([
+        prisma.guide.deleteMany(),
+        ...(guide === null ? [] : [prisma.guide.create({ data: { id: GUIDE_ROW_ID, audience: guide.audience, steps: guide.steps.map((step) => ({ ...step })) } })]),
+      ]);
+    },
+  };
+}
 
 /** The installation's notices, in its order. Replacing them is one transaction, so a reader sees the old list or the new one. */
 export function createPrismaNoticeRepository(prisma: PrismaClient): NoticeRepository {

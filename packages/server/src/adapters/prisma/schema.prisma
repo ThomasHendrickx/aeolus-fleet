@@ -52,6 +52,7 @@ model Fleet {
   consoleSessions  ConsoleSession[]
   signInTickets    SignInTicket[]
   noticeDismissals NoticeDismissal[]
+  guideProgress    GuideProgress[]
   operator         Operator?
 
   @@map("fleets")
@@ -367,6 +368,7 @@ model ConsoleSession {
   lease Lease? @relation(fields: [fleetId, leaseId], references: [fleetId, id])
 
   noticeDismissals NoticeDismissal[]
+  guideProgress    GuideProgress[]
 
   /// At most one live session holding argo's lease per fleet: signing in ends the previous one. Viewer sessions run beside it.
   @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: raw("ended_at IS NULL AND lease_id IS NOT NULL"))
@@ -473,4 +475,40 @@ model NoticeDismissal {
   @@id([consoleSessionId, noticeId])
   @@index([fleetId])
   @@map("notice_dismissals")
+}
+
+/// The installation's guide (decision 0024): steps for the console sessions of
+/// one audience. At most one row; it belongs to no fleet.
+model Guide {
+  /// Always "guide": the installation has one guide or none.
+  id       String         @id
+  audience NoticeAudience
+  /// Its steps, in order: path, anchor (optional), title and text.
+  steps    Json
+
+  @@map("guides")
+}
+
+enum GuideProgressState {
+  open
+  skipped
+  finished
+
+  @@map("guide_progress_state")
+}
+
+/// Where a console session is in the guide, for itself (decision 0024). It
+/// goes with its session and its fleet.
+model GuideProgress {
+  fleetId          String             @map("fleet_id")
+  consoleSessionId String             @id @map("console_session_id")
+  step             Int
+  state            GuideProgressState
+  recordedAt       DateTime           @map("recorded_at") @db.Timestamptz(3)
+
+  fleet          Fleet          @relation(fields: [fleetId], references: [id])
+  consoleSession ConsoleSession @relation(fields: [consoleSessionId], references: [id])
+
+  @@index([fleetId])
+  @@map("guide_progress")
 }

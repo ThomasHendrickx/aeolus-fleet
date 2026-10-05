@@ -21,8 +21,12 @@ import type { IssueSignInTicket } from '../../core/identity/issue-sign-in-ticket
 import type { RedeemSignInTicket } from '../../core/identity/redeem-sign-in-ticket.js';
 import type { GetFleetLimits } from '../../core/registry/get-fleet-limits.js';
 import type { DismissNotice } from '../../core/identity/dismiss-notice.js';
+import type { GetGuide } from '../../core/identity/get-guide.js';
 import type { GetNotices } from '../../core/identity/get-notices.js';
+import type { ReadGuide } from '../../core/identity/read-guide.js';
 import type { ReadNotices } from '../../core/identity/read-notices.js';
+import type { RecordGuideProgress } from '../../core/identity/record-guide-progress.js';
+import type { SetGuide } from '../../core/identity/set-guide.js';
 import type { SetNotices } from '../../core/identity/set-notices.js';
 import type { GetInstallationSettings } from '../../core/registry/get-installation-settings.js';
 import type { SetFleetLimits } from '../../core/registry/set-fleet-limits.js';
@@ -63,6 +67,10 @@ export interface UseCases {
   getNotices: GetNotices;
   readNotices: ReadNotices;
   dismissNotice: DismissNotice;
+  setGuide: SetGuide;
+  getGuide: GetGuide;
+  readGuide: ReadGuide;
+  recordGuideProgress: RecordGuideProgress;
   authenticate: Authenticate;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
