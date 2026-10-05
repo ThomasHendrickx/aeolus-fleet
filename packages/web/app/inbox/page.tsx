@@ -19,6 +19,7 @@ import {
   useMarkRead,
   useReply,
 } from '../../lib/inbox';
+import { useAccess } from '../../lib/access';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
@@ -59,6 +60,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
   useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
@@ -83,11 +85,15 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       title="Operator inbox"
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
-      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons }}
+      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
       account={accountMenu}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

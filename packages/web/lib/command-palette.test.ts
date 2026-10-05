@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { paletteGroups, paletteItemsOf, paletteKeyOf, SHIPS_BEFORE_QUERY, type PaletteItem } from './command-palette';
+import { allowedPaletteItems, paletteGroups, paletteItemsOf, paletteKeyOf, SHIPS_BEFORE_QUERY, type PaletteItem } from './command-palette';
 
 const newId = createIdGenerator();
 
@@ -102,5 +102,24 @@ describe('paletteItemsOf', () => {
     });
 
     expect(paletteGroups(items, 'hemma').map((group) => [group.key, group.items.length])).toEqual([['squadrons', 1]]);
+  });
+});
+
+describe('the palette of a console session', () => {
+  const items = paletteItemsOf([], { squadrons: [], blueprints: [] });
+
+  it('offers the operator every action', () => {
+    expect(allowedPaletteItems(items, { canManage: true, canSend: true }).filter((item) => item.kind === 'action').map((item) => item.id)).toEqual(['commission', 'form-squadron', 'compose']);
+  });
+
+  it('offers a viewer no action, and every page', () => {
+    const allowed = allowedPaletteItems(items, { canManage: false, canSend: false });
+
+    expect(allowed.filter((item) => item.kind === 'action')).toEqual([]);
+    expect(allowed.filter((item) => item.kind === 'page').map((item) => item.id)).toEqual(['overview', 'squadrons', 'inbox', 'attention']);
+  });
+
+  it('offers Compose to a session that sends but does not manage', () => {
+    expect(allowedPaletteItems(items, { canManage: false, canSend: true }).filter((item) => item.kind === 'action').map((item) => item.id)).toEqual(['compose']);
   });
 });

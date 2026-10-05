@@ -12,6 +12,7 @@ import { ConsoleCommands } from '../../../../components/organisms/console-comman
 import { FormSquadronDialog } from '../../../../components/organisms/form-squadron-dialog';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
 import { SquadronsNotConnected } from '../../../../components/molecules/squadrons-not-connected';
+import { useAccess } from '../../../../lib/access';
 import { useAccountMenu } from '../../../../lib/account';
 import { useOpenInboxCount } from '../../../../lib/inbox';
 import { useLiveFleet } from '../../../../lib/live-fleet';
@@ -48,6 +49,7 @@ export default function BlueprintPage({
   const squadrons = useSquadrons();
   const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -62,10 +64,14 @@ export default function BlueprintPage({
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
-      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

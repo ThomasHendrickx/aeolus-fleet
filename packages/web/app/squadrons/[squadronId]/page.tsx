@@ -17,6 +17,7 @@ import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
@@ -68,6 +69,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [added, setAdded] = useState<AddedMember | undefined>(undefined);
   const removeMember = useRemoveMember();
   const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -133,10 +135,15 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         inboxCount,
         attentionCount,
         hasSquadrons,
+        hasSettings: hasSquadrons && access.canManage,
       }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

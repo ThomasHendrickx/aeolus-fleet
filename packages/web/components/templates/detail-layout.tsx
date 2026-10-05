@@ -20,8 +20,8 @@ interface DetailLayoutProps {
   sheet?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation. */
-  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean };
+  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation; hasSettings: whether Settings is offered (squadrons on and a session that manages the fleet). */
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean; hasSettings?: boolean };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
@@ -56,6 +56,7 @@ export function DetailLayout({
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
         hasSquadrons={nav.hasSquadrons}
+        hasSettings={nav.hasSettings}
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">

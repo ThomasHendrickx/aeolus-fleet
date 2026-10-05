@@ -21,6 +21,8 @@ interface SidebarProps extends AccountMenuProps {
   attentionCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
+  /** Whether Settings is offered: it holds squadrons alone today, and only a session that manages the fleet changes them. */
+  hasSettings?: boolean;
 }
 
 const ITEM =
@@ -100,7 +102,7 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * comes second, and Settings, which holds squadrons alone today, sits with
  * the link to the source on GitHub above the account menu.
  */
-export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -142,8 +144,7 @@ export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = fal
         />
       </nav>
       <div className="px-2.5 pb-2">
-        {/* Settings holds squadrons alone today: without them it has nothing to show, so it is not offered. */}
-        {hasSquadrons && <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
+        {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
         <a href={SOURCE_URL} target="_blank" rel="noreferrer" data-testid="nav-source" className={ITEM}>
           <CodeXml aria-hidden />
           <span className="grow max-lg:sr-only">Source on GitHub</span>

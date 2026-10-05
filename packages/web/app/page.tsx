@@ -10,6 +10,7 @@ import { FleetLimits } from '../components/organisms/fleet-limits';
 import { FleetOverview } from '../components/organisms/fleet-overview';
 import { LimitNotice } from '../components/molecules/limit-notice';
 import { ListLayout } from '../components/templates/list-layout';
+import { useAccess } from '../lib/access';
 import { useFleetLimits } from '../lib/fleet-limits';
 import { useHostedAccountUrl } from '../lib/hosted-account';
 import { messageLimitNotice, messageLimitReached } from '../lib/limits';
@@ -56,6 +57,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const messageLimit = messageLimitReached(useFleetLimits().data);
   const accountUrl = useHostedAccountUrl();
   const inboxCount = useOpenInboxCount();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isCommissioning, setIsCommissioning] = useState(false);
@@ -72,21 +74,27 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       title="Fleet overview"
       description="Every ship in the fleet, live."
       primaryAction={
-        <CommissionShip
-          isOpen={isCommissioning || isCommissionAsked}
-          onOpenChange={(isOpen) => {
-            setIsCommissioning(isOpen);
-            if (!isOpen && isCommissionAsked) {
-              changeView(view);
-            }
-          }}
-        />
+        access.canManage ? (
+          <CommissionShip
+            isOpen={isCommissioning || isCommissionAsked}
+            onOpenChange={(isOpen) => {
+              setIsCommissioning(isOpen);
+              if (!isOpen && isCommissionAsked) {
+                changeView(view);
+              }
+            }}
+          />
+        ) : undefined
       }
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

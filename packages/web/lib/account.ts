@@ -59,8 +59,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   };
 
   return {
-    // The account menu is the operator's; a viewer's console comes with the viewer drawing (decision 0022).
-    account: account.data?.kind === 'operator' ? account.data : undefined,
+    account: account.data,
     onThemeChange: (theme: Theme) => {
       setTheme.mutate({ theme });
     },

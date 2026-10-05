@@ -11,6 +11,7 @@ import { NeedsAttentionList } from '../../components/organisms/needs-attention-l
 import { GetNewCrewLine } from '../../components/organisms/get-new-crew-line';
 import { SilentMembers } from '../../components/organisms/silent-members';
 import { ListLayout } from '../../components/templates/list-layout';
+import { useAccess } from '../../lib/access';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
 import {
@@ -54,6 +55,7 @@ export default function NeedsAttentionPage() {
   const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
   const attentionCount = useAttentionCount();
   const inboxCount = useOpenInboxCount();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -115,10 +117,14 @@ export default function NeedsAttentionPage() {
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

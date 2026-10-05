@@ -68,6 +68,8 @@ A fleet the installation creates with a viewer has one viewer ship, named `viewe
 | Signing in | A viewer ticket from the hosting service starts a viewer session, with a session cookie. Many run at once; none holds a lease, so none takes another over, and the operator signing in ends none |
 | Expiry | A viewer session is valid 2 hours after its last use and 24 hours after it started at most. It ends then, when the viewer signs out (that session only), or with its fleet |
 | Account | A viewer session's account has its device and when it started; no email and no theme |
+| Console | A viewer session's console shows every page it reads and none of its writes: each write is removed, never disabled, unless the session's scopes allow it. The account menu names the viewer, reading only, with no theme switch and no link to a hosted account, and keeps Sign out |
+| In the fleet | The viewer ship shows its viewer chip, no device and no report, and offers only Copy ship id |
 
 ### The operator (human)
 

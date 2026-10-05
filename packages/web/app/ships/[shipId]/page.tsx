@@ -13,6 +13,7 @@ import { ShipActions } from '../../../components/organisms/ship-actions';
 import { ShipHeader } from '../../../components/organisms/ship-header';
 import { ShipTimeline } from '../../../components/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { useAccess } from '../../../lib/access';
 import { trpcErrorCode } from '../../../lib/errors';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
@@ -62,6 +63,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [replyTo, setReplyTo] = useState<{ messageId: MessageId; sender: Party }>();
@@ -82,10 +84,14 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
       title={ship.data?.name ?? 'Ship'}
       parent={{ href: '/', label: 'Fleet overview' }}
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}

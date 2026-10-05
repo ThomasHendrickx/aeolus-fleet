@@ -1,7 +1,7 @@
 'use client';
 
 import type { ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Flag, KeyRound, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Eye, Flag, KeyRound, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -75,9 +75,9 @@ function isOnlyArgo(ships: readonly ListedShip[]): boolean {
 }
 
 /**
- * The chip beside a ship's name: argo's operator kind chip; with squadrons
- * on, a flagship's flagship kind chip and a member's SquadronTag. Other ships
- * carry none: their type stays a filter.
+ * The chip beside a ship's name: argo's operator kind chip, the viewer ship's
+ * viewer kind chip; with squadrons on, a flagship's flagship kind chip and a
+ * member's SquadronTag. Other ships carry none: their type stays a filter.
  */
 function NameChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadron | undefined }) {
   if (ship.kind === 'operator') {
@@ -85,6 +85,14 @@ function NameChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadr
       <Badge variant="kind">
         <UserRound aria-hidden />
         operator
+      </Badge>
+    );
+  }
+  if (ship.kind === 'viewer') {
+    return (
+      <Badge variant="kind" data-testid="fleet-viewer">
+        <Eye aria-hidden />
+        viewer
       </Badge>
     );
   }
@@ -129,9 +137,13 @@ function PromptStatus({ ship, now }: { ship: ListedShip; now: Date }) {
   );
 }
 
-/** Runs on: the harness and location kind of a crewed ship's session (argo: its console), or an awaiting ship's prompt status. */
+/**
+ * Runs on: the harness and location kind of a crewed ship's session (argo: its
+ * console), or an awaiting ship's prompt status. The viewer ship shows none:
+ * its many sessions hold no lease and name no device (decision 0022).
+ */
 function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
-  if (ship.status === 'retired') {
+  if (ship.status === 'retired' || ship.kind === 'viewer') {
     return null;
   }
   if (ship.status === 'awaitingCrew') {
@@ -151,10 +163,11 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
 /**
  * The Report cell: the row's one next step, when it has one (a starting
  * prompt for a ship awaiting crew, a new crew line for a silent member), and
- * a crewed ship's report with its time in the title. argo never reports.
+ * a crewed ship's report with its time in the title. Only an agent ship
+ * reports: argo and the viewer ship never do.
  */
 function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
-  const isReporting = ship.kind !== 'operator' && ship.status === 'crewed';
+  const isReporting = ship.kind === 'agent' && ship.status === 'crewed';
   return (
     <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch">
       {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
@@ -374,7 +387,7 @@ function DesktopTable({
                 <RunsOn ship={ship} now={now} />
               </TableCell>
               <TableCell>
-                {ship.kind === 'operator' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} testId="fleet-model" />}
+                {ship.kind !== 'agent' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} testId="fleet-model" />}
               </TableCell>
               <TableCell>
                 <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
@@ -415,7 +428,7 @@ function PhoneList({
             <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
-              {ship.kind === 'operator' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} />}
+              {ship.kind !== 'agent' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} />}
               <LastSeen seenAt={ship.lastSeenAt} now={now} />
             </div>
           </div>
