@@ -316,6 +316,7 @@ describe('the fleet procedures at the API', () => {
       report: null,
       harness: null,
       model: null,
+      awaitingCrewSince: clock.now().toISOString(),
     });
   });
 

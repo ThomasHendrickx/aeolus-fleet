@@ -69,6 +69,34 @@ describe('when a crewed ship was last seen', () => {
   });
 });
 
+describe('since when a ship awaits crew', () => {
+  it('is its commission while no session has crewed it yet', async () => {
+    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: commissionedAt });
+  });
+
+  it('is null while a session crews it', async () => {
+    crewShip(core, { fleetId, shipId: scoutId });
+
+    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: null });
+  });
+
+  it('is when the operator released it', async () => {
+    crewShip(core, { fleetId, shipId: scoutId });
+    core.clock.advance(60_000);
+    const releasedAt = core.clock.now();
+
+    unwrap(await useCases.releaseShip(argo, { shipId: scoutId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: releasedAt });
+  });
+
+  it('is null once the ship is retired', async () => {
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: null });
+  });
+});
+
 describe('the model and harness a ship shows', () => {
   async function sendAs(shipId: ShipId, model: string): Promise<string> {
     const { messageId } = unwrap(
@@ -140,6 +168,7 @@ describe('listing the fleet', () => {
         report: null,
         harness: null,
         model: null,
+        awaitingCrewSince: commissionedAt,
       },
       {
         id: scoutId,
@@ -155,6 +184,7 @@ describe('listing the fleet', () => {
         report: null,
         harness: null,
         model: null,
+        awaitingCrewSince: commissionedAt,
       },
     ]);
   });

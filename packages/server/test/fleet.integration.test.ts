@@ -340,6 +340,7 @@ describe('getting one ship on Postgres', () => {
         report: null,
         harness: 'claude-code',
         model: null,
+        awaitingCrewSince: null,
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
@@ -415,6 +416,7 @@ describe('listing the fleet on Postgres', () => {
         report: null,
         harness: null,
         model: null,
+        awaitingCrewSince: null,
       },
       {
         id: shipId,
@@ -430,8 +432,21 @@ describe('listing the fleet on Postgres', () => {
         report: null,
         harness: null,
         model: null,
+        awaitingCrewSince: commissionedAt,
       },
     ]);
+  });
+
+  it('shows a released ship awaiting crew since its release, not its commission', async () => {
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    core.clock.advance(60_000);
+    const releasedAt = core.clock.now();
+
+    unwrap(await core.useCases.releaseShip(argo, { shipId }));
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    expect(listed).toMatchObject({ status: 'awaitingCrew', awaitingCrewSince: releasedAt });
   });
 
   it('shows the newest prompt after a new one replaced the first', async () => {
