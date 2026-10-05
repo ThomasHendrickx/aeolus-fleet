@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { idSchema, SCOPES, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, httpLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -7,10 +7,12 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
-import { FLEET_URL } from './support/core-fixtures.js';
+import { createUseCases } from '../src/wiring.js';
+import { FLEET_URL, modelOf, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { newKey } from './support/keys.js';
 import { createTestClock } from './support/postgres-core.js';
+import { unwrap } from './support/result.js';
 
 // The viewer ship from HTTP to Postgres and back (decision 0022): the
 // installation creates a fleet with one and issues viewer tickets; each
@@ -176,5 +178,37 @@ describe('viewer sessions on Postgres', () => {
 
     await expect(codeOf(viewer.console.session.query())).resolves.toBe('UNAUTHORIZED');
     await expect(codeOf(operator.console.session.query())).resolves.toBeUndefined();
+  });
+});
+
+describe('what a viewer session reads on Postgres', () => {
+  it("reads argo's inbox through fleet.inbox, as the operator sees it", async () => {
+    const core = createUseCases({ prisma: database, clock });
+    const argoId = idSchema('ship').parse((await database.ship.findFirstOrThrow({ where: { fleetId: demoFleet, kind: 'operator' } })).id);
+    const argo = { fleetId: demoFleet, shipId: argoId, kind: 'operator' as const, scopes: [...SCOPES] };
+    const { shipId, secret } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { crewToken } = unwrap(await core.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const scout = unwrap(await core.authenticate.byCrewToken(crewToken));
+    unwrap(await core.sendMessage(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: argoId }, payload: 'Run 71 passed', idempotencyKey: newKey() }));
+    const viewer = consoleWith(await signIn(demoFleet, 'viewer'));
+    const operator = consoleWith(await signIn(demoFleet, 'operator'));
+
+    const seen = await viewer.fleet.inbox.query({ filter: 'all' });
+
+    expect(seen.map((entry) => entry.message.payload)).toEqual(['Run 71 passed']);
+    expect(seen).toEqual(await operator.fleet.inbox.query({ filter: 'all' }));
+  });
+
+  it('lists the viewer ship last seen when its most recent viewer session was used', async () => {
+    const first = consoleWith(await signIn(demoFleet, 'viewer'));
+    clock.advance(10 * MINUTE_MS);
+    await signIn(demoFleet, 'viewer');
+    clock.advance(5 * MINUTE_MS);
+    const usedAt = clock.now();
+    await first.console.session.query();
+
+    const ships = await first.fleet.list.query();
+
+    expect(ships.find((ship) => ship.kind === 'viewer')).toMatchObject({ status: 'crewed', lastSeenAt: usedAt.toISOString(), location: null });
   });
 });
