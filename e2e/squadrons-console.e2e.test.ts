@@ -420,6 +420,22 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('member-row').nth(1).locator('[data-slot="health-indicator"]').getByText('Not on station').waitFor({ timeout: LIVE_TIMEOUT_MS });
   });
 
+  it("shows a member's squadron, role, health and hand-offs on its ship page, and the flagship's note on the flagship's", async () => {
+    const page = await squadronsPage();
+    await page.goto(`/squadrons/${grownSquadronId}`);
+    await page.getByTestId('member-row').first().getByTestId('member-name').click();
+
+    const facts = page.getByTestId('ship-squadron-facts');
+    await facts.getByText(grownSquadronId, { exact: true }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await facts.getByText('Hand-offs').waitFor();
+
+    await page.goto('/');
+    await page.getByTestId(`fleet-row-${grownSquadronId}`).getByRole('link', { name: grownSquadronId }).first().click();
+    await page.getByTestId('ship-flagship-note').getByText(/can’t be released, renamed or retired/).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('ship-open-squadron').click();
+    await page.waitForURL(new RegExp(`/squadrons/${grownSquadronId}$`));
+  });
+
   it('asks before a new crew line, saying its unclaimed one stops working, then shows the new one once', async () => {
     const page = await squadronsPage();
     await page.goto(`/squadrons/${grownSquadronId}`);
