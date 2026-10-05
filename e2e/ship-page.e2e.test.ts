@@ -170,7 +170,7 @@ describe('the ship page', () => {
     // On the overview, the scout's row says what it runs on and its model.
     await page.goto('/');
     const row = page.getByTestId('fleet-row-scout');
-    await expect(row.getByTestId('fleet-model').textContent()).resolves.toMatch(/^claude-opus-5-5, stated /);
+    await expect(row.getByTestId('fleet-model').textContent()).resolves.toMatch(/^claude-opus-5-5, Model, stated /);
     await row.locator('[data-slot="location-tag"]').getByText('Claude Code').waitFor();
   });
 

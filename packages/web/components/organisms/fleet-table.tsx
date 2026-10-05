@@ -14,7 +14,7 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../../lib/fleet-filter';
-import { fullDateTime, relativeTime } from '../../lib/relative-time';
+import { dayMonth, fullDateTime, relativeTime } from '../../lib/relative-time';
 import type { ShipInSquadron } from '../../lib/squadrons-view';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
@@ -139,11 +139,19 @@ function PromptStatus({ ship, now }: { ship: ListedShip; now: Date }) {
 
 /**
  * Runs on: the harness and location kind of a crewed ship's session (argo: its
- * console), or an awaiting ship's prompt status. The viewer ship shows none:
- * its many sessions hold no lease and name no device (decision 0022).
+ * console), an awaiting ship's prompt status, or the day a retired ship was
+ * retired (canvas, OverviewVaried). The viewer ship shows none: its many
+ * sessions hold no lease and name no device (decision 0022).
  */
 function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
-  if (ship.status === 'retired' || ship.kind === 'viewer') {
+  if (ship.status === 'retired') {
+    return ship.retiredAt === null ? null : (
+      <span className="truncate text-meta text-muted-foreground" data-testid="fleet-retired-on" title={fullDateTime(new Date(ship.retiredAt))}>
+        Retired {dayMonth(new Date(ship.retiredAt))}
+      </span>
+    );
+  }
+  if (ship.kind === 'viewer') {
     return null;
   }
   if (ship.status === 'awaitingCrew') {

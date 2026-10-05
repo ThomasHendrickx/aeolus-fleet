@@ -106,6 +106,7 @@ const FLEET: ListedShip[] = [
     name: 'old-scout',
     type: 'scout',
     status: 'retired',
+    retiredAt: '2026-09-25T10:00:00.000Z',
     location: null,
     lastSeenAt: null,
     ping: null,

@@ -394,7 +394,7 @@ describe('retiring a ship', () => {
 
     await row.waitFor({ state: 'detached' });
     await page.getByTestId('fleet-show-retired').click();
-    await shipRow(page, 'castaway').getByText('Retired').waitFor();
+    await shipRow(page, 'castaway').getByText('Retired', { exact: true }).waitFor();
     await expect(
       database.delivery.count({ where: { recipientShip: { name: 'castaway' }, state: 'abandoned' } }),
     ).resolves.toBe(1);
