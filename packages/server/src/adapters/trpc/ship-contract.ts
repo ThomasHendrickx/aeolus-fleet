@@ -38,8 +38,10 @@ export interface ShipCall {
   /** The procedure's path in the router, such as `ship.send`. */
   path: string;
   type: 'query' | 'mutation';
-  /** What it does and its rules, from the procedure's meta. */
+  /** What it does and its rules, from the procedure's meta, with its example when it has one. */
   description: string;
+  /** Arguments it takes as they stand, as JSON, when its procedure gives an example. */
+  example?: string;
   /** How the caller says who it is: the ship secret in the input (`register`), or the crew token. */
   credential: 'secret' | 'crewToken';
   /** What it takes, if anything, and whether it may be left out (`receive`). */
@@ -57,7 +59,7 @@ const objectSchema = z.looseObject({
   required: z.array(z.string()).default([]),
 });
 
-const metaSchema: z.ZodType<ProcedureMeta> = z.object({ description: z.string().min(1) });
+const metaSchema: z.ZodType<ProcedureMeta> = z.object({ description: z.string().min(1), example: z.record(z.string(), z.string()).optional() });
 
 /** A procedure's parser, which must be Zod so its JSON Schema can be generated. */
 function zodParser(parser: unknown): z.ZodType {
@@ -106,11 +108,14 @@ function callOf(procedure: Procedure, at: { name: string; route: string; path: s
   // The output parser is on the procedure at runtime, though tRPC's types leave it out.
   const output = 'output' in procedure._def ? procedure._def.output : undefined;
   const input = inputOf(inputs[0]);
+  const { description, example } = metaSchema.parse(meta);
+  const exampleJson = example === undefined ? undefined : JSON.stringify(example);
   return {
     ...at,
     method: type === 'query' && input === undefined ? 'GET' : 'POST',
     type,
-    description: metaSchema.parse(meta).description,
+    description: exampleJson === undefined ? description : `${description} Example: ${exampleJson}`,
+    ...(exampleJson !== undefined && { example: exampleJson }),
     input,
     output: outputSchemaOf(zodParser(output)),
   };
@@ -168,18 +173,26 @@ export function unexpectedFailure(thrown: unknown, request: { log: FailureLog; r
 
 /**
  * What a caller reads of an error. A refusal keeps its code and message, an
- * input that does not parse reads as one line per problem and field, and a
- * server failure says only that it failed, with the request's id, as the
- * router's error formatter does for `/trpc`.
+ * input that does not parse reads as one line per problem and field, then the
+ * call's example when it has one, and a server failure says only that it
+ * failed, with the request's id, as the router's error formatter does for
+ * `/trpc`.
  */
-function refusalOf(error: TRPCError, requestId: string): ShipCallRefusal {
+function refusalOf(error: TRPCError, at: { call: ShipCall; requestId: string }): ShipCallRefusal {
+  const { call, requestId } = at;
   const httpStatus = getHTTPStatusCodeFromError(error);
   if (error.code === 'INTERNAL_SERVER_ERROR') {
     return { code: error.code, httpStatus, message: INTERNAL_ERROR_MESSAGE, requestId };
   }
-  const message = error.cause instanceof z.ZodError ? z.prettifyError(error.cause) : error.message;
+  const message = error.cause instanceof z.ZodError ? inputRefusalOf(error.cause, call) : error.message;
   const code = error.cause instanceof ShipRefusalCode ? error.cause.code : error.code;
   return { code, httpStatus, message };
+}
+
+/** Input that does not parse: one line per problem and field, then how the call takes it when it has an example. */
+function inputRefusalOf(error: z.ZodError, call: ShipCall): string {
+  const problems = z.prettifyError(error);
+  return call.example === undefined ? problems : `${problems}\nCall ${call.name} like this: ${call.example}`;
 }
 
 /**
@@ -209,6 +222,6 @@ export async function callShip(
     if (error.code === 'INTERNAL_SERVER_ERROR') {
       log.error({ path: call.path, ...failureForLog(error) }, 'procedure failed');
     }
-    return { isOk: false, refusal: refusalOf(error, ctx.requestId) };
+    return { isOk: false, refusal: refusalOf(error, { call, requestId: ctx.requestId }) };
   }
 }

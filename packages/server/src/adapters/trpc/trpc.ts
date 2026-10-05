@@ -16,6 +16,8 @@ export const INTERNAL_ERROR_MESSAGE = 'Internal error';
  */
 export interface ProcedureMeta {
   description: string;
+  /** Arguments the call takes as they stand, shown with the description and with a refusal of arguments that do not parse. */
+  example?: Readonly<Record<string, string>>;
 }
 
 // Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
