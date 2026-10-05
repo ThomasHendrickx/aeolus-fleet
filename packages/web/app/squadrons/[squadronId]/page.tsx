@@ -119,6 +119,14 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
               />
             ) : undefined
           }
+          onForceStandDown={
+            access.canManage
+              ? () => {
+                  forceStandDown.reset();
+                  setIsForcing(true);
+                }
+              : undefined
+          }
         />}
       live={liveFleet.live}
       nav={{

@@ -167,7 +167,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('form-squadron-submit').click();
 
     await page.getByTestId('squadron-header').waitFor();
-    await expect(page.getByTestId('station-progress').textContent()).resolves.toBe('0 of 1 on station');
+    await expect(page.getByTestId('station-progress').textContent()).resolves.toBe('0 of 1 member on station');
     await page.getByText('Start in the repository root.').waitFor();
     const crewLine = (await page.getByTestId('member-crew-line-claude-code').textContent()) ?? '';
     expect(crewLine).toMatch(/^\/aeolus:crew \S+ shp_\S+ aeolus_sk_v1_\S+ team-[a-z0-9]{6}$/);
@@ -348,6 +348,8 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('stand-down-dialog').waitFor();
     await page.getByTestId('stand-down-confirm').click();
     await page.getByTestId('squadron-header').getByText('Standing down').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('squadron-state-notice').getByText('No new work reaches its members.', { exact: false }).waitFor();
+    await page.getByTestId('squadron-notice-force-stand-down').waitFor();
 
     let standDown: { deliveryId: string; messageId: string } | undefined;
     await expect
@@ -373,6 +375,7 @@ describe('the first squadron in the console', () => {
     });
 
     await page.getByTestId('squadron-header').getByText('Disbanded').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('squadron-state-notice').getByText(/^Read-only\. Its 1 member ship and its flagship were retired; their history stays\.$/).waitFor();
   });
 
   it('forces the stand down of a forming squadron: with no open work a normal confirm, and it is disbanded at once', async () => {
