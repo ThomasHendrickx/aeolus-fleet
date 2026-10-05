@@ -77,6 +77,14 @@ describe('a hosted console', () => {
     expect(await response.text()).not.toMatch(/type="password"/);
   });
 
+  it("redirects a console page asked for without a session straight to the hosting service's sign-in, on the server", async () => {
+    const response = await fetch(`${web.url}/`, { redirect: 'manual' });
+
+    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBeLessThan(400);
+    expect(response.headers.get('location')).toBe(hostedSignInUrl);
+  });
+
   it('signs the operator in with a ticket, into the console, without the ticket in the address', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     const page = await newPage();

@@ -128,6 +128,16 @@ describe('the console sign-in', () => {
     await expectSentToSignIn(page);
   });
 
+  it('redirects a console page asked for without a live session on the server, before any of the console renders', async () => {
+    for (const cookie of [undefined, 'aeolus_session=forged']) {
+      const response = await fetch(`${web.url}/ships`, { redirect: 'manual', headers: cookie === undefined ? {} : { cookie } });
+
+      expect(response.status).toBeGreaterThanOrEqual(300);
+      expect(response.status).toBeLessThan(400);
+      expect(new URL(response.headers.get('location') ?? '', web.url).href).toBe(`${web.url}/sign-in`);
+    }
+  });
+
   it('ends the first session when the operator signs in again elsewhere', async () => {
     const first = await newPage();
     await signIn(first, OPERATOR);
