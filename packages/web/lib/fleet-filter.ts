@@ -121,3 +121,19 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
 export function fleetSquadrons(squadronsOf: ReadonlyMap<string, ShipInSquadron>): string[] {
   return [...new Set([...squadronsOf.values()].map((ship) => ship.squadronId))].toSorted((first, second) => first.localeCompare(second));
 }
+
+const STATUS_WORDS: Record<Exclude<FleetFilters['status'], 'all'>, string> = { crewed: 'Crewed', awaitingCrew: 'Awaiting crew' };
+
+/**
+ * The filters in force, in words, for the phone's chips under the search
+ * (canvas, MOverviewFilters): "Status: Crewed", "Type: reviewer",
+ * "Squadron: <id>", "Retired shown". None for the defaults.
+ */
+export function activeFilterLabels(filters: FleetFilters): string[] {
+  return [
+    filters.status === 'all' ? undefined : `Status: ${STATUS_WORDS[filters.status]}`,
+    filters.type === 'all' ? undefined : `Type: ${filters.type}`,
+    filters.squadron === 'all' ? undefined : `Squadron: ${filters.squadron}`,
+    filters.isRetiredShown ? 'Retired shown' : undefined,
+  ].filter((label) => label !== undefined);
+}
