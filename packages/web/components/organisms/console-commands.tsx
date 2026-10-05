@@ -63,6 +63,7 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
           case 'ship':
           case 'page':
           case 'squadron':
+          case 'squadron-action':
           case 'blueprint':
             router.push(item.href);
             return;

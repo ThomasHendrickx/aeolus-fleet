@@ -1,5 +1,6 @@
 import type { CrewLine, ShipDetail } from '@aeolus-fleet/common';
 import { FileText, Info, Inbox } from 'lucide-react';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
@@ -34,9 +35,15 @@ interface MemberListProps {
 }
 
 /** For a late or silent member, when its session last called the fleet. */
-function healthDetail(member: Squadron['members'][number], now: Date): string | undefined {
+function healthDetail(member: Squadron['members'][number], { ship, now }: { ship: ShipDetail | undefined; now: Date }): string | undefined {
   const { lastSeenAt } = member.crew;
-  return (member.health === 'late' || member.health === 'silent') && lastSeenAt !== null ? lastSeen(new Date(lastSeenAt), now).replace(/^Last/, 'last') : undefined;
+  if ((member.health !== 'late' && member.health !== 'silent') || lastSeenAt === null) {
+    return undefined;
+  }
+  const seen = lastSeen(new Date(lastSeenAt), now).replace(/^Last/, 'last');
+  // Where its session runs, as the canvas words it (SqSailing): "last seen 34 min ago on MacBook".
+  const device = ship?.location?.description;
+  return device ? `${seen} on ${device}` : seen;
 }
 
 /** A member's ship from the fleet: awaiting crew, or its report, and where its session runs and its open deliveries. */
@@ -93,7 +100,7 @@ function RoleHeading({
 /**
  * The squadron's members grouped by role (docs/design/png/MemberList.png),
  * each group headed by its template version and check-in interval. Each
- * member shows its health (on time, late, silent or not on station), and from the fleet its report, where
+ * member's name opens its ship page; it shows its health (on time, late, silent or not on station), and from the fleet its report, where
  * its session runs and its open deliveries. Right after forming, a member not on
  * station shows its crew lines and launch note in its row: once. Each row ends
  * with the actions the page gives it.
@@ -113,8 +120,10 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
               return (
                 <li key={member.shipId} data-testid="member-row" className="flex flex-col gap-2 px-3 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="font-medium">{member.name}</span>
-                    <HealthIndicator health={member.health} detail={healthDetail(member, now)} className="shrink-0" />
+                    <Link href={`/ships/${member.shipId}`} className="font-medium hover:underline" data-testid="member-name">
+                      {member.name}
+                    </Link>
+                    <HealthIndicator health={member.health} detail={healthDetail(member, { ship: ships.get(member.shipId), now })} className="shrink-0" />
                     {member.model.isMismatch && (
                       <span className="text-meta text-tone-attention-fg">
                         Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}

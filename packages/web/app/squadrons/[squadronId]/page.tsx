@@ -1,21 +1,24 @@
 'use client';
 
+import { idSchema } from '@aeolus-fleet/common';
+import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { Button } from '../../../components/atoms/button';
 import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
 import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
-import { GetNewCrewLine } from '../../../components/organisms/get-new-crew-line';
+import { MemberActions } from '../../../components/organisms/member-actions';
+import { SquadronActions } from '../../../components/organisms/squadron-actions';
 import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { SquadronSummary } from '../../../components/molecules/squadron-summary';
 import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
 import { useAccess } from '../../../lib/access';
@@ -39,7 +42,7 @@ import {
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
-import { otherMembersOfRole, roleOptions } from '../../../lib/squadrons-view';
+import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -47,8 +50,17 @@ import { otherMembersOfRole, roleOptions } from '../../../lib/squadrons-view';
  * launch note once. It asks again every few seconds, so members show on
  * station as they check in.
  */
-export default function SquadronPage({ params }: { params: Promise<{ squadronId: string }> }) {
+export default function SquadronPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ squadronId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { squadronId } = use(params);
+  // The command palette's Add member and Stand down land here with their dialog asked for.
+  const asked = use(searchParams).action;
+  const router = useRouter();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
@@ -72,6 +84,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
   const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
+  const [isMessagingFlagship, setIsMessagingFlagship] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const squadron = squadrons.data?.find((each) => each.id === squadronId);
@@ -84,6 +97,19 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
   const removingShip = removing ? ships.get(removing.shipId) : undefined;
   const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
+  // The squadron manager's answer names the flagship by a plain string: parsed, as outside data is.
+  const flagshipId = squadron ? idSchema('ship').safeParse(squadron.flagship.shipId).data : undefined;
+  const offered = squadron
+    ? squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })
+    : undefined;
+  const isAddAsked = asked === 'add-member' && offered?.canAddMember === true;
+  const isStandDownAsked = asked === 'stand-down' && offered?.canStandDown === true;
+  /** Closes a dialog the palette asked for: the page's URL drops the ask, so it opens no more. */
+  const settleAsk = () => {
+    if (asked !== undefined) {
+      router.replace(`/squadrons/${squadronId}`, { scroll: false });
+    }
+  };
   const isLosingMembersAllowed = squadron?.state === 'sailing' || squadron?.state === 'standing-down';
 
   return (
@@ -92,43 +118,35 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
-            // A session that may not manage the fleet (a viewer's) reads the squadron only.
-            access.canManage && squadron && squadron.state !== 'disbanded' ? (
-              <>
-                {squadron.state === 'sailing' && roles.length > 0 && (
-                  <Button
-                    data-testid="squadron-add-member"
-                    onClick={() => {
-                      addMember.reset();
-                      setIsAdding(true);
-                    }}
-                  >
-                    Add member
-                  </Button>
-                )}
-                {squadron.state === 'sailing' && (
-                  <Button
-                    variant="destructive"
-                    data-testid="squadron-stand-down"
-                    onClick={() => {
-                      standDown.reset();
-                      setIsStandingDown(true);
-                    }}
-                  >
-                    Stand down
-                  </Button>
-                )}
-                <Button
-                  data-testid="squadron-force-stand-down"
-                  onClick={() => {
-                    forceStandDown.reset();
-                    setIsForcing(true);
-                  }}
-                >
-                  Force stand down
-                </Button>
-              </>
+            squadron && offered ? (
+              <SquadronActions
+                squadronId={squadron.id}
+                offered={offered}
+                onAddMember={() => {
+                  addMember.reset();
+                  setIsAdding(true);
+                }}
+                onMessageFlagship={() => {
+                  setIsMessagingFlagship(true);
+                }}
+                onStandDown={() => {
+                  standDown.reset();
+                  setIsStandingDown(true);
+                }}
+                onForceStandDown={() => {
+                  forceStandDown.reset();
+                  setIsForcing(true);
+                }}
+              />
             ) : undefined
+          }
+          onForceStandDown={
+            access.canManage
+              ? () => {
+                  forceStandDown.reset();
+                  setIsForcing(true);
+                }
+              : undefined
           }
         />}
       live={liveFleet.live}
@@ -155,42 +173,33 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />
       ) : squadron ? (
+        <>
+        <SquadronSummary
+          health={healthCounts(squadron.members)}
+          work={workCounts(squadron.members.map((member) => ships.get(member.shipId)?.report ?? null))}
+          openDeliveries={ships.size === squadron.members.length ? openDeliveries : undefined}
+          keptCount={kept.data?.length}
+        />
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
           ships={ships}
           now={now}
-          renderActions={(member) => {
-            const ship = ships.get(member.shipId);
-            if (!access.canManage || member.crew.status === 'retired' || ship?.status === 'retired') {
-              return null;
-            }
-            return (
-              <>
-                <GetNewCrewLine
-                  squadronId={squadron.id}
-                  member={member}
-                  ship={ship}
-                  template={roles.find((each) => each.role === member.role)?.template}
-                  isPrimary={member.health === 'silent'}
-                  testId="member-new-crew-line"
-                />
-                {isLosingMembersAllowed && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    data-testid="member-remove"
-                    aria-label={`Remove ${member.name} from the squadron`}
-                    onClick={() => {
-                      removeMember.reset();
-                      setRemoving(member);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </>
-            );
-          }}
+          renderActions={(member) => (
+            <MemberActions
+              squadronId={squadron.id}
+              member={member}
+              ship={ships.get(member.shipId)}
+              template={roles.find((each) => each.role === member.role)?.template}
+              canManage={access.canManage}
+              canSend={access.canSend}
+              isRemovable={isLosingMembersAllowed}
+              onRemove={() => {
+                removeMember.reset();
+                setRemoving(member);
+              }}
+            />
+          )}
         />
+        </>
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
       )}
@@ -213,14 +222,20 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           memberCount={squadron.members.length}
           openDeliveries={openDeliveries}
           inFlightDeliveries={inFlightDeliveries}
-          isOpen={isStandingDown}
-          onOpenChange={setIsStandingDown}
+          isOpen={isStandingDown || isStandDownAsked}
+          onOpenChange={(isNowOpen) => {
+            setIsStandingDown(isNowOpen);
+            if (!isNowOpen) {
+              settleAsk();
+            }
+          }}
           isPending={standDown.isPending}
           error={standDown.error?.message}
           onConfirm={() => {
             standDown.mutate(squadron.id, {
               onSuccess: () => {
                 setIsStandingDown(false);
+                settleAsk();
               },
             });
           }}
@@ -251,8 +266,13 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           squadronId={squadron.id}
           blueprint={`${squadron.blueprint.name} v${String(squadron.blueprint.version)}`}
           roles={roles}
-          isOpen={isAdding}
-          onOpenChange={setIsAdding}
+          isOpen={isAdding || isAddAsked}
+          onOpenChange={(isNowOpen) => {
+            setIsAdding(isNowOpen);
+            if (!isNowOpen) {
+              settleAsk();
+            }
+          }}
           isPending={addMember.isPending}
           error={addMember.error?.message}
           onSubmit={(role) => {
@@ -261,6 +281,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
               {
                 onSuccess: (member) => {
                   setIsAdding(false);
+                  settleAsk();
                   setAdded(member);
                 },
               },
@@ -313,6 +334,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         />
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      {flagshipId && <ComposeMessage isOpen={isMessagingFlagship} onOpenChange={setIsMessagingFlagship} toShipId={flagshipId} />}
       <ConsoleCommands
         isOpen={isSearching}
         onOpenChange={setIsSearching}

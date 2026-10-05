@@ -1,3 +1,5 @@
+import type { ReportState } from '@aeolus-fleet/common';
+
 import type { BlueprintVersion, Catalogue, MemberHealth, Squadron, TemplateVersion } from './squadrons-api';
 
 /** A ship's place in a squadron: a member with its role, or the flagship (role null). */
@@ -239,4 +241,60 @@ const SILENT_AFTER_INTERVALS = 3;
 /** What a check-in interval implies: "Late after 10 min, silent after 30 min". */
 export function thresholdsText(minutes: number): string {
   return `Late after ${spanText(minutes * LATE_AFTER_INTERVALS)}, silent after ${spanText(minutes * SILENT_AFTER_INTERVALS)}`;
+}
+
+/** What the squadron page offers in its header (canvas, SqSailing and SqMenu). */
+export interface SquadronActionsOffered {
+  canAddMember: boolean;
+  canMessageFlagship: boolean;
+  canStandDown: boolean;
+  canForceStandDown: boolean;
+}
+
+/**
+ * The squadron header's actions for its state and the session's scopes: Add
+ * member while Sailing with a role to add; Message to the flagship while
+ * Forming or Sailing; Stand down while Sailing; Force stand down until
+ * Disbanded. A session that may not manage the fleet (a viewer's) adds and
+ * stands down nothing; one that may not send messages nothing.
+ */
+export function squadronActionsOffered(
+  squadron: Pick<Squadron, 'state'>,
+  session: { canManage: boolean; canSend: boolean; hasRoles: boolean },
+): SquadronActionsOffered {
+  const isSailing = squadron.state === 'sailing';
+  return {
+    canAddMember: session.canManage && isSailing && session.hasRoles,
+    canMessageFlagship: session.canSend && (isSailing || squadron.state === 'forming'),
+    canStandDown: session.canManage && isSailing,
+    canForceStandDown: session.canManage && squadron.state !== 'disbanded',
+  };
+}
+
+/** How many crewed members report each work state, in the order the summary says them (working, idle, blocked); states no member reports are left out. */
+export function workCounts(reports: readonly ({ state: ReportState } | null)[]): { state: ReportState; count: number }[] {
+  const order: ReportState[] = ['working', 'idle', 'blocked'];
+  return order.map((state) => ({ state, count: reports.filter((report) => report?.state === state).length })).filter((each) => each.count > 0);
+}
+
+/**
+ * A role's hand-offs in its blueprint, by role (canvas, SqMemberShip): the
+ * roles that hand off to it, and where its own hand-offs go (a role or
+ * `flagship`), each named once, in blueprint order.
+ */
+export function handoffsOf(blueprint: Pick<BlueprintVersion, 'handoffs'>, role: string): { from: string[]; to: string[] } {
+  const unique = (names: readonly string[]) => [...new Set(names)];
+  return {
+    from: unique(blueprint.handoffs.filter((handoff) => handoff.to === role).map((handoff) => handoff.role)),
+    to: unique(blueprint.handoffs.filter((handoff) => handoff.role === role).map((handoff) => handoff.to)),
+  };
+}
+
+/** "from implementer · to implementer, flagship": a role's hand-offs in words; "None" when it has none. */
+export function handoffsText(handoffs: { from: readonly string[]; to: readonly string[] }): string {
+  const parts = [
+    handoffs.from.length > 0 ? `from ${handoffs.from.join(', ')}` : undefined,
+    handoffs.to.length > 0 ? `to ${handoffs.to.join(', ')}` : undefined,
+  ].filter((part) => part !== undefined);
+  return parts.length === 0 ? 'None' : parts.join(' · ');
 }
