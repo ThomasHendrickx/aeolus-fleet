@@ -13,9 +13,12 @@ import {
   installationOperatorsIssueSignInTicketInputSchema,
   installationOperatorsIssueSignInTicketOutputSchema,
   installationSettingsSchema,
+  noticesOutputSchema,
+  setNoticesInputSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
+import type { Notice } from '../../core/identity/notice.js';
 import type { InstallationFleet } from '../../core/registry/installation-fleet.js';
 import type { InstallationCredential } from './context.js';
 import { okOrThrow, publicProcedure, router } from './trpc.js';
@@ -52,6 +55,11 @@ function described(fleet: InstallationFleet) {
   return { ...fleet, createdAt: fleet.createdAt.toISOString(), lastActivityAt: fleet.lastActivityAt?.toISOString() ?? null };
 }
 
+/** A notice as the API answers it. */
+export function noticeOutputOf(notice: Notice): Notice & { links: Notice['links'][number][] } {
+  return { ...notice, links: [...notice.links] };
+}
+
 /** The installation's fleets: what a service hosting many fleets on this server calls, never a ship. */
 export const installationRouter = router({
   settings: router({
@@ -66,6 +74,20 @@ export const installationRouter = router({
         const settings = okOrThrow(await ctx.useCases.setInstallationSettings(input));
         ctx.log.info({ ...settings }, 'installation settings set');
         return settings;
+      }),
+  }),
+  notices: router({
+    /** The notices the console shows (decision 0023), in their order. */
+    get: installationProcedure.output(noticesOutputSchema).query(async ({ ctx }) => ({ notices: (await ctx.useCases.getNotices()).map(noticeOutputOf) })),
+
+    /** Replaces every notice with these, in this order; an empty list clears them. */
+    set: installationProcedure
+      .input(setNoticesInputSchema)
+      .output(noticesOutputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const notices = await ctx.useCases.setNotices(input);
+        ctx.log.info({ notices: notices.map(({ id, audience }) => ({ id, audience })) }, 'installation notices set');
+        return { notices: notices.map(noticeOutputOf) };
       }),
   }),
   fleets: router({

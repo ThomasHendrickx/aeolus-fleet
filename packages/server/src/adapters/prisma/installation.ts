@@ -1,6 +1,8 @@
-import { idSchema, type FleetId } from '@aeolus-fleet/common';
+import { idSchema, noticeLinkSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import type { Notice } from '../../core/identity/notice.js';
+import type { NoticeRepository } from '../../core/identity/ports.js';
 import type { InstallationRequest } from '../../core/registry/installation-request.js';
 import { appliedLimits } from '../../core/registry/applied-limits.js';
 import { NO_INSTALLATION_SETTINGS } from '../../core/registry/limits.js';
@@ -130,6 +132,26 @@ export function createPrismaInstallationSettings(db: Db): InstallationSettingsRe
     },
     write: async (settings) => {
       await db.installationSettings.upsert({ where: { id: SETTINGS_ROW }, create: { id: SETTINGS_ROW, ...settings }, update: settings });
+    },
+  };
+}
+
+const noticeLinksSchema = z.array(noticeLinkSchema);
+
+/** The installation's notices, in its order. Replacing them is one transaction, so a reader sees the old list or the new one. */
+export function createPrismaNoticeRepository(prisma: PrismaClient): NoticeRepository {
+  return {
+    read: async () =>
+      (await prisma.notice.findMany({ orderBy: { position: 'asc' } })).map(
+        ({ id, audience, text, links, isDismissible }): Notice => ({ id, audience, text, links: noticeLinksSchema.parse(links), isDismissible }),
+      ),
+    replace: async (notices) => {
+      await prisma.$transaction([
+        prisma.notice.deleteMany(),
+        prisma.notice.createMany({
+          data: notices.map(({ id, audience, text, links, isDismissible }, position) => ({ id, position, audience, text, links: [...links], isDismissible })),
+        }),
+      ]);
     },
   };
 }

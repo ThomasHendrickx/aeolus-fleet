@@ -10,6 +10,10 @@ import {
 } from '@aeolus-fleet/common';
 
 import { createIssueSignInTicket } from '../../src/core/identity/issue-sign-in-ticket.js';
+import { createDismissNotice } from '../../src/core/identity/dismiss-notice.js';
+import { createGetNotices } from '../../src/core/identity/get-notices.js';
+import { createReadNotices } from '../../src/core/identity/read-notices.js';
+import { createSetNotices } from '../../src/core/identity/set-notices.js';
 import { createRedeemSignInTicket } from '../../src/core/identity/redeem-sign-in-ticket.js';
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
 import { createReadAccount } from '../../src/core/identity/read-account.js';
@@ -82,6 +86,10 @@ export function identityUseCases(core: InMemoryCore) {
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
     issueSignInTicket: createIssueSignInTicket(deps),
     redeemSignInTicket: createRedeemSignInTicket(deps),
+    setNotices: createSetNotices({ notices: core.notices }),
+    getNotices: createGetNotices({ notices: core.notices }),
+    readNotices: createReadNotices({ notices: core.notices, dismissals: core.noticeDismissals }),
+    dismissNotice: createDismissNotice({ notices: core.notices, dismissals: core.noticeDismissals, clock: core.clock }),
   };
 }
 

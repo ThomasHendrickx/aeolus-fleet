@@ -186,6 +186,8 @@ describe('initialise fleet', () => {
       installationSettings: [],
       fleetLimitSettings: [],
       notices: [],
+      installationNotices: [],
+      noticeDismissals: [],
     });
   });
 });
