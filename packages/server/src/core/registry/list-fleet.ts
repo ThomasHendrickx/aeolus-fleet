@@ -37,6 +37,8 @@ export interface ListedShip {
   model: { id: string; statedAt: Date } | null;
   /** Since when the ship awaits crew: its commission, or when its last session ended (a release or deregister). Null unless it awaits crew. */
   awaitingCrewSince: Date | null;
+  /** When the operator retired the ship; null while it is active. */
+  retiredAt: Date | null;
 }
 
 export type ListFleet = (caller: Caller) => Promise<ListedShip[]>;
@@ -69,6 +71,7 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel
     harness: openLease?.harness ?? null,
     model: lastModel,
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
+    retiredAt: ship.retiredAt,
   };
 }
 

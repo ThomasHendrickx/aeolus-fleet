@@ -12,7 +12,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null, awaitingCrewSince: null,
+    report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null,
     ...changes,
   };
 }
