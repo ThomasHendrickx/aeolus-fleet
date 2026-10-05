@@ -253,9 +253,9 @@ export interface SquadronActionsOffered {
 
 /**
  * The squadron header's actions for its state and the session's scopes: Add
- * member while Sailing with a role to add; Message to the flagship while
- * Forming or Sailing; Stand down while Sailing; Force stand down until
- * Disbanded. A session that may not manage the fleet (a viewer's) adds and
+ * member while Sailing with a role to add; Message to the flagship and Force
+ * stand down until Disbanded, as Aeolus blocks no message; Stand down while
+ * Sailing. A session that may not manage the fleet (a viewer's) adds and
  * stands down nothing; one that may not send messages nothing.
  */
 export function squadronActionsOffered(
@@ -265,7 +265,7 @@ export function squadronActionsOffered(
   const isSailing = squadron.state === 'sailing';
   return {
     canAddMember: session.canManage && isSailing && session.hasRoles,
-    canMessageFlagship: session.canSend && (isSailing || squadron.state === 'forming'),
+    canMessageFlagship: session.canSend && squadron.state !== 'disbanded',
     canStandDown: session.canManage && isSailing,
     canForceStandDown: session.canManage && squadron.state !== 'disbanded',
   };

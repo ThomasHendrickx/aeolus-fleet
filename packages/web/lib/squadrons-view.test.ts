@@ -257,8 +257,8 @@ describe('the squadron header actions', () => {
     expect(squadronActionsOffered({ state: 'forming' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: true, canStandDown: false, canForceStandDown: true });
   });
 
-  it('offers only Force stand down while Standing down', () => {
-    expect(squadronActionsOffered({ state: 'standing-down' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: false, canStandDown: false, canForceStandDown: true });
+  it('offers Message to the flagship and Force stand down while Standing down', () => {
+    expect(squadronActionsOffered({ state: 'standing-down' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: true, canStandDown: false, canForceStandDown: true });
   });
 
   it('offers nothing once Disbanded', () => {
