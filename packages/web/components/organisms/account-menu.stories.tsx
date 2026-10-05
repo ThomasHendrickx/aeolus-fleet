@@ -70,6 +70,14 @@ export const Hosted: Story = {
   },
 };
 
+/** With a guide for the session (decision 0024): Take the tour opens it again. */
+export const WithGuide: Story = {
+  args: { onTakeTour: fn() },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+  },
+};
+
 /** A viewer session (decision 0022): it reads the fleet only, has no email and no theme, and keeps Sign out. */
 export const Viewer: Story = {
   args: { account: { kind: 'viewer', session: { device: 'Mac · Safari', since: new Date('2026-10-01T14:10:00').toISOString() } }, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },

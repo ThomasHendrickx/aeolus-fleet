@@ -6,6 +6,7 @@ import { showToast } from '../components/atoms/toast';
 import type { AccountMenuProps } from '../components/organisms/account-menu';
 import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
+import { useConsoleGuide } from './guide';
 import { useTRPC } from './trpc';
 
 /**
@@ -21,6 +22,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   const queryClient = useQueryClient();
   const account = useQuery(trpc.console.account.queryOptions());
   const accountUrl = useHostedAccountUrl();
+  const guide = useConsoleGuide();
   const setTheme = useMutation(
     trpc.console.setTheme.mutationOptions({
       onMutate: ({ theme }) => {
@@ -67,5 +69,6 @@ export function useAccountMenu(now: Date): AccountMenuProps {
     isSigningOut: signOut.isPending,
     now,
     ...(accountUrl === undefined ? {} : { accountUrl }),
+    ...(guide.onTakeTour === undefined ? {} : { onTakeTour: guide.onTakeTour }),
   };
 }

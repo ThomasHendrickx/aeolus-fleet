@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronsUpDown, CircleUserRound, CodeXml, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CircleUserRound, CodeXml, Compass, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -44,10 +44,15 @@ export interface AccountMenuProps {
   now: Date;
   /** The hosting service's account page (AEOLUS_HOSTED_ACCOUNT_URL): set, the menu offers Your account; unset, it does not. */
   accountUrl?: string;
+  /** Opens the installation's guide at its first step (decision 0024); unset while no guide is for the session, so the menu offers no Take the tour. */
+  onTakeTour?: () => void;
 }
 
 /** The menu's label for the hosting service's account page. */
 const YOUR_ACCOUNT = 'Your account';
+
+/** The menu's label for opening the guide again. */
+const TAKE_THE_TOUR = 'Take the tour';
 
 const THEME_ICONS: Record<Theme, LucideIcon> = { light: Sun, dark: Moon, system: Monitor };
 
@@ -121,7 +126,7 @@ function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
  * installation, Theme and Sign out without a confirm. On the 64 px rail the
  * button collapses to its avatar.
  */
-export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl }: AccountMenuProps) {
+export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
   return (
@@ -151,6 +156,12 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
           >
             <CircleUserRound aria-hidden />
             {YOUR_ACCOUNT}
+          </DropdownMenuItem>
+        )}
+        {onTakeTour === undefined ? null : (
+          <DropdownMenuItem data-testid="account-take-tour" onClick={onTakeTour}>
+            <Compass aria-hidden />
+            {TAKE_THE_TOUR}
           </DropdownMenuItem>
         )}
         {hasTheme(account) && (
@@ -204,7 +215,7 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
  * same content as a bottom Sheet, with Theme as a segmented control and
  * Cancel at the bottom.
  */
-export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl }: AccountMenuProps) {
+export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
@@ -230,6 +241,20 @@ export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningO
             <CircleUserRound aria-hidden />
             {YOUR_ACCOUNT}
           </a>
+        )}
+        {onTakeTour === undefined ? null : (
+          <button
+            type="button"
+            data-testid="account-take-tour"
+            onClick={() => {
+              setIsOpen(false);
+              onTakeTour();
+            }}
+            className="flex h-(--size-control-touch) items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground"
+          >
+            <Compass aria-hidden />
+            {TAKE_THE_TOUR}
+          </button>
         )}
         {hasTheme(account) && (
         <div className="flex flex-col gap-1.5 border-t border-border pt-3">

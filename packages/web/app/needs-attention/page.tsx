@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
 import { GetNewCrewLine } from '../../components/organisms/get-new-crew-line';
@@ -130,7 +131,12 @@ export default function NeedsAttentionPage() {
         setIsSearching(true);
       }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
     >
       {silent.length > 0 ? (
         <div className="flex flex-col gap-6">

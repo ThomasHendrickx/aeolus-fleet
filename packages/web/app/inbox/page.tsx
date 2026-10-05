@@ -7,6 +7,7 @@ import { use, useState } from 'react';
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { OperatorInbox } from '../../components/organisms/operator-inbox';
 import { ListLayout } from '../../components/templates/list-layout';
@@ -88,7 +89,12 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       live={liveFleet.live}
       nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
       account={accountMenu}
-      banner={<ConsoleNotices />}
+      banner={
+        <>
+          <ConsoleNotices />
+          <ConsoleGuide />
+        </>
+      }
       onCompose={
         access.canSend
           ? () => {
