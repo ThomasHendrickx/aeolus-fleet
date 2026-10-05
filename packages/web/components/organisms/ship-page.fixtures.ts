@@ -185,6 +185,30 @@ export const MESSAGES: ListedMessage[] = [
   }),
 ];
 
+/** A squadron member's check-in at its flagship, and the role the flagship answers with (docs/squadrons.md, "Check-in"). */
+export const SQUADRON_MESSAGES: ListedMessage[] = [
+  listed('0004', {
+    sender: REVIEWER,
+    recipient: { kind: 'ship', ship: PLANNER },
+    inReplyTo: null,
+    sentAt: minutesAgo(12),
+    contentType: 'application/vnd.aeolus.squadron.check-in+json', model: 'claude-opus-5-5',
+    preview: '{"squadron":"hemma-feature-a1b2c3","model":"claude-opus-5-5"}',
+    state: 'acknowledged',
+    claimedBy: PLANNER,
+  }),
+  listed('0005', {
+    sender: PLANNER,
+    recipient: { kind: 'ship', ship: REVIEWER },
+    inReplyTo: messageId('0004'),
+    sentAt: minutesAgo(11),
+    contentType: 'application/vnd.aeolus.squadron.role+json', model: null,
+    preview: '{"squadron":"hemma-feature-a1b2c3","role":"reviewer","template":"reviewer@2","charter":"You review every change before it',
+    state: 'acknowledged',
+    claimedBy: REVIEWER,
+  }),
+];
+
 function history(seq: number, entry: Omit<DeliveryHistoryEntry, 'seq'>): DeliveryHistoryEntry {
   return { seq, ...entry };
 }
