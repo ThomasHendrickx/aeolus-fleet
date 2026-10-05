@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount, workCounts } from './squadrons-view';
+import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, handoffsOf, handoffsText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount, workCounts } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -290,5 +290,32 @@ describe('the work the members report', () => {
 
   it('leaves out states no member reports', () => {
     expect(workCounts([{ state: 'working' }, null])).toEqual([{ state: 'working', count: 1 }]);
+  });
+});
+
+describe("a role's hand-offs", () => {
+  const blueprint = {
+    handoffs: [
+      { role: 'planner', handoff: 'plan-ready', to: 'implementer' },
+      { role: 'implementer', handoff: 'ready-for-test', to: 'tester' },
+      { role: 'tester', handoff: 'on-fail', to: 'implementer' },
+      { role: 'tester', handoff: 'on-pass', to: 'flagship' },
+    ],
+  };
+
+  it('names the roles that hand off to it and where its own hand-offs go', () => {
+    expect(handoffsOf(blueprint, 'tester')).toEqual({ from: ['implementer'], to: ['implementer', 'flagship'] });
+  });
+
+  it('names each role once', () => {
+    expect(handoffsOf(blueprint, 'implementer')).toEqual({ from: ['planner', 'tester'], to: ['tester'] });
+  });
+
+  it('says them in words', () => {
+    expect(handoffsText({ from: ['implementer'], to: ['implementer', 'flagship'] })).toBe('from implementer · to implementer, flagship');
+  });
+
+  it('says None for a role with no hand-offs', () => {
+    expect(handoffsText({ from: [], to: [] })).toBe('None');
   });
 });
