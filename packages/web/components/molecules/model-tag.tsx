@@ -1,15 +1,15 @@
 import { Package, Sparkles } from 'lucide-react';
 
 import { classNames } from '../../lib/class-names';
-import { isSoftwareModel } from '../../lib/model-tag';
-import { relativeTime } from '../../lib/relative-time';
+import { isSoftwareModel, modelStatedWords } from '../../lib/model-tag';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../atoms/tooltip';
 
 /**
  * What a ship's session last stated it runs on, exactly as stated
  * (docs/design/png/ModelTag.png): an AI model id with the sparkles mark on
  * --secondary; software, a package, with the package mark, a dashed outline
- * and muted text. Its title and accessible name carry the full value and when
- * it was stated. "Not stated yet" for a crewed ship that has sent nothing;
+ * and muted text. Its tooltip (canvas, OverviewModelHover) and accessible name
+ * carry the full value, what it is and when it was stated. "Not stated yet" for a crewed ship that has sent nothing;
  * nothing for argo and ships without a session (awaiting crew, retired).
  */
 export function ModelTag({
@@ -37,23 +37,32 @@ export function ModelTag({
   }
   const isSoftware = isSoftwareModel(model.id);
   const Icon = isSoftware ? Package : Sparkles;
-  const relative = relativeTime(new Date(model.statedAt), now);
-  const stated = `stated ${relative.charAt(0).toLowerCase()}${relative.slice(1)}`;
-  const detail = isSoftware ? `software, ${stated}` : stated;
+  const stated = modelStatedWords(model, now);
   return (
-    <span
-      data-testid={testId}
-      data-slot="model-tag"
-      data-software={isSoftware ? '' : undefined}
-      title={`${model.id} · ${detail}`}
-      className={classNames(
-        'inline-flex max-w-44 min-w-0 items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-id [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0',
-        isSoftware ? 'border border-dashed border-border text-muted-foreground' : 'bg-secondary text-secondary-foreground',
-      )}
-    >
-      <Icon aria-hidden />
-      <span className="truncate">{model.id}</span>
-      <span className="sr-only">, {detail}</span>
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            data-testid={testId}
+            data-slot="model-tag"
+            data-software={isSoftware ? '' : undefined}
+            className={classNames(
+              'inline-flex max-w-44 min-w-0 items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-id [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0',
+              isSoftware ? 'border border-dashed border-border text-muted-foreground' : 'bg-secondary text-secondary-foreground',
+            )}
+          />
+        }
+      >
+        <Icon aria-hidden />
+        <span className="truncate">{model.id}</span>
+        <span className="sr-only">, {stated}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <span className="flex flex-col gap-0.5">
+          <span className="font-mono">{model.id}</span>
+          <span className="opacity-75">{stated}</span>
+        </span>
+      </TooltipContent>
+    </Tooltip>
   );
 }

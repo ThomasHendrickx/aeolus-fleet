@@ -212,6 +212,8 @@ export const fleetRouter = router({
         scopes: [...ship.scopes],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
+        awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
+        retiredAt: ship.retiredAt?.toISOString() ?? null,
       })),
     ),
 
@@ -237,6 +239,7 @@ export const fleetRouter = router({
         scopes: [...ship.scopes],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
+        awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,

@@ -6,12 +6,11 @@ import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, type ListedShip } from './list-fleet.js';
 import type { FleetListing } from './ports.js';
 
-/** One ship for its page: as the fleet lists it, with when it was commissioned, crewed and retired. */
+/** One ship for its page: as the fleet lists it, with when it was commissioned and since when it is crewed. */
 export interface ShipDetail extends ListedShip {
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
-  retiredAt: Date | null;
   /** What its crew holds in flight: what a release or a re-crew returns to pending. */
   inFlightDeliveries: number;
   /** Its direct deliveries pending or in flight: what a retire abandons. */
@@ -37,7 +36,6 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
-      retiredAt: facts.ship.retiredAt,
     });
   };
 }

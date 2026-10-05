@@ -803,6 +803,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .filter((session) => session.shipId === held.id && session.leaseId === null)
           .map((session) => session.lastUsedAt)
           .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
+      lastLeaseEndedAt:
+        state.leases
+          .filter((ended) => ended.shipId === held.id && ended.endedAt !== null)
+          .map((ended) => ended.endedAt)
+          .filter((endedAt) => endedAt !== null)
+          .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
     };
   };
   const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {

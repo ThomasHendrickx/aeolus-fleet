@@ -126,6 +126,7 @@ const shipFactsSqlRow = z.object({
   last_model: z.string().nullable(),
   last_model_stated_at: z.date().nullable(),
   last_viewed_at: z.date().nullable(),
+  last_lease_ended_at: z.date().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -144,6 +145,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     last_model,
     last_model_stated_at,
     last_viewed_at,
+    last_lease_ended_at,
   } = shipFactsSqlRow.parse(row);
   return {
     ship: toShipFromSql(row),
@@ -165,6 +167,7 @@ export function toShipFacts(row: unknown): ShipFacts {
         : null,
     lastModel: last_model && last_model_stated_at ? { id: last_model, statedAt: last_model_stated_at } : null,
     lastViewedAt: last_viewed_at,
+    lastLeaseEndedAt: last_lease_ended_at,
   };
 }
 

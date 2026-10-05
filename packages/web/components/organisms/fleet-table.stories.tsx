@@ -28,6 +28,8 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     harness: 'claude-code',
     model: { id: 'claude-opus-5-5', statedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
     lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
+    awaitingCrewSince: null,
+    retiredAt: null,
     ...changes,
   };
 }
@@ -104,6 +106,7 @@ const FLEET: ListedShip[] = [
     name: 'old-scout',
     type: 'scout',
     status: 'retired',
+    retiredAt: '2026-09-25T10:00:00.000Z',
     location: null,
     lastSeenAt: null,
     ping: null,
@@ -178,6 +181,17 @@ export const Error: Story = {
 };
 
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
+export const PhoneFiltered: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'crewed', isRetiredShown: true } } },
+};
+
+/** Filters and a search with nothing left: one action clears both. */
+export const NoResultsFiltered: Story = {
+  args: { view: { query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'awaitingCrew' } } },
+};
 
 /** Crewed ships with when each last called: one live, one whose session went quiet. */
 export const LastSeen: Story = {

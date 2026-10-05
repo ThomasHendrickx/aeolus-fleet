@@ -205,6 +205,8 @@ describe('fleetListOutputSchema', () => {
     report: null,
     model: null,
     harness: null,
+    awaitingCrewSince: '2026-09-29T12:00:00.000Z',
+    retiredAt: null,
   };
 
   it('accepts ships with their status and prompt state', () => {
@@ -218,6 +220,7 @@ describe('fleetListOutputSchema', () => {
       startingPrompt: { ...ship.startingPrompt, isClaimed: true },
       location: { kind: 'OTHER', description: 'a ci runner' },
       lastSeenAt: '2026-09-29T12:05:00.000Z',
+      awaitingCrewSince: null,
     };
 
     expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
@@ -251,6 +254,12 @@ describe('fleetListOutputSchema', () => {
     expect(fleetListOutputSchema.parse([reporting])).toEqual([reporting]);
   });
 
+  it('accepts a retired ship with when it was retired', () => {
+    const retired = { ...ship, status: 'retired', startingPrompt: null, awaitingCrewSince: null, retiredAt: '2026-09-30T08:00:00.000Z' };
+
+    expect(fleetListOutputSchema.parse([retired])).toEqual([retired]);
+  });
+
   it('accepts a ship without a prompt out', () => {
     expect(fleetListOutputSchema.safeParse([{ ...ship, startingPrompt: null }]).success).toBe(true);
   });
@@ -278,6 +287,10 @@ describe('fleetListOutputSchema', () => {
     ['a report in an unknown state', { ...ship, report: { state: 'sleeping', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['an unknown scope', { ...ship, scopes: ['fleet:own'] }],
     ['an unknown ping state', { ...ship, ping: { state: 'lost', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null } }],
+    ['a missing time since it awaits crew', { ...ship, awaitingCrewSince: undefined }],
+    ['a missing retirement', { ...ship, retiredAt: undefined }],
+    ['a retirement that is not ISO 8601', { ...ship, status: 'retired', retiredAt: 'yesterday' }],
+    ['a time since it awaits crew that is not ISO 8601', { ...ship, awaitingCrewSince: 'today' }],
   ])('rejects %s', (_label, listed) => {
     expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);
   });

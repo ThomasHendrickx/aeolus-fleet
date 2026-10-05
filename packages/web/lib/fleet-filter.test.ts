@@ -2,6 +2,7 @@ import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import {
+  activeFilterLabels,
   DEFAULT_FLEET_VIEW,
   filterFleet,
   fleetSquadrons,
@@ -27,7 +28,7 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null,
+    report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null,
     ...overrides,
   };
 }
@@ -123,5 +124,20 @@ describe('the view in the URL', () => {
 
   it('falls back to the default for a status it does not know', () => {
     expect(readFleetView(new URLSearchParams('status=sailing')).filters.status).toBe('all');
+  });
+});
+
+describe('activeFilterLabels', () => {
+  it('names none for the default filters', () => {
+    expect(activeFilterLabels(DEFAULT_FLEET_VIEW.filters)).toEqual([]);
+  });
+
+  it('names each filter in force, in the order of the controls', () => {
+    expect(activeFilterLabels({ status: 'awaitingCrew', type: 'reviewer', squadron: 'hemma-feature-a1b2c3', isRetiredShown: true })).toEqual([
+      'Status: Awaiting crew',
+      'Type: reviewer',
+      'Squadron: hemma-feature-a1b2c3',
+      'Retired shown',
+    ]);
   });
 });

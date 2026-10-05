@@ -42,6 +42,7 @@ describe('shipDetailOutputSchema', () => {
     report: null,
     harness: 'claude-code',
     model: { id: 'claude-opus-5-5', statedAt: AT },
+    awaitingCrewSince: null,
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,

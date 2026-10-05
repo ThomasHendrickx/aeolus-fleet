@@ -6,6 +6,7 @@ import { use, useState } from 'react';
 import { ComposeMessage } from '../components/organisms/compose-message';
 import { ConsoleCommands } from '../components/organisms/console-commands';
 import { ConsoleNotices } from '../components/organisms/console-notices';
+import { OverviewMetrics } from '../components/organisms/overview-metrics';
 import { CommissionShip } from '../components/organisms/commission-ship';
 import { FleetLimits } from '../components/organisms/fleet-limits';
 import { FleetOverview } from '../components/organisms/fleet-overview';
@@ -19,6 +20,7 @@ import { useFleetSnapshot } from '../lib/fleet';
 import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
 import { useOpenInboxCount } from '../lib/inbox';
 import { useLiveFleet } from '../lib/live-fleet';
+import { overviewSubtitle } from '../lib/overview-metrics';
 import { useNow } from '../lib/now';
 import { useAttentionCount } from '../lib/needs-attention';
 import { useAccountMenu } from '../lib/account';
@@ -73,7 +75,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   return (
     <ListLayout
       title="Fleet overview"
-      description="Every ship in the fleet, live."
+      description={fleet.data ? overviewSubtitle({ ships: fleet.data, canCommission: access.canManage }) : 'Loading your fleet'}
       primaryAction={
         access.canManage ? (
           <CommissionShip
@@ -104,6 +106,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
     >
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <FleetLimits />
+      <OverviewMetrics />
       <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands

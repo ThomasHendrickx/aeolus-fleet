@@ -78,7 +78,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
-| Know what is sailing right now | Live fleet view: every ship with name, type, location, uptime, last activity and inbox depth |
+| Know what is sailing right now | Live fleet view: every ship with name, type, location, uptime, last activity and inbox depth. Above it, three counts, each opening what it counts: the active ships crewed (agent ships not retired; argo and the viewer ship are the console's own), the ships awaiting crew with the one that has waited longest (since its commission, or since its last session ended: a released ship awaits crew again, with no status of its own), and what needs attention with how long the oldest undeliverable delivery has waited |
 | Put a new ship to sea without setup work | Create a ship in the web app, get a ready-to-paste starting prompt with the ship's id and secret, paste it into any session anywhere |
 | Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue, never a manual recovery step (alerts for silent ships come later, with heartbeats) |
 | Talk to any ship, type or group | Send a message from the web app, exactly as a ship would |
