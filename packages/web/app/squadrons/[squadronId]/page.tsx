@@ -6,18 +6,18 @@ import { use, useState } from 'react';
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { Button } from '../../../components/atoms/button';
 import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
 import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
 import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
-import { GetNewCrewLine } from '../../../components/organisms/get-new-crew-line';
+import { MemberActions } from '../../../components/organisms/member-actions';
 import { SquadronActions } from '../../../components/organisms/squadron-actions';
 import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { SquadronSummary } from '../../../components/molecules/squadron-summary';
 import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
 import { useAccess } from '../../../lib/access';
@@ -41,7 +41,7 @@ import {
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
-import { otherMembersOfRole, roleOptions, squadronActionsOffered } from '../../../lib/squadrons-view';
+import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -144,42 +144,33 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />
       ) : squadron ? (
+        <>
+        <SquadronSummary
+          health={healthCounts(squadron.members)}
+          work={workCounts(squadron.members.map((member) => ships.get(member.shipId)?.report ?? null))}
+          openDeliveries={ships.size === squadron.members.length ? openDeliveries : undefined}
+          keptCount={kept.data?.length}
+        />
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
           ships={ships}
           now={now}
-          renderActions={(member) => {
-            const ship = ships.get(member.shipId);
-            if (!access.canManage || member.crew.status === 'retired' || ship?.status === 'retired') {
-              return null;
-            }
-            return (
-              <>
-                <GetNewCrewLine
-                  squadronId={squadron.id}
-                  member={member}
-                  ship={ship}
-                  template={roles.find((each) => each.role === member.role)?.template}
-                  isPrimary={member.health === 'silent'}
-                  testId="member-new-crew-line"
-                />
-                {isLosingMembersAllowed && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    data-testid="member-remove"
-                    aria-label={`Remove ${member.name} from the squadron`}
-                    onClick={() => {
-                      removeMember.reset();
-                      setRemoving(member);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </>
-            );
-          }}
+          renderActions={(member) => (
+            <MemberActions
+              squadronId={squadron.id}
+              member={member}
+              ship={ships.get(member.shipId)}
+              template={roles.find((each) => each.role === member.role)?.template}
+              canManage={access.canManage}
+              canSend={access.canSend}
+              isRemovable={isLosingMembersAllowed}
+              onRemove={() => {
+                removeMember.reset();
+                setRemoving(member);
+              }}
+            />
+          )}
         />
+        </>
       ) : squadrons.data ? null : (
         <LoadingSkeleton variant="list" label="Loading the members" />
       )}

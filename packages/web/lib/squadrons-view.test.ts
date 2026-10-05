@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount, workCounts } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -276,5 +276,19 @@ describe('the squadron header actions', () => {
       canStandDown: false,
       canForceStandDown: false,
     });
+  });
+});
+
+describe('the work the members report', () => {
+  it('counts each state in the order working, idle, blocked, leaving out members without a report', () => {
+    expect(workCounts([{ state: 'blocked' }, { state: 'working' }, null, { state: 'idle' }, { state: 'idle' }])).toEqual([
+      { state: 'working', count: 1 },
+      { state: 'idle', count: 2 },
+      { state: 'blocked', count: 1 },
+    ]);
+  });
+
+  it('leaves out states no member reports', () => {
+    expect(workCounts([{ state: 'working' }, null])).toEqual([{ state: 'working', count: 1 }]);
   });
 });

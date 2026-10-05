@@ -404,6 +404,7 @@ describe('the first squadron in the console', () => {
     grownSquadronId = squadronId;
     await bringOnStation({ call: await crewed(crewLine), squadronId });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await page.getByTestId('squadron-summary').getByText('0 in member inboxes').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
     await page.getByTestId('squadron-add-member').click();
     await page.getByTestId('add-member-dialog').getByText('Blueprint team v1 has 1 tester; the squadron then has 2.').waitFor();
@@ -421,7 +422,8 @@ describe('the first squadron in the console', () => {
     await page.goto(`/squadrons/${grownSquadronId}`);
     const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
 
-    await added.getByTestId('member-new-crew-line').click();
+    await added.getByTestId('member-actions').first().click();
+    await page.getByTestId('member-new-crew-line').click();
     const confirm = page.getByTestId('new-crew-line-confirm');
     await confirm.getByText('The crew line issued earlier, not claimed yet, stops working.').waitFor();
     await confirm.getByTestId('new-crew-line-confirm-submit').click();
@@ -437,15 +439,21 @@ describe('the first squadron in the console', () => {
     await page.goto(`${web.url}/squadrons/${grownSquadronId}`);
     await expect.poll(() => page.getByTestId('member-row').count(), { timeout: LIVE_TIMEOUT_MS }).toBe(2);
     const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
-    const name = (await added.locator('span.font-medium').first().textContent()) ?? '';
+    const name = (await added.getByTestId('member-name').textContent()) ?? '';
+    // The member's name opens its ship page (#188).
+    await expect(added.getByTestId('member-name').getAttribute('href')).resolves.toMatch(/^\/ships\/shp_/);
 
-    await added.getByTestId('member-remove').click();
+    await added.getByTestId('member-actions').first().click();
+    await page.getByTestId('member-remove').click();
     await page.getByTestId('remove-member-dialog').getByText('Its inbox is empty, so no deliveries are affected.').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('remove-member-confirm').click();
 
     const removed = page.getByTestId('member-row').filter({ hasText: name });
     await removed.getByText('Retired').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await expect(removed.getByTestId('member-remove').count()).resolves.toBe(0);
+    await removed.getByTestId('member-actions').first().click();
+    await page.getByTestId('member-copy-id').waitFor();
+    await expect(page.getByTestId('member-remove').count()).resolves.toBe(0);
+    await page.keyboard.press('Escape');
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor();
   });
 
