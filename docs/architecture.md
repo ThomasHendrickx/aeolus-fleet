@@ -218,6 +218,7 @@ Lint and CI enforce these rules (slice 1b).
 | Migrations | Prisma Migrate, run at startup (`aeolus-server start`) under a Postgres advisory lock so two starting processes never migrate at once; also available as a separate command (`aeolus-server migrate`) |
 | First run | A server command initialises the fleet: it creates the fleet, `argo` and the operator account, asking for email and password. There is no setup page on the public web |
 | Forgotten password | A server command resets the operator password and ends every console session |
+| Signed out | The web app's server checks every console page request's session with `console.session` before it renders, and redirects one without a live session at once: to `AEOLUS_HOSTED_SIGN_IN_URL` when set, to `/sign-in` otherwise. Nothing of the console shows first. When the server does not answer the check, the page renders and the console sends the browser to sign in as soon as a call is refused |
 | Console across hosts | The server sets the session cookie for a configured domain and allows a configured console origin (CORS with credentials), so web and server may run on different hosts under one domain. Unset, the console origin is the public URL's |
 | Time | All timestamps stored as UTC; the web app shows local time |
 | Payloads | Text with a content type (any well-formed media type, passed on untouched; `text/plain` when the sender gives none), at most 64 KB, never parsed by the core. Content travels by reference |
