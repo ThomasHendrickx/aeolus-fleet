@@ -3,7 +3,7 @@
 - Fleet messages with content types `application/vnd.aeolus.trierarch.<name>+json`, by convention. Aeolus reads none of them.
 - Fixed for every dispatcher:
   - the commands describe, want, release and list;
-  - the answers described, wanted, refused, released and list;
+  - the answers described, wanted, refused, released and listed;
   - the notices running, crashed and leaseEnded;
   - the entry core: shipId, harness, workspace, squadron (optional, a squadron id the member checks in with, as a crew line's), firstPrompt (optional, at most 8 KB, first start only) and options.
 - Open: describe returns each harness's options as a JSON Schema, read from local configuration. A want is checked against it; anything unknown is refused, with the field named.

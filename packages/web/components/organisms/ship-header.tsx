@@ -174,7 +174,7 @@ export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }
               <>
                 <Badge variant="type">{ship.type}</Badge>
                 {ship.scopes
-                  .filter((scope) => scope === 'fleet:read' || scope === 'fleet:manage')
+                  .filter((scope) => scope === 'fleet:read' || scope === 'fleet:manage' || scope === 'fleet:crew')
                   .map((scope) => (
                     <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
                       {scope}

@@ -45,7 +45,7 @@ import type {} from '@trpc/server/unstable-core-do-not-import';
 import type { PingStatus } from '../../core/registry/ping-status.js';
 import type { SequencedEvent } from '../../core/shared/events.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 function pingOutputOf(ping: PingStatus | null) {
@@ -81,10 +81,10 @@ export const fleetRouter = router({
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
-  getStartingPrompt: scopedProcedure('fleet:manage')
+  getStartingPrompt: anyScopeProcedure('fleet:manage', 'fleet:crew')
     .meta({
       description: [
-        'Needs fleet:manage. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
+        'Needs fleet:manage or fleet:crew. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
       ].join(' '),
     })
     .input(getStartingPromptInputSchema)
@@ -117,10 +117,10 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: scopedProcedure('fleet:manage')
+  release: anyScopeProcedure('fleet:manage', 'fleet:crew')
     .meta({
       description: [
-        'Needs fleet:manage. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
+        'Needs fleet:manage or fleet:crew. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
         'Never argo; a ship awaiting crew gets a new starting prompt instead.',
       ].join(' '),
     })
@@ -218,10 +218,10 @@ export const fleetRouter = router({
     ),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
-  ship: scopedProcedure('fleet:read')
+  ship: anyScopeProcedure('fleet:read', 'fleet:crew')
     .meta({
       description: [
-        'Needs fleet:read. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+        'Needs fleet:read or fleet:crew. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
       ].join(' '),
     })
     .input(shipInputSchema)

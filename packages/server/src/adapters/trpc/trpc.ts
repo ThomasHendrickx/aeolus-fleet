@@ -347,6 +347,20 @@ export function scopedProcedure(scope: Scope) {
 }
 
 /**
+ * A procedure that needs any one of the given scopes: the few fleet calls a
+ * trierarch makes with `fleet:crew` beside the scope the console uses
+ * (decision 0002). Checked before any use case runs, as for one scope.
+ */
+export function anyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
+  return authenticatedProcedure.use(({ ctx, next }) => {
+    if (!scopes.some((scope) => hasScope(ctx.caller, scope))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
+    }
+    return next();
+  });
+}
+
+/**
  * A procedure for a caller that crews its ship under a lease, with every given
  * scope: argo's inbox, which its console session calls. A console session
  * crews argo under the lease it holds; the use case refuses any ship but argo.

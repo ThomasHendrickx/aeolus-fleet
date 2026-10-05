@@ -28,7 +28,7 @@ export type ReleaseShip = (
  * one unit of work: the secret is invalidated, the lease ends and with it the
  * crew token, and the deliveries the lease held in flight return to pending,
  * their attempts kept. The next crew needs a new starting prompt. The caller's
- * scope (fleet:manage) is checked before this runs.
+ * scope (fleet:manage or fleet:crew) is checked before this runs.
  *
  * Locks in the fleet's order: the ship, then its secret, then its lease. A
  * receive holding the lease makes the release wait, then the release returns

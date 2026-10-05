@@ -72,6 +72,12 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts fleet:crew among the fleet scopes, for a trierarch', () => {
+    const input = { name: 'mac-mini', type: 'trierarch', fleetScopes: ['fleet:crew'], idempotencyKey: 'commission-mac-mini' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
   it.each([
     ['a message scope, which every agent ship has already', ['messages:send']],
     ['an unknown scope', ['fleet:own']],

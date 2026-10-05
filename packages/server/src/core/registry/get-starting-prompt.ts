@@ -28,7 +28,7 @@ export type GetStartingPrompt = (
 /**
  * Use case: a new starting prompt for a ship of the caller's fleet that awaits
  * crew. Its new secret invalidates any earlier one, so at most one is valid; a
- * prompt lost before use costs nothing. The caller's scope (fleet:manage) is
+ * prompt lost before use costs nothing. The caller's scope (fleet:manage or fleet:crew) is
  * checked before this runs.
  *
  * Locks in the fleet's order: the ship first, so concurrent prompts for one

@@ -35,7 +35,7 @@ describe('initialise fleet', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'],
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'],
         note: null,
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,

@@ -45,6 +45,7 @@ interface CommissionDialogProps {
 const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
   'fleet:read': 'Read the fleet',
   'fleet:manage': 'Manage the fleet',
+  'fleet:crew': 'Crew ships',
 };
 
 /** The open dialog's fields: they start empty each time it opens. */
@@ -179,7 +180,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
             />
           </label>
         ))}
-        <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; it cannot be changed later.</p>
+        <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
       </fieldset>
       {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
       <DialogFooter>

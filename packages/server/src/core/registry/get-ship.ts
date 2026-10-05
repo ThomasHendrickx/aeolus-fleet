@@ -21,7 +21,7 @@ export type GetShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Res
 
 /**
  * Use case: one ship of the caller's fleet, retired ships included: they keep
- * their page. The caller's scope (fleet:read) is checked before this runs.
+ * their page. The caller's scope (fleet:read or fleet:crew) is checked before this runs.
  */
 export function createGetShip(deps: { listing: FleetListing }): GetShip {
   return async (caller, { shipId }) => {
