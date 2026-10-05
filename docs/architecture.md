@@ -233,9 +233,9 @@ sequenceDiagram
   F-->>T: receive
   T->>T: check against describe, save entry and message id
   T->>F: ack, then send R: wanted
+  T->>T: save the entry as crewing
   T->>F: getStartingPrompt(shipId) (fleet:crew)
   T->>F: register with the secret, gets the crew token
-  T->>T: save the entry as crewing
   T->>W: git worktree add, write identity (wakeBy=trierarch, squadron?)
   T->>X: start claude in the folder, first prompt /aeolus:wake
   X->>F: whoami, receive, report (its crew token)
