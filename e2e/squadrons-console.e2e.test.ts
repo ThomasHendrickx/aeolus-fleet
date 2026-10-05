@@ -343,6 +343,7 @@ describe('the first squadron in the console', () => {
   it('stands the squadron down: the member stands down, retires, and the squadron is disbanded', async () => {
     const page = await squadronsPage();
     await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
+    await page.getByTestId('squadron-actions').first().click();
     await page.getByTestId('squadron-stand-down').click();
     await page.getByTestId('stand-down-dialog').waitFor();
     await page.getByTestId('stand-down-confirm').click();
@@ -380,7 +381,12 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('form-squadron-preview').click();
     await page.getByTestId('form-squadron-submit').click();
     await page.getByTestId('squadron-header').getByText('Forming').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    // Message to the flagship stays while Forming; the endings sit in the Squadron actions menu.
+    await page.getByTestId('squadron-message-flagship').click();
+    await page.getByTestId('compose-dialog').waitFor();
+    await page.keyboard.press('Escape');
 
+    await page.getByTestId('squadron-actions').first().click();
     await page.getByTestId('squadron-force-stand-down').click();
     await page.getByTestId('force-stand-down-dialog').waitFor();
     await page.getByTestId('force-stand-down-confirm').click();

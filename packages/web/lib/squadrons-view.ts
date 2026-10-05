@@ -240,3 +240,31 @@ const SILENT_AFTER_INTERVALS = 3;
 export function thresholdsText(minutes: number): string {
   return `Late after ${spanText(minutes * LATE_AFTER_INTERVALS)}, silent after ${spanText(minutes * SILENT_AFTER_INTERVALS)}`;
 }
+
+/** What the squadron page offers in its header (canvas, SqSailing and SqMenu). */
+export interface SquadronActionsOffered {
+  canAddMember: boolean;
+  canMessageFlagship: boolean;
+  canStandDown: boolean;
+  canForceStandDown: boolean;
+}
+
+/**
+ * The squadron header's actions for its state and the session's scopes: Add
+ * member while Sailing with a role to add; Message to the flagship while
+ * Forming or Sailing; Stand down while Sailing; Force stand down until
+ * Disbanded. A session that may not manage the fleet (a viewer's) adds and
+ * stands down nothing; one that may not send messages nothing.
+ */
+export function squadronActionsOffered(
+  squadron: Pick<Squadron, 'state'>,
+  session: { canManage: boolean; canSend: boolean; hasRoles: boolean },
+): SquadronActionsOffered {
+  const isSailing = squadron.state === 'sailing';
+  return {
+    canAddMember: session.canManage && isSailing && session.hasRoles,
+    canMessageFlagship: session.canSend && (isSailing || squadron.state === 'forming'),
+    canStandDown: session.canManage && isSailing,
+    canForceStandDown: session.canManage && squadron.state !== 'disbanded',
+  };
+}

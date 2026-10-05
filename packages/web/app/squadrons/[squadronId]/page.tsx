@@ -1,5 +1,6 @@
 'use client';
 
+import { idSchema } from '@aeolus-fleet/common';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
@@ -12,6 +13,7 @@ import { StandDownDialog } from '../../../components/organisms/stand-down-dialog
 import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
 import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
 import { GetNewCrewLine } from '../../../components/organisms/get-new-crew-line';
+import { SquadronActions } from '../../../components/organisms/squadron-actions';
 import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
@@ -39,7 +41,7 @@ import {
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
-import { otherMembersOfRole, roleOptions } from '../../../lib/squadrons-view';
+import { otherMembersOfRole, roleOptions, squadronActionsOffered } from '../../../lib/squadrons-view';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -72,6 +74,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
   const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
+  const [isMessagingFlagship, setIsMessagingFlagship] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const squadron = squadrons.data?.find((each) => each.id === squadronId);
@@ -84,6 +87,8 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
   const removingShip = removing ? ships.get(removing.shipId) : undefined;
   const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
+  // The squadron manager's answer names the flagship by a plain string: parsed, as outside data is.
+  const flagshipId = squadron ? idSchema('ship').safeParse(squadron.flagship.shipId).data : undefined;
   const isLosingMembersAllowed = squadron?.state === 'sailing' || squadron?.state === 'standing-down';
 
   return (
@@ -92,42 +97,26 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
-            // A session that may not manage the fleet (a viewer's) reads the squadron only.
-            access.canManage && squadron && squadron.state !== 'disbanded' ? (
-              <>
-                {squadron.state === 'sailing' && roles.length > 0 && (
-                  <Button
-                    data-testid="squadron-add-member"
-                    onClick={() => {
-                      addMember.reset();
-                      setIsAdding(true);
-                    }}
-                  >
-                    Add member
-                  </Button>
-                )}
-                {squadron.state === 'sailing' && (
-                  <Button
-                    variant="destructive"
-                    data-testid="squadron-stand-down"
-                    onClick={() => {
-                      standDown.reset();
-                      setIsStandingDown(true);
-                    }}
-                  >
-                    Stand down
-                  </Button>
-                )}
-                <Button
-                  data-testid="squadron-force-stand-down"
-                  onClick={() => {
-                    forceStandDown.reset();
-                    setIsForcing(true);
-                  }}
-                >
-                  Force stand down
-                </Button>
-              </>
+            squadron ? (
+              <SquadronActions
+                squadronId={squadron.id}
+                offered={squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })}
+                onAddMember={() => {
+                  addMember.reset();
+                  setIsAdding(true);
+                }}
+                onMessageFlagship={() => {
+                  setIsMessagingFlagship(true);
+                }}
+                onStandDown={() => {
+                  standDown.reset();
+                  setIsStandingDown(true);
+                }}
+                onForceStandDown={() => {
+                  forceStandDown.reset();
+                  setIsForcing(true);
+                }}
+              />
             ) : undefined
           }
         />}
@@ -313,6 +302,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         />
       )}
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
+      {flagshipId && <ComposeMessage isOpen={isMessagingFlagship} onOpenChange={setIsMessagingFlagship} toShipId={flagshipId} />}
       <ConsoleCommands
         isOpen={isSearching}
         onOpenChange={setIsSearching}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
-import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronsFromBlueprint, stationCount } from './squadrons-view';
+import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount } from './squadrons-view';
 
 const REPO = 'example.com/templates';
 const awaitingFacts: Pick<Squadron['members'][number], 'health' | 'checkInMinutes' | 'crew'> = {
@@ -243,5 +243,38 @@ describe('the late and silent thresholds', () => {
     expect(thresholdsText(10)).toBe('Late after 10 min, silent after 30 min');
     expect(thresholdsText(30)).toBe('Late after 30 min, silent after 1 h 30 min');
     expect(thresholdsText(60)).toBe('Late after 1 h, silent after 3 h');
+  });
+});
+
+describe('the squadron header actions', () => {
+  const operator = { canManage: true, canSend: true, hasRoles: true };
+
+  it('offers everything while Sailing to the operator', () => {
+    expect(squadronActionsOffered({ state: 'sailing' }, operator)).toEqual({ canAddMember: true, canMessageFlagship: true, canStandDown: true, canForceStandDown: true });
+  });
+
+  it('offers Message to the flagship and Force stand down while Forming, not Add member or Stand down', () => {
+    expect(squadronActionsOffered({ state: 'forming' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: true, canStandDown: false, canForceStandDown: true });
+  });
+
+  it('offers only Force stand down while Standing down', () => {
+    expect(squadronActionsOffered({ state: 'standing-down' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: false, canStandDown: false, canForceStandDown: true });
+  });
+
+  it('offers nothing once Disbanded', () => {
+    expect(squadronActionsOffered({ state: 'disbanded' }, operator)).toEqual({ canAddMember: false, canMessageFlagship: false, canStandDown: false, canForceStandDown: false });
+  });
+
+  it('offers no Add member without a role to add', () => {
+    expect(squadronActionsOffered({ state: 'sailing' }, { ...operator, hasRoles: false }).canAddMember).toBe(false);
+  });
+
+  it('offers a viewer nothing: it neither manages the fleet nor sends', () => {
+    expect(squadronActionsOffered({ state: 'sailing' }, { canManage: false, canSend: false, hasRoles: true })).toEqual({
+      canAddMember: false,
+      canMessageFlagship: false,
+      canStandDown: false,
+      canForceStandDown: false,
+    });
   });
 });
