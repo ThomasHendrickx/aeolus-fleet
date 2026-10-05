@@ -25,6 +25,8 @@ import { useAccountMenu } from '../../../lib/account';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
 import { useHasSquadrons } from '../../../lib/squadrons';
+import { useSquadrons } from '../../../lib/squadrons-api';
+import { shipsInSquadrons } from '../../../lib/squadrons-view';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -64,6 +66,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
+  const squadrons = useSquadrons();
   const inboxCount = useOpenInboxCount();
   const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
@@ -80,11 +83,20 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   };
 
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND';
+  // A ship in a squadron sits below it: Squadrons, then its squadron.
+  const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
 
   return (
     <DetailLayout
       title={ship.data?.name ?? 'Ship'}
-      parent={{ href: '/', label: 'Fleet overview' }}
+      parents={
+        inSquadron
+          ? [
+              { href: '/squadrons', label: 'Squadrons' },
+              { href: `/squadrons/${inSquadron.squadronId}`, label: inSquadron.squadronId },
+            ]
+          : [{ href: '/', label: 'Fleet overview' }]
+      }
       live={liveFleet.live}
       nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
       onCompose={

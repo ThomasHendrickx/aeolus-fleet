@@ -454,6 +454,18 @@ describe('the first squadron in the console', () => {
     await page.waitForURL(new RegExp(`/squadrons/${grownSquadronId}$`));
   });
 
+  it("links every level above a member's ship page in the breadcrumb: Squadrons, then its squadron", async () => {
+    const page = await squadronsPage();
+    await page.goto(`/squadrons/${grownSquadronId}`);
+    await page.getByTestId('member-row').first().getByTestId('member-name').click();
+
+    const breadcrumb = page.getByTestId('header-breadcrumb');
+    await breadcrumb.getByRole('link', { name: grownSquadronId }).click({ timeout: LIVE_TIMEOUT_MS });
+    await page.waitForURL(new RegExp(`/squadrons/${grownSquadronId}$`));
+    await breadcrumb.getByRole('link', { name: 'Squadrons' }).click();
+    await page.waitForURL(/\/squadrons$/);
+  });
+
   it('asks before a new crew line, saying its unclaimed one stops working, then shows the new one once', async () => {
     const page = await squadronsPage();
     await page.goto(`/squadrons/${grownSquadronId}`);

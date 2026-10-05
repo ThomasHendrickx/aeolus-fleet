@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
 import type { AccountMenuProps } from '../organisms/account-menu';
-import { Header } from '../organisms/header';
+import { Header, type BreadcrumbLevel } from '../organisms/header';
 import { Sidebar, type SidebarDestination } from '../organisms/sidebar';
 import { TabBar } from '../organisms/tab-bar';
 import { TopBar } from '../organisms/top-bar';
@@ -10,8 +10,8 @@ import { TopBar } from '../organisms/top-bar';
 interface DetailLayoutProps {
   /** The page's name: the end of the desktop breadcrumb and the phone TopBar title. */
   title: string;
-  /** Where the page sits, before its name: "Fleet overview". */
-  parent: { href: string; label: string };
+  /** Every level above the page, the top first: "Squadrons", then a squadron. The phone TopBar's back link goes to the last. */
+  parents: readonly [BreadcrumbLevel, ...BreadcrumbLevel[]];
   /** ShipHeader. */
   header: ReactNode;
   /** The Tabs and their content. */
@@ -41,7 +41,7 @@ interface DetailLayoutProps {
  */
 export function DetailLayout({
   title,
-  parent,
+  parents,
   header,
   children,
   sheet,
@@ -63,9 +63,9 @@ export function DetailLayout({
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
-        <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} onSearch={onSearch} />
+        <Header breadcrumb={title} parents={parents} live={live} onCompose={onCompose} onSearch={onSearch} />
         {banner}
-        <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
+        <TopBar title={title} live={live} back={parents[parents.length - 1] ?? parents[0]} />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           {header}
           {children}
