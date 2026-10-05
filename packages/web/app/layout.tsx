@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
+import { analyticsAdapterFrom } from '../lib/analytics-adapter';
 import { serverInternalUrlFrom, serverUrlFrom } from '../lib/server-url';
 import { hostedAccountUrlFrom } from '../lib/hosted-account-url';
 import { squadronsUrlFrom } from '../lib/squadrons-url';
@@ -31,7 +32,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript(theme) }} />
       </head>
       <body>
-        <Providers serverUrl={serverUrl} isSquadronsConfigured={squadronsUrlFrom(process.env) !== undefined} hostedAccountUrl={hostedAccountUrlFrom(process.env)}>
+        <Providers serverUrl={serverUrl} isSquadronsConfigured={squadronsUrlFrom(process.env) !== undefined} hostedAccountUrl={hostedAccountUrlFrom(process.env)}
+          isAnalyticsOn={analyticsAdapterFrom(process.env) !== undefined}
+        >
           {children}
         </Providers>
       </body>

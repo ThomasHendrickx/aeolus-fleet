@@ -1,10 +1,11 @@
 import type { consoleGuideOutputSchema, GuideStep } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { z } from 'zod';
 
 import { showToast } from '../components/atoms/toast';
+import { useAnalytics } from './analytics-client';
 import { useTRPC } from './trpc';
 
 type ConsoleGuide = z.output<typeof consoleGuideOutputSchema>;
@@ -67,6 +68,25 @@ export function useGuideAnchor(step: GuideStep | undefined): Element | null {
 }
 
 /**
+ * Tracks tour_started when the guide shows its first step after not showing:
+ * by itself on the session's first page, or from Take the tour. Called once,
+ * where the guide shows.
+ */
+export function useTourStarted(view: GuideView | undefined): void {
+  const { track } = useAnalytics();
+  const wasShowing = useRef(false);
+  const isShowing = view !== undefined;
+  const isAtFirstStep = view?.index === 0;
+  // The analytics provider is an outside system the guide tells it opened.
+  useEffect(() => {
+    if (isShowing && !wasShowing.current && isAtFirstStep) {
+      track({ name: 'tour_started' });
+    }
+    wasShowing.current = isShowing;
+  }, [isShowing, isAtFirstStep, track]);
+}
+
+/**
  * The guide this console session shows (decision 0024) and how to move in
  * it: Back and Next keep the step on the server and go to its page; Skip and
  * Finish hide it for the session; Take the tour opens it at the first step
@@ -99,8 +119,10 @@ export function useConsoleGuide(): {
       onSettled: () => queryClient.invalidateQueries({ queryKey }),
     }),
   );
+  const { track } = useAnalytics();
   const steps = guide.data?.steps ?? [];
   const at = guide.data?.progress.step ?? 0;
+  const view = guideViewOf(guide.data ?? undefined);
   const moveTo = (progress: GuideProgress) => {
     record.mutate(progress);
     const step = steps[progress.step];
@@ -109,19 +131,26 @@ export function useConsoleGuide(): {
     }
   };
 
+  const reach = (step: number) => {
+    moveTo({ step, state: 'open' });
+    track({ name: 'tour_step_reached', step: step + 1, total: steps.length });
+  };
+
   return {
-    view: guideViewOf(guide.data ?? undefined),
+    view,
     onBack: () => {
-      moveTo({ step: Math.max(at - 1, 0), state: 'open' });
+      reach(Math.max(at - 1, 0));
     },
     onNext: () => {
-      moveTo({ step: Math.min(at + 1, steps.length - 1), state: 'open' });
+      reach(Math.min(at + 1, steps.length - 1));
     },
     onSkip: () => {
       moveTo({ step: at, state: 'skipped' });
+      track({ name: 'tour_skipped', step: at + 1 });
     },
     onFinish: () => {
       moveTo({ step: at, state: 'finished' });
+      track({ name: 'tour_finished' });
     },
     onTakeTour: steps.length === 0 ? undefined : () => {
       moveTo({ step: 0, state: 'open' });
