@@ -1,13 +1,16 @@
-import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
+import type { Notice } from '../../src/core/identity/notice.js';
 import type { OperatorAccount } from '../../src/core/identity/operator-account.js';
 import type { SignInTicket } from '../../src/core/identity/sign-in-ticket.js';
 import type {
   AuthenticatedShip,
   CallerLookup,
   ConsoleSessionRepository,
+  NoticeDismissals,
+  NoticeRepository,
   SignInTicketRepository,
   CredentialRepository,
   OperatorAccountLookup,
@@ -72,6 +75,9 @@ export interface InMemoryState {
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
   signInTickets: SignInTicket[];
+  /** The installation's console notices (decision 0023), in its order. */
+  installationNotices: Notice[];
+  noticeDismissals: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }[];
   messages: Message[];
   deliveries: Delivery[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
@@ -143,6 +149,9 @@ export interface InMemoryCore {
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
   history: ShipHistory;
+  /** The installation's notices and each console session's dismissals. */
+  notices: NoticeRepository;
+  noticeDismissals: NoticeDismissals;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
@@ -165,6 +174,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     operatorAccounts: [],
     consoleSessions: [],
     signInTickets: [],
+    installationNotices: [],
+    noticeDismissals: [],
     messages: [],
     deliveries: [],
     deliveryReads: [],
@@ -787,6 +798,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
+      lastViewedAt:
+        state.consoleSessions
+          .filter((session) => session.shipId === held.id && session.leaseId === null)
+          .map((session) => session.lastUsedAt)
+          .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
     };
   };
   const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {
@@ -1076,7 +1092,28 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, clock, ids, hasher, passwords, random, wakeups };
+  const notices: NoticeRepository = {
+    read: () => Promise.resolve(structuredClone(state.installationNotices)),
+    replace: (replacing) => {
+      state.installationNotices.splice(0, state.installationNotices.length, ...structuredClone(replacing));
+      return Promise.resolve();
+    },
+  };
+  const noticeDismissals: NoticeDismissals = {
+    dismissed: ({ fleetId, consoleSessionId }) =>
+      Promise.resolve(state.noticeDismissals.filter((held) => held.fleetId === fleetId && held.consoleSessionId === consoleSessionId).map((held) => held.noticeId)),
+    dismiss: (dismissal) => {
+      const isHeld = state.noticeDismissals.some(
+        (held) => held.fleetId === dismissal.fleetId && held.consoleSessionId === dismissal.consoleSessionId && held.noticeId === dismissal.noticeId,
+      );
+      if (!isHeld) {
+        state.noticeDismissals.push({ ...dismissal });
+      }
+      return Promise.resolve();
+    },
+  };
+
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1094,8 +1131,9 @@ const FLEET_TABLES = [
   'leaseReports',
   'events',
   'notices',
+  'noticeDismissals',
   'fleetLimitSettings',
-] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings'>[];
+] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices'>[];
 
 const TABLES = [
   'fleets',

@@ -11,6 +11,7 @@ const meta = {
     inboxCount: 3,
     attentionCount: 2,
     account: {
+      kind: 'operator',
       email: 'operator@example.com',
       session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
       theme: 'system',

@@ -20,14 +20,16 @@ interface DetailLayoutProps {
   sheet?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation. */
-  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean };
+  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation; hasSettings: whether Settings is offered (squadrons on and a session that manages the fleet). */
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean; hasSettings?: boolean };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
   onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
+  /** The installation's notices for this session, above the page on desktop and phone. */
+  banner?: ReactNode;
 }
 
 /**
@@ -48,6 +50,7 @@ export function DetailLayout({
   onCompose,
   onSearch,
   account,
+  banner,
 }: DetailLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -56,10 +59,12 @@ export function DetailLayout({
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
         hasSquadrons={nav.hasSquadrons}
+        hasSettings={nav.hasSettings}
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={`${parent.label} / ${title}`} live={live} onCompose={onCompose} onSearch={onSearch} />
+        {banner}
         <TopBar title={title} live={live} back={{ href: parent.href, label: parent.label }} />
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           {header}

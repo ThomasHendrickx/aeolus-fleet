@@ -1,5 +1,6 @@
 import type { ListedShip, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
+import type { Access } from './access';
 import type { Squadron, SquadronState } from './squadrons-api';
 import { blueprintPath, type BlueprintChoice } from './squadrons-view';
 
@@ -49,6 +50,18 @@ export function paletteGroups(items: readonly PaletteItem[], query: string): Pal
     { key: 'pages', label: 'Go to', items: kept.filter((item) => item.kind === 'page') },
   ];
   return groups.filter((group) => group.items.length > 0);
+}
+
+/** What each action needs the console session to hold: Compose sends, Commission ship and Form squadron manage the fleet. */
+const ACTION_NEEDS = { compose: 'canSend', commission: 'canManage', 'form-squadron': 'canManage' } as const;
+
+/**
+ * The items the console session may use: every ship, squadron, blueprint and
+ * page, and only the actions it holds the scope for, so a viewer's palette
+ * searches and goes to, and offers no action (lib/access).
+ */
+export function allowedPaletteItems(items: readonly PaletteItem[], access: Pick<Access, 'canManage' | 'canSend'>): PaletteItem[] {
+  return items.filter((item) => item.kind !== 'action' || access[ACTION_NEEDS[item.id]]);
 }
 
 /** The key an item goes by in the list: its kind and id, unique across groups. */

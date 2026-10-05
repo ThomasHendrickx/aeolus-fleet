@@ -5,7 +5,8 @@ import { AccountMenu, AccountMenuSheet, type AccountMenuAccount } from './accoun
 
 const NOW = new Date('2026-10-01T14:30:00');
 
-const ACCOUNT: AccountMenuAccount = {
+const ACCOUNT: Extract<AccountMenuAccount, { kind: 'operator' }> = {
+  kind: 'operator',
   email: 'operator@example.com',
   session: { device: 'Mac · Chrome', since: new Date('2026-10-01T08:02:00').toISOString() },
   theme: 'system',
@@ -64,6 +65,14 @@ export const Loading: Story = {
 /** Hosted: Your account, under who is signed in, opens the hosting service's account page. */
 export const Hosted: Story = {
   args: { accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+  },
+};
+
+/** A viewer session (decision 0022): it reads the fleet only, has no email and no theme, and keeps Sign out. */
+export const Viewer: Story = {
+  args: { account: { kind: 'viewer', session: { device: 'Mac · Safari', since: new Date('2026-10-01T14:10:00').toISOString() } }, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('account-menu'));
   },

@@ -7,10 +7,12 @@ import { useState } from 'react';
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { NeedsAttentionList } from '../../components/organisms/needs-attention-list';
 import { GetNewCrewLine } from '../../components/organisms/get-new-crew-line';
 import { SilentMembers } from '../../components/organisms/silent-members';
 import { ListLayout } from '../../components/templates/list-layout';
+import { useAccess } from '../../lib/access';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
 import {
@@ -54,6 +56,7 @@ export default function NeedsAttentionPage() {
   const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
   const attentionCount = useAttentionCount();
   const inboxCount = useOpenInboxCount();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -100,8 +103,8 @@ export default function NeedsAttentionPage() {
       onRetry={() => {
         void attention.refetch();
       }}
-      onResend={onResend}
-      onDismiss={onDismiss}
+      onResend={access.canManage ? onResend : undefined}
+      onDismiss={access.canManage ? onDismiss : undefined}
       onOpen={(delivery) => {
         router.push(messagePathOf(delivery));
       }}
@@ -115,14 +118,19 @@ export default function NeedsAttentionPage() {
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {silent.length > 0 ? (
         <div className="flex flex-col gap-6">
@@ -140,9 +148,13 @@ export default function NeedsAttentionPage() {
               members={silent}
               ships={shipsById}
               now={now}
-              renderAction={({ squadronId, member }) => (
-                <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
-              )}
+              renderAction={
+                access.canManage
+                  ? ({ squadronId, member }) => (
+                      <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
+                    )
+                  : undefined
+              }
             />
             <p className="text-meta text-muted-foreground">
               A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.

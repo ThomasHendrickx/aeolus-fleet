@@ -2,6 +2,7 @@ import type {
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
+  NoticeDismissals,
   OperatorAccountLookup,
   OperatorAccountRepository,
   SignInTicketRepository,
@@ -212,6 +213,16 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
     consoleSessionEnding: async (tokenHash) => {
       const session = await db.consoleSession.findUnique({ where: { tokenHash }, select: { endReason: true } });
       return session?.endReason ?? undefined;
+    },
+  };
+}
+
+export function createPrismaNoticeDismissals(db: Db): NoticeDismissals {
+  return {
+    dismissed: async ({ fleetId, consoleSessionId }) =>
+      (await db.noticeDismissal.findMany({ where: { fleetId, consoleSessionId }, select: { noticeId: true } })).map(({ noticeId }) => noticeId),
+    dismiss: async ({ fleetId, consoleSessionId, noticeId, at }) => {
+      await db.noticeDismissal.createMany({ data: [{ fleetId, consoleSessionId, noticeId, dismissedAt: at }], skipDuplicates: true });
     },
   };
 }

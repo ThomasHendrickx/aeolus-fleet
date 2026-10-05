@@ -4,9 +4,11 @@ import { useState } from 'react';
 
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { SquadronsConnection } from '../../components/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../components/organisms/template-repositories';
 import { ListLayout } from '../../components/templates/list-layout';
+import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const addRepository = useAddRepository();
   const removeRepository = useRemoveRepository();
   const refreshCatalogue = useRefreshCatalogue();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -42,14 +45,19 @@ export default function SettingsPage() {
       title="Settings"
       description="How this installation runs. Only argo, the operator, sees this page."
       live={liveFleet.live}
-      nav={{ active: 'settings', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'settings', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {hasSquadrons && (
         <SquadronsConnection

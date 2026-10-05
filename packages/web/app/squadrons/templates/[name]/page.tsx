@@ -9,8 +9,10 @@ import { SquadronsNotConnected } from '../../../../components/molecules/squadron
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { ComposeMessage } from '../../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../../../components/organisms/console-notices';
 import { TemplateView } from '../../../../components/organisms/template-view';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
+import { useAccess } from '../../../../lib/access';
 import { useAccountMenu } from '../../../../lib/account';
 import { useOpenInboxCount } from '../../../../lib/inbox';
 import { useLiveFleet } from '../../../../lib/live-fleet';
@@ -41,6 +43,7 @@ export default function TemplatePage({
   const liveFleet = useLiveFleet();
   const catalogue = useCatalogue();
   const connection = useSquadronsConnection();
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -56,14 +59,19 @@ export default function TemplatePage({
       parent={{ href: '/squadrons?tab=templates', label: 'Templates' }}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
-      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />

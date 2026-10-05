@@ -1,7 +1,8 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleetWithViewer, hostedFleet, identityUseCases, openLeaseOf } from '../../../test/support/core-fixtures.js';
+import { crewAboard, historyUseCases, hostedFleetWithViewer, hostedFleet, identityUseCases, messagingUseCases, modelOf, openLeaseOf, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { newKey } from '../../../test/support/keys.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { SignedIn } from './sign-in.js';
@@ -153,5 +154,41 @@ describe('what a viewer session may do', () => {
 
     expect(core.state.consoleSessions.find((session) => session.id === consoleSessionId)).toMatchObject({ endReason: 'signedOut' });
     expect(openLeaseOf(core, argoId)).toBe(leaseId);
+  });
+});
+
+describe('what a viewer session reads', () => {
+  it("reads argo's inbox, as the operator sees it", async () => {
+    const operator = await operating();
+    const { shipId } = unwrap(await registryUseCases(core).commissionShip(operator.caller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const scout = crewAboard(core, { fleetId, shipId });
+    unwrap(await messagingUseCases(core).sendMessage(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: argoId }, payload: 'Run 71 passed', idempotencyKey: newKey() }));
+    const viewer = await viewing();
+
+    const seen = await historyUseCases(core).readInbox(viewer.caller, { filter: 'all' });
+
+    expect(seen.map((entry) => entry.message.payload)).toEqual(['Run 71 passed']);
+    expect(seen).toEqual(await historyUseCases(core).readInbox(operator.caller, { filter: 'all' }));
+  });
+
+  it('shows the viewer ship last seen when its most recent viewer session was used, with no device', async () => {
+    const first = await viewing();
+    core.clock.advance(10 * 60 * 1000);
+    await viewing('Windows · Edge');
+    core.clock.advance(5 * 60 * 1000);
+    const usedAt = core.clock.now();
+    await useCases.authenticate.byConsoleSession(first.token);
+
+    const listed = (await registryUseCases(core).listFleet(first.caller)).find((ship) => ship.id === viewerId);
+
+    expect(listed).toMatchObject({ status: 'crewed', lastSeenAt: usedAt, location: null });
+  });
+
+  it('shows the viewer ship never seen before any viewer session', async () => {
+    const operator = await operating();
+
+    const listed = (await registryUseCases(core).listFleet(operator.caller)).find((ship) => ship.id === viewerId);
+
+    expect(listed).toMatchObject({ lastSeenAt: null });
   });
 });

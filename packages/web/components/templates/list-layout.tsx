@@ -20,14 +20,16 @@ interface ListLayoutProps {
   toolbar?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation. */
-  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean };
+  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation; hasSettings: whether Settings is offered (squadrons on and a session that manages the fleet). */
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean; hasSettings?: boolean };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
   onSearch?: () => void;
   /** The signed-in operator, for the AccountMenu: the Sidebar's on desktop, the root TopBar's on phone. */
   account: AccountMenuProps;
+  /** The installation's notices for this session, above the page on desktop and phone. */
+  banner?: ReactNode;
   children: ReactNode;
 }
 
@@ -49,6 +51,7 @@ export function ListLayout({
   onCompose,
   onSearch,
   account,
+  banner,
   children,
 }: ListLayoutProps) {
   return (
@@ -58,10 +61,12 @@ export function ListLayout({
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
         hasSquadrons={nav.hasSquadrons}
+        hasSettings={nav.hasSettings}
         {...account}
       />
       <div className="flex min-w-0 grow flex-col">
         <Header breadcrumb={title} live={live} onCompose={onCompose} onSearch={onSearch} />
+        {banner}
         <TopBar
           title={title}
           live={live}

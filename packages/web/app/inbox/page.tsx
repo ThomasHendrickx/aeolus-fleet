@@ -7,6 +7,7 @@ import { use, useState } from 'react';
 import { showToast } from '../../components/atoms/toast';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { OperatorInbox } from '../../components/organisms/operator-inbox';
 import { ListLayout } from '../../components/templates/list-layout';
 import {
@@ -19,6 +20,7 @@ import {
   useMarkRead,
   useReply,
 } from '../../lib/inbox';
+import { useAccess } from '../../lib/access';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
@@ -59,6 +61,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
   const accountMenu = useAccountMenu(now);
   const hasSquadrons = useHasSquadrons();
   useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
@@ -83,16 +86,22 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       title="Operator inbox"
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
-      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons }}
+      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
       account={accountMenu}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      banner={<ConsoleNotices />}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
     >
       <OperatorInbox
+        isReadOnly={!access.canReceive}
         messages={messagesFor(all, filter)}
         filter={filter}
         onFilterChange={(next) => {
@@ -103,7 +112,8 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
         onSelect={(deliveryId) => {
           show({ filter, deliveryId });
           const chosen = all.find((message) => message.deliveryId === deliveryId);
-          if (deliveryId !== undefined && chosen?.readAt === null) {
+          // A read-only session (a viewer's) marks nothing read: opening a message changes nothing.
+          if (deliveryId !== undefined && chosen?.readAt === null && access.canReceive) {
             markRead.mutate({ deliveryId, isRead: true });
           }
         }}

@@ -25,7 +25,8 @@ interface SquadronTableProps {
   /** Why loading failed, as squadrons said it. */
   error?: string;
   onRetry: () => void;
-  onForm: () => void;
+  /** Starts forming; left out for a session that may not manage the fleet (a viewer's), whose empty state then offers nothing. */
+  onForm?: () => void;
   /** Search and filters, kept by the page in the URL. */
   view: SquadronView;
   onViewChange: (view: SquadronView) => void;
@@ -67,9 +68,11 @@ export function SquadronTable({ squadrons, state, hasBlueprints, error, onRetry,
         title="No squadrons yet"
         description="A squadron is a team of ships formed from a blueprint: a planner, implementers, a tester. You start each member's session by hand with its crew line."
         action={
-          <Button variant="primary" icon={<Plus aria-hidden />} onClick={onForm} data-testid="squadrons-form-first">
-            Form your first squadron
-          </Button>
+          onForm && (
+            <Button variant="primary" icon={<Plus aria-hidden />} onClick={onForm} data-testid="squadrons-form-first">
+              Form your first squadron
+            </Button>
+          )
         }
       />
     ) : (

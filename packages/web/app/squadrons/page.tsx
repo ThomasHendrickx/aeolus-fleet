@@ -10,10 +10,12 @@ import { BlueprintTable } from '../../components/organisms/blueprint-table';
 import { TemplateTable } from '../../components/organisms/template-table';
 import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { FormSquadronDialog } from '../../components/organisms/form-squadron-dialog';
 import { SquadronTable } from '../../components/organisms/squadron-table';
 import { ListLayout } from '../../components/templates/list-layout';
 import { SquadronsNotConnected } from '../../components/molecules/squadrons-not-connected';
+import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
@@ -62,6 +64,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const catalogue = useCatalogue();
   const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -81,21 +84,27 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         inboxCount,
         attentionCount,
         hasSquadrons,
+        hasSettings: hasSquadrons && access.canManage,
       }}
       primaryAction={
-        blueprints.length > 0 ? (
+        access.canManage && blueprints.length > 0 ? (
           <Button variant="primary" icon={<Plus aria-hidden />} onClick={openForm} data-testid="squadrons-form">
             Form squadron
           </Button>
         ) : undefined
       }
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />
@@ -127,7 +136,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         onRetry={() => {
           void squadrons.refetch();
         }}
-        onForm={openForm}
+        onForm={access.canManage ? openForm : undefined}
         view={view}
         onViewChange={changeView}
       />

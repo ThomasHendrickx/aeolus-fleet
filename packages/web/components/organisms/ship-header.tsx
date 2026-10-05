@@ -69,7 +69,7 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind === 'operator' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
+          {ship.kind !== 'agent' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">

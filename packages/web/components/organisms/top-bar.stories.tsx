@@ -43,6 +43,7 @@ export const WithAccount: Story = {
     ),
     account: {
       account: {
+        kind: 'operator',
         email: 'operator@example.com',
         session: { device: 'iPhone · Safari', since: '2026-10-01T11:10:00.000Z' },
         theme: 'system',

@@ -22,8 +22,9 @@ interface NeedsAttentionListProps {
   state: 'loading' | 'error' | 'ready';
   /** The error state's Try again. */
   onRetry: () => void;
-  onResend: (deliveryId: DeliveryId) => void;
-  onDismiss: (deliveryId: DeliveryId) => void;
+  /** Resend and Dismiss: left out for a session that may not manage the fleet (a viewer's), whose rows offer neither. */
+  onResend?: (deliveryId: DeliveryId) => void;
+  onDismiss?: (deliveryId: DeliveryId) => void;
   /** Opens the message: a click on the row's message, or the phone card's chevron. */
   onOpen: (delivery: UndeliverableDelivery) => void;
   /** Deliveries whose resend or dismiss is in flight: their buttons are disabled and show pending. */
@@ -96,7 +97,10 @@ function Actions({
 }) {
   const isPending = pendingIds.has(delivery.deliveryId);
   const isPhone = layout === 'phone';
-  const resend = canResend(delivery) ? (
+  if (onResend === undefined && onDismiss === undefined) {
+    return null;
+  }
+  const resend = onResend !== undefined && canResend(delivery) ? (
     <Button
       size={isPhone ? 'touch' : 'sm'}
       variant={isPhone ? 'primary' : 'secondary'}
@@ -112,7 +116,7 @@ function Actions({
       Resend
     </Button>
   ) : null;
-  const dismiss = (
+  const dismiss = onDismiss === undefined ? null : (
     <Button
       size={isPhone ? 'touch' : 'sm'}
       variant={isPhone ? 'secondary' : 'ghost'}

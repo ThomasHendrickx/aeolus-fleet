@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import { paletteItemsOf } from '../../lib/command-palette';
+import { useAccess } from '../../lib/access';
+import { allowedPaletteItems, paletteItemsOf } from '../../lib/command-palette';
 import { useFleetSnapshot } from '../../lib/fleet';
 import { useHasSquadrons } from '../../lib/squadrons';
 import { useCatalogue, useSquadrons } from '../../lib/squadrons-api';
@@ -31,6 +32,7 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
   const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
+  const access = useAccess();
 
   useEffect(() => {
     const openOnShortcut = (event: KeyboardEvent) => {
@@ -49,9 +51,12 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
     <CommandPalette
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      items={paletteItemsOf(
-        fleet.data ?? [],
-        hasSquadrons ? { squadrons: squadrons.data ?? [], blueprints: blueprintChoices(catalogue.data ?? { blueprints: [] }) } : undefined,
+      items={allowedPaletteItems(
+        paletteItemsOf(
+          fleet.data ?? [],
+          hasSquadrons ? { squadrons: squadrons.data ?? [], blueprints: blueprintChoices(catalogue.data ?? { blueprints: [] }) } : undefined,
+        ),
+        access,
       )}
       onSelect={(item) => {
         switch (item.kind) {

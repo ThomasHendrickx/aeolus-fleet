@@ -14,6 +14,7 @@ import {
   useRenameShip,
   useRetireShip,
 } from '../../lib/fleet';
+import { useAccess, type Access } from '../../lib/access';
 import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
 import { useSquadronsConnection } from '../../lib/squadrons';
@@ -57,6 +58,8 @@ interface ShipAction {
   isPrimary?: boolean;
   /** Menus only: Message, Copy ship id and Open inbox are not buttons on the ship page. */
   isMenuOnly?: boolean;
+  /** What the session must be allowed to offer it; none for what only reads (Copy ship id, Open inbox, Open squadron). */
+  needs?: 'canManage' | 'canSend';
 }
 
 /** Where a crewed ship's session runs, as the release dialog names it. */
@@ -91,8 +94,14 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * connected until its list first answers, only Message, Copy ship id and Ping
  * show, so a member is never offered Retire; a refetch never hides the
  * actions again.
+ *
+ * Each action shows only when the console session holds its scope (lib/access):
+ * a viewer session, which reads only, is offered Copy ship id, Open inbox and
+ * Open squadron. The viewer ship itself offers only Copy ship id: it is never
+ * released, retired, renamed or pinged, and receives nothing (decision 0022).
  */
 export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; layout?: ShipActionsLayout }) {
+  const access = useAccess();
   const [dialog, setDialog] = useState<OpenDialog>();
   const [isComposing, setIsComposing] = useState(false);
   const [replacedPrompt, setReplacedPrompt] = useState<{ issuedAt: string } | undefined>(undefined);
@@ -173,14 +182,14 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
     }
   };
   const isFlagship = squadron?.flagship.shipId === ship.id;
-  const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', icon: SquarePen, testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true };
+  const message: ShipAction = { key: 'message', label: 'Message', menuLabel: 'Message this ship…', icon: SquarePen, testId: 'fleet-ship-message', onSelect: () => { setIsComposing(true); }, isMenuOnly: true, needs: 'canSend' };
   const copy: ShipAction = { key: 'copy', label: 'Copy ship id', menuLabel: 'Copy ship id', icon: Copy, testId: 'fleet-ship-copy-id', onSelect: () => { void copyId(); }, isMenuOnly: true };
   // Only a session can answer a ping: none is offered while the ship awaits crew.
-  const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', icon: Radio, testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending }] : [];
+  const pings: ShipAction[] = canPing(ship) ? [{ key: 'ping', label: 'Ping', menuLabel: 'Ping', icon: Radio, testId: 'fleet-ship-ping', onSelect: ping, isLoading: pingShip.isPending, needs: 'canManage' }] : [];
   const actions: ShipAction[] = [];
   if (ship.kind === 'operator') {
     actions.push({ key: 'inbox', label: 'Open inbox', menuLabel: 'Open inbox', icon: Inbox, testId: 'fleet-ship-open-inbox', href: '/inbox', isMenuOnly: true }, copy);
-  } else if (ship.status === 'retired') {
+  } else if (ship.status === 'retired' || ship.kind === 'viewer') {
     actions.push(copy);
   } else if (isFlagship) {
     actions.push({ key: 'squadron', label: 'Open squadron', menuLabel: 'Open squadron', icon: Shapes, testId: 'fleet-ship-open-squadron', href: `/squadrons/${squadron.id}` });
@@ -194,35 +203,36 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
       icon: KeyRound,
       testId: 'fleet-ship-new-crew-line',
       onSelect: crewLine.start,
+      needs: 'canManage',
       isDisabled: !crewLine.isReady,
       isPrimary: member.health === 'silent',
     });
     if (ship.status === 'crewed') {
-      actions.push({ key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release') });
+      actions.push({ key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release'), needs: 'canManage' });
     }
     if (squadron.state === 'sailing' || squadron.state === 'standing-down') {
-      actions.push({ key: 'remove', label: 'Remove from squadron', menuLabel: 'Remove from squadron…', icon: UserMinus, testId: 'fleet-ship-remove', onSelect: open('remove'), isDestructive: true });
+      actions.push({ key: 'remove', label: 'Remove from squadron', menuLabel: 'Remove from squadron…', icon: UserMinus, testId: 'fleet-ship-remove', onSelect: open('remove'), isDestructive: true, needs: 'canManage' });
     }
   } else {
     actions.push(message, copy);
     if (ship.status === 'awaitingCrew') {
-      actions.push({ key: 'prompt', label: 'Get starting prompt', menuLabel: 'Get starting prompt…', icon: KeyRound, testId: 'fleet-ship-prompt', onSelect: requestPrompt });
+      actions.push({ key: 'prompt', label: 'Get starting prompt', menuLabel: 'Get starting prompt…', icon: KeyRound, testId: 'fleet-ship-prompt', onSelect: requestPrompt, needs: 'canManage' });
     } else {
       actions.push(
         ...pings,
-        { key: 'recrew', label: 'Re-crew', menuLabel: 'Re-crew…', icon: UserPlus, testId: 'fleet-ship-recrew', onSelect: open('recrew') },
-        { key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release') },
+        { key: 'recrew', label: 'Re-crew', menuLabel: 'Re-crew…', icon: UserPlus, testId: 'fleet-ship-recrew', onSelect: open('recrew'), needs: 'canManage' },
+        { key: 'release', label: 'Release', menuLabel: 'Release ship…', icon: UserX, testId: 'fleet-ship-release', onSelect: open('release'), needs: 'canManage' },
       );
     }
     actions.push(
-      { key: 'rename', label: 'Rename', menuLabel: 'Rename…', icon: Pen, testId: 'fleet-ship-rename', onSelect: open('rename') },
-      { key: 'retire', label: 'Retire', menuLabel: 'Retire ship…', icon: Archive, testId: 'fleet-ship-retire', onSelect: open('retire'), isDestructive: true },
+      { key: 'rename', label: 'Rename', menuLabel: 'Rename…', icon: Pen, testId: 'fleet-ship-rename', onSelect: open('rename'), needs: 'canManage' },
+      { key: 'retire', label: 'Retire', menuLabel: 'Retire ship…', icon: Archive, testId: 'fleet-ship-retire', onSelect: open('retire'), isDestructive: true, needs: 'canManage' },
     );
   }
 
   return (
     <>
-      <ActionsIn layout={layout} ship={ship} actions={actions} />
+      <ActionsIn layout={layout} ship={ship} actions={allowedActions(actions, access)} />
       <ReleaseDialog
         shipName={ship.name}
         sessionLocation={sessionLocationOf(ship)}
@@ -325,6 +335,11 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
       {isComposing && <ComposeMessage isOpen onOpenChange={setIsComposing} toShipId={ship.id} />}
     </>
   );
+}
+
+/** The actions the console session may offer: those it holds the scope for. */
+function allowedActions(actions: readonly ShipAction[], access: Access): ShipAction[] {
+  return actions.filter((action) => action.needs === undefined || access[action.needs]);
 }
 
 /** Buttons, ghost for Rename and the destructive ones, as the ship page shows them. */

@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
+import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { Button } from '../../../components/atoms/button';
 import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
@@ -17,6 +18,7 @@ import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
@@ -68,6 +70,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
   const [added, setAdded] = useState<AddedMember | undefined>(undefined);
   const removeMember = useRemoveMember();
   const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
+  const access = useAccess();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -89,7 +92,8 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
       parent={{ href: '/squadrons', label: 'Squadrons' }}
       header={<SquadronHeader squadron={squadron} squadronId={squadronId} state={squadrons.data ? (squadron ? 'ready' : 'not-found') : 'loading'}
           actions={
-            squadron && squadron.state !== 'disbanded' ? (
+            // A session that may not manage the fleet (a viewer's) reads the squadron only.
+            access.canManage && squadron && squadron.state !== 'disbanded' ? (
               <>
                 {squadron.state === 'sailing' && roles.length > 0 && (
                   <Button
@@ -133,14 +137,20 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
         inboxCount,
         attentionCount,
         hasSquadrons,
+        hasSettings: hasSquadrons && access.canManage,
       }}
-      onCompose={() => {
-        setIsComposing(true);
-      }}
+      onCompose={
+        access.canSend
+          ? () => {
+              setIsComposing(true);
+            }
+          : undefined
+      }
       onSearch={() => {
         setIsSearching(true);
       }}
       account={accountMenu}
+      banner={<ConsoleNotices />}
     >
       {connection === 'not-connected' ? (
         <SquadronsNotConnected />
@@ -150,7 +160,7 @@ export default function SquadronPage({ params }: { params: Promise<{ squadronId:
           now={now}
           renderActions={(member) => {
             const ship = ships.get(member.shipId);
-            if (member.crew.status === 'retired' || ship?.status === 'retired') {
+            if (!access.canManage || member.crew.status === 'retired' || ship?.status === 'retired') {
               return null;
             }
             return (

@@ -173,6 +173,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_installation_settings$/),
       expect.stringMatching(/^\d{14}_viewer_ship$/),
       expect.stringMatching(/^\d{14}_viewer_sessions$/),
+      expect.stringMatching(/^\d{14}_notices$/),
     ]);
   });
 });
@@ -1460,7 +1461,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_viewer_sessions$/);
+    expect(migration).toMatch(/^\d{14}_notices$/);
   });
 });
 

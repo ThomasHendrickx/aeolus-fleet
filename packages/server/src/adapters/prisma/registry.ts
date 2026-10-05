@@ -58,6 +58,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
@@ -318,7 +319,9 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
-               lm.model AS last_model, lm.created_at AS last_model_stated_at
+               lm.model AS last_model, lm.created_at AS last_model_stated_at,
+               (SELECT max(cs.last_used_at) FROM console_sessions cs
+                 WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
@@ -344,7 +347,9 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
-               lm.model AS last_model, lm.created_at AS last_model_stated_at
+               lm.model AS last_model, lm.created_at AS last_model_stated_at,
+               (SELECT max(cs.last_used_at) FROM console_sessions cs
+                 WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL

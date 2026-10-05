@@ -82,12 +82,14 @@ function Inbox({
   initialSelected,
   state = 'ready',
   pending = [],
+  isReadOnly = false,
 }: {
   messages: readonly InboxMessage[];
   initialFilter?: InboxFilter;
   initialSelected?: DeliveryId;
   state?: 'loading' | 'error' | 'ready';
   pending?: readonly DeliveryId[];
+  isReadOnly?: boolean;
 }) {
   const [filter, setFilter] = useState<InboxFilter>(initialFilter);
   const [selectedId, setSelectedId] = useState<DeliveryId | undefined>(initialSelected);
@@ -106,6 +108,7 @@ function Inbox({
       onReply={fn()}
       pendingIds={new Set(pending)}
       now={NOW}
+      isReadOnly={isReadOnly}
     />
   );
 }
@@ -144,3 +147,6 @@ export const PhoneList: Story = {
 
 /** A pushed page with the reply pinned to the bottom. */
 export const PhoneMessage: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** A viewer session (decision 0022): argo's inbox read-only, no Mark done, Mark as unread or Reply. */
+export const ReadOnly: Story = { args: { isReadOnly: true } };

@@ -49,7 +49,7 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */
-export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel }: ShipFacts): ListedShip {
+export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel, lastViewedAt }: ShipFacts): ListedShip {
   return {
     id: ship.id,
     name: ship.name,
@@ -58,7 +58,8 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel
     status: shipStatus(ship, { isCrewed: openLease !== null }),
     startingPrompt: validSecret && { issuedAt: validSecret.issuedAt, isClaimed: validSecret.claimedAt !== null },
     location: openLease?.location ?? null,
-    lastSeenAt: openLease?.lastSeenAt ?? null,
+    // The viewer ship holds no lease: it was last seen when its most recent viewer session was used.
+    lastSeenAt: openLease?.lastSeenAt ?? lastViewedAt,
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
     report: openLease?.report ?? null,
