@@ -179,6 +179,7 @@ export const shipRouter = router({
         '(one line, at most 200 characters) on what you work on or what blocks you.',
         'Call it whenever your state changes; calling it again with the same state and note is a check-in.',
       ].join(' '),
+      example: { state: 'working', note: 'reviewing PR 89' },
     })
     .input(reportInputSchema)
     .output(reportOutputSchema)

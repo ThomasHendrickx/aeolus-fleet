@@ -438,6 +438,41 @@ describe('a ship call at /api/v1', () => {
     expect(message).toContain('deliveryId');
   });
 
+  it("shows a working example in report's description, which report takes as it stands", async () => {
+    start();
+    const crewToken = crewedShip();
+    const description = SHIP_CALLS.find((call) => call.name === 'report')?.description ?? '';
+    const example = /Example: (\{.*\})/.exec(description)?.[1] ?? '';
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/report',
+      payload: example,
+      headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+    });
+
+    expect(example).not.toBe('');
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('refuses report arguments that do not parse with the shape report takes', async () => {
+    start();
+    const crewToken = crewedShip();
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/ship/report',
+      headers: { authorization: `Bearer ${crewToken}` },
+      payload: { status: 'working', message: 'on PR 89' },
+    });
+
+    const { code, message } = z.object({ code: z.string(), message: z.string() }).parse(response.json());
+    expect(response.statusCode).toBe(400);
+    expect(code).toBe('BAD_REQUEST');
+    expect(message).toContain('state');
+    expect(message).toContain('Call report like this: {"state":"working","note":"reviewing PR 89"}');
+  });
+
   it('receives without a body: one delivery at most', async () => {
     start();
     const crewToken = crewedShip();
