@@ -2,12 +2,14 @@ import { ChevronRight, LayoutTemplate } from 'lucide-react';
 import Link from 'next/link';
 
 import { dayMonth } from '../../lib/relative-time';
+import { versionFileUrl } from '../../lib/repository';
 import type { BlueprintVersion } from '../../lib/squadrons-api';
 import { blueprintsUsing, checkInText, templatePath, type TemplateChoice } from '../../lib/squadrons-view';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
+import { RepositoryName } from '../molecules/repository-name';
 
 interface TemplateTableProps {
   templates: readonly TemplateChoice[];
@@ -74,6 +76,7 @@ export function TemplateTable({ templates, blueprints, state, error, onRetry }: 
         <TableHeader>
           <TableRow>
             <TableHead>Template</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead>Latest</TableHead>
             <TableHead>Check-in</TableHead>
             <TableHead>Used by blueprints</TableHead>
@@ -87,6 +90,9 @@ export function TemplateTable({ templates, blueprints, state, error, onRetry }: 
                 <Link href={templatePath(template)} className="hover:underline">
                   {template.name}
                 </Link>
+              </TableCell>
+              <TableCell data-testid="template-row-source">
+                <RepositoryName name={latest.repository} href={versionFileUrl(latest)} />
               </TableCell>
               <TableCell>v{latest.version}</TableCell>
               <TableCell>{checkInText(latest.checkInMinutes)}</TableCell>
@@ -105,6 +111,9 @@ export function TemplateTable({ templates, blueprints, state, error, onRetry }: 
                   {template.name} <span className="text-meta font-normal text-muted-foreground">v{latest.version}</span>
                 </span>
                 <span className="text-meta text-muted-foreground">{checkInText(latest.checkInMinutes)}</span>
+                <span className="flex min-w-0 text-meta text-muted-foreground">
+                  <RepositoryName name={latest.repository} />
+                </span>
               </span>
               <ChevronRight aria-hidden className="size-(--size-icon-sm) shrink-0 text-muted-foreground" />
             </Link>

@@ -10,6 +10,16 @@ export function repositoryLabel(name: string): { label: string; isGitHub: boolea
   return match?.[1] === undefined ? { label: name, isGitHub: false } : { label: match[1], isGitHub: true };
 }
 
+/**
+ * Where a template or blueprint version's file is on GitHub (#185): the file at
+ * the version's commit, which its tag points at. Undefined for a repository not
+ * on github.com, which the console has no link for.
+ */
+export function versionFileUrl(version: { repository: string; commit: string; file: string }): string | undefined {
+  const { label, isGitHub } = repositoryLabel(version.repository);
+  return isGitHub ? `https://github.com/${label}/blob/${version.commit}/${encodeURI(version.file)}` : undefined;
+}
+
 /** The versions of one template or blueprint, by its name. */
 export interface NamedVersions {
   name: string;
