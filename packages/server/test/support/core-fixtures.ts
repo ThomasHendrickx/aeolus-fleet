@@ -11,8 +11,12 @@ import {
 
 import { createIssueSignInTicket } from '../../src/core/identity/issue-sign-in-ticket.js';
 import { createDismissNotice } from '../../src/core/identity/dismiss-notice.js';
+import { createGetGuide } from '../../src/core/identity/get-guide.js';
 import { createGetNotices } from '../../src/core/identity/get-notices.js';
+import { createReadGuide } from '../../src/core/identity/read-guide.js';
 import { createReadNotices } from '../../src/core/identity/read-notices.js';
+import { createRecordGuideProgress } from '../../src/core/identity/record-guide-progress.js';
+import { createSetGuide } from '../../src/core/identity/set-guide.js';
 import { createSetNotices } from '../../src/core/identity/set-notices.js';
 import { createRedeemSignInTicket } from '../../src/core/identity/redeem-sign-in-ticket.js';
 import { createAuthenticate } from '../../src/core/identity/authenticate.js';
@@ -90,6 +94,10 @@ export function identityUseCases(core: InMemoryCore) {
     getNotices: createGetNotices({ notices: core.notices }),
     readNotices: createReadNotices({ notices: core.notices, dismissals: core.noticeDismissals }),
     dismissNotice: createDismissNotice({ notices: core.notices, dismissals: core.noticeDismissals, clock: core.clock }),
+    setGuide: createSetGuide({ guide: core.guide }),
+    getGuide: createGetGuide({ guide: core.guide }),
+    readGuide: createReadGuide({ guide: core.guide, progress: core.guideProgress }),
+    recordGuideProgress: createRecordGuideProgress({ guide: core.guide, progress: core.guideProgress, clock: core.clock }),
   };
 }
 

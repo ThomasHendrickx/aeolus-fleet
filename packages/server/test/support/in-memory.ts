@@ -2,6 +2,7 @@ import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type ConsoleSessionId, 
 
 import type { ConsoleSession } from '../../src/core/identity/console-session.js';
 import type { Credential } from '../../src/core/identity/credential.js';
+import type { Guide, GuideProgress } from '../../src/core/identity/guide.js';
 import type { Notice } from '../../src/core/identity/notice.js';
 import type { OperatorAccount } from '../../src/core/identity/operator-account.js';
 import type { SignInTicket } from '../../src/core/identity/sign-in-ticket.js';
@@ -9,6 +10,8 @@ import type {
   AuthenticatedShip,
   CallerLookup,
   ConsoleSessionRepository,
+  GuideProgressRepository,
+  GuideRepository,
   NoticeDismissals,
   NoticeRepository,
   SignInTicketRepository,
@@ -78,6 +81,9 @@ export interface InMemoryState {
   /** The installation's console notices (decision 0023), in its order. */
   installationNotices: Notice[];
   noticeDismissals: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }[];
+  /** The installation's guide (decision 0024), or none. */
+  installationGuide: Guide | null;
+  guideProgress: ({ fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress)[];
   messages: Message[];
   deliveries: Delivery[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
@@ -152,6 +158,9 @@ export interface InMemoryCore {
   /** The installation's notices and each console session's dismissals. */
   notices: NoticeRepository;
   noticeDismissals: NoticeDismissals;
+  /** The installation's guide and each console session's progress in it. */
+  guide: GuideRepository;
+  guideProgress: GuideProgressRepository;
   clock: Clock & { set(iso: string | Date): void; advance(ms: number): void };
   ids: IdGenerator;
   hasher: SecretHasher;
@@ -176,6 +185,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     signInTickets: [],
     installationNotices: [],
     noticeDismissals: [],
+    installationGuide: null,
+    guideProgress: [],
     messages: [],
     deliveries: [],
     deliveryReads: [],
@@ -1119,7 +1130,26 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, clock, ids, hasher, passwords, random, wakeups };
+  const guide: GuideRepository = {
+    read: () => Promise.resolve(structuredClone(state.installationGuide)),
+    replace: (replacing) => {
+      state.installationGuide = structuredClone(replacing);
+      return Promise.resolve();
+    },
+  };
+  const guideProgress: GuideProgressRepository = {
+    progress: ({ fleetId, consoleSessionId }) => {
+      const held = state.guideProgress.find((each) => each.fleetId === fleetId && each.consoleSessionId === consoleSessionId);
+      return Promise.resolve(held ? { step: held.step, state: held.state } : null);
+    },
+    record: (recording) => {
+      const others = state.guideProgress.filter((each) => !(each.fleetId === recording.fleetId && each.consoleSessionId === recording.consoleSessionId));
+      state.guideProgress.splice(0, state.guideProgress.length, ...others, { ...recording });
+      return Promise.resolve();
+    },
+  };
+
+  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1138,8 +1168,9 @@ const FLEET_TABLES = [
   'events',
   'notices',
   'noticeDismissals',
+  'guideProgress',
   'fleetLimitSettings',
-] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices'>[];
+] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices' | 'installationGuide'>[];
 
 const TABLES = [
   'fleets',

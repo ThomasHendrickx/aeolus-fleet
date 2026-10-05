@@ -11,10 +11,11 @@ import {
   createPrismaFleetRepository,
   createPrismaShipRepository,
 } from './adapters/prisma/registry.js';
-import { createPrismaNoticeDismissals, createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
+import { createPrismaGuideProgress, createPrismaNoticeDismissals, createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import {
   createPrismaFleetLimitReads,
+  createPrismaGuideRepository,
   createPrismaInstallationFleets,
   createPrismaInstallationSettings,
   createPrismaNoticeRepository,
@@ -22,11 +23,15 @@ import {
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './core/identity/authenticate.js';
 import { createDismissNotice, type DismissNotice } from './core/identity/dismiss-notice.js';
+import { createGetGuide, type GetGuide } from './core/identity/get-guide.js';
 import { createGetNotices, type GetNotices } from './core/identity/get-notices.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './core/identity/issue-sign-in-ticket.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './core/identity/redeem-sign-in-ticket.js';
 import { createReadAccount, type ReadAccount } from './core/identity/read-account.js';
+import { createReadGuide, type ReadGuide } from './core/identity/read-guide.js';
 import { createReadNotices, type ReadNotices } from './core/identity/read-notices.js';
+import { createRecordGuideProgress, type RecordGuideProgress } from './core/identity/record-guide-progress.js';
+import { createSetGuide, type SetGuide } from './core/identity/set-guide.js';
 import { createResetOperatorPassword, type ResetOperatorPassword } from './core/identity/reset-operator-password.js';
 import { createSetNotices, type SetNotices } from './core/identity/set-notices.js';
 import { createSetTheme, type SetTheme } from './core/identity/set-theme.js';
@@ -121,6 +126,10 @@ export interface UseCases {
   getNotices: GetNotices;
   readNotices: ReadNotices;
   dismissNotice: DismissNotice;
+  setGuide: SetGuide;
+  getGuide: GetGuide;
+  readGuide: ReadGuide;
+  recordGuideProgress: RecordGuideProgress;
   resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
   createFleet: CreateFleet;
@@ -164,6 +173,8 @@ export function createUseCases(options: {
   const wakeups = options.wakeups ?? createReceiverWakeups();
   const notices = createPrismaNoticeRepository(prisma);
   const dismissals = createPrismaNoticeDismissals(prisma);
+  const guide = createPrismaGuideRepository(prisma);
+  const guideProgress = createPrismaGuideProgress(prisma);
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -180,6 +191,10 @@ export function createUseCases(options: {
     getNotices: createGetNotices({ notices }),
     readNotices: createReadNotices({ notices, dismissals }),
     dismissNotice: createDismissNotice({ notices, dismissals, clock }),
+    setGuide: createSetGuide({ guide }),
+    getGuide: createGetGuide({ guide }),
+    readGuide: createReadGuide({ guide, progress: guideProgress }),
+    recordGuideProgress: createRecordGuideProgress({ guide, progress: guideProgress, clock }),
     readFleetLimits: createReadFleetLimits({ limits: createPrismaFleetLimitReads(prisma), clock }),
     redeemSignInTicket: createRedeemSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     listInstallationFleets: createListInstallationFleets({ fleets: createPrismaInstallationFleets(prisma), settings: createPrismaInstallationSettings(prisma), clock }),

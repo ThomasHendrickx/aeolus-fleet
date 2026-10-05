@@ -14,8 +14,8 @@ export interface Notice {
   isDismissible: boolean;
 }
 
-/** Whether a console session of a ship of this kind sees the notice: everyone's always, the operators' on argo, the viewers' on the viewer ship. */
-export function isForSessionOf(notice: Notice, kind: ShipKind): boolean {
+/** Whether a console session of a ship of this kind sees the notice (or the guide, decision 0024): everyone's always, the operators' on argo, the viewers' on the viewer ship. */
+export function isForSessionOf(notice: Pick<Notice, 'audience'>, kind: ShipKind): boolean {
   switch (notice.audience) {
     case 'everyone':
       return true;

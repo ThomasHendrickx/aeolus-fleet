@@ -13,11 +13,14 @@ import {
   installationOperatorsIssueSignInTicketInputSchema,
   installationOperatorsIssueSignInTicketOutputSchema,
   installationSettingsSchema,
+  guideOutputSchema,
   noticesOutputSchema,
+  setGuideInputSchema,
   setNoticesInputSchema,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
+import type { Guide, GuideStep } from '../../core/identity/guide.js';
 import type { Notice } from '../../core/identity/notice.js';
 import type { InstallationFleet } from '../../core/registry/installation-fleet.js';
 import type { InstallationCredential } from './context.js';
@@ -55,6 +58,16 @@ function described(fleet: InstallationFleet) {
   return { ...fleet, createdAt: fleet.createdAt.toISOString(), lastActivityAt: fleet.lastActivityAt?.toISOString() ?? null };
 }
 
+/** A guide's steps as the API answers them. */
+export function guideStepsOutputOf(steps: readonly GuideStep[]): GuideStep[] {
+  return steps.map((step) => ({ ...step }));
+}
+
+/** The guide as the API answers it, or null. */
+function guideOutputOf(guide: Guide | null): { guide: (Omit<Guide, 'steps'> & { steps: GuideStep[] }) | null } {
+  return { guide: guide === null ? null : { ...guide, steps: guideStepsOutputOf(guide.steps) } };
+}
+
 /** A notice as the API answers it. */
 export function noticeOutputOf(notice: Notice): Notice & { links: Notice['links'][number][] } {
   return { ...notice, links: [...notice.links] };
@@ -76,6 +89,21 @@ export const installationRouter = router({
         return settings;
       }),
   }),
+  guide: router({
+    /** The guide the console shows (decision 0024), or null. */
+    get: installationProcedure.output(guideOutputSchema).query(async ({ ctx }) => guideOutputOf(await ctx.useCases.getGuide())),
+
+    /** Replaces the guide with this one; null clears it. */
+    set: installationProcedure
+      .input(setGuideInputSchema)
+      .output(guideOutputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const guide = await ctx.useCases.setGuide(input);
+        ctx.log.info({ guide: guide === null ? null : { audience: guide.audience, steps: guide.steps.length } }, 'installation guide set');
+        return guideOutputOf(guide);
+      }),
+  }),
+
   notices: router({
     /** The notices the console shows (decision 0023), in their order. */
     get: installationProcedure.output(noticesOutputSchema).query(async ({ ctx }) => ({ notices: (await ctx.useCases.getNotices()).map(noticeOutputOf) })),
