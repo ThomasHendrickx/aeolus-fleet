@@ -2,12 +2,14 @@ import { ChevronRight, DraftingCompass } from 'lucide-react';
 import Link from 'next/link';
 
 import { dayMonth } from '../../lib/relative-time';
+import { versionFileUrl } from '../../lib/repository';
 import type { Squadron } from '../../lib/squadrons-api';
 import { blueprintPath, rolesText, squadronsFromBlueprint, squadronsText, type BlueprintChoice } from '../../lib/squadrons-view';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
+import { RepositoryName } from '../molecules/repository-name';
 
 interface BlueprintTableProps {
   blueprints: readonly BlueprintChoice[];
@@ -58,6 +60,7 @@ export function BlueprintTable({ blueprints, squadrons, state, error, onRetry }:
         <TableHeader>
           <TableRow>
             <TableHead>Blueprint</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead>Latest</TableHead>
             <TableHead>Roles</TableHead>
             <TableHead>Squadrons</TableHead>
@@ -71,6 +74,9 @@ export function BlueprintTable({ blueprints, squadrons, state, error, onRetry }:
                 <Link href={blueprintPath(blueprint)} className="hover:underline">
                   {blueprint.name}
                 </Link>
+              </TableCell>
+              <TableCell data-testid="blueprint-row-source">
+                <RepositoryName name={latest.repository} href={versionFileUrl(latest)} />
               </TableCell>
               <TableCell>v{latest.version}</TableCell>
               <TableCell>{rolesText(latest)}</TableCell>
@@ -91,6 +97,9 @@ export function BlueprintTable({ blueprints, squadrons, state, error, onRetry }:
                   {blueprint.name} <span className="text-meta font-normal text-muted-foreground">v{latest.version}</span>
                 </span>
                 <span className="truncate text-meta text-muted-foreground">{rolesText(latest)}</span>
+                <span className="flex min-w-0 text-meta text-muted-foreground">
+                  <RepositoryName name={latest.repository} />
+                </span>
               </span>
               <ChevronRight aria-hidden className="size-(--size-icon-sm) shrink-0 text-muted-foreground" />
             </Link>

@@ -269,10 +269,16 @@ describe('the first squadron in the console', () => {
   it('lists the blueprints and templates in git on their tabs, and opens a template read only with its file, charter and hand-offs', async () => {
     const page = await squadronsPage();
     await page.getByTestId('squadrons-tab-blueprints').click();
-    await expect(page.getByTestId('blueprint-row').first().textContent()).resolves.toMatch(/^teamv1testerNone|^teamv1tester\d/);
+    await expect(page.getByTestId('blueprint-row').first().textContent()).resolves.toMatch(/^teamacme\/templatesv1testerNone|^teamacme\/templatesv1tester\d/);
+    await expect(page.getByTestId('blueprint-row-source').first().getByRole('link', { name: 'acme/templates' }).getAttribute('href')).resolves.toMatch(
+      /^https:\/\/github\.com\/acme\/templates\/blob\/[0-9a-f]{40}\/\.aeolus\/squadrons\/blueprints\/team\.yaml$/,
+    );
     await page.getByTestId('squadrons-tab-templates').click();
     await page.waitForURL(/\/squadrons\?tab=templates$/);
-    await expect(page.getByTestId('template-row').first().textContent()).resolves.toMatch(/^testerv1every 30 minteam/);
+    await expect(page.getByTestId('template-row').first().textContent()).resolves.toMatch(/^testeracme\/templatesv1every 30 minteam/);
+    await expect(page.getByTestId('template-row-source').first().getByRole('link', { name: 'acme/templates' }).getAttribute('href')).resolves.toMatch(
+      /^https:\/\/github\.com\/acme\/templates\/blob\/[0-9a-f]{40}\/\.aeolus\/squadrons\/templates\/tester\.yaml$/,
+    );
 
     await page.getByTestId('template-row').first().getByRole('link', { name: 'tester' }).click();
 

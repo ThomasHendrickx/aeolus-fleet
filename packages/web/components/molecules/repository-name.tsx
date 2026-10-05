@@ -11,13 +11,27 @@ function GitHubMark() {
   );
 }
 
-/** A template repository's name (#161): owner/repo with the GitHub mark for one on github.com, its name otherwise; the full name in the title. */
-export function RepositoryName({ name }: { name: string }) {
+/**
+ * A template repository's name (#161): owner/repo with the GitHub mark for one
+ * on github.com, its name otherwise; the full name in the title. With an href,
+ * a link that opens it in a new tab.
+ */
+export function RepositoryName({ name, href }: { name: string; href?: string }) {
   const { label, isGitHub } = repositoryLabel(name);
-  return (
-    <span title={name} className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+  const content = (
+    <>
       {isGitHub ? <GitHubMark /> : <FolderGit2 aria-hidden className="size-(--size-icon-sm) shrink-0 text-muted-foreground" />}
       <span className="truncate">{label}</span>
+    </>
+  );
+  const className = 'inline-flex min-w-0 items-center gap-1.5 font-medium';
+  return href === undefined ? (
+    <span title={name} className={className}>
+      {content}
     </span>
+  ) : (
+    <a href={href} target="_blank" rel="noreferrer" title={name} className={`${className} hover:underline`}>
+      {content}
+    </a>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { leftOutLabel, repositoryContents, repositoryLabel } from './repository';
+import { leftOutLabel, repositoryContents, repositoryLabel, versionFileUrl } from './repository';
 import type { Catalogue } from './squadrons-api';
 
 describe('repositoryLabel', () => {
@@ -11,6 +11,18 @@ describe('repositoryLabel', () => {
   it('shows any other repository by its name', () => {
     expect(repositoryLabel('gitlab.com/acme/templates')).toEqual({ label: 'gitlab.com/acme/templates', isGitHub: false });
     expect(repositoryLabel('github.com/acme/group/templates')).toEqual({ label: 'github.com/acme/group/templates', isGitHub: false });
+  });
+});
+
+describe('versionFileUrl', () => {
+  it("links a github.com version to its file at the version's commit", () => {
+    expect(versionFileUrl({ repository: 'github.com/acme/templates', commit: 'a1b2c3d4', file: '.aeolus/squadrons/templates/tester.yaml' })).toBe(
+      'https://github.com/acme/templates/blob/a1b2c3d4/.aeolus/squadrons/templates/tester.yaml',
+    );
+  });
+
+  it('has no link for a repository not on github.com', () => {
+    expect(versionFileUrl({ repository: 'gitlab.com/acme/templates', commit: 'a1b2c3d4', file: 'templates/tester.yaml' })).toBeUndefined();
   });
 });
 
