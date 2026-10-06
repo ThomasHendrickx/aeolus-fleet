@@ -413,7 +413,7 @@ describe('listing the fleet on Postgres', () => {
         location: { kind: 'OTHER', description: 'Unknown device' },
         lastSeenAt: signedInAt,
         ping: null,
-        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'],
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'],
         report: null,
         crewRequest: null,
         harness: null,

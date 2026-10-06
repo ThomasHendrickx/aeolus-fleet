@@ -136,6 +136,14 @@ describe('the scopes of a new ship', () => {
     expect(scopesOf('manager')).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage']);
   });
 
+  it('adds crew:assign and crew:run, after the fleet scopes (decision 0029)', async () => {
+    unwrap(
+      await commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run', 'crew:assign', 'fleet:read'] }),
+    );
+
+    expect(scopesOf('mac-mini')).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'crew:assign', 'crew:run']);
+  });
+
   it('writes the scopes in ShipCommissioned', async () => {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'] }));
 

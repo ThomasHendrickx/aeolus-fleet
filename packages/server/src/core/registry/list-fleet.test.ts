@@ -178,7 +178,7 @@ describe('listing the fleet', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
-        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'],
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'],
         report: null,
         crewRequest: null,
         harness: null,
