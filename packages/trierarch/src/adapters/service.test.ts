@@ -61,7 +61,38 @@ describe('the service on macOS (launchd)', () => {
     expect(text).toContain(`<string>${join(home, '.aeolus', 'trierarch', 'logs', 'trierarch.log')}</string>`);
     expect(text).toContain('<key>PATH</key>\n    <string>/opt/homebrew/bin:/usr/bin:/bin</string>');
     expect(text).toContain('<key>AEOLUS_PLUGIN_ROOT</key>\n    <string>/Users/thomas/aeolus-fleet/plugins/aeolus</string>');
-    expect(calls).toEqual([`launchctl bootout ${target}`, `launchctl bootstrap gui/501 ${plist()}`]);
+    expect(calls).toEqual([`launchctl bootout ${target}`, `launchctl print ${target}`, `launchctl bootstrap gui/501 ${plist()}`]);
+  });
+
+  it('installs over a running agent by loading it again only once launchd has the old one gone, as bootout returns before the process exits', async () => {
+    let isLoaded = true;
+    let waits = 0;
+    const service = createService({
+      platform: 'darwin',
+      homeDirectory: home,
+      paths: trierarchPaths({ homeDirectory: home }),
+      run,
+      environment,
+      uid: 501,
+      now: () => NOW,
+      sleep: () => {
+        waits += 1;
+        isLoaded = waits < 3;
+        return Promise.resolve();
+      },
+      exec: (command, args) => {
+        const line = [command, ...args].join(' ');
+        if (line === `launchctl print ${target}`) {
+          return Promise.resolve(isLoaded ? ok('state = running') : { status: 1, stdout: '', stderr: 'not loaded' });
+        }
+        if (line === `launchctl bootstrap gui/501 ${plist()}`) {
+          return Promise.resolve(isLoaded ? { status: 5, stdout: '', stderr: 'Bootstrap failed: 5: Input/output error' } : ok());
+        }
+        return Promise.resolve(ok());
+      },
+    });
+
+    await expect(service.install()).resolves.toBeUndefined();
   });
 
   it('says why when launchd refuses to load it', async () => {
