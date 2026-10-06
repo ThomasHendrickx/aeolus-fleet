@@ -42,6 +42,10 @@ const keptWorktreeSchema = z.strictObject({ shipId: shipIdSchema, path: z.string
 
 export const describeCommandSchema = z.strictObject({});
 
+/** A flag a harness adapter adds itself, as mechanism, never the operator's: on every launch or on a restart only. */
+export const trierarchAdapterFlagSchema = z.strictObject({ flag: z.string().min(1), when: z.enum(['always', 'restart']) });
+export type TrierarchAdapterFlag = z.infer<typeof trierarchAdapterFlagSchema>;
+
 export const describedAnswerSchema = z.strictObject({
   harnesses: z.array(
     z.strictObject({
@@ -50,6 +54,8 @@ export const describedAnswerSchema = z.strictObject({
       options: z.record(z.string(), z.json()),
       /** The flags every launch of this harness gets, as the configuration makes them. */
       flags: z.array(z.string()),
+      /** The flags the harness's adapter adds itself, beside the configured ones. */
+      adapterFlags: z.array(trierarchAdapterFlagSchema),
     }),
   ),
   workspaces: z.strictObject({ repositories: z.array(trierarchNameSchema), folders: z.array(trierarchNameSchema) }),
