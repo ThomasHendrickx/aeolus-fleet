@@ -4,14 +4,14 @@ import type { Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, type ListedShip } from './list-fleet.js';
-import type { CrewRequest } from './crew-request.js';
+import { checkReaches, type CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 
 /** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
 export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   /** The ship's crew request, settings included; null when it holds none. */
-  crewRequest: Omit<CrewRequest, 'fleetId' | 'shipId'> | null;
+  crewRequest: (NonNullable<ListedShip['crewRequest']> & Pick<CrewRequest, 'settings'>) | null;
   /** The crew's last report, details included; null until it reports, and while no session crews the ship. */
   report: ShipReport | null;
   commissionedAt: Date;
@@ -23,11 +23,19 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   openDeliveries: number;
 }
 
-export type GetShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ShipDetail, DomainError<'SHIP_NOT_FOUND'>>>;
+export type GetShip = (
+  caller: Caller,
+  input: { shipId: ShipId },
+) => Promise<Result<ShipDetail, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
+
+/** The scopes that read every ship; crew:run reads only the ships assigned to the caller's ship. */
+const READ_SCOPES = ['fleet:read', 'fleet:crew'] as const;
 
 /**
  * Use case: one ship of the caller's fleet, retired ships included: they keep
- * their page. The caller's scope (fleet:read or fleet:crew) is checked before this runs.
+ * their page. The caller's scope (fleet:read, fleet:crew or crew:run) is
+ * checked before this runs; crew:run reads only the ships whose crew requests
+ * are assigned to the caller's ship.
  */
 export function createGetShip(deps: { listing: FleetListing }): GetShip {
   return async (caller, { shipId }) => {
@@ -35,15 +43,16 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
     if (!facts) {
       return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
     }
+    const reaches = checkReaches(caller, { ship: facts.ship, current: facts.crewRequest, broadScopes: READ_SCOPES });
+    if (!reaches.isOk) {
+      return reaches;
+    }
+    const listed = listedShipOf(facts);
     const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
     return ok({
-      ...listedShipOf(facts),
+      ...listed,
       report: facts.openLease?.report ?? null,
-      crewRequest: facts.crewRequest && {
-        settings: facts.crewRequest.settings,
-        settingsVersion: facts.crewRequest.settingsVersion,
-        requestedAt: facts.crewRequest.requestedAt,
-      },
+      crewRequest: listed.crewRequest && facts.crewRequest && { ...listed.crewRequest, settings: facts.crewRequest.settings },
       inFlightDeliveries: counts.inFlight,
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,

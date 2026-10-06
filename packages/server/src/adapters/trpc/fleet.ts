@@ -27,8 +27,17 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  assignCrewInputSchema,
+  assignCrewOutputSchema,
+  assignedCrewRequestsOutputSchema,
+  confirmCrewReleaseInputSchema,
+  explainCrewRequestInputSchema,
+  explainCrewRequestOutputSchema,
+  confirmCrewReleaseOutputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
+  reportCrewStatusInputSchema,
+  reportCrewStatusOutputSchema,
   removeCrewRequestInputSchema,
   removeCrewRequestOutputSchema,
   renameShipInputSchema,
@@ -85,10 +94,10 @@ export const fleetRouter = router({
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
-  getStartingPrompt: anyScopeProcedure('fleet:manage', 'fleet:crew')
+  getStartingPrompt: anyScopeProcedure('fleet:manage', 'fleet:crew', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage or fleet:crew. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
+        'Needs fleet:manage or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
       ].join(' '),
     })
     .input(getStartingPromptInputSchema)
@@ -121,10 +130,10 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: anyScopeProcedure('fleet:manage', 'fleet:crew')
+  release: anyScopeProcedure('fleet:manage', 'fleet:crew', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage or fleet:crew. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
+        'Needs fleet:manage or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
         'Never argo; a ship awaiting crew gets a new starting prompt instead.',
       ].join(' '),
     })
@@ -178,6 +187,78 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.removeCrewRequest(ctx.caller, input));
       return {};
     }),
+
+  /** Assigns a ship's crew request to a trierarch, only while it is unassigned (optimistic claim, decision 0029). */
+  assignCrew: scopedProcedure('crew:assign')
+    .meta({
+      description: [
+        "Needs crew:assign. Assigns a ship's crew request to a trierarch ship (any active ship of the fleet), only while it is unassigned:",
+        'a lost claim is CONFLICT, so read again. Never a crewed ship: crewing it by hand fulfils its request.',
+      ].join(' '),
+    })
+    .input(assignCrewInputSchema)
+    .output(assignCrewOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.assignCrew(ctx.caller, input));
+      return {};
+    }),
+
+  /** The assigner writes why no trierarch can take a ship's unassigned crew request. */
+  explainCrewRequest: scopedProcedure('crew:assign')
+    .meta({
+      description: [
+        "Needs crew:assign. Writes why no trierarch can take a ship's unassigned crew request (one line, at most 200 characters),",
+        "shown in the operator's needs-crew to-do; null clears it, and an assignment clears it.",
+      ].join(' '),
+    })
+    .input(explainCrewRequestInputSchema)
+    .output(explainCrewRequestOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.explainCrewRequest(ctx.caller, input));
+      return {};
+    }),
+
+  /** The assigned trierarch writes how its crew of a ship stands. */
+  reportCrewStatus: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        "Needs crew:run, for a ship whose crew request is assigned to yours. Says how its crew stands: crewing, running, restarting, crashed or releasing.",
+        'Once the request is releasing, only releasing: stop its session, end its lease, then call confirmCrewRelease.',
+      ].join(' '),
+    })
+    .input(reportCrewStatusInputSchema)
+    .output(reportCrewStatusOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.reportCrewStatus(ctx.caller, input));
+      return {};
+    }),
+
+  /** The assigned trierarch confirms it released the ship of a releasing request, which then goes (the finalizer). */
+  confirmCrewRelease: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        'Needs crew:run, for a ship whose crew request is assigned to yours and releasing. Confirms you stopped its session,',
+        'ended its lease and cleaned its workspace; the request then goes.',
+      ].join(' '),
+    })
+    .input(confirmCrewReleaseInputSchema)
+    .output(confirmCrewReleaseOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.confirmCrewRelease(ctx.caller, input));
+      return {};
+    }),
+
+  /** The crew requests assigned to the caller's ship: a trierarch's ships. */
+  assignedCrewRequests: scopedProcedure('crew:run')
+    .meta({
+      description: ['Needs crew:run. The crew requests assigned to your ship, oldest ship first: each ship, its settings and their version, and its status.'].join(
+        ' ',
+      ),
+    })
+    .output(assignedCrewRequestsOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.readAssignedCrewRequests(ctx.caller)).map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })),
+    ),
 
   /**
    * Gives a ship a new name, any ship but argo or a retired one. Its id,
@@ -251,10 +332,10 @@ export const fleetRouter = router({
     ),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
-  ship: anyScopeProcedure('fleet:read', 'fleet:crew')
+  ship: anyScopeProcedure('fleet:read', 'fleet:crew', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:read or fleet:crew. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+        'Needs fleet:read or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
       ].join(' '),
     })
     .input(shipInputSchema)

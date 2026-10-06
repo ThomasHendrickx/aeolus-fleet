@@ -173,6 +173,11 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/follow', ['post']],
       ['/fleet/crewRequest', ['post']],
       ['/fleet/removeCrewRequest', ['post']],
+      ['/fleet/assignCrew', ['post']],
+      ['/fleet/explainCrewRequest', ['post']],
+      ['/fleet/reportCrewStatus', ['post']],
+      ['/fleet/confirmCrewRelease', ['post']],
+      ['/fleet/assignedCrewRequests', ['get']],
     ]);
   });
 

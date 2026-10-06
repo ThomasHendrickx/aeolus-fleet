@@ -170,6 +170,24 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Crew requested'), ...by(entry.actor)], tone: 'waiting', icon: 'claimed' };
     case 'CrewRequestRemoved':
       return { parts: [text('Crew request removed'), ...by(entry.actor)], tone: 'ended', icon: 'released' };
+    case 'CrewRequestExplained': {
+      const reason = stringDetail(entry, 'reason');
+      return {
+        parts: [text(reason === undefined ? 'Crew request can not be placed yet' : `Crew request can not be placed: ${reason}`), ...by(entry.actor)],
+        tone: 'waiting',
+        icon: 'reported',
+      };
+    }
+    case 'CrewAssigned':
+      return { parts: [text('Crew request assigned'), ...by(entry.actor)], tone: 'waiting', icon: 'claimed' };
+    case 'CrewStatusChanged': {
+      const status = stringDetail(entry, 'status');
+      return {
+        parts: [text(status === undefined ? 'Crew status changed' : `Crew ${status}`), ...by(entry.actor)],
+        tone: status === 'crashed' ? 'attention' : 'active',
+        icon: 'reported',
+      };
+    }
     case 'MessageAccepted':
       return {
         parts: messageAccepted(entry, shipId),

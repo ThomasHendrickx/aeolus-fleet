@@ -92,12 +92,16 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
       const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
       return row === null ? undefined : toCrewRequest(row);
     },
-    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt }) => {
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason }) => {
       await db.crewRequest.upsert({
         where: { fleetId_shipId: { fleetId, shipId } },
-        create: { fleetId, shipId, settings, settingsVersion, requestedAt },
-        update: { settings, settingsVersion, requestedAt },
+        create: { fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason },
+        update: { settings, settingsVersion, requestedAt, assignedTo, status, reason },
       });
+    },
+    listAssignedTo: async (fleetId, trierarchShipId) => {
+      const rows = await db.crewRequest.findMany({ where: { fleetId, assignedTo: trierarchShipId }, orderBy: { shipId: 'asc' } });
+      return rows.map(toCrewRequest);
     },
     remove: async (fleetId, shipId) => {
       await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
@@ -364,6 +368,20 @@ const lastPingOfShip = Prisma.sql`
   ORDER BY m.created_at DESC, m.id DESC
   LIMIT 1`;
 
+/**
+ * Who crewed the ship: the ship that got the starting prompt its open lease
+ * claimed with, the actor of its last StartingPromptIssued before the lease
+ * started. None while no lease is open.
+ */
+const crewedByOfShip = Prisma.sql`
+  SELECT a.id, a.name
+  FROM events e
+  JOIN ships a ON a.fleet_id = e.fleet_id AND a.id = e.actor_ship_id
+  WHERE l.id IS NOT NULL AND e.fleet_id = s.fleet_id AND e.ship_id = s.id
+    AND e.type = 'StartingPromptIssued' AND e.occurred_at <= l.started_at
+  ORDER BY e.seq DESC
+  LIMIT 1`;
+
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
     ships: async (fleetId) => {
@@ -377,7 +395,9 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
-               cr.requested_at AS crew_request_requested_at,
+               cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
+               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason,
+               cb.id AS crewed_by_id, cb.name AS crewed_by_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -388,6 +408,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
+        LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
+        LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId}
@@ -410,7 +432,9 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
-               cr.requested_at AS crew_request_requested_at,
+               cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
+               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason,
+               cb.id AS crewed_by_id, cb.name AS crewed_by_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -421,6 +445,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
+        LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
+        LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId} AND s.id = ${shipId}`;

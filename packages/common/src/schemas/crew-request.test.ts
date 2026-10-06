@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   CREW_REQUEST_SETTINGS_MAX_BYTES,
+  CREW_STATUSES,
+  assignCrewInputSchema,
+  explainCrewRequestInputSchema,
+  assignedCrewRequestsOutputSchema,
+  reportCrewStatusInputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
   crewRequestSettingsBytes,
@@ -73,5 +78,52 @@ describe('removeCrewRequestInputSchema', () => {
 describe('removeCrewRequestOutputSchema', () => {
   it('answers nothing: the OK is the answer', () => {
     expect(removeCrewRequestOutputSchema.parse({})).toEqual({});
+  });
+});
+
+describe('CREW_STATUSES', () => {
+  it('are crewing, running, restarting, crashed and releasing', () => {
+    expect(CREW_STATUSES).toEqual(['crewing', 'running', 'restarting', 'crashed', 'releasing']);
+  });
+});
+
+describe('assignCrewInputSchema', () => {
+  it('takes the ship and the trierarch ship', () => {
+    const input = { shipId: newId('ship'), trierarchShipId: newId('ship') };
+
+    expect(assignCrewInputSchema.parse(input)).toEqual(input);
+  });
+});
+
+describe('reportCrewStatusInputSchema', () => {
+  it('takes the ship and a known status, and refuses another', () => {
+    const shipId = newId('ship');
+
+    expect(reportCrewStatusInputSchema.parse({ shipId, status: 'crashed' })).toEqual({ shipId, status: 'crashed' });
+    expect(reportCrewStatusInputSchema.safeParse({ shipId, status: 'asleep' }).success).toBe(false);
+  });
+});
+
+describe('assignedCrewRequestsOutputSchema', () => {
+  it('lists each assigned request with its settings and status', () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null }];
+
+    expect(assignedCrewRequestsOutputSchema.parse(assigned)).toEqual(assigned);
+  });
+});
+
+describe('explainCrewRequestInputSchema', () => {
+  it('takes a reason, trimmed, or null to clear it', () => {
+    const shipId = newId('ship');
+
+    expect(explainCrewRequestInputSchema.parse({ shipId, reason: '  no room  ' })).toEqual({ shipId, reason: 'no room' });
+    expect(explainCrewRequestInputSchema.parse({ shipId, reason: null })).toEqual({ shipId, reason: null });
+  });
+
+  it.each([
+    ['a reason over 200 characters', 'x'.repeat(201)],
+    ['a reason over one line', 'no room\nanywhere'],
+  ])('rejects %s', (_label, reason) => {
+    expect(explainCrewRequestInputSchema.safeParse({ shipId: newId('ship'), reason }).success).toBe(false);
   });
 });

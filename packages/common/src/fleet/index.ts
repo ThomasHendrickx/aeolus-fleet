@@ -7,16 +7,18 @@ import { z } from 'zod';
  */
 
 /** A permission of a ship, stored on the server with the ship and checked before every call. */
-export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'] as const;
+export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
 
 /**
  * The scopes commissioning may add to an agent ship, beside sending and
- * receiving, which every agent ship has (ADR 0002). `fleet:crew` is a
+ * receiving, which every agent ship has (ADR 0002). `fleet:crew` is the 0.17
  * trierarch's: it reads one ship, gets its starting prompt and releases it.
+ * `crew:assign` writes crew request assignments; `crew:run` crews the ships
+ * whose requests are assigned to its ship (decision 0029).
  */
-export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'fleet:crew'] as const;
+export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 
@@ -76,6 +78,9 @@ export const EVENT_TYPES = [
   'ViewerSessionStarted',
   'CrewRequested',
   'CrewRequestRemoved',
+  'CrewAssigned',
+  'CrewStatusChanged',
+  'CrewRequestExplained',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

@@ -30,7 +30,7 @@ describe('initialising the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew'],
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'],
         retiredAt: null,
       }),
     ]);

@@ -1,5 +1,15 @@
-import { CREW_REQUEST_SETTINGS_MAX_BYTES, crewRequestSettingsBytes, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import {
+  CREW_REQUEST_REASON_MAX_LENGTH,
+  CREW_REQUEST_SETTINGS_MAX_BYTES,
+  isOneLine,
+  crewRequestSettingsBytes,
+  type CrewStatus,
+  type FleetId,
+  type Scope,
+  type ShipId,
+} from '@aeolus-fleet/common';
 
+import { hasScope, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -8,9 +18,12 @@ import { checkCanBeRequestedCrew, type CrewRequestShipRefusal, type Ship } from 
 
 /**
  * A standing request that a ship be kept crewed (docs/blueprint.md, "Crew
- * request"): at most one per ship, with settings the server stores without
- * meaning (decision 0029). Each request replaces the settings whole and moves
- * their version by one, so whoever crews it notices the change.
+ * request"; decision 0029): at most one per ship, in three parts with one
+ * writer each. The settings, which the server stores without meaning, by a
+ * requester with fleet:manage; the assignment, the trierarch ship that crews
+ * it, by a ship with crew:assign; the status, by the assigned trierarch.
+ * Removing an assigned request marks it releasing; it goes once its
+ * trierarch confirms.
  */
 export interface CrewRequest {
   fleetId: FleetId;
@@ -20,15 +33,35 @@ export interface CrewRequest {
   settingsVersion: number;
   /** When the settings were last requested. */
   requestedAt: Date;
+  /** The trierarch ship it is assigned to; null while unassigned. */
+  assignedTo: ShipId | null;
+  /** How its trierarch says the crew stands; null until it says. */
+  status: CrewStatus | null;
+  /** Why no trierarch can take it, written by the assigner while unassigned; null when none. */
+  reason: string | null;
 }
 
-export type RequestCrewRefusal = CrewRequestShipRefusal | DomainError<'CREW_REQUEST_SETTINGS_TOO_LARGE'>;
+type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
+type Releasing = DomainError<'CREW_REQUEST_RELEASING'>;
+type NotTheCallers = DomainError<'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>;
+
+export type RequestCrewRefusal = CrewRequestShipRefusal | Releasing | DomainError<'CREW_REQUEST_SETTINGS_TOO_LARGE'>;
+
+function notFound(ship: Ship): Result<never, NotFound> {
+  return refuse('CREW_REQUEST_NOT_FOUND', `${ship.name} has no crew request`);
+}
+
+function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Date; actor: Actor }): NewEvent {
+  const { at, actor, ...what } = change;
+  return { fleetId: ship.fleetId, occurredAt: at, actor, shipId: ship.id, ...what };
+}
 
 /**
  * A requester asks that the ship be kept crewed, with these settings: the
- * request it holds now, replacing any it held, and CrewRequested with the
- * settings version, never the settings. Never argo, the viewer ship or a
- * retired ship; settings of at most 16 KB.
+ * request it holds now, replacing the settings of any it held and keeping its
+ * assignment and status, and CrewRequested with the settings version, never
+ * the settings. Never argo, the viewer ship or a retired ship; settings of at
+ * most 16 KB; never while the request is releasing.
  */
 export function requestCrew(
   { ship, current }: { ship: Ship; current: CrewRequest | undefined },
@@ -37,6 +70,9 @@ export function requestCrew(
   const requestable = checkCanBeRequestedCrew(ship);
   if (!requestable.isOk) {
     return requestable;
+  }
+  if (current?.status === 'releasing') {
+    return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: request again once its trierarch confirms`);
   }
   const bytes = crewRequestSettingsBytes(input.settings);
   if (bytes > CREW_REQUEST_SETTINGS_MAX_BYTES) {
@@ -51,29 +87,171 @@ export function requestCrew(
     settings: input.settings,
     settingsVersion: (current?.settingsVersion ?? 0) + 1,
     requestedAt: input.at,
+    assignedTo: current?.assignedTo ?? null,
+    status: current?.status ?? null,
+    reason: current?.reason ?? null,
   };
-  return ok({
-    request,
-    events: [
-      {
-        fleetId: ship.fleetId,
-        type: 'CrewRequested',
-        occurredAt: input.at,
-        actor: input.actor,
-        shipId: ship.id,
-        details: { settingsVersion: request.settingsVersion },
-      },
-    ],
-  });
+  return ok({ request, events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequested', details: { settingsVersion: request.settingsVersion } })] });
 }
 
-/** A requester removes the ship's crew request: CrewRequestRemoved. Refused when the ship holds none. */
+/**
+ * A requester removes the ship's crew request. Unassigned, it goes at once,
+ * with CrewRequestRemoved. Assigned, it is marked releasing, with
+ * CrewStatusChanged, and goes once its trierarch confirms; removing it again
+ * meanwhile changes nothing.
+ */
 export function removeCrewRequest(
   { ship, current }: { ship: Ship; current: CrewRequest | undefined },
   input: { at: Date; actor: Actor },
-): Result<{ events: NewEvent[] }, DomainError<'CREW_REQUEST_NOT_FOUND'>> {
+): Result<{ request: CrewRequest | undefined; events: NewEvent[] }, NotFound> {
   if (!current) {
-    return refuse('CREW_REQUEST_NOT_FOUND', `${ship.name} has no crew request`);
+    return notFound(ship);
   }
-  return ok({ events: [{ fleetId: ship.fleetId, type: 'CrewRequestRemoved', occurredAt: input.at, actor: input.actor, shipId: ship.id }] });
+  if (current.assignedTo === null) {
+    return ok({ request: undefined, events: [event(ship, { ...input, type: 'CrewRequestRemoved' })] });
+  }
+  if (current.status === 'releasing') {
+    return ok({ request: current, events: [] });
+  }
+  return ok({
+    request: { ...current, status: 'releasing' },
+    events: [event(ship, { ...input, type: 'CrewStatusChanged', details: { status: 'releasing' } })],
+  });
+}
+
+export type AssignCrewRefusal =
+  | NotFound
+  | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'SHIP_NOT_AWAITING_CREW' | 'ASSIGNEE_NOT_ACTIVE'>;
+
+/**
+ * A ship with crew:assign assigns the request to a trierarch, by optimistic
+ * claim: only while it is unassigned, so of two claims the first wins. Never
+ * a crewed ship (crewing by hand fulfils the request). Any active ship of the
+ * fleet may be the assignee: the fleet does no routing, and a ship that is no
+ * trierarch just gets work it does not understand. CrewAssigned names it.
+ */
+export function assignCrew(
+  { ship, current, isCrewed, assignee }: { ship: Ship; current: CrewRequest | undefined; isCrewed: boolean; assignee: Ship | undefined },
+  input: { at: Date; actor: Actor },
+): Result<{ request: CrewRequest; events: NewEvent[] }, AssignCrewRefusal> {
+  if (!current) {
+    return notFound(ship);
+  }
+  if (current.assignedTo !== null) {
+    return refuse('CREW_REQUEST_ALREADY_ASSIGNED', `${ship.name}'s crew request is assigned already`);
+  }
+  if (isCrewed) {
+    return refuse('SHIP_NOT_AWAITING_CREW', `${ship.name} is crewed: crewing it by hand fulfils its request`);
+  }
+  if (assignee?.retiredAt !== null) {
+    return refuse('ASSIGNEE_NOT_ACTIVE', 'A crew request is assigned only to an active ship of the fleet');
+  }
+  return ok({
+    request: { ...current, assignedTo: assignee.id, reason: null },
+    events: [event(ship, { ...input, type: 'CrewAssigned', details: { assignedTo: assignee.id } })],
+  });
+}
+
+export type ExplainCrewRequestRefusal = NotFound | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'INVALID_CREW_REQUEST_REASON'>;
+
+/**
+ * The assigner writes why no trierarch can take an unassigned request, one
+ * line, trimmed; none clears it. CrewRequestExplained when it changes; an
+ * assignment clears it.
+ */
+export function explainCrewRequest(
+  { ship, current }: { ship: Ship; current: CrewRequest | undefined },
+  input: { reason: string | null; at: Date; actor: Actor },
+): Result<{ request: CrewRequest; events: NewEvent[] }, ExplainCrewRequestRefusal> {
+  if (!current) {
+    return notFound(ship);
+  }
+  if (current.assignedTo !== null) {
+    return refuse('CREW_REQUEST_ALREADY_ASSIGNED', `${ship.name}'s crew request is assigned: it needs no reason`);
+  }
+  const reason = input.reason?.trim() ?? '';
+  if (reason.length > CREW_REQUEST_REASON_MAX_LENGTH || !isOneLine(reason)) {
+    return refuse('INVALID_CREW_REQUEST_REASON', `A reason is one line of at most ${String(CREW_REQUEST_REASON_MAX_LENGTH)} characters`);
+  }
+  const kept = reason === '' ? null : reason;
+  if (kept === current.reason) {
+    return ok({ request: current, events: [] });
+  }
+  return ok({
+    request: { ...current, reason: kept },
+    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequestExplained', details: { reason: kept } })],
+  });
+}
+
+/** Only the trierarch the request is assigned to writes its status or confirms its release. */
+function checkAssignedTo({ ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest; trierarchShipId: ShipId }): Result<void, NotTheCallers> {
+  return current.assignedTo === trierarchShipId
+    ? ok(undefined)
+    : refuse('CREW_REQUEST_NOT_ASSIGNED_TO_CALLER', `${ship.name}'s crew request is not assigned to your ship`);
+}
+
+/**
+ * The assigned trierarch writes how its crew of the ship stands, with
+ * CrewStatusChanged when it changes. Once the request is releasing, only
+ * releasing.
+ */
+export function reportCrewStatus(
+  { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
+  input: { status: CrewStatus; at: Date; actor: Actor },
+): Result<{ request: CrewRequest; events: NewEvent[] }, NotFound | NotTheCallers | Releasing> {
+  if (!current) {
+    return notFound(ship);
+  }
+  const assigned = checkAssignedTo({ ship, current, trierarchShipId });
+  if (!assigned.isOk) {
+    return assigned;
+  }
+  if (current.status === 'releasing' && input.status !== 'releasing') {
+    return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: stop its session, end its lease and confirm`);
+  }
+  if (current.status === input.status) {
+    return ok({ request: current, events: [] });
+  }
+  return ok({
+    request: { ...current, status: input.status },
+    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewStatusChanged', details: { status: input.status } })],
+  });
+}
+
+/**
+ * The assigned trierarch confirms it released the ship of a releasing
+ * request: the request goes, with CrewRequestRemoved (the finalizer).
+ */
+export function confirmCrewRelease(
+  { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
+  input: { at: Date; actor: Actor },
+): Result<{ events: NewEvent[] }, NotFound | NotTheCallers | DomainError<'CREW_REQUEST_NOT_RELEASING'>> {
+  if (!current) {
+    return notFound(ship);
+  }
+  const assigned = checkAssignedTo({ ship, current, trierarchShipId });
+  if (!assigned.isOk) {
+    return assigned;
+  }
+  if (current.status !== 'releasing') {
+    return refuse('CREW_REQUEST_NOT_RELEASING', `${ship.name}'s crew request is not releasing: nothing to confirm`);
+  }
+  return ok({ events: [event(ship, { ...input, type: 'CrewRequestRemoved' })] });
+}
+
+/**
+ * Whether the caller reaches the ship for a fleet action it may take with one
+ * of the broad scopes, or with crew:run: crew:run reaches only the ships
+ * whose requests are assigned to the caller's ship (decision 0029).
+ */
+export function checkReaches(
+  caller: Caller,
+  { ship, current, broadScopes }: { ship: Ship; current: CrewRequest | null | undefined; broadScopes: readonly Scope[] },
+): Result<void, NotTheCallers> {
+  if (broadScopes.some((scope) => hasScope(caller, scope))) {
+    return ok(undefined);
+  }
+  return current?.assignedTo === caller.shipId
+    ? ok(undefined)
+    : refuse('CREW_REQUEST_NOT_ASSIGNED_TO_CALLER', `${ship.name}'s crew request is not assigned to your ship`);
 }

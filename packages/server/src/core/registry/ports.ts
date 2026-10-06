@@ -150,6 +150,8 @@ export interface CrewRequestRepository {
   /** Stores the ship's request, replacing the one it held. */
   save(request: CrewRequest): Promise<void>;
   remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
+  /** The requests assigned to this trierarch ship, oldest ship first. */
+  listAssignedTo(fleetId: FleetId, trierarchShipId: ShipId): Promise<CrewRequest[]>;
 }
 
 /** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */
@@ -199,6 +201,14 @@ export interface ShipFacts {
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /** The ship's crew request; null when it holds none. */
   crewRequest: CrewRequest | null;
+  /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
+  crewRequestAssignee: { id: ShipId; name: string } | null;
+  /**
+   * The ship that got the starting prompt the open lease claimed with, by id
+   * and name: the actor of the ship's last StartingPromptIssued before the
+   * lease started. Null while no session crews it, or when no prompt is known.
+   */
+  crewedBy: { id: ShipId; name: string } | null;
   /**
    * The newest ping to the ship: when it was sent, its delivery's state, and
    * when pong answered it, if pong did; null before any ping.
