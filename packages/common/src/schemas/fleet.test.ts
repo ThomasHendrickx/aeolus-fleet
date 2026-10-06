@@ -254,8 +254,12 @@ describe('fleetListOutputSchema', () => {
     expect(fleetListOutputSchema.parse([pinged])).toEqual([pinged]);
   });
 
-  it('accepts a crewed ship with its crew\'s last report', () => {
-    const reporting = { ...ship, status: 'crewed', report: { state: 'blocked', note: 'waiting for review', reportedAt: '2026-09-29T12:05:00.000Z' } };
+  it('accepts a crewed ship with its crew\'s last report and the version of its details', () => {
+    const reporting = {
+      ...ship,
+      status: 'crewed',
+      report: { state: 'blocked', note: 'waiting for review', reportedAt: '2026-09-29T12:05:00.000Z', detailsVersion: 1 },
+    };
 
     expect(fleetListOutputSchema.parse([reporting])).toEqual([reporting]);
   });
@@ -290,6 +294,7 @@ describe('fleetListOutputSchema', () => {
     ['a missing harness', { ...ship, harness: undefined }],
     ['missing scopes', { ...ship, scopes: undefined }],
     ['a missing report', { ...ship, report: undefined }],
+    ['a report without its details version', { ...ship, report: { state: 'idle', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['a report in an unknown state', { ...ship, report: { state: 'sleeping', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['an unknown scope', { ...ship, scopes: ['fleet:own'] }],
     ['an unknown ping state', { ...ship, ping: { state: 'lost', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null } }],

@@ -177,6 +177,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_notices$/),
       expect.stringMatching(/^\d{14}_guide$/),
       expect.stringMatching(/^\d{14}_fleet_crew_scope$/),
+      expect.stringMatching(/^\d{14}_lease_report_details$/),
     ]);
   });
 });

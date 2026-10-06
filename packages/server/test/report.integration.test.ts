@@ -45,7 +45,7 @@ describe("a crew's report on Postgres", () => {
 
     unwrap(await core.useCases.report(scout, { state: 'working', note: 'on PR 89' }));
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now() });
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
     await expect(reportEvents()).resolves.toBe(1);
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       isOk: true,
@@ -64,6 +64,10 @@ describe("a crew's report on Postgres", () => {
       version: 2,
     });
     await expect(reportEvents()).resolves.toBe(2);
+    await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
+      value: { report: { detailsVersion: 2, details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } } } },
+    });
+    await expect(listedReport()).resolves.toEqual(expect.not.objectContaining({ details: expect.anything() }));
   });
 
   it('clears its details to none with null', async () => {

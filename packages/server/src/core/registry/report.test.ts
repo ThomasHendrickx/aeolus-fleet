@@ -42,7 +42,21 @@ describe("a crew's report", () => {
   it('holds the state, the note and when it was reported, shown with the ship', async () => {
     await expect(useCases.report(scout, { state: 'working', note: 'on PR 89' })).resolves.toEqual({ isOk: true, value: undefined });
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now() });
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
+  });
+
+  it('is listed with the version of its details, never the details', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', details: { running: 4 } }));
+
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 1 });
+  });
+
+  it('is read whole, details included, with the one ship', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', details: { running: 4 } }));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { report: { state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 1, details: { running: 4 } } },
+    });
   });
 
   it('holds no note when none is given, and trims one that is', async () => {
@@ -75,7 +89,7 @@ describe("a crew's report", () => {
     unwrap(await useCases.report(scout, { state: 'working', note: 'on PR 89' }));
 
     expect(core.state.events).toEqual([]);
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now() });
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
   });
 
   it('writes ShipReported again when the note changes', async () => {
