@@ -6,7 +6,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
-import { withSquadronId } from './crew-lines.js';
+import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
 import type { Member } from './squadron.js';
 
@@ -60,6 +60,8 @@ export function createFormSquadron(deps: {
   catalogue: (fleetId: FleetId) => Catalogue;
   random: RandomNames;
   clock: Clock;
+  /** The fleet's MCP URL, which a member's chat crew line names. */
+  mcpUrl: string;
 }): FormSquadron {
   return async (input) => {
     const crew = await deps.management.find(input.fleetId);
@@ -110,9 +112,9 @@ export function createFormSquadron(deps: {
         if (!member.isOk) {
           return failed(member.error);
         }
-        const { shipId, name: memberName, crewLines } = member.value;
+        const { shipId, name: memberName } = member.value;
         members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null });
-        lines.push({ shipId, name: memberName, role: role.name, crewLines: withSquadronId(crewLines, squadronId), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
+        lines.push({ shipId, name: memberName, role: role.name, crewLines: memberCrewLines(member.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
       }
     }
 
