@@ -116,13 +116,14 @@ export function removeCrewRequest(
 
 export type AssignCrewRefusal =
   | NotFound
-  | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'SHIP_NOT_AWAITING_CREW' | 'ASSIGNEE_CANNOT_RUN_CREWS'>;
+  | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'SHIP_NOT_AWAITING_CREW' | 'ASSIGNEE_NOT_ACTIVE'>;
 
 /**
  * A ship with crew:assign assigns the request to a trierarch, by optimistic
  * claim: only while it is unassigned, so of two claims the first wins. Never
- * a crewed ship (crewing by hand fulfils the request), and only to an active
- * ship that holds crew:run. CrewAssigned names the trierarch.
+ * a crewed ship (crewing by hand fulfils the request). Any active ship of the
+ * fleet may be the assignee: the fleet does no routing, and a ship that is no
+ * trierarch just gets work it does not understand. CrewAssigned names it.
  */
 export function assignCrew(
   { ship, current, isCrewed, assignee }: { ship: Ship; current: CrewRequest | undefined; isCrewed: boolean; assignee: Ship | undefined },
@@ -137,8 +138,8 @@ export function assignCrew(
   if (isCrewed) {
     return refuse('SHIP_NOT_AWAITING_CREW', `${ship.name} is crewed: crewing it by hand fulfils its request`);
   }
-  if (assignee?.retiredAt !== null || !assignee.scopes.includes('crew:run')) {
-    return refuse('ASSIGNEE_CANNOT_RUN_CREWS', 'A crew request is assigned only to an active ship that holds crew:run');
+  if (assignee?.retiredAt !== null) {
+    return refuse('ASSIGNEE_NOT_ACTIVE', 'A crew request is assigned only to an active ship of the fleet');
   }
   return ok({
     request: { ...current, assignedTo: assignee.id },

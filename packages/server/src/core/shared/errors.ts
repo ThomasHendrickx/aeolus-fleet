@@ -2,7 +2,7 @@ import { err, type Err } from './result.js';
 
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
-  | 'ASSIGNEE_CANNOT_RUN_CREWS'
+  | 'ASSIGNEE_NOT_ACTIVE'
   | 'CREW_REQUEST_ALREADY_ASSIGNED'
   | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'
   | 'CREW_REQUEST_NOT_FOUND'

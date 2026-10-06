@@ -190,7 +190,7 @@ export const fleetRouter = router({
   assignCrew: scopedProcedure('crew:assign')
     .meta({
       description: [
-        "Needs crew:assign. Assigns a ship's crew request to a trierarch ship that holds crew:run, only while it is unassigned:",
+        "Needs crew:assign. Assigns a ship's crew request to a trierarch ship (any active ship of the fleet), only while it is unassigned:",
         'a lost claim is CONFLICT, so read again. Never a crewed ship: crewing it by hand fulfils its request.',
       ].join(' '),
     })
