@@ -34,6 +34,7 @@ const SHIP_TOOLS = [
   'ack',
   'pong',
   'report',
+  'reportLog',
   'inbox',
   'deregister',
   'fleet_list',

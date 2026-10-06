@@ -1,4 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
+import { reportLogOutputSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -133,6 +134,7 @@ describe('the ship calls at /api/v1', () => {
       '/ship/ack',
       '/ship/pong',
       '/ship/report',
+      '/ship/reportLog',
       '/ship/inbox',
       '/ship/deregister',
       '/fleet/list',
@@ -239,6 +241,31 @@ describe('the ship calls at /api/v1', () => {
 
     const listed = await createUseCases({ prisma: database }).listFleet(argo);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'working', note: 'on PR 89' });
+  });
+
+  it('report and reportLog: a crew sets its details, patches them, and reads them back with their version', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+
+    await ok(request('report', { crewToken, body: { state: 'working', details: { 'shp_01': { state: 'running' }, kept: ['a'] } } }), z.strictObject({}));
+    await ok(request('report', { crewToken, body: { state: 'working', detailsPatch: { kept: null } } }), z.strictObject({}));
+
+    await expect(ok(request('reportLog', { crewToken, method: 'GET' }), reportLogOutputSchema)).resolves.toMatchObject({
+      report: { state: 'working', details: { 'shp_01': { state: 'running' } }, detailsVersion: 2 },
+      previousCrew: null,
+    });
+  });
+
+  it('refuse report details over 16 KB with 400, naming their size, the limit and the decision', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+
+    const answer = await request('report', { crewToken, body: { state: 'working', details: { x: 'x'.repeat(16 * 1024) } } });
+
+    expect(answer).toEqual({
+      status: 400,
+      body: { code: 'BAD_REQUEST', message: 'details is 16392 bytes, the limit is 16384 (decision 0028)' },
+    });
   });
 
   it('refuse a second register of a ship a session crews with 409, its code and its message', async () => {
