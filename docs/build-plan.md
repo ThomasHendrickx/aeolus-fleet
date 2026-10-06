@@ -36,7 +36,7 @@ Then, in this order: the console in atomic design (set up Storybook first, then 
 
 What a trierarch does is in [trierarch.md](trierarch.md), its build in the architecture ("The trierarch"), and why in decisions 0002, 0026 and 0027. One PR per slice, labelled with its release.
 
-Build order: D1, D3, D2a, D2b, D4, then D5, which does not block v1. D2b's Claude Code adapter needs D3's identity line and turn marker.
+Build order: D1, D3, D2a, D2b, D4, then D5, which does not block v1. D2b's Claude Code adapter needs D3's identity line and turn marker. D6, Codex as the second harness, follows D4.
 
 | # | Slice | Builds | Done when |
 | --- | --- | --- | --- |
@@ -46,8 +46,9 @@ Build order: D1, D3, D2a, D2b, D4, then D5, which does not block v1. D2b's Claud
 | D2b | The trierarch's adapters and command | The REST fleet client (its own crew token and `fleet:crew`), tmux, git worktree and folder, the Claude Code harness, the JSON state store, and `aeolus-trierarch init`, `run`, `config check` and `install` (a launchd agent, and a systemd user unit if cheap) | A Testcontainers test: a want on a real server crews the ship and writes its identity, and release ends the lease. Adapter tests against real tmux and git in a temporary folder. `config check` prints the effective flags. The README says how to install and configure it |
 | D4 | The trial on the Mac mini | No new code unless the trial needs it | Written up in the PR:<br>- a want crews a ship unattended;<br>- a killed pane comes back with no new secret;<br>- a message wakes an idle session;<br>- a restart of the Mac brings the ships back under launchd;<br>- release removes a clean worktree and keeps one with changes.<br><br>It also answers whether Claude Code's folder trust and the one-time skip-permissions acceptance can be given ahead of time, and how; if they cannot, it says so as a finding |
 | D5 | The console's trierarch screens | The screens on the design canvas (https://claude.ai/artifact/Wq1HqccJjQtwNyd6KvuSHg): the page "Trierarchs" (TriOverview, TriDetail, the TriStart states, TriCommissionStart, the TriShip states, the TriRelease states, TriAttention, TriNoticeLease) and "Trierarch parts" on the Design system page. Look only; behaviour comes from trierarch.md. Needs its own design pass first for what the screens show beyond D1 | Its design pass answers how the console reads trierarch state, and the screens follow it with a story per meaningful state and an end-to-end test for start and release |
+| D6 | Codex as the second harness | The codex harness adapter (launch with the prompt before the flags, `codex resume --last` on a restart, wake typed as `$aeolus-wake`), the identity and turn marker through the aeolus plugin for Codex, an adapter per configured harness, and `init` answering Codex's one-time questions (folder trust, the aeolus hooks) through `codex app-server` | Adapter tests for launch, restart and wake, and for the setup against a stand-in app server; `init` tests for Codex. Written up in the PR, on the Mac mini: a want with harness `codex` crews a fresh ship that reports unattended, a message wakes it, a killed pane comes back, and release cleans up |
 
-Later, each with its own design pass: Codex, pi and herdr adapters; squadrons' setups; a batched inbox for many ships.
+Later, each with its own design pass: pi and herdr adapters; squadrons' setups; a batched inbox for many ships.
 
 ## Kickoff prompt: slice 9 (hardening)
 
