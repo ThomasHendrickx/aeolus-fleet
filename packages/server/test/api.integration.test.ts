@@ -366,6 +366,7 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      crewRequest: null,
       harness: null,
       model: null,
       awaitingCrewSince: clock.now().toISOString(),

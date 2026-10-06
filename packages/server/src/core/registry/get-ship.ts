@@ -4,11 +4,14 @@ import type { Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, type ListedShip } from './list-fleet.js';
+import type { CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 
 /** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
-export interface ShipDetail extends Omit<ListedShip, 'report'> {
+export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
+  /** The ship's crew request, settings included; null when it holds none. */
+  crewRequest: Omit<CrewRequest, 'fleetId' | 'shipId'> | null;
   /** The crew's last report, details included; null until it reports, and while no session crews the ship. */
   report: ShipReport | null;
   commissionedAt: Date;
@@ -36,6 +39,11 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
     return ok({
       ...listedShipOf(facts),
       report: facts.openLease?.report ?? null,
+      crewRequest: facts.crewRequest && {
+        settings: facts.crewRequest.settings,
+        settingsVersion: facts.crewRequest.settingsVersion,
+        requestedAt: facts.crewRequest.requestedAt,
+      },
       inFlightDeliveries: counts.inFlight,
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,

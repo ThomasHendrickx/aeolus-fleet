@@ -846,6 +846,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           }
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
+      crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
       lastViewedAt:

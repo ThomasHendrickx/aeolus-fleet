@@ -7,7 +7,7 @@ import { CommissionDialog } from './commission-dialog';
 const newId = createIdGenerator();
 
 function aShip(name: string, type: string): ListedShip {
-  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null };
+  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null };
 }
 
 const meta = {

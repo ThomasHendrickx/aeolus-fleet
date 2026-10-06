@@ -46,3 +46,12 @@ export const removeCrewRequestInputSchema = z.object({ shipId: idSchema('ship') 
 
 /** Output of `fleet.removeCrewRequest`: nothing; the OK is the answer. */
 export const removeCrewRequestOutputSchema = z.strictObject({});
+
+/** A ship's crew request as the fleet list shows it (ISO 8601 in UTC): its settings version and when it was requested, never its settings. */
+export const listedCrewRequestSchema = z.object({
+  settingsVersion: z.int().min(1),
+  requestedAt: z.iso.datetime(),
+});
+
+/** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
+export const crewRequestSchema = listedCrewRequestSchema.extend({ settings: crewRequestSettingsSchema });

@@ -197,6 +197,8 @@ export interface ShipFacts {
   openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
+  /** The ship's crew request; null when it holds none. */
+  crewRequest: CrewRequest | null;
   /**
    * The newest ping to the ship: when it was sent, its delivery's state, and
    * when pong answered it, if pong did; null before any ping.
