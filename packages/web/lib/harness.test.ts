@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { harnessKind, harnessWord } from './harness';
+import { crewLineHarnessWord, harnessKind, harnessWord } from './harness';
 
 describe('harnessWord', () => {
   it.each([
@@ -35,5 +35,15 @@ describe('harnessKind', () => {
 
   it('knows no kind for free text', () => {
     expect(harnessKind('github-actions')).toBeUndefined();
+  });
+});
+
+describe('crewLineHarnessWord', () => {
+  it.each([
+    ['claude-code', 'Claude Code'],
+    ['codex', 'Codex'],
+    ['chat', 'Chat'],
+  ])('words the %s crew line as %s', (harness, word) => {
+    expect(crewLineHarnessWord(harness)).toBe(word);
   });
 });

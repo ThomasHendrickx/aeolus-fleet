@@ -296,9 +296,9 @@ function crewLinesKey(squadronId: string): string[] {
 }
 
 /** The crew lines forming handed out for this squadron, by ship id, while this browser still holds them. */
-export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { crewLines: readonly CrewLine[]; launchNote: string | null }> {
+export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { crewLines: readonly CrewLine[]; launchNote: string | null; model: string | null }> {
   const members = useQueryClient().getQueryData<FormedSquadron['members']>(crewLinesKey(squadronId)) ?? [];
-  return new Map(members.map((member) => [member.shipId, { crewLines: member.crewLines, launchNote: member.launchNote }]));
+  return new Map(members.map((member) => [member.shipId, { crewLines: member.crewLines, launchNote: member.launchNote, model: member.model }]));
 }
 
 export const repositorySchema = z.object({
