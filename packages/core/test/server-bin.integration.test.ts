@@ -11,9 +11,9 @@ import { runServerCommand } from './support/commands.js';
 import { FLEET_URL } from './support/core-fixtures.js';
 import { createEmptyDatabase } from './support/database.js';
 
-// `aeolus-server`, the one command an operator runs on the server: start,
+// `aeolus-core`, the one command an operator runs on the server: start,
 // migrate, fleet:init and operator:reset-password. Run here as `npm run
-// aeolus-server`, which runs the same entry from source.
+// aeolus-core`, which runs the same entry from source.
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const migrationsFolder = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
@@ -28,7 +28,7 @@ const MIGRATIONS = readdirSync(migrationsFolder, { withFileTypes: true })
 const START_TIMEOUT_MS = 20_000;
 
 function aeolusServer(args: string[], env: Record<string, string>) {
-  return runServerCommand({ script: 'aeolus-server', args, env });
+  return runServerCommand({ script: 'aeolus-core', args, env });
 }
 
 /** The migrations the database records as applied, each as often as it was applied. */
@@ -63,7 +63,7 @@ afterEach(() => {
   }
 });
 
-describe('aeolus-server migrate', () => {
+describe('aeolus-core migrate', () => {
   it('applies every migration to an empty database', async () => {
     const databaseUrl = await createEmptyDatabase();
 
@@ -105,11 +105,11 @@ describe('aeolus-server migrate', () => {
   });
 });
 
-describe('aeolus-server start', () => {
+describe('aeolus-core start', () => {
   it('migrates an empty database first, then serves: /health answers the database up', async () => {
     const databaseUrl = await createEmptyDatabase();
     const port = await freePort();
-    const child = spawn('npm', ['run', '--silent', 'aeolus-server', '-w', '@aeolus-fleet/core', '--', 'start'], {
+    const child = spawn('npm', ['run', '--silent', 'aeolus-core', '-w', '@aeolus-fleet/core', '--', 'start'], {
       cwd: repositoryRoot,
       env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL, PORT: String(port), LOG_LEVEL: 'error' },
       stdio: 'ignore',
@@ -131,18 +131,18 @@ describe('aeolus-server start', () => {
   });
 });
 
-describe('aeolus-server', () => {
+describe('aeolus-core', () => {
   it('names its commands and exits 2 without one', async () => {
     const result = await aeolusServer([], {});
 
     expect(result.code).toBe(2);
-    expect(result.stderr).toContain('Usage: aeolus-server start | migrate | fleet:init --name "<fleet name>" | operator:reset-password');
+    expect(result.stderr).toContain('Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | operator:reset-password');
   });
 
   it('refuses a command it does not know, and exits 2', async () => {
     const result = await aeolusServer(['launch'], {});
 
     expect(result.code).toBe(2);
-    expect(result.stderr).toContain('Usage: aeolus-server');
+    expect(result.stderr).toContain('Usage: aeolus-core');
   });
 });

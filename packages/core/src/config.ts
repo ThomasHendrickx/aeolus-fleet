@@ -37,7 +37,7 @@ const environmentSchema = z.object({
   INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, `must be at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters`).optional(),
 });
 
-/** What `aeolus-server migrate` reads: the database alone. */
+/** What `aeolus-core migrate` reads: the database alone. */
 const databaseEnvironmentSchema = environmentSchema.pick({ DATABASE_URL: true });
 
 export interface Config {

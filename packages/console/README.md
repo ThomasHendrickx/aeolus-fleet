@@ -20,10 +20,10 @@ The package holds the console already built. It knows no server address until it
 
 ```sh
 npm install @aeolus-fleet/console
-AEOLUS_SERVER_URL=https://fleet.example.com PORT=3000 npx aeolus-web start
+AEOLUS_SERVER_URL=https://fleet.example.com PORT=3000 npx aeolus-console start
 ```
 
-`aeolus-web start` serves it with `next start`, without Next.js telemetry, until `SIGINT` or `SIGTERM`.
+`aeolus-console start` serves it with `next start`, without Next.js telemetry, until `SIGINT` or `SIGTERM`.
 
 ## Configuration
 

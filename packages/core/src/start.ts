@@ -3,7 +3,7 @@ import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 
 /**
- * `aeolus-server start`: migrates the database, then serves the fleet until
+ * `aeolus-core start`: migrates the database, then serves the fleet until
  * SIGINT or SIGTERM. A stop ends waiting receives and closes idle
  * connections at once (see app.ts).
  */

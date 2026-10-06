@@ -20,7 +20,7 @@
     }
   },
   "bin": {
-    "aeolus-server": "dist/bin/aeolus-server.js"
+    "aeolus-core": "dist/bin/aeolus-core.js"
   },
   "files": [
     "dist",
@@ -32,12 +32,12 @@
     "generate": "prisma generate",
     "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --project tsconfig.json",
-    "dev": "tsx watch --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts start",
-    "start": "node dist/bin/aeolus-server.js start",
-    "aeolus-server": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts",
-    "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts fleet:init",
-    "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts operator:reset-password",
-    "db:migrate": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-server.ts migrate"
+    "dev": "tsx watch --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts start",
+    "start": "node dist/bin/aeolus-core.js start",
+    "aeolus-core": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts",
+    "fleet:init": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts fleet:init",
+    "operator:reset-password": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts operator:reset-password",
+    "db:migrate": "tsx --conditions=@aeolus-fleet/source --env-file-if-exists=.env src/bin/aeolus-core.ts migrate"
   },
   "dependencies": {
     "@aeolus-fleet/common": "0.0.0",

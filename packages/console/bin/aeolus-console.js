@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `aeolus-web start`: serves the operator console, built when the package was
+ * `aeolus-console start`: serves the operator console, built when the package was
  * published, with `next start`. Every setting comes from environment
  * variables (see the README): PORT, HOST and AEOLUS_SERVER_URL, the last read
  * when the app runs, never when it was built.
@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
-const USAGE = 'Usage: aeolus-web start';
+const USAGE = 'Usage: aeolus-console start';
 const DEFAULT_PORT = '3000';
 const DEFAULT_HOST = '127.0.0.1';
 

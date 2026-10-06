@@ -37,11 +37,11 @@ export DATABASE_URL=postgresql://user:password@localhost:5432/aeolus
 export PUBLIC_URL=http://localhost:4000           # where ships reach the fleet
 export CONSOLE_ORIGIN=http://localhost:3000       # where the console runs
 
-npx aeolus-server migrate
-npx aeolus-server fleet:init --name "my fleet"    # once: asks for the operator email and password
-npx aeolus-server start                           # the API on port 4000
+npx aeolus-core migrate
+npx aeolus-core fleet:init --name "my fleet"    # once: asks for the operator email and password
+npx aeolus-core start                           # the API on port 4000
 
-AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-web start   # the console on port 3000
+AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-console start   # the console on port 3000
 ```
 
 Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.

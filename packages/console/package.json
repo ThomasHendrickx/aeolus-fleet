@@ -13,7 +13,7 @@
     "node": ">=26"
   },
   "bin": {
-    "aeolus-web": "bin/aeolus-web.js"
+    "aeolus-console": "bin/aeolus-console.js"
   },
   "files": [
     "bin",
@@ -30,7 +30,7 @@
     "predev": "npm run build --workspace @aeolus-fleet/common",
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "node bin/aeolus-web.js start",
+    "start": "node bin/aeolus-console.js start",
     "typecheck": "next typegen && tsc --project tsconfig.json",
     "storybook": "storybook dev --port 6006",
     "build-storybook": "storybook build --output-dir storybook-static"

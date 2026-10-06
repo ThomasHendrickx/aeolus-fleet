@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `aeolus-server <command>`: what an operator runs on the server, installed
+ * `aeolus-core <command>`: what an operator runs on the server, installed
  * from npm. Every setting comes from environment variables (see the README).
  */
 import { fleetInit } from '../adapters/cli/fleet-init.js';
@@ -12,7 +12,7 @@ import { migrateDatabase, MigrationError } from '../adapters/prisma/migrate.js';
 import { ConfigError } from '../config.js';
 import { start } from '../start.js';
 
-const USAGE = 'Usage: aeolus-server start | migrate | fleet:init --name "<fleet name>" | operator:reset-password';
+const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | operator:reset-password';
 
 const [command, ...args] = process.argv.slice(2);
 

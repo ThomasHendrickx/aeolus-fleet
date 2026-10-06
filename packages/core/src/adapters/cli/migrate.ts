@@ -2,7 +2,7 @@ import { loadDatabaseUrl } from '../../config.js';
 import type { CommandIo, ExitCode } from './io.js';
 
 /**
- * `aeolus-server migrate`: applies the migrations this package ships. Needs
+ * `aeolus-core migrate`: applies the migrations this package ships. Needs
  * DATABASE_URL alone. `start` migrates too; this runs it on its own, such as
  * before a start in a deploy.
  */
