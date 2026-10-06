@@ -1,6 +1,7 @@
 import {
   themeSchema,
   deliveryStateSchema,
+  reportDetailsSchema,
   reportStateSchema,
   eventTypeSchema,
   idSchema,
@@ -104,12 +105,17 @@ const shipReportSqlRow = z.object({
   report_state: reportStateSchema.nullable(),
   report_note: z.string().nullable(),
   reported_at: z.date().nullable(),
+  report_details: reportDetailsSchema.nullable(),
+  // Null where no lease joins: the column itself is never null.
+  report_details_version: z.int().min(0).nullable(),
 });
 
 /** A lease's report columns as raw SQL reads them; null until its crew reports. */
 export function toShipReport(row: unknown): ShipReport | null {
-  const { report_state, report_note, reported_at } = shipReportSqlRow.parse(row);
-  return report_state && reported_at ? { state: report_state, note: report_note, reportedAt: reported_at } : null;
+  const { report_state, report_note, reported_at, report_details, report_details_version } = shipReportSqlRow.parse(row);
+  return report_state && reported_at
+    ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
+    : null;
 }
 
 const shipFactsSqlRow = z.object({

@@ -19,8 +19,12 @@ describe('mergePatch, as RFC 7386 applies a JSON Merge Patch', () => {
     [{ e: null }, { a: 1 }, { e: null, a: 1 }],
     [[1, 2], { a: 'b', c: null }, { a: 'b' }],
     [{}, { a: { bb: { ccc: null } } }, { a: { bb: {} } }],
-  ])('patches %j with %j into %j (RFC 7386, appendix A)', (target, patch, result) => {
+  ])('patches %j with %j into %j (RFC 7386, appendix A)', (...[target, patch, result]) => {
     expect(mergePatch(target, patch)).toEqual(result);
+  });
+
+  it('reads keys named like built-in properties as plain keys', () => {
+    expect(mergePatch({ toString: 1 }, { constructor: { a: 1 } })).toEqual({ toString: 1, constructor: { a: 1 } });
   });
 
   it('leaves the target as it was', () => {

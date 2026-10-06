@@ -53,6 +53,28 @@ describe("a crew's report on Postgres", () => {
     });
   });
 
+  it('stores its details as JSON with their version, merge-patched in place', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', details: { 'shp_01': { state: 'running' }, kept: ['a'] } }));
+
+    unwrap(await core.useCases.report(scout, { state: 'working', detailsPatch: { 'shp_02': { state: 'crashed' }, kept: null } }));
+
+    const lease = await core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } });
+    expect({ details: lease.reportDetails, version: lease.reportDetailsVersion }).toEqual({
+      details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } },
+      version: 2,
+    });
+    await expect(reportEvents()).resolves.toBe(2);
+  });
+
+  it('clears its details to none with null', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', details: { running: 4 } }));
+
+    unwrap(await core.useCases.report(scout, { state: 'working', details: null }));
+
+    const lease = await core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } });
+    expect({ details: lease.reportDetails, version: lease.reportDetailsVersion }).toEqual({ details: null, version: 2 });
+  });
+
   it("is none for the ship's next crew", async () => {
     unwrap(await core.useCases.report(scout, { state: 'blocked' }));
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
