@@ -6,6 +6,7 @@ import { createClaudeCodeSetup } from '../adapters/claude-code-setup.js';
 import { createCodexSetup } from '../adapters/codex-setup.js';
 import { loadConfiguration, readCrewFile, TrierarchFileError } from '../adapters/files.js';
 import { createJsonState } from '../adapters/json-state.js';
+import { createLogger, readLogLine, renderLogLine } from '../adapters/log.js';
 import { trierarchPaths } from '../adapters/paths.js';
 import { createRestFleet } from '../adapters/rest-fleet.js';
 import { runCommand } from '../adapters/run-command.js';
@@ -207,10 +208,10 @@ export async function main(argv: readonly string[], env: Readonly<Record<string,
       }
       const tail = await tailLog({ file, lines });
       if (!switches.has('--follow')) {
-        return { data: { file, lines: tail }, text: tail.length === 0 ? `No log lines yet in ${file}.` : tail.join('\n') };
+        return { data: { file, lines: tail.map(readLogLine) }, text: tail.length === 0 ? `No log lines yet in ${file}.` : tail.map(renderLogLine).join('\n') };
       }
       const write = (line: string): void => {
-        process.stdout.write(`${isJson ? JSON.stringify({ line }) : line}\n`);
+        process.stdout.write(`${isJson ? JSON.stringify(readLogLine(line)) : renderLogLine(line)}\n`);
       };
       tail.forEach(write);
       await followLog({ file, signal: untilStopped(), intervalMs: FOLLOW_INTERVAL_MS, write });
@@ -245,10 +246,11 @@ export async function main(argv: readonly string[], env: Readonly<Record<string,
       return { data: report, text: report.said.join('\n') };
     },
     run: async () => {
-      const logger = {
-        info: (message: string) => process.stdout.write(`${new Date().toISOString()} ${message}\n`),
-        warn: (message: string) => process.stderr.write(`${new Date().toISOString()} ${message}\n`),
-      };
+      const logger = createLogger({
+        out: { write: (text) => process.stdout.write(text), isTerminal: process.stdout.isTTY },
+        err: { write: (text) => process.stderr.write(text), isTerminal: process.stderr.isTTY },
+        now: () => new Date(),
+      });
       await runTrierarch({ paths, homeDirectory, env, signal: untilStopped(), logger });
       return { data: { stopped: true }, text: 'aeolus-trierarch stopped.' };
     },
