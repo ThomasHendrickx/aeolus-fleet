@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * The fleet's shared vocabulary (docs/blueprint.md, "Ubiquitous language"):
  * scopes, ship kinds, ship statuses, lease locations, selector kinds, delivery
- * states and event types. Server and web use the same words.
+ * states and event types. Core and console use the same words.
  */
 
 /** A permission of a ship, stored on the server with the ship and checked before every call. */

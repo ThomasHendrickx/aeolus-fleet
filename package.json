@@ -1,7 +1,7 @@
 {
   "name": "aeolus-fleet",
   "private": true,
-  "description": "Aeolus: an agent fleet manager. Workspace root for the three published packages, squadrons and the trierarch.",
+  "description": "Aeolus: an agent fleet manager. Workspace root for its published packages: common, core, console, squadrons and the trierarch.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "npm@11.19.1",

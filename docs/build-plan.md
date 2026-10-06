@@ -17,8 +17,8 @@ This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two s
 - [ ] Branch protection on main: PR required, CI must pass
 - [x] Claim the npm org `aeolus-fleet`
 - [x] Publish `0.0.0` placeholders for `@aeolus-fleet/core`, `@aeolus-fleet/console`, `@aeolus-fleet/common`
-- [x] Configure trusted publishing (OIDC) for the three packages: GitHub Actions, repo `ThomasHendrickx/aeolus-fleet`, workflow `release.yml`
-- [x] Publishing access on all three packages: require two-factor authentication and disallow tokens
+- [x] Configure trusted publishing (OIDC) for every published package: GitHub Actions, repo `ThomasHendrickx/aeolus-fleet`, workflow `release.yml`
+- [x] Publishing access on every published package: require two-factor authentication and disallow tokens
 
 ## The build plan
 
