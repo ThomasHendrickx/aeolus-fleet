@@ -48,6 +48,10 @@ const SHIP_TOOLS = [
   'fleet_follow',
   'fleet_crewRequest',
   'fleet_removeCrewRequest',
+  'fleet_assignCrew',
+  'fleet_reportCrewStatus',
+  'fleet_confirmCrewRelease',
+  'fleet_assignedCrewRequests',
 ];
 
 let core: InMemoryCore;

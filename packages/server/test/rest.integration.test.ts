@@ -55,13 +55,13 @@ async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: s
 }
 
 /** A new ship commissioned by argo with fleet scopes, claimed with its secret: its name and crew token. */
-async function crewedWithFleetScopes(fleetScopes: FleetScope[]): Promise<{ name: string; crewToken: string }> {
+async function crewedWithFleetScopes(fleetScopes: FleetScope[]): Promise<{ name: string; shipId: ShipId; crewToken: string }> {
   shipCount += 1;
   const name = `rest-manager-${shipCount}`;
   const { shipId, secret } = unwrap(
     await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
   );
-  return { name, crewToken: await register({ shipId, secret: secretOf(secret) }) };
+  return { name, shipId, crewToken: await register({ shipId, secret: secretOf(secret) }) };
 }
 
 /** A new idempotency key: every message gets its own. */
@@ -148,6 +148,10 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/follow',
       '/fleet/crewRequest',
       '/fleet/removeCrewRequest',
+      '/fleet/assignCrew',
+      '/fleet/reportCrewStatus',
+      '/fleet/confirmCrewRelease',
+      '/fleet/assignedCrewRequests',
     ]);
   });
 
@@ -396,6 +400,39 @@ describe('the fleet actions at /api/v1/fleet', () => {
 
     expect(others.length).toBeGreaterThan(0);
     expect(Object.fromEntries(answers)).toEqual(Object.fromEntries(others.map((each) => [each.route, 403])));
+  });
+
+  it('serve the plugin with crew:assign and the trierarch with crew:run a crew request: assigned, read, run, released and confirmed', async () => {
+    const plugin = await crewedWithFleetScopes(['crew:assign']);
+    const trierarch = await crewedWithFleetScopes(['crew:run']);
+    const trierarchId = trierarch.shipId;
+    const scout = await commissioned();
+    unwrap(await createUseCases({ prisma: database }).requestCrew(argo, { shipId: scout.shipId, settings: { harness: 'codex' } }));
+
+    await ok(request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId: scout.shipId, trierarchShipId: trierarchId } }), z.strictObject({}));
+    const assigned = await ok(
+      request('fleet/assignedCrewRequests', { crewToken: trierarch.crewToken, method: 'GET' }),
+      z.array(z.object({ shipId: z.string(), settings: z.unknown(), status: z.unknown() })),
+    );
+    const read = await ok(request('fleet/ship', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.object({ id: z.string() }));
+    await ok(request('fleet/getStartingPrompt', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.object({ secret: z.string() }));
+    await ok(request('fleet/reportCrewStatus', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId, status: 'running' } }), z.strictObject({}));
+    unwrap(await createUseCases({ prisma: database }).removeCrewRequest(argo, { shipId: scout.shipId }));
+    await ok(request('fleet/confirmCrewRelease', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.strictObject({}));
+
+    expect(assigned).toEqual([{ shipId: scout.shipId, settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: expect.any(String), status: null }]);
+    expect(read.id).toBe(scout.shipId);
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
+  it('refuse a ship with crew:run a ship not assigned to it, with 403', async () => {
+    const trierarch = await crewedWithFleetScopes(['crew:run']);
+    const scout = await commissioned();
+
+    await expect(request('fleet/getStartingPrompt', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } })).resolves.toMatchObject({
+      status: 403,
+      body: { code: 'FORBIDDEN' },
+    });
   });
 
   it('refuse the fleet list with 403 to a ship without fleet:read', async () => {
