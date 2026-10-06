@@ -33,7 +33,7 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 
 | Field | Required | Rule |
 | --- | --- | --- |
-| `name` | no | The blueprint's name, a handle: in the catalogue, the console, a form reference and the base of squadron ids. The file name when left out. Its tag stays `<file name>@<n>`. Blueprint files of one repository that give one name (a `name`, or a file name another sets as its `name`) are all left out, each saying which others give it |
+| `name` | no | The blueprint's name, a handle: in the catalogue, the console, a form reference and the base of squadron ids. The file name when left out. Its tag stays `<file name>@<n>`. Blueprint files of one repository that give one name (a `name`, or a file name another sets as its `name`) are all left out, each saying which others give it. A blueprint whose name (its `name` or file name) is a template's name in its repository is left out, saying which template versions have it; the template stays |
 | `description` | yes | One line |
 | `roles` | yes | Role names (handles) to a template reference and a `count` (1 when left out, at most 20) |
 | `roles.<role>.template` | yes | `<repository>#<name>@<n>`: a configured repository, the template's name, and its version, the tag `<name>@<n>` in that repository. Only tags: never a branch or a commit |
@@ -63,7 +63,7 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 - **A hand-off left unbound**, or bound to a role the blueprint does not have. A blueprint binds exactly the hand-offs its templates declare, each to one of its roles or to `flagship`.
 - **A duration or model in another form.** `checkIn` is `30m` or `2h`, not `30 min`, `90s` or `2d`. `model` is an exact id such as `claude-opus-5-5`, never `opus` or `claude-opus-latest`.
 - **Two blueprints of one name.** Two blueprint files of one repository that give one name, through `name` or their file name, are both left out: give each its own name.
-- **A template and a blueprint of one name.** One tag reads both folders, so `tester@1` would be both a template and a blueprint version; give them different names.
+- **A template and a blueprint of one name.** One tag reads both folders, so `tester@1` would be both a template and a blueprint version, and a blueprint's `name` may take a template's name too. Such a blueprint is left out, saying which template versions have the name; the template stays, so the blueprints that use it keep working. Give the blueprint another name.
 
 ## Names
 
