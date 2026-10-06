@@ -46,6 +46,16 @@ describe('a crew request on Postgres', () => {
     await expect(core.prisma.event.count({ where: { type: 'CrewRequested', shipId: scoutId } })).resolves.toBe(2);
   });
 
+  it('is read with the ship: its settings version in the fleet list, its settings with the one ship', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now() });
+    await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { crewRequest: { settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now() } },
+    });
+  });
+
   it('is removed by its requester, with CrewRequestRemoved', async () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: {} }));
 

@@ -209,6 +209,7 @@ describe('fleetListOutputSchema', () => {
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
+    crewRequest: null,
     model: null,
     harness: null,
     awaitingCrewSince: '2026-09-29T12:00:00.000Z',
@@ -254,6 +255,12 @@ describe('fleetListOutputSchema', () => {
     expect(fleetListOutputSchema.parse([pinged])).toEqual([pinged]);
   });
 
+  it('accepts a ship with its crew request: its settings version and when it was requested', () => {
+    const requested = { ...ship, crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z' } };
+
+    expect(fleetListOutputSchema.parse([requested])).toEqual([requested]);
+  });
+
   it('accepts a crewed ship with its crew\'s last report and the version of its details', () => {
     const reporting = {
       ...ship,
@@ -294,6 +301,8 @@ describe('fleetListOutputSchema', () => {
     ['a missing harness', { ...ship, harness: undefined }],
     ['missing scopes', { ...ship, scopes: undefined }],
     ['a missing report', { ...ship, report: undefined }],
+    ['a ship without its crew request', { ...ship, crewRequest: undefined }],
+    ['a crew request with a settings version of 0', { ...ship, crewRequest: { settingsVersion: 0, requestedAt: '2026-09-29T12:05:00.000Z' } }],
     ['a report without its details version', { ...ship, report: { state: 'idle', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['a report in an unknown state', { ...ship, report: { state: 'sleeping', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['an unknown scope', { ...ship, scopes: ['fleet:own'] }],

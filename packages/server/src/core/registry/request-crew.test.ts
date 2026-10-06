@@ -83,6 +83,28 @@ describe('requesting a crew for a ship', () => {
   });
 });
 
+describe('a crew request read with the ship', () => {
+  it('is none before any request', async () => {
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { crewRequest: null } });
+  });
+
+  it('is listed with the fleet by its settings version and when it was requested, never its settings', async () => {
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
+
+    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now() });
+  });
+
+  it('is read whole, settings included, with the one ship', async () => {
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
+
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { crewRequest: { settings, settingsVersion: 1, requestedAt: core.clock.now() } },
+    });
+  });
+});
+
 describe('a crew request refused', () => {
   async function expectRefused(input: Parameters<typeof registry.requestCrew>[1], error: { kind: string; message?: string }): Promise<void> {
     const before = structuredClone(core.state);
