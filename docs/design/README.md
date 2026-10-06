@@ -6,6 +6,7 @@ Exported from the Claude Design canvas "Aeolus operator console v1" (Design syst
 - [`packages/console/app/tokens.css`](../../packages/console/app/tokens.css): every token, light (`:root`) and dark (`.dark`). The single copy: the console theme imports it, and the parts here refer to it.
 - `png/<Part>.png`: the part in all its states, light and dark. Open only the parts you build.
 - `source/<Part>.html`: the canvas markup for exact values; helper classes in `source/canvas.css`.
+- [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.
 
 | Level | Part | What it is | Props | Sections |
 | --- | --- | --- | --- | --- |
