@@ -41,7 +41,7 @@ const coreForbiddenImports = [
   { what: 'Fastify', regex: '^(fastify|fastify/.+|fastify-.+|@fastify/.+)$' },
   { what: 'tRPC', regex: '^@trpc/.+$' },
   { what: 'an adapter', regex: '(^|/)adapters(/|$)' },
-  { what: 'the server package entry, which re-exports adapters', regex: '^@aeolus-fleet/core(/.+)?$' },
+  { what: 'the core package entry, which re-exports adapters', regex: '^@aeolus-fleet/core(/.+)?$' },
 ].map(({ what, regex }) => ({
   regex,
   message: `core/src/domain must not import ${what}. The core holds domain, use cases and ports; adapters depend on it, never the other way round.`,

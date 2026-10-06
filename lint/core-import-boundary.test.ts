@@ -30,7 +30,7 @@ describe('core import boundary', () => {
     ['the tRPC server', "import { initTRPC } from '@trpc/server';"],
     ['an adapter by relative path', "import { createPrismaClient } from '../../adapters/prisma/client.js';"],
     ['the generated Prisma client', "import { PrismaClient } from '../../adapters/prisma/generated/client.js';"],
-    ['the server package entry', "import type { AppRouter } from '@aeolus-fleet/core';"],
+    ['the core package entry', "import type { AppRouter } from '@aeolus-fleet/core';"],
     ['a re-export of Prisma', "export { PrismaClient } from '@prisma/client';"],
     ['Prisma through import()', "export const load = () => import('@prisma/client');"],
     ['Prisma through an import type', "export type Client = import('@prisma/client').PrismaClient;"],

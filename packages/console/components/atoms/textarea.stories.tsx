@@ -21,7 +21,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Placeholder: Story = {};
-export const Note: Story = { args: { defaultValue: 'Reviews pull requests on the web package.' } };
+export const Note: Story = { args: { defaultValue: 'Reviews pull requests on the console package.' } };
 export const Payload: Story = {
   args: { isMono: true, rows: 6, defaultValue: '{\n  "task": "review",\n  "repo": "web",\n  "pr": 321\n}' },
 };

@@ -8,4 +8,4 @@
 
 Why: a hosting service needs to tell its operators and viewers things the console does not know (the hosted demo's banner is the first); one generic feature serves it with no hosting or demo code in the open package. Dismissals live on the server because the console keeps nothing in browser storage.
 
-Rejected: a demo banner in the web package; a script the installation injects into the console (external code in a session); dismissals in browser storage.
+Rejected: a demo banner in the console package; a script the installation injects into the console (external code in a session); dismissals in browser storage.
