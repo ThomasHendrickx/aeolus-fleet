@@ -2,6 +2,8 @@
 
 - A crew request says "keep this ship crewed, with these settings". On the ship, at most one per ship, standing (level, not edge).
 - Its settings (0027) are stored without meaning; the server checks their size only, against a constant in `common`.
+- Settings size: at most 16 KB (`CREW_REQUEST_SETTINGS_MAX_BYTES` in common), counted as the UTF-8 bytes of the serialized JSON. A larger request is refused with its size, the limit and this decision ("settings is 18211 bytes, the limit is 16384 (decision 0029)"). Why 16 KB: settings say how to crew a ship, not what it works on; a first prompt is at most 8 KB (0027) and content goes elsewhere by reference, as with report details (0028). When it bites, the request carries content: fix the requester, not the limit. Changing it means revising this decision.
+- Every request replaces the settings whole and moves their version by one (1 for the first), so the assigned trierarch notices a change. Never argo, the viewer ship or a retired ship; retiring a ship removes its request.
 - Three parts, three writers, each owning its part:
   - the request (settings), by a requester with `fleet:manage`;
   - the assignment (which trierarch ship), by a ship with `crew:assign`, only if still unassigned (optimistic claim);
