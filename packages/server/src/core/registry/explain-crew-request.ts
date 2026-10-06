@@ -21,7 +21,7 @@ export type ExplainCrewRequest = (
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND'> | ExplainCrewRequestRefusal>>;
 
 /**
- * Use case: the assigner (crew:assign, the navarch) writes why no trierarch
+ * Use case: the assigner (crew:assign, the trierarch plugin) writes why no trierarch
  * can take a ship's unassigned crew request, shown in the operator's
  * needs-crew to-do. Its scope is checked before this runs. In one unit of
  * work, locking the ship first: the reason and, when it changed,
