@@ -96,6 +96,37 @@ describe('an assigned crew request read with the ship', () => {
   });
 });
 
+describe('who crewed the ship of a crew request', () => {
+  async function crewedWithPromptFrom(caller: Caller): Promise<void> {
+    const { secret } = unwrap(await registry.getStartingPrompt(caller, { shipId: scoutId }));
+    core.clock.advance(1_000);
+    unwrap(await registry.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  }
+
+  it('is none while no session crews it', async () => {
+    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+
+    expect(listed?.crewRequest).toMatchObject({ crewedBy: null });
+  });
+
+  it('is argo for a crew argo set up by hand, from the starting prompt the lease claimed with', async () => {
+    await crewedWithPromptFrom(argo);
+
+    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+
+    expect(listed?.crewRequest).toMatchObject({ crewedBy: { id: argo.shipId, name: 'argo' } });
+  });
+
+  it('is the trierarch that crewed it', async () => {
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    await crewedWithPromptFrom(trierarch);
+
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { crewRequest: { crewedBy: { id: trierarch.shipId, name: 'mac-mini' } } },
+    });
+  });
+});
+
 describe('an assignment refused', () => {
   async function expectRefused(input: Parameters<typeof registry.assignCrew>[1], kind: string): Promise<void> {
     const before = structuredClone(core.state);
