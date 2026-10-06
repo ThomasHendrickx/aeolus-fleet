@@ -30,6 +30,11 @@ const SIGN_IN_WINDOW_MS = 60_000;
 /** Longer than three refresh cycles of the squadrons list (5 s each), with its retries. */
 const STEADY_FOR_MS = 16_000;
 const SAMPLE_EVERY_MS = 250;
+/**
+ * The add form clears once the add settles, after the list and the catalogue are read again: the row
+ * can show first, and the reads can take longer than expect.poll's one second, so it waits as long as a locator.
+ */
+const FORM_CLEARS = { timeout: 30_000 };
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -157,7 +162,7 @@ describe('Settings, Squadrons', () => {
     const row = repositories.getByTestId('repositories-row');
     await row.getByText('acme/missing', { exact: true }).waitFor();
     await row.getByTestId('repositories-error').waitFor();
-    await expect(page.getByTestId('repositories-url').inputValue()).resolves.toBe('');
+    await expect.poll(() => page.getByTestId('repositories-url').inputValue(), FORM_CLEARS).toBe('');
 
     await row.getByTestId('repositories-remove').click();
     await page.getByTestId('repositories-remove-dialog').getByText('Remove github.com/acme/missing?').waitFor();
@@ -187,7 +192,7 @@ describe('Settings, Squadrons', () => {
     for (const url of ['https://github.com/acme/whole.git', 'https://github.com/acme/mixed.git']) {
       await page.getByTestId('repositories-url').fill(url);
       await page.getByTestId('repositories-add-submit').click();
-      await expect.poll(() => page.getByTestId('repositories-url').inputValue()).toBe('');
+      await expect.poll(() => page.getByTestId('repositories-url').inputValue(), FORM_CLEARS).toBe('');
     }
 
     const whole = repositories.getByTestId('repositories-row').filter({ hasText: 'acme/whole' });
