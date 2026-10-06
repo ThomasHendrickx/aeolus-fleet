@@ -9,7 +9,17 @@ import type {
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql, toShipReport } from './rows.js';
+import {
+  toAbandonedDelivery,
+  toDeliveryFromSql,
+  toFleet,
+  toLease,
+  toLeaseShipId,
+  toShip,
+  toShipFacts,
+  toShipFromSql,
+  toShipReport,
+} from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -203,6 +213,24 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
         FOR UPDATE`;
       return row === undefined ? undefined : { report: toShipReport(row) };
+    },
+    findReportLog: async (fleetId, leaseId) => {
+      const [own] = await db.$queryRaw<unknown[]>`
+        SELECT ship_id, report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL`;
+      if (own === undefined) {
+        return undefined;
+      }
+      const shipId = toLeaseShipId(own);
+      // The previous crew: the ship's lease that ended last before this one.
+      const [previous] = await db.$queryRaw<unknown[]>`
+        SELECT report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND id <> ${leaseId} AND ended_at IS NOT NULL
+        ORDER BY ended_at DESC, id DESC
+        LIMIT 1`;
+      return { report: toShipReport(own), previousCrew: previous === undefined ? null : toShipReport(previous) };
     },
     saveReport: async ({ fleetId, leaseId, report }) => {
       await db.lease.updateMany({

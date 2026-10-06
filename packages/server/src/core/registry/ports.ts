@@ -131,6 +131,11 @@ export interface LeaseRepository {
   /** The lease's report, the lease locked until the unit of work ends; undefined once it has ended. */
   findReportForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null } | undefined>;
   saveReport(change: { fleetId: FleetId; leaseId: LeaseId; report: ShipReport }): Promise<void>;
+  /**
+   * The lease's report and the last report of the lease its ship held before
+   * it, the one that ended last; undefined once this lease has ended.
+   */
+  findReportLog(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null; previousCrew: ShipReport | null } | undefined>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }

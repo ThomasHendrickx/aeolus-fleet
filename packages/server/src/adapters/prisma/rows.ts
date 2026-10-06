@@ -118,6 +118,11 @@ export function toShipReport(row: unknown): ShipReport | null {
     : null;
 }
 
+/** The ship of a lease as raw SQL reads it. */
+export function toLeaseShipId(row: unknown): ShipId {
+  return z.object({ ship_id: idSchema('ship') }).parse(row).ship_id;
+}
+
 const shipFactsSqlRow = z.object({
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),

@@ -9,6 +9,7 @@ import { createPrismaShipHistory } from './adapters/prisma/history.js';
 import {
   createPrismaFleetListing,
   createPrismaFleetRepository,
+  createPrismaLeaseRepository,
   createPrismaShipRepository,
 } from './adapters/prisma/registry.js';
 import { createPrismaGuideProgress, createPrismaNoticeDismissals, createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
@@ -62,6 +63,7 @@ import { createReleaseShip, type ReleaseShip } from './core/registry/release-shi
 import { createRenameShip, type RenameShip } from './core/registry/rename-ship.js';
 import { createRetireShip, type RetireShip } from './core/registry/retire-ship.js';
 import { createReport, type Report } from './core/registry/report.js';
+import { createReadReportLog, type ReadReportLog } from './core/registry/report-log.js';
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
 import { createPing, type Ping } from './core/shared/ping.js';
@@ -99,6 +101,7 @@ export interface UseCases {
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
+  reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
@@ -210,6 +213,7 @@ export function createUseCases(options: {
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
+    reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({

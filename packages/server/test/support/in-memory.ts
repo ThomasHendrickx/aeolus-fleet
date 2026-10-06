@@ -142,6 +142,8 @@ export interface InMemoryCore {
   uow: UnitOfWork<InMemoryTx>;
   /** The ships, read outside a unit of work. */
   ships: ShipRepository;
+  /** The leases, read outside a unit of work. */
+  leases: LeaseRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -377,6 +379,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
         const held = state.leaseReports.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
         return Promise.resolve(isOpen ? { report: held ? { ...held.report } : null } : undefined);
+      },
+      findReportLog: (fleetId, leaseId) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
+        if (!lease) {
+          return Promise.resolve(undefined);
+        }
+        const reportOf = (id: Lease['id']) => {
+          const held = state.leaseReports.find((each) => each.fleetId === fleetId && each.leaseId === id);
+          return held ? { ...held.report } : null;
+        };
+        const [previous] = state.leases
+          .filter((held) => held.fleetId === fleetId && held.shipId === lease.shipId && held.id !== leaseId && held.endedAt !== null)
+          .sort((first, second) => (second.endedAt?.getTime() ?? 0) - (first.endedAt?.getTime() ?? 0));
+        return Promise.resolve({ report: reportOf(leaseId), previousCrew: previous ? reportOf(previous.id) : null });
       },
       saveReport: ({ fleetId, leaseId, report }) => {
         const held = state.leaseReports.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
@@ -1149,7 +1165,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, leases: tx.leases, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
