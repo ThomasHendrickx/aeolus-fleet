@@ -72,3 +72,35 @@ export const listedCrewRequestSchema = z.object({
 
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
 export const crewRequestSchema = listedCrewRequestSchema.extend({ settings: crewRequestSettingsSchema });
+
+/** Input of `fleet.assignCrew` (crew:assign): the ship whose request to assign, and the trierarch ship that crews it. */
+export const assignCrewInputSchema = z.object({ shipId: idSchema('ship'), trierarchShipId: idSchema('ship') });
+
+/** Output of `fleet.assignCrew`: nothing; the OK is the answer. */
+export const assignCrewOutputSchema = z.strictObject({});
+
+/** Input of `fleet.reportCrewStatus` (crew:run): the ship and how its crew stands. */
+export const reportCrewStatusInputSchema = z.object({ shipId: idSchema('ship'), status: crewStatusSchema });
+
+/** Output of `fleet.reportCrewStatus`: nothing; the OK is the answer. */
+export const reportCrewStatusOutputSchema = z.strictObject({});
+
+/** Input of `fleet.confirmCrewRelease` (crew:run): the ship of the releasing request. */
+export const confirmCrewReleaseInputSchema = z.object({ shipId: idSchema('ship') });
+
+/** Output of `fleet.confirmCrewRelease`: nothing; the OK is the answer. */
+export const confirmCrewReleaseOutputSchema = z.strictObject({});
+
+/**
+ * Output of `fleet.assignedCrewRequests` (crew:run): the crew requests
+ * assigned to the caller's ship, oldest ship first (ISO 8601 in UTC).
+ */
+export const assignedCrewRequestsOutputSchema = z.array(
+  z.object({
+    shipId: idSchema('ship'),
+    settings: crewRequestSettingsSchema,
+    settingsVersion: z.int().min(1),
+    requestedAt: z.iso.datetime(),
+    status: crewStatusSchema.nullable(),
+  }),
+);
