@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { mcpUrlOf, type FleetId } from '@aeolus-fleet/common';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
@@ -122,8 +122,7 @@ export function createSquadronsApp(options: {
   const squadrons = createPrismaSquadronRepository(prisma, clock);
   const attempts = createPrismaFormationAttempts(prisma, clock);
   const door = watchManagementLease(createRestFleetDoor(options.fleetUrl), store);
-  // The fleet serves its MCP server at /mcp under its public URL, as every starting prompt says.
-  const mcpUrl = `${options.fleetUrl}/mcp`;
+  const mcpUrl = mcpUrlOf(options.fleetUrl);
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
   let flagships: FlagshipWatch | undefined;
