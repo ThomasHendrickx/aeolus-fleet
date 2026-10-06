@@ -232,6 +232,22 @@ describe('why a version is left out', () => {
     expect(problems.map(({ name, version }) => `${name}@${String(version)}`)).toEqual(['hemma-feature@4', 'team@1']);
   });
 
+  it("leaves out a blueprint named as a template, says which template versions have the name, and keeps the template", () => {
+    const { templates: held, blueprints, problems } = catalogueOf([...templates, blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'tester' })]);
+
+    expect(blueprints).toEqual([]);
+    expect(held.map(({ name }) => name)).toContain('tester');
+    expect(problems).toEqual([
+      { repository: REPO, kind: 'blueprint', name: 'team', version: 1, message: 'name tester is also the name of the template tester@4: a blueprint needs a name no template of its repository has' },
+    ]);
+  });
+
+  it("leaves out a blueprint whose file name is a template's name", () => {
+    expect(reasonOf([...templates, blueprint({ name: 'planner', version: 2 }, hemmaFeature)])).toBe(
+      'name planner is also the name of the template planner@1: a blueprint needs a name no template of its repository has',
+    );
+  });
+
   it('says a file is no valid YAML, and where', () => {
     const file: SourceFile = { ...template({ name: 'tester', version: 4 }, undefined), parseError: 'Nested mappings are not allowed in compact mappings at line 2, column 10' };
 

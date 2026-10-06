@@ -214,7 +214,8 @@ function invalidYaml(file: SourceFile & { parseError: string }): string {
  * checked against the templates it references: every hand-off they declare
  * bound, and nothing bound they do not declare. Its name is its `name` field,
  * or its file name when it sets none; blueprint files of one repository that
- * give one name are all left out, as no one of them is that name.
+ * give one name are all left out, as no one of them is that name, and so is a
+ * blueprint named as a template of its repository, which stays.
  */
 export function assembleCatalogue(read: { repositories: readonly string[]; files: readonly SourceFile[]; tags: readonly UnreadTag[] }): Catalogue {
   const problems: CatalogueProblem[] = read.tags.map(tagProblem);
@@ -251,8 +252,12 @@ export function assembleCatalogue(read: { repositories: readonly string[]; files
 
   const blueprints: BlueprintVersion[] = [];
   for (const { file, blueprint } of followingSpec) {
+    const templateVersions = tagged.get(`${blueprint.repository}#${blueprint.name}`) ?? [];
     const clashing = followingSpec.filter((other) => other.blueprint.repository === blueprint.repository && other.blueprint.name === blueprint.name && other.file.name !== file.name);
-    if (clashing.length === 0) {
+    if (templateVersions.length > 0) {
+      const tags = templateVersions.toSorted((one, other) => one - other).map((version) => `${blueprint.name}@${String(version)}`);
+      problems.push(problemOf(file, `name ${blueprint.name} is also the name of the template ${tags.join(', ')}: a blueprint needs a name no template of its repository has`));
+    } else if (clashing.length === 0) {
       blueprints.push(blueprint);
     } else {
       const tags = clashing.map((other) => `${other.file.name}@${String(other.file.version)}`);
