@@ -344,7 +344,7 @@ Every call after `register` carries the crew token, not the secret: in a header 
 | Item | Choice |
 | --- | --- |
 | Server | Hetzner CX23: 2 vCPU, 4 GB, 40 GB, EU location |
-| Stack | Docker Compose: Postgres, `server`, `web`, Caddy for TLS |
+| Stack | Docker Compose: Postgres, `core`, `console`, Caddy for TLS |
 | Backups | Hetzner server backups plus a nightly Postgres dump to a Storage Box |
 | Estimated cost | About €10.30 a month excl. VAT, about €12.50 incl. 21% VAT |
 | Scale path | Resize to CX33 in minutes; split the database to its own server when needed |
