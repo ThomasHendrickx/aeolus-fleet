@@ -8,6 +8,7 @@ import {
   pongInputSchema,
   pongOutputSchema,
   reportInputSchema,
+  reportLogOutputSchema,
   reportOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
@@ -16,8 +17,11 @@ import {
   sendInputSchema,
   sendOutputSchema,
   whoamiOutputSchema,
+  type ShipReportOutput,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
+
+import type { ShipReport } from '../../core/registry/ship-report.js';
 
 import {
   authenticatedProcedure,
@@ -170,14 +174,18 @@ export const shipRouter = router({
 
   /**
    * The crew says what it is doing: working, blocked or idle, with a short
-   * note. A check-in: an event only when the state or note changes.
+   * note and optionally its details, set whole or merge-patched. A check-in:
+   * an event only when the state, note or details change.
    */
   report: crewProcedure
     .meta({
       description: [
         'Says what you are doing, for the operator and anyone who reads the fleet: state working, blocked or idle, and an optional note',
         '(one line, at most 200 characters) on what you work on or what blocks you.',
-        'Call it whenever your state changes; calling it again with the same state and note is a check-in.',
+        'For structured status, details: one JSON object of at most 16 KB. details sets it whole and null clears it;',
+        'detailsPatch applies a JSON Merge Patch to it (objects merge per key, null deletes a key, arrays are replaced whole).',
+        'Give one of them, not both; leave both out to keep your details as they are.',
+        'Call it whenever your state changes; calling it again with the same state, note and details is a check-in.',
       ].join(' '),
       example: { state: 'working', note: 'reviewing PR 89' },
     })
@@ -186,6 +194,23 @@ export const shipRouter = router({
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.report(ctx.crew, input));
       return {};
+    }),
+
+  /**
+   * The crew's own report whole, details included, and the last report of
+   * the ship's previous crew, read-only. No scope beyond being the crew.
+   */
+  reportLog: crewProcedure
+    .meta({
+      description: [
+        'Hands you your own report as you last made it, details included, and the last report of the crew that held your ship before you,',
+        'read-only, so you can pick up where it left off. Each is null when there is none.',
+      ].join(' '),
+    })
+    .output(reportLogOutputSchema)
+    .query(async ({ ctx }) => {
+      const { report, previousCrew } = okOrThrow(await ctx.useCases.reportLog(ctx.crew));
+      return { report: reportOutputOf(report), previousCrew: reportOutputOf(previousCrew) };
     }),
 
   /**
@@ -226,3 +251,8 @@ export const shipRouter = router({
       return {};
     }),
 });
+
+/** A report as a ship reads it: its time in ISO 8601, in UTC. */
+function reportOutputOf(report: ShipReport | null): ShipReportOutput | null {
+  return report && { ...report, reportedAt: report.reportedAt.toISOString() };
+}
