@@ -79,6 +79,23 @@ describe("a crew's report on Postgres", () => {
     expect({ details: lease.reportDetails, version: lease.reportDetailsVersion }).toEqual({ details: null, version: 2 });
   });
 
+  it("gives the ship's next crew the previous crew's last report in its log, and the crew its own", async () => {
+    unwrap(await core.useCases.report(scout, { state: 'blocked', note: 'waiting for review', details: { pr: 89 } }));
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scout.shipId }));
+    const next = await crewed(scout.shipId, secret);
+    core.clock.advance(60_000);
+    unwrap(await core.useCases.report(next, { state: 'working', details: { pr: 90 } }));
+
+    await expect(core.useCases.reportLog(next)).resolves.toMatchObject({
+      isOk: true,
+      value: {
+        report: { state: 'working', details: { pr: 90 }, detailsVersion: 1 },
+        previousCrew: { state: 'blocked', note: 'waiting for review', details: { pr: 89 }, detailsVersion: 1 },
+      },
+    });
+  });
+
   it("is none for the ship's next crew", async () => {
     unwrap(await core.useCases.report(scout, { state: 'blocked' }));
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
