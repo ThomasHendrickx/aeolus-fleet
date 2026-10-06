@@ -58,11 +58,18 @@ describe('setVersion', () => {
     );
   });
 
-  it('sets the same version on all four packages, squadrons included', () => {
+  it('sets the same version on all five packages, squadrons and the trierarch included', () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'server', 'web', 'squadrons']);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'server', 'web', 'squadrons', 'trierarch']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+  });
+
+  it('pins the trierarch to common and the server at that version', () => {
+    setVersion(copy, '0.1.0');
+
+    expect(manifest('trierarch').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
+    expect(manifest('trierarch').devDependencies?.['@aeolus-fleet/server']).toBe('0.1.0');
   });
 
   it('pins squadrons to common and the server at that version', () => {

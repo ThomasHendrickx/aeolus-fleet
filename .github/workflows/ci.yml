@@ -26,6 +26,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      # The trierarch's tmux adapter is tested against the real tmux.
+      - run: command -v tmux || (sudo apt-get update && sudo apt-get install -y tmux)
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:unit
@@ -121,3 +123,4 @@ jobs:
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/server
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/web
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/squadrons
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch
