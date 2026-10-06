@@ -26,8 +26,8 @@ import tseslint from 'typescript-eslint';
 
 /** @type {ImportRestriction[]} */
 const prismaOutsideItsAdapter = [
-  { regex: '^@prisma/', message: '@prisma/* is imported only in the prisma adapter (server or squadrons).' },
-  { regex: '^pg([-/].+)?$', message: 'pg is imported only in the prisma adapter (server or squadrons).' },
+  { regex: '^@prisma/', message: '@prisma/* is imported only in the prisma adapter (server, squadrons or the trierarch plugin).' },
+  { regex: '^pg([-/].+)?$', message: 'pg is imported only in the prisma adapter (server, squadrons or the trierarch plugin).' },
 ];
 
 /**
@@ -223,6 +223,7 @@ export default defineConfig(
     '**/next-env.d.ts',
     'packages/core/src/adapters/prisma/generated/',
     'packages/squadrons/src/adapters/prisma/generated/',
+    'packages/trierarch-plugin/src/adapters/prisma/generated/',
   ]),
 
   js.configs.recommended,
@@ -305,7 +306,7 @@ export default defineConfig(
 
   {
     name: 'aeolus/prisma-in-its-adapter',
-    ignores: ['packages/core/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**'],
+    ignores: ['packages/core/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**', 'packages/trierarch-plugin/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
 
@@ -320,6 +321,12 @@ export default defineConfig(
     // squadrons keeps the server's rule: its core holds no framework, Prisma or adapter.
     name: 'aeolus/squadrons-core',
     files: ['packages/squadrons/src/core/**/*.ts'],
+    rules: coreRules(),
+  },
+  {
+    // The trierarch plugin keeps it as squadrons does: its core holds no framework, Prisma or adapter.
+    name: 'aeolus/trierarch-plugin-core',
+    files: ['packages/trierarch-plugin/src/core/**/*.ts'],
     rules: coreRules(),
   },
   {

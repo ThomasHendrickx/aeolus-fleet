@@ -54,6 +54,15 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'trierarch-plugin:unit',
+          root: 'packages/trierarch-plugin',
+          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'trierarch:unit',
           root: 'packages/trierarch',
           include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
@@ -95,6 +104,18 @@ export default defineConfig({
           // Squadrons on Postgres, against a real fleet server, both in the shared container.
           name: 'squadrons:integration',
           root: 'packages/squadrons',
+          include: ['test/**/*.integration.test.ts'],
+          globalSetup: ['../core/test/postgres.global-setup.ts'],
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The trierarch plugin on Postgres, against a real fleet server, both in the shared container.
+          name: 'trierarch-plugin:integration',
+          root: 'packages/trierarch-plugin',
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['../core/test/postgres.global-setup.ts'],
           testTimeout: 30_000,

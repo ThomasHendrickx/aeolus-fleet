@@ -91,6 +91,7 @@ Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md)
 | `@aeolus-fleet/core` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres |
 | `@aeolus-fleet/console` | The operator console (Next.js) |
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them |
+| `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs |
 | `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 | `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) | The Claude Code plugin |

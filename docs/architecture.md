@@ -199,7 +199,7 @@ Two processes, each its own package, crew ships on machines: the trierarch plugi
 
 | Layer | Pieces |
 | --- | --- |
-| Core (pure) | **Placement**: a pure function from (the unassigned requests, oldest first, the trierarchs' reports, the requests assigned to each) to the trierarch to claim for each, or the reason none fits; the only place that picks. It keeps the trierarchs that fit (repository, harness, model) and have room, then takes the most room as a percentage, then the oldest. **Join**: commission a trierarch ship with `crew:run` and answer its starting prompt. **Attention**: which trierarchs are silent, their last seen older than a threshold |
+| Core (pure) | **Placement**: a pure function from (the unassigned requests, oldest first, the trierarchs' reports, the requests assigned to each) to the trierarch to claim for each, or the reason none fits; the only place that picks. It keeps the trierarchs that fit (repository, harness, model) and have room, then takes the most room as a percentage, then the oldest. **Join**: commission a trierarch ship with `crew:run` and answer its starting prompt and the machine's setup line. **Machines**: the fleet's ships of type `trierarch`, each with its trierarch's report and details. **Attention**: which trierarchs are silent, their last seen older than a threshold |
 | Ports | **FleetClient**, per fleet: read crew requests and trierarch reports, claim an assignment or write the reason none fits (`crew:assign`, the claim refused when no longer unassigned), commission a ship and get its starting prompt (`fleet:manage`), assign labels. **ConnectionStore**: per fleet, the switch and the trierarch plugin ship's crew token. **Clock**, **Logger** |
 | First adapters | REST for the fleet, as squadrons. Prisma for ConnectionStore, with its own migrations. tRPC for the web app's server, checked with the console session cookie through `console.session`, as squadrons |
 
@@ -234,7 +234,7 @@ Everything of the trierarch lives under `~/.aeolus/trierarch/`.
 
 Each session's crew token lives only in the aeolus plugin's identity file for its folder, as for any crewed folder.
 
-`aeolus-trierarch init` is the whole setup, asking for what is missing (the starting prompt the trierarch plugin gave for this machine, its secret without echo): it registers, writes the configuration, answers Claude Code's one-time questions in Claude Code's own files (`hasTrustDialogAccepted` in `~/.claude.json` for the worktree root, which covers every folder under it, and for each configured folder, and, when the sessions skip permissions and the operator agrees, `skipDangerousModePermissionPrompt` in `~/.claude/settings.json`), answers Codex's when the configuration offers Codex (through `codex app-server`, as Codex's own dialogs do: each configured repository and folder trusted in `~/.codex/config.toml`, since trusting a repository covers its worktrees but a parent folder covers no repository under it, and the aeolus plugin's new or changed hooks trusted with the hash Codex gives them), and offers to install the service. It asks about Codex only where `codex` runs or Codex is configured already. On a machine set up already it never registers again. `status`, `list` and `logs` read the machine (the state, tmux, the service, the log); `status` calls `whoami` once for the lease, and reads `running.json` for the version the service runs. `start`, `stop`, `restart`, `install` and `uninstall` drive the service, and `upgrade` installs a pinned version and restarts it, leaving the sessions to the new process; `uninstall` deletes no worktree and none of the trierarch's files. Every command answers JSON with `--json`. The package README lists them.
+`aeolus-trierarch init` is the whole setup, asking for what is missing (the fleet URL, ship id and secret, which the setup line the trierarch plugin gave for this machine passes as flags; the secret without echo when asked): it registers, writes the configuration, answers Claude Code's one-time questions in Claude Code's own files (`hasTrustDialogAccepted` in `~/.claude.json` for the worktree root, which covers every folder under it, and for each configured folder, and, when the sessions skip permissions and the operator agrees, `skipDangerousModePermissionPrompt` in `~/.claude/settings.json`), answers Codex's when the configuration offers Codex (through `codex app-server`, as Codex's own dialogs do: each configured repository and folder trusted in `~/.codex/config.toml`, since trusting a repository covers its worktrees but a parent folder covers no repository under it, and the aeolus plugin's new or changed hooks trusted with the hash Codex gives them), and offers to install the service. It asks about Codex only where `codex` runs or Codex is configured already. On a machine set up already it never registers again. `status`, `list` and `logs` read the machine (the state, tmux, the service, the log); `status` calls `whoami` once for the lease, and reads `running.json` for the version the service runs. `start`, `stop`, `restart`, `install` and `uninstall` drive the service, and `upgrade` installs a pinned version and restarts it, leaving the sessions to the new process; `uninstall` deletes no worktree and none of the trierarch's files. Every command answers JSON with `--json`. The package README lists them.
 
 ### A machine joins
 
@@ -244,13 +244,12 @@ sequenceDiagram
   participant P as Trierarch plugin
   participant F as Fleet server
   participant T as Trierarch (init, then run)
-  O->>P: add a machine
+  O->>P: machines.join, with the machine's name
   P->>F: commission ship, type trierarch, crew:run (fleet:manage)
-  P->>F: getStartingPrompt
-  P-->>O: starting prompt for aeolus-trierarch init
-  O->>T: aeolus-trierarch init, with the starting prompt
+  P-->>O: starting prompt and setup line
+  O->>T: the setup line: aeolus-trierarch init --fleet-url --ship-id --secret
   T->>F: register with the secret, gets the crew token
-  T->>F: report {details: harnesses, workspaces, caps}
+  T->>F: report {details: harnesses, workspaces, caps, kept, orphans, version}
   P->>F: read the report, assign labels
 ```
 

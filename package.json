@@ -1,7 +1,7 @@
 {
   "name": "aeolus-fleet",
   "private": true,
-  "description": "Aeolus: an agent fleet manager. Workspace root for its published packages: common, core, console, squadrons and the trierarch.",
+  "description": "Aeolus: an agent fleet manager. Workspace root for its published packages: common, core, console, squadrons, the trierarch plugin and the trierarch.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "npm@11.19.1",
@@ -12,12 +12,13 @@
     "packages/common",
     "packages/core",
     "packages/squadrons",
+    "packages/trierarch-plugin",
     "packages/trierarch",
     "packages/console"
   ],
   "scripts": {
-    "postinstall": "npm run generate --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons",
-    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/console",
+    "postinstall": "npm run generate --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin",
+    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/console",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
