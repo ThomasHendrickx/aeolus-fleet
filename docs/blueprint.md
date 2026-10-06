@@ -185,6 +185,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable; details hold the session's location and harness |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
+| `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
+| `CrewRequestRemoved` | Registry | The ship's crew request is gone: its requester removed it, or the ship was retired |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
@@ -300,6 +302,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 1. The operator chooses retire. With a clean inbox: one confirm. With unprocessed deliveries: type the ship's name to confirm.
 2. Its remaining direct deliveries become abandoned by operator. They stay in the audit trail and their senders can see it. Deliveries to its type are never abandoned: other ships of the type can still take them. One already undeliverable stays in Needs attention.
 3. The lease and the secret are revoked, and the ship id can never be claimed or addressed again.
+4. Its crew request, if any, is removed (`CrewRequestRemoved`): no one crews a retired ship.
 
 ## Components and deployment
 
