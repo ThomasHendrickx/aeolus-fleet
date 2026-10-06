@@ -171,6 +171,8 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/retire', ['post']],
       ['/fleet/ping', ['post']],
       ['/fleet/follow', ['post']],
+      ['/fleet/crewRequest', ['post']],
+      ['/fleet/removeCrewRequest', ['post']],
     ]);
   });
 

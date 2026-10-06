@@ -46,6 +46,8 @@ const SHIP_TOOLS = [
   'fleet_retire',
   'fleet_ping',
   'fleet_follow',
+  'fleet_crewRequest',
+  'fleet_removeCrewRequest',
 ];
 
 let core: InMemoryCore;

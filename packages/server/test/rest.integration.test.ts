@@ -146,6 +146,8 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/retire',
       '/fleet/ping',
       '/fleet/follow',
+      '/fleet/crewRequest',
+      '/fleet/removeCrewRequest',
     ]);
   });
 
@@ -333,6 +335,32 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const { events } = await ok(request('fleet/follow', { crewToken: reader.crewToken, body: { afterSeq: lastSeq } }), followed);
 
     expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+  });
+
+  it('serve a ship with fleet:manage a crew request: requested, replaced, read with the ship, and removed', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const scout = await commissioned();
+
+    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: { harness: 'claude-code' } } }), z.object({ settingsVersion: z.literal(1) }));
+    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: { harness: 'codex' } } }), z.object({ settingsVersion: z.literal(2) }));
+    const ship = await ok(request('fleet/ship', { crewToken: manager.crewToken, body: { shipId: scout.shipId } }), z.object({ crewRequest: z.unknown() }));
+    await ok(request('fleet/removeCrewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId } }), z.strictObject({}));
+
+    expect(ship.crewRequest).toMatchObject({ settings: { harness: 'codex' }, settingsVersion: 2 });
+    await expect(request('fleet/removeCrewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId } })).resolves.toMatchObject({
+      status: 404,
+      body: { code: 'NOT_FOUND' },
+    });
+  });
+
+  it('refuse a crew request to a ship without fleet:manage', async () => {
+    const reader = await crewedWithFleetScopes(['fleet:read']);
+    const scout = await commissioned();
+
+    await expect(request('fleet/crewRequest', { crewToken: reader.crewToken, body: { shipId: scout.shipId, settings: {} } })).resolves.toMatchObject({
+      status: 403,
+      body: { code: 'FORBIDDEN' },
+    });
   });
 
   it('serve a ship with fleet:crew one ship, its starting prompt and its release', async () => {
