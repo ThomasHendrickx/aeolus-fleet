@@ -56,10 +56,18 @@ export const removeCrewRequestInputSchema = z.object({ shipId: idSchema('ship') 
 /** Output of `fleet.removeCrewRequest`: nothing; the OK is the answer. */
 export const removeCrewRequestOutputSchema = z.strictObject({});
 
-/** A ship's crew request as the fleet list shows it (ISO 8601 in UTC): its settings version and when it was requested, never its settings. */
+/**
+ * A ship's crew request as the fleet list shows it (ISO 8601 in UTC): its
+ * settings version, when it was requested, its assignment and its status,
+ * never its settings.
+ */
 export const listedCrewRequestSchema = z.object({
   settingsVersion: z.int().min(1),
   requestedAt: z.iso.datetime(),
+  /** The trierarch ship it is assigned to; null while unassigned, the operator's to-do. */
+  assignedTo: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  /** How its trierarch says the crew stands; null until it says. */
+  status: crewStatusSchema.nullable(),
 });
 
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */

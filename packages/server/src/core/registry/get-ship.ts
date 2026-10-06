@@ -11,7 +11,7 @@ import type { ShipReport } from './ship-report.js';
 /** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
 export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   /** The ship's crew request, settings included; null when it holds none. */
-  crewRequest: Omit<CrewRequest, 'fleetId' | 'shipId'> | null;
+  crewRequest: (NonNullable<ListedShip['crewRequest']> & Pick<CrewRequest, 'settings'>) | null;
   /** The crew's last report, details included; null until it reports, and while no session crews the ship. */
   report: ShipReport | null;
   commissionedAt: Date;
@@ -47,17 +47,12 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
     if (!reaches.isOk) {
       return reaches;
     }
+    const listed = listedShipOf(facts);
     const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
     return ok({
-      ...listedShipOf(facts),
+      ...listed,
       report: facts.openLease?.report ?? null,
-      crewRequest: facts.crewRequest && {
-        settings: facts.crewRequest.settings,
-        settingsVersion: facts.crewRequest.settingsVersion,
-        requestedAt: facts.crewRequest.requestedAt,
-        assignedTo: facts.crewRequest.assignedTo,
-        status: facts.crewRequest.status,
-      },
+      crewRequest: listed.crewRequest && facts.crewRequest && { ...listed.crewRequest, settings: facts.crewRequest.settings },
       inFlightDeliveries: counts.inFlight,
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,

@@ -840,6 +840,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     return newest?.model ? { id: newest.model, statedAt: newest.createdAt } : null;
   };
 
+  const assigneeOf = (held: Ship): ShipFacts['crewRequestAssignee'] => {
+    const assignedTo = state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id)?.assignedTo;
+    const assignee = state.ships.find((each) => each.fleetId === held.fleetId && each.id === assignedTo);
+    return assignee ? { id: assignee.id, name: assignee.name } : null;
+  };
   const factsOf = (held: Ship): ShipFacts => {
     const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
@@ -856,6 +861,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
+      crewRequestAssignee: assigneeOf(held),
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
       lastViewedAt:

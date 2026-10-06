@@ -50,7 +50,7 @@ describe('a crew request on Postgres', () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
 
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now() });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now() } },
     });
@@ -95,7 +95,7 @@ describe('a crew request on Postgres', () => {
       { shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running' },
     ]);
     await expect(core.useCases.getShip(trierarch, { shipId: scoutId })).resolves.toMatchObject({
-      value: { crewRequest: { assignedTo: trierarchId, status: 'running' } },
+      value: { crewRequest: { assignedTo: { id: trierarchId, name: 'mac-mini' }, status: 'running' } },
     });
 
     unwrap(await core.useCases.removeCrewRequest(argo, { shipId: scoutId }));

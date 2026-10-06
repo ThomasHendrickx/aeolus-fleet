@@ -33,7 +33,12 @@ export interface ListedShip {
   /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
   report: Omit<ShipReport, 'details'> | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
-  crewRequest: Pick<CrewRequest, 'settingsVersion' | 'requestedAt'> | null;
+  crewRequest:
+    | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status'> & {
+        /** The trierarch ship it is assigned to, by id and name; null while unassigned. */
+        assignedTo: { id: ShipId; name: string } | null;
+      })
+    | null;
   /** The harness the crewing session stated, read together with its location; null while no session crews the ship. */
   harness: string | null;
   /** The ship's current model: the last its sessions stated on a send, and when; null before any. */
@@ -56,7 +61,17 @@ export function createListFleet(deps: { listing: FleetListing }): ListFleet {
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */
-export function listedShipOf({ ship, openLease, validSecret, crewRequest, lastPing, lastModel, lastViewedAt, lastLeaseEndedAt }: ShipFacts): ListedShip {
+export function listedShipOf({
+  ship,
+  openLease,
+  validSecret,
+  crewRequest,
+  crewRequestAssignee,
+  lastPing,
+  lastModel,
+  lastViewedAt,
+  lastLeaseEndedAt,
+}: ShipFacts): ListedShip {
   const status = shipStatus(ship, { isCrewed: openLease !== null });
   return {
     id: ship.id,
@@ -71,7 +86,12 @@ export function listedShipOf({ ship, openLease, validSecret, crewRequest, lastPi
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
     report: openLease?.report ? listedReportOf(openLease.report) : null,
-    crewRequest: crewRequest && { settingsVersion: crewRequest.settingsVersion, requestedAt: crewRequest.requestedAt },
+    crewRequest: crewRequest && {
+      settingsVersion: crewRequest.settingsVersion,
+      requestedAt: crewRequest.requestedAt,
+      assignedTo: crewRequestAssignee,
+      status: crewRequest.status,
+    },
     harness: openLease?.harness ?? null,
     model: lastModel,
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,

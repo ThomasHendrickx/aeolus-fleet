@@ -161,6 +161,7 @@ const shipFactsSqlRow = z.object({
   crew_request_requested_at: z.date().nullable(),
   crew_request_assigned_to: idSchema('ship').nullable(),
   crew_request_status: crewStatusSchema.nullable(),
+  crew_request_assignee_name: z.string().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -185,6 +186,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_requested_at,
     crew_request_assigned_to,
     crew_request_status,
+    crew_request_assignee_name,
   } = shipFactsSqlRow.parse(row);
   const ship = toShipFromSql(row);
   return {
@@ -213,6 +215,8 @@ export function toShipFacts(row: unknown): ShipFacts {
             status: crew_request_status,
           }
         : null,
+    crewRequestAssignee:
+      crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
     lastPing:
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }

@@ -201,6 +201,8 @@ export interface ShipFacts {
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /** The ship's crew request; null when it holds none. */
   crewRequest: CrewRequest | null;
+  /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
+  crewRequestAssignee: { id: ShipId; name: string } | null;
   /**
    * The newest ping to the ship: when it was sent, its delivery's state, and
    * when pong answered it, if pong did; null before any ping.
