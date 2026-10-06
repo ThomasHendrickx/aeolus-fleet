@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
+import { listedCrewRequestSchema } from './crew-request.js';
 import { listedReportSchema } from './report.js';
 
 /**
@@ -188,6 +189,8 @@ export const listedShipSchema = z.object({
    * themselves. Null until the crew reports, and for a ship no session crews.
    */
   report: listedReportSchema.nullable(),
+  /** The ship's crew request (decision 0029); null when it holds none. */
+  crewRequest: listedCrewRequestSchema.nullable(),
   /** Since when the ship awaits crew (ISO 8601 in UTC): its commission, or the end of its last session. Null unless it awaits crew. */
   awaitingCrewSince: z.iso.datetime().nullable(),
   /** When the operator retired the ship (ISO 8601 in UTC); null while it is active. */

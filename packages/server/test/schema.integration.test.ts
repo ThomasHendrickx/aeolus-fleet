@@ -98,6 +98,7 @@ describe('migrations', () => {
     expect(tables.map((table) => table.table_name)).toEqual([
       'console_sessions',
       'credentials',
+      'crew_requests',
       'deliveries',
       'events',
       'fleets',

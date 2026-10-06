@@ -278,6 +278,19 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says who requested a crew for the ship, and who removed the request', () => {
+    expect(onScoutsPage(anEntry('CrewRequested', { actor: argo, details: { settingsVersion: 1 } }))).toEqual({
+      sentence: 'Crew requested by argo',
+      tone: 'waiting',
+      icon: 'claimed',
+    });
+    expect(onScoutsPage(anEntry('CrewRequestRemoved', { actor: argo }))).toEqual({
+      sentence: 'Crew request removed by argo',
+      tone: 'ended',
+      icon: 'released',
+    });
+  });
+
   it('says who dismissed an undeliverable message', () => {
     expect(onScoutsPage(anEntry('DeliveryDismissed', { actor: argo, message: fromPlanner }))).toEqual({
       sentence: 'A message from planner was dismissed by argo',

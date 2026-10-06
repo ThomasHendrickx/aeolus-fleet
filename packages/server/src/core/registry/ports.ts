@@ -1,6 +1,7 @@
 import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
+import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
@@ -140,6 +141,17 @@ export interface LeaseRepository {
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
 }
 
+/**
+ * Outbound port: crew requests, at most one per ship, always within one
+ * fleet. A use case that changes one locks its ship first.
+ */
+export interface CrewRequestRepository {
+  find(fleetId: FleetId, shipId: ShipId): Promise<CrewRequest | undefined>;
+  /** Stores the ship's request, replacing the one it held. */
+  save(request: CrewRequest): Promise<void>;
+  remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
+}
+
 /** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */
 export interface ReturnedDelivery {
   deliveryId: DeliveryId;
@@ -185,6 +197,8 @@ export interface ShipFacts {
   openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
+  /** The ship's crew request; null when it holds none. */
+  crewRequest: CrewRequest | null;
   /**
    * The newest ping to the ship: when it was sent, its delivery's state, and
    * when pong answered it, if pong did; null before any ping.

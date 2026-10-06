@@ -98,7 +98,19 @@ function outputSchemaOf(parser: z.ZodType): JsonSchema {
  * the fleet and the actions that manage its ships. The router checks the
  * scope of each; the other fleet procedures stay the console's.
  */
-const FLEET_ACTIONS = ['list', 'ship', 'commission', 'getStartingPrompt', 'release', 'recrew', 'retire', 'ping', 'follow'] as const;
+const FLEET_ACTIONS = [
+  'list',
+  'ship',
+  'commission',
+  'getStartingPrompt',
+  'release',
+  'recrew',
+  'retire',
+  'ping',
+  'follow',
+  'crewRequest',
+  'removeCrewRequest',
+] as const;
 
 type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof appRouter.fleet)[(typeof FLEET_ACTIONS)[number]];
 

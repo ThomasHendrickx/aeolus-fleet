@@ -1,6 +1,7 @@
 import {
   themeSchema,
   deliveryStateSchema,
+  crewRequestSettingsSchema,
   reportDetailsSchema,
   reportStateSchema,
   eventTypeSchema,
@@ -20,6 +21,7 @@ import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
 import type { ShipReport } from '../../core/registry/ship-report.js';
+import type { CrewRequest } from '../../core/registry/crew-request.js';
 import type { FleetEventNotice, SequencedEvent } from '../../core/shared/events.js';
 import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
@@ -101,6 +103,19 @@ export function toShipFromSql(row: unknown): Ship {
   return shipSqlRow.parse(row);
 }
 
+const crewRequestRow = z.object({
+  fleetId: idSchema('fleet'),
+  shipId: idSchema('ship'),
+  settings: crewRequestSettingsSchema,
+  settingsVersion: z.int().min(1),
+  requestedAt: z.date(),
+});
+
+/** A crew request as Prisma reads its row. */
+export function toCrewRequest(row: unknown): CrewRequest {
+  return crewRequestRow.parse(row);
+}
+
 const shipReportSqlRow = z.object({
   report_state: reportStateSchema.nullable(),
   report_note: z.string().nullable(),
@@ -138,6 +153,9 @@ const shipFactsSqlRow = z.object({
   last_model_stated_at: z.date().nullable(),
   last_viewed_at: z.date().nullable(),
   last_lease_ended_at: z.date().nullable(),
+  crew_request_settings: crewRequestSettingsSchema.nullable(),
+  crew_request_settings_version: z.int().min(1).nullable(),
+  crew_request_requested_at: z.date().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -157,9 +175,13 @@ export function toShipFacts(row: unknown): ShipFacts {
     last_model_stated_at,
     last_viewed_at,
     last_lease_ended_at,
+    crew_request_settings,
+    crew_request_settings_version,
+    crew_request_requested_at,
   } = shipFactsSqlRow.parse(row);
+  const ship = toShipFromSql(row);
   return {
-    ship: toShipFromSql(row),
+    ship,
     openLease:
       lease_location && lease_started_at
         ? {
@@ -172,6 +194,16 @@ export function toShipFacts(row: unknown): ShipFacts {
           }
         : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
+    crewRequest:
+      crew_request_settings && crew_request_settings_version !== null && crew_request_requested_at
+        ? {
+            fleetId: ship.fleetId,
+            shipId: ship.id,
+            settings: crew_request_settings,
+            settingsVersion: crew_request_settings_version,
+            requestedAt: crew_request_requested_at,
+          }
+        : null,
     lastPing:
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }

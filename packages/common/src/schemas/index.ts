@@ -1,4 +1,5 @@
 export * from './console.js';
+export * from './crew-request.js';
 export * from './delivery.js';
 export * from './fleet.js';
 export * from './follow.js';

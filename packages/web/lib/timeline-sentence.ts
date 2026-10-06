@@ -166,6 +166,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
     case 'ViewerSessionStarted':
       return { parts: [text('Someone started viewing the fleet')], tone: 'ended', icon: 'password' };
+    case 'CrewRequested':
+      return { parts: [text('Crew requested'), ...by(entry.actor)], tone: 'waiting', icon: 'claimed' };
+    case 'CrewRequestRemoved':
+      return { parts: [text('Crew request removed'), ...by(entry.actor)], tone: 'ended', icon: 'released' };
     case 'MessageAccepted':
       return {
         parts: messageAccepted(entry, shipId),

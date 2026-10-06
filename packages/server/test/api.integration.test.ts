@@ -178,6 +178,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_guide$/),
       expect.stringMatching(/^\d{14}_fleet_crew_scope$/),
       expect.stringMatching(/^\d{14}_lease_report_details$/),
+      expect.stringMatching(/^\d{14}_crew_requests$/),
     ]);
   });
 });
@@ -365,6 +366,7 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      crewRequest: null,
       harness: null,
       model: null,
       awaitingCrewSince: clock.now().toISOString(),
@@ -1514,7 +1516,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_lease_report_details$/);
+    expect(migration).toMatch(/^\d{14}_crew_requests$/);
   });
 });
 

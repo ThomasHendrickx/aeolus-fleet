@@ -1,6 +1,7 @@
 import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
 
 import type {
+  CrewRequestRepository,
   FleetListing,
   FleetRepository,
   InFlightDeliveries,
@@ -11,6 +12,7 @@ import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
   toAbandonedDelivery,
+  toCrewRequest,
   toDeliveryFromSql,
   toFleet,
   toLease,
@@ -73,12 +75,32 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
       // The request that created the fleet names it, so it goes too; a delete's record names nothing of it.
       await db.$executeRaw`DELETE FROM installation_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
+    },
+  };
+}
+
+export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository {
+  return {
+    find: async (fleetId, shipId) => {
+      const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
+      return row === null ? undefined : toCrewRequest(row);
+    },
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt }) => {
+      await db.crewRequest.upsert({
+        where: { fleetId_shipId: { fleetId, shipId } },
+        create: { fleetId, shipId, settings, settingsVersion, requestedAt },
+        update: { settings, settingsVersion, requestedAt },
+      });
+    },
+    remove: async (fleetId, shipId) => {
+      await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
     },
   };
 }
@@ -354,6 +376,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
+               cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
+               cr.requested_at AS crew_request_requested_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -363,6 +387,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+        LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId}
@@ -384,6 +409,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
+               cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
+               cr.requested_at AS crew_request_requested_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -393,6 +420,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+        LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
         WHERE s.fleet_id = ${fleetId} AND s.id = ${shipId}`;

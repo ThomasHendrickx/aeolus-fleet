@@ -59,6 +59,8 @@ describe('eventTypeSchema', () => {
       'SignInTicketIssued',
       'FleetLimitsChanged',
       'ViewerSessionStarted',
+      'CrewRequested',
+      'CrewRequestRemoved',
     ]);
   });
 });

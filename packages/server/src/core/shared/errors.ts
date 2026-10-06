@@ -2,6 +2,8 @@ import { err, type Err } from './result.js';
 
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
+  | 'CREW_REQUEST_NOT_FOUND'
+  | 'CREW_REQUEST_SETTINGS_TOO_LARGE'
   | 'DELIVERY_HELD_BY_ANOTHER_SHIP'
   | 'DELIVERY_NOT_FOUND'
   | 'DELIVERY_NOT_A_PING'
