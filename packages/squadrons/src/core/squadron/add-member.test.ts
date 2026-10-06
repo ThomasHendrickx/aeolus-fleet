@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { FleetDoor, ManagementCrew, ManagementCrewStore } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
@@ -102,7 +102,7 @@ const squadrons: SquadronRepository = {
   },
 };
 
-const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW } });
+const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, mcpUrl: MCP_URL });
 
 beforeEach(() => {
   held = aSquadron('sailing');
@@ -123,7 +123,7 @@ describe('adding a member', () => {
         shipId: 'shp_01m3tbfspe96yf1rnr4ank0010',
         name: 'tester-q8r2',
         role: 'tester',
-        crewLines: memberCrewLines({ shipId: 'shp_01m3tbfspe96yf1rnr4ank0010', secret: 'aeolus_sk_v1_tester-q8r2', squadronId: 'team-a1b2c3' }),
+        crewLines: memberCrewLines({ shipId: 'shp_01m3tbfspe96yf1rnr4ank0010', secret: 'aeolus_sk_v1_tester-q8r2', squadronId: 'team-a1b2c3', role: 'tester' }),
         launchNote: 'Start in the root.',
         model: 'claude-opus-5-5',
       },

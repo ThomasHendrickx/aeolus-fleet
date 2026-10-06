@@ -1,22 +1,24 @@
 import type { CrewLine, ShipDetail } from '@aeolus-fleet/common';
-import { FileText, Info, Inbox } from 'lucide-react';
+import { Info, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
 import { lastSeen } from '../../lib/relative-time';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
-import { CrewLines } from '../molecules/crew-lines';
+import { CompactCrewLine } from '../molecules/compact-crew-line';
 import { EmptyState } from '../molecules/empty-state';
 import { HealthIndicator } from '../molecules/health-indicator';
+import { LaunchNote } from '../molecules/launch-note';
 import { LocationTag } from '../molecules/location-tag';
 import { ReportLine } from '../molecules/report-line';
 import { StatusBadge } from '../molecules/status-badge';
 
-/** A member's crew lines and launch note, from the forming answer: shown once, never stored. */
+/** A member's crew lines, launch note and pinned model, from the forming answer: shown once, never stored. */
 export interface IssuedCrewLine {
   crewLines: readonly CrewLine[];
   launchNote: string | null;
+  model: string | null;
 }
 
 interface MemberListProps {
@@ -97,66 +99,75 @@ function RoleHeading({
   );
 }
 
+type Member = Squadron['members'][number];
+
+/** The issued lines a role's members share, once, above their rows: its launch note and pinned model, and that they show once. */
+function RoleLaunch({ issued, template }: { issued: IssuedCrewLine; template: string | undefined }) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5">
+      <LaunchNote note={issued.launchNote} model={issued.model} template={template} testId="member-launch-note" />
+      <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
+        <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
+        <span>
+          <span className="font-medium">Shown once.</span> Paste a member’s crew line into Claude Code or Codex started where the launch note says, or into a chat client with the fleet’s connector.
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function MemberRow({ member, issued, ship, now, renderActions }: { member: Member; issued: IssuedCrewLine | undefined; ship: ShipDetail | undefined; now: Date } & Pick<MemberListProps, 'renderActions'>) {
+  return (
+    <li data-testid="member-row" className="flex flex-col gap-2 px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <Link href={`/ships/${member.shipId}`} className="font-medium hover:underline" data-testid="member-name">
+          {member.name}
+        </Link>
+        <HealthIndicator health={member.health} detail={healthDetail(member, { ship, now })} className="shrink-0" />
+        {member.model.isMismatch && (
+          <span className="text-meta text-tone-attention-fg">
+            Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}
+          </span>
+        )}
+        <FleetFacts ship={ship} now={now} />
+        {renderActions?.(member)}
+      </div>
+      {issued && <CompactCrewLine crewLines={issued.crewLines} subject={member.name} testIdPrefix="member-crew-line" />}
+    </li>
+  );
+}
+
 /**
  * The squadron's members grouped by role (docs/design/png/MemberList.png),
  * each group headed by its template version and check-in interval. Each
  * member's name opens its ship page; it shows its health (on time, late, silent or not on station), and from the fleet its report, where
- * its session runs and its open deliveries. Right after forming, a member not on
- * station shows its crew lines and launch note in its row: once. Each row ends
- * with the actions the page gives it.
+ * its session runs and its open deliveries. Right after forming, a role shows
+ * its launch note and pinned model once, and each member not on station one
+ * compact crew line with a harness switch: once. Each row ends with the
+ * actions the page gives it.
  */
 export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, renderActions }: MemberListProps) {
   if (squadron.members.length === 0) {
     return <EmptyState variant="section" title="No members" description="This squadron has no members." />;
   }
+  const issuedOf = (member: Member) => (member.onStationAt === null ? crewLines.get(member.shipId) : undefined);
   return (
     <div data-testid="member-list" className="flex flex-col overflow-hidden rounded-lg border border-border">
-      {membersByRole(squadron.members).map((group) => (
-        <section key={group.role} aria-label={`Role ${group.role}`}>
-          <RoleHeading role={group.role} blueprint={blueprint} templates={templates} count={group.members.length} />
-          <ul className="divide-y divide-border">
-            {group.members.map((member) => {
-              const issued = member.onStationAt === null ? crewLines.get(member.shipId) : undefined;
-              return (
-                <li key={member.shipId} data-testid="member-row" className="flex flex-col gap-2 px-3 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <Link href={`/ships/${member.shipId}`} className="font-medium hover:underline" data-testid="member-name">
-                      {member.name}
-                    </Link>
-                    <HealthIndicator health={member.health} detail={healthDetail(member, { ship: ships.get(member.shipId), now })} className="shrink-0" />
-                    {member.model.isMismatch && (
-                      <span className="text-meta text-tone-attention-fg">
-                        Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}
-                      </span>
-                    )}
-                    <FleetFacts ship={ships.get(member.shipId)} now={now} />
-                    {renderActions?.(member)}
-                  </div>
-                  {issued && (
-                    <div className="flex flex-col gap-2">
-                      {issued.launchNote !== null && (
-                        <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-meta">
-                          <FileText aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0" />
-                          <span>
-                            <span className="font-medium">Launch note</span> {issued.launchNote}
-                          </span>
-                        </p>
-                      )}
-                      <CrewLines crewLines={issued.crewLines} subject={member.name} testIdPrefix="member-crew-line" />
-                      <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
-                        <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
-                        <span>
-                          <span className="font-medium">Shown once.</span> Paste a crew line into Claude Code or Codex started where the launch note says.
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      {membersByRole(squadron.members).map((group) => {
+        const reference = blueprint?.roles.find((each) => each.name === group.role)?.template;
+        const firstIssued = group.members.map(issuedOf).find((issued) => issued !== undefined);
+        return (
+          <section key={group.role} aria-label={`Role ${group.role}`}>
+            <RoleHeading role={group.role} blueprint={blueprint} templates={templates} count={group.members.length} />
+            {firstIssued && <RoleLaunch issued={firstIssued} template={reference && `${reference.name}@${String(reference.version)}`} />}
+            <ul className="divide-y divide-border">
+              {group.members.map((member) => (
+                <MemberRow key={member.shipId} member={member} issued={issuedOf(member)} ship={ships.get(member.shipId)} now={now} renderActions={renderActions} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

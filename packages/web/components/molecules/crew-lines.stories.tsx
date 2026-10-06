@@ -22,13 +22,3 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-
-/** A squadron member's lines: each carries the squadron id. */
-export const ForAMember: Story = {
-  args: {
-    crewLines: [
-      { harness: 'claude-code', line: `/aeolus:crew ${IDENTITY} aeolus-a1b2c3` },
-      { harness: 'codex', line: `$aeolus-crew ${IDENTITY} aeolus-a1b2c3` },
-    ],
-  },
-};

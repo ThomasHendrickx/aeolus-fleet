@@ -4,7 +4,7 @@ import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
-import { withSquadronId } from './crew-lines.js';
+import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 
@@ -41,6 +41,8 @@ export function createAddMember(deps: {
   attempts: FormationAttempts;
   random: RandomNames;
   clock: Clock;
+  /** The fleet's MCP URL, which a member's chat crew line names. */
+  mcpUrl: string;
 }): AddMember {
   return async ({ fleetId, squadronId, role: roleName }) => {
     const crew = await deps.management.find(fleetId);
@@ -74,7 +76,7 @@ export function createAddMember(deps: {
       await formation.retireCommissioned();
       return refuse('ADDING_FAILED', `The fleet refused a step, so no member was added: ${made.error.message}`);
     }
-    const { shipId, name, crewLines } = made.value;
+    const { shipId, name } = made.value;
     await deps.squadrons.update({
       before: squadron,
       after: {
@@ -83,6 +85,6 @@ export function createAddMember(deps: {
       },
       finishesAttempt: formation.attemptId,
     });
-    return ok({ shipId, name, role: role.name, crewLines: withSquadronId(crewLines, squadronId), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ shipId, name, role: role.name, crewLines: memberCrewLines(made.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }

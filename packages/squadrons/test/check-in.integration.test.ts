@@ -342,7 +342,9 @@ describe('adding a member', () => {
     expect(added.crewLines.map(({ harness, line }) => [harness, line.split(' ').at(-1)])).toEqual([
       ['claude-code', 'team-six'],
       ['codex', 'team-six'],
+      ['chat', 'charter.'],
     ]);
+    expect(added.crewLines[2]?.line).toContain(`the fleet's MCP connector at ${fleetUrl}/mcp:`);
     expect(added.launchNote).toBe('Start in the repository root.');
     const listed = z
       .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ name: z.string(), health: z.string() })) })) }) })

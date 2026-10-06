@@ -4,7 +4,7 @@ import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { SquadronRepository } from './ports.js';
-import { withSquadronId } from './crew-lines.js';
+import { memberCrewLines } from './crew-lines.js';
 import { templateOf } from './squadron.js';
 
 export type NewCrewLineRefusal = DomainError<'MANAGEMENT_SHIP_NOT_CREWED' | 'SQUADRON_NOT_FOUND' | 'MEMBER_NOT_FOUND' | 'MEMBER_RETIRED' | 'FLEET_UNAVAILABLE'>;
@@ -25,7 +25,13 @@ export type NewCrewLine = (input: { fleetId: FleetId; squadronId: string; shipId
  * squadron id appended, so the new crew checks in at its flagship. A recrew
  * from the console gives no squadron id.
  */
-export function createNewCrewLine(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository }): NewCrewLine {
+export function createNewCrewLine(deps: {
+  door: FleetDoor;
+  management: ManagementCrewStore;
+  squadrons: SquadronRepository;
+  /** The fleet's MCP URL, which a member's chat crew line names. */
+  mcpUrl: string;
+}): NewCrewLine {
   return async ({ fleetId, squadronId, shipId }) => {
     const crew = await deps.management.find(fleetId);
     if (!crew) {
@@ -57,6 +63,6 @@ export function createNewCrewLine(deps: { door: FleetDoor; management: Managemen
       return refuse('FLEET_UNAVAILABLE', `The fleet gave ${member.name} no starting prompt: ${prompt.error.message}`);
     }
     const template = templateOf(squadron, member);
-    return ok({ crewLines: withSquadronId(prompt.value.crewLines, squadronId), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ crewLines: memberCrewLines(prompt.value, { shipId, role: member.role, squadronId, mcpUrl: deps.mcpUrl }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }

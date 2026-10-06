@@ -122,13 +122,15 @@ export function createSquadronsApp(options: {
   const squadrons = createPrismaSquadronRepository(prisma, clock);
   const attempts = createPrismaFormationAttempts(prisma, clock);
   const door = watchManagementLease(createRestFleetDoor(options.fleetUrl), store);
+  // The fleet serves its MCP server at /mcp under its public URL, as every starting prompt says.
+  const mcpUrl = `${options.fleetUrl}/mcp`;
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
   let flagships: FlagshipWatch | undefined;
   // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock });
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock, mcpUrl });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -167,8 +169,8 @@ export function createSquadronsApp(options: {
   const standDownOnly = createStandDown({ squadrons });
   const forceStandDown = createForceStandDown({ door, management: store, squadrons, clock });
   const removeMember = createRemoveMember({ door, management: store, squadrons, clock });
-  const newCrewLine = createNewCrewLine({ door, management: store, squadrons });
-  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock });
+  const newCrewLine = createNewCrewLine({ door, management: store, squadrons, mcpUrl });
+  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock, mcpUrl });
   // Each member gets its stand-down at once, not at the next rescan.
   const standDown: StandDown = async (input) => {
     const stood = await standDownOnly(input);

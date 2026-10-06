@@ -21,3 +21,8 @@ export function harnessWord(harness: string): string {
 export function harnessKind(harness: string): HarnessKind | undefined {
   return KNOWN_HARNESSES[harness]?.kind;
 }
+
+/** A crew line's harness as its switch words it: Chat for the line a chat client pastes, which no session states as its harness. */
+export function crewLineHarnessWord(harness: string): string {
+  return harness === 'chat' ? 'Chat' : harnessWord(harness);
+}

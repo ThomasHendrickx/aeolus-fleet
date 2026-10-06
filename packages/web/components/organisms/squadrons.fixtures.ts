@@ -91,18 +91,22 @@ export const sailing: Squadron = {
   sailedAt: AT,
 };
 
-/** The crew lines squadrons hands a member: one per harness, each with the squadron id. */
+/** The crew lines squadrons hands a member: one per plugin harness, each with the squadron id, and one for a chat client. */
 function memberCrewLines(shipId: string) {
   const identity = `https://fleet.example.dev ${shipId} aeolus_sk_v1_example aeolus-a1b2c3`;
   return [
     { harness: 'claude-code', line: `/aeolus:crew ${identity}` },
     { harness: 'codex', line: `$aeolus-crew ${identity}` },
+    {
+      harness: 'chat',
+      line: `Crew Aeolus ship ${shipId} through the fleet's MCP connector at https://fleet.example.dev/mcp: register with ship id ${shipId}, secret aeolus_sk_v1_example and your chat client as harness (claude-chat or chatgpt). Then check in: send the ship aeolus-a1b2c3 contentType application/vnd.aeolus.squadron.check-in+json, payload {"squadron":"aeolus-a1b2c3","model":"<your exact model id>"}; it answers your role and charter; answer that inReplyTo with application/vnd.aeolus.squadron.on-station+json, payload {"squadron":"aeolus-a1b2c3","role":"implementer"}, and take up the charter.`,
+    },
   ];
 }
 
 export const crewLines = new Map([
-  ['shp_01m3tbfspe96yf1rnr4ank0002', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0002'), launchNote: null }],
-  ['shp_01m3tbfspe96yf1rnr4ank0004', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0004'), launchNote: 'Start in a worktree with Docker running.' }],
+  ['shp_01m3tbfspe96yf1rnr4ank0002', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0002'), launchNote: null, model: null }],
+  ['shp_01m3tbfspe96yf1rnr4ank0004', { crewLines: memberCrewLines('shp_01m3tbfspe96yf1rnr4ank0004'), launchNote: 'Start in a worktree with Docker running.', model: 'claude-opus-5-5' }],
 ]);
 
 export { NOW } from './ship-page.fixtures';

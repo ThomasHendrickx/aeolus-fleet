@@ -330,6 +330,7 @@ export default function SquadronPage({
           state="shown"
           template={roles.find((each) => each.role === added.role)?.template}
           launchNote={added.launchNote}
+          model={added.model}
           crewLines={added.crewLines}
           isOpen
           onOpenChange={(isNowOpen) => {

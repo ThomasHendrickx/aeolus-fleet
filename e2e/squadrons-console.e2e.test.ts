@@ -172,6 +172,10 @@ describe('the first squadron in the console', () => {
     const crewLine = (await page.getByTestId('member-crew-line-claude-code').textContent()) ?? '';
     expect(crewLine).toMatch(/^\/aeolus:crew \S+ shp_\S+ aeolus_sk_v1_\S+ team-[a-z0-9]{6}$/);
     const squadronId = crewLine.split(' ')[4] ?? '';
+    // The harness switch shows the line a chat client pastes, with the check-in at the flagship in full.
+    await page.getByTestId('member-crew-line-chat-tab').click();
+    await expect(page.getByTestId('member-crew-line-chat').textContent()).resolves.toContain(`/mcp: register with ship id shp_`);
+    await expect(page.getByTestId('member-crew-line-chat').textContent()).resolves.toContain(`send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json`);
 
     const call = await crewed(crewLine);
     memberCall = call;
@@ -179,7 +183,7 @@ describe('the first squadron in the console', () => {
 
     await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('On time').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await expect(page.getByTestId('member-crew-line-claude-code').count()).resolves.toBe(0);
+    await expect(page.getByTestId('member-crew-line-chat-tab').count()).resolves.toBe(0);
     // From the fleet: where the member's session runs, and its open deliveries.
     await page.getByTestId('member-row').getByText('Device').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('member-inbox').textContent()).resolves.toMatch(/^\d+ open$/);
