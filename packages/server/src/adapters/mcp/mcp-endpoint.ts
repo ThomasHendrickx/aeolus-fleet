@@ -10,6 +10,7 @@
  * connection is ever read as a credential. The endpoint is stateless: a fresh
  * server answers each HTTP request, and nothing is kept between them.
  */
+import { MCP_PATH } from '@aeolus-fleet/common';
 import {
   createMcpHandler,
   McpServer,
@@ -30,7 +31,6 @@ import {
   type ShipCallRefusal,
 } from '../trpc/ship-contract.js';
 import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
-import { MCP_PATH } from './mcp-url.js';
 
 /** How the server names itself to MCP clients. Its version is the ship contract's, as in `/api/v1`. */
 const SERVER_INFO = { name: 'aeolus-fleet', version: '1' };

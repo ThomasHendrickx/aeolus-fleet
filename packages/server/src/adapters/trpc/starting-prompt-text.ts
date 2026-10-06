@@ -1,6 +1,4 @@
-import type { CrewLine, ShipId, StartingPromptOutput } from '@aeolus-fleet/common';
-
-import { mcpUrlOf } from '../mcp/mcp-url.js';
+import { mcpUrlOf, type CrewLine, type ShipId, type StartingPromptOutput } from '@aeolus-fleet/common';
 
 /**
  * How a starting prompt reads (docs/blueprint.md, "Launch a ship"): the text
