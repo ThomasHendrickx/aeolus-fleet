@@ -6,7 +6,7 @@ import { err, ok } from '../shared/result.js';
 import { createNewCrewLine } from './new-crew-line.js';
 import type { SquadronRepository } from './ports.js';
 import type { Member, Squadron } from './squadron.js';
-import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
@@ -94,7 +94,7 @@ const squadrons: SquadronRepository = {
   update: () => Promise.resolve(),
 };
 
-const newCrewLine = createNewCrewLine({ door, management, squadrons });
+const newCrewLine = createNewCrewLine({ door, management, squadrons, mcpUrl: MCP_URL });
 
 beforeEach(() => {
   held = aSquadron();
@@ -107,7 +107,7 @@ describe("a member's new crew line", () => {
   it('releases the crewed ship, then answers new crew lines, one per harness, each with the squadron id, its launch note and pinned model, once', async () => {
     await expect(newCrewLine({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toEqual({
       isOk: true,
-      value: { crewLines: memberCrewLines({ shipId: TESTER, secret: 'aeolus_sk_v1_new', squadronId: 'team-a1b2c3' }), launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
+      value: { crewLines: memberCrewLines({ shipId: TESTER, secret: 'aeolus_sk_v1_new', squadronId: 'team-a1b2c3', role: 'tester' }), launchNote: 'Start in the root.', model: 'claude-opus-5-5' },
     });
     expect(calls).toEqual([`release ${TESTER}`, `prompt ${TESTER}`]);
   });

@@ -6,7 +6,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import type { Squadron } from './squadron.js';
-import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 
@@ -176,6 +176,7 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
     random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
+    mcpUrl: MCP_URL,
   });
 }
 
@@ -220,7 +221,7 @@ describe('forming a squadron', () => {
       shipId: fleet.state.ships[1]?.shipId,
       name: 'planner-k3x9',
       role: 'planner',
-      crewLines: memberCrewLines({ shipId: idSchema('ship').parse(fleet.state.ships[1]?.shipId), secret: 'aeolus_sk_v1_planner-k3x9', squadronId: 'hemma-feature-a1b2c3' }),
+      crewLines: memberCrewLines({ shipId: idSchema('ship').parse(fleet.state.ships[1]?.shipId), secret: 'aeolus_sk_v1_planner-k3x9', squadronId: 'hemma-feature-a1b2c3', role: 'planner' }),
       launchNote: 'Start the planner in the repository root.',
       model: 'claude-opus-5-5',
     });

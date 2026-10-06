@@ -18,10 +18,22 @@ export function issuedPrompt(shipId: ShipId, secret: string): { secret: string; 
   };
 }
 
-/** The crew lines a member is handed: the fleet's, each with the squadron id. */
-export function memberCrewLines(member: { shipId: ShipId; secret: string; squadronId: string }): { harness: string; line: string }[] {
-  const { shipId, secret, squadronId } = member;
-  return issuedPrompt(shipId, secret).crewLines.map(({ harness, line }) => ({ harness, line: `${line} ${squadronId}` }));
+/** The fleet's MCP URL, where a chat client's connector reaches it. */
+export const MCP_URL = 'https://fleet.example.com/mcp';
+
+/** The crew lines a member is handed: the fleet's, each with the squadron id, and one for a chat client. */
+export function memberCrewLines(member: { shipId: ShipId; secret: string; squadronId: string; role: string }): { harness: string; line: string }[] {
+  const { shipId, secret, squadronId, role } = member;
+  return [
+    ...issuedPrompt(shipId, secret).crewLines.map(({ harness, line }) => ({ harness, line: `${line} ${squadronId}` })),
+    {
+      harness: 'chat',
+      line:
+        `Crew Aeolus ship ${shipId} through the fleet's MCP connector at ${MCP_URL}: register with ship id ${shipId}, secret ${secret} and your chat client as harness (claude-chat or chatgpt). ` +
+        `Then check in: send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json, payload {"squadron":"${squadronId}","model":"<your exact model id>"}; it answers your role and charter; ` +
+        `answer that inReplyTo with application/vnd.aeolus.squadron.on-station+json, payload {"squadron":"${squadronId}","role":"${role}"}, and take up the charter.`,
+    },
+  ];
 }
 
 const notUsed = () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' }));
