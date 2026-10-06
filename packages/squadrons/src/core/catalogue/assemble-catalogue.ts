@@ -61,6 +61,7 @@ const templateReference = z
 const COUNT = `a whole number from 1 to ${String(COUNT_MAX)}`;
 const ROLE_OR_FLAGSHIP = `a role of the blueprint or ${FLAGSHIP}`;
 const blueprintSchema = z.object({
+  name: handle.optional(),
   description: text('one line of text'),
   roles: handleRecord(
     z.object(
@@ -154,7 +155,7 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
   if (!parsed.success) {
     return err(firstIssue('blueprint', parsed.error));
   }
-  const { description, memberNames } = parsed.data;
+  const { name: named, description, memberNames } = parsed.data;
   const roles = Object.entries(parsed.data.roles).map(([role, { template, count }]) => ({ name: role, template, count: count ?? 1 }));
   const roleNames = new Set(roles.map((role) => role.name));
 
@@ -188,7 +189,7 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
   }
 
   const { repository, name, version, file: path, commit, committedAt } = file;
-  return ok({ repository, name, version, file: path, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
+  return ok({ repository, name: named ?? name, version, file: path, commit, committedAt, description, roles, handoffs, memberNames: memberNames ?? 'plain' });
 }
 
 /** Why nothing was read at a version tag: its name is not lowercase, or its commit has no file of its name. */
@@ -211,7 +212,9 @@ function invalidYaml(file: SourceFile & { parseError: string }): string {
  * spec, and every version left out and version tag read nothing at, each with
  * its first problem, so the operator can fix it in git. A blueprint is
  * checked against the templates it references: every hand-off they declare
- * bound, and nothing bound they do not declare.
+ * bound, and nothing bound they do not declare. Its name is its `name` field,
+ * or its file name when it sets none; blueprint files of one repository that
+ * give one name are all left out, as no one of them is that name.
  */
 export function assembleCatalogue(read: { repositories: readonly string[]; files: readonly SourceFile[]; tags: readonly UnreadTag[] }): Catalogue {
   const problems: CatalogueProblem[] = read.tags.map(tagProblem);
@@ -236,13 +239,24 @@ export function assembleCatalogue(read: { repositories: readonly string[]; files
     tagged.set(`${repository}#${name}`, [...(tagged.get(`${repository}#${name}`) ?? []), version]);
   }
   const known: Known = { templates: new Map(templates.map((template) => [keyOf(template), template])), tagged, repositories: new Set(read.repositories) };
-  const blueprints: BlueprintVersion[] = [];
+  const followingSpec: { file: SourceFile; blueprint: BlueprintVersion }[] = [];
   for (const file of read.files.filter((each) => each.kind === 'blueprint')) {
     const parsed = file.parseError === undefined ? blueprintOf(file, known) : err(invalidYaml({ ...file, parseError: file.parseError }));
     if (parsed.isOk) {
-      blueprints.push(parsed.value);
+      followingSpec.push({ file, blueprint: parsed.value });
     } else {
       problems.push(problemOf(file, parsed.error));
+    }
+  }
+
+  const blueprints: BlueprintVersion[] = [];
+  for (const { file, blueprint } of followingSpec) {
+    const clashing = followingSpec.filter((other) => other.blueprint.repository === blueprint.repository && other.blueprint.name === blueprint.name && other.file.name !== file.name);
+    if (clashing.length === 0) {
+      blueprints.push(blueprint);
+    } else {
+      const tags = clashing.map((other) => `${other.file.name}@${String(other.file.version)}`);
+      problems.push(problemOf(file, `name ${blueprint.name} is also the name of ${tags.join(', ')}: every blueprint of a repository needs a name of its own`));
     }
   }
   return { templates, blueprints, problems };
