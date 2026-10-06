@@ -77,6 +77,7 @@ Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md)
 - [Decision records](docs/decisions/README.md)
 - [Build plan](docs/build-plan.md)
 - [Design system](docs/design/README.md)
+- [Brand](brand/README.md): the logo files every Aeolus surface uses
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.svg">
