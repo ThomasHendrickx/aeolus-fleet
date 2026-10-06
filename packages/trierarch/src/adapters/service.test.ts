@@ -105,10 +105,10 @@ describe('the service on macOS (launchd)', () => {
 
   it('runs with its pid and since when it started, as launchd and ps say', async () => {
     answers.set(`launchctl bootstrap gui/501 ${plist()}`, ok());
-    answers.set(`launchctl print ${target}`, ok(`${target} = {\n\tstate = running\n\tpid = 4242\n}`));
     answers.set('ps -o etime= -p 4242', ok('  1-02:03:04\n'));
     const service = serviceOn('darwin');
     await service.install();
+    answers.set(`launchctl print ${target}`, ok(`${target} = {\n\tstate = running\n\tpid = 4242\n}`));
 
     await expect(service.status()).resolves.toEqual({ file: plist(), isInstalled: true, isRunning: true, pid: 4242, since: '2026-10-05T07:56:56.000Z' });
   });
@@ -191,10 +191,10 @@ describe('the service on macOS (launchd)', () => {
 
   it('restarts by killing and starting it again', async () => {
     answers.set(`launchctl bootstrap gui/501 ${plist()}`, ok());
-    answers.set(`launchctl print ${target}`, ok('state = running'));
     answers.set(`launchctl kickstart -k ${target}`, ok());
     const service = serviceOn('darwin');
     await service.install();
+    answers.set(`launchctl print ${target}`, ok('state = running'));
     calls = [];
 
     await service.restart();
