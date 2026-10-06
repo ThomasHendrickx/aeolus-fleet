@@ -1,6 +1,6 @@
 ---
 name: domain-modelling
-description: Mandatory for code under packages/server/src/core or src/adapters. Where each piece of server logic belongs.
+description: Mandatory for code under packages/core/src/domain or src/adapters. Where each piece of server logic belongs.
 ---
 
 # Domain modelling

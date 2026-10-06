@@ -8,8 +8,8 @@ let base: string;
 
 beforeEach(() => {
   repository = createTemporaryRepository();
-  repository.write('packages/server/src/core/registry/fleet.ts', 'export const fleet = 1;\n');
-  repository.write('packages/server/src/core/registry/fleet.test.ts', 'test 1\n');
+  repository.write('packages/core/src/domain/registry/fleet.ts', 'export const fleet = 1;\n');
+  repository.write('packages/core/src/domain/registry/fleet.test.ts', 'test 1\n');
   base = repository.commit('feat(registry): fleet');
 });
 
@@ -22,12 +22,12 @@ function violations(head: string, exemptUpTo?: string): string[] {
 }
 
 function red(subject = 'test(registry): fleet name rule (red)'): string {
-  repository.write('packages/server/src/core/registry/fleet.test.ts', `test ${subject}\n`);
+  repository.write('packages/core/src/domain/registry/fleet.test.ts', `test ${subject}\n`);
   return repository.commit(subject);
 }
 
 function green(subject = 'feat(registry): fleet name rule'): string {
-  repository.write('packages/server/src/core/registry/fleet.ts', `export const fleet = '${subject}';\n`);
+  repository.write('packages/core/src/domain/registry/fleet.ts', `export const fleet = '${subject}';\n`);
   return repository.commit(subject);
 }
 
@@ -52,7 +52,7 @@ describe('the TDD evidence check', () => {
     const head = green('feat(registry): untested');
 
     expect(violations(head)).toEqual([
-      `${head.slice(0, 12)} "feat(registry): untested" changes production code (packages/server/src/core/registry/fleet.ts), but the commit before it is not a (red) commit that only adds or changes tests`,
+      `${head.slice(0, 12)} "feat(registry): untested" changes production code (packages/core/src/domain/registry/fleet.ts), but the commit before it is not a (red) commit that only adds or changes tests`,
     ]);
   });
 
@@ -74,8 +74,8 @@ describe('the TDD evidence check', () => {
   });
 
   it('refuses the code after a (red) commit that also changes production code', () => {
-    repository.write('packages/server/src/core/registry/fleet.test.ts', 'test red\n');
-    repository.write('packages/server/src/core/registry/ship.ts', 'export const ship = 1;\n');
+    repository.write('packages/core/src/domain/registry/fleet.test.ts', 'test red\n');
+    repository.write('packages/core/src/domain/registry/ship.ts', 'export const ship = 1;\n');
     repository.commit('test(registry): fleet name rule (red)');
     const head = green();
 
@@ -83,7 +83,7 @@ describe('the TDD evidence check', () => {
   });
 
   it('refuses a (red) commit that changes anything but tests', () => {
-    repository.write('packages/server/src/core/registry/fleet.test.ts', 'test red\n');
+    repository.write('packages/core/src/domain/registry/fleet.test.ts', 'test red\n');
     repository.write('docs/notes.md', 'notes\n');
     repository.commit('test(registry): fleet name rule (red)');
     const head = green();
@@ -99,7 +99,7 @@ describe('the TDD evidence check', () => {
   });
 
   it('refuses a (red) commit that deletes a test', () => {
-    repository.remove('packages/server/src/core/registry/fleet.test.ts');
+    repository.remove('packages/core/src/domain/registry/fleet.test.ts');
     repository.commit('test(registry): drop a test (red)');
     const head = green();
 
@@ -129,7 +129,7 @@ describe('the TDD evidence check', () => {
   );
 
   it('refuses a feat commit that only deletes production code without a (red) commit', () => {
-    repository.remove('packages/server/src/core/registry/fleet.ts');
+    repository.remove('packages/core/src/domain/registry/fleet.ts');
     const head = repository.commit('feat(registry): remove fleet');
 
     expect(violations(head)).toHaveLength(1);
@@ -158,7 +158,7 @@ describe('the TDD evidence check', () => {
   });
 
   it('takes test support in a test folder and end-to-end tests as tests', () => {
-    repository.write('packages/server/test/support/in-memory.ts', 'fake\n');
+    repository.write('packages/core/test/support/in-memory.ts', 'fake\n');
     repository.write('e2e/console-sign-in.e2e.test.ts', 'test\n');
     repository.commit('test(identity): sign-in fake (red)');
     const head = green();
@@ -174,10 +174,10 @@ describe('the TDD evidence check', () => {
   });
 
   it('does not judge tests, docs, scripts, web or Markdown in src', () => {
-    repository.write('packages/server/src/core/registry/fleet.test.ts', 'test only\n');
+    repository.write('packages/core/src/domain/registry/fleet.test.ts', 'test only\n');
     repository.commit('test(registry): more cases');
-    repository.write('packages/server/src/core/registry/README.md', '# Registry\n');
-    repository.write('packages/web/app/page.tsx', 'page\n');
+    repository.write('packages/core/src/domain/registry/README.md', '# Registry\n');
+    repository.write('packages/console/app/page.tsx', 'page\n');
     repository.write('scripts/set-version.ts', 'script\n');
     repository.write('docs/blueprint.md', 'blueprint\n');
     const head = repository.commit('docs: many things');
@@ -196,7 +196,7 @@ describe('the TDD evidence check', () => {
     red();
     green();
     repository.git(['switch', '--quiet', 'main']);
-    repository.write('packages/server/src/core/registry/ship.ts', 'export const ship = 1;\n');
+    repository.write('packages/core/src/domain/registry/ship.ts', 'export const ship = 1;\n');
     const movedBase = repository.commit('feat(registry): ship, merged on main meanwhile');
     repository.git(['switch', '--quiet', 'slice']);
     repository.git(['merge', '--quiet', '--no-edit', 'main']);
@@ -217,9 +217,9 @@ describe('the TDD evidence check', () => {
   });
 
   it('reads renames with their previous path', () => {
-    repository.git(['mv', 'packages/server/src/core/registry/fleet.test.ts', 'packages/server/src/core/registry/fleet-name.test.ts']);
+    repository.git(['mv', 'packages/core/src/domain/registry/fleet.test.ts', 'packages/core/src/domain/registry/fleet-name.test.ts']);
     repository.commit('test(registry): rename the test (red)');
-    repository.git(['mv', 'packages/server/src/core/registry/fleet.ts', 'packages/server/src/core/registry/fleet-name.ts']);
+    repository.git(['mv', 'packages/core/src/domain/registry/fleet.ts', 'packages/core/src/domain/registry/fleet-name.ts']);
     const head = repository.commit('refactor(registry): rename the module');
 
     const commits = readCommits(repository.path, { range: { base, head } });
@@ -227,15 +227,15 @@ describe('the TDD evidence check', () => {
       [
         {
           status: 'R100',
-          previousPath: 'packages/server/src/core/registry/fleet.test.ts',
-          path: 'packages/server/src/core/registry/fleet-name.test.ts',
+          previousPath: 'packages/core/src/domain/registry/fleet.test.ts',
+          path: 'packages/core/src/domain/registry/fleet-name.test.ts',
         },
       ],
       [
         {
           status: 'R100',
-          previousPath: 'packages/server/src/core/registry/fleet.ts',
-          path: 'packages/server/src/core/registry/fleet-name.ts',
+          previousPath: 'packages/core/src/domain/registry/fleet.ts',
+          path: 'packages/core/src/domain/registry/fleet-name.ts',
         },
       ],
     ]);
@@ -245,10 +245,10 @@ describe('the TDD evidence check', () => {
 
 describe('what counts as a test and as production code', () => {
   it.each([
-    'packages/server/src/core/registry/fleet.test.ts',
-    'packages/web/components/atoms/button.test.tsx',
-    'packages/server/test/support/in-memory.ts',
-    'packages/server/test/api.integration.test.ts',
+    'packages/core/src/domain/registry/fleet.test.ts',
+    'packages/console/components/atoms/button.test.tsx',
+    'packages/core/test/support/in-memory.ts',
+    'packages/core/test/api.integration.test.ts',
     'e2e/support/web.ts',
   ])('%s is a test file', (path) => {
     expect(isTestFile(path)).toBe(true);
@@ -256,15 +256,15 @@ describe('what counts as a test and as production code', () => {
   });
 
   it.each([
-    'packages/server/src/core/registry/fleet.ts',
-    'packages/server/src/adapters/prisma/schema.prisma',
-    'packages/server/src/adapters/prisma/migrations/20260929124818_init/migration.sql',
+    'packages/core/src/domain/registry/fleet.ts',
+    'packages/core/src/adapters/prisma/schema.prisma',
+    'packages/core/src/adapters/prisma/migrations/20260929124818_init/migration.sql',
     'packages/common/src/ids/index.ts',
   ])('%s is production code', (path) => {
     expect(isProductionFile(path)).toBe(true);
   });
 
-  it.each(['packages/server/src/core/registry/README.md', 'packages/web/app/page.tsx', 'scripts/set-version.ts', 'packages/server/prisma.config.ts'])(
+  it.each(['packages/core/src/domain/registry/README.md', 'packages/console/app/page.tsx', 'scripts/set-version.ts', 'packages/core/prisma.config.ts'])(
     '%s is not judged',
     (path) => {
       expect(isProductionFile(path)).toBe(false);

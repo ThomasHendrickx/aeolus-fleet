@@ -5,11 +5,11 @@ import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createApp } from '../packages/server/src/app.js';
-import type { AppRouter } from '../packages/server/src/index.js';
-import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/server/test/support/database.js';
-import { newKey } from '../packages/server/test/support/keys.js';
+import { createApp } from '../packages/core/src/app.js';
+import type { AppRouter } from '../packages/core/src/index.js';
+import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { newKey } from '../packages/core/test/support/keys.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The console's analytics (decision 0025), end to end in the browser: with an

@@ -28,7 +28,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 
 | Topic | v1 decision |
 | --- | --- |
-| Packages | Three npm packages: `@aeolus-fleet/server`, `@aeolus-fleet/web` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
+| Packages | Three npm packages: `@aeolus-fleet/core`, `@aeolus-fleet/console` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
@@ -315,8 +315,8 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 
 | Package | Contents | Used by |
 | --- | --- | --- |
-| `@aeolus-fleet/server` | The Aeolus API (one tRPC router, plus REST and MCP for ships) and the three contexts on Postgres, including migrations | Whoever runs a fleet |
-| `@aeolus-fleet/web` | The operator web app: fleet view, inbox, timelines, controls | The operator |
+| `@aeolus-fleet/core` | The Aeolus API (one tRPC router, plus REST and MCP for ships) and the three contexts on Postgres, including migrations | Whoever runs a fleet |
+| `@aeolus-fleet/console` | The operator web app: fleet view, inbox, timelines, controls | The operator |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types | Server, web and later ship clients |
 | `ship-sdk` (later) | The ship contract as a typed client | Sessions crewing a ship |
 | `cli` (later) | Install, configure, create a ship from the terminal, inspect | The operator |
@@ -344,7 +344,7 @@ Every call after `register` carries the crew token, not the secret: in a header 
 | Item | Choice |
 | --- | --- |
 | Server | Hetzner CX23: 2 vCPU, 4 GB, 40 GB, EU location |
-| Stack | Docker Compose: Postgres, `server`, `web`, Caddy for TLS |
+| Stack | Docker Compose: Postgres, `core`, `console`, Caddy for TLS |
 | Backups | Hetzner server backups plus a nightly Postgres dump to a Storage Box |
 | Estimated cost | About €10.30 a month excl. VAT, about €12.50 incl. 21% VAT |
 | Scale path | Resize to CX33 in minutes; split the database to its own server when needed |

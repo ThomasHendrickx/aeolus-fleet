@@ -9,8 +9,8 @@ import { promisify } from 'node:util';
 import type { Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { OPERATOR } from '../packages/server/test/support/core-fixtures.js';
-import { createEmptyDatabase } from '../packages/server/test/support/database.js';
+import { OPERATOR } from '../packages/core/test/support/core-fixtures.js';
+import { createEmptyDatabase } from '../packages/core/test/support/database.js';
 import { signIn } from './support/console.js';
 import { freePort, launchChromium } from './support/web.js';
 
@@ -101,9 +101,9 @@ beforeAll(async () => {
       '--workspace',
       '@aeolus-fleet/common',
       '--workspace',
-      '@aeolus-fleet/server',
+      '@aeolus-fleet/core',
       '--workspace',
-      '@aeolus-fleet/web',
+      '@aeolus-fleet/console',
     ],
     { cwd: repositoryRoot },
   );
@@ -136,17 +136,17 @@ afterAll(async () => {
 });
 
 describe('installed from npm', () => {
-  it('migrates the database with aeolus-server migrate', async () => {
-    const result = await runBin({ bin: 'aeolus-server', args: ['migrate'], env: { DATABASE_URL: databaseUrl } });
+  it('migrates the database with aeolus-core migrate', async () => {
+    const result = await runBin({ bin: 'aeolus-core', args: ['migrate'], env: { DATABASE_URL: databaseUrl } });
 
     expect(result.stderr).toBe('');
     expect(result.code).toBe(0);
   });
 
-  it('initialises the fleet with aeolus-server fleet:init', async () => {
+  it('initialises the fleet with aeolus-core fleet:init', async () => {
     const result = await runBin(
       {
-        bin: 'aeolus-server',
+        bin: 'aeolus-core',
         args: ['fleet:init', '--name', 'home fleet'],
         env: { DATABASE_URL: databaseUrl, PUBLIC_URL: serverUrl },
       },
@@ -158,9 +158,9 @@ describe('installed from npm', () => {
     expect(result.stdout).toContain('Fleet initialised: flt_');
   });
 
-  it('starts the server with aeolus-server start, and its /health answers the database up', async () => {
+  it('starts the server with aeolus-core start, and its /health answers the database up', async () => {
     const server = startBin({
-      bin: 'aeolus-server',
+      bin: 'aeolus-core',
       args: ['start'],
       env: { DATABASE_URL: databaseUrl, PUBLIC_URL: serverUrl, PORT: new URL(serverUrl).port, CONSOLE_ORIGIN: webUrl },
     });
@@ -174,9 +174,9 @@ describe('installed from npm', () => {
     });
   });
 
-  it('starts the web app with aeolus-web start, and its /health answers the server up', async () => {
+  it('starts the web app with aeolus-console start, and its /health answers the server up', async () => {
     const web = startBin({
-      bin: 'aeolus-web',
+      bin: 'aeolus-console',
       args: ['start'],
       env: { PORT: new URL(webUrl).port, AEOLUS_SERVER_URL: serverUrl },
     });
@@ -195,7 +195,7 @@ describe('installed from npm', () => {
     const internalWebUrl = `http://localhost:${String(await freePort())}`;
     const unreachable = `http://localhost:${String(await freePort())}`;
     const web = startBin({
-      bin: 'aeolus-web',
+      bin: 'aeolus-console',
       args: ['start'],
       env: { PORT: new URL(internalWebUrl).port, AEOLUS_SERVER_URL: unreachable, AEOLUS_SERVER_INTERNAL_URL: serverUrl },
     });

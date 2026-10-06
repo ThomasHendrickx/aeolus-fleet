@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { createLint, reportsOf } from './support/lint-probe.ts';
 
-// server/src/core imports no framework, database or adapter (CLAUDE.md,
+// core/src/domain imports no framework, database or adapter (CLAUDE.md,
 // "Architecture rules").
 
-const coreProbe = 'packages/server/src/core/shared/boundary-probe.ts';
-const unlistedCoreProbe = 'packages/server/src/core/boundary-probe.ts';
-const adapterProbe = 'packages/server/src/adapters/prisma/boundary-probe.ts';
+const coreProbe = 'packages/core/src/domain/shared/boundary-probe.ts';
+const unlistedCoreProbe = 'packages/core/src/domain/boundary-probe.ts';
+const adapterProbe = 'packages/core/src/adapters/prisma/boundary-probe.ts';
 const lint = createLint({
-  tsconfig: 'packages/server/tsconfig.json',
+  tsconfig: 'packages/core/tsconfig.json',
   probes: [coreProbe, unlistedCoreProbe, adapterProbe],
 });
 
@@ -30,7 +30,7 @@ describe('core import boundary', () => {
     ['the tRPC server', "import { initTRPC } from '@trpc/server';"],
     ['an adapter by relative path', "import { createPrismaClient } from '../../adapters/prisma/client.js';"],
     ['the generated Prisma client', "import { PrismaClient } from '../../adapters/prisma/generated/client.js';"],
-    ['the server package entry', "import type { AppRouter } from '@aeolus-fleet/server';"],
+    ['the server package entry', "import type { AppRouter } from '@aeolus-fleet/core';"],
     ['a re-export of Prisma', "export { PrismaClient } from '@prisma/client';"],
     ['Prisma through import()', "export const load = () => import('@prisma/client');"],
     ['Prisma through an import type', "export type Client = import('@prisma/client').PrismaClient;"],
@@ -38,7 +38,7 @@ describe('core import boundary', () => {
     const violations = await boundaryViolations(code, coreProbe);
 
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toContain('server/src/core must not import ');
+    expect(violations[0]).toContain('core/src/domain must not import ');
   });
 
   it('fails when a core file outside the context folders imports Prisma', async () => {

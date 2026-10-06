@@ -7,14 +7,14 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // accessible markup (web-frontend skill).
 
 const probes = {
-  atom: 'packages/web/components/atoms/layer-probe.tsx',
-  molecule: 'packages/web/components/molecules/layer-probe.tsx',
-  organism: 'packages/web/components/organisms/layer-probe.tsx',
-  template: 'packages/web/components/templates/layer-probe.tsx',
-  page: 'packages/web/app/probe/page.tsx',
-  lib: 'packages/web/lib/web-probe.ts',
+  atom: 'packages/console/components/atoms/layer-probe.tsx',
+  molecule: 'packages/console/components/molecules/layer-probe.tsx',
+  organism: 'packages/console/components/organisms/layer-probe.tsx',
+  template: 'packages/console/components/templates/layer-probe.tsx',
+  page: 'packages/console/app/probe/page.tsx',
+  lib: 'packages/console/lib/web-probe.ts',
 };
-const lint = createLint({ tsconfig: 'packages/web/tsconfig.json', probes: Object.values(probes) });
+const lint = createLint({ tsconfig: 'packages/console/tsconfig.json', probes: Object.values(probes) });
 
 async function importViolations(code: string, path: string): Promise<string[]> {
   const messages = await lint(code, path);
@@ -25,7 +25,7 @@ describe('atoms and molecules take props only', () => {
   it.each([
     { label: 'the tRPC hook', code: "import { useTRPC } from '../../lib/trpc';" },
     { label: 'a tRPC package', code: "import { createTRPCClient } from '@trpc/client';" },
-    { label: "the server's router type", code: "import type { AppRouter } from '@aeolus-fleet/server';" },
+    { label: "the server's router type", code: "import type { AppRouter } from '@aeolus-fleet/core';" },
   ])('refuses $label in an atom and in a molecule', async ({ code }) => {
     for (const path of [probes.atom, probes.molecule]) {
       await expect(importViolations(code, path)).resolves.toEqual([

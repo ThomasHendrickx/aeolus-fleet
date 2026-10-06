@@ -15,7 +15,7 @@ Push green heads only. One tiny rule may batch several tests.
 
 Layers:
 - Unit (Vitest, beside the file): value objects, aggregates, use cases with hand-written in-memory fakes. No mocking libraries; assert outcomes and stored state, not calls. Adapters (CLI, I/O) may use `vi.fn`.
-- Integration (`packages/server/test/*.integration.test.ts`, Testcontainers Postgres 16): adapters, raw SQL, procedures through the real composition.
+- Integration (`packages/core/test/*.integration.test.ts`, Testcontainers Postgres 16): adapters, raw SQL, procedures through the real composition.
 - Guarantees: concurrent receivers never share a delivery; a forced mid-transaction failure stores nothing and wakes nobody; a restart loses nothing.
 - End to end (Playwright, few): interact via `data-testid="{area}-{element}"`, assert via role or text.
 

@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { chromium, type Browser } from 'playwright';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const webRoot = fileURLToPath(new URL('../../packages/web', import.meta.url));
+const webRoot = fileURLToPath(new URL('../../packages/console', import.meta.url));
 
 /** A port nothing listens on right now. */
 export async function freePort(): Promise<number> {

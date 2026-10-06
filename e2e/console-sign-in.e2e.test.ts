@@ -2,12 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
-import { createApp } from '../packages/server/src/app.js';
-import { runServerCommand } from '../packages/server/test/support/commands.js';
-import { FLEET_URL, OPERATOR } from '../packages/server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/server/test/support/database.js';
-import { createTestClock } from '../packages/server/test/support/postgres-core.js';
+import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
+import { createApp } from '../packages/core/src/app.js';
+import { runServerCommand } from '../packages/core/test/support/commands.js';
+import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

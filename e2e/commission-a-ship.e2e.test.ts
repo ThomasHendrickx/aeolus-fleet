@@ -3,16 +3,16 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { sha256Hasher } from '../packages/server/src/adapters/crypto/secrets.js';
-import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
-import { createApp } from '../packages/server/src/app.js';
-import type { AppRouter } from '../packages/server/src/index.js';
-import { createUseCases, type UseCases } from '../packages/server/src/wiring.js';
-import type { Caller } from '../packages/server/src/core/shared/caller.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/server/test/support/database.js';
-import { createTestClock } from '../packages/server/test/support/postgres-core.js';
-import { unwrap } from '../packages/server/test/support/result.js';
+import { sha256Hasher } from '../packages/core/src/adapters/crypto/secrets.js';
+import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
+import { createApp } from '../packages/core/src/app.js';
+import type { AppRouter } from '../packages/core/src/index.js';
+import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
+import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { createTestClock } from '../packages/core/test/support/postgres-core.js';
+import { unwrap } from '../packages/core/test/support/result.js';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

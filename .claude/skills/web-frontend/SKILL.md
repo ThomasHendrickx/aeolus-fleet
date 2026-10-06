@@ -1,13 +1,13 @@
 ---
 name: web-frontend
-description: Mandatory for changes under packages/web. Console structure, state, React rules.
+description: Mandatory for changes under packages/console. Console structure, state, React rules.
 ---
 
 # Web console
 
 Before writing Next.js code, read the matching guide in `node_modules/next/dist/docs/`: Next.js 16 differs from training data.
 
-The console is `argo`. No domain logic: every rule is on the server via tRPC. Look from `docs/design/` (read `conventions.md` first, then only the parts you build), behaviour from the blueprint. Theme from `packages/web/app/tokens.css`, the single copy of the tokens.
+The console is `argo`. No domain logic: every rule is on the server via tRPC. Look from `docs/design/` (read `conventions.md` first, then only the parts you build), behaviour from the blueprint. Theme from `packages/console/app/tokens.css`, the single copy of the tokens.
 
 - `app/`: routes only (page, layout, `loading.tsx` skeleton, `error.tsx`). `components/{atoms,molecules,organisms,templates}`, `lib/`.
 - Atoms and molecules: props only. Organisms: data through a hook (`useFleetSnapshot`) wrapping tRPC. shadcn/ui first; a custom atom needs a PR note why.

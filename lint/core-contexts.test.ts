@@ -6,13 +6,13 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // to all (docs/architecture.md, "Code structure").
 
 const probes = {
-  identity: 'packages/server/src/core/identity/contexts-probe.ts',
-  registry: 'packages/server/src/core/registry/contexts-probe.ts',
-  messaging: 'packages/server/src/core/messaging/contexts-probe.ts',
-  shared: 'packages/server/src/core/shared/contexts-probe.ts',
-  unlisted: 'packages/server/src/core/contexts-probe.ts',
+  identity: 'packages/core/src/domain/identity/contexts-probe.ts',
+  registry: 'packages/core/src/domain/registry/contexts-probe.ts',
+  messaging: 'packages/core/src/domain/messaging/contexts-probe.ts',
+  shared: 'packages/core/src/domain/shared/contexts-probe.ts',
+  unlisted: 'packages/core/src/domain/contexts-probe.ts',
 };
-const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: Object.values(probes) });
+const lint = createLint({ tsconfig: 'packages/core/tsconfig.json', probes: Object.values(probes) });
 
 async function contextViolations(code: string, path: string): Promise<string[]> {
   const messages = await lint(code, path);
@@ -64,7 +64,7 @@ describe('context boundaries in the core', () => {
     const violations = await contextViolations(code, path);
 
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatch(/Outside core\/\w+, import it only through \w+\/public\.js, its published surface/);
+    expect(violations[0]).toMatch(/Outside domain\/\w+, import it only through \w+\/public\.js, its published surface/);
   });
 
   it.each([

@@ -31,7 +31,7 @@ const prismaOutsideItsAdapter = [
 ];
 
 /**
- * What server/src/core must never import (CLAUDE.md, "Architecture rules").
+ * What core/src/domain must never import (CLAUDE.md, "Architecture rules").
  * It includes Prisma and pg, so the core needs no other list for them.
  * @type {ImportRestriction[]}
  */
@@ -41,14 +41,14 @@ const coreForbiddenImports = [
   { what: 'Fastify', regex: '^(fastify|fastify/.+|fastify-.+|@fastify/.+)$' },
   { what: 'tRPC', regex: '^@trpc/.+$' },
   { what: 'an adapter', regex: '(^|/)adapters(/|$)' },
-  { what: 'the server package entry, which re-exports adapters', regex: '^@aeolus-fleet/server(/.+)?$' },
+  { what: 'the server package entry, which re-exports adapters', regex: '^@aeolus-fleet/core(/.+)?$' },
 ].map(({ what, regex }) => ({
   regex,
-  message: `server/src/core must not import ${what}. The core holds domain, use cases and ports; adapters depend on it, never the other way round.`,
+  message: `core/src/domain must not import ${what}. The core holds domain, use cases and ports; adapters depend on it, never the other way round.`,
 }));
 
-const clockMessage = 'server/src/core never reads the clock: take `now` from the Clock port or as input.';
-const cryptoMessage = 'server/src/core never uses crypto: hashing and random tokens are ports (SecretHasher, RandomTokens).';
+const clockMessage = 'core/src/domain never reads the clock: take `now` from the Clock port or as input.';
+const cryptoMessage = 'core/src/domain never uses crypto: hashing and random tokens are ports (SecretHasher, RandomTokens).';
 
 /** The core is deterministic and never throws (domain-modelling and typescript skills). */
 const coreImpure = {
@@ -61,7 +61,7 @@ const coreImpure = {
     {
       selector: 'ThrowStatement',
       message:
-        'server/src/core never throws: return a Result with a domain error kind. Only adapters throw, for system failures.',
+        'core/src/domain never throws: return a Result with a domain error kind. Only adapters throw, for system failures.',
     },
   ],
   /** @type {PropertyRestriction[]} */
@@ -70,14 +70,14 @@ const coreImpure = {
     {
       object: 'Math',
       property: 'random',
-      message: 'server/src/core never makes randomness: use the IdGenerator or RandomTokens port.',
+      message: 'core/src/domain never makes randomness: use the IdGenerator or RandomTokens port.',
     },
     { object: 'globalThis', property: 'crypto', message: cryptoMessage },
   ],
   globals: [{ name: 'crypto', message: cryptoMessage }],
 };
 
-/** The bounded contexts in server/src/core. `shared` is open to all of them. */
+/** The bounded contexts in core/src/domain. `shared` is open to all of them. */
 const coreContexts = ['registry', 'messaging', 'identity'];
 
 /**
@@ -91,7 +91,7 @@ function otherContextsInternals(context) {
     .filter((other) => other !== context)
     .map((other) => ({
       regex: `(^|/)${other}/(?!public\\.js$)`,
-      message: `Outside core/${other}, import it only through ${other}/public.js, its published surface.`,
+      message: `Outside domain/${other}, import it only through ${other}/public.js, its published surface.`,
     }));
 }
 
@@ -113,8 +113,8 @@ function coreRules(context) {
 
 /** @type {ImportRestriction} */
 const coreFromTheRouterDoors = {
-  regex: '(^|/)core(/|$)',
-  message: 'adapters/rest and adapters/mcp never import core: they map onto the tRPC router (ADR 0004).',
+  regex: '(^|/)domain(/|$)',
+  message: 'adapters/rest and adapters/mcp never import src/domain: they map onto the tRPC router (ADR 0004).',
 };
 
 /** The console's atomic design layers, lowest first. Pages in app/ sit above them all. */
@@ -137,7 +137,7 @@ const propsOnlyMessage = 'Atoms and molecules take props only: no tRPC. Data arr
 /** @type {ImportRestriction[]} */
 const trpcInPresentationalLayers = [
   { regex: '^@trpc/', message: propsOnlyMessage },
-  { regex: '^@aeolus-fleet/server$', message: propsOnlyMessage },
+  { regex: '^@aeolus-fleet/core$', message: propsOnlyMessage },
   { regex: '(^|/)lib/trpc(\\.[jt]sx?)?$', message: propsOnlyMessage },
 ];
 
@@ -221,7 +221,7 @@ export default defineConfig(
     '**/coverage/',
     '**/storybook-static/',
     '**/next-env.d.ts',
-    'packages/server/src/adapters/prisma/generated/',
+    'packages/core/src/adapters/prisma/generated/',
     'packages/squadrons/src/adapters/prisma/generated/',
   ]),
 
@@ -288,11 +288,11 @@ export default defineConfig(
     // Next.js reads these files' default export, and tools read their config files the same way.
     name: 'aeolus/default-export-required',
     files: [
-      'packages/web/app/**/{page,layout,loading,error,not-found,global-error,template,default}.tsx',
+      'packages/console/app/**/{page,layout,loading,error,not-found,global-error,template,default}.tsx',
       '**/*.config.{js,ts}',
       // Storybook reads a story file's default export (its meta) and its configuration's.
-      'packages/web/components/**/*.stories.tsx',
-      'packages/web/.storybook/{main,preview}.{ts,tsx}',
+      'packages/console/components/**/*.stories.tsx',
+      'packages/console/.storybook/{main,preview}.{ts,tsx}',
     ],
     rules: { 'no-restricted-exports': 'off' },
   },
@@ -305,7 +305,7 @@ export default defineConfig(
 
   {
     name: 'aeolus/prisma-in-its-adapter',
-    ignores: ['packages/server/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**'],
+    ignores: ['packages/core/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
 
@@ -313,7 +313,7 @@ export default defineConfig(
   // then each context, which may import its own modules.
   {
     name: 'aeolus/core',
-    files: ['packages/server/src/core/**/*.ts'],
+    files: ['packages/core/src/domain/**/*.ts'],
     rules: coreRules(),
   },
   {
@@ -330,19 +330,19 @@ export default defineConfig(
   },
   ...coreContexts.map((context) => ({
     name: `aeolus/core-${context}`,
-    files: [`packages/server/src/core/${context}/**/*.ts`],
+    files: [`packages/core/src/domain/${context}/**/*.ts`],
     rules: coreRules(context),
   })),
 
   {
     name: 'aeolus/router-doors',
-    files: ['packages/server/src/adapters/{rest,mcp}/**/*.ts'],
+    files: ['packages/core/src/adapters/{rest,mcp}/**/*.ts'],
     rules: importRules({ patterns: [...prismaOutsideItsAdapter, coreFromTheRouterDoors] }),
   },
 
   {
     name: 'aeolus/web',
-    files: ['packages/web/**/*.{ts,tsx}'],
+    files: ['packages/console/**/*.{ts,tsx}'],
     extends: [
       nextPlugin.configs['core-web-vitals'],
       reactHooks.configs.flat['recommended-latest'],
@@ -350,7 +350,7 @@ export default defineConfig(
     ],
     plugins: { 'react-x': reactX },
     settings: {
-      next: { rootDir: 'packages/web/' },
+      next: { rootDir: 'packages/console/' },
     },
     rules: {
       'react-x/no-array-index-key': 'error',
@@ -361,7 +361,7 @@ export default defineConfig(
   },
   ...webLayers.map((layer) => ({
     name: `aeolus/web-${layer}`,
-    files: [`packages/web/components/${layer}/**/*.{ts,tsx}`],
+    files: [`packages/console/components/${layer}/**/*.{ts,tsx}`],
     rules: importRules({
       patterns: [
         ...prismaOutsideItsAdapter,

@@ -13,12 +13,13 @@ Aeolus distributes work; it does not run it. Payloads are opaque to it.
 
 ## What works today
 
-Version 0.12:
+Version 0.17:
 
 - **The fleet.** Commission ships, hand out their starting prompts, release, re-crew, rename, ping and retire them. Each ship reports working, blocked or idle with a short note.
 - **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged; one received again and again without an acknowledgement goes to the operator's Needs attention.
 - **The console.** The operator's web app, live over a WebSocket: the fleet overview, each ship's timeline and messages, the operator inbox, Needs attention, and Compose.
 - **The Claude Code plugin.** One line crews a ship from a Claude Code session. The session keeps it across `/clear` and restarts, and wakes by itself when a delivery arrives, without spending tokens while it waits.
+- **The trierarch (optional).** A plain process on a machine that keeps ships crewed there: it starts, restarts, wakes and stops their Claude Code or Codex sessions, each in its own git worktree, and reports what runs. See the [trierarch README](packages/trierarch/README.md).
 - **Squadrons (optional).** Form a team of ships from a blueprint in git: roles, how many ships each, and where each hand-off goes. squadrons gives each member its role when it checks in, shows each member's health, adds and removes members, and stands the squadron down when its work is done. A fleet works without it.
 
 | A ship's messages | The operator inbox | A squadron |
@@ -30,20 +31,20 @@ Version 0.12:
 You need Node 26 and Postgres 16 or newer. The packages are on npm.
 
 ```sh
-npm install @aeolus-fleet/server @aeolus-fleet/web
+npm install @aeolus-fleet/core @aeolus-fleet/console
 
 export DATABASE_URL=postgresql://user:password@localhost:5432/aeolus
 export PUBLIC_URL=http://localhost:4000           # where ships reach the fleet
 export CONSOLE_ORIGIN=http://localhost:3000       # where the console runs
 
-npx aeolus-server migrate
-npx aeolus-server fleet:init --name "my fleet"    # once: asks for the operator email and password
-npx aeolus-server start                           # the API on port 4000
+npx aeolus-core migrate
+npx aeolus-core fleet:init --name "my fleet"    # once: asks for the operator email and password
+npx aeolus-core start                           # the API on port 4000
 
-AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-web start   # the console on port 3000
+AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-console start   # the console on port 3000
 ```
 
-Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [server](packages/server/README.md) and [web](packages/web/README.md) READMEs.
+Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.
 
 **Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, connect squadrons under Settings, and add the git repositories of your templates and blueprints there. See the [squadrons README](packages/squadrons/README.md).
 
@@ -66,7 +67,7 @@ In the console, Commission ship (or Get starting prompt) shows a crew line per h
 /aeolus:crew <fleetUrl> <shipId> <secret>
 ```
 
-Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [server README](packages/server/README.md#ships) describes.
+Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
 
 ## Documentation
 
@@ -86,9 +87,10 @@ Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md)
 
 | Package | Contents |
 | --- | --- |
-| `@aeolus-fleet/server` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres |
-| `@aeolus-fleet/web` | The operator console (Next.js) |
+| `@aeolus-fleet/core` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres |
+| `@aeolus-fleet/console` | The operator console (Next.js) |
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them |
+| `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 | `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) | The Claude Code plugin |
 
@@ -109,11 +111,11 @@ The end-to-end tests drive the console in Chromium. To use a Chromium you alread
 To run it from the repository against any Postgres 16 or newer:
 
 ```sh
-cp packages/server/.env.example packages/server/.env   # then point DATABASE_URL at your Postgres
-npm run db:migrate --workspace @aeolus-fleet/server
-npm run fleet:init --workspace @aeolus-fleet/server -- --name "my fleet"
-npm run dev --workspace @aeolus-fleet/server            # API on http://127.0.0.1:4000
-npm run dev --workspace @aeolus-fleet/web               # console on http://localhost:3000
+cp packages/core/.env.example packages/core/.env   # then point DATABASE_URL at your Postgres
+npm run db:migrate --workspace @aeolus-fleet/core
+npm run fleet:init --workspace @aeolus-fleet/core -- --name "my fleet"
+npm run dev --workspace @aeolus-fleet/core         # API on http://127.0.0.1:4000
+npm run dev --workspace @aeolus-fleet/console      # console on http://localhost:3000
 ```
 
 Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
@@ -124,9 +126,7 @@ Questions, ideas, and fleets you built: [GitHub Discussions](https://github.com/
 
 ## Contributing
 
-- Branch from `main` and open a pull request.
-- Keep commits focused with descriptive messages.
-- Use npm, not pnpm or yarn.
+Pull requests from outside the project are not open yet. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions).
 
 ## License
 
