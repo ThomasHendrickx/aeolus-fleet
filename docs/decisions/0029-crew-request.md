@@ -11,7 +11,8 @@
 - Two scopes replace `fleet:crew`:
   - `crew:assign` writes assignments;
   - `crew:run` reads the requests assigned to its ship, and only for those ships gets the starting prompt, releases and writes status.
-- Removing the request marks it releasing; the assigned trierarch stops the session, ends the lease, cleans its workspace and confirms; only then does the request disappear (a finalizer).
+- Assignment goes to any active ship of the fleet: the fleet does no routing, and a ship that is no trierarch just gets work it does not understand. Only an unassigned request of a ship that awaits crew is assigned.
+- Removing an unassigned request deletes it. Removing an assigned one marks it releasing; the assigned trierarch stops the session, ends the lease, cleans its workspace and confirms; only then does the request disappear (a finalizer). Releasing is irreversible: the trierarch may write only releasing, a new request for the ship is refused until the release completes, and a second remove is an OK with no event.
 - Unassigned, the request is the operator's to-do ("needs crew", get starting prompt). Crewing it by hand fulfils it; a ship already crewed is never assigned.
 - Events: requested, assigned, status changed, removed.
 - A trierarch's ships are a query (requests assigned to it), not a list on its ship.
