@@ -208,7 +208,8 @@ Everything of the trierarch lives under `~/.aeolus/trierarch/`.
 | What | Where | Written by |
 | --- | --- | --- |
 | Configuration, JSON with a `$schema` line, checked by the same schema in `common` | `~/.aeolus/trierarch/config.json` (or `--config`, `AEOLUS_TRIERARCH_CONFIG`) | The operator |
-| The trierarch's own crew token, mode 600 | `~/.aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
+| The configuration's JSON Schema, for an editor | `~/.aeolus/trierarch/config.schema.json` | `aeolus-trierarch init` |
+| The fleet's URL and the trierarch's own crew token, mode 600 | `~/.aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
 | State: the wanted list, applied message ids, kept worktrees, runtime state per ship. No secrets; written atomically | `~/.aeolus/trierarch/state.json` | The trierarch |
 | Logs | `~/.aeolus/trierarch/logs/` | The trierarch |
 | Worktrees, one folder per ship: `<root>/<repository>/<ship>` | `~/.aeolus/trierarch/worktrees/` (the configuration's worktree root overrides it) | The trierarch |
