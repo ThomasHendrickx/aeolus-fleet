@@ -186,7 +186,9 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
-| `CrewRequestRemoved` | Registry | The ship's crew request is gone: its requester removed it, or the ship was retired |
+| `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |
+| `CrewStatusChanged` | Registry | How the ship's crew stands changed: written by its trierarch, or `releasing` when the requester removed an assigned request. Details hold the status |
+| `CrewRequestRemoved` | Registry | The ship's crew request is gone: its requester removed it while unassigned, its trierarch confirmed the release, or the ship was retired |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
