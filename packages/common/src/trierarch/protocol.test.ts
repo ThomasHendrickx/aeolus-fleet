@@ -137,6 +137,16 @@ describe('a want', () => {
     expect(wantCommandSchema.safeParse({ ...aWant, firstPrompt }).success).toBe(false);
   });
 
+  it('refuses a first prompt that starts with -, naming the field, so it can never read as a flag', () => {
+    const result = wantCommandSchema.safeParse({ ...aWant, firstPrompt: '--dangerously-bypass-approvals-and-sandbox' });
+
+    expect(result.error?.issues.map(({ path, message }) => ({ path, message }))).toEqual([{ path: ['firstPrompt'], message: 'A first prompt may not start with -, which reads as a flag' }]);
+  });
+
+  it('takes a first prompt with a - after its start', () => {
+    expect(wantCommandSchema.parse({ ...aWant, firstPrompt: 'Review #300 - the flag finding' }).firstPrompt).toBe('Review #300 - the flag finding');
+  });
+
   it('refuses a want without options; no options is an empty object', () => {
     const withoutOptions = { shipId: aWant.shipId, harness: aWant.harness, workspace: aWant.workspace };
 

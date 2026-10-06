@@ -74,6 +74,8 @@ export const wantCommandSchema = z.strictObject({
     .string()
     .min(1)
     .refine((prompt) => utf8.encode(prompt).byteLength <= FIRST_PROMPT_MAX_BYTES, `A first prompt is at most ${String(FIRST_PROMPT_MAX_BYTES)} bytes`)
+    // A harness would read it as a flag the operator never configured (decision 0027).
+    .refine((prompt) => !prompt.startsWith('-'), 'A first prompt may not start with -, which reads as a flag')
     .optional(),
   /** Named settings from what describe offers; checked against its JSON Schema by the trierarch. */
   options: z.record(z.string(), z.json()),
