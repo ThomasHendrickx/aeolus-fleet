@@ -117,7 +117,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | `web` | Any Next.js host | Vercel, any Node host, a container |
 | `server` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
 | `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision 0021), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
-| trierarch plugin (optional) | A long-running Node process beside squadrons, with its own Postgres database as squadrons has, serving every fleet of the server with one connection each, switched per fleet (decisions 0021, 0030). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
+| `navarch` (optional) | A long-running Node process beside squadrons, with no database of its own (its state lives in the fleet), serving every fleet of the server with one connection each, switched per fleet as squadrons is (decisions 0021, 0030). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
 | `trierarch` (optional) | A long-running Node process on the machine where the sessions it crews run, kept alive by launchd or a systemd user unit, with its files under the operator's home folder. It needs no public address: it calls the fleet's API | The operator's own machine (a Mac, a Linux host) |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
@@ -190,17 +190,17 @@ The same event rows feed three things at once: ship and message timelines, the a
 
 ## The trierarch
 
-Two processes crew ships on machines: the trierarch plugin, beside squadrons, assigns crew requests; a trierarch on each machine crews the ships assigned to it. What they do is in [trierarch.md](trierarch.md); decisions 0026, 0027, 0029 and 0030 say why. The crew request itself lives in the fleet core (decision 0029). The server never imports either and knows nothing about them beyond their ships.
+Two processes, each its own package, crew ships on machines: the navarch, beside squadrons, assigns crew requests; a trierarch on each machine crews the ships assigned to it. What they do is in [trierarch.md](trierarch.md); decisions 0026, 0027, 0029 and 0030 say why. The crew request itself lives in the fleet core (decision 0029). The server never imports either and knows nothing about them beyond their ships.
 
-### The trierarch plugin
+### The navarch
 
-A long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0030). It reaches each fleet only through the public API, as that fleet's trierarch plugin ship (`fleet:manage`, `crew:assign` and the label scopes). It depends on `common` only.
+`@aeolus-fleet/navarch`: a long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0030). It reaches each fleet only through the public API, as that fleet's navarch ship (`fleet:read`, `fleet:manage`, `crew:assign`, and the label scopes once labels exist). It follows the fleet's changes, and every check-in returns the latest full state. It keeps no database of its own in the first version: its state lives in the fleet. It depends on `common` only.
 
 | Layer | Pieces |
 | --- | --- |
-| Core (pure) | **Placement**: a pure function from (an unassigned request, the trierarchs' reports, the requests assigned to each) to the trierarch to claim, or none; the only place that picks. **Join**: commission a trierarch ship with `crew:run` and answer its starting prompt. **Attention**: which trierarchs are silent with ships assigned |
-| Ports | **FleetClient**, per fleet: read crew requests and trierarch reports, claim an assignment (`crew:assign`, refused when no longer unassigned), commission a ship and get its starting prompt (`fleet:manage`), assign labels. **ConnectionStore**: per fleet, the switch, the plugin ship's crew token and the flags for the operator. **Clock**, **Logger** |
-| First adapters | REST for the fleet, as squadrons. Prisma for its own database, as squadrons. tRPC for the web app's server, checked with the console session cookie through `console.session`, as squadrons |
+| Core (pure) | **Placement**: a pure function from (the unassigned requests, oldest first, the trierarchs' reports, the requests assigned to each) to the trierarch to claim for each, or the reason none fits; the only place that picks. It keeps the trierarchs that fit (repository, harness, model) and have room, then takes the most room as a percentage, then the oldest. **Join**: commission a trierarch ship with `crew:run` and answer its starting prompt. **Attention**: which trierarchs are silent, their last seen older than a threshold |
+| Ports | **FleetClient**, per fleet: read crew requests and trierarch reports, claim an assignment or write the reason none fits (`crew:assign`, the claim refused when no longer unassigned), commission a ship and get its starting prompt (`fleet:manage`), assign labels. **ConnectionStore**: per fleet, the switch and the navarch ship's crew token. **Clock**, **Logger** |
+| First adapters | REST for the fleet, as squadrons. tRPC for the web app's server, checked with the console session cookie through `console.session`, as squadrons |
 
 ### The trierarch on a machine
 
@@ -233,14 +233,14 @@ Everything of the trierarch lives under `~/.aeolus/trierarch/`.
 
 Each session's crew token lives only in the aeolus plugin's identity file for its folder, as for any crewed folder.
 
-`aeolus-trierarch init` is the whole setup, asking for what is missing (the starting prompt the trierarch plugin gave for this machine, its secret without echo): it registers, writes the configuration, answers Claude Code's one-time questions in Claude Code's own files (`hasTrustDialogAccepted` in `~/.claude.json` for the worktree root, which covers every folder under it, and for each configured folder, and, when the sessions skip permissions and the operator agrees, `skipDangerousModePermissionPrompt` in `~/.claude/settings.json`), answers Codex's when the configuration offers Codex (through `codex app-server`, as Codex's own dialogs do: each configured repository and folder trusted in `~/.codex/config.toml`, since trusting a repository covers its worktrees but a parent folder covers no repository under it, and the aeolus plugin's new or changed hooks trusted with the hash Codex gives them), and offers to install the service. It asks about Codex only where `codex` runs or Codex is configured already. On a machine set up already it never registers again. `status`, `list` and `logs` read the machine (the state, tmux, the service, the log); `status` calls `whoami` once for the lease, and reads `running.json` for the version the service runs. `start`, `stop`, `restart`, `install` and `uninstall` drive the service, and `upgrade` installs a pinned version and restarts it, leaving the sessions to the new process; `uninstall` deletes no worktree and none of the trierarch's files. Every command answers JSON with `--json`. The package README lists them.
+`aeolus-trierarch init` is the whole setup, asking for what is missing (the starting prompt the navarch gave for this machine, its secret without echo): it registers, writes the configuration, answers Claude Code's one-time questions in Claude Code's own files (`hasTrustDialogAccepted` in `~/.claude.json` for the worktree root, which covers every folder under it, and for each configured folder, and, when the sessions skip permissions and the operator agrees, `skipDangerousModePermissionPrompt` in `~/.claude/settings.json`), answers Codex's when the configuration offers Codex (through `codex app-server`, as Codex's own dialogs do: each configured repository and folder trusted in `~/.codex/config.toml`, since trusting a repository covers its worktrees but a parent folder covers no repository under it, and the aeolus plugin's new or changed hooks trusted with the hash Codex gives them), and offers to install the service. It asks about Codex only where `codex` runs or Codex is configured already. On a machine set up already it never registers again. `status`, `list` and `logs` read the machine (the state, tmux, the service, the log); `status` calls `whoami` once for the lease, and reads `running.json` for the version the service runs. `start`, `stop`, `restart`, `install` and `uninstall` drive the service, and `upgrade` installs a pinned version and restarts it, leaving the sessions to the new process; `uninstall` deletes no worktree and none of the trierarch's files. Every command answers JSON with `--json`. The package README lists them.
 
 ### A machine joins
 
 ```mermaid
 sequenceDiagram
   participant O as Operator
-  participant P as Trierarch plugin
+  participant P as Navarch
   participant F as Fleet server
   participant T as Trierarch (init, then run)
   O->>P: add a machine
@@ -259,12 +259,12 @@ sequenceDiagram
 sequenceDiagram
   participant R as Requester
   participant F as Fleet server
-  participant P as Trierarch plugin
+  participant P as Navarch
   participant T as Trierarch
   participant W as Worktree
   participant X as tmux and harness
   R->>F: commission ship, request crew {settings} (fleet:manage)
-  P->>F: read unassigned requests and trierarch reports
+  P->>F: read unassigned requests, oldest first, and trierarch reports
   P->>P: placement picks a trierarch
   P->>F: assign, only if still unassigned (crew:assign)
   T->>F: read requests assigned to me (crew:run)
@@ -345,12 +345,12 @@ flowchart LR
   server[server] --> common
   web[web console] --> common
   squadrons[squadrons] --> common
-  plugin[trierarch plugin] --> common
+  navarch[navarch] --> common
   trierarch[trierarch] --> common
   web -- tRPC --> server
-  web -- tRPC --> plugin
+  web -- tRPC --> navarch
   squadrons -- REST --> server
-  plugin -- REST with fleet:manage and crew:assign --> server
+  navarch -- REST with fleet:read, fleet:manage and crew:assign --> server
   trierarch -- REST with crew:run --> server
   trierarch -- runs --> tmux[tmux]
   trierarch -- runs --> git[git]
@@ -359,7 +359,7 @@ flowchart LR
   session -- its own crew token --> server
 ```
 
-Every arrow is code or an API call: no fleet message carries crew state. The plugin and the trierarch never call each other; they meet in the fleet's crew requests and reports.
+Every arrow is code or an API call: no fleet message carries crew state. The navarch and the trierarch never call each other; they meet in the fleet's crew requests and reports.
 
 ### What the aeolus plugin does for it
 
@@ -367,7 +367,7 @@ The identity file of a folder a trierarch crews says `wakeBy=trierarch`. The plu
 
 ## Code structure
 
-Six parts. The first five are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons` and `trierarch` are optional). The sixth is your private setup and consumes the packages like any other installer would.
+Seven parts. The first six are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons`, `navarch` and `trierarch` are optional). The seventh is your private setup and consumes the packages like any other installer would.
 
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
@@ -375,6 +375,7 @@ Six parts. The first five are npm packages under the `aeolus-fleet` organisation
 | `@aeolus-fleet/server` | Public repo, `packages/server` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
 | `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
 | `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`), and GitHub's REST API for the template repositories, with no clone and no files on disk. Optional | `common` |
+| `@aeolus-fleet/navarch` | Public repo, `packages/navarch` | The trierarchs' plugin on the server side (decision 0030): its own core and ports, the fleet's public REST API as its navarch ship (`fleet:read`, `fleet:manage`, `crew:assign`), and tRPC for the web app's server. No database of its own. Optional | `common` |
 | `@aeolus-fleet/trierarch` | Public repo, `packages/trierarch` | Crews ships on its machine from the crew requests assigned to it (decision 0026): its own core and ports, adapters for the fleet's REST API (as its own ship, with `crew:run`), tmux, git and the harnesses, and its command `aeolus-trierarch`. Optional | `common` |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
@@ -385,7 +386,7 @@ Layers, not folders (the code shows the folders):
 - Composition: the server's entry points build the adapters and inject them into the use cases.
 - `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
 - `squadrons/src/core` and `squadrons/src/adapters` follow the same split; squadrons reaches the fleet only through the fleet's public API, never its tables.
-- `trierarch/src/core` and `trierarch/src/adapters` follow the same split; the trierarch reaches the fleet only through its public API.
+- `navarch/src/core` and `navarch/src/adapters`, and `trierarch/src/core` and `trierarch/src/adapters`, follow the same split; each reaches the fleet only through its public API.
 - Every repository call takes a fleet scope (exception: decision 0007).
 
 Lint and CI enforce these rules (slice 1b).
