@@ -112,6 +112,6 @@ describe('/version', () => {
     const body = z
       .object({ web: z.string(), server: z.object({ server: z.string(), common: z.string(), migration: z.string() }) })
       .parse(await response.json());
-    expect(body.server.migration).toMatch(/_crew_requests$/);
+    expect(body.server.migration).toMatch(/_crew_scopes$/);
   });
 });

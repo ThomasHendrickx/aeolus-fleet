@@ -1,4 +1,4 @@
-import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
+import { FLEET_SCOPES, type ShipDetail, type ShipId } from '@aeolus-fleet/common';
 import { Archive, CircleAlert, Info, KeyRound, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -175,7 +175,7 @@ export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }
               <>
                 <Badge variant="type">{ship.type}</Badge>
                 {ship.scopes
-                  .filter((scope) => scope === 'fleet:read' || scope === 'fleet:manage' || scope === 'fleet:crew')
+                  .filter((scope) => FLEET_SCOPES.some((fleetScope) => fleetScope === scope))
                   .map((scope) => (
                     <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
                       {scope}
