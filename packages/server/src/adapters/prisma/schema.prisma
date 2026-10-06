@@ -190,6 +190,8 @@ model CrewRequest {
   assignedTo      String?     @map("assigned_to_ship_id")
   /// How its trierarch says the crew stands; null until it says.
   status          CrewStatus?
+  /// Why no trierarch can take it, written by the assigner while unassigned; null when none.
+  reason          String?
 
   fleet    Fleet @relation(fields: [fleetId], references: [id])
   ship     Ship  @relation("CrewRequestShip", fields: [fleetId, shipId], references: [fleetId, id])

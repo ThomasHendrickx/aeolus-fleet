@@ -111,6 +111,7 @@ const FLEET_ACTIONS = [
   'crewRequest',
   'removeCrewRequest',
   'assignCrew',
+  'explainCrewRequest',
   'reportCrewStatus',
   'confirmCrewRelease',
   'assignedCrewRequests',

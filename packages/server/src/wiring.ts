@@ -70,6 +70,7 @@ import { createAssignCrew, type AssignCrew } from './core/registry/assign-crew.j
 import { createReportCrewStatus, type ReportCrewStatus } from './core/registry/report-crew-status.js';
 import { createConfirmCrewRelease, type ConfirmCrewRelease } from './core/registry/confirm-crew-release.js';
 import { createReadAssignedCrewRequests, type ReadAssignedCrewRequests } from './core/registry/read-assigned-crew-requests.js';
+import { createExplainCrewRequest, type ExplainCrewRequest } from './core/registry/explain-crew-request.js';
 import { createReadReportLog, type ReadReportLog } from './core/registry/report-log.js';
 import { createWhoami, type Whoami } from './core/registry/whoami.js';
 import type { Clock } from './core/shared/clock.js';
@@ -114,6 +115,7 @@ export interface UseCases {
   reportCrewStatus: ReportCrewStatus;
   confirmCrewRelease: ConfirmCrewRelease;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
+  explainCrewRequest: ExplainCrewRequest;
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
@@ -232,6 +234,7 @@ export function createUseCases(options: {
     reportCrewStatus: createReportCrewStatus({ uow, clock, ids }),
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma) }),
+    explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),

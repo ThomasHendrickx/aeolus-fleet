@@ -291,6 +291,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says why the crew request can not be placed, and who said so', () => {
+    expect(onScoutsPage(anEntry('CrewRequestExplained', { actor: argo, details: { reason: 'no room' } }))).toEqual({
+      sentence: 'Crew request can not be placed: no room by argo',
+      tone: 'waiting',
+      icon: 'reported',
+    });
+  });
+
   it('says who assigned the crew request, and how the trierarch says the crew stands', () => {
     expect(onScoutsPage(anEntry('CrewAssigned', { actor: argo, details: { assignedTo: argo.id } }))).toEqual({
       sentence: 'Crew request assigned by argo',

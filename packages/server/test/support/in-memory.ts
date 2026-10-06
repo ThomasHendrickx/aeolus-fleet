@@ -845,6 +845,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     const assignee = state.ships.find((each) => each.fleetId === held.fleetId && each.id === assignedTo);
     return assignee ? { id: assignee.id, name: assignee.name } : null;
   };
+  const crewedByOf = (held: Ship, lease: Lease | undefined): ShipFacts['crewedBy'] => {
+    if (!lease) {
+      return null;
+    }
+    const [prompt] = state.events
+      .filter((event) => event.fleetId === held.fleetId && event.shipId === held.id && event.type === 'StartingPromptIssued' && event.occurredAt <= lease.startedAt)
+      .reverse();
+    const actorShipId = prompt?.actor.kind === 'ship' ? prompt.actor.shipId : undefined;
+    const actor = state.ships.find((each) => each.fleetId === held.fleetId && each.id === actorShipId);
+    return actor ? { id: actor.id, name: actor.name } : null;
+  };
   const factsOf = (held: Ship): ShipFacts => {
     const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
@@ -862,6 +873,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
+      crewedBy: crewedByOf(held, lease),
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
       lastViewedAt:

@@ -49,6 +49,7 @@ const SHIP_TOOLS = [
   'fleet_crewRequest',
   'fleet_removeCrewRequest',
   'fleet_assignCrew',
+  'fleet_explainCrewRequest',
   'fleet_reportCrewStatus',
   'fleet_confirmCrewRelease',
   'fleet_assignedCrewRequests',

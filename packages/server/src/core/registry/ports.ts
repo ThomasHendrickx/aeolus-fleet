@@ -204,6 +204,12 @@ export interface ShipFacts {
   /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
   crewRequestAssignee: { id: ShipId; name: string } | null;
   /**
+   * The ship that got the starting prompt the open lease claimed with, by id
+   * and name: the actor of the ship's last StartingPromptIssued before the
+   * lease started. Null while no session crews it, or when no prompt is known.
+   */
+  crewedBy: { id: ShipId; name: string } | null;
+  /**
    * The newest ping to the ship: when it was sent, its delivery's state, and
    * when pong answered it, if pong did; null before any ping.
    */

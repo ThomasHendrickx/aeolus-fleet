@@ -63,6 +63,7 @@ import { createAssignCrew } from '../../src/core/registry/assign-crew.js';
 import { createReportCrewStatus } from '../../src/core/registry/report-crew-status.js';
 import { createConfirmCrewRelease } from '../../src/core/registry/confirm-crew-release.js';
 import { createReadAssignedCrewRequests } from '../../src/core/registry/read-assigned-crew-requests.js';
+import { createExplainCrewRequest } from '../../src/core/registry/explain-crew-request.js';
 import { createReadReportLog } from '../../src/core/registry/report-log.js';
 import { createWhoami } from '../../src/core/registry/whoami.js';
 import { isCrew, type Caller, type Crew } from '../../src/core/shared/caller.js';
@@ -147,6 +148,7 @@ export function registryUseCases(core: InMemoryCore) {
     reportCrewStatus: createReportCrewStatus(deps),
     confirmCrewRelease: createConfirmCrewRelease(deps),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests }),
+    explainCrewRequest: createExplainCrewRequest(deps),
     renameShip: createRenameShip(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),

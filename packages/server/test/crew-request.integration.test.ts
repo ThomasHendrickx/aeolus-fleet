@@ -50,7 +50,7 @@ describe('a crew request on Postgres', () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
 
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now() } },
     });
@@ -106,5 +106,22 @@ describe('a crew request on Postgres', () => {
     await expect(
       core.prisma.event.findMany({ where: { shipId: scoutId, type: { in: ['CrewAssigned', 'CrewStatusChanged', 'CrewRequestRemoved'] } }, orderBy: { seq: 'asc' }, select: { type: true } }),
     ).resolves.toEqual([{ type: 'CrewAssigned' }, { type: 'CrewStatusChanged' }, { type: 'CrewStatusChanged' }, { type: 'CrewRequestRemoved' }]);
+  });
+
+  it('keeps the reason the assigner writes until assignment, and shows who crewed the ship from the prompt it claimed with', async () => {
+    const { shipId: pluginId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'navarch', type: 'navarch', fleetScopes: ['crew:assign'] }),
+    );
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+
+    unwrap(await core.useCases.explainCrewRequest(plugin, { shipId: scoutId, reason: 'no trierarch offers codex' }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    expect(listed?.crewRequest).toMatchObject({ reason: 'no trierarch offers codex', crewedBy: { id: argo.shipId, name: 'argo' } });
+    await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewRequestExplained' } })).resolves.toBe(1);
   });
 });

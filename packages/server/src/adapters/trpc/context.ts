@@ -54,6 +54,7 @@ import type { AssignCrew } from '../../core/registry/assign-crew.js';
 import type { ReportCrewStatus } from '../../core/registry/report-crew-status.js';
 import type { ConfirmCrewRelease } from '../../core/registry/confirm-crew-release.js';
 import type { ReadAssignedCrewRequests } from '../../core/registry/read-assigned-crew-requests.js';
+import type { ExplainCrewRequest } from '../../core/registry/explain-crew-request.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
 import type { FollowFleet } from '../../core/shared/follow-fleet.js';
@@ -97,6 +98,7 @@ export interface UseCases {
   reportCrewStatus: ReportCrewStatus;
   confirmCrewRelease: ConfirmCrewRelease;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
+  explainCrewRequest: ExplainCrewRequest;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;

@@ -39,6 +39,11 @@ export const CREW_STATUSES = ['crewing', 'running', 'restarting', 'crashed', 're
 export const crewStatusSchema = z.enum(CREW_STATUSES);
 export type CrewStatus = z.infer<typeof crewStatusSchema>;
 
+/** The longest reason the assigner may write on a crew request: one line, as a report's note. */
+export const CREW_REQUEST_REASON_MAX_LENGTH = 200;
+
+const REASON_MESSAGE = `A reason is one line of at most ${String(CREW_REQUEST_REASON_MAX_LENGTH)} characters`;
+
 /** Input of `fleet.crewRequest`: the ship to keep crewed and its settings, replacing any it holds. */
 export const crewRequestInputSchema = z.object({
   shipId: idSchema('ship'),
@@ -68,6 +73,10 @@ export const listedCrewRequestSchema = z.object({
   assignedTo: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
   /** How its trierarch says the crew stands; null until it says. */
   status: crewStatusSchema.nullable(),
+  /** Why no trierarch can take it, written by the assigner while unassigned; null when none. */
+  reason: z.string().nullable(),
+  /** The ship that got the starting prompt the ship's crew claimed with: argo for a hand crew, or its trierarch; null while not crewed. */
+  crewedBy: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
 });
 
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
@@ -104,3 +113,20 @@ export const assignedCrewRequestsOutputSchema = z.array(
     status: crewStatusSchema.nullable(),
   }),
 );
+
+/**
+ * Input of `fleet.explainCrewRequest` (crew:assign): why no trierarch can
+ * take the ship's unassigned request, trimmed, one line; null clears it.
+ */
+export const explainCrewRequestInputSchema = z.object({
+  shipId: idSchema('ship'),
+  reason: z
+    .string()
+    .trim()
+    .max(CREW_REQUEST_REASON_MAX_LENGTH, REASON_MESSAGE)
+    .refine((reason) => !/[\r\n]/.test(reason), REASON_MESSAGE)
+    .nullable(),
+});
+
+/** Output of `fleet.explainCrewRequest`: nothing; the OK is the answer. */
+export const explainCrewRequestOutputSchema = z.strictObject({});

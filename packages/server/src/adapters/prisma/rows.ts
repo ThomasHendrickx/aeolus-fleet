@@ -112,6 +112,7 @@ const crewRequestRow = z.object({
   requestedAt: z.date(),
   assignedTo: idSchema('ship').nullable(),
   status: crewStatusSchema.nullable(),
+  reason: z.string().nullable(),
 });
 
 /** A crew request as Prisma reads its row. */
@@ -162,6 +163,9 @@ const shipFactsSqlRow = z.object({
   crew_request_assigned_to: idSchema('ship').nullable(),
   crew_request_status: crewStatusSchema.nullable(),
   crew_request_assignee_name: z.string().nullable(),
+  crew_request_reason: z.string().nullable(),
+  crewed_by_id: idSchema('ship').nullable(),
+  crewed_by_name: z.string().nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -187,6 +191,9 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_assigned_to,
     crew_request_status,
     crew_request_assignee_name,
+    crew_request_reason,
+    crewed_by_id,
+    crewed_by_name,
   } = shipFactsSqlRow.parse(row);
   const ship = toShipFromSql(row);
   return {
@@ -213,10 +220,12 @@ export function toShipFacts(row: unknown): ShipFacts {
             requestedAt: crew_request_requested_at,
             assignedTo: crew_request_assigned_to,
             status: crew_request_status,
+            reason: crew_request_reason,
           }
         : null,
     crewRequestAssignee:
       crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
+    crewedBy: crewed_by_id && crewed_by_name !== null ? { id: crewed_by_id, name: crewed_by_name } : null,
     lastPing:
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }

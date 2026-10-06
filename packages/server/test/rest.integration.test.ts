@@ -149,6 +149,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/crewRequest',
       '/fleet/removeCrewRequest',
       '/fleet/assignCrew',
+      '/fleet/explainCrewRequest',
       '/fleet/reportCrewStatus',
       '/fleet/confirmCrewRelease',
       '/fleet/assignedCrewRequests',

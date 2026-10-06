@@ -63,6 +63,7 @@ describe('eventTypeSchema', () => {
       'CrewRequestRemoved',
       'CrewAssigned',
       'CrewStatusChanged',
+      'CrewRequestExplained',
     ]);
   });
 });

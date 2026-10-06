@@ -1,5 +1,7 @@
 import {
+  CREW_REQUEST_REASON_MAX_LENGTH,
   CREW_REQUEST_SETTINGS_MAX_BYTES,
+  isOneLine,
   crewRequestSettingsBytes,
   type CrewStatus,
   type FleetId,
@@ -35,6 +37,8 @@ export interface CrewRequest {
   assignedTo: ShipId | null;
   /** How its trierarch says the crew stands; null until it says. */
   status: CrewStatus | null;
+  /** Why no trierarch can take it, written by the assigner while unassigned; null when none. */
+  reason: string | null;
 }
 
 type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
@@ -85,6 +89,7 @@ export function requestCrew(
     requestedAt: input.at,
     assignedTo: current?.assignedTo ?? null,
     status: current?.status ?? null,
+    reason: current?.reason ?? null,
   };
   return ok({ request, events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequested', details: { settingsVersion: request.settingsVersion } })] });
 }
@@ -142,8 +147,39 @@ export function assignCrew(
     return refuse('ASSIGNEE_NOT_ACTIVE', 'A crew request is assigned only to an active ship of the fleet');
   }
   return ok({
-    request: { ...current, assignedTo: assignee.id },
+    request: { ...current, assignedTo: assignee.id, reason: null },
     events: [event(ship, { ...input, type: 'CrewAssigned', details: { assignedTo: assignee.id } })],
+  });
+}
+
+export type ExplainCrewRequestRefusal = NotFound | DomainError<'CREW_REQUEST_ALREADY_ASSIGNED' | 'INVALID_CREW_REQUEST_REASON'>;
+
+/**
+ * The assigner writes why no trierarch can take an unassigned request, one
+ * line, trimmed; none clears it. CrewRequestExplained when it changes; an
+ * assignment clears it.
+ */
+export function explainCrewRequest(
+  { ship, current }: { ship: Ship; current: CrewRequest | undefined },
+  input: { reason: string | null; at: Date; actor: Actor },
+): Result<{ request: CrewRequest; events: NewEvent[] }, ExplainCrewRequestRefusal> {
+  if (!current) {
+    return notFound(ship);
+  }
+  if (current.assignedTo !== null) {
+    return refuse('CREW_REQUEST_ALREADY_ASSIGNED', `${ship.name}'s crew request is assigned: it needs no reason`);
+  }
+  const reason = input.reason?.trim() ?? '';
+  if (reason.length > CREW_REQUEST_REASON_MAX_LENGTH || !isOneLine(reason)) {
+    return refuse('INVALID_CREW_REQUEST_REASON', `A reason is one line of at most ${String(CREW_REQUEST_REASON_MAX_LENGTH)} characters`);
+  }
+  const kept = reason === '' ? null : reason;
+  if (kept === current.reason) {
+    return ok({ request: current, events: [] });
+  }
+  return ok({
+    request: { ...current, reason: kept },
+    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequestExplained', details: { reason: kept } })],
   });
 }
 

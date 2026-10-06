@@ -31,6 +31,8 @@ import {
   assignCrewOutputSchema,
   assignedCrewRequestsOutputSchema,
   confirmCrewReleaseInputSchema,
+  explainCrewRequestInputSchema,
+  explainCrewRequestOutputSchema,
   confirmCrewReleaseOutputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
@@ -198,6 +200,21 @@ export const fleetRouter = router({
     .output(assignCrewOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.assignCrew(ctx.caller, input));
+      return {};
+    }),
+
+  /** The assigner writes why no trierarch can take a ship's unassigned crew request. */
+  explainCrewRequest: scopedProcedure('crew:assign')
+    .meta({
+      description: [
+        "Needs crew:assign. Writes why no trierarch can take a ship's unassigned crew request (one line, at most 200 characters),",
+        "shown in the operator's needs-crew to-do; null clears it, and an assignment clears it.",
+      ].join(' '),
+    })
+    .input(explainCrewRequestInputSchema)
+    .output(explainCrewRequestOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.explainCrewRequest(ctx.caller, input));
       return {};
     }),
 

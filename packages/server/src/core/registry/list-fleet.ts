@@ -34,9 +34,11 @@ export interface ListedShip {
   report: Omit<ShipReport, 'details'> | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
   crewRequest:
-    | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status'> & {
+    | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason'> & {
         /** The trierarch ship it is assigned to, by id and name; null while unassigned. */
         assignedTo: { id: ShipId; name: string } | null;
+        /** The ship that got the starting prompt its crew claimed with: argo for a hand crew, or its trierarch; null while not crewed. */
+        crewedBy: { id: ShipId; name: string } | null;
       })
     | null;
   /** The harness the crewing session stated, read together with its location; null while no session crews the ship. */
@@ -67,6 +69,7 @@ export function listedShipOf({
   validSecret,
   crewRequest,
   crewRequestAssignee,
+  crewedBy,
   lastPing,
   lastModel,
   lastViewedAt,
@@ -91,6 +94,8 @@ export function listedShipOf({
       requestedAt: crewRequest.requestedAt,
       assignedTo: crewRequestAssignee,
       status: crewRequest.status,
+      reason: crewRequest.reason,
+      crewedBy,
     },
     harness: openLease?.harness ?? null,
     model: lastModel,

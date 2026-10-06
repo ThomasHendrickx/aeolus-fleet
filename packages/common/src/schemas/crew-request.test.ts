@@ -5,6 +5,7 @@ import {
   CREW_REQUEST_SETTINGS_MAX_BYTES,
   CREW_STATUSES,
   assignCrewInputSchema,
+  explainCrewRequestInputSchema,
   assignedCrewRequestsOutputSchema,
   reportCrewStatusInputSchema,
   crewRequestInputSchema,
@@ -108,5 +109,21 @@ describe('assignedCrewRequestsOutputSchema', () => {
     const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null }];
 
     expect(assignedCrewRequestsOutputSchema.parse(assigned)).toEqual(assigned);
+  });
+});
+
+describe('explainCrewRequestInputSchema', () => {
+  it('takes a reason, trimmed, or null to clear it', () => {
+    const shipId = newId('ship');
+
+    expect(explainCrewRequestInputSchema.parse({ shipId, reason: '  no room  ' })).toEqual({ shipId, reason: 'no room' });
+    expect(explainCrewRequestInputSchema.parse({ shipId, reason: null })).toEqual({ shipId, reason: null });
+  });
+
+  it.each([
+    ['a reason over 200 characters', 'x'.repeat(201)],
+    ['a reason over one line', 'no room\nanywhere'],
+  ])('rejects %s', (_label, reason) => {
+    expect(explainCrewRequestInputSchema.safeParse({ shipId: newId('ship'), reason }).success).toBe(false);
   });
 });
