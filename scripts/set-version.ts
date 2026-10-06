@@ -1,5 +1,5 @@
 /**
- * Sets one version on the four published packages and pins their dependencies
+ * Sets one version on the published packages and pins their dependencies
  * on each other to exactly that version, because they are released together
  * (ADR 0011). Both manifests of the aeolus plugin carry the same version. Used
  * by the release workflow and the publish dry run in CI.
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-export const PUBLISHED_PACKAGES = ['common', 'core', 'console', 'squadrons', 'trierarch'] as const;
+export const PUBLISHED_PACKAGES = ['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch'] as const;
 
 /** The aeolus plugin's Claude Code and Codex manifests, released together. */
 export const PLUGIN_MANIFESTS = [

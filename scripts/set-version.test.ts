@@ -58,11 +58,18 @@ describe('setVersion', () => {
     );
   });
 
-  it('sets the same version on all five packages, squadrons and the trierarch included', () => {
+  it('sets the same version on all six packages, squadrons, the trierarch plugin and the trierarch included', () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch']);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+  });
+
+  it('pins the trierarch plugin to common and the server at that version', () => {
+    setVersion(copy, '0.1.0');
+
+    expect(manifest('trierarch-plugin').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
+    expect(manifest('trierarch-plugin').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('pins the trierarch to common and the server at that version', () => {
