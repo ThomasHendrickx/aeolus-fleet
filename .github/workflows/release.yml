@@ -23,6 +23,8 @@ permissions:
   contents: write
   # To read the merged pull requests carrying the release's label, for its notes.
   pull-requests: read
+  # To read CI's result for the released commit.
+  actions: read
 
 concurrency:
   group: release
@@ -79,8 +81,16 @@ jobs:
           fi
           npm --version
 
-      # No second test run: main takes a commit only after CI passed on it (ADR 0011).
       - run: npm ci
+
+      # No second test run (ADR 0011): CI's own result for this exact commit on
+      # main is the gate, read before anything is built or published.
+      - name: Check the commit is on main and passed CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch main --event push --json status,conclusion,url \
+            | node scripts/release-gate.ts "$GITHUB_REF" "$GITHUB_SHA"
 
       - name: Set the version on all five packages
         env:
