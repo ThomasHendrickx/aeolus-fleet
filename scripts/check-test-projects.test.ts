@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { testProjectProblems } from './check-test-projects.ts';
@@ -58,5 +62,17 @@ describe('the test project check', () => {
     repository.write('packages/web/lib/scratch.test.ts', 'test\n');
 
     await expect(testProjectProblems(repository.path)).resolves.toEqual([]);
+  });
+
+  it('matches the same files when the repository is reached through a symbolic link, as the temporary folder is on macOS', async () => {
+    repository.commit('test: covered');
+    const links = mkdtempSync(join(tmpdir(), 'aeolus-link-'));
+    const link = join(links, 'repository');
+    symlinkSync(repository.path, link);
+    try {
+      await expect(testProjectProblems(link)).resolves.toEqual([]);
+    } finally {
+      rmSync(links, { recursive: true, force: true });
+    }
   });
 });
