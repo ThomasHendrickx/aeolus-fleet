@@ -157,7 +157,9 @@ describe('Settings, Squadrons', () => {
     const row = repositories.getByTestId('repositories-row');
     await row.getByText('acme/missing', { exact: true }).waitFor();
     await row.getByTestId('repositories-error').waitFor();
-    await expect(page.getByTestId('repositories-url').inputValue()).resolves.toBe('');
+    // The form clears once the add settles, after the list and the catalogue are read again: the row can show
+    // first, and the catalogue can take longer than expect.poll's one second, so it waits as long as a locator.
+    await expect.poll(() => page.getByTestId('repositories-url').inputValue(), { timeout: 30_000 }).toBe('');
 
     await row.getByTestId('repositories-remove').click();
     await page.getByTestId('repositories-remove-dialog').getByText('Remove github.com/acme/missing?').waitFor();
