@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { listedShipSchema } from './fleet.js';
+import { reportSchema } from './report.js';
 
 /**
  * Inputs and outputs of the history procedures, for the ship page: one ship,
@@ -35,6 +36,8 @@ export const shipInputSchema = z.object({ shipId: idSchema('ship') });
  * when it retired.
  */
 export const shipDetailOutputSchema = listedShipSchema.extend({
+  /** The crew's last report as the fleet lists it, with its details. */
+  report: reportSchema.nullable(),
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
   /** What its crew holds in flight now: what a release or a re-crew returns to pending. */

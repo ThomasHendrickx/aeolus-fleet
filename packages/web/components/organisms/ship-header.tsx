@@ -13,6 +13,7 @@ import { EmptyState } from '../molecules/empty-state';
 import { LocationTag } from '../molecules/location-tag';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
+import { ReportDetails } from '../molecules/report-details';
 import { ReportLine } from '../molecules/report-line';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
@@ -107,7 +108,7 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id. argo says it is the operator's ship; a retired ship is read-only.
+ * id, then its crew's report details, folded, when it has any. argo says it is the operator's ship; a retired ship is read-only.
  */
 export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
@@ -207,6 +208,9 @@ export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }
         </Notice>
       ) : null}
       <MetaStrip ship={ship} now={now} />
+      {ship.kind === 'agent' && ship.report?.details ? (
+        <ReportDetails details={ship.report.details} version={ship.report.detailsVersion} testId="ship-report-details" />
+      ) : null}
     </div>
   );
 }

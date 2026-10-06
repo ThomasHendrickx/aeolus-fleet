@@ -29,8 +29,8 @@ export interface ListedShip {
   ping: PingStatus | null;
   /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes; argo has all. */
   scopes: readonly Scope[];
-  /** The crew's last report; null until it reports, and while no session crews the ship. */
-  report: ShipReport | null;
+  /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
+  report: Omit<ShipReport, 'details'> | null;
   /** The harness the crewing session stated, read together with its location; null while no session crews the ship. */
   harness: string | null;
   /** The ship's current model: the last its sessions stated on a send, and when; null before any. */
@@ -67,12 +67,16 @@ export function listedShipOf({ ship, openLease, validSecret, lastPing, lastModel
     lastSeenAt: openLease?.lastSeenAt ?? lastViewedAt,
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
-    report: openLease?.report ?? null,
+    report: openLease?.report ? listedReportOf(openLease.report) : null,
     harness: openLease?.harness ?? null,
     model: lastModel,
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
     retiredAt: ship.retiredAt,
   };
+}
+
+function listedReportOf({ state, note, reportedAt, detailsVersion }: ShipReport): ListedShip['report'] {
+  return { state, note, reportedAt, detailsVersion };
 }
 
 function latestOf(first: Date, second: Date | null): Date {

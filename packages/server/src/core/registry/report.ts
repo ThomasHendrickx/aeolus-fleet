@@ -7,7 +7,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { refuseEndedLease, type LeaseEnded } from './lease.js';
 import type { LeaseRepository } from './ports.js';
-import { reportWork, type ReportRefusal } from './ship-report.js';
+import { reportWork, type DetailsInput, type ReportRefusal } from './ship-report.js';
 
 export interface ReportTx {
   leases: Pick<LeaseRepository, 'findReportForUpdate' | 'saveReport'>;
@@ -16,15 +16,16 @@ export interface ReportTx {
 
 export type Report = (
   crew: Crew,
-  input: { state: string; note?: string },
+  input: { state: string; note?: string } & DetailsInput,
 ) => Promise<Result<undefined, ReportRefusal | LeaseEnded>>;
 
 /**
  * Use case: the crew reports what it is doing (`report`): working, blocked or
- * idle, with a short note. Calling it is a check-in. No scope beyond being the
+ * idle, with a short note and optionally its details, set whole or
+ * merge-patched. Calling it is a check-in. No scope beyond being the
  * crew: it speaks only for its own ship. The report is kept with the crew's
- * lease, locked meanwhile, and ShipReported is written when the state or the
- * note changed, in one unit of work. Refused once the lease has ended.
+ * lease, locked meanwhile, and ShipReported is written when the state, the
+ * note or the details changed, in one unit of work. Refused once the lease has ended.
  */
 export function createReport(deps: { uow: UnitOfWork<ReportTx>; clock: Clock; ids: IdGenerator }): Report {
   return (crew, input) =>
@@ -33,7 +34,7 @@ export function createReport(deps: { uow: UnitOfWork<ReportTx>; clock: Clock; id
       if (!held) {
         return refuseEndedLease();
       }
-      const reported = reportWork(held.report, { crew, state: input.state, note: input.note, at: deps.clock.now() });
+      const reported = reportWork(held.report, { ...input, crew, at: deps.clock.now() });
       if (!reported.isOk) {
         return reported;
       }

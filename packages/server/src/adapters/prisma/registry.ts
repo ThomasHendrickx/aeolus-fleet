@@ -9,7 +9,17 @@ import type {
 } from '../../core/registry/ports.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toAbandonedDelivery, toDeliveryFromSql, toFleet, toLease, toShip, toShipFacts, toShipFromSql, toShipReport } from './rows.js';
+import {
+  toAbandonedDelivery,
+  toDeliveryFromSql,
+  toFleet,
+  toLease,
+  toLeaseShipId,
+  toShip,
+  toShipFacts,
+  toShipFromSql,
+  toShipReport,
+} from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -198,16 +208,41 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     },
     findReportForUpdate: async (fleetId, leaseId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT report_state::text AS report_state, report_note, reported_at
+        SELECT report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
         FROM leases
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
         FOR UPDATE`;
       return row === undefined ? undefined : { report: toShipReport(row) };
     },
+    findReportLog: async (fleetId, leaseId) => {
+      const [own] = await db.$queryRaw<unknown[]>`
+        SELECT ship_id, report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL`;
+      if (own === undefined) {
+        return undefined;
+      }
+      const shipId = toLeaseShipId(own);
+      // The previous crew: the ship's lease that ended last before this one.
+      const [previous] = await db.$queryRaw<unknown[]>`
+        SELECT report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND id <> ${leaseId} AND ended_at IS NOT NULL
+        ORDER BY ended_at DESC, id DESC
+        LIMIT 1`;
+      return { report: toShipReport(own), previousCrew: previous === undefined ? null : toShipReport(previous) };
+    },
     saveReport: async ({ fleetId, leaseId, report }) => {
       await db.lease.updateMany({
         where: { fleetId, id: leaseId },
-        data: { reportState: report.state, reportNote: report.note, reportedAt: report.reportedAt },
+        data: {
+          reportState: report.state,
+          reportNote: report.note,
+          reportedAt: report.reportedAt,
+          // DbNull: no details is SQL NULL, not the JSON value null.
+          reportDetails: report.details ?? Prisma.DbNull,
+          reportDetailsVersion: report.detailsVersion,
+        },
       });
     },
     findOpenByIdForShare: async (fleetId, leaseId) => {
@@ -317,7 +352,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                s.commissioned_by, s.commission_key, s.commission_request_hash,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               l.report_state::text AS report_state, l.report_note, l.reported_at,
+               l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
@@ -347,7 +382,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                s.commissioned_by, s.commission_key, s.commission_request_hash,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               l.report_state::text AS report_state, l.report_note, l.reported_at,
+               l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,

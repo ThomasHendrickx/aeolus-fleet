@@ -131,22 +131,26 @@ enum LocationKind {
 /// finding a ship by its crew token is a lookup not scoped by fleet (ADR 0007). A
 /// console session's lease on argo has none; the console session holds its token.
 model Lease {
-  id                  String       @id
-  fleetId             String       @map("fleet_id")
-  shipId              String       @map("ship_id")
-  location            LocationKind
-  locationDescription String?      @map("location_description")
+  id                   String       @id
+  fleetId              String       @map("fleet_id")
+  shipId               String       @map("ship_id")
+  location             LocationKind
+  locationDescription  String?      @map("location_description")
   /// The harness the session stated when it claimed the ship; none for argo's console lease and for leases from before harnesses were stated.
-  harness             String?
-  crewTokenHash       String?      @unique @map("crew_token_hash")
-  startedAt           DateTime     @map("started_at") @db.Timestamptz(3)
+  harness              String?
+  crewTokenHash        String?      @unique @map("crew_token_hash")
+  startedAt            DateTime     @map("started_at") @db.Timestamptz(3)
   /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
-  lastSeenAt          DateTime?    @map("last_seen_at") @db.Timestamptz(3)
+  lastSeenAt           DateTime?    @map("last_seen_at") @db.Timestamptz(3)
   /// The crew's last report: plain data, nothing acts on it. Null until it reports.
-  reportState         ReportState? @map("report_state")
-  reportNote          String?      @map("report_note")
-  reportedAt          DateTime?    @map("reported_at") @db.Timestamptz(3)
-  endedAt             DateTime?    @map("ended_at") @db.Timestamptz(3)
+  reportState          ReportState? @map("report_state")
+  reportNote           String?      @map("report_note")
+  reportedAt           DateTime?    @map("reported_at") @db.Timestamptz(3)
+  /// The report's details: one JSON object stored without meaning, at most 16 KB (decision 0028). Null when there are none.
+  reportDetails        Json?        @map("report_details")
+  /// Moves by one each time the details change; 0 before any.
+  reportDetailsVersion Int          @default(0) @map("report_details_version")
+  endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
   ship              Ship             @relation(fields: [fleetId, shipId], references: [fleetId, id])

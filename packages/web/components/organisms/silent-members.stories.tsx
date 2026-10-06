@@ -13,7 +13,7 @@ const meta = {
     members: tester
       ? [{ squadronId: forming.id, member: { ...tester, health: 'silent', checkInMinutes: 10, crew: { status: 'crewed', lastSeenAt: '2026-09-28T13:19:00Z', crewedSince: null } } }]
       : [],
-    ships: new Map([[tester?.shipId ?? '', { ...CREWED_SHIP, report: { state: 'blocked', note: 'e2e needs a staging slot', reportedAt: '2026-09-28T13:19:00Z' } }]]),
+    ships: new Map([[tester?.shipId ?? '', { ...CREWED_SHIP, report: { state: 'blocked', note: 'e2e needs a staging slot', reportedAt: '2026-09-28T13:19:00Z', detailsVersion: 0 } }]]),
     now: NOW,
   },
 } satisfies Meta<typeof SilentMembers>;

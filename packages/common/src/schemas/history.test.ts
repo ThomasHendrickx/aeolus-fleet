@@ -54,7 +54,14 @@ describe('shipDetailOutputSchema', () => {
     expect(shipDetailOutputSchema.parse(ship)).toEqual(ship);
   });
 
+  it("accepts the crew's report with its details and their version", () => {
+    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 } } };
+
+    expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
+  });
+
   it.each([
+    ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0 } }],
     ['a commissioned date that is not ISO 8601', { ...ship, commissionedAt: 'yesterday' }],
     ['a missing crewed since', { ...ship, crewedSince: undefined }],
     ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],

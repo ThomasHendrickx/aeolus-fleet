@@ -1,4 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
+import { reportLogOutputSchema } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -307,6 +308,17 @@ describe('the ship tools at /mcp', () => {
 
     const listed = await createUseCases({ prisma: database }).listFleet(argo);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
+  });
+
+  it("reportLog: a crew patches its report's details and reads them back", async () => {
+    const skiff = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, skiff);
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'working', detailsPatch: { running: 4 } } });
+
+    const log = await call(session, { tool: { name: 'reportLog', answers: reportLogOutputSchema }, arguments: { crewToken } });
+
+    expect(log).toMatchObject({ report: { state: 'working', details: { running: 4 }, detailsVersion: 1 }, previousCrew: null });
   });
 
   it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {

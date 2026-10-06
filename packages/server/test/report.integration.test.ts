@@ -45,11 +45,54 @@ describe("a crew's report on Postgres", () => {
 
     unwrap(await core.useCases.report(scout, { state: 'working', note: 'on PR 89' }));
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now() });
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
     await expect(reportEvents()).resolves.toBe(1);
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       isOk: true,
       value: { report: { state: 'working', note: 'on PR 89' } },
+    });
+  });
+
+  it('stores its details as JSON with their version, merge-patched in place', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', details: { 'shp_01': { state: 'running' }, kept: ['a'] } }));
+
+    unwrap(await core.useCases.report(scout, { state: 'working', detailsPatch: { 'shp_02': { state: 'crashed' }, kept: null } }));
+
+    const lease = await core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } });
+    expect({ details: lease.reportDetails, version: lease.reportDetailsVersion }).toEqual({
+      details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } },
+      version: 2,
+    });
+    await expect(reportEvents()).resolves.toBe(2);
+    await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
+      value: { report: { detailsVersion: 2, details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } } } },
+    });
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 2 });
+  });
+
+  it('clears its details to none with null', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', details: { running: 4 } }));
+
+    unwrap(await core.useCases.report(scout, { state: 'working', details: null }));
+
+    const lease = await core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } });
+    expect({ details: lease.reportDetails, version: lease.reportDetailsVersion }).toEqual({ details: null, version: 2 });
+  });
+
+  it("gives the ship's next crew the previous crew's last report in its log, and the crew its own", async () => {
+    unwrap(await core.useCases.report(scout, { state: 'blocked', note: 'waiting for review', details: { pr: 89 } }));
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scout.shipId }));
+    const next = await crewed(scout.shipId, secret);
+    core.clock.advance(60_000);
+    unwrap(await core.useCases.report(next, { state: 'working', details: { pr: 90 } }));
+
+    await expect(core.useCases.reportLog(next)).resolves.toMatchObject({
+      isOk: true,
+      value: {
+        report: { state: 'working', details: { pr: 90 }, detailsVersion: 1 },
+        previousCrew: { state: 'blocked', note: 'waiting for review', details: { pr: 89 }, detailsVersion: 1 },
+      },
     });
   });
 
