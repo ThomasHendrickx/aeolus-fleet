@@ -48,6 +48,14 @@ export const WithFleetScopes: Story = {
 export const Reported: Story = {
   args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', reportedAt: minutesAgo(3), detailsVersion: 0, details: null } } },
 };
+export const WithReportDetails: Story = {
+  args: {
+    ship: {
+      ...CREWED_SHIP,
+      report: { state: 'working', note: '4 of 6 running, 1 crashed', reportedAt: minutesAgo(1), detailsVersion: 12, details: { running: 4, crashed: 1 } },
+    },
+  },
+};
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP } };
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };

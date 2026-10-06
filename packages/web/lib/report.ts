@@ -1,4 +1,4 @@
-import type { ListedShip, ReportState } from '@aeolus-fleet/common';
+import { reportDetailsBytes, type ListedShip, type ReportDetails, type ReportState } from '@aeolus-fleet/common';
 
 import { relativeTime } from './relative-time';
 
@@ -41,4 +41,14 @@ export function reportedWhen(reportedAt: Date, now: Date): string {
 export function reportText(report: NonNullable<ListedShip['report']>): string {
   const word = REPORT_STATE_WORDS[report.state];
   return report.note === null ? word : `${word}: ${report.note}`;
+}
+
+/** A report's details shown raw (decision 0028): their JSON, indented. */
+export function reportDetailsJson(details: ReportDetails): string {
+  return JSON.stringify(details, null, 2);
+}
+
+/** What the raw details are, for the code block's label: "JSON · 50 bytes", counted as the server counts them. */
+export function reportDetailsLabel(details: ReportDetails): string {
+  return `JSON · ${String(reportDetailsBytes(details))} bytes`;
 }

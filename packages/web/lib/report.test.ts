@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { REPORT_TONES, reportAge, reportedWhen, reportText } from './report';
+import { REPORT_TONES, reportAge, reportDetailsJson, reportDetailsLabel, reportedWhen, reportText } from './report';
 
 const NOW = new Date('2026-10-03T07:10:00.000Z');
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
@@ -40,5 +40,17 @@ describe('reportText', () => {
 
   it('says the state alone without a note', () => {
     expect(reportText({ state: 'idle', note: null, reportedAt: NOW.toISOString(), detailsVersion: 0 })).toBe('Idle');
+  });
+});
+
+describe('reportDetailsJson', () => {
+  it('indents the details by two spaces', () => {
+    expect(reportDetailsJson({ running: 4, kept: ['a'] })).toBe('{\n  "running": 4,\n  "kept": [\n    "a"\n  ]\n}');
+  });
+});
+
+describe('reportDetailsLabel', () => {
+  it('names JSON and its size as the server counts it: compact, in UTF-8 bytes', () => {
+    expect(reportDetailsLabel({ note: 'é' })).toBe('JSON · 13 bytes');
   });
 });

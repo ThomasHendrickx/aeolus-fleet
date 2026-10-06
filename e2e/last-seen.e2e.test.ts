@@ -139,4 +139,18 @@ describe("a crew's report", () => {
     await page.getByTestId('fleet-row-lookout').getByTestId('fleet-report').getByText('waiting for review').waitFor();
     await expect(page.getByTestId('fleet-row-lookout').getByTestId('fleet-last-seen').getAttribute('aria-label')).resolves.toMatch(/^Last seen /);
   });
+
+  it('shows the details of a report folded on its page, live, and raw when unfolded', async () => {
+    const trierarch = await crewedOverRest({ name: 'trierarch-1', type: 'trierarch' });
+    const page = await signedInPage();
+    await page.goto(`/ships/${trierarch.shipId}`);
+    await page.getByTestId('ship-header').waitFor();
+
+    await trierarch.call('report', { state: 'working', note: '1 of 2 running', details: { crashed: 1, running: 1 } });
+
+    const details = page.getByTestId('ship-report-details');
+    await details.getByText('· version 1').waitFor({ timeout: 20_000 });
+    await details.getByText('Report details').click();
+    await expect(details.getByTestId('ship-report-details-code').textContent()).resolves.toBe('{\n  "crashed": 1,\n  "running": 1\n}');
+  });
 });
