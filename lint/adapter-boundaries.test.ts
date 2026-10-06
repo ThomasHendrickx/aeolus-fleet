@@ -6,18 +6,18 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // only through the tRPC router (CLAUDE.md, "Architecture rules"; ADR 0004).
 
 const server = {
-  prisma: 'packages/server/src/adapters/prisma/boundary-probe.ts',
-  http: 'packages/server/src/adapters/http/boundary-probe.ts',
-  rest: 'packages/server/src/adapters/rest/boundary-probe.ts',
-  mcp: 'packages/server/src/adapters/mcp/boundary-probe.ts',
-  test: 'packages/server/test/boundary-probe.ts',
+  prisma: 'packages/core/src/adapters/prisma/boundary-probe.ts',
+  http: 'packages/core/src/adapters/http/boundary-probe.ts',
+  rest: 'packages/core/src/adapters/rest/boundary-probe.ts',
+  mcp: 'packages/core/src/adapters/mcp/boundary-probe.ts',
+  test: 'packages/core/test/boundary-probe.ts',
 };
-const web = 'packages/web/lib/boundary-probe.ts';
+const web = 'packages/console/lib/boundary-probe.ts';
 const root = { script: 'scripts/boundary-probe.ts', e2e: 'e2e/boundary-probe.ts' };
 
 // Import rules need no package-specific typing, so every probe is typed with the server's tsconfig.
 const lint = createLint({
-  tsconfig: 'packages/server/tsconfig.json',
+  tsconfig: 'packages/core/tsconfig.json',
   probes: [...Object.values(server), web, ...Object.values(root)],
 });
 
@@ -66,13 +66,13 @@ describe('Prisma and pg outside the Prisma adapter', () => {
 
 describe('REST and MCP go through the tRPC router', () => {
   it.each([
-    { label: 'a use case', code: "import { createSignIn } from '../../core/identity/sign-in.js';" },
-    { label: 'a core type', code: "import type { Caller } from '../../core/shared/caller.js';" },
-    { label: 'the core with import()', code: "export const load = () => import('../../core/identity/sign-in.js');" },
+    { label: 'a use case', code: "import { createSignIn } from '../../domain/identity/sign-in.js';" },
+    { label: 'a core type', code: "import type { Caller } from '../../domain/shared/caller.js';" },
+    { label: 'the core with import()', code: "export const load = () => import('../../domain/identity/sign-in.js');" },
   ])('refuses $label in REST and in MCP', async ({ code }) => {
     for (const door of [server.rest, server.mcp]) {
       await expect(importViolations(lint(code, door))).resolves.toEqual([
-        expect.stringContaining('adapters/rest and adapters/mcp never import core'),
+        expect.stringContaining('adapters/rest and adapters/mcp never import src/domain'),
       ]);
     }
   });
@@ -90,7 +90,7 @@ describe('REST and MCP go through the tRPC router', () => {
   });
 
   it('allows other adapters the core', async () => {
-    const code = "import { createSignIn } from '../../core/identity/sign-in.js';";
+    const code = "import { createSignIn } from '../../domain/identity/sign-in.js';";
 
     await expect(importViolations(lint(code, server.http))).resolves.toEqual([]);
   });

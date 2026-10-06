@@ -29,8 +29,8 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 
 ## Architecture rules
 
-- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/server, @aeolus-fleet/web, and the optional @aeolus-fleet/squadrons (decision 0017). Separate packages, decided.
-- Ports and adapters. server/src/core holds domain, use cases and ports, with no framework, Prisma, pg or tRPC imports. The lint rule enforces it; never disable it.
+- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/core, @aeolus-fleet/console, and the optional @aeolus-fleet/squadrons (decision 0017). Separate packages, decided.
+- Ports and adapters. core/src/domain holds domain, use cases and ports, with no framework, Prisma, pg or tRPC imports. The lint rule enforces it; never disable it.
 - Contexts in core: registry, messaging, identity, shared. A context does not reach into another's internals.
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
 - tRPC is the single API door. REST and MCP map onto the same ship procedures; they never hold logic of their own.
@@ -47,9 +47,9 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 Load the matching skill from `.claude/skills/` before writing code. They are mandatory, not suggestions:
 
 - `test-driven-development`: every code change. Strict red, green, refactor for server and common (decision 0014).
-- `domain-modelling`: anything under `packages/server/src/core` or `packages/server/src/adapters`.
+- `domain-modelling`: anything under `packages/core/src/domain` or `packages/core/src/adapters`.
 - `typescript`: every `.ts` or `.tsx` change.
-- `web-frontend`: anything under `packages/web`.
+- `web-frontend`: anything under `packages/console`.
 
 ## Quality
 

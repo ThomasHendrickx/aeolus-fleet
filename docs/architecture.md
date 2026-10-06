@@ -4,7 +4,7 @@ Owner: Thomas Hendrickx. Last updated 2026-10-05.
 
 ## Summary
 
-Aeolus is three npm packages and one Postgres database. `@aeolus-fleet/server` exposes one API, a tRPC router, that every client uses: the operator web app, and ships through MCP or through REST generated from the same router. `@aeolus-fleet/web` is a Next.js operator console that calls only that API. `@aeolus-fleet/common` holds what both share: schemas, ids and types.
+Aeolus is three npm packages and one Postgres database. `@aeolus-fleet/core` exposes one API, a tRPC router, that every client uses: the operator web app, and ships through MCP or through REST generated from the same router. `@aeolus-fleet/console` is a Next.js operator console that calls only that API. `@aeolus-fleet/common` holds what both share: schemas, ids and types.
 
 Inside the server, the three domain contexts from the blueprint (Registry, Messaging, Identity) are built as ports and adapters, so the domain never imports a framework or the database. Every record belongs to a fleet (the tenant), so one installation can later host several fleets at no extra cost.
 
@@ -372,8 +372,8 @@ Seven parts. The first six are npm packages under the `aeolus-fleet` organisatio
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
 | `@aeolus-fleet/common` | Public repo, `packages/common` | Zod schemas for every procedure, prefixed id helpers, shared types, error codes, event names | Nothing but Zod |
-| `@aeolus-fleet/server` | Public repo, `packages/server` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
-| `@aeolus-fleet/web` | Public repo, `packages/web` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
+| `@aeolus-fleet/core` | Public repo, `packages/core` | Domain core, use cases, ports; adapters for Prisma, tRPC, REST, MCP, WebSocket; start command | `common` |
+| `@aeolus-fleet/console` | Public repo, `packages/console` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint | `common`, and the server's router type (type-only) |
 | `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`), and GitHub's REST API for the template repositories, with no clone and no files on disk. Optional | `common` |
 | `@aeolus-fleet/trierarch-plugin` | Public repo, `packages/trierarch-plugin` | The trierarchs' plugin on the server side (decision 0030): its own core and ports, the fleet's public REST API as its ship (`fleet:read`, `fleet:manage`, `crew:assign`), tRPC for the web app's server, and a Prisma adapter with its own small database and migrations (each fleet's connection and switch). Optional | `common` |
 | `@aeolus-fleet/trierarch` | Public repo, `packages/trierarch` | Crews ships on its machine from the crew requests assigned to it (decision 0026): its own core and ports, adapters for the fleet's REST API (as its own ship, with `crew:run`), tmux, git and the harnesses, and its command `aeolus-trierarch`. Optional | `common` |
@@ -381,7 +381,7 @@ Seven parts. The first six are npm packages under the `aeolus-fleet` organisatio
 
 Layers, not folders (the code shows the folders):
 
-- `server/src/core`: domain, use cases, ports, per context (`registry`, `messaging`, `identity`, `shared`). Other contexts import a context only through its `public.ts`.
+- `core/src/domain`: domain, use cases, ports, per context (`registry`, `messaging`, `identity`, `shared`). Other contexts import a context only through its `public.ts`.
 - `server/src/adapters`: everything that touches a technology (Prisma, tRPC, HTTP, CLI, crypto, REST, MCP). Depends on core, never the reverse. REST and MCP go through the tRPC router.
 - Composition: the server's entry points build the adapters and inject them into the use cases.
 - `web`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.

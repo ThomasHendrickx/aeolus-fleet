@@ -1,4 +1,4 @@
-# Publishes @aeolus-fleet/common, server, web, squadrons and trierarch to npm with one version, and
+# Publishes @aeolus-fleet/common, core, console, squadrons and trierarch to npm with one version, and
 # tags the released commit v<version>, so a version on npm always matches a tag
 # in git. Then creates the GitHub Release for the tag, with notes from the merged
 # pull requests carrying the label <version>, and sets the aeolus Claude Code
@@ -106,7 +106,7 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/server @aeolus-fleet/web @aeolus-fleet/squadrons @aeolus-fleet/trierarch; do
+          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/core @aeolus-fleet/console @aeolus-fleet/squadrons @aeolus-fleet/trierarch; do
             if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
               echo "$PACKAGE@$VERSION is on npm already: skipped"
             else
@@ -128,9 +128,9 @@ jobs:
           else
             npm publish --access public --workspace "$PACKAGE"
           fi
-      - name: Publish @aeolus-fleet/server
+      - name: Publish @aeolus-fleet/core
         env:
-          PACKAGE: '@aeolus-fleet/server'
+          PACKAGE: '@aeolus-fleet/core'
           VERSION: ${{ inputs.version }}
         run: |
           if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
@@ -138,9 +138,9 @@ jobs:
           else
             npm publish --access public --workspace "$PACKAGE"
           fi
-      - name: Publish @aeolus-fleet/web
+      - name: Publish @aeolus-fleet/console
         env:
-          PACKAGE: '@aeolus-fleet/web'
+          PACKAGE: '@aeolus-fleet/console'
           VERSION: ${{ inputs.version }}
         run: |
           if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then

@@ -1,0 +1,523 @@
+import {
+  themeSchema,
+  deliveryStateSchema,
+  crewRequestSettingsSchema,
+  crewStatusSchema,
+  reportDetailsSchema,
+  reportStateSchema,
+  eventTypeSchema,
+  idSchema,
+  locationKindSchema,
+  scopeSchema,
+  shipKindSchema,
+  type ShipId,
+} from '@aeolus-fleet/common';
+import { z } from 'zod';
+
+const MS_PER_SECOND = 1000;
+
+import type { ConsoleSession } from '../../domain/identity/console-session.js';
+import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../../domain/identity/ports.js';
+import type { Credential } from '../../domain/identity/credential.js';
+import type { OperatorAccount } from '../../domain/identity/operator-account.js';
+import type { Delivery, Message } from '../../domain/messaging/message.js';
+import type { ShipReport } from '../../domain/registry/ship-report.js';
+import type { CrewRequest } from '../../domain/registry/crew-request.js';
+import type { FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
+import type { DeliveryNotice } from '../../domain/shared/notifier.js';
+import type { Fleet } from '../../domain/registry/fleet.js';
+import type { Lease } from '../../domain/registry/lease.js';
+import type { ShipFacts } from '../../domain/registry/ports.js';
+import type { Ship } from '../../domain/registry/ship.js';
+import type { Caller, Crew } from '../../domain/shared/caller.js';
+import type { Recipient } from '../../domain/shared/selector.js';
+
+// Maps database rows to domain objects. A row is outside data: each one is
+// parsed with the common schemas, so an id, kind or scope the domain does not
+// know fails loudly here instead of travelling on under a type it does not have.
+// Raw SQL returns snake_case columns; Prisma's own queries return camelCase.
+
+const fleetRow = z.object({ id: idSchema('fleet'), name: z.string(), createdAt: z.date() });
+
+export function toFleet(row: unknown): Fleet {
+  return fleetRow.parse(row);
+}
+
+const shipRow = z.object({
+  id: idSchema('ship'),
+  fleetId: idSchema('fleet'),
+  name: z.string(),
+  type: z.string(),
+  kind: shipKindSchema,
+  scopes: z.array(scopeSchema),
+  note: z.string().nullable(),
+  createdAt: z.date(),
+  retiredAt: z.date().nullable(),
+  commissionedBy: idSchema('ship').nullable(),
+  commissionKey: z.string().nullable(),
+  commissionRequestHash: z.string().nullable(),
+});
+
+/** The commission's three columns, set together for an agent ship and null for argo. */
+function commissionOf(columns: { by: ShipId | null; idempotencyKey: string | null; requestHash: string | null }): Ship['commission'] {
+  const { by, idempotencyKey, requestHash } = columns;
+  return by === null || idempotencyKey === null || requestHash === null ? null : { by, idempotencyKey, requestHash };
+}
+
+export function toShip(row: unknown): Ship {
+  const { commissionedBy, commissionKey, commissionRequestHash, ...ship } = shipRow.parse(row);
+  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }) };
+}
+
+const shipSqlRow = z
+  .object({
+    id: idSchema('ship'),
+    fleet_id: idSchema('fleet'),
+    name: z.string(),
+    type: z.string(),
+    kind: shipKindSchema,
+    scopes: z.array(scopeSchema),
+    note: z.string().nullable(),
+    created_at: z.date(),
+    retired_at: z.date().nullable(),
+    commissioned_by: idSchema('ship').nullable(),
+    commission_key: z.string().nullable(),
+    commission_request_hash: z.string().nullable(),
+  })
+  .transform(
+    (row): Ship => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      name: row.name,
+      type: row.type,
+      kind: row.kind,
+      scopes: row.scopes,
+      note: row.note,
+      createdAt: row.created_at,
+      retiredAt: row.retired_at,
+      commission: commissionOf({ by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
+    }),
+  );
+
+/** A ship as raw SQL returns it, in snake_case. */
+export function toShipFromSql(row: unknown): Ship {
+  return shipSqlRow.parse(row);
+}
+
+const crewRequestRow = z.object({
+  fleetId: idSchema('fleet'),
+  shipId: idSchema('ship'),
+  settings: crewRequestSettingsSchema,
+  settingsVersion: z.int().min(1),
+  requestedAt: z.date(),
+  assignedTo: idSchema('ship').nullable(),
+  status: crewStatusSchema.nullable(),
+  reason: z.string().nullable(),
+});
+
+/** A crew request as Prisma reads its row. */
+export function toCrewRequest(row: unknown): CrewRequest {
+  return crewRequestRow.parse(row);
+}
+
+const shipReportSqlRow = z.object({
+  report_state: reportStateSchema.nullable(),
+  report_note: z.string().nullable(),
+  reported_at: z.date().nullable(),
+  report_details: reportDetailsSchema.nullable(),
+  // Null where no lease joins: the column itself is never null.
+  report_details_version: z.int().min(0).nullable(),
+});
+
+/** A lease's report columns as raw SQL reads them; null until its crew reports. */
+export function toShipReport(row: unknown): ShipReport | null {
+  const { report_state, report_note, reported_at, report_details, report_details_version } = shipReportSqlRow.parse(row);
+  return report_state && reported_at
+    ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
+    : null;
+}
+
+/** The ship of a lease as raw SQL reads it. */
+export function toLeaseShipId(row: unknown): ShipId {
+  return z.object({ ship_id: idSchema('ship') }).parse(row).ship_id;
+}
+
+const shipFactsSqlRow = z.object({
+  lease_location: locationKindSchema.nullable(),
+  lease_location_description: z.string().nullable(),
+  lease_harness: z.string().nullable(),
+  lease_started_at: z.date().nullable(),
+  lease_last_seen_at: z.date().nullable(),
+  secret_issued_at: z.date().nullable(),
+  secret_claimed_at: z.date().nullable(),
+  ping_sent_at: z.date().nullable(),
+  ping_delivery_state: deliveryStateSchema.nullable(),
+  ping_answered_at: z.date().nullable(),
+  last_model: z.string().nullable(),
+  last_model_stated_at: z.date().nullable(),
+  last_viewed_at: z.date().nullable(),
+  last_lease_ended_at: z.date().nullable(),
+  crew_request_settings: crewRequestSettingsSchema.nullable(),
+  crew_request_settings_version: z.int().min(1).nullable(),
+  crew_request_requested_at: z.date().nullable(),
+  crew_request_assigned_to: idSchema('ship').nullable(),
+  crew_request_status: crewStatusSchema.nullable(),
+  crew_request_assignee_name: z.string().nullable(),
+  crew_request_reason: z.string().nullable(),
+  crewed_by_id: idSchema('ship').nullable(),
+  crewed_by_name: z.string().nullable(),
+});
+
+/** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
+export function toShipFacts(row: unknown): ShipFacts {
+  const {
+    lease_location,
+    lease_location_description,
+    lease_harness,
+    lease_started_at,
+    lease_last_seen_at,
+    secret_issued_at,
+    secret_claimed_at,
+    ping_sent_at,
+    ping_delivery_state,
+    ping_answered_at,
+    last_model,
+    last_model_stated_at,
+    last_viewed_at,
+    last_lease_ended_at,
+    crew_request_settings,
+    crew_request_settings_version,
+    crew_request_requested_at,
+    crew_request_assigned_to,
+    crew_request_status,
+    crew_request_assignee_name,
+    crew_request_reason,
+    crewed_by_id,
+    crewed_by_name,
+  } = shipFactsSqlRow.parse(row);
+  const ship = toShipFromSql(row);
+  return {
+    ship,
+    openLease:
+      lease_location && lease_started_at
+        ? {
+            location: { kind: lease_location, description: lease_location_description },
+            harness: lease_harness,
+            startedAt: lease_started_at,
+            // Its claim until its crew calls again.
+            lastSeenAt: lease_last_seen_at ?? lease_started_at,
+            report: toShipReport(row),
+          }
+        : null,
+    validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
+    crewRequest:
+      crew_request_settings && crew_request_settings_version !== null && crew_request_requested_at
+        ? {
+            fleetId: ship.fleetId,
+            shipId: ship.id,
+            settings: crew_request_settings,
+            settingsVersion: crew_request_settings_version,
+            requestedAt: crew_request_requested_at,
+            assignedTo: crew_request_assigned_to,
+            status: crew_request_status,
+            reason: crew_request_reason,
+          }
+        : null,
+    crewRequestAssignee:
+      crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
+    crewedBy: crewed_by_id && crewed_by_name !== null ? { id: crewed_by_id, name: crewed_by_name } : null,
+    lastPing:
+      ping_sent_at && ping_delivery_state
+        ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }
+        : null,
+    lastModel: last_model && last_model_stated_at ? { id: last_model, statedAt: last_model_stated_at } : null,
+    lastViewedAt: last_viewed_at,
+    lastLeaseEndedAt: last_lease_ended_at,
+  };
+}
+
+const leaseSqlRow = z
+  .object({
+    id: idSchema('lease'),
+    fleet_id: idSchema('fleet'),
+    ship_id: idSchema('ship'),
+    location: locationKindSchema,
+    location_description: z.string().nullable(),
+    harness: z.string().nullable(),
+    crew_token_hash: z.string().nullable(),
+    started_at: z.date(),
+    ended_at: z.date().nullable(),
+  })
+  .transform(
+    (row): Lease => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      shipId: row.ship_id,
+      location: { kind: row.location, description: row.location_description },
+      harness: row.harness,
+      crewTokenHash: row.crew_token_hash,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+    }),
+  );
+
+export function toLease(row: unknown): Lease {
+  return leaseSqlRow.parse(row);
+}
+
+const credentialSqlRow = z
+  .object({
+    id: idSchema('credential'),
+    fleet_id: idSchema('fleet'),
+    ship_id: idSchema('ship'),
+    secret_hash: z.string(),
+    issued_at: z.date(),
+    claimed_at: z.date().nullable(),
+    invalidated_at: z.date().nullable(),
+  })
+  .transform(
+    (row): Credential => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      shipId: row.ship_id,
+      secretHash: row.secret_hash,
+      issuedAt: row.issued_at,
+      claimedAt: row.claimed_at,
+      invalidatedAt: row.invalidated_at,
+    }),
+  );
+
+export function toCredential(row: unknown): Credential {
+  return credentialSqlRow.parse(row);
+}
+
+const operatorAccountSqlRow = z
+  .object({
+    id: idSchema('operator'),
+    fleet_id: idSchema('fleet'),
+    email: z.string(),
+    password_hash: z.string().nullable(),
+    theme: themeSchema,
+    created_at: z.date(),
+  })
+  .transform(
+    (row): OperatorAccount => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      email: row.email,
+      passwordHash: row.password_hash,
+      theme: row.theme,
+      createdAt: row.created_at,
+    }),
+  );
+
+export function toOperatorAccount(row: unknown): OperatorAccount {
+  return operatorAccountSqlRow.parse(row);
+}
+
+const consoleSessionSqlRow = z
+  .object({
+    id: idSchema('consoleSession'),
+    fleet_id: idSchema('fleet'),
+    ship_id: idSchema('ship'),
+    lease_id: idSchema('lease').nullable(),
+    idle_limit_seconds: z.number(),
+    ends_by: z.date().nullable(),
+    device: z.string(),
+    token_hash: z.string(),
+    created_at: z.date(),
+    last_used_at: z.date(),
+    expires_at: z.date(),
+    ended_at: z.date().nullable(),
+    end_reason: z.enum(['takenOver', 'signedOut', 'passwordReset']).nullable(),
+  })
+  .transform(
+    (row): ConsoleSession => ({
+      id: row.id,
+      fleetId: row.fleet_id,
+      shipId: row.ship_id,
+      leaseId: row.lease_id,
+      idleLimitMs: row.idle_limit_seconds * MS_PER_SECOND,
+      endsBy: row.ends_by,
+      device: row.device,
+      tokenHash: row.token_hash,
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at,
+      expiresAt: row.expires_at,
+      endedAt: row.ended_at,
+      endReason: row.end_reason,
+    }),
+  );
+
+export function toConsoleSession(row: unknown): ConsoleSession {
+  return consoleSessionSqlRow.parse(row);
+}
+
+/** The ship a secret or a session token resolves to. */
+const callerSqlRow = z.object({
+  ship_id: idSchema('ship'),
+  fleet_id: idSchema('fleet'),
+  kind: shipKindSchema,
+  scopes: z.array(scopeSchema),
+});
+
+export function toAuthenticatedShip(row: unknown): AuthenticatedShip {
+  const { ship_id, fleet_id, kind, scopes } = callerSqlRow.parse(row);
+  return { shipId: ship_id, fleetId: fleet_id, kind, scopes };
+}
+
+const crewSqlRow = z.object({ lease_id: idSchema('lease') });
+
+/** The crew of a crew token: its ship, and the lease the token belongs to. */
+function toAuthenticatedCrew(row: unknown): AuthenticatedCrew {
+  const { lease_id } = crewSqlRow.parse(row);
+  return { ...toAuthenticatedShip(row), leaseId: lease_id };
+}
+
+const crewTokenLeaseSqlRow = z.object({ is_open: z.boolean() });
+
+/** The lease a crew token belongs to: open, with its crew, or ended. */
+export function toCrewTokenLease(row: unknown): CrewTokenLease {
+  const { is_open } = crewTokenLeaseSqlRow.parse(row);
+  return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
+}
+
+const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), expires_at: z.date() });
+
+/**
+ * The caller of a console session: its ship, the session it came through,
+ * and the lease the session holds (a viewer session holds none), with the
+ * expiry its use moved to.
+ */
+export function toConsoleSessionCaller(row: unknown): { caller: Caller | Crew; expiresAt: Date } {
+  const { console_session_id, lease_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
+  const caller: Caller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+  return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
+}
+
+const messageRow = z.object({
+  id: idSchema('message'),
+  fleetId: idSchema('fleet'),
+  senderShipId: idSchema('ship'),
+  payload: z.string(),
+  contentType: z.string(),
+  model: z.string().nullable(),
+  idempotencyKey: z.string(),
+  requestHash: z.string(),
+  inReplyToMessageId: idSchema('message').nullable(),
+  resendOfMessageId: idSchema('message').nullable(),
+  createdAt: z.date(),
+});
+
+/** The selector columns of a message: a ship's id for a ship selector, a type for a type selector. */
+const selectorColumns = z.union([
+  z
+    .object({ selectorKind: z.literal('ship'), selectorShipId: idSchema('ship'), selectorType: z.null() })
+    .transform((row): Recipient => ({ kind: 'ship', shipId: row.selectorShipId })),
+  z
+    .object({ selectorKind: z.literal('type'), selectorShipId: z.null(), selectorType: z.string() })
+    .transform((row): Recipient => ({ kind: 'type', type: row.selectorType })),
+]);
+
+export function toMessage(row: unknown): Message {
+  return { ...messageRow.parse(row), selector: selectorColumns.parse(row) };
+}
+
+const recipientSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ship'), shipId: idSchema('ship') }),
+  z.object({ kind: z.literal('type'), type: z.string() }),
+]);
+
+const deliveryNoticeSchema = z.object({
+  fleetId: idSchema('fleet'),
+  deliveryId: idSchema('delivery'),
+  recipient: recipientSchema,
+});
+
+/** A pending delivery's notice, as the payload of its NOTIFY carries it. */
+export function toDeliveryNotice(payload: unknown): DeliveryNotice {
+  return deliveryNoticeSchema.parse(payload);
+}
+
+const fleetEventNoticeSchema = z.object({ fleetId: idSchema('fleet'), seq: z.number().int().positive() });
+
+export function toFleetEventNotice(payload: unknown): FleetEventNotice {
+  return fleetEventNoticeSchema.parse(payload);
+}
+
+/** A sequence number as Postgres returns a bigint; well within a safe integer for any fleet. */
+const seqSchema = z.bigint().transform(Number);
+
+export function toLastEventSeq(row: unknown): number {
+  return z.object({ last_event_seq: seqSchema }).parse(row).last_event_seq;
+}
+
+/** A delivery's recipient columns: a ship's id, or a type. */
+const recipientSqlColumns = z.union([
+  z
+    .object({ recipient_ship_id: idSchema('ship'), recipient_type: z.null() })
+    .transform((row): Recipient => ({ kind: 'ship', shipId: row.recipient_ship_id })),
+  z
+    .object({ recipient_ship_id: z.null(), recipient_type: z.string() })
+    .transform((row): Recipient => ({ kind: 'type', type: row.recipient_type })),
+]);
+
+const deliverySqlRow = z.object({
+  id: idSchema('delivery'),
+  fleet_id: idSchema('fleet'),
+  message_id: idSchema('message'),
+  state: deliveryStateSchema,
+  claimed_by_ship_id: idSchema('ship').nullable(),
+  claimed_by_lease_id: idSchema('lease').nullable(),
+  attempts: z.int().nonnegative(),
+  created_at: z.date(),
+});
+
+/** A delivery as raw SQL returns it, in snake_case. */
+export function toDeliveryFromSql(row: unknown): Delivery {
+  const delivery = deliverySqlRow.parse(row);
+  return {
+    id: delivery.id,
+    fleetId: delivery.fleet_id,
+    messageId: delivery.message_id,
+    recipient: recipientSqlColumns.parse(row),
+    state: delivery.state,
+    claimedByShipId: delivery.claimed_by_ship_id,
+    claimedByLeaseId: delivery.claimed_by_lease_id,
+    attempts: delivery.attempts,
+    createdAt: delivery.created_at,
+  };
+}
+
+const eventRowSchema = z.object({
+  id: idSchema('event'),
+  fleetId: idSchema('fleet'),
+  type: eventTypeSchema,
+  occurredAt: z.date(),
+  actorShipId: idSchema('ship').nullable(),
+  shipId: idSchema('ship').nullable(),
+  messageId: idSchema('message').nullable(),
+  deliveryId: idSchema('delivery').nullable(),
+  details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  seq: seqSchema,
+});
+
+/** An event row as Prisma reads it; a missing subject stays absent, as the core wrote it. */
+export function toSequencedEvent(row: unknown): SequencedEvent {
+  const { actorShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
+  return {
+    ...event,
+    actor: actorShipId === null ? { kind: 'system' } : { kind: 'ship', shipId: actorShipId },
+    ...(shipId === null ? {} : { shipId }),
+    ...(messageId === null ? {} : { messageId }),
+    ...(deliveryId === null ? {} : { deliveryId }),
+  };
+}
+
+const abandonedDeliverySqlRow = z.object({ id: idSchema('delivery'), message_id: idSchema('message'), created_at: z.date() });
+
+/** A delivery a retire abandoned, as its UPDATE returns it. */
+export function toAbandonedDelivery(row: unknown) {
+  const { id, message_id, created_at } = abandonedDeliverySqlRow.parse(row);
+  return { deliveryId: id, messageId: message_id, createdAt: created_at };
+}

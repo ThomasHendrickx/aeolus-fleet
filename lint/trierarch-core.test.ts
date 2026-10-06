@@ -8,7 +8,7 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 
 const coreProbe = 'packages/trierarch/src/core/rules-probe.ts';
 const adapterProbe = 'packages/trierarch/src/adapters/rules-probe.ts';
-const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: [coreProbe, adapterProbe] });
+const lint = createLint({ tsconfig: 'packages/core/tsconfig.json', probes: [coreProbe, adapterProbe] });
 
 const forbidden = [
   { label: 'the clock', code: 'export const now = Date.now();', rule: 'no-restricted-properties' },

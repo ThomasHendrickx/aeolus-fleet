@@ -8,24 +8,24 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // test-driven-development skills).
 
 const probes = {
-  core: 'packages/server/src/core/registry/rules-probe.ts',
-  adapter: 'packages/server/src/adapters/http/rules-probe.ts',
+  core: 'packages/core/src/domain/registry/rules-probe.ts',
+  adapter: 'packages/core/src/adapters/http/rules-probe.ts',
   common: 'packages/common/src/rules-probe.ts',
-  test: 'packages/server/src/core/registry/rules-probe.test.ts',
+  test: 'packages/core/src/domain/registry/rules-probe.test.ts',
   commonTest: 'packages/common/src/rules-probe.test.ts',
-  adapterTest: 'packages/server/src/adapters/cli/rules-probe.test.ts',
+  adapterTest: 'packages/core/src/adapters/cli/rules-probe.test.ts',
   script: 'scripts/rules-probe.ts',
-  page: 'packages/web/app/probe/page.tsx',
-  layout: 'packages/web/app/probe/layout.tsx',
-  config: 'packages/server/probe.config.ts',
-  pascalCase: 'packages/server/src/adapters/http/RateLimiter.ts',
-  snakeCase: 'packages/server/src/adapters/http/rate_limiter.ts',
-  camelCaseTest: 'packages/server/src/adapters/http/rateLimiter.test.ts',
-  kebabCaseTest: 'packages/server/src/adapters/http/rate-limiter-probe.test.ts',
-  setup: 'packages/server/test/postgres-probe.global-setup.ts',
+  page: 'packages/console/app/probe/page.tsx',
+  layout: 'packages/console/app/probe/layout.tsx',
+  config: 'packages/core/probe.config.ts',
+  pascalCase: 'packages/core/src/adapters/http/RateLimiter.ts',
+  snakeCase: 'packages/core/src/adapters/http/rate_limiter.ts',
+  camelCaseTest: 'packages/core/src/adapters/http/rateLimiter.test.ts',
+  kebabCaseTest: 'packages/core/src/adapters/http/rate-limiter-probe.test.ts',
+  setup: 'packages/core/test/postgres-probe.global-setup.ts',
 };
 // These rules need no package-specific typing, so every probe is typed with the server's tsconfig.
-const lint = createLint({ tsconfig: 'packages/server/tsconfig.json', probes: Object.values(probes) });
+const lint = createLint({ tsconfig: 'packages/core/tsconfig.json', probes: Object.values(probes) });
 
 const everywhere = [probes.core, probes.adapter, probes.common, probes.script];
 

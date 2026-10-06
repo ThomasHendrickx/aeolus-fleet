@@ -61,7 +61,7 @@ describe('setVersion', () => {
   it('sets the same version on all five packages, squadrons and the trierarch included', () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'server', 'web', 'squadrons', 'trierarch']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch']);
     expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
   });
 
@@ -69,40 +69,40 @@ describe('setVersion', () => {
     setVersion(copy, '0.1.0');
 
     expect(manifest('trierarch').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('trierarch').devDependencies?.['@aeolus-fleet/server']).toBe('0.1.0');
+    expect(manifest('trierarch').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('pins squadrons to common and the server at that version', () => {
     setVersion(copy, '0.1.0');
 
     expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/server']).toBe('0.1.0');
+    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('pins the packages to each other at that version', () => {
     setVersion(copy, '0.1.0');
 
-    expect(manifest('server').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('web').devDependencies?.['@aeolus-fleet/server']).toBe('0.1.0');
+    expect(manifest('core').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
+    expect(manifest('console').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('leaves other dependencies and the repository field alone', () => {
-    const before = manifest('server');
+    const before = manifest('core');
 
     setVersion(copy, '0.1.0');
 
-    const after = manifest('server');
+    const after = manifest('core');
     expect(after.dependencies?.fastify).toBe(before.dependencies?.fastify);
     expect(after.repository).toEqual({
       type: 'git',
       url: 'git+https://github.com/ThomasHendrickx/aeolus-fleet.git',
-      directory: 'packages/server',
+      directory: 'packages/core',
     });
   });
 
   it('keeps every field of the manifest in its place', () => {
     const keys = () => Object.keys(z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(path, 'utf8'))));
-    const path = join(copy, 'packages', 'server', 'package.json');
+    const path = join(copy, 'packages', 'core', 'package.json');
     const before = keys();
 
     setVersion(copy, '0.1.0');

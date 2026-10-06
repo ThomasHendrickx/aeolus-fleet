@@ -10,14 +10,14 @@
   },
   "workspaces": [
     "packages/common",
-    "packages/server",
+    "packages/core",
     "packages/squadrons",
     "packages/trierarch",
-    "packages/web"
+    "packages/console"
   ],
   "scripts": {
-    "postinstall": "npm run generate --workspace @aeolus-fleet/server --workspace @aeolus-fleet/squadrons",
-    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/server --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/web",
+    "postinstall": "npm run generate --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons",
+    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/console",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",

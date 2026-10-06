@@ -34,11 +34,11 @@ describe('the em dash check', () => {
   });
 
   it('refuses an em dash in a new file', () => {
-    repository.write('packages/server/src/app.ts', `// one ${EM_DASH} two\nexport {};\n`);
+    repository.write('packages/core/src/app.ts', `// one ${EM_DASH} two\nexport {};\n`);
     const head = repository.commit('feat: app');
 
     expect(emDashProblems(repository.path, { base, head })).toEqual([
-      expect.stringContaining('packages/server/src/app.ts:1 adds an em dash'),
+      expect.stringContaining('packages/core/src/app.ts:1 adds an em dash'),
     ]);
   });
 

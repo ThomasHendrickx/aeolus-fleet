@@ -36,8 +36,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'server:unit',
-          root: 'packages/server',
+          name: 'core:unit',
+          root: 'packages/core',
           include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
           exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
         },
@@ -63,8 +63,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'web:unit',
-          root: 'packages/web',
+          name: 'console:unit',
+          root: 'packages/console',
           include: ['lib/**/*.test.ts'],
         },
       },
@@ -81,8 +81,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'server:integration',
-          root: 'packages/server',
+          name: 'core:integration',
+          root: 'packages/core',
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['test/postgres.global-setup.ts'],
           testTimeout: 30_000,
@@ -96,7 +96,7 @@ export default defineConfig({
           name: 'squadrons:integration',
           root: 'packages/squadrons',
           include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../server/test/postgres.global-setup.ts'],
+          globalSetup: ['../core/test/postgres.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
@@ -108,7 +108,7 @@ export default defineConfig({
           name: 'trierarch:integration',
           root: 'packages/trierarch',
           include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../server/test/postgres.global-setup.ts'],
+          globalSetup: ['../core/test/postgres.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
@@ -118,11 +118,11 @@ export default defineConfig({
         test: {
           // The console in a real browser: Postgres, the server and the web app
           // in development mode, driven by Playwright.
-          name: 'web:e2e',
+          name: 'console:e2e',
           include: ['e2e/**/*.e2e.test.ts'],
-          // Each file starts its own next dev in packages/web; one at a time.
+          // Each file starts its own next dev in packages/console; one at a time.
           fileParallelism: false,
-          globalSetup: ['packages/server/test/postgres.global-setup.ts'],
+          globalSetup: ['packages/core/test/postgres.global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 240_000,
         },

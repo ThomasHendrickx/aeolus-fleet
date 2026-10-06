@@ -9,8 +9,8 @@ import { promisify } from 'node:util';
 import type { Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { OPERATOR } from '../packages/server/test/support/core-fixtures.js';
-import { createEmptyDatabase } from '../packages/server/test/support/database.js';
+import { OPERATOR } from '../packages/core/test/support/core-fixtures.js';
+import { createEmptyDatabase } from '../packages/core/test/support/database.js';
 import { signIn } from './support/console.js';
 import { freePort, launchChromium } from './support/web.js';
 
@@ -101,9 +101,9 @@ beforeAll(async () => {
       '--workspace',
       '@aeolus-fleet/common',
       '--workspace',
-      '@aeolus-fleet/server',
+      '@aeolus-fleet/core',
       '--workspace',
-      '@aeolus-fleet/web',
+      '@aeolus-fleet/console',
     ],
     { cwd: repositoryRoot },
   );

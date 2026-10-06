@@ -5,14 +5,14 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createPrismaClient, type PrismaClient } from '../packages/server/src/adapters/prisma/client.js';
-import { createApp } from '../packages/server/src/app.js';
-import type { AppRouter } from '../packages/server/src/index.js';
-import { createUseCases } from '../packages/server/src/wiring.js';
-import { FLEET_URL, secretOf } from '../packages/server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/server/test/support/database.js';
-import { newKey } from '../packages/server/test/support/keys.js';
-import { unwrap } from '../packages/server/test/support/result.js';
+import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
+import { createApp } from '../packages/core/src/app.js';
+import type { AppRouter } from '../packages/core/src/index.js';
+import { createUseCases } from '../packages/core/src/wiring.js';
+import { FLEET_URL, secretOf } from '../packages/core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { newKey } from '../packages/core/test/support/keys.js';
+import { unwrap } from '../packages/core/test/support/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The overview, end to end: a fleet with one ship crewed, one awaiting crew

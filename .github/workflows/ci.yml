@@ -43,7 +43,7 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      - run: npm run build-storybook --workspace @aeolus-fleet/web
+      - run: npm run build-storybook --workspace @aeolus-fleet/console
 
   guardrails:
     # The CI checks in scripts/ (slice 1b). Every check runs, so one failure
@@ -120,7 +120,7 @@ jobs:
       - run: npm run set-version -- "0.0.0-ci.${{ github.run_id }}"
       - run: npm run build
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
-      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/server
-      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/web
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/core
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/console
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/squadrons
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch

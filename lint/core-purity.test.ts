@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import { createLint, reportsOf } from './support/lint-probe.ts';
 
-// server/src/core is deterministic and never throws: time, randomness and
+// core/src/domain is deterministic and never throws: time, randomness and
 // hashing reach it through ports, and a refusal is a result (domain-modelling
 // and typescript skills).
 
-const coreProbe = 'packages/server/src/core/shared/purity-probe.ts';
-const coreTestProbe = 'packages/server/src/core/registry/purity-probe.test.ts';
+const coreProbe = 'packages/core/src/domain/shared/purity-probe.ts';
+const coreTestProbe = 'packages/core/src/domain/registry/purity-probe.test.ts';
 // A file in core but in none of the context folders, such as a new one.
-const unlistedCoreProbe = 'packages/server/src/core/purity-probe.ts';
-const adapterProbe = 'packages/server/src/adapters/http/purity-probe.ts';
+const unlistedCoreProbe = 'packages/core/src/domain/purity-probe.ts';
+const adapterProbe = 'packages/core/src/adapters/http/purity-probe.ts';
 const lint = createLint({
-  tsconfig: 'packages/server/tsconfig.json',
+  tsconfig: 'packages/core/tsconfig.json',
   probes: [coreProbe, coreTestProbe, unlistedCoreProbe, adapterProbe],
 });
 
@@ -44,7 +44,7 @@ const impurities = [
 
 describe('the core is deterministic', () => {
   it.each(impurities)('refuses $label', async ({ code, rule, says }) => {
-    expect(reportsOf(await lint(code, coreProbe), rule)).toEqual([expect.stringContaining(`server/src/core ${says}`)]);
+    expect(reportsOf(await lint(code, coreProbe), rule)).toEqual([expect.stringContaining(`core/src/domain ${says}`)]);
   });
 
   it.each(impurities)('refuses $label in a core test too', async ({ code, rule }) => {
@@ -71,7 +71,7 @@ describe('the core never throws', () => {
 
   it('refuses a throw', async () => {
     expect(reportsOf(await lint(throwing, coreProbe), 'no-restricted-syntax')).toEqual([
-      expect.stringContaining('server/src/core never throws: return a Result'),
+      expect.stringContaining('core/src/domain never throws: return a Result'),
     ]);
   });
 

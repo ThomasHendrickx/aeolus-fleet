@@ -1,6 +1,6 @@
 /**
- * CI check: every use case in server/src/core has a test file beside it
- * (CLAUDE.md, "Quality"). A use-case file is a file in server/src/core that
+ * CI check: every use case in core/src/domain has a test file beside it
+ * (CLAUDE.md, "Quality"). A use-case file is a file in core/src/domain that
  * declares an exported factory named create<Name>, like `createSignIn`
  * (domain-modelling skill); its test is `<file name>.test.ts` in the same
  * folder.
@@ -15,7 +15,7 @@ import ts from 'typescript';
 import { repositoryRoot, trackedFiles } from './support/git.ts';
 import { report } from './support/report.ts';
 
-export const CORE_FOLDER = 'packages/server/src/core/';
+export const CORE_FOLDER = 'packages/core/src/domain/';
 
 const FACTORY_NAME = /^create[A-Z]/;
 

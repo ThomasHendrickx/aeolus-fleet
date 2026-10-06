@@ -16,7 +16,7 @@ This plan takes aeolus-fleet from an empty repo to the v1 acceptance test (two s
 
 - [ ] Branch protection on main: PR required, CI must pass
 - [x] Claim the npm org `aeolus-fleet`
-- [x] Publish `0.0.0` placeholders for `@aeolus-fleet/server`, `@aeolus-fleet/web`, `@aeolus-fleet/common`
+- [x] Publish `0.0.0` placeholders for `@aeolus-fleet/core`, `@aeolus-fleet/console`, `@aeolus-fleet/common`
 - [x] Configure trusted publishing (OIDC) for the three packages: GitHub Actions, repo `ThomasHendrickx/aeolus-fleet`, workflow `release.yml`
 - [x] Publishing access on all three packages: require two-factor authentication and disallow tokens
 
@@ -55,7 +55,7 @@ Start from the latest main. Read CLAUDE.md, docs/decisions/README.md (full files
 
 ## Goal
 
-The packages, installed from npm on a fresh machine, run a fleet safely. The private infra repo installs `@aeolus-fleet/server` and `@aeolus-fleet/web` at a pinned version and starts them; nothing in it knows this repo's source.
+The packages, installed from npm on a fresh machine, run a fleet safely. The private infra repo installs `@aeolus-fleet/core` and `@aeolus-fleet/console` at a pinned version and starts them; nothing in it knows this repo's source.
 
 ## Build
 

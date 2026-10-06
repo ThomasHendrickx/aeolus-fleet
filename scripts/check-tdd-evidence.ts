@@ -1,7 +1,7 @@
 /**
  * CI check: test-driven development leaves evidence in the history (ADR 0014).
  * In a pull request, every `feat` or `fix` commit that changes production code
- * in packages/server/src or packages/common/src comes right after a (red)
+ * in packages/core/src or packages/common/src comes right after a (red)
  * commit: one whose subject ends in "(red)" and that only adds or changes test
  * files. Every other commit type passes.
  *
@@ -18,7 +18,7 @@ import { runPullRequestCheck } from './support/report.ts';
 /** The last commit on main before slice 1b introduced this check. It and every commit before it are exempt. */
 export const EXEMPT_UP_TO = '18905388af14b21cc57daf1935203bbb84e0f2b7';
 
-const PRODUCTION_FOLDERS = ['packages/server/src/', 'packages/common/src/'];
+const PRODUCTION_FOLDERS = ['packages/core/src/', 'packages/common/src/'];
 const TEST_FILE = /\.test\.tsx?$|(^|\/)(test|e2e)\//;
 /** A conventional commit of type feat or fix, with or without a scope or a breaking mark. */
 const FEAT_OR_FIX_SUBJECT = /^(feat|fix)(\([^)]*\))?!?: /;

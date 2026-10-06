@@ -1,6 +1,6 @@
 # 0008 Six packages, one repo; infra private
 
-`@aeolus-fleet/server`, `web`, `common`, `squadrons`, `trierarch-plugin` and `trierarch` in this public Apache-2.0 repo, one version. Thomas's hosting lives in private `aeolus-fleet-infra`, consuming the published packages. `squadrons`, `trierarch-plugin` and `trierarch` are optional: a fleet runs without them (decisions 0017, 0026, 0030).
+`@aeolus-fleet/core`, `web`, `common`, `squadrons`, `trierarch-plugin` and `trierarch` in this public Apache-2.0 repo, one version. Thomas's hosting lives in private `aeolus-fleet-infra`, consuming the published packages. `squadrons`, `trierarch-plugin` and `trierarch` are optional: a fleet runs without them (decisions 0017, 0026, 0030).
 
 Why: Anyone can run a fleet; one version while the packages move together.
 

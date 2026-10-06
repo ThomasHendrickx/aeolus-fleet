@@ -41,33 +41,33 @@ describe('the use-case test check', () => {
   });
 
   it('passes a use case with its test beside it', () => {
-    repository.write('packages/server/src/core/identity/sign-in.ts', signIn);
-    repository.write('packages/server/src/core/identity/sign-in.test.ts', 'test\n');
+    repository.write('packages/core/src/domain/identity/sign-in.ts', signIn);
+    repository.write('packages/core/src/domain/identity/sign-in.test.ts', 'test\n');
     repository.commit('feat: sign in');
 
     expect(useCaseTestProblems(repository.path)).toEqual([]);
   });
 
   it('refuses a use case without a test', () => {
-    repository.write('packages/server/src/core/identity/sign-in.ts', signIn);
+    repository.write('packages/core/src/domain/identity/sign-in.ts', signIn);
     repository.commit('feat: sign in');
 
     expect(useCaseTestProblems(repository.path)).toEqual([
-      'packages/server/src/core/identity/sign-in.ts is a use case (createSignIn) without packages/server/src/core/identity/sign-in.test.ts',
+      'packages/core/src/domain/identity/sign-in.ts is a use case (createSignIn) without packages/core/src/domain/identity/sign-in.test.ts',
     ]);
   });
 
   it('refuses a use case whose test is elsewhere', () => {
-    repository.write('packages/server/src/core/identity/sign-in.ts', signIn);
-    repository.write('packages/server/test/sign-in.test.ts', 'test\n');
+    repository.write('packages/core/src/domain/identity/sign-in.ts', signIn);
+    repository.write('packages/core/test/sign-in.test.ts', 'test\n');
     repository.commit('feat: sign in');
 
     expect(useCaseTestProblems(repository.path)).toHaveLength(1);
   });
 
   it('looks only at the core', () => {
-    repository.write('packages/server/src/adapters/prisma/unit-of-work.ts', 'export function createPrismaUnitOfWork() {}\n');
-    repository.write('packages/server/src/core/registry/fleet.ts', 'export function fleetName() {}\n');
+    repository.write('packages/core/src/adapters/prisma/unit-of-work.ts', 'export function createPrismaUnitOfWork() {}\n');
+    repository.write('packages/core/src/domain/registry/fleet.ts', 'export function fleetName() {}\n');
     repository.commit('feat: adapters and value objects');
 
     expect(useCaseTestProblems(repository.path)).toEqual([]);

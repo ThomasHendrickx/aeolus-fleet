@@ -3,16 +3,16 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createApp } from '../../server/src/app.js';
-import { createPrismaClient, type PrismaClient } from '../../server/src/adapters/prisma/client.js';
-import { createUseCases } from '../../server/src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../../server/test/support/database.js';
-import { unwrap } from '../../server/test/support/result.js';
+import { createApp } from '../../core/src/app.js';
+import { createPrismaClient, type PrismaClient } from '../../core/src/adapters/prisma/client.js';
+import { createUseCases } from '../../core/src/wiring.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../../core/test/support/database.js';
+import { unwrap } from '../../core/test/support/result.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { connectSquadrons, signIn } from './support/connection.js';
 import { createSquadronsDatabase } from './support/database.js';
-import { newKey } from '../../server/test/support/keys.js';
+import { newKey } from '../../core/test/support/keys.js';
 
 // squadrons against a real fleet: it starts not connected, with no secret
 // anywhere; the operator connects it, it keeps the crew token in its own

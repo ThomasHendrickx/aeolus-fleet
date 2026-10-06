@@ -48,7 +48,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@aeolus-fleet/server": "0.0.0",
+    "@aeolus-fleet/core": "0.0.0",
     "@testcontainers/postgresql": "^12.2.0",
     "@types/pg": "^8.23.1"
   }

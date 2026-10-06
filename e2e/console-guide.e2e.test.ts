@@ -4,11 +4,11 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createApp } from '../packages/server/src/app.js';
-import type { AppRouter } from '../packages/server/src/index.js';
-import { FLEET_URL } from '../packages/server/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/server/test/support/database.js';
-import { newKey } from '../packages/server/test/support/keys.js';
+import { createApp } from '../packages/core/src/app.js';
+import type { AppRouter } from '../packages/core/src/index.js';
+import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
+import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { newKey } from '../packages/core/test/support/keys.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The installation's guide (decision 0024), end to end: set through the

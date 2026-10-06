@@ -11,11 +11,11 @@ import { createTemporaryRepository, type TemporaryRepository } from './support/t
 const config = `export default {
   test: {
     projects: [
-      { test: { name: 'server:unit', root: 'packages/server', include: ['src/**/*.test.ts'] } },
+      { test: { name: 'core:unit', root: 'packages/core', include: ['src/**/*.test.ts'] } },
       {
         test: {
-          name: 'server:integration',
-          root: 'packages/server',
+          name: 'core:integration',
+          root: 'packages/core',
           include: ['test/**/*.integration.test.ts'],
         },
       },
@@ -29,8 +29,8 @@ let repository: TemporaryRepository;
 beforeEach(() => {
   repository = createTemporaryRepository();
   repository.write('vitest.config.js', config);
-  repository.write('packages/server/src/core/shared/ping.test.ts', 'test\n');
-  repository.write('packages/server/test/api.integration.test.ts', 'test\n');
+  repository.write('packages/core/src/domain/shared/ping.test.ts', 'test\n');
+  repository.write('packages/core/test/api.integration.test.ts', 'test\n');
 });
 
 afterEach(() => {
@@ -45,9 +45,9 @@ describe('the test project check', () => {
   });
 
   it.each([
-    'packages/server/test/api.test.ts',
-    'packages/web/lib/health.test.ts',
-    'packages/web/components/atoms/button.test.tsx',
+    'packages/core/test/api.test.ts',
+    'packages/console/lib/health.test.ts',
+    'packages/console/components/atoms/button.test.tsx',
   ])('refuses %s, which no project runs', async (file) => {
     repository.write(file, 'test\n');
     repository.commit('test: stray');
@@ -59,7 +59,7 @@ describe('the test project check', () => {
 
   it('looks only at files git tracks', async () => {
     repository.commit('test: covered');
-    repository.write('packages/web/lib/scratch.test.ts', 'test\n');
+    repository.write('packages/console/lib/scratch.test.ts', 'test\n');
 
     await expect(testProjectProblems(repository.path)).resolves.toEqual([]);
   });
