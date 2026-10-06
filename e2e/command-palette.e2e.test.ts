@@ -93,6 +93,8 @@ describe('the CommandPalette', () => {
 
     await page.getByTestId('header-search').click();
     await palette(page).getByTestId('command-palette-input').fill('commission');
+    // Commission ship is offered once the session's access is known; Enter before that chooses nothing.
+    await palette(page).locator('[data-testid="command-palette-item"][data-item-id="commission"][aria-selected="true"]').waitFor();
     await page.keyboard.press('Enter');
 
     await page.getByTestId('commission-dialog').waitFor();
