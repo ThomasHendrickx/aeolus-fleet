@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 
 import {
+  describedAnswerSchema,
   FIRST_PROMPT_MAX_BYTES,
   listedAnswerSchema,
   trierarchAnswerSchemas,
@@ -80,6 +81,25 @@ describe('the trierarch protocol', () => {
     ['leaseEnded', { shipId: SHIP_ID }],
   ])('refuses an unknown field in the %s notice', (name, payload) => {
     expect(trierarchNoticeSchemas[name]?.safeParse({ ...payload, extra: true }).success).toBe(false);
+  });
+});
+
+describe('a described answer', () => {
+  const aDescribed = (adapterFlags: unknown) => ({
+    harnesses: [{ harness: 'codex', options: { type: 'object', properties: {}, additionalProperties: false }, flags: [], adapterFlags }],
+    workspaces: { repositories: [], folders: [] },
+    caps: { ships: 1, running: 1 },
+    kept: [],
+    version: '0.18.0',
+  });
+
+  it('gives the flags each adapter adds itself, always or on a restart, beside the configured ones', () => {
+    expect(describedAnswerSchema.safeParse(aDescribed([{ flag: '--no-daemon', when: 'always' }])).success).toBe(true);
+    expect(describedAnswerSchema.safeParse(aDescribed([{ flag: '--continue', when: 'restart' }])).success).toBe(true);
+  });
+
+  it('refuses an adapter flag added at any other time', () => {
+    expect(describedAnswerSchema.safeParse(aDescribed([{ flag: '--continue', when: 'sometimes' }])).success).toBe(false);
   });
 });
 
