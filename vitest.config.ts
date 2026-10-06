@@ -54,6 +54,14 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'trierarch:unit',
+          root: 'packages/trierarch',
+          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'web:unit',
           root: 'packages/web',
           include: ['lib/**/*.test.ts'],

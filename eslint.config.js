@@ -322,6 +322,12 @@ export default defineConfig(
     files: ['packages/squadrons/src/core/**/*.ts'],
     rules: coreRules(),
   },
+  {
+    // The trierarch keeps the server's rule too: its core holds no framework or adapter, reads no clock and never throws.
+    name: 'aeolus/trierarch-core',
+    files: ['packages/trierarch/src/core/**/*.ts'],
+    rules: coreRules(),
+  },
   ...coreContexts.map((context) => ({
     name: `aeolus/core-${context}`,
     files: [`packages/server/src/core/${context}/**/*.ts`],

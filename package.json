@@ -1,7 +1,7 @@
 {
   "name": "aeolus-fleet",
   "private": true,
-  "description": "Aeolus: an agent fleet manager. Workspace root for the three published packages and squadrons.",
+  "description": "Aeolus: an agent fleet manager. Workspace root for the three published packages, squadrons and the trierarch.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "npm@11.19.1",
@@ -12,11 +12,12 @@
     "packages/common",
     "packages/server",
     "packages/squadrons",
+    "packages/trierarch",
     "packages/web"
   ],
   "scripts": {
     "postinstall": "npm run generate --workspace @aeolus-fleet/server --workspace @aeolus-fleet/squadrons",
-    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/server --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/web",
+    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/server --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/web",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
