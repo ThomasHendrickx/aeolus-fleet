@@ -137,6 +137,18 @@ describe('a squadron blueprint', () => {
     ]);
   });
 
+  it('is named by its name field when it sets one, and keeps the path of its file', () => {
+    const [read] = catalogueOf([...templates, blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'hemma-feature' })]).blueprints;
+
+    expect(read).toMatchObject({ name: 'hemma-feature', version: 1, file: 'squadrons/blueprints/team.yaml' });
+  });
+
+  it('names each version by its own file', () => {
+    const { blueprints } = catalogueOf([...templates, blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'hemma-feature' }), blueprint({ name: 'team', version: 2 }, { ...hemmaFeature, name: 'hemma-build' })]);
+
+    expect(blueprints.map(({ name, version }) => `${name} v${String(version)}`)).toEqual(['hemma-feature v1', 'hemma-build v2']);
+  });
+
   it('may choose prefixed member names', () => {
     const [read] = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
 
@@ -189,6 +201,35 @@ describe('why a version is left out', () => {
     expect(reasonOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, roles: { ...hemmaFeature.roles, Tester: { template: `${REPO}#tester@4` } } })])).toBe(
       'roles.Tester must be a handle: lowercase letters, digits, hyphens or colons',
     );
+  });
+
+  it("names a blueprint's name that is no handle", () => {
+    expect(reasonOf([...templates, blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'Hemma Feature' })])).toBe('name must be a handle: lowercase letters, digits, hyphens or colons');
+  });
+
+  it('leaves out every version of two blueprint files that give one name, and says which', () => {
+    const { blueprints, problems } = catalogueOf([
+      ...templates,
+      blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'hemma-feature' }),
+      blueprint({ name: 'crew', version: 3 }, { ...hemmaFeature, name: 'hemma-feature' }),
+    ]);
+
+    expect(blueprints).toEqual([]);
+    expect(problems).toEqual([
+      { repository: REPO, kind: 'blueprint', name: 'team', version: 1, message: 'name hemma-feature is also the name of crew@3: every blueprint of a repository needs a name of its own' },
+      { repository: REPO, kind: 'blueprint', name: 'crew', version: 3, message: 'name hemma-feature is also the name of team@1: every blueprint of a repository needs a name of its own' },
+    ]);
+  });
+
+  it("leaves out a blueprint whose name is another blueprint file's name, and that blueprint too", () => {
+    const { blueprints, problems } = catalogueOf([
+      ...templates,
+      blueprint({ name: 'hemma-feature', version: 4 }, hemmaFeature),
+      blueprint({ name: 'team', version: 1 }, { ...hemmaFeature, name: 'hemma-feature' }),
+    ]);
+
+    expect(blueprints).toEqual([]);
+    expect(problems.map(({ name, version }) => `${name}@${String(version)}`)).toEqual(['hemma-feature@4', 'team@1']);
   });
 
   it('says a file is no valid YAML, and where', () => {
