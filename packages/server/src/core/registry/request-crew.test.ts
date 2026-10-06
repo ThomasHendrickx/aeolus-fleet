@@ -93,7 +93,7 @@ describe('a crew request read with the ship', () => {
 
     const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now() });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null });
   });
 
   it('is read whole, settings included, with the one ship', async () => {

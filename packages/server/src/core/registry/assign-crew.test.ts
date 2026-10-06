@@ -65,6 +65,31 @@ describe('assigning a crew request', () => {
   });
 });
 
+describe('an assigned crew request read with the ship', () => {
+  it('is listed with the trierarch it is assigned to, by id and name, and its status', async () => {
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+
+    expect(listed?.crewRequest).toMatchObject({ assignedTo: { id: trierarch.shipId, name: 'mac-mini' }, status: 'crewing' });
+  });
+
+  it('is read with the one ship, its trierarch by id and name', async () => {
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+
+    await expect(registry.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { crewRequest: { assignedTo: { id: trierarch.shipId, name: 'mac-mini' }, status: null } },
+    });
+  });
+
+  it('is listed unassigned, with no status, before the plugin assigns it', async () => {
+    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+
+    expect(listed?.crewRequest).toMatchObject({ assignedTo: null, status: null });
+  });
+});
+
 describe('an assignment refused', () => {
   async function expectRefused(input: Parameters<typeof registry.assignCrew>[1], kind: string): Promise<void> {
     const before = structuredClone(core.state);

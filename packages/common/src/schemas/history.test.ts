@@ -62,13 +62,13 @@ describe('shipDetailOutputSchema', () => {
   });
 
   it('accepts its crew request whole, settings included', () => {
-    const requested = { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, settings: { harness: 'codex' } } };
+    const requested = { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, status: null, settings: { harness: 'codex' } } };
 
     expect(shipDetailOutputSchema.parse(requested)).toEqual(requested);
   });
 
   it.each([
-    ['a crew request without its settings', { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT } }],
+    ['a crew request without its settings', { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, status: null } }],
     ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0 } }],
     ['a commissioned date that is not ISO 8601', { ...ship, commissionedAt: 'yesterday' }],
     ['a missing crewed since', { ...ship, crewedSince: undefined }],

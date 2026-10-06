@@ -256,7 +256,10 @@ describe('fleetListOutputSchema', () => {
   });
 
   it('accepts a ship with its crew request: its settings version and when it was requested', () => {
-    const requested = { ...ship, crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z' } };
+    const requested = {
+      ...ship,
+      crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: { id: newId('ship'), name: 'mac-mini' }, status: 'running' },
+    };
 
     expect(fleetListOutputSchema.parse([requested])).toEqual([requested]);
   });
@@ -302,7 +305,8 @@ describe('fleetListOutputSchema', () => {
     ['missing scopes', { ...ship, scopes: undefined }],
     ['a missing report', { ...ship, report: undefined }],
     ['a ship without its crew request', { ...ship, crewRequest: undefined }],
-    ['a crew request with a settings version of 0', { ...ship, crewRequest: { settingsVersion: 0, requestedAt: '2026-09-29T12:05:00.000Z' } }],
+    ['a crew request with a settings version of 0', { ...ship, crewRequest: { settingsVersion: 0, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: null, status: null } }],
+    ['a crew request in an unknown status', { ...ship, crewRequest: { settingsVersion: 1, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: null, status: 'asleep' } }],
     ['a report without its details version', { ...ship, report: { state: 'idle', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['a report in an unknown state', { ...ship, report: { state: 'sleeping', note: null, reportedAt: '2026-09-29T12:05:00.000Z' } }],
     ['an unknown scope', { ...ship, scopes: ['fleet:own'] }],
