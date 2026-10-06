@@ -2,7 +2,12 @@ import { err, type Err } from './result.js';
 
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
+  | 'ASSIGNEE_CANNOT_RUN_CREWS'
+  | 'CREW_REQUEST_ALREADY_ASSIGNED'
+  | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'
   | 'CREW_REQUEST_NOT_FOUND'
+  | 'CREW_REQUEST_NOT_RELEASING'
+  | 'CREW_REQUEST_RELEASING'
   | 'CREW_REQUEST_SETTINGS_TOO_LARGE'
   | 'DELIVERY_HELD_BY_ANOTHER_SHIP'
   | 'DELIVERY_NOT_FOUND'

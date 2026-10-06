@@ -61,6 +61,8 @@ describe('eventTypeSchema', () => {
       'ViewerSessionStarted',
       'CrewRequested',
       'CrewRequestRemoved',
+      'CrewAssigned',
+      'CrewStatusChanged',
     ]);
   });
 });

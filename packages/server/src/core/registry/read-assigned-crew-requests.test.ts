@@ -19,8 +19,8 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  plugin = await shipWithScopes(registry, argo, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
-  trierarch = await shipWithScopes(registry, argo, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+  plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+  trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
 });
 
 async function requested(name: string): Promise<ShipId> {

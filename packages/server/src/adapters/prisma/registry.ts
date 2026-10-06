@@ -92,12 +92,16 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
       const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
       return row === null ? undefined : toCrewRequest(row);
     },
-    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt }) => {
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status }) => {
       await db.crewRequest.upsert({
         where: { fleetId_shipId: { fleetId, shipId } },
-        create: { fleetId, shipId, settings, settingsVersion, requestedAt },
-        update: { settings, settingsVersion, requestedAt },
+        create: { fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status },
+        update: { settings, settingsVersion, requestedAt, assignedTo, status },
       });
+    },
+    listAssignedTo: async (fleetId, trierarchShipId) => {
+      const rows = await db.crewRequest.findMany({ where: { fleetId, assignedTo: trierarchShipId }, orderBy: { shipId: 'asc' } });
+      return rows.map(toCrewRequest);
     },
     remove: async (fleetId, shipId) => {
       await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
@@ -377,7 +381,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
-               cr.requested_at AS crew_request_requested_at,
+               cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
+               cr.status::text AS crew_request_status,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -410,7 +415,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
-               cr.requested_at AS crew_request_requested_at,
+               cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
+               cr.status::text AS crew_request_status,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs

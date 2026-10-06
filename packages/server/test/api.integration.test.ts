@@ -180,6 +180,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_lease_report_details$/),
       expect.stringMatching(/^\d{14}_crew_requests$/),
       expect.stringMatching(/^\d{14}_crew_scopes$/),
+      expect.stringMatching(/^\d{14}_crew_assignment$/),
     ]);
   });
 });
@@ -1517,7 +1518,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_crew_scopes$/);
+    expect(migration).toMatch(/^\d{14}_crew_assignment$/);
   });
 });
 

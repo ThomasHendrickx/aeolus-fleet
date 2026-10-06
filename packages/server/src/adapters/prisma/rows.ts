@@ -2,6 +2,7 @@ import {
   themeSchema,
   deliveryStateSchema,
   crewRequestSettingsSchema,
+  crewStatusSchema,
   reportDetailsSchema,
   reportStateSchema,
   eventTypeSchema,
@@ -109,6 +110,8 @@ const crewRequestRow = z.object({
   settings: crewRequestSettingsSchema,
   settingsVersion: z.int().min(1),
   requestedAt: z.date(),
+  assignedTo: idSchema('ship').nullable(),
+  status: crewStatusSchema.nullable(),
 });
 
 /** A crew request as Prisma reads its row. */
@@ -156,6 +159,8 @@ const shipFactsSqlRow = z.object({
   crew_request_settings: crewRequestSettingsSchema.nullable(),
   crew_request_settings_version: z.int().min(1).nullable(),
   crew_request_requested_at: z.date().nullable(),
+  crew_request_assigned_to: idSchema('ship').nullable(),
+  crew_request_status: crewStatusSchema.nullable(),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -178,6 +183,8 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_settings,
     crew_request_settings_version,
     crew_request_requested_at,
+    crew_request_assigned_to,
+    crew_request_status,
   } = shipFactsSqlRow.parse(row);
   const ship = toShipFromSql(row);
   return {
@@ -202,6 +209,8 @@ export function toShipFacts(row: unknown): ShipFacts {
             settings: crew_request_settings,
             settingsVersion: crew_request_settings_version,
             requestedAt: crew_request_requested_at,
+            assignedTo: crew_request_assigned_to,
+            status: crew_request_status,
           }
         : null,
     lastPing:

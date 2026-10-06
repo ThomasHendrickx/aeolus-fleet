@@ -21,8 +21,8 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  const plugin = await shipWithScopes(registry, argo, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
-  trierarch = await shipWithScopes(registry, argo, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+  const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+  trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
   unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
@@ -76,7 +76,7 @@ describe('the trierarch confirming a release', () => {
   });
 
   it('refuses a trierarch the request is not assigned to', async () => {
-    const other = await shipWithScopes(registry, argo, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
+    const other = await shipWithScopes({ registry, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
 
     await expect(registry.confirmCrewRelease(other, { shipId: scoutId })).resolves.toMatchObject({
       isOk: false,

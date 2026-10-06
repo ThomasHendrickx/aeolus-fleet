@@ -21,8 +21,8 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  const plugin = await shipWithScopes(registry, argo, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
-  trierarch = await shipWithScopes(registry, argo, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+  const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+  trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
   unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
@@ -66,7 +66,7 @@ describe("the assigned trierarch's status", () => {
 });
 
 describe('a status refused', () => {
-  async function expectRefused(caller: Caller, input: Parameters<typeof registry.reportCrewStatus>[1], kind: string): Promise<void> {
+  async function expectRefused({ caller, input }: { caller: Caller; input: Parameters<typeof registry.reportCrewStatus>[1] }, kind: string): Promise<void> {
     const before = structuredClone(core.state);
 
     await expect(registry.reportCrewStatus(caller, input)).resolves.toMatchObject({ isOk: false, error: { kind } });
@@ -75,23 +75,23 @@ describe('a status refused', () => {
   }
 
   it('refuses a trierarch the request is not assigned to', async () => {
-    const other = await shipWithScopes(registry, argo, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
+    const other = await shipWithScopes({ registry, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
     core.state.events.length = 0;
 
-    await expectRefused(other, { shipId: scoutId, status: 'running' }, 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER');
+    await expectRefused({ caller: other, input: { shipId: scoutId, status: 'running' } }, 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER');
   });
 
   it('refuses any status but releasing once the request is releasing', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
     core.state.events.length = 0;
 
-    await expectRefused(trierarch, { shipId: scoutId, status: 'running' }, 'CREW_REQUEST_RELEASING');
+    await expectRefused({ caller: trierarch, input: { shipId: scoutId, status: 'running' } }, 'CREW_REQUEST_RELEASING');
   });
 
   it('refuses a ship without a crew request', async () => {
     unwrap(await registry.retireShip(argo, { shipId: scoutId }));
     core.state.events.length = 0;
 
-    await expectRefused(trierarch, { shipId: scoutId, status: 'running' }, 'CREW_REQUEST_NOT_FOUND');
+    await expectRefused({ caller: trierarch, input: { shipId: scoutId, status: 'running' } }, 'CREW_REQUEST_NOT_FOUND');
   });
 });

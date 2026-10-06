@@ -11,8 +11,7 @@ import { unwrap } from './result.js';
  * trierarch's with crew:run.
  */
 export async function shipWithScopes(
-  registry: ReturnType<typeof registryUseCases>,
-  argo: Caller,
+  { registry, argo }: { registry: ReturnType<typeof registryUseCases>; argo: Caller },
   ship: { name: string; type: string; scopes: Scope[] },
 ): Promise<Caller> {
   const fleetScopes = ship.scopes.filter((scope) => scope !== 'messages:send' && scope !== 'messages:receive');

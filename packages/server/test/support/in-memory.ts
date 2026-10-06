@@ -148,6 +148,8 @@ export interface InMemoryCore {
   ships: ShipRepository;
   /** The leases, read outside a unit of work. */
   leases: LeaseRepository;
+  /** The crew requests, read outside a unit of work. */
+  crewRequests: CrewRequestRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -363,6 +365,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.crewRequests.splice(index === -1 ? state.crewRequests.length : index, index === -1 ? 0 : 1, { ...request });
         return Promise.resolve();
       },
+      listAssignedTo: (fleetId, trierarchShipId) =>
+        Promise.resolve(
+          state.crewRequests
+            .filter((request) => request.fleetId === fleetId && request.assignedTo === trierarchShipId)
+            .sort((first, second) => first.shipId.localeCompare(second.shipId))
+            .map((request) => ({ ...request })),
+        ),
       remove: (fleetId, shipId) => {
         const index = state.crewRequests.findIndex((held) => held.fleetId === fleetId && held.shipId === shipId);
         if (index !== -1) {
@@ -1189,7 +1198,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, leases: tx.leases, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

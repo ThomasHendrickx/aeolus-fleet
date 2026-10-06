@@ -150,6 +150,8 @@ export interface CrewRequestRepository {
   /** Stores the ship's request, replacing the one it held. */
   save(request: CrewRequest): Promise<void>;
   remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
+  /** The requests assigned to this trierarch ship, oldest ship first. */
+  listAssignedTo(fleetId: FleetId, trierarchShipId: ShipId): Promise<CrewRequest[]>;
 }
 
 /** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   CREW_REQUEST_SETTINGS_MAX_BYTES,
+  CREW_STATUSES,
   crewRequestInputSchema,
   crewRequestOutputSchema,
   crewRequestSettingsBytes,
@@ -73,5 +74,11 @@ describe('removeCrewRequestInputSchema', () => {
 describe('removeCrewRequestOutputSchema', () => {
   it('answers nothing: the OK is the answer', () => {
     expect(removeCrewRequestOutputSchema.parse({})).toEqual({});
+  });
+});
+
+describe('CREW_STATUSES', () => {
+  it('are crewing, running, restarting, crashed and releasing', () => {
+    expect(CREW_STATUSES).toEqual(['crewing', 'running', 'restarting', 'crashed', 'releasing']);
   });
 });

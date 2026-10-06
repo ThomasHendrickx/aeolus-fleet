@@ -23,8 +23,9 @@ export type RemoveCrewRequest = (
 /**
  * Use case: a requester removes a ship's crew request. Its scope
  * (fleet:manage) is checked before this runs. In one unit of work, locking the
- * ship first: the request goes, with CrewRequestRemoved. The ship's crew, if
- * any, stays aboard.
+ * ship first: an unassigned request goes, with CrewRequestRemoved; an
+ * assigned one is marked releasing, for its trierarch to release the ship and
+ * confirm. A crew aboard without a trierarch stays aboard.
  */
 export function createRemoveCrewRequest(deps: { uow: UnitOfWork<RemoveCrewRequestTx>; clock: Clock; ids: IdGenerator }): RemoveCrewRequest {
   return (caller, input) =>
@@ -38,7 +39,12 @@ export function createRemoveCrewRequest(deps: { uow: UnitOfWork<RemoveCrewReques
       if (!removed.isOk) {
         return removed;
       }
-      await tx.crewRequests.remove(caller.fleetId, ship.id);
+      const { request } = removed.value;
+      if (request) {
+        await tx.crewRequests.save(request);
+      } else {
+        await tx.crewRequests.remove(caller.fleetId, ship.id);
+      }
       for (const event of removed.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }

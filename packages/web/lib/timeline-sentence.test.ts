@@ -291,6 +291,20 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says who assigned the crew request, and how the trierarch says the crew stands', () => {
+    expect(onScoutsPage(anEntry('CrewAssigned', { actor: argo, details: { assignedTo: argo.id } }))).toEqual({
+      sentence: 'Crew request assigned by argo',
+      tone: 'waiting',
+      icon: 'claimed',
+    });
+    expect(onScoutsPage(anEntry('CrewStatusChanged', { actor: argo, details: { status: 'running' } }))).toEqual({
+      sentence: 'Crew running by argo',
+      tone: 'active',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('CrewStatusChanged', { actor: argo, details: { status: 'crashed' } }))).toMatchObject({ tone: 'attention' });
+  });
+
   it('says who dismissed an undeliverable message', () => {
     expect(onScoutsPage(anEntry('DeliveryDismissed', { actor: argo, message: fromPlanner }))).toEqual({
       sentence: 'A message from planner was dismissed by argo',

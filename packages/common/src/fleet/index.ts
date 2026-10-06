@@ -78,6 +78,8 @@ export const EVENT_TYPES = [
   'ViewerSessionStarted',
   'CrewRequested',
   'CrewRequestRemoved',
+  'CrewAssigned',
+  'CrewStatusChanged',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

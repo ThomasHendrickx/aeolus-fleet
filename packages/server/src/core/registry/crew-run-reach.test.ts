@@ -26,8 +26,8 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  const plugin = await shipWithScopes(registry, argo, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
-  trierarch = await shipWithScopes(registry, argo, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+  const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+  trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: assignedId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   ({ shipId: otherId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' })));
   unwrap(await registry.requestCrew(argo, { shipId: assignedId, settings: {} }));
@@ -78,7 +78,7 @@ describe('a ship with crew:run', () => {
 
 describe('a ship with fleet:manage or fleet:crew', () => {
   it('reaches every ship as before', async () => {
-    const crew = await shipWithScopes(registry, argo, { name: 'old-trierarch', type: 'trierarch', scopes: ['fleet:crew'] });
+    const crew = await shipWithScopes({ registry, argo }, { name: 'old-trierarch', type: 'trierarch', scopes: ['fleet:crew'] });
 
     await expect(registry.getStartingPrompt(crew, { shipId: otherId })).resolves.toMatchObject({ isOk: true });
     await expect(registry.getStartingPrompt(argo, { shipId: otherId })).resolves.toMatchObject({ isOk: true });

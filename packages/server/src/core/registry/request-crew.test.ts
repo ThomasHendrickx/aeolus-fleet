@@ -35,7 +35,7 @@ describe('requesting a crew for a ship', () => {
   it('keeps the request on the ship with its settings, at settings version 1', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
 
-    expect(crewRequestOf(scoutId)).toEqual({ fleetId, shipId: scoutId, settings, settingsVersion: 1, requestedAt: core.clock.now() });
+    expect(crewRequestOf(scoutId)).toEqual({ fleetId, shipId: scoutId, settings, settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null });
   });
 
   it('writes CrewRequested, caused by the requester, with the settings version, never the settings', async () => {
@@ -59,7 +59,7 @@ describe('requesting a crew for a ship', () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
 
     expect(core.state.crewRequests.filter((request) => request.shipId === scoutId)).toEqual([
-      { fleetId, shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now() },
+      { fleetId, shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now(), assignedTo: null, status: null },
     ]);
   });
 

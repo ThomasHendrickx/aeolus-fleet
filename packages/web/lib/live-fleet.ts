@@ -25,6 +25,8 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'ShipReported',
   'CrewRequested',
   'CrewRequestRemoved',
+  'CrewAssigned',
+  'CrewStatusChanged',
 ]);
 
 /**

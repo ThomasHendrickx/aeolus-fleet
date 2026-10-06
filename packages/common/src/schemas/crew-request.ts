@@ -30,6 +30,15 @@ export const crewRequestSettingsSchema = z.record(z.string(), z.json());
 
 export type CrewRequestSettings = z.infer<typeof crewRequestSettingsSchema>;
 
+/**
+ * How the assigned trierarch says its crew of the ship stands (decision 0029):
+ * crewing, running, restarting, crashed, or releasing once the request is
+ * removed.
+ */
+export const CREW_STATUSES = ['crewing', 'running', 'restarting', 'crashed', 'releasing'] as const;
+export const crewStatusSchema = z.enum(CREW_STATUSES);
+export type CrewStatus = z.infer<typeof crewStatusSchema>;
+
 /** Input of `fleet.crewRequest`: the ship to keep crewed and its settings, replacing any it holds. */
 export const crewRequestInputSchema = z.object({
   shipId: idSchema('ship'),
