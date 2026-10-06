@@ -5,9 +5,12 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, type ListedShip } from './list-fleet.js';
 import type { FleetListing } from './ports.js';
+import type { ShipReport } from './ship-report.js';
 
-/** One ship for its page: as the fleet lists it, with when it was commissioned and since when it is crewed. */
-export interface ShipDetail extends ListedShip {
+/** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
+export interface ShipDetail extends Omit<ListedShip, 'report'> {
+  /** The crew's last report, details included; null until it reports, and while no session crews the ship. */
+  report: ShipReport | null;
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
@@ -32,6 +35,7 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
     const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
     return ok({
       ...listedShipOf(facts),
+      report: facts.openLease?.report ?? null,
       inFlightDeliveries: counts.inFlight,
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,

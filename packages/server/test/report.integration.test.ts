@@ -67,7 +67,7 @@ describe("a crew's report on Postgres", () => {
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       value: { report: { detailsVersion: 2, details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } } } },
     });
-    await expect(listedReport()).resolves.toEqual(expect.not.objectContaining({ details: expect.anything() }));
+    await expect(listedReport()).resolves.toEqual({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 2 });
   });
 
   it('clears its details to none with null', async () => {

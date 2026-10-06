@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
-import { reportStateSchema } from './report.js';
+import { listedReportSchema } from './report.js';
 
 /**
  * Inputs and outputs of the fleet procedures: commission a ship, get its
@@ -183,16 +183,11 @@ export const listedShipSchema = z.object({
   /** What the ship may do, checked on every call: every agent ship sends and receives, argo has all. */
   scopes: z.array(scopeSchema),
   /**
-   * The crew's last report (ISO 8601 in UTC): its state, its note, and when it
-   * last reported. Null until the crew reports, and for a ship no session crews.
+   * The crew's last report (ISO 8601 in UTC): its state, its note, when it
+   * last reported and the version of its details, never the details
+   * themselves. Null until the crew reports, and for a ship no session crews.
    */
-  report: z
-    .object({
-      state: reportStateSchema,
-      note: z.string().nullable(),
-      reportedAt: z.iso.datetime(),
-    })
-    .nullable(),
+  report: listedReportSchema.nullable(),
   /** Since when the ship awaits crew (ISO 8601 in UTC): its commission, or the end of its last session. Null unless it awaits crew. */
   awaitingCrewSince: z.iso.datetime().nullable(),
   /** When the operator retired the ship (ISO 8601 in UTC); null while it is active. */

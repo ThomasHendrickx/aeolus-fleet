@@ -46,7 +46,7 @@ export const WithFleetScopes: Story = {
 };
 /** A crew that reported it is blocked, with a note. */
 export const Reported: Story = {
-  args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', reportedAt: minutesAgo(3) } } },
+  args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', reportedAt: minutesAgo(3), detailsVersion: 0, details: null } } },
 };
 export const Argo: Story = { args: { ship: ARGO_SHIP, actions: undefined } };
 export const Retired: Story = { args: { ship: RETIRED_SHIP } };

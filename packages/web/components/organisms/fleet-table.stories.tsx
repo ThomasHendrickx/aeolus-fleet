@@ -236,17 +236,17 @@ export const Reported: Story = {
       ship('h1bf', {
         name: 'implementer-01',
         lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
-        report: { state: 'working', note: 'on PR 89', reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
+        report: { state: 'working', note: 'on PR 89', reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bg', {
         name: 'tester-01',
         lastSeenAt: new Date(NOW.getTime() - 60_000).toISOString(),
-        report: { state: 'blocked', note: 'waiting for implementer-01', reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString() },
+        report: { state: 'blocked', note: 'waiting for implementer-01', reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bh', {
         name: 'planner-01',
         lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
-        report: { state: 'idle', note: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString() },
+        report: { state: 'idle', note: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), detailsVersion: 0 },
       }),
     ],
   },

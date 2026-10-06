@@ -33,12 +33,12 @@ describe('reportedWhen', () => {
 
 describe('reportText', () => {
   it('says the state and the note', () => {
-    expect(reportText({ state: 'blocked', note: 'waiting for review', reportedAt: NOW.toISOString() })).toBe(
+    expect(reportText({ state: 'blocked', note: 'waiting for review', reportedAt: NOW.toISOString(), detailsVersion: 0 })).toBe(
       'Blocked: waiting for review',
     );
   });
 
   it('says the state alone without a note', () => {
-    expect(reportText({ state: 'idle', note: null, reportedAt: NOW.toISOString() })).toBe('Idle');
+    expect(reportText({ state: 'idle', note: null, reportedAt: NOW.toISOString(), detailsVersion: 0 })).toBe('Idle');
   });
 });
