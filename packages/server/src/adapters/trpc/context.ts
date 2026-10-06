@@ -48,6 +48,8 @@ import type { RetireShip } from '../../core/registry/retire-ship.js';
 import type { Report } from '../../core/registry/report.js';
 import type { Whoami } from '../../core/registry/whoami.js';
 import type { ReadReportLog } from '../../core/registry/report-log.js';
+import type { RequestCrew } from '../../core/registry/request-crew.js';
+import type { RemoveCrewRequest } from '../../core/registry/remove-crew-request.js';
 import type { Ping } from '../../core/shared/ping.js';
 import type { ReadFleetEvents } from '../../core/shared/read-fleet-events.js';
 import type { FollowFleet } from '../../core/shared/follow-fleet.js';
@@ -85,6 +87,8 @@ export interface UseCases {
   whoami: Whoami;
   report: Report;
   reportLog: ReadReportLog;
+  requestCrew: RequestCrew;
+  removeCrewRequest: RemoveCrewRequest;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;

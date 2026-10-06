@@ -27,6 +27,10 @@ import {
   recrewShipInputSchema,
   releaseShipInputSchema,
   releaseShipOutputSchema,
+  crewRequestInputSchema,
+  crewRequestOutputSchema,
+  removeCrewRequestInputSchema,
+  removeCrewRequestOutputSchema,
   renameShipInputSchema,
   renameShipOutputSchema,
   replyInputSchema,
@@ -146,6 +150,34 @@ export const fleetRouter = router({
     .input(retireShipInputSchema)
     .output(retireShipOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
+
+  /**
+   * Asks that a ship be kept crewed, with settings stored without meaning,
+   * replacing any request it holds (decision 0029).
+   */
+  crewRequest: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Asks that a ship be kept crewed, with settings: one JSON object of at most 16 KB (harness, workspace, options,',
+        'an optional first prompt and squadron), stored without meaning. Replaces the settings of a request the ship holds.',
+        'Never argo, the viewer or a retired ship. Answers the settings version, one more on every request.',
+      ].join(' '),
+    })
+    .input(crewRequestInputSchema)
+    .output(crewRequestOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.requestCrew(ctx.caller, input))),
+
+  /** Removes a ship's crew request; its crew, if any, stays aboard. */
+  removeCrewRequest: scopedProcedure('fleet:manage')
+    .meta({
+      description: ["Needs fleet:manage. Removes a ship's crew request. NOT_FOUND when it holds none."].join(' '),
+    })
+    .input(removeCrewRequestInputSchema)
+    .output(removeCrewRequestOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.removeCrewRequest(ctx.caller, input));
+      return {};
+    }),
 
   /**
    * Gives a ship a new name, any ship but argo or a retired one. Its id,
