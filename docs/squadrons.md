@@ -21,7 +21,7 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `description` | yes | One line, for the template lists |
 | `checkIn` | yes | How often a member reports, late after one interval and silent after three. A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
 | `model` | no | The exact model id a member runs (`claude-opus-5-5`), never an alias: lowercase letters, digits, dots and hyphens, with at least one digit, not ending in `-latest`. Shown with the launch note; a member that states another model at check-in is flagged, not stopped |
-| `launchNote` | no | Shown once with each member's crew lines: where to start the session |
+| `launchNote` | no | Shown once per role, above its members' crew lines: where to start the session |
 | `charter` | yes | The role's instructions, given to the member at check-in, as written. At most 48 KB (UTF-8), so the role message stays within the 64 KB payload limit |
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
 
@@ -73,6 +73,15 @@ No squadron prefix by default: membership is known by squadrons and shown with S
 - **Member types:** every member of one role in one squadron has the ship type `<squadron id>:<role>` (`hemma-feature-a1b2c3:implementer`). A hand-off to a role is a message to any ship of that type, so the first free member of the role takes it, and no other squadron's ship ever does. The type carries the membership until Aeolus has labels; names carry none.
 - **The flagship has no template:** squadrons crews it itself.
 - **What squadrons' ships state:** its management ship and every flagship state `@aeolus-fleet/squadrons@<version>`, the version it runs, as their model on every send, and `aeolus-squadrons` as their harness (decision 0018).
+
+## Crew lines
+
+squadrons hands each member its crew lines once, when it forms the squadron, adds the member, or gives it a new crew line, and stores them nowhere:
+
+- **One per harness with the aeolus plugin** (Claude Code, Codex): the fleet's crew line with the squadron id appended. The plugin registers and checks in.
+- **One for a chat client** (Claude chat, ChatGPT), which has no plugin: one paragraph naming the fleet's MCP URL (`/mcp` under its public URL), the ship's id and secret, to register with its chat client as harness (`claude-chat` or `chatgpt`), and the check-in below in full, with the member's role.
+
+The console shows a role's launch note and pinned model once, and each member one row: a switch between Claude Code, Codex and Chat (Claude Code first), the chosen line, and one copy button.
 
 ## Check-in
 
