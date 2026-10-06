@@ -5,6 +5,7 @@
  *
  * Usage: node scripts/check-test-projects.ts
  */
+import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createVitest } from 'vitest/node';
@@ -15,11 +16,13 @@ import { report } from './support/report.ts';
 const TEST_FILE = /\.test\.tsx?$/;
 
 export async function testProjectProblems(repository: string): Promise<string[]> {
-  const vitest = await createVitest({ root: repository, watch: false });
+  // Vitest resolves symbolic links in its root (macOS's temporary folder is one), so the files are matched by the same real path.
+  const root = realpathSync(repository);
+  const vitest = await createVitest({ root, watch: false });
   try {
-    return trackedFiles(repository)
+    return trackedFiles(root)
       .filter((file) => TEST_FILE.test(file))
-      .filter((file) => !vitest.projects.some((project) => project.matchesTestGlob(join(repository, file))))
+      .filter((file) => !vitest.projects.some((project) => project.matchesTestGlob(join(root, file))))
       .map((file) => `${file} matches no Vitest project, so it never runs`);
   } finally {
     await vitest.close();
