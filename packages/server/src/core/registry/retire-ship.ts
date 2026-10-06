@@ -7,12 +7,14 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { removeCrewRequest } from './crew-request.js';
 import { endLease, type LeaseTx } from './leases.js';
-import type { ShipRepository } from './ports.js';
+import type { CrewRequestRepository, ShipRepository } from './ports.js';
 import { checkCanRetire, type RetireRefusal } from './ship.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
   ships: ShipRepository;
+  crewRequests: CrewRequestRepository;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
@@ -30,7 +32,8 @@ export type RetireShip = (
  * pending deliveries are abandoned, one DeliveryAbandoned each, and the ship
  * is retired: never claimed or addressed again, its name free. Deliveries to
  * its type stay for the other ships of the type, and an undeliverable one
- * stays for the operator. The caller's scope (fleet:manage) is checked before
+ * stays for the operator. Its crew request, if any, goes with
+ * CrewRequestRemoved: no one crews a retired ship. The caller's scope (fleet:manage) is checked before
  * this runs.
  *
  * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
@@ -76,6 +79,14 @@ export function createRetireShip(deps: {
       });
       for (const { deliveryId, messageId } of abandoned) {
         await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
+      }
+      // A ship without a crew request has none to remove: nothing to do.
+      const removed = removeCrewRequest({ ship, current: await tx.crewRequests.find(fleetId, shipId) }, { at, actor });
+      if (removed.isOk) {
+        await tx.crewRequests.remove(fleetId, shipId);
+        for (const event of removed.value.events) {
+          await recordEvent(recorded, event);
+        }
       }
       return ok({ abandonedDeliveries: abandoned.length });
     });

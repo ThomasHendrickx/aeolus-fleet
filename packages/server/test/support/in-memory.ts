@@ -41,10 +41,12 @@ import type {
   InstallationRequestRepository,
   InstallationSettingsRepository,
   LeaseRepository,
+  CrewRequestRepository,
   ShipRepository,
 } from '../../src/core/registry/ports.js';
 import type { Ship } from '../../src/core/registry/ship.js';
 import type { ShipReport } from '../../src/core/registry/ship-report.js';
+import type { CrewRequest } from '../../src/core/registry/crew-request.js';
 import type { Clock } from '../../src/core/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/core/shared/events.js';
 import {
@@ -90,6 +92,7 @@ export interface InMemoryState {
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** Each lease's crew report: the report columns, apart from the Lease. */
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
+  crewRequests: CrewRequest[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
@@ -107,6 +110,7 @@ export interface InMemoryTx {
   fleets: FleetRepository;
   ships: ShipRepository;
   leases: LeaseRepository;
+  crewRequests: CrewRequestRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -194,6 +198,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveryReads: [],
     leaseSeen: [],
     leaseReports: [],
+    crewRequests: [],
     events: [],
     installationRequests: [],
     installationSettings: [],
@@ -347,6 +352,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
         ),
+    },
+    crewRequests: {
+      find: (fleetId, shipId) => {
+        const request = state.crewRequests.find((held) => held.fleetId === fleetId && held.shipId === shipId);
+        return Promise.resolve(request && { ...request });
+      },
+      save: (request) => {
+        const index = state.crewRequests.findIndex((held) => held.fleetId === request.fleetId && held.shipId === request.shipId);
+        state.crewRequests.splice(index === -1 ? state.crewRequests.length : index, index === -1 ? 0 : 1, { ...request });
+        return Promise.resolve();
+      },
+      remove: (fleetId, shipId) => {
+        const index = state.crewRequests.findIndex((held) => held.fleetId === fleetId && held.shipId === shipId);
+        if (index !== -1) {
+          state.crewRequests.splice(index, 1);
+        }
+        return Promise.resolve();
+      },
     },
     leases: {
       findOpenForUpdate: (fleetId, shipId) =>
@@ -1181,6 +1204,7 @@ const FLEET_TABLES = [
   'deliveryReads',
   'leaseSeen',
   'leaseReports',
+  'crewRequests',
   'events',
   'notices',
   'noticeDismissals',
@@ -1201,6 +1225,7 @@ const TABLES = [
   'deliveryReads',
   'leaseSeen',
   'leaseReports',
+  'crewRequests',
   'events',
   'installationRequests',
   'installationSettings',

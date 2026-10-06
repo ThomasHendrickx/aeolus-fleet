@@ -1,6 +1,7 @@
 import type { DeliveryId, DeliveryState, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
+import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
@@ -138,6 +139,17 @@ export interface LeaseRepository {
   findReportLog(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null; previousCrew: ShipReport | null } | undefined>;
   /** Ends the lease if it is still open and returns it; undefined when it had already ended. */
   end(change: { fleetId: FleetId; leaseId: LeaseId; endedAt: Date }): Promise<Lease | undefined>;
+}
+
+/**
+ * Outbound port: crew requests, at most one per ship, always within one
+ * fleet. A use case that changes one locks its ship first.
+ */
+export interface CrewRequestRepository {
+  find(fleetId: FleetId, shipId: ShipId): Promise<CrewRequest | undefined>;
+  /** Stores the ship's request, replacing the one it held. */
+  save(request: CrewRequest): Promise<void>;
+  remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
 }
 
 /** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */

@@ -1,6 +1,7 @@
 import {
   themeSchema,
   deliveryStateSchema,
+  crewRequestSettingsSchema,
   reportDetailsSchema,
   reportStateSchema,
   eventTypeSchema,
@@ -20,6 +21,7 @@ import type { Credential } from '../../core/identity/credential.js';
 import type { OperatorAccount } from '../../core/identity/operator-account.js';
 import type { Delivery, Message } from '../../core/messaging/message.js';
 import type { ShipReport } from '../../core/registry/ship-report.js';
+import type { CrewRequest } from '../../core/registry/crew-request.js';
 import type { FleetEventNotice, SequencedEvent } from '../../core/shared/events.js';
 import type { DeliveryNotice } from '../../core/shared/notifier.js';
 import type { Fleet } from '../../core/registry/fleet.js';
@@ -99,6 +101,19 @@ const shipSqlRow = z
 /** A ship as raw SQL returns it, in snake_case. */
 export function toShipFromSql(row: unknown): Ship {
   return shipSqlRow.parse(row);
+}
+
+const crewRequestRow = z.object({
+  fleetId: idSchema('fleet'),
+  shipId: idSchema('ship'),
+  settings: crewRequestSettingsSchema,
+  settingsVersion: z.int().min(1),
+  requestedAt: z.date(),
+});
+
+/** A crew request as Prisma reads its row. */
+export function toCrewRequest(row: unknown): CrewRequest {
+  return crewRequestRow.parse(row);
 }
 
 const shipReportSqlRow = z.object({

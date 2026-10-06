@@ -1,6 +1,7 @@
 import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
 
 import type {
+  CrewRequestRepository,
   FleetListing,
   FleetRepository,
   InFlightDeliveries,
@@ -11,6 +12,7 @@ import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
   toAbandonedDelivery,
+  toCrewRequest,
   toDeliveryFromSql,
   toFleet,
   toLease,
@@ -73,12 +75,32 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
       // The request that created the fleet names it, so it goes too; a delete's record names nothing of it.
       await db.$executeRaw`DELETE FROM installation_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM fleets WHERE id = ${fleetId}`;
+    },
+  };
+}
+
+export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository {
+  return {
+    find: async (fleetId, shipId) => {
+      const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
+      return row === null ? undefined : toCrewRequest(row);
+    },
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt }) => {
+      await db.crewRequest.upsert({
+        where: { fleetId_shipId: { fleetId, shipId } },
+        create: { fleetId, shipId, settings, settingsVersion, requestedAt },
+        update: { settings, settingsVersion, requestedAt },
+      });
+    },
+    remove: async (fleetId, shipId) => {
+      await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
     },
   };
 }

@@ -45,6 +45,7 @@ model Fleet {
 
   ships            Ship[]
   leases           Lease[]
+  crewRequests     CrewRequest[]
   credentials      Credential[]
   messages         Message[]
   deliveries       Delivery[]
@@ -94,6 +95,7 @@ model Ship {
   consoleSessions   ConsoleSession[]
   actorOfEvents     Event[]          @relation("EventActorShip")
   events            Event[]          @relation("EventShip")
+  crewRequest       CrewRequest?
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning ship.
@@ -161,6 +163,23 @@ model Lease {
   /// At most one open lease per ship.
   @@unique([shipId], map: "leases_ship_id_open_key", where: { endedAt: null })
   @@map("leases")
+}
+
+/// A standing request that a ship be kept crewed (decision 0029): at most one per
+/// ship, so the ship's id is its key. Its settings are stored without meaning, at
+/// most 16 KB; each request replaces them and moves their version by one.
+model CrewRequest {
+  shipId          String   @id @map("ship_id")
+  fleetId         String   @map("fleet_id")
+  settings        Json
+  settingsVersion Int      @map("settings_version")
+  requestedAt     DateTime @map("requested_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@unique([fleetId, shipId])
+  @@map("crew_requests")
 }
 
 /// A ship secret, stored only as its hash. Ids start with crd_.

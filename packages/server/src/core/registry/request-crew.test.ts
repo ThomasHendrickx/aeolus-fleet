@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -106,7 +106,7 @@ describe('a crew request refused', () => {
   it('refuses the viewer ship: no session crews it', async () => {
     const hosted = await hostedFleetWithViewer(core);
     const before = structuredClone(core.state);
-    const hostedArgo = operatorCaller(hosted);
+    const hostedArgo: Caller = { shipId: hosted.operatorShipId, fleetId: hosted.fleetId, kind: 'operator', scopes: [...SCOPES] };
 
     await expect(registry.requestCrew(hostedArgo, { shipId: hosted.viewerShipId, settings })).resolves.toMatchObject({
       isOk: false,

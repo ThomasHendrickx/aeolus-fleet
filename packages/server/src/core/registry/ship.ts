@@ -428,8 +428,21 @@ export function renameShip(
   });
 }
 
+export type CrewRequestShipRefusal = Permanent | DomainError<'SHIP_ALREADY_RETIRED'>;
+
+/** A crew request asks that a ship be kept crewed: any ship a session can crew, never argo, the viewer ship or a retired ship. */
+export function checkCanBeRequestedCrew(ship: Ship): Result<void, CrewRequestShipRefusal> {
+  const permanent = checkNotOperatorShip(ship, 'crewed by request');
+  if (!permanent.isOk) {
+    return permanent;
+  }
+  return ship.retiredAt === null
+    ? ok(undefined)
+    : refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: no session crews it again`);
+}
+
 /** argo and the viewer ship are permanent: no fleet action retires, releases or renames them (ADR 0012, decision 0022). */
-function checkNotOperatorShip(ship: Ship, action: 'retired' | 'released' | 'renamed'): Result<void, Permanent> {
+function checkNotOperatorShip(ship: Ship, action: 'retired' | 'released' | 'renamed' | 'crewed by request'): Result<void, Permanent> {
   const permanent = PERMANENT_SHIPS[ship.kind];
   return permanent === undefined ? ok(undefined) : refuse('OPERATOR_SHIP_IS_PERMANENT', `${ship.name} is ${permanent} and can never be ${action}`);
 }

@@ -7,6 +7,7 @@ import type {
 } from '../../core/identity/ports.js';
 import type { DeliveryRepository, MessageRepository } from '../../core/messaging/ports.js';
 import type {
+  CrewRequestRepository,
   FleetRepository,
   InFlightDeliveries,
   InstallationRequestRepository,
@@ -30,6 +31,7 @@ import {
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
 import {
+  createPrismaCrewRequestRepository,
   createPrismaFleetRepository,
   createPrismaInFlightDeliveries,
   createPrismaLeaseRepository,
@@ -41,6 +43,7 @@ export interface PrismaTx {
   fleets: FleetRepository;
   ships: ShipRepository;
   leases: LeaseRepository;
+  crewRequests: CrewRequestRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -59,6 +62,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     fleets: createPrismaFleetRepository(db),
     ships: createPrismaShipRepository(db),
     leases: createPrismaLeaseRepository(db),
+    crewRequests: createPrismaCrewRequestRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),
