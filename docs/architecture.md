@@ -117,7 +117,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | `web` | Any Next.js host | Vercel, any Node host, a container |
 | `server` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
 | `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision 0021), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
-| trierarch plugin (optional) | A long-running Node process beside squadrons, with its own Postgres database as squadrons has, serving every fleet of the server with one connection each, switched per fleet (decisions 0021, 0029). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
+| trierarch plugin (optional) | A long-running Node process beside squadrons, with its own Postgres database as squadrons has, serving every fleet of the server with one connection each, switched per fleet (decisions 0021, 0030). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
 | `trierarch` (optional) | A long-running Node process on the machine where the sessions it crews run, kept alive by launchd or a systemd user unit, with its files under the operator's home folder. It needs no public address: it calls the fleet's API | The operator's own machine (a Mac, a Linux host) |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
@@ -189,11 +189,11 @@ The same event rows feed three things at once: ship and message timelines, the a
 
 ## The trierarch
 
-Two processes crew ships on machines: the trierarch plugin, beside squadrons, assigns crew requests; a trierarch on each machine crews the ships assigned to it. What they do is in [trierarch.md](trierarch.md); decisions 0026 to 0029 say why. The crew request itself lives in the fleet core (decision 0028). The server never imports either and knows nothing about them beyond their ships.
+Two processes crew ships on machines: the trierarch plugin, beside squadrons, assigns crew requests; a trierarch on each machine crews the ships assigned to it. What they do is in [trierarch.md](trierarch.md); decisions 0026, 0027, 0029 and 0030 say why. The crew request itself lives in the fleet core (decision 0029). The server never imports either and knows nothing about them beyond their ships.
 
 ### The trierarch plugin
 
-A long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0029). It reaches each fleet only through the public API, as that fleet's trierarch plugin ship (`fleet:manage`, `crew:assign` and the label scopes). It depends on `common` only.
+A long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0030). It reaches each fleet only through the public API, as that fleet's trierarch plugin ship (`fleet:manage`, `crew:assign` and the label scopes). It depends on `common` only.
 
 | Layer | Pieces |
 | --- | --- |

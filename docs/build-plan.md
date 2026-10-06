@@ -34,7 +34,7 @@ Then, in this order: the console in atomic design (set up Storybook first, then 
 
 ## Epic: the trierarch plugin
 
-What the trierarch plugin and a trierarch do is in [trierarch.md](trierarch.md), their build in the architecture ("The trierarch"), and why in decisions 0026 to 0029. The 0.17 trierarch (slices D1 to D6, a wanted list edited by messages) is done; git holds what each built. This epic replaces how it gets its work. One PR per slice, labelled with its release.
+What the trierarch plugin and a trierarch do is in [trierarch.md](trierarch.md), their build in the architecture ("The trierarch"), and why in decisions 0026, 0027, 0029 and 0030. The 0.17 trierarch (slices D1 to D6, a wanted list edited by messages) is done; git holds what each built. This epic replaces how it gets its work. One PR per slice, labelled with its release.
 
 Before it, built in the fleet core: the report's details (#248) and the crew request with `crew:assign` and `crew:run` (#263). Build order: T1, T2, T3, T4, then T5. Labels (#102) steer placement once they are designed; until then placement reads the reports. The console's screens (core crew request screens, the plugin's section beside Squadrons) are their own design pass and not in this epic. The open questions at the end of trierarch.md are answered before the slice that needs them.
 
