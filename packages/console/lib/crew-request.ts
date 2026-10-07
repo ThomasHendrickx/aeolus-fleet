@@ -1,4 +1,4 @@
-import type { CrewStatus, Party, ShipDetail, TimelineEntry } from '@aeolus-fleet/common';
+import type { CrewStatus, ListedShip, Party, TimelineEntry } from '@aeolus-fleet/common';
 
 /**
  * Where a ship's crew request stands, as its card on the ship page shows it
@@ -14,7 +14,8 @@ export type CrewRequestStage =
   | { kind: 'crewedByHand'; requestedAt: string; crewedBy: Party; since: string | null }
   | { kind: 'assigned'; requestedAt: string; trierarch: Party; status: CrewStatus };
 
-export function crewRequestStage(ship: Pick<ShipDetail, 'crewRequest' | 'crewedSince'>): CrewRequestStage {
+/** The stage of a ship's crew request, from the fleet list or the ship page; when it was crewed, where the page knows it. */
+export function crewRequestStage(ship: Pick<ListedShip, 'crewRequest'> & { crewedSince?: string | null }): CrewRequestStage {
   const request = ship.crewRequest;
   if (request === null) {
     return { kind: 'none' };
@@ -23,7 +24,7 @@ export function crewRequestStage(ship: Pick<ShipDetail, 'crewRequest' | 'crewedS
     return { kind: 'assigned', requestedAt: request.requestedAt, trierarch: request.assignedTo, status: request.status ?? 'crewing' };
   }
   if (request.crewedBy !== null) {
-    return { kind: 'crewedByHand', requestedAt: request.requestedAt, crewedBy: request.crewedBy, since: ship.crewedSince };
+    return { kind: 'crewedByHand', requestedAt: request.requestedAt, crewedBy: request.crewedBy, since: ship.crewedSince ?? null };
   }
   return { kind: 'needsCrew', requestedAt: request.requestedAt, reason: request.reason };
 }
