@@ -91,7 +91,7 @@ function PluginState({ ship }: { ship: ListedShip }) {
   );
 }
 
-const ROW = 'grid items-center gap-x-4 gap-y-1.5 px-4 py-3 max-sm:grid-cols-1 max-sm:px-3.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto]';
+const ROW = 'grid items-center gap-x-4 gap-y-1.5 px-4 py-3 max-sm:grid-cols-1 max-sm:px-3.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,11rem)]';
 
 /**
  * Needs crew (canvas CrNeedsOff, CrNeedsOn, CrMNeeds; #245): the operator's
@@ -143,7 +143,9 @@ export function NeedsCrewList({ ships, hasTrierarchs, error, onRetry, actionOf, 
                 {ship.crewRequest === null ? null : (
                   <>
                     <Time at={ship.crewRequest.requestedAt} now={now} />
-                    <span className="text-muted-foreground">{relativeTime(new Date(ship.crewRequest.requestedAt), now)}</span>
+                    {now.getTime() - new Date(ship.crewRequest.requestedAt).getTime() < DAY_MS ? (
+                      <span className="text-muted-foreground">{relativeTime(new Date(ship.crewRequest.requestedAt), now)}</span>
+                    ) : null}
                   </>
                 )}
               </span>
