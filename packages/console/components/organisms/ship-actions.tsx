@@ -8,6 +8,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import {
   useFleetSnapshot,
   useGetStartingPrompt,
+  useLabelContext,
   usePingShip,
   useRecrewShip,
   useReleaseShip,
@@ -15,6 +16,7 @@ import {
   useRetireShip,
 } from '../../lib/fleet';
 import { useAccess, type Access } from '../../lib/access';
+import { retiredLabelsOf, retireLabelLines } from '../../lib/labels';
 import { canPing } from '../../lib/ping';
 import { useShip } from '../../lib/ship';
 import { useSquadronsConnection } from '../../lib/squadrons';
@@ -112,6 +114,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
   const renameShip = useRenameShip();
   const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
+  const labels = useLabelContext();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
   const connection = useSquadronsConnection();
   const squadrons = useSquadrons();
@@ -278,6 +281,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
         onConfirm={() => {
           retireShip.mutate({ shipId: ship.id }, { onSuccess: close });
         }}
+        labelLines={labels === undefined ? undefined : retireLabelLines(retiredLabelsOf(ship, labels))}
       />
       {squadron && member && (
         <RemoveMemberDialog

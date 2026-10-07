@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { activeShipCount, carriesEvery, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
+import { activeShipCount, assignKeysOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
 
 const newId = createIdGenerator();
 
@@ -200,5 +200,74 @@ describe('labelTextProblem', () => {
 
   it('says nothing while the field is empty', () => {
     expect(labelTextProblem('', 'Key')).toBeUndefined();
+  });
+});
+
+describe('labelLimitOf', () => {
+  const carrying = (count: number) => ({ labels: Array.from({ length: count }, () => carried(PROJECT, 0)) });
+
+  it('counts nothing below 15 labels', () => {
+    expect(labelLimitOf(carrying(14))).toEqual({ isAtLimit: false });
+  });
+
+  it('counts from 15 labels', () => {
+    expect(labelLimitOf(carrying(15))).toEqual({ count: '15 of 20', isAtLimit: false });
+  });
+
+  it('is at the limit at 20 labels', () => {
+    expect(labelLimitOf(carrying(20))).toEqual({ count: '20 of 20', isAtLimit: true });
+  });
+});
+
+describe('assignKeysOf', () => {
+  it('offers your keys only, marking the values the ship carries', () => {
+    const keys = assignKeysOf(BUILDER, labelContextOf(LABELS, { ships: SHIPS, isOperator: true }));
+
+    expect(keys.map((key) => [key.key, key.carriedValueIds])).toEqual([
+      ['area', [valueId(AREA, 0)]],
+      ['project', [valueId(PROJECT, 1)]],
+    ]);
+  });
+});
+
+describe('listed', () => {
+  it('joins words with commas and a last and', () => {
+    expect([listed([]), listed(['a']), listed(['a', 'b']), listed(['a', 'b', 'c'])]).toEqual(['', 'a', 'a and b', 'a, b and c']);
+  });
+});
+
+describe('retiredLabelsOf', () => {
+  const context = labelContextOf(LABELS, { ships: SHIPS, isOperator: true });
+
+  it('names the values a ship carries', () => {
+    expect(retiredLabelsOf(BUILDER, context)).toEqual({ carried: ['os=macos', 'project=hemma', 'area=backend'] });
+  });
+
+  it('names the labels an owner owns and the ships that carry them, leaving retired ships out', () => {
+    expect(retiredLabelsOf(ARGO, context)).toEqual({ carried: [], owned: { keys: ['project', 'area'], carriers: ['builder', 'writer'] } });
+  });
+});
+
+describe('retireLabelLines', () => {
+  it('names the values a ship carries', () => {
+    expect(retireLabelLines({ carried: ['project=aeolus', 'area=review', 'cost=low'] })).toEqual(['Its 3 labels are removed with it: project=aeolus, area=review, cost=low.']);
+  });
+
+  it('names an owner’s labels and the ships that lose them', () => {
+    expect(retireLabelLines({ carried: [], owned: { keys: ['os', 'arch', 'site'], carriers: ['trierarch-mac', 'trierarch-hetzner'] } })).toEqual([
+      'Its 3 labels retire with it: os, arch and site. Nobody can assign them again.',
+      'They are removed from the 2 ships that carry them: trierarch-mac and trierarch-hetzner.',
+    ]);
+  });
+
+  it('says one label in the singular, carried by no ship', () => {
+    expect(retireLabelLines({ carried: ['os=macos'], owned: { keys: ['site'], carriers: [] } })).toEqual([
+      'Its label is removed with it: os=macos.',
+      'Its label retires with it: site. Nobody can assign it again.',
+    ]);
+  });
+
+  it('has nothing to say without labels', () => {
+    expect(retireLabelLines({ carried: [] })).toEqual([]);
   });
 });

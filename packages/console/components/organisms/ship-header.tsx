@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
-import type { LabelChip } from '../../lib/labels';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, shortDateTime } from '../../lib/relative-time';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
@@ -16,7 +15,6 @@ import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
 import { ReportLine } from '../molecules/report-line';
-import { ShipLabels } from '../molecules/ship-labels';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -36,8 +34,8 @@ interface ShipHeaderProps {
   now: Date;
   /** Where "Back to fleet overview" goes. */
   backHref?: string;
-  /** The ship's labels as chips, yours first, once the fleet's labels are read (#102); no Labels row until then. */
-  labels?: readonly LabelChip[];
+  /** The ship's labels, read-only or with yours to change, once the fleet's labels are read (#102); no Labels row until then. */
+  labels?: ReactNode;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -55,7 +53,7 @@ function crewedSince(since: Date, now: Date): string {
   return `${when} · ${duration(since, now)}`;
 }
 
-function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels: readonly LabelChip[] | undefined }) {
+function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels: ReactNode }) {
   const isOperator = ship.kind === 'operator';
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
@@ -100,9 +98,7 @@ function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels:
       {labels === undefined ? null : (
         <div className="col-span-4 flex min-w-0 items-center gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5" data-testid="ship-labels">
           <dt className="shrink-0 text-meta text-muted-foreground">Labels</dt>
-          <dd className="min-w-0">
-            <ShipLabels chips={labels} />
-          </dd>
+          <dd className="min-w-0 flex-1">{labels}</dd>
         </div>
       )}
     </dl>

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
 
 import { Button } from '../atoms/button';
+import { ShipLabels } from '../molecules/ship-labels';
 import { ShipHeader } from './ship-header';
 import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, RETIRED_SHIP, UNKNOWN_SHIP_ID } from './ship-page.fixtures';
 
@@ -69,8 +70,8 @@ const LABEL_CHIPS = [
 ] as const;
 
 /** With labels (#102): at the foot of the meta strip, two shown, then "+1". */
-export const WithLabels: Story = { args: { labels: LABEL_CHIPS } };
+export const WithLabels: Story = { args: { labels: <ShipLabels chips={LABEL_CHIPS} /> } };
 /** A ship without labels says so. */
-export const WithoutLabels: Story = { args: { labels: [] } };
+export const WithoutLabels: Story = { args: { labels: <ShipLabels chips={[]} /> } };
 /** On phone, the labels row stacks under its title. */
-export const WithLabelsPhone: Story = { args: { labels: LABEL_CHIPS }, globals: { viewport: { value: 'mobile1' } } };
+export const WithLabelsPhone: Story = { args: { labels: <ShipLabels chips={LABEL_CHIPS} /> }, globals: { viewport: { value: 'mobile1' } } };

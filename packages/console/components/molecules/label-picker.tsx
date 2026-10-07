@@ -14,6 +14,8 @@ interface LabelPickerProps {
   pickedValueIds: readonly string[];
   onPick: (valueId: string) => void;
   size?: 'sm' | 'touch';
+  /** What a value already picked says: Picked in a filter, Carried on a ship. */
+  pickedWord?: string;
 }
 
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
@@ -28,7 +30,7 @@ function count(amount: number, one: string): string {
  * values, each with how many ships carry it. Back returns to the keys. Props
  * only; what it shows while picking is its own.
  */
-export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm' }: LabelPickerProps) {
+export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', pickedWord = 'Picked' }: LabelPickerProps) {
   const [query, setQuery] = useState('');
   const [openKey, setOpenKey] = useState<FilterKey | undefined>(undefined);
   const isTouch = size === 'touch';
@@ -71,7 +73,7 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm' }: Lab
                   }}
                 >
                   <span className="min-w-0 grow truncate font-mono">{value.value}</span>
-                  <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{isPicked ? 'Picked' : count(value.shipCount, 'ship')}</span>
+                  <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{isPicked ? pickedWord : count(value.shipCount, 'ship')}</span>
                 </button>
               </li>
             );
