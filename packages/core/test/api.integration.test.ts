@@ -182,6 +182,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_crew_scopes$/),
       expect.stringMatching(/^\d{14}_crew_assignment$/),
       expect.stringMatching(/^\d{14}_crew_request_reason$/),
+      expect.stringMatching(/^\d{14}_broad_crewing_scope_retired$/),
     ]);
   });
 });
@@ -1502,7 +1503,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_crew_request_reason$/);
+    expect(migration).toMatch(/^\d{14}_broad_crewing_scope_retired$/);
   });
 });
 

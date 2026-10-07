@@ -360,8 +360,8 @@ export function scopedProcedure(scope: Scope) {
 
 /**
  * A procedure that needs any one of the given scopes: the few fleet calls a
- * trierarch makes with `fleet:crew` beside the scope the console uses
- * (decision 0002). Checked before any use case runs, as for one scope.
+ * trierarch makes with `crew:run` beside the scope the console uses
+ * (decision 0029). Checked before any use case runs, as for one scope.
  */
 export function anyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
   return authenticatedProcedure.use(({ ctx, next }) => {

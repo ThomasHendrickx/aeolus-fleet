@@ -30,8 +30,8 @@ export type GetStartingPrompt = (
 /**
  * Use case: a new starting prompt for a ship of the caller's fleet that awaits
  * crew. Its new secret invalidates any earlier one, so at most one is valid; a
- * prompt lost before use costs nothing. The caller's scope (fleet:manage,
- * fleet:crew or crew:run) is checked before this runs; crew:run reaches only
+ * prompt lost before use costs nothing. The caller's scope (fleet:manage or
+ * crew:run) is checked before this runs; crew:run reaches only
  * the ships whose crew requests are assigned to the caller's ship.
  *
  * Locks in the fleet's order: the ship first, so concurrent prompts for one
@@ -41,7 +41,7 @@ export type GetStartingPrompt = (
  * back.
  */
 /** The scopes that reach every ship for a starting prompt; crew:run reaches only assigned ones. */
-const PROMPT_SCOPES = ['fleet:manage', 'fleet:crew'] as const;
+const PROMPT_SCOPES = ['fleet:manage'] as const;
 
 export function createGetStartingPrompt(deps: {
   uow: UnitOfWork<GetStartingPromptTx>;
