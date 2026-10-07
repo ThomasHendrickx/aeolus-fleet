@@ -28,6 +28,8 @@ interface ShipHeaderProps {
   state: 'ready' | 'loading' | 'not-found';
   /** The ship's actions, as its state allows: Get starting prompt, Release. None for argo or a retired ship. */
   actions?: ReactNode;
+  /** The ship's crew request card, between its head and its meta strip (canvas CrShipA). */
+  crewRequest?: ReactNode;
   /** The time "Crewed since" is measured to. */
   now: Date;
   /** Where "Back to fleet overview" goes. */
@@ -108,9 +110,10 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id, then its crew's report details, folded, when it has any. argo says it is the operator's ship; a retired ship is read-only.
+ * id, then its crew's report details, folded, when it has any. Its crew
+ * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
-export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/' }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -207,6 +210,7 @@ export function ShipHeader({ ship, shipId, state, actions, now, backHref = '/' }
           Retired on {fullDateTime(new Date(ship.retiredAt))}. Read-only.
         </Notice>
       ) : null}
+      {crewRequest}
       <MetaStrip ship={ship} now={now} />
       {ship.kind === 'agent' && ship.report?.details ? (
         <ReportDetails details={ship.report.details} version={ship.report.detailsVersion} testId="ship-report-details" />
