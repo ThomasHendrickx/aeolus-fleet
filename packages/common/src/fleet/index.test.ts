@@ -79,6 +79,9 @@ describe('eventTypeSchema', () => {
       'LabelAssigned',
       'LabelUnassigned',
       'LabelDeleted',
+      'WorktreeClearRequested',
+      'WorktreeCleared',
+      'WorktreeClearRemoved',
     ]);
   });
 });
