@@ -43,20 +43,30 @@ describe('offersOf', () => {
   });
 });
 
+/** A label value id, as machine labels hold them. */
+const LINUX = 'lbv_01m3tbfspe96yf1rnr4ank9h1a';
+
 describe('the form values', () => {
   const offers = offersOf([aMachine('mc01', { details: { harnesses: [CLAUDE, { harness: 'codex', options: {}, flags: [] }], workspaces: { repositories: [], folders: ['notes'] } } })]);
 
   it('start at the first harness, its first workspace and its options at their defaults', () => {
-    expect(defaultValues(offers)).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' }, firstPrompt: '', squadron: '' });
+    expect(defaultValues(offers)).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' }, firstPrompt: '', squadron: '', machineLabels: [] });
   });
 
   it('keep the workspace on another harness that offers it, with that harness’s options', () => {
     expect(withHarness(defaultValues(offers), { harness: 'codex', offers })).toMatchObject({ harness: 'codex', workspace: { kind: 'folder', name: 'notes' }, options: {} });
   });
 
-  it('make crew settings, leaving out an empty first prompt and squadron', () => {
+  it('make crew settings, leaving out an empty first prompt, squadron and machine labels', () => {
     expect(settingsOf(defaultValues(offers))).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' } });
     expect(settingsOf({ ...defaultValues(offers), firstPrompt: 'Triage issues', squadron: 'hemma-feature' })).toMatchObject({ firstPrompt: 'Triage issues', squadron: 'hemma-feature' });
+  });
+
+  it('carry the machine labels picked into the settings, and keep them on another harness', () => {
+    const picked = { ...defaultValues(offers), machineLabels: [LINUX] };
+
+    expect(settingsOf(picked)).toMatchObject({ machineLabels: [LINUX] });
+    expect(withHarness(picked, { harness: 'codex', offers })).toMatchObject({ machineLabels: [LINUX] });
   });
 
   it('make no settings until a workspace is picked', () => {
@@ -64,9 +74,9 @@ describe('the form values', () => {
   });
 
   it('fill from the settings a request holds, for Edit; anything else starts as a new form', () => {
-    const held = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go' };
+    const held = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX] };
 
-    expect(valuesOf(held, offers)).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '' });
+    expect(valuesOf(held, offers)).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
     expect(valuesOf({}, offers)).toEqual(defaultValues(offers));
   });
 });

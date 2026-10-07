@@ -1,4 +1,4 @@
-import { crewSettingsSchema, FIRST_PROMPT_MAX_BYTES, type CrewSettings } from '@aeolus-fleet/common';
+import { crewSettingsSchema, FIRST_PROMPT_MAX_BYTES, idSchema, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
 
 import { harnessOptions, type HarnessOption } from './machines';
 import type { Machine } from './trierarch-plugin';
@@ -66,6 +66,8 @@ export interface CrewSettingsValues {
   options: Record<string, string>;
   firstPrompt: string;
   squadron: string;
+  /** The label value ids a machine must carry, every one; none for any machine. */
+  machineLabels: string[];
 }
 
 /** Each option at its default, or its first value when it has none. */
@@ -88,7 +90,7 @@ function firstWorkspace(offer: HarnessOffer | undefined): WorkspaceChoice | unde
 /** A new form: the first harness offered, its first workspace and its options at their defaults. */
 export function defaultValues(offers: readonly HarnessOffer[]): CrewSettingsValues {
   const [offer] = offers;
-  return { harness: offer?.harness ?? '', workspace: firstWorkspace(offer), options: defaultOptions(offer), firstPrompt: '', squadron: '' };
+  return { harness: offer?.harness ?? '', workspace: firstWorkspace(offer), options: defaultOptions(offer), firstPrompt: '', squadron: '', machineLabels: [] };
 }
 
 /** The form after picking a harness: its workspace kept while that harness offers it, its options back at their defaults. */
@@ -107,14 +109,23 @@ export function valuesOf(settings: unknown, offers: readonly HarnessOffer[]): Cr
   if (!parsed.success) {
     return defaultValues(offers);
   }
-  const { harness, workspace, options, firstPrompt, squadron } = parsed.data;
+  const { harness, workspace, options, firstPrompt, squadron, machineLabels } = parsed.data;
   return {
     harness,
     workspace: workspace.kind === 'worktree' ? { kind: 'worktree', repository: workspace.repository } : { kind: 'folder', name: workspace.name },
     options: Object.fromEntries(Object.entries(options).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))),
     firstPrompt: firstPrompt ?? '',
     squadron: squadron ?? '',
+    machineLabels: [...(machineLabels ?? [])],
   };
+}
+
+/** The machine labels picked, as ids; one that is no label value id is left out. */
+function labelValueIds(valueIds: readonly string[]): LabelValueId[] {
+  return valueIds.flatMap((valueId) => {
+    const parsed = idSchema('labelValue').safeParse(valueId);
+    return parsed.success ? [parsed.data] : [];
+  });
 }
 
 /** The settings the form makes, as a crew request holds them; undefined until a harness and a workspace are picked. */
@@ -128,6 +139,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
     options: values.options,
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),
+    ...(values.machineLabels.length === 0 ? {} : { machineLabels: labelValueIds(values.machineLabels) }),
   };
 }
 
