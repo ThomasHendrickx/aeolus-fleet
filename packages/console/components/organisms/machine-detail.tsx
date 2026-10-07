@@ -178,9 +178,17 @@ export function MachineDetail({ machine, state, spots, location, now }: MachineD
           <ul className="divide-y divide-border rounded-lg border border-border bg-card" data-testid="machine-spots">
             {spots.map((spot) => (
               <li key={spot.shipId} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <Link href={`/ships/${spot.shipId}`} className="truncate text-body font-medium hover:underline">
-                  {spot.name}
-                </Link>
+                <span className="flex min-w-0 flex-col">
+                  <Link href={`/ships/${spot.shipId}`} className="truncate text-body font-medium hover:underline">
+                    {spot.name}
+                  </Link>
+                  {spot.workspace === undefined ? null : (
+                    <span className="truncate font-mono text-id text-muted-foreground" data-testid="machine-spot-workspace">
+                      <span className="sr-only">Workspace: </span>
+                      {spot.workspace}
+                    </span>
+                  )}
+                </span>
                 <span className="flex shrink-0 items-center gap-2.5">
                   <SpotSession spot={spot} now={now} />
                   <StatusBadge status={spot.status} />
