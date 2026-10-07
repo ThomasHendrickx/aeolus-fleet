@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 
 let core: InMemoryCore;
@@ -52,7 +52,7 @@ describe('defining a label', () => {
 
     const refused = await registry.defineLabel(argo, { key: 'os', values: ['linux'] });
 
-    expect(refused).toEqual({ isOk: false, error: { kind: 'LABEL_KEY_TAKEN', message: expect.stringContaining('trierarch-plugin') } });
+    expect(refusalOf(refused)).toMatchObject({ kind: 'LABEL_KEY_TAKEN', message: 'The fleet has the label os already, owned by trierarch-plugin' });
     expect(core.state.labels).toEqual([{ fleetId, key: 'os', values: ['macos'], ownerShipId: pluginId }]);
     expect(core.state.events).toEqual([]);
   });
@@ -79,10 +79,10 @@ describe('defining a label', () => {
     ['a dot', 'aeolus.os'],
     ['a space', 'o s'],
   ])('refuses a key that is %s, naming the limits decision', async (_case, key) => {
-    await expect(registry.defineLabel(plugin, { key, values: ['macos'] })).resolves.toEqual({
-      isOk: false,
-      error: { kind: 'INVALID_LABEL_KEY', message: expect.stringContaining('decision 0031') },
-    });
+    const refused = refusalOf(await registry.defineLabel(plugin, { key, values: ['macos'] }));
+
+    expect(refused.kind).toBe('INVALID_LABEL_KEY');
+    expect(refused.message).toContain('decision 0031');
     expect(core.state.labels).toEqual([]);
   });
 
@@ -92,10 +92,10 @@ describe('defining a label', () => {
     ['uppercase', 'MacOS'],
     ['a colon', 'mac:os'],
   ])('refuses a value that is %s, naming the limits decision', async (_case, value) => {
-    await expect(registry.defineLabel(plugin, { key: 'os', values: ['linux', value] })).resolves.toEqual({
-      isOk: false,
-      error: { kind: 'INVALID_LABEL_VALUE', message: expect.stringContaining('decision 0031') },
-    });
+    const refused = refusalOf(await registry.defineLabel(plugin, { key: 'os', values: ['linux', value] }));
+
+    expect(refused.kind).toBe('INVALID_LABEL_VALUE');
+    expect(refused.message).toContain('decision 0031');
     expect(core.state.labels).toEqual([]);
   });
 
@@ -112,10 +112,10 @@ describe('defining a label', () => {
   it('refuses 51 values, naming the limits decision', async () => {
     const values = Array.from({ length: 51 }, (_, index) => `v${String(index)}`);
 
-    await expect(registry.defineLabel(plugin, { key: 'project', values })).resolves.toEqual({
-      isOk: false,
-      error: { kind: 'INVALID_LABEL_VALUES', message: expect.stringContaining('decision 0031') },
-    });
+    const refused = refusalOf(await registry.defineLabel(plugin, { key: 'project', values }));
+
+    expect(refused.kind).toBe('INVALID_LABEL_VALUES');
+    expect(refused.message).toContain('decision 0031');
   });
 
   it('refuses a label without values', async () => {

@@ -4,6 +4,7 @@ import type { Recipient } from '../shared/selector.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
+import type { Label, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
@@ -152,6 +153,35 @@ export interface CrewRequestRepository {
   remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
   /** The requests assigned to this trierarch ship, oldest ship first. */
   listAssignedTo(fleetId: FleetId, trierarchShipId: ShipId): Promise<CrewRequest[]>;
+}
+
+/**
+ * Outbound port: the fleet's labels and the labels its ships carry, always
+ * within one fleet (decision 0031). A retired label is gone. Lock order: the
+ * ship being labelled, then the label.
+ */
+export interface LabelRepository {
+  /** Holds the lock on this key in the fleet until the unit of work ends, so two definitions of one key never both find it free. */
+  lockKey(fleetId: FleetId, key: string): Promise<void>;
+  /** The label, read without a lock. */
+  find(fleetId: FleetId, key: string): Promise<Label | undefined>;
+  /** The label, locked until the unit of work ends: changing its values or retiring it. */
+  findForUpdate(fleetId: FleetId, key: string): Promise<Label | undefined>;
+  /** The label, held until the unit of work ends against a change of its values or its retirement, as an assignment holds it. */
+  findForShare(fleetId: FleetId, key: string): Promise<Label | undefined>;
+  /** The labels this ship owns, by key, each locked as {@link findForUpdate} locks it. */
+  listOwnedByForUpdate(fleetId: FleetId, ownerShipId: ShipId): Promise<Label[]>;
+  /** Stores the label, replacing its values when the fleet has its key. */
+  save(label: Label): Promise<void>;
+  /** Retires the label: it is gone. No ship carries it by then. */
+  remove(fleetId: FleetId, key: string): Promise<void>;
+  /** The labels the ship carries, by key. */
+  carriedBy(fleetId: FleetId, shipId: ShipId): Promise<ShipLabel[]>;
+  /** Every ship's assignment of this label, by ship. */
+  carriersOf(fleetId: FleetId, key: string): Promise<ShipLabel[]>;
+  /** The ship carries the label with this value, in place of any value of it it carried. */
+  assign(assignment: ShipLabel): Promise<void>;
+  unassign(assignment: Pick<ShipLabel, 'fleetId' | 'shipId' | 'key'>): Promise<void>;
 }
 
 /** A delivery a lease held in flight, pending again: which one, the message it carries, who it is for and its claims so far. */

@@ -947,12 +947,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
-      labels: Object.fromEntries(
-        state.shipLabels
-          .filter((carried) => carried.fleetId === held.fleetId && carried.shipId === held.id)
-          .sort((first, second) => first.key.localeCompare(second.key))
-          .map((carried) => [carried.key, carried.value]),
-      ),
       crewedBy: crewedByOf(held, lease),
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
@@ -1018,16 +1012,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
     },
-    labels: (fleetId) =>
-      Promise.resolve(
-        state.labels
-          .filter((label) => label.fleetId === fleetId)
-          .sort((first, second) => first.key.localeCompare(second.key))
-          .map((label) => {
-            const owner = state.ships.find((each) => each.fleetId === fleetId && each.id === label.ownerShipId);
-            return { key: label.key, values: [...label.values], owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
-          }),
-      ),
     deliveryCounts: (fleetId, shipId) => {
       const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
       return Promise.resolve({
