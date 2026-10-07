@@ -145,3 +145,17 @@ export function useDeleteLabel() {
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.deleteLabel.mutationOptions({ onSuccess: refresh }));
 }
+
+/** argo gives a ship one of its label values, beside the values it carries (decision 0031). A ship at 20 labels is refused, naming the limit. */
+export function useAssignLabel() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.assignLabel.mutationOptions({ onSuccess: refresh }));
+}
+
+/** argo takes one of its label values off a ship. */
+export function useUnassignLabel() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.unassignLabel.mutationOptions({ onSuccess: refresh }));
+}

@@ -1,4 +1,4 @@
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
@@ -193,4 +193,77 @@ export function labelTextProblem(text: string, field: 'Key' | 'Value'): string |
     return undefined;
   }
   return `${field}: use lowercase letters, digits and - only, at most ${String(LABEL_HANDLE_MAX_LENGTH)} characters (decision 0031).`;
+}
+
+/** From how many labels a ship's page counts them, "15 of 20" (canvas Labels, Q12): below that it is noise. */
+const SHOWN_COUNT_FROM = 15;
+
+/**
+ * How a ship stands against the label limit (decision 0031; canvas LbShipLimit,
+ * Q12): its count against the most, from 15 on; at the most, Add label goes and
+ * the limit is named.
+ */
+export function labelLimitOf(ship: Pick<ListedShip, 'labels'>): { count?: string; isAtLimit: boolean } {
+  const carried = ship.labels.length;
+  return {
+    ...(carried >= SHOWN_COUNT_FROM ? { count: `${String(carried)} of ${String(SHIP_LABELS_MAX)}` } : {}),
+    isAtLimit: carried >= SHIP_LABELS_MAX,
+  };
+}
+
+/** One of your keys as Add label offers it on a ship: its values with their ships, and which the ship carries. */
+export interface AssignKey extends FilterKey {
+  carriedValueIds: string[];
+}
+
+/** Your keys, for Add label and your chips' menus on a ship's page: every value, the ones it carries marked (#102, point 13: a carried key takes another value). */
+export function assignKeysOf(ship: Pick<ListedShip, 'labels'>, context: LabelContext): AssignKey[] {
+  const yours = filterGroupsOf(context).find((group) => group.title === 'Yours');
+  return (yours?.keys ?? []).map((key) => ({
+    ...key,
+    carriedValueIds: ship.labels.filter((carried) => carried.labelId === key.labelId).map((carried) => carried.valueId),
+  }));
+}
+
+/** "a", "a and b", "a, b and c". */
+export function listed(words: readonly string[]): string {
+  return words.length <= 1 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words.at(-1) ?? ''}`;
+}
+
+/**
+ * What retiring a ship does to labels (canvas LbRetireShip, LbRetireOwner;
+ * Q11): the values it carries go, and the labels it owns retire with it, off
+ * every ship that carries them. None when neither.
+ */
+export function retiredLabelsOf(ship: Pick<ListedShip, 'id' | 'labels'>, context: LabelContext): { carried: string[]; owned?: { keys: string[]; carriers: string[] } } {
+  const carried = ship.labels.map((each) => `${each.key}=${each.value}`);
+  const owned = context.labels.filter((label) => label.owner.id === ship.id);
+  if (owned.length === 0) {
+    return { carried };
+  }
+  const ownedIds = new Set<string>(owned.map((label) => label.id));
+  const carriers = context.ships
+    .filter((each) => each.status !== 'retired' && each.id !== ship.id && each.labels.some((carried) => ownedIds.has(carried.labelId)))
+    .map((each) => each.name);
+  return { carried, owned: { keys: owned.map((label) => label.key), carriers } };
+}
+
+/**
+ * The retire confirm's lines about labels (canvas LbRetireShip, LbRetireOwner;
+ * Q11): the values the ship carries go with it; the labels it owns retire,
+ * off every ship that carries them. None without either.
+ */
+export function retireLabelLines(labels: ReturnType<typeof retiredLabelsOf>): string[] {
+  const lines: string[] = [];
+  if (labels.carried.length > 0) {
+    lines.push(`Its ${labels.carried.length === 1 ? 'label is' : `${String(labels.carried.length)} labels are`} removed with it: ${labels.carried.join(', ')}.`);
+  }
+  if (labels.owned !== undefined) {
+    const { keys, carriers } = labels.owned;
+    lines.push(`Its ${keys.length === 1 ? 'label retires' : `${String(keys.length)} labels retire`} with it: ${listed(keys)}. Nobody can assign ${keys.length === 1 ? 'it' : 'them'} again.`);
+    if (carriers.length > 0) {
+      lines.push(`${keys.length === 1 ? 'It is' : 'They are'} removed from the ${carriers.length === 1 ? 'ship that carries' : `${String(carriers.length)} ships that carry`} ${keys.length === 1 ? 'it' : 'them'}: ${listed(carriers)}.`);
+    }
+  }
+  return lines;
 }
