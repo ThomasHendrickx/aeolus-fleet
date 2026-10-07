@@ -1,8 +1,15 @@
+import { fileURLToPath } from 'node:url';
+
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+import { playwright } from '@vitest/browser-playwright';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 // Workspace packages resolve to their TypeScript source in tests, like in the
 // editor and in typecheck (see customConditions in tsconfig.base.json).
 const conditions = ['@aeolus-fleet/source', 'module', 'node', 'development|production'];
+
+/** The console's Storybook, whose every story runs as a test (#303). */
+const storybookConfigDir = fileURLToPath(new URL('packages/console/.storybook', import.meta.url));
 
 export default defineConfig({
   resolve: { conditions },
@@ -132,6 +139,23 @@ export default defineConfig({
           globalSetup: ['../core/test/postgres.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
+        },
+      },
+      {
+        // Every Storybook story of the console as a test, in Chromium: each
+        // renders without errors, and each play function runs (#303). Its own
+        // Vite config comes from Storybook's, for the browser, so it does not
+        // extend the Node one above. CHROMIUM_EXECUTABLE_PATH points at a
+        // Chromium a machine has already, as for the end-to-end tests.
+        plugins: [storybookTest({ configDir: storybookConfigDir })],
+        test: {
+          name: 'console:stories',
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(process.env.CHROMIUM_EXECUTABLE_PATH === undefined ? {} : { launchOptions: { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } }),
+            instances: [{ browser: 'chromium' }],
+          },
         },
       },
       {

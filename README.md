@@ -104,11 +104,12 @@ Requires Node 26 and npm. The integration tests start Postgres in Docker through
 npm install              # also generates the Prisma clients
 npm run typecheck
 npm run lint
-npx playwright install chromium   # once, for the end-to-end tests
-npm test                 # unit, integration and end-to-end tests; npm run test:unit needs no Docker
+npx playwright install chromium   # once, for the end-to-end and story tests
+npm test                 # unit, integration, end-to-end and story tests; npm run test:unit needs no Docker
+npm run test:stories     # every Storybook story of the console as a test, in Chromium
 ```
 
-The end-to-end tests drive the console in Chromium. To use a Chromium you already have, set `CHROMIUM_EXECUTABLE_PATH` instead of installing one.
+The end-to-end tests drive the console in Chromium, and every Storybook story runs as a test there too: it renders without errors and its play function runs. To use a Chromium you already have, set `CHROMIUM_EXECUTABLE_PATH` instead of installing one.
 
 To run it from the repository against any Postgres 16 or newer:
 
