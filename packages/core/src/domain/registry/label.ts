@@ -212,3 +212,29 @@ export function assignLabel(
   const assignment: ShipLabel = { fleetId: ship.fleetId, shipId: ship.id, key: label.key, value: input.value };
   return ok({ assignment, events: [assignmentEvent(assignment, { type: 'LabelAssigned', at: input.at, actor: input.actor })] });
 }
+
+export type UnassignLabelRefusal = NotTheOwner | OwnShip;
+
+/**
+ * The owner takes its label off a ship. A ship that does not carry it
+ * changes nothing. LabelUnassigned names the ship, with the key and the
+ * value it carried.
+ */
+export function unassignLabel(
+  { label, ownerName, ship, carried }: { label: Label; ownerName: string; ship: Ship; carried: readonly ShipLabel[] },
+  input: { callerShipId: ShipId; at: Date; actor: Actor },
+): Result<{ unassigned: ShipLabel | undefined; events: NewEvent[] }, UnassignLabelRefusal> {
+  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'unassigns' });
+  if (!owned.isOk) {
+    return owned;
+  }
+  const notOwn = checkNotOwnShip(label, ship);
+  if (!notOwn.isOk) {
+    return notOwn;
+  }
+  const current = carried.find((each) => each.key === label.key);
+  if (!current) {
+    return ok({ unassigned: undefined, events: [] });
+  }
+  return ok({ unassigned: current, events: [assignmentEvent(current, { type: 'LabelUnassigned', at: input.at, actor: input.actor })] });
+}

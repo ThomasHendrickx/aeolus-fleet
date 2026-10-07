@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -10,7 +10,6 @@ import type { Caller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let fleetId: FleetId;
 let argo: Caller;
 let plugin: Caller;
 let pluginId: ShipId;
@@ -19,7 +18,6 @@ let builderId: ShipId;
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-07T09:00:00.000Z');
   const fleet = await initialiseFleet(core);
-  ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
