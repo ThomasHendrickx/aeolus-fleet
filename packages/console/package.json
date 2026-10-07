@@ -24,6 +24,7 @@
     "!.next/trace",
     "!.next/trace-build",
     "!.next/types",
+    "!.next/**/*.map",
     "next.config.ts"
   ],
   "scripts": {
@@ -33,7 +34,9 @@
     "start": "node bin/aeolus-console.js start",
     "typecheck": "next typegen && tsc --project tsconfig.json",
     "storybook": "storybook dev --port 6006",
-    "build-storybook": "storybook build --output-dir storybook-static"
+    "build-storybook": "storybook build --output-dir storybook-static",
+    "prepack": "cp ../../LICENSE LICENSE",
+    "postpack": "rm LICENSE"
   },
   "dependencies": {
     "@aeolus-fleet/common": "0.0.0",
