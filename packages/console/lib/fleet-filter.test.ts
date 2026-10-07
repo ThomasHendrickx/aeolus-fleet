@@ -2,6 +2,7 @@ import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import {
+  activeFilterCount,
   activeFilterLabels,
   DEFAULT_FLEET_VIEW,
   filterFleet,
@@ -10,6 +11,7 @@ import {
   fleetViewParams,
   readFleetView,
   retiredCount,
+  urlParamsOf,
   type FleetView,
 } from './fleet-filter';
 
@@ -121,6 +123,35 @@ describe('the crew request filter (#245)', () => {
   });
 });
 
+describe('the label filter (#102)', () => {
+  const PROJECT = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h0a'), key: 'project' };
+  const HEMMA = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h1a'), value: 'hemma' };
+  const AEOLUS = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h2a'), value: 'aeolus' };
+  const BACKEND = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h3a'), key: 'area', valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h4a'), value: 'backend' };
+  const api = aShip({ name: 'hemma-api', labels: [HEMMA, BACKEND] });
+  const web = aShip({ name: 'hemma-web', labels: [HEMMA] });
+  const core = aShip({ name: 'aeolus-core', labels: [AEOLUS, BACKEND] });
+  const labelled = [api, web, core];
+
+  it('keeps the ships that carry every value picked: exact matches, all must hold', () => {
+    expect(names(filterFleet(labelled, view({ labelValueIds: [HEMMA.valueId, BACKEND.valueId] })))).toEqual(['hemma-api']);
+  });
+
+  it('keeps every ship with no value picked', () => {
+    expect(names(filterFleet(labelled, DEFAULT_FLEET_VIEW))).toEqual(['aeolus-core', 'hemma-api', 'hemma-web']);
+  });
+
+  it('keeps the values picked in the URL, in order, and leaves out what is no label value id', () => {
+    const written = view({ labelValueIds: [HEMMA.valueId, BACKEND.valueId] });
+    expect(readFleetView(fleetViewParams(written))).toEqual(written);
+    expect(readFleetView(new URLSearchParams('label=hemma&label=' + AEOLUS.valueId)).filters.labelValueIds).toEqual([AEOLUS.valueId]);
+  });
+
+  it('counts each value picked as a filter in force', () => {
+    expect(activeFilterCount({ ...DEFAULT_FLEET_VIEW.filters, type: 'reviewer', labelValueIds: [HEMMA.valueId, BACKEND.valueId] })).toBe(3);
+  });
+});
+
 describe('the view in the URL', () => {
   it('leaves every default out', () => {
     expect(fleetViewParams(DEFAULT_FLEET_VIEW).toString()).toBe('');
@@ -129,6 +160,10 @@ describe('the view in the URL', () => {
   it('reads back what it wrote', () => {
     const written = view({ query: 'rev', status: 'crewed', crewRequest: 'crashed', type: 'reviewer', squadron: 'team-a1b2c3', isRetiredShown: true });
     expect(readFleetView(fleetViewParams(written))).toEqual(written);
+  });
+
+  it('keeps every value of a repeated parameter from the page’s search params', () => {
+    expect(urlParamsOf({ q: 'hemma', label: ['lbv_a', 'lbv_b'], crew: undefined }).toString()).toBe('q=hemma&label=lbv_a&label=lbv_b');
   });
 
   it('falls back to the default for a crew request stage it does not know', () => {
@@ -146,7 +181,7 @@ describe('activeFilterLabels', () => {
   });
 
   it('names each filter in force, in the order of the controls', () => {
-    expect(activeFilterLabels({ status: 'awaitingCrew', crewRequest: 'needsCrew', type: 'reviewer', squadron: 'hemma-feature-a1b2c3', isRetiredShown: true })).toEqual([
+    expect(activeFilterLabels({ status: 'awaitingCrew', crewRequest: 'needsCrew', type: 'reviewer', squadron: 'hemma-feature-a1b2c3', isRetiredShown: true, labelValueIds: [] })).toEqual([
       'Status: Awaiting crew',
       'Crew request: Needs crew',
       'Type: reviewer',

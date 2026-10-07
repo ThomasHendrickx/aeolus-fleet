@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
+import type { LabelChip } from '../../lib/labels';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, shortDateTime } from '../../lib/relative-time';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
@@ -15,6 +16,7 @@ import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
 import { ReportLine } from '../molecules/report-line';
+import { ShipLabels } from '../molecules/ship-labels';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
 
@@ -34,6 +36,8 @@ interface ShipHeaderProps {
   now: Date;
   /** Where "Back to fleet overview" goes. */
   backHref?: string;
+  /** The ship's labels as chips, yours first, once the fleet's labels are read (#102); no Labels row until then. */
+  labels?: readonly LabelChip[];
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -51,7 +55,7 @@ function crewedSince(since: Date, now: Date): string {
   return `${when} · ${duration(since, now)}`;
 }
 
-function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
+function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels: readonly LabelChip[] | undefined }) {
   const isOperator = ship.kind === 'operator';
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
@@ -93,6 +97,14 @@ function MetaStrip({ ship, now }: { ship: ShipDetail; now: Date }) {
         <span className="truncate font-mono text-id">{ship.id}</span>
         <CopyButton value={ship.id} label="Copy ship id" />
       </MetaCell>
+      {labels === undefined ? null : (
+        <div className="col-span-4 flex min-w-0 items-center gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5" data-testid="ship-labels">
+          <dt className="shrink-0 text-meta text-muted-foreground">Labels</dt>
+          <dd className="min-w-0">
+            <ShipLabels chips={labels} />
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }
@@ -110,10 +122,10 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id, then its crew's report details, folded, when it has any. Its crew
+ * id, with its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/' }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -211,7 +223,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
         </Notice>
       ) : null}
       {crewRequest}
-      <MetaStrip ship={ship} now={now} />
+      <MetaStrip ship={ship} now={now} labels={labels} />
       {ship.kind === 'agent' && ship.report?.details ? (
         <ReportDetails details={ship.report.details} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

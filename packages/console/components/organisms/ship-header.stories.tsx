@@ -61,3 +61,16 @@ export const Retired: Story = { args: { ship: RETIRED_SHIP } };
 export const Loading: Story = { args: { ship: undefined, state: 'loading' } };
 export const NotFound: Story = { args: { ship: undefined, shipId: UNKNOWN_SHIP_ID, state: 'not-found' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+const LABEL_CHIPS = [
+  { labelId: 'lbl_project', valueId: 'lbv_project_hemma', key: 'project', value: 'hemma', mark: 'none', ownerName: 'argo' },
+  { labelId: 'lbl_area', valueId: 'lbv_area_backend', key: 'area', value: 'backend', mark: 'none', ownerName: 'argo' },
+  { labelId: 'lbl_blueprint', valueId: 'lbv_blueprint_hemma-feature', key: 'blueprint', value: 'hemma-feature', mark: 'squadrons', ownerName: 'squadrons' },
+] as const;
+
+/** With labels (#102): at the foot of the meta strip, two shown, then "+1". */
+export const WithLabels: Story = { args: { labels: LABEL_CHIPS } };
+/** A ship without labels says so. */
+export const WithoutLabels: Story = { args: { labels: [] } };
+/** On phone, the labels row stacks under its title. */
+export const WithLabelsPhone: Story = { args: { labels: LABEL_CHIPS }, globals: { viewport: { value: 'mobile1' } } };

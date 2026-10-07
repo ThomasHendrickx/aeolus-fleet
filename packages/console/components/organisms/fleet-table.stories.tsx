@@ -7,6 +7,7 @@ import { fn } from 'storybook/test';
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../../lib/fleet-filter';
 import { Button } from '../atoms/button';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
+import { AREA, BLUEPRINT, carried, COST, labelContext, OS, ownerShips, PROJECT } from './labels.fixtures';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;
@@ -268,3 +269,33 @@ export const SquadronsOn: Story = {
     />
   ),
 };
+
+/** What each story ship carries, by name (canvas Labels, LbOverview). */
+const CARRIED: Readonly<Record<string, ListedShip['labels']>> = {
+  'builder-core': [carried(PROJECT, 'aeolus'), carried(AREA, 'backend'), carried(OS, 'macos'), carried(BLUEPRINT, 'aeolus-review')],
+  'builder-web': [carried(PROJECT, 'hemma'), carried(AREA, 'frontend')],
+  planner: [carried(PROJECT, 'hemma')],
+  'release-captain': [carried(COST, 'low')],
+  'reviewer-01': [carried(PROJECT, 'aeolus'), carried(AREA, 'review'), carried(OS, 'linux')],
+};
+const LABELLED_FLEET: ListedShip[] = [...FLEET.map((listed) => ({ ...listed, labels: CARRIED[listed.name] ?? [] })), ...ownerShips(argo)];
+const PICKED = [carried(PROJECT, 'hemma').valueId, carried(AREA, 'frontend').valueId];
+
+/** With labels (#102): a second line of chips under each name, yours unmarked, then "+n"; the Labels filter in the toolbar. */
+export const Labels: Story = { args: { ships: LABELLED_FLEET, labels: labelContext(LABELLED_FLEET) } };
+
+/** Two label values picked: "Ships with project=hemma and area=frontend", each with ×, Add and Clear labels. */
+export const LabelsFiltered: Story = {
+  args: { ...Labels.args, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: PICKED } } },
+};
+
+/** Label values no ship carries together: nothing left, one action clears them. */
+export const LabelsNoMatch: Story = {
+  args: { ...Labels.args, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: [carried(PROJECT, 'website').valueId, carried(COST, 'high').valueId] } } },
+};
+
+/** A viewer: every label marked by its owner, argo's too; the filter works the same. */
+export const LabelsViewer: Story = { args: { ships: LABELLED_FLEET, labels: labelContext(LABELLED_FLEET, false) } };
+
+/** Phone with labels picked: no chips on rows (Q3), the values picked as chips under the search. */
+export const PhoneLabelsFiltered: Story = { ...LabelsFiltered, globals: { viewport: { value: 'mobile1' } } };

@@ -19,7 +19,7 @@ import { useFleetLimits } from '../lib/fleet-limits';
 import { useHostedAccountUrl } from '../lib/hosted-account';
 import { messageLimitNotice, messageLimitReached } from '../lib/limits';
 import { useFleetSnapshot } from '../lib/fleet';
-import { fleetViewParams, readFleetView, type FleetView } from '../lib/fleet-filter';
+import { fleetViewParams, readFleetView, urlParamsOf, type FleetView } from '../lib/fleet-filter';
 import { useOpenInboxCount } from '../lib/inbox';
 import { useLiveFleet } from '../lib/live-fleet';
 import { overviewSubtitle } from '../lib/overview-metrics';
@@ -31,18 +31,6 @@ import { usePluginNav } from '../lib/plugin-nav';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The page's search parameters as URLSearchParams; a repeated one keeps its first value. */
-function toUrlParams(searchParams: SearchParams): URLSearchParams {
-  const params = new URLSearchParams();
-  for (const [name, value] of Object.entries(searchParams)) {
-    const first = Array.isArray(value) ? value[0] : value;
-    if (first !== undefined) {
-      params.set(name, first);
-    }
-  }
-  return params;
-}
-
 /**
  * The fleet overview, live: every ship with its status, where it runs and its
  * actions, updated as the fleet changes, without a reload. Search and filters
@@ -50,7 +38,7 @@ function toUrlParams(searchParams: SearchParams): URLSearchParams {
  */
 export default function FleetPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const router = useRouter();
-  const params = toUrlParams(use(searchParams));
+  const params = urlParamsOf(use(searchParams));
   const view = readFleetView(params);
   // The command palette's Commission ship lands here with the dialog open.
   const isCommissionAsked = params.get('commission') === 'new';

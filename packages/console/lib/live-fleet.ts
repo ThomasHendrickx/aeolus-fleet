@@ -8,7 +8,7 @@ import { useTRPC } from './trpc';
 
 /**
  * The events that change what the fleet snapshot shows: a ship, its crew,
- * its secret, its starting prompt, its crew's report, its crew request, or how its last ping stands. An ack can
+ * its secret, its starting prompt, its crew's report, its crew request, the labels it carries, or how its last ping stands. An ack can
  * answer a ping and an undeliverable ping shows none, so those two reload it;
  * other message events leave the snapshot as it is.
  */
@@ -28,6 +28,9 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'CrewAssigned',
   'CrewStatusChanged',
   'CrewRequestExplained',
+  'LabelAssigned',
+  'LabelUnassigned',
+  'LabelRetired',
 ]);
 
 /**
@@ -48,6 +51,13 @@ export async function reloadQueries(queryClient: QueryClient, queryKey: readonly
 
 export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
+}
+
+/** The events that change the fleet's labels: their definitions, their values, or who carries them (the filter counts ships). */
+const LABEL_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['LabelDefined', 'LabelValuesChanged', 'LabelRetired', 'LabelAssigned', 'LabelUnassigned', 'LabelDeleted']);
+
+export function isLabelChange(type: EventType): boolean {
+  return LABEL_EVENTS.has(type);
 }
 
 /** The events that change Needs attention: a delivery becomes undeliverable, or the operator lets one go. */
@@ -84,7 +94,7 @@ export interface LiveFleet {
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message, the ships' message lists and
  * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * is dismissed reloads Needs attention. `resync`, sent first and whenever the
+ * is dismissed reloads Needs attention, and a label's event the fleet's labels. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
@@ -123,6 +133,9 @@ export function useLiveFleet(): LiveFleet {
           }
           if (isAttentionChange(event.type)) {
             reload(trpc.fleet.needsAttention.queryKey());
+          }
+          if (isLabelChange(event.type)) {
+            reload(trpc.fleet.labels.queryKey());
           }
           if (!isShipChange(event.type)) {
             return;

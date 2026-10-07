@@ -20,6 +20,8 @@ import { DetailLayout } from '../../../components/templates/detail-layout';
 import { useAccess } from '../../../lib/access';
 import { trpcErrorCode } from '../../../lib/errors';
 import { useOpenInboxCount } from '../../../lib/inbox';
+import { useLabelContext } from '../../../lib/fleet';
+import { chipsOf } from '../../../lib/labels';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useAttentionCount } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -70,6 +72,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const squadrons = useSquadrons();
   const inboxCount = useOpenInboxCount();
   const access = useAccess();
+  const labels = useLabelContext();
   const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -127,6 +130,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           now={now}
           actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
+          labels={ship.data && labels ? chipsOf(ship.data, labels) : undefined}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
         </>

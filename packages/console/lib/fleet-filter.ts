@@ -1,10 +1,11 @@
-import { shipStatusSchema, type ListedShip, type ShipStatus } from '@aeolus-fleet/common';
+import { idSchema, shipStatusSchema, type ListedShip, type ShipStatus } from '@aeolus-fleet/common';
 
 import { crewRequestStage } from './crew-request';
+import { carriesEvery } from './labels';
 import { CREW_REQUEST_KEYS, crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from './needs-crew';
 import type { ShipInSquadron } from './squadrons-view';
 
-/** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), type, squadron (with squadrons on) and Show retired. */
+/** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), type, squadron (with squadrons on), labels (#102) and Show retired. */
 export interface FleetFilters {
   status: Exclude<ShipStatus, 'retired'> | 'all';
   /** Where a ship's crew request stands, or `all`. */
@@ -14,6 +15,8 @@ export interface FleetFilters {
   /** A squadron's id: its flagship and members only; or `all`. */
   squadron: string;
   isRetiredShown: boolean;
+  /** The label values a shown ship carries, every one (decision 0031), in the order picked; none for all ships. */
+  labelValueIds: readonly string[];
 }
 
 /** What the overview shows: the search text and the filters. Kept in the URL. */
@@ -24,14 +27,14 @@ export interface FleetView {
 
 export const DEFAULT_FLEET_VIEW: FleetView = {
   query: '',
-  filters: { status: 'all', crewRequest: 'all', type: 'all', squadron: 'all', isRetiredShown: false },
+  filters: { status: 'all', crewRequest: 'all', type: 'all', squadron: 'all', isRetiredShown: false, labelValueIds: [] },
 };
 
 /** The view as filtering reads it: with squadrons on, which squadron each ship belongs to. */
 export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron> };
 
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired' } as const;
+const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
 const RETIRED_SHOWN = '1';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
@@ -51,6 +54,9 @@ function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | '
     return false;
   }
   if (filters.crewRequest !== 'all' && crewRequestKey(crewRequestStage(ship)) !== filters.crewRequest) {
+    return false;
+  }
+  if (!carriesEvery(ship, filters.labelValueIds)) {
     return false;
   }
   return filters.type === 'all' || ship.type === filters.type;
@@ -94,6 +100,17 @@ function readCrewRequest(value: string | null): FleetFilters['crewRequest'] {
   return CREW_REQUEST_KEYS.find((key) => key === value) ?? 'all';
 }
 
+/** A page's search params as URL parameters, every value of a repeated one kept (the label filter repeats `label`). */
+export function urlParamsOf(searchParams: Readonly<Record<string, string | string[] | undefined>>): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(searchParams)) {
+    for (const each of Array.isArray(value) ? value : value === undefined ? [] : [value]) {
+      params.append(name, each);
+    }
+  }
+  return params;
+}
+
 /** Reads the overview's view from the URL; anything unknown falls back to the default. */
 export function readFleetView(params: URLSearchParams): FleetView {
   return {
@@ -104,6 +121,7 @@ export function readFleetView(params: URLSearchParams): FleetView {
       type: params.get(PARAMS.type) ?? 'all',
       squadron: params.get(PARAMS.squadron) ?? 'all',
       isRetiredShown: params.get(PARAMS.isRetiredShown) === RETIRED_SHOWN,
+      labelValueIds: params.getAll(PARAMS.labelValueIds).filter((value) => idSchema('labelValue').safeParse(value).success),
     },
   };
 }
@@ -129,6 +147,9 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
   if (view.filters.isRetiredShown) {
     params.set(PARAMS.isRetiredShown, RETIRED_SHOWN);
   }
+  for (const valueId of view.filters.labelValueIds) {
+    params.append(PARAMS.labelValueIds, valueId);
+  }
   return params;
 }
 
@@ -139,10 +160,16 @@ export function fleetSquadrons(squadronsOf: ReadonlyMap<string, ShipInSquadron>)
 
 const STATUS_WORDS: Record<Exclude<FleetFilters['status'], 'all'>, string> = { crewed: 'Crewed', awaitingCrew: 'Awaiting crew' };
 
+/** How many filters are in force: each one in words, and each label value picked. */
+export function activeFilterCount(filters: FleetFilters): number {
+  return activeFilterLabels(filters).length + filters.labelValueIds.length;
+}
+
 /**
  * The filters in force, in words, for the phone's chips under the search
  * (canvas, MOverviewFilters): "Status: Crewed", "Crew request: Needs crew", "Type: reviewer",
- * "Squadron: <id>", "Retired shown". None for the defaults.
+ * "Squadron: <id>", "Retired shown". None for the defaults. Label values
+ * picked show as their own chips.
  */
 export function activeFilterLabels(filters: FleetFilters): string[] {
   return [

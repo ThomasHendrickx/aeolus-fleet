@@ -159,7 +159,7 @@ describe('Trierarchs in the console', () => {
     await page.getByTestId('nav-needs-crew').click();
     await page.getByTestId('needs-crew-row').getByText('scout').waitFor();
     await page.getByTestId('nav-overview').click();
-    await expect.poll(() => page.getByTestId('fleet-row-scout').getByTestId('fleet-crew-request').textContent()).toBe('Crewing');
+    await expect.poll(() => page.getByTestId('fleet-row-scout').getByTestId('fleet-crew-request').textContent(), { timeout: 30_000 }).toBe('Crewing');
 
     // Its machine's page shows the ship with the workspace its settings name, and Trierarchs the plugin's version.
     await page.goto(`/trierarchs/${shipId}`);

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAccess } from './access';
 import { useAnalytics } from './analytics-client';
+import { labelContextOf, type LabelContext } from './labels';
 import { useTRPC } from './trpc';
 
 /**
@@ -13,6 +15,27 @@ export const LAST_SEEN_REFRESH_MS = 30_000;
 export function useFleetSnapshot() {
   const trpc = useTRPC();
   return useQuery(trpc.fleet.list.queryOptions(undefined, { refetchInterval: LAST_SEEN_REFRESH_MS }));
+}
+
+/** The fleet's labels (#102, decision 0031): each with its values and its owner, for chips and the label filter. */
+export function useFleetLabels() {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.labels.queryOptions());
+}
+
+/**
+ * The fleet's labels as chips and the label filter read them, with the
+ * snapshot's ships; undefined until both are read. The operator's own labels
+ * are argo's; a viewer owns none.
+ */
+export function useLabelContext(): LabelContext | undefined {
+  const labels = useFleetLabels();
+  const fleet = useFleetSnapshot();
+  const access = useAccess();
+  if (labels.data === undefined || fleet.data === undefined) {
+    return undefined;
+  }
+  return labelContextOf(labels.data, { ships: fleet.data, isOperator: !access.isViewer });
 }
 
 /** Refreshes the fleet snapshot, and every ship page read, after a change to the fleet. */
