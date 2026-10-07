@@ -17,6 +17,8 @@ import {
 } from '../../lib/fleet-filter';
 import { dayMonth, fullDateTime, relativeTime } from '../../lib/relative-time';
 import type { ShipInSquadron } from '../../lib/squadrons-view';
+import { crewRequestStage } from '../../lib/crew-request';
+import { CREW_REQUEST_KEYS, crewRequestCell, crewRequestKeyWord, type CrewRequestKey } from '../../lib/needs-crew';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
@@ -31,6 +33,7 @@ import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
 import { LocationTag } from '../molecules/location-tag';
 import { ModelTag } from '../molecules/model-tag';
+import { CrewRequestCell } from '../molecules/crew-request-cell';
 import { ReportLine } from '../molecules/report-line';
 import { SquadronTag } from '../molecules/squadron-tag';
 import { ShipName } from '../molecules/ship-name';
@@ -68,6 +71,13 @@ const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
 
 function isStatusFilter(value: string): value is FleetFilters['status'] {
   return Object.hasOwn(STATUS_ITEMS, value);
+}
+
+/** The crew request filter's choices, in the order of a request's life. */
+const CREW_REQUEST_ITEMS: Record<string, string> = { all: 'All', ...Object.fromEntries(CREW_REQUEST_KEYS.map((key) => [key, crewRequestKeyWord(key)])) };
+
+function isCrewRequestFilter(value: string): value is CrewRequestKey | 'all' {
+  return Object.hasOwn(CREW_REQUEST_ITEMS, value);
 }
 
 /** What the no-results action clears: the search, the filters, or both. */
@@ -229,6 +239,29 @@ function FilterControls({
         </SelectTrigger>
         <SelectContent>
           {Object.entries(STATUS_ITEMS).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        items={CREW_REQUEST_ITEMS}
+        value={filters.crewRequest}
+        onValueChange={(value) => {
+          if (value !== null && isCrewRequestFilter(value)) {
+            change({ crewRequest: value });
+          }
+        }}
+      >
+        <SelectTrigger size={size} aria-label="Crew request" data-testid={isTouch ? undefined : 'fleet-filter-crew-request'}>
+          <span className="flex gap-1.5">
+            <span className="text-muted-foreground">Crew request</span>
+            <SelectValue className="font-medium" />
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(CREW_REQUEST_ITEMS).map(([value, label]) => (
             <SelectItem key={value} value={value}>
               {label}
             </SelectItem>
@@ -402,6 +435,26 @@ function PhoneFilters({
             </div>
           </div>
           <div className="flex flex-col gap-2">
+            <span id="fleet-filter-crew-request-label" className="text-meta font-medium text-muted-foreground">
+              Crew request
+            </span>
+            <div role="radiogroup" aria-labelledby="fleet-filter-crew-request-label" className="flex flex-wrap gap-1.5">
+              {Object.entries(CREW_REQUEST_ITEMS).map(([value, label]) => (
+                <FilterOption
+                  key={value}
+                  label={label}
+                  kind="radio"
+                  isOn={filters.crewRequest === value}
+                  onPick={() => {
+                    if (isCrewRequestFilter(value)) {
+                      change({ crewRequest: value });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
             <span className="text-meta font-medium text-muted-foreground">Type</span>
             <div role="group" aria-label="Type" className="flex flex-wrap gap-1.5">
               {['all', ...fleetTypes(ships, filters.isRetiredShown)].map((type) => (
@@ -539,6 +592,7 @@ function DesktopTable({
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Crew request</TableHead>
             <TableHead>Report</TableHead>
             <TableHead>Runs on</TableHead>
             <TableHead>Model</TableHead>
@@ -564,6 +618,9 @@ function DesktopTable({
               </TableCell>
               <TableCell>
                 <StatusBadge status={ship.status} />
+              </TableCell>
+              <TableCell>
+                <CrewRequestCell cell={crewRequestCell(crewRequestStage(ship))} testId="fleet-crew-request" />
               </TableCell>
               <TableCell className="max-w-72">
                 <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
@@ -610,6 +667,7 @@ function PhoneList({
               </span>
               <StatusBadge status={ship.status} />
             </div>
+            {ship.crewRequest === null ? null : <CrewRequestCell cell={crewRequestCell(crewRequestStage(ship))} />}
             <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
@@ -627,7 +685,7 @@ function PhoneList({
 /**
  * The fleet overview list (docs/design/png/FleetTable.png): one calm 48 px
  * line per ship. Columns name (with the operator chip, flagship chip or
- * SquadronTag), status, report, runs on (harness and location kind; an
+ * SquadronTag), status, crew request (a tone dot and a word; #245), report, runs on (harness and location kind; an
  * awaiting ship's prompt status), model and last seen (an icon). argo sorts
  * first and never reports; search and filters apply to it like any ship.
  * Every action lives in the row menu; the Report cell shows at most one next

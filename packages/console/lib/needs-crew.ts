@@ -1,4 +1,4 @@
-import type { ListedShip } from '@aeolus-fleet/common';
+import { CREW_STATUSES, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 
 import { crewRequestStage, type CrewRequestStage } from './crew-request';
 
@@ -59,4 +59,24 @@ export function crewRequestCell(stage: CrewRequestStage): CrewRequestCell {
     case 'assigned':
       return ASSIGNED_CELLS[stage.status];
   }
+}
+
+/** A crew request's stage as one key, for the overview's Crew request filter: none, needs crew, crewed by hand, or its status. */
+export type CrewRequestKey = 'none' | 'needsCrew' | 'crewedByHand' | CrewStatus;
+
+export const CREW_REQUEST_KEYS: readonly CrewRequestKey[] = ['none', 'needsCrew', 'crewedByHand', ...CREW_STATUSES];
+
+export function crewRequestKey(stage: CrewRequestStage): CrewRequestKey {
+  return stage.kind === 'assigned' ? stage.status : stage.kind;
+}
+
+/** Each key in words, as the filter offers it: the table cell's word, or No request. */
+export function crewRequestKeyWord(key: CrewRequestKey): string {
+  if (key === 'none') {
+    return 'No request';
+  }
+  if (key === 'needsCrew') {
+    return 'Needs crew';
+  }
+  return key === 'crewedByHand' ? 'Crewed by hand' : ASSIGNED_CELLS[key].word;
 }
