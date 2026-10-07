@@ -21,6 +21,7 @@ const DETAILS: NonNullable<Machine['details']> = {
         additionalProperties: false,
       },
       flags: ['--remote-control', '--dangerously-skip-permissions'],
+      riskyFlags: ['--dangerously-skip-permissions'],
     },
     { harness: 'codex', options: { type: 'object', properties: { model: { enum: ['gpt-6-sol', 'gpt-6'], default: 'gpt-6-sol' } }, additionalProperties: false }, flags: ['--search'] },
   ],
