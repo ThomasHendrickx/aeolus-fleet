@@ -105,8 +105,10 @@ export function ListLayout({
         </main>
       </div>
       <TabBar
-        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'settings' || nav.active === 'trierarchs' ? undefined : nav.active}
+        active={nav.active === 'overview' || nav.active === 'needs-crew' ? 'fleet' : nav.active === 'settings' ? undefined : nav.active}
         hasSquadrons={nav.hasSquadrons}
+        hasTrierarchs={nav.hasTrierarchs}
+        trierarchsCount={nav.trierarchsCount}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
       />

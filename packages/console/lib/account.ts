@@ -8,6 +8,7 @@ import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
 import { useConsoleGuide } from './guide';
 import { useTRPC } from './trpc';
+import { usePluginNav } from './plugin-nav';
 
 /**
  * The AccountMenu's data and actions on every console page: who is signed
@@ -23,6 +24,8 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   const account = useQuery(trpc.console.account.queryOptions());
   const accountUrl = useHostedAccountUrl();
   const guide = useConsoleGuide();
+  // With the trierarch plugin on, the phone's tab bar has no room for Settings: the account sheet offers it (#245, decision 6).
+  const pluginNav = usePluginNav();
   const setTheme = useMutation(
     trpc.console.setTheme.mutationOptions({
       onMutate: ({ theme }) => {
@@ -61,6 +64,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   };
 
   return {
+    ...(pluginNav.hasTrierarchs && pluginNav.hasSettings ? { settingsHref: '/settings' } : {}),
     account: account.data,
     onThemeChange: (theme: Theme) => {
       setTheme.mutate({ theme });
