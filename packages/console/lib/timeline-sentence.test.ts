@@ -299,6 +299,27 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a kept worktree was asked to be cleared, how its trierarch confirmed it, or that the request went with the trierarch (decision 0032)', () => {
+    expect(onScoutsPage(anEntry('WorktreeClearRequested', { actor: argo, details: { worktreeShipId: argo.id, repository: 'aeolus-fleet' } }))).toEqual({
+      sentence: 'Clearing of the kept aeolus-fleet worktree requested by argo',
+      tone: 'waiting',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('WorktreeCleared', { actor: argo, details: { worktreeShipId: argo.id, repository: 'aeolus-fleet', outcome: 'removed' } }))).toEqual({
+      sentence: 'Kept aeolus-fleet worktree cleared by argo',
+      tone: 'ended',
+      icon: 'retired',
+    });
+    expect(onScoutsPage(anEntry('WorktreeCleared', { actor: argo, details: { worktreeShipId: argo.id, repository: 'aeolus-fleet', outcome: 'not-kept' } }))).toMatchObject({
+      sentence: 'Kept aeolus-fleet worktree cleared (none was kept) by argo',
+    });
+    expect(onScoutsPage(anEntry('WorktreeClearRemoved', { actor: argo, details: { worktreeShipId: argo.id, repository: 'aeolus-fleet' } }))).toEqual({
+      sentence: 'Clearing of the kept aeolus-fleet worktree dropped by argo',
+      tone: 'ended',
+      icon: 'released',
+    });
+  });
+
   it('says who assigned the crew request, and how the trierarch says the crew stands', () => {
     expect(onScoutsPage(anEntry('CrewAssigned', { actor: argo, details: { assignedTo: argo.id } }))).toEqual({
       sentence: 'Crew request assigned by argo',

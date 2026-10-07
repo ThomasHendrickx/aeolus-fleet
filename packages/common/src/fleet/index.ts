@@ -88,6 +88,9 @@ export const EVENT_TYPES = [
   'LabelAssigned',
   'LabelUnassigned',
   'LabelDeleted',
+  'WorktreeClearRequested',
+  'WorktreeCleared',
+  'WorktreeClearRemoved',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

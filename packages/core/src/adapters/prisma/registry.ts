@@ -1,6 +1,7 @@
-import { PING_CONTENT_TYPE, idSchema, type FleetId, type LabelId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
 
 import type {
+  ClearRequestRepository,
   CrewRequestRepository,
   FleetListing,
   LabelRepository,
@@ -13,6 +14,7 @@ import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
   toAbandonedDelivery,
+  toClearRequest,
   toCrewRequest,
   toDeliveryFromSql,
   toFleet,
@@ -80,6 +82,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
@@ -112,6 +115,32 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
     },
     remove: async (fleetId, shipId) => {
       await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
+    },
+  };
+}
+
+export function createPrismaClearRequestRepository(db: Db): ClearRequestRepository {
+  const where = (fleetId: FleetId, { trierarchShipId, shipId, repository }: { trierarchShipId: ShipId; shipId: ShipId; repository: string }) => ({
+    fleetId_trierarchShipId_shipId_repository: { fleetId, trierarchShipId, shipId, repository },
+  });
+  return {
+    find: async (fleetId, key) => {
+      const row = await db.worktreeClearRequest.findUnique({ where: where(fleetId, key) });
+      return row === null ? undefined : toClearRequest(row);
+    },
+    save: async (request) => {
+      await db.worktreeClearRequest.create({ data: request });
+    },
+    remove: async (fleetId, key) => {
+      await db.worktreeClearRequest.deleteMany({ where: { fleetId, trierarchShipId: key.trierarchShipId, shipId: key.shipId, repository: key.repository } });
+    },
+    list: async (fleetId) => {
+      const rows = await db.worktreeClearRequest.findMany({ where: { fleetId }, orderBy: [{ trierarchShipId: 'asc' }, { requestedAt: 'asc' }] });
+      return rows.map(toClearRequest);
+    },
+    listFor: async (fleetId, trierarchShipId) => {
+      const rows = await db.worktreeClearRequest.findMany({ where: { fleetId, trierarchShipId }, orderBy: { requestedAt: 'asc' } });
+      return rows.map(toClearRequest);
     },
   };
 }

@@ -68,6 +68,9 @@ import { createListLabels } from '../../src/domain/registry/list-labels.js';
 import { createRemoveCrewRequest } from '../../src/domain/registry/remove-crew-request.js';
 import { createAssignCrew } from '../../src/domain/registry/assign-crew.js';
 import { createReportCrewStatus } from '../../src/domain/registry/report-crew-status.js';
+import { createConfirmWorktreeCleared } from '../../src/domain/registry/confirm-worktree-cleared.js';
+import { createReadClearRequests } from '../../src/domain/registry/read-clear-requests.js';
+import { createRequestWorktreeClear } from '../../src/domain/registry/request-worktree-clear.js';
 import { createConfirmCrewRelease } from '../../src/domain/registry/confirm-crew-release.js';
 import { createReadAssignedCrewRequests } from '../../src/domain/registry/read-assigned-crew-requests.js';
 import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew-request.js';
@@ -156,6 +159,9 @@ export function registryUseCases(core: InMemoryCore) {
     confirmCrewRelease: createConfirmCrewRelease(deps),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests }),
     explainCrewRequest: createExplainCrewRequest(deps),
+    requestWorktreeClear: createRequestWorktreeClear(deps),
+    readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests }),
+    confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),

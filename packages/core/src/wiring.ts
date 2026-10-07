@@ -9,6 +9,7 @@ import { createPrismaShipHistory } from './adapters/prisma/history.js';
 import {
   createPrismaFleetListing,
   createPrismaFleetRepository,
+  createPrismaClearRequestRepository,
   createPrismaCrewRequestRepository,
   createPrismaLeaseRepository,
   createPrismaShipRepository,
@@ -70,6 +71,9 @@ import { createAssignCrew, type AssignCrew } from './domain/registry/assign-crew
 import { createReportCrewStatus, type ReportCrewStatus } from './domain/registry/report-crew-status.js';
 import { createConfirmCrewRelease, type ConfirmCrewRelease } from './domain/registry/confirm-crew-release.js';
 import { createReadAssignedCrewRequests, type ReadAssignedCrewRequests } from './domain/registry/read-assigned-crew-requests.js';
+import { createConfirmWorktreeCleared, type ConfirmWorktreeCleared } from './domain/registry/confirm-worktree-cleared.js';
+import { createReadClearRequests, type ReadClearRequests } from './domain/registry/read-clear-requests.js';
+import { createRequestWorktreeClear, type RequestWorktreeClear } from './domain/registry/request-worktree-clear.js';
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createChangeLabelValues, type ChangeLabelValues } from './domain/registry/change-label-values.js';
@@ -122,6 +126,9 @@ export interface UseCases {
   reportCrewStatus: ReportCrewStatus;
   confirmCrewRelease: ConfirmCrewRelease;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
+  requestWorktreeClear: RequestWorktreeClear;
+  readClearRequests: ReadClearRequests;
+  confirmWorktreeCleared: ConfirmWorktreeCleared;
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   changeLabelValues: ChangeLabelValues;
@@ -249,6 +256,9 @@ export function createUseCases(options: {
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma) }),
     explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
+    requestWorktreeClear: createRequestWorktreeClear({ uow, clock, ids }),
+    readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma) }),
+    confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
     assignLabel: createAssignLabel({ uow, clock, ids }),

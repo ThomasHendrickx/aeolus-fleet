@@ -153,6 +153,9 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/reportCrewStatus',
       '/fleet/confirmCrewRelease',
       '/fleet/assignedCrewRequests',
+      '/fleet/clearWorktree',
+      '/fleet/clearRequests',
+      '/fleet/confirmWorktreeCleared',
       '/fleet/labels',
       '/fleet/defineLabel',
       '/fleet/changeLabelValues',
@@ -378,7 +381,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   it('refuse every fleet route but its own with 403 to a ship with only crew:run', async () => {
     const trierarch = await crewedWithFleetScopes(['crew:run']);
     const others = SHIP_CALLS.filter(
-      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/assignedCrewRequests'].includes(each.route),
+      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/assignedCrewRequests', '/fleet/clearRequests', '/fleet/confirmWorktreeCleared'].includes(each.route),
     );
 
     const answers = await Promise.all(
@@ -414,6 +417,36 @@ describe('the fleet actions at /api/v1/fleet', () => {
     expect(assigned).toHaveLength(1);
     expect(read.id).toBe(scout.shipId);
     await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
+  it('serve a clear request: asked with fleet:manage, read with fleet:read and by its trierarch, confirmed by it (decision 0032)', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    shipCount += 1;
+    const machine = unwrap(
+      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `rest-trierarch-${shipCount}`, type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const trierarchToken = await register({ shipId: machine.shipId, secret: secretOf(machine.secret) });
+    const scout = await commissioned();
+    const worktree = { shipId: scout.shipId, repository: 'aeolus-fleet' };
+    const listed = z.array(z.object({ trierarchShipId: z.string(), shipId: z.string(), repository: z.string(), requestedBy: z.string(), requestedAt: z.iso.datetime() }));
+
+    await ok(request('fleet/clearWorktree', { crewToken: manager.crewToken, body: { trierarchShipId: machine.shipId, ...worktree } }), z.strictObject({}));
+    const read = await ok(request('fleet/clearRequests', { crewToken: manager.crewToken, method: 'GET' }), listed);
+    const own = await ok(request('fleet/clearRequests', { crewToken: trierarchToken, method: 'GET' }), listed);
+    await ok(request('fleet/confirmWorktreeCleared', { crewToken: trierarchToken, body: { ...worktree, outcome: 'not-kept' } }), z.strictObject({}));
+
+    expect(read).toContainEqual(expect.objectContaining({ trierarchShipId: machine.shipId, ...worktree, requestedBy: manager.shipId }));
+    expect(own).toEqual([expect.objectContaining({ trierarchShipId: machine.shipId, ...worktree })]);
+    await expect(database.worktreeClearRequest.count({ where: { trierarchShipId: machine.shipId } })).resolves.toBe(0);
+  });
+
+  it('refuse a clear request to a ship that is no trierarch, with 400', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:manage']);
+    const scout = await commissioned();
+
+    await expect(
+      request('fleet/clearWorktree', { crewToken: manager.crewToken, body: { trierarchShipId: scout.shipId, shipId: scout.shipId, repository: 'aeolus-fleet' } }),
+    ).resolves.toMatchObject({ status: 400, body: { code: 'BAD_REQUEST', message: `${scout.name} is no trierarch: only a trierarch clears a worktree it kept` } });
   });
 
   it('refuse a ship with crew:run a ship not assigned to it, with 403', async () => {

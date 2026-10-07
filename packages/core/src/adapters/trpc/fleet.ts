@@ -30,6 +30,11 @@ import {
   assignCrewInputSchema,
   assignCrewOutputSchema,
   assignedCrewRequestsOutputSchema,
+  clearRequestsOutputSchema,
+  clearWorktreeInputSchema,
+  clearWorktreeOutputSchema,
+  confirmWorktreeClearedInputSchema,
+  confirmWorktreeClearedOutputSchema,
   confirmCrewReleaseInputSchema,
   explainCrewRequestInputSchema,
   explainCrewRequestOutputSchema,
@@ -280,6 +285,50 @@ export const fleetRouter = router({
     .query(async ({ ctx }) =>
       (await ctx.useCases.readAssignedCrewRequests(ctx.caller)).map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })),
     ),
+
+  /** Asks a trierarch to clear a worktree it kept, named by its ship and repository (decision 0032). */
+  clearWorktree: scopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage. Asks a trierarch ship to clear the worktree it kept for a ship in a repository, named as its report names it, never a path.',
+        'The request stays pending until the trierarch confirms; it is never withdrawn. Asking again for the same worktree changes nothing.',
+        'At most 100 pending per trierarch.',
+      ].join(' '),
+    })
+    .input(clearWorktreeInputSchema)
+    .output(clearWorktreeOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.requestWorktreeClear(ctx.caller, input));
+      return {};
+    }),
+
+  /** The pending clear requests: every trierarch's to fleet:read, the caller's own to crew:run. */
+  clearRequests: anyScopeProcedure('fleet:read', 'crew:run')
+    .meta({
+      description: [
+        "Needs fleet:read or crew:run. The pending clear requests: with fleet:read every trierarch's, with crew:run those to your ship.",
+        'Each names the trierarch, the worktree by its ship and repository, who asked and when.',
+      ].join(' '),
+    })
+    .output(clearRequestsOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.readClearRequests(ctx.caller)).map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })),
+    ),
+
+  /** The trierarch confirms a clear request to its ship: it removed the worktree, or kept none (decision 0032). */
+  confirmWorktreeCleared: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        'Needs crew:run, for a clear request to your ship. Confirms you removed the kept worktree (removed) or kept no such worktree (not-kept);',
+        'the request then goes.',
+      ].join(' '),
+    })
+    .input(confirmWorktreeClearedInputSchema)
+    .output(confirmWorktreeClearedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.confirmWorktreeCleared(ctx.caller, input));
+      return {};
+    }),
 
   /**
    * Gives a ship a new name, any ship but argo or a retired one. Its id,

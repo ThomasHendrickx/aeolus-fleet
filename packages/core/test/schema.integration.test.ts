@@ -116,6 +116,7 @@ describe('migrations', () => {
       'ship_labels',
       'ships',
       'sign_in_tickets',
+      'worktree_clear_requests',
     ]);
     // The installation's settings, notices and guide belong to no fleet (decisions 0020, 0023 and 0024).
     expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'guides', 'installation_settings', 'notices']);

@@ -232,3 +232,19 @@ describe('the labels of a retired ship', () => {
     expect(labelEvents()).toEqual([]);
   });
 });
+
+describe('the clear requests of a retired trierarch (decision 0032)', () => {
+  it('go with it, one WorktreeClearRemoved each on its ship, caused by the retirer; another trierarch keeps its own', async () => {
+    const macMini = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    const macStudio = await shipWithScopes({ registry, argo }, { name: 'mac-studio', type: 'trierarch', scopes: ['crew:run'] });
+    unwrap(await registry.requestWorktreeClear(argo, { trierarchShipId: macMini.shipId, shipId: scoutId, repository: 'aeolus-fleet' }));
+    unwrap(await registry.requestWorktreeClear(argo, { trierarchShipId: macStudio.shipId, shipId: scoutId, repository: 'hemma' }));
+
+    unwrap(await registry.retireShip(argo, { shipId: macMini.shipId }));
+
+    expect(core.state.clearRequests.map(({ trierarchShipId }) => trierarchShipId)).toEqual([macStudio.shipId]);
+    expect(eventsOfType('WorktreeClearRemoved')).toEqual([
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: macMini.shipId, details: { worktreeShipId: scoutId, repository: 'aeolus-fleet' } }),
+    ]);
+  });
+});
