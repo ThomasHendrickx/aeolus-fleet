@@ -3,6 +3,7 @@ import { createIdGenerator } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
 import { CommissionDialog } from './commission-dialog';
+import { OFFERS } from './machines.fixtures';
 
 const newId = createIdGenerator();
 
@@ -40,3 +41,7 @@ export const Failed: Story = { args: { error: 'An active ship is already named r
 /** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
 export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** With the trierarch plugin on: Request a crew carries the crew request's settings. */
+export const WithTrierarchPlugin: Story = { args: { crewRequest: { offers: OFFERS, squadrons: ['hemma-feature-63p5sx'], onSettingsChange: () => undefined } } };
+export const WithTrierarchPluginNoRoom: Story = { args: { crewRequest: { offers: OFFERS, check: { kind: 'noRoom', reason: 'no trierarch with room: all 1 that fit are full' }, onSettingsChange: () => undefined } } };

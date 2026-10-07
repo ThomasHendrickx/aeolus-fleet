@@ -227,10 +227,14 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
           {stage.kind === 'assigned' ? <StatusBadge status={stage.status} /> : <StatusBadge status={stage.kind} />}
           {stage.kind === 'needsCrew' ? (
             <span className="text-meta text-muted-foreground">
-              {stage.reason ?? (
-                <>
-                  since <Time at={stage.requestedAt} now={now} />
-                </>
+              {props.hasTrierarchs ? (
+                'not assigned yet'
+              ) : (
+                stage.reason ?? (
+                  <>
+                    since <Time at={stage.requestedAt} now={now} />
+                  </>
+                )
               )}
             </span>
           ) : null}
