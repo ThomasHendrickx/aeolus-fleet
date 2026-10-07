@@ -49,6 +49,18 @@ import {
   retireShipInputSchema,
   retireShipOutputSchema,
   startingPromptOutputSchema,
+  assignLabelInputSchema,
+  changeLabelValuesInputSchema,
+  changeLabelValuesOutputSchema,
+  defineLabelInputSchema,
+  defineLabelOutputSchema,
+  deleteLabelInputSchema,
+  findLabelValueInputSchema,
+  findLabelValueOutputSchema,
+  fleetListInputSchema,
+  labelWriteOutputSchema,
+  labelsOutputSchema,
+  unassignLabelInputSchema,
 } from '@aeolus-fleet/common';
 import { tracked, type TrackedEnvelope } from '@trpc/server';
 // The subscription's output type names TrackedData, which tRPC exports only
@@ -305,16 +317,18 @@ export const fleetRouter = router({
       return { ships, dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() } };
     }),
 
-  /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
+  /** Every ship of the caller's fleet with its status and prompt state, or the ships that carry the label values given. Never a secret. */
   list: scopedProcedure('fleet:read')
     .meta({
       description: [
-        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships that carry every one of them: exact matches, combined with AND.',
       ].join(' '),
     })
+    .input(fleetListInputSchema)
     .output(fleetListOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.listFleet(ctx.caller)).map((ship) => ({
+    .query(async ({ ctx, input }) =>
+      (await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds })).map((ship) => ({
         ...ship,
         startingPrompt: ship.startingPrompt && {
           issuedAt: ship.startingPrompt.issuedAt.toISOString(),
@@ -323,6 +337,7 @@ export const fleetRouter = router({
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
         ping: pingOutputOf(ship.ping),
         scopes: [...ship.scopes],
+        labels: [...ship.labels],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
         crewRequest: ship.crewRequest && { ...ship.crewRequest, requestedAt: ship.crewRequest.requestedAt.toISOString() },
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
@@ -330,6 +345,99 @@ export const fleetRouter = router({
         retiredAt: ship.retiredAt?.toISOString() ?? null,
       })),
     ),
+
+  /** The fleet's labels, each with its values and its owner (decision 0031). */
+  labels: scopedProcedure('fleet:read')
+    .meta({
+      description: ["Needs fleet:read. The fleet's labels by key: each with its id, its values with their ids, and its owner ship, by id and name."].join(' '),
+    })
+    .output(labelsOutputSchema)
+    .query(async ({ ctx }) => (await ctx.useCases.listLabels(ctx.caller)).map((label) => ({ ...label, values: [...label.values] }))),
+
+  /** Defines a label the caller's ship then owns (decision 0031). */
+  defineLabel: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        'Needs labels:define. Defines a label your ship then owns: a key unique in the fleet and its values, 1 to 50, each once.',
+        'Keys and values are lowercase a-z, 0-9 and -, at most 63 characters (decision 0031). A key the fleet has is CONFLICT, naming its owner.',
+        'Answers the label id and each value with its id: assigning and selecting take the ids. The label retires with its owner.',
+      ].join(' '),
+    })
+    .input(defineLabelInputSchema)
+    .output(defineLabelOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { labelId, values } = okOrThrow(await ctx.useCases.defineLabel(ctx.caller, input));
+      return { labelId, values: [...values] };
+    }),
+
+  /** The owner gives its label the values it has from now on. */
+  changeLabelValues: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        "Needs labels:define, and only the label's owner changes it. Gives the label, by its id, every value it has from now on, adding and removing at once, within decision 0031's limits.",
+        'A value it has keeps its id. A value ships carry is never removed: CONFLICT, naming the ships that carry it. Answers each value with its id.',
+      ].join(' '),
+    })
+    .input(changeLabelValuesInputSchema)
+    .output(changeLabelValuesOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { values } = okOrThrow(await ctx.useCases.changeLabelValues(ctx.caller, input));
+      return { values: [...values] };
+    }),
+
+  /** The owner gives a ship one of its label's values. */
+  assignLabel: scopedProcedure('labels:assign')
+    .meta({
+      description: [
+        "Needs labels:assign, and only the label's owner assigns it. Gives a ship one of its values, by the value's id, beside the values the ship carries.",
+        'Never your own ship or a retired one. A ship carries at most 20 label values (decision 0031).',
+      ].join(' '),
+    })
+    .input(assignLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.assignLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The owner takes its label off a ship. */
+  unassignLabel: scopedProcedure('labels:assign')
+    .meta({
+      description: ["Needs labels:assign, and only the label's owner unassigns it. Takes one of its values off a ship, by the value's id; a ship that does not carry it changes nothing."].join(' '),
+    })
+    .input(unassignLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.unassignLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The owner deletes its label, freeing its key. */
+  deleteLabel: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        "Needs labels:define, and only the label's owner deletes it. Deletes the label, by its id, with its values, freeing its key.",
+        'A label any ship carries a value of is never deleted: CONFLICT, naming the ships that carry it.',
+      ].join(' '),
+    })
+    .input(deleteLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.deleteLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The ids of a label and one of its values, by their texts. */
+  findLabelValue: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        'Needs fleet:read. The label id and the value id for a key and a value as people write them (os, macos): both lowercased, then matched exactly.',
+        'Assigning and selecting take the ids. A key or value the fleet does not have is NOT_FOUND.',
+      ].join(' '),
+    })
+    .input(findLabelValueInputSchema)
+    .output(findLabelValueOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.findLabelValue(ctx.caller, input))),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: anyScopeProcedure('fleet:read', 'crew:run')
@@ -351,6 +459,7 @@ export const fleetRouter = router({
         lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
         ping: pingOutputOf(ship.ping),
         scopes: [...ship.scopes],
+        labels: [...ship.labels],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
         crewRequest: ship.crewRequest && { ...ship.crewRequest, requestedAt: ship.crewRequest.requestedAt.toISOString() },
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },

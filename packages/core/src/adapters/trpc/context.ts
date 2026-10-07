@@ -57,6 +57,13 @@ import type { ReadAssignedCrewRequests } from '../../domain/registry/read-assign
 import type { ExplainCrewRequest } from '../../domain/registry/explain-crew-request.js';
 import type { Ping } from '../../domain/shared/ping.js';
 import type { ReadFleetEvents } from '../../domain/shared/read-fleet-events.js';
+import type { AssignLabel } from '../../domain/registry/assign-label.js';
+import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
+import type { DefineLabel } from '../../domain/registry/define-label.js';
+import type { DeleteLabel } from '../../domain/registry/delete-label.js';
+import type { FindLabelValue } from '../../domain/registry/find-label-value.js';
+import type { ListLabels } from '../../domain/registry/list-labels.js';
+import type { UnassignLabel } from '../../domain/registry/unassign-label.js';
 import type { FollowFleet } from '../../domain/shared/follow-fleet.js';
 import type { ReadInbox } from '../../domain/shared/read-inbox.js';
 import type { ReadMessage } from '../../domain/shared/read-message.js';
@@ -99,6 +106,13 @@ export interface UseCases {
   confirmCrewRelease: ConfirmCrewRelease;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
   explainCrewRequest: ExplainCrewRequest;
+  defineLabel: DefineLabel;
+  changeLabelValues: ChangeLabelValues;
+  assignLabel: AssignLabel;
+  unassignLabel: UnassignLabel;
+  listLabels: ListLabels;
+  deleteLabel: DeleteLabel;
+  findLabelValue: FindLabelValue;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;

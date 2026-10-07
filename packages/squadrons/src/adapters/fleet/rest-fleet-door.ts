@@ -123,8 +123,9 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
     listShips: async (crewToken) => {
       const listed = await call(fleetUrl, {
         path: '/fleet/list',
-        method: 'GET',
+        method: 'POST',
         crewToken,
+        body: {},
         answers: z.array(z.object({ id: idSchema('ship'), name: z.string(), status: z.string() })),
       });
       return listed.isOk ? ok(listed.value.filter((ship) => ship.status !== 'retired').map(({ id, name }) => ({ shipId: id, name }))) : listed;

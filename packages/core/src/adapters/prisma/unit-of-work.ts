@@ -12,6 +12,7 @@ import type {
   InFlightDeliveries,
   InstallationRequestRepository,
   InstallationSettingsRepository,
+  LabelRepository,
   LeaseRepository,
   ShipRepository,
 } from '../../domain/registry/ports.js';
@@ -34,6 +35,7 @@ import {
   createPrismaCrewRequestRepository,
   createPrismaFleetRepository,
   createPrismaInFlightDeliveries,
+  createPrismaLabelRepository,
   createPrismaLeaseRepository,
   createPrismaShipRepository,
 } from './registry.js';
@@ -44,6 +46,7 @@ export interface PrismaTx {
   ships: ShipRepository;
   leases: LeaseRepository;
   crewRequests: CrewRequestRepository;
+  labels: LabelRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -63,6 +66,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     ships: createPrismaShipRepository(db),
     leases: createPrismaLeaseRepository(db),
     crewRequests: createPrismaCrewRequestRepository(db),
+    labels: createPrismaLabelRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),

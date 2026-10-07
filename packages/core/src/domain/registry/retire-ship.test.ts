@@ -10,6 +10,8 @@ import {
   registryUseCases,
   secretOf,
 } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { carriedText, labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
@@ -162,5 +164,71 @@ describe('retiring a ship', () => {
     await registry.retireShip(argo, { shipId: argo.shipId });
 
     expect(core.state).toEqual(before);
+  });
+});
+
+describe('the labels of a retired ship', () => {
+  let plugin: Caller;
+  let pluginId: ShipId;
+  let builderId: ShipId;
+
+  beforeEach(async () => {
+    plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+    pluginId = plugin.shipId;
+    ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+    unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
+    unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
+    core.clock.advance(60_000);
+    core.state.events.length = 0;
+  });
+
+  function labelEvents() {
+    return core.state.events.filter((event) => event.type.startsWith('Label')).map((event) => [event.type, event.shipId, event.details.key, event.details.value ?? null]);
+  }
+
+  it('go with it: the ship carries none, with one LabelUnassigned each, caused by the retirer', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(carriedText(core, scoutId)).toEqual([]);
+    expect(carriedText(core, builderId)).toEqual(['os=macos']);
+    expect(eventsOfType('LabelUnassigned').map((event) => [event.actor, event.shipId, event.occurredAt, event.details.key, event.details.value])).toEqual([
+      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'os', 'linux'],
+      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'project', 'hemma'],
+    ]);
+  });
+
+  it('it owns retire with it: every assignment of them goes, then each label, with LabelUnassigned and LabelRetired', async () => {
+    const osId = labelIdOf(core, 'os');
+
+    unwrap(await registry.retireShip(argo, { shipId: pluginId }));
+
+    expect(core.state.labels).toEqual([]);
+    expect(core.state.shipLabels).toEqual([]);
+    expect(labelEvents()).toEqual([
+      ['LabelUnassigned', scoutId, 'os', 'linux'],
+      ['LabelUnassigned', builderId, 'os', 'macos'],
+      ['LabelRetired', pluginId, 'os', null],
+      ['LabelUnassigned', scoutId, 'project', 'hemma'],
+      ['LabelRetired', pluginId, 'project', null],
+    ]);
+    expect(eventsOfType('LabelRetired')[0]?.details).toEqual({ labelId: osId, key: 'os' });
+  });
+
+  it('it owned can be defined again once it retired, by another ship', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: pluginId }));
+
+    await expect(registry.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('it owns stay while it is only released: its meaning retires with its owner, not its crew', async () => {
+    const crew = crewAboard(core, { fleetId, shipId: pluginId });
+    unwrap(await registry.releaseShip(argo, { shipId: crew.shipId }));
+
+    expect(core.state.labels.map((label) => label.key)).toEqual(['os', 'project']);
+    expect(core.state.shipLabels).toHaveLength(3);
+    expect(labelEvents()).toEqual([]);
   });
 });

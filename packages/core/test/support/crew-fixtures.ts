@@ -1,4 +1,4 @@
-import type { FleetId, Scope, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, FleetScope, Scope, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../../src/domain/shared/caller.js';
 import { newKey } from './keys.js';
@@ -6,9 +6,10 @@ import type { registryUseCases } from './core-fixtures.js';
 import { unwrap } from './result.js';
 
 /**
- * Ships of the crew request's three writers (decision 0029), commissioned by
- * argo with their scopes: the trierarch plugin's with crew:assign, and a
- * trierarch's with crew:run.
+ * Ships commissioned by argo with the scopes a test needs: the crew request's
+ * writers (decision 0029), the trierarch plugin's with crew:assign and a
+ * trierarch's with crew:run, or a ship that defines and assigns labels
+ * (decision 0031).
  */
 export async function shipWithScopes(
   { registry, argo }: { registry: ReturnType<typeof registryUseCases>; argo: Caller },
@@ -21,7 +22,7 @@ export async function shipWithScopes(
   return callerOf({ fleetId: argo.fleetId, shipId }, ['messages:send', 'messages:receive', ...fleetScopes]);
 }
 
-function isFleetScope(scope: Scope): scope is 'fleet:read' | 'fleet:manage' | 'crew:assign' | 'crew:run' {
+function isFleetScope(scope: Scope): scope is FleetScope {
   return scope !== 'messages:send' && scope !== 'messages:receive';
 }
 

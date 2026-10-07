@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-05.
+Owner: Thomas Hendrickx. Last updated 2026-10-07.
 
 ## Purpose
 
@@ -32,7 +32,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
-| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage`, `crew:assign` and/or `crew:run`, so a ship can read or manage the fleet as the console does, assign crew requests as the trierarch plugin does, or crew the ships assigned to it as a trierarch does. Scopes never change after commissioning |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage`, `crew:assign`, `crew:run`, `labels:define` and/or `labels:assign`, so a ship can read or manage the fleet as the console does, assign crew requests as the trierarch plugin does, crew the ships assigned to it as a trierarch does, or define labels and assign them. Scopes never change after commissioning |
 | Starting prompt | Identity only: the fleet's MCP URL and how to add it, the ship's id and secret, how to pick the location, and "call register". How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
@@ -113,8 +113,10 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Installation | One server and the fleets it hosts. A service that hosts fleets for others (pagasae, for hosted Aeolus) creates, describes and deletes them through the installation procedures, with the installation token; a self-hosted server has none of them |
 | Operator | The human running the fleet, crewing the ship `argo` through the web console |
 | `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
-| Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`, `crew:assign`, `crew:run`. `crew:assign` writes crew request assignments; `crew:run` reads the crew requests assigned to its own ship, and only for those ships gets the starting prompt, releases and writes status (decisions 0002, 0029) |
+| Scope | A permission of a ship, stored on the server with the ship and checked before every call: `messages:send`, `messages:receive`, `fleet:read`, `fleet:manage`, `crew:assign`, `crew:run`, `labels:define`, `labels:assign`. `crew:assign` writes crew request assignments; `crew:run` reads the crew requests assigned to its own ship, and only for those ships gets the starting prompt, releases and writes status (decisions 0002, 0029). `labels:define` defines labels, changes their values and deletes them; `labels:assign` assigns and unassigns the labels its ship owns (decision 0031) |
 | Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type and a status. The name is a handle (lowercase letters, digits, hyphens, colons, max 48 characters; a colon is an ordinary character, so a prefix can group ships, as in `hemma:planner`), unique among active ships and reusable after retirement |
+| Label | A key with a defined set of values (`os` with `macos` and `linux`), owned by the ship that defined it, for selecting ships: placement, filtering in the console, later reach. The label and each value have an id, for machines; key and value texts are for people. A key is unique in the fleet. A ship holds a set of values, several of one key if its owner gives them, given only by the label's owner and never on the owner's own ship. A label retires with its owner, or its owner deletes it once no ship carries it. Never squadron membership, status, configuration or secrets (decision 0031) |
+| Label selection | Which ships the fleet list answers for a set of label value ids: the ships that carry every one of them. Exact matches, combined with AND |
 | Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored ship class later. Used for addressing, never interpreted |
 | Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
 | Notice | Plain text the installation shows above every console page to the sessions of its audience (everyone, operators or viewers), with optional links; dismissible for one session or not. It belongs to the installation, not to a fleet |
@@ -167,6 +169,7 @@ The operator and the agents use the same API. The only dependency between contex
 
 | Context | Aggregate | Invariants |
 | --- | --- | --- |
+| Registry | Label | A key is unique among the fleet's labels. Its values are 1 to 50, each once; keys and values are lowercase letters, digits and hyphens, at most 63 characters. Only its owner changes its values, deletes it, assigns and unassigns its values, never on its own ship. A value keeps its id while the label has it. A value a ship carries is never removed, and a label a ship carries a value of is never deleted. A ship carries at most 20 label values; a retired ship carries none. A label retires with its owner, after every assignment of it |
 | Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand; `argo` and the viewer ship, the console's own, are always crewed |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship; otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
 | Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, claimed by the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can claim it). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Returned again by every `receive` of the same crew while in flight, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
@@ -190,6 +193,12 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |
 | `CrewStatusChanged` | Registry | How the ship's crew stands changed: written by its trierarch, or `releasing` when the requester removed an assigned request. Details hold the status |
 | `CrewRequestRemoved` | Registry | The ship's crew request is gone: its requester removed it while unassigned, its trierarch confirmed the release, or the ship was retired |
+| `LabelDefined` | Registry | A ship defined a label it owns: details hold the label id and key, and its values and their ids |
+| `LabelValuesChanged` | Registry | The owner gave its label the values it has now: details hold the label id and key, and the values and their ids |
+| `LabelRetired` | Registry | The label's owner retired, so the label is gone and its key free: details hold the label id and key. Written after a LabelUnassigned for every ship that carried it |
+| `LabelDeleted` | Registry | The owner deleted its label, which no ship carried, so its key is free: details hold the label id and key |
+| `LabelAssigned` | Registry | The owner gave the ship a value of its label, beside the values it carries: details hold the label id and key, and the value id and value |
+| `LabelUnassigned` | Registry | The ship no longer carries the label: its owner took it off, the ship retired, or the label retired. Details hold the label id and key, and the value id and value it carried |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
@@ -306,6 +315,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. Its remaining direct deliveries become abandoned by operator. They stay in the audit trail and their senders can see it. Deliveries to its type are never abandoned: other ships of the type can still take them. One already undeliverable stays in Needs attention.
 3. The lease and the secret are revoked, and the ship id can never be claimed or addressed again.
 4. Its crew request, if any, is removed (`CrewRequestRemoved`): no one crews a retired ship.
+5. The labels it owns retire with it: every assignment of each goes (`LabelUnassigned`), then the label (`LabelRetired`), and its key is free. The label values it carries go too (`LabelUnassigned`). Releasing a ship keeps its labels (decision 0031).
 
 ## Components and deployment
 

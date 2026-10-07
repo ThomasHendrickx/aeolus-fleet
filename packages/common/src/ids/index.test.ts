@@ -166,7 +166,13 @@ describe('ID_KINDS', () => {
       'credential',
       'operator',
       'consoleSession',
+      'label',
+      'labelValue',
     ]);
+  });
+
+  it('gives a label the lbl_ prefix and each of its values the lbv_ prefix', () => {
+    expect([ID_PREFIXES.label, ID_PREFIXES.labelValue]).toEqual(['lbl', 'lbv']);
   });
 
   it('gives the operator account the opr_ prefix', () => {

@@ -34,7 +34,7 @@ Then, in this order: the console in atomic design (set up Storybook first, then 
 
 ## Epic: the trierarch plugin
 
-What the trierarch plugin and a trierarch do is in [trierarch.md](trierarch.md), their build in the architecture ("The trierarch"), and why in decisions 0026, 0027, 0029 and 0030. The 0.17 trierarch (slices D1 to D6) and this epic (slices T1 to T5, released in 0.19.0 and running on Thomas's Mac) are done; git holds what each built. Labels (#102) steer placement once they are designed; until then placement reads the reports. The console's screens (core crew request screens, the trierarch plugin's section beside Squadrons, the machines page) are their own design pass.
+What the trierarch plugin and a trierarch do is in [trierarch.md](trierarch.md), their build in the architecture ("The trierarch"), and why in decisions 0026, 0027, 0029 and 0030. The 0.17 trierarch (slices D1 to D6) and this epic (slices T1 to T5, released in 0.19.0 and running on Thomas's Mac) are done; git holds what each built. Labels (#102) are in the core (decision 0031); they steer placement once the trierarch plugin labels machines from their reports and honours a selector in a request's settings; until then placement reads the reports. The console's screens (core crew request screens, the trierarch plugin's section beside Squadrons, the machines page) are their own design pass.
 
 ## Kickoff prompt: slice 9 (hardening)
 

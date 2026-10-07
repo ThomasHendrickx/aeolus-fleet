@@ -41,6 +41,7 @@ describe('shipDetailOutputSchema', () => {
     scopes: ['messages:send', 'messages:receive'],
     report: null,
     crewRequest: null,
+    labels: [],
     harness: 'claude-code',
     model: { id: 'claude-opus-5-5', statedAt: AT },
     awaitingCrewSince: null,

@@ -13,6 +13,8 @@ import {
   registryUseCases,
   secretOf,
 } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -178,9 +180,10 @@ describe('listing the fleet', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
-        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run'],
+        scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
         report: null,
         crewRequest: null,
+        labels: [],
         harness: null,
         model: null,
         awaitingCrewSince: null,
@@ -199,6 +202,7 @@ describe('listing the fleet', () => {
         scopes: ['messages:send', 'messages:receive'],
         report: null,
         crewRequest: null,
+        labels: [],
         harness: null,
         model: null,
         awaitingCrewSince: commissionedAt,
@@ -368,5 +372,60 @@ describe("a ship's last ping", () => {
     unwrap(await messaging.dismissDelivery(argo, { deliveryId: ping?.id ?? core.ids('delivery') }));
 
     await expect(listedScout()).resolves.toMatchObject({ ping: null });
+  });
+});
+
+describe('the labels a ship carries, and selecting ships by them', () => {
+  let builderId: ShipId;
+  let testerId: ShipId;
+
+  beforeEach(async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+    ({ shipId: builderId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    ({ shipId: testerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' })));
+    unwrap(await useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+    unwrap(await useCases.defineLabel(plugin, { key: 'project', values: ['hemma', 'aeolus'] }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+  });
+
+  async function namesSelected(...values: [string, string][]) {
+    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, { key, value })) })).map((ship) => ship.name);
+  }
+
+  it('lists each ship with the labels it carries, ids and text, by key then value, and none for a ship without', async () => {
+    const listed = await useCases.listFleet(argo);
+
+    expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
+      ['argo', []],
+      ['scout', ['os=linux']],
+      ['trierarch-plugin', []],
+      ['builder', ['os=macos', 'project=hemma']],
+      ['tester', ['os=linux', 'os=macos']],
+    ]);
+    expect(listed.find((ship) => ship.name === 'scout')?.labels).toEqual([
+      { labelId: labelIdOf(core, 'os'), key: 'os', valueId: valueIdOf(core, { key: 'os', value: 'linux' }), value: 'linux' },
+    ]);
+  });
+
+  it('selects the ships that carry a value, by its id', async () => {
+    await expect(namesSelected(['os', 'macos'])).resolves.toEqual(['builder', 'tester']);
+  });
+
+  it('selects by every value given at once: exact matches, combined with AND', async () => {
+    await expect(namesSelected(['os', 'macos'], ['project', 'hemma'])).resolves.toEqual(['builder']);
+    await expect(namesSelected(['os', 'macos'], ['os', 'linux'])).resolves.toEqual(['tester']);
+  });
+
+  it('selects no ship for a value no ship carries, or an id the fleet has no value for', async () => {
+    await expect(namesSelected(['project', 'aeolus'])).resolves.toEqual([]);
+    await expect(useCases.listFleet(argo, { valueIds: [core.ids('labelValue')] })).resolves.toEqual([]);
+  });
+
+  it('lists every ship when it selects by no value', async () => {
+    await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(5);
   });
 });

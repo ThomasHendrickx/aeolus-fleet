@@ -38,6 +38,15 @@ function stringDetail(entry: TimelineEntry, name: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/** The key of the label a label event names. */
+function labelOf(entry: TimelineEntry): string {
+  return stringDetail(entry, 'key') ?? '';
+}
+
+/** The values a label event lists, which its details carry comma separated. */
+function valuesOf(entry: TimelineEntry): string {
+  return (stringDetail(entry, 'values') ?? '').split(',').join(', ');
+}
 
 /** Whether a detail names a report state. */
 function isReportState(value: string): value is ReportState {
@@ -188,6 +197,18 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'reported',
       };
     }
+    case 'LabelDefined':
+      return { parts: [text(`Label ${labelOf(entry)} defined: ${valuesOf(entry)}`)], tone: 'ended', icon: 'reported' };
+    case 'LabelValuesChanged':
+      return { parts: [text(`Label ${labelOf(entry)} values changed: ${valuesOf(entry)}`)], tone: 'ended', icon: 'reported' };
+    case 'LabelRetired':
+      return { parts: [text(`Label ${labelOf(entry)} retired`)], tone: 'ended', icon: 'retired' };
+    case 'LabelDeleted':
+      return { parts: [text(`Label ${labelOf(entry)} deleted`)], tone: 'ended', icon: 'retired' };
+    case 'LabelAssigned':
+      return { parts: [text(`Labelled ${labelOf(entry)}=${stringDetail(entry, 'value') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'reported' };
+    case 'LabelUnassigned':
+      return { parts: [text(`Label ${labelOf(entry)}=${stringDetail(entry, 'value') ?? ''} removed`), ...by(entry.actor)], tone: 'ended', icon: 'reported' };
     case 'MessageAccepted':
       return {
         parts: messageAccepted(entry, shipId),

@@ -35,7 +35,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
 - tRPC is the single API door. REST and MCP map onto the same ship procedures; they never hold logic of their own.
 - Every table has fleet_id. Every query is scoped by it.
-- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_), from common/src/ids.
+- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_, lbl_, lbv_), from common/src/ids.
 - Every caller is a ship. The operator is the ship `argo` (decision 0012). Authorise every call by the caller's scopes, read from the server, never from the request.
 - Before 1.0.0 breaking changes are allowed (decision 0013). Keep designs minimal; do not build compatibility layers.
 - Every state change writes its event in the same transaction.

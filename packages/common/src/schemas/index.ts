@@ -7,6 +7,7 @@ export * from './guide.js';
 export * from './history.js';
 export * from './idempotency-key.js';
 export * from './installation.js';
+export * from './label.js';
 export * from './message.js';
 export * from './needs-attention.js';
 export * from './notice.js';

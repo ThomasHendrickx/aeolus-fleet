@@ -313,6 +313,45 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('CrewStatusChanged', { actor: argo, details: { status: 'crashed' } }))).toMatchObject({ tone: 'attention' });
   });
 
+  it('names the label its owner deleted', () => {
+    expect(onScoutsPage(anEntry('LabelDeleted', { actor: argo, details: { key: 'os' } }))).toEqual({
+      sentence: 'Label os deleted',
+      tone: 'ended',
+      icon: 'retired',
+    });
+  });
+
+  it('names the label its owner defined, changed or retired, with its values', () => {
+    expect(onScoutsPage(anEntry('LabelDefined', { actor: argo, details: { key: 'os', values: 'macos,linux' } }))).toEqual({
+      sentence: 'Label os defined: macos, linux',
+      tone: 'ended',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('LabelValuesChanged', { actor: argo, details: { key: 'os', values: 'macos' } }))).toEqual({
+      sentence: 'Label os values changed: macos',
+      tone: 'ended',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('LabelRetired', { actor: argo, details: { key: 'os' } }))).toEqual({
+      sentence: 'Label os retired',
+      tone: 'ended',
+      icon: 'retired',
+    });
+  });
+
+  it('says which label and value a ship was given or lost, and by whom', () => {
+    expect(onScoutsPage(anEntry('LabelAssigned', { actor: argo, details: { key: 'os', value: 'macos' } }))).toEqual({
+      sentence: 'Labelled os=macos by argo',
+      tone: 'ended',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('LabelUnassigned', { actor: argo, details: { key: 'os', value: 'macos' } }))).toEqual({
+      sentence: 'Label os=macos removed by argo',
+      tone: 'ended',
+      icon: 'reported',
+    });
+  });
+
   it('says who dismissed an undeliverable message', () => {
     expect(onScoutsPage(anEntry('DeliveryDismissed', { actor: argo, message: fromPlanner }))).toEqual({
       sentence: 'A message from planner was dismissed by argo',

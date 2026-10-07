@@ -7,3 +7,11 @@ export function unwrap<T, E>(result: Result<T, E>): T {
   }
   return result.value;
 }
+
+/** The refusal of an error result. Fails the test with the value otherwise. */
+export function refusalOf<T, E>(result: Result<T, E>): E {
+  if (result.isOk) {
+    throw new Error(`Expected a refusal, but the domain answered: ${JSON.stringify(result.value)}`);
+  }
+  return result.error;
+}

@@ -162,7 +162,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/ship/reportLog', ['get']],
       ['/ship/inbox', ['post']],
       ['/ship/deregister', ['post']],
-      ['/fleet/list', ['get']],
+      ['/fleet/list', ['post']],
       ['/fleet/ship', ['post']],
       ['/fleet/commission', ['post']],
       ['/fleet/getStartingPrompt', ['post']],
@@ -178,6 +178,13 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/reportCrewStatus', ['post']],
       ['/fleet/confirmCrewRelease', ['post']],
       ['/fleet/assignedCrewRequests', ['get']],
+      ['/fleet/labels', ['get']],
+      ['/fleet/defineLabel', ['post']],
+      ['/fleet/changeLabelValues', ['post']],
+      ['/fleet/assignLabel', ['post']],
+      ['/fleet/unassignLabel', ['post']],
+      ['/fleet/deleteLabel', ['post']],
+      ['/fleet/findLabelValue', ['post']],
     ]);
   });
 
