@@ -164,3 +164,32 @@ export function useJoinMachine() {
     },
   });
 }
+
+/** What checking crew settings answers: a trierarch fits, none takes them (naming the settings field at fault), or none has room now. */
+export const settingsCheckSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('fits') }),
+  z.object({ kind: z.literal('refused'), field: z.string(), reason: z.string() }),
+  z.object({ kind: z.literal('noRoom'), reason: z.string() }),
+]);
+
+export type SettingsCheck = z.infer<typeof settingsCheckSchema>;
+
+const checkKey = (settings: unknown) => ['trierarch-plugin', 'check', JSON.stringify(settings)];
+
+/**
+ * Whether the trierarch plugin would place these settings now
+ * (`requests.check`), asked again as the form changes; nothing is asked
+ * until the form makes settings. `checkNow` asks afresh, for the moment of
+ * requesting.
+ */
+export function useCrewSettingsCheck(settings: unknown) {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: checkKey(settings),
+    queryFn: () => call('requests.check', { input: { settings }, answers: settingsCheckSchema }),
+    enabled: settings !== undefined,
+  });
+  const checkNow = (): Promise<SettingsCheck> =>
+    queryClient.query({ queryKey: checkKey(settings), queryFn: () => call('requests.check', { input: { settings }, answers: settingsCheckSchema }), staleTime: 0 });
+  return { ...query, checkNow };
+}

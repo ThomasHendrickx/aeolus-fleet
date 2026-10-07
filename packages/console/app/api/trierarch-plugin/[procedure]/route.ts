@@ -8,6 +8,6 @@ export const dynamic = 'force-dynamic';
 export const { GET, POST } = pluginProxy({
   name: 'trierarch plugin',
   url: () => trierarchPluginUrlFrom(process.env),
-  queries: new Set(['machines.list']),
+  queries: new Set(['machines.list', 'requests.check']),
   mutations: new Set(['machines.join']),
 });

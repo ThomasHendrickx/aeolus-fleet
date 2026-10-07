@@ -45,3 +45,20 @@ export const RestartFailed: Story = { args: { ...Crashed.args, error: { action: 
 export const Releasing: Story = { args: { stage: assigned('releasing'), statusChangedAt: minutesAgo(1), isAwaitingCrew: false } };
 export const RequestedByAnotherShip: Story = { args: { ...Running.args, requestedBy: PLANNER } };
 export const ReadOnly: Story = { args: { ...Running.args, canManage: false } };
+
+/** With the trierarch plugin on: settings shown, Edit offered, no starting prompt on the card. */
+const ROWS = [
+  { label: 'Harness', value: 'claude-code' },
+  { label: 'Workspace', value: 'aeolus-fleet', meta: 'New worktree' },
+  { label: 'model', value: 'claude-opus-5-5', isMono: true },
+  { label: 'effort', value: 'high', isMono: true },
+  { label: 'First prompt', value: '112 B' },
+  { label: 'Squadron', value: null, isMono: true },
+];
+export const NoneWithPlugin: Story = { args: { hasTrierarchs: true } };
+export const NeedsCrewWithPlugin: Story = {
+  args: { stage: { kind: 'needsCrew', requestedAt: minutesAgo(25), reason: 'no trierarch with room: all 2 that fit are full' }, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined },
+};
+export const WaitingForAssignment: Story = { args: { stage: { kind: 'needsCrew', requestedAt: minutesAgo(1), reason: null }, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
+export const RunningWithPlugin: Story = { args: { ...Running.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
+export const CrashedWithPlugin: Story = { args: { ...Crashed.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };

@@ -1,5 +1,6 @@
 import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 
+import { offersOf } from '../../lib/crew-settings-form';
 import type { Spot } from '../../lib/machines';
 import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin';
 import { minutesAgo, NOW } from './ship-page.fixtures';
@@ -87,3 +88,9 @@ export const JOINED: JoinedMachine = {
   crewLines: [{ harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01j9k2t4qzr3a9w6m2v5n7trnw aeolus_sk_v1_example' }],
   setupLine: 'npx @aeolus-fleet/trierarch init --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret aeolus_sk_v1_example',
 };
+
+/** What the answering machines offer, for the Request crew stories. */
+export const OFFERS = offersOf(MACHINES);
+
+/** Crew settings as the plugin's form makes them. */
+export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, firstPrompt: 'Triage new GitHub issues on aeolus-fleet and send argo a summary each morning.' };

@@ -6,11 +6,16 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
-import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
+import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
+import { newKey } from '../packages/core/test/support/keys.js';
 import { createMigratedDatabase } from '../packages/core/test/support/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/test/support/result.js';
 import { createTrierarchPluginApp, type TrierarchPluginApp } from '../packages/trierarch-plugin/src/app.js';
+import { createRestFleet } from '../packages/trierarch/src/adapters/rest-fleet.js';
+import { EMPTY_STATE } from '../packages/trierarch/src/core/entry.js';
+import { createReportSelf } from '../packages/trierarch/src/core/report-self.js';
 import { createPluginDatabase } from '../packages/trierarch-plugin/test/support/database.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
@@ -27,6 +32,10 @@ const SIGN_IN_WINDOW_MS = 60_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
+let argo: Caller;
+let serverUrl: string;
+/** The joined machine's setup line, shown once in the second test: the third runs its trierarch. */
+let setupLine = '';
 let server: FastifyInstance;
 let plugin: TrierarchPluginApp;
 let pluginUrl: string;
@@ -38,11 +47,11 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
-  const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
+  serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   plugin = createTrierarchPluginApp({ databaseUrl: await createPluginDatabase(), fleetUrl: serverUrl, logger: false });
   await plugin.restoreConnections();
   pluginUrl = await plugin.server.listen({ host: '127.0.0.1', port: 0 });
@@ -101,7 +110,7 @@ describe('Trierarchs in the console', () => {
     await page.getByTestId('join-machine-name').fill('trierarch-mac');
     await page.getByTestId('join-machine-submit').click();
 
-    const setupLine = await page.getByTestId('join-machine-setup-line').textContent();
+    setupLine = (await page.getByTestId('join-machine-setup-line').textContent()) ?? '';
     expect(setupLine).toContain('npx @aeolus-fleet/trierarch init');
     await page.getByTestId('join-machine-dialog').getByRole('button', { name: 'Done' }).click();
     const card = page.getByTestId('machine-card');
@@ -109,5 +118,37 @@ describe('Trierarchs in the console', () => {
     await expect(card.getByTestId('machine-liveness').getAttribute('data-liveness')).resolves.toBe('not-started');
     // A trierarch that never ran is not silent: nothing to count yet.
     await expect(page.getByTestId('nav-trierarchs-count').count()).resolves.toBe(0);
+  });
+
+  it('requests a crew with settings from the ship page, from what the machine offers, and the plugin assigns its trierarch', async () => {
+    // The machine's trierarch, as init and run make it, from the setup line shown once: it registers and reports what it offers.
+    const shipId = z.templateLiteral(['shp_', z.string()]).parse(/--ship-id (\S+)/.exec(setupLine)?.[1]);
+    const secret = z.string().parse(/--secret (\S+)/.exec(setupLine)?.[1]);
+    const { crewToken } = await createRestFleet({ fleetUrl: serverUrl, crewToken: '' }).registerSelf({ shipId, secret });
+    await createReportSelf({
+      fleet: createRestFleet({ fleetUrl: serverUrl, crewToken }),
+      processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
+      state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
+      setup: {
+        configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
+        version: '0.19.0',
+        adapterFlags: {},
+      },
+    })();
+    const scout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'implementer' }));
+    const page = await signedIn();
+    await page.goto(`/ships/${scout.shipId}`);
+
+    await page.getByTestId('crew-request-request').click();
+    const dialog = page.getByTestId('request-crew-dialog');
+    await expect.poll(() => dialog.getByTestId('crew-settings-workspace').textContent()).toContain('aeolus-fleet');
+    await dialog.getByTestId('request-crew-submit').click();
+
+    const card = page.getByTestId('crew-request');
+    await card.getByTestId('crew-request-settings').getByText('aeolus-fleet').waitFor();
+    await card.getByTestId('crew-request-edit').waitFor();
+    await plugin.assignOnce();
+    await card.getByTestId('crew-request-trierarch').getByText('trierarch-mac').waitFor({ timeout: 30_000 });
+    await expect(card.getByTestId('crew-request-trierarch').getAttribute('href')).resolves.toBe(`/trierarchs/${shipId}`);
   });
 });

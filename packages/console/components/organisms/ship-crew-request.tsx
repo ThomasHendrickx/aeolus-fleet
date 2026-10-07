@@ -5,12 +5,14 @@ import { useState } from 'react';
 
 import { useAccess } from '../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../lib/crew-request';
+import { settingsRows } from '../../lib/crew-settings-form';
 import { useGetStartingPrompt, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../lib/fleet';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { useHasTrierarchPlugin } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
 import { CrewReleaseDialog } from './crew-release-dialog';
 import { CrewRequestCard, type CrewRequestBusy } from './crew-request-card';
+import { useRequestCrewFlow } from './request-crew-flow';
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
 /** Where a ship's session runs, as the release confirm names it. */
@@ -20,7 +22,8 @@ function sessionLocationOf(ship: ShipDetail): string | null {
 
 /**
  * A ship's crew request card, wired to the fleet (#245): Request crew writes a
- * request with no settings, Restart writes the held settings again as a new
+ * request with no settings, or with the trierarch plugin on opens the form
+ * for its settings, which Edit opens again with the settings held; Restart writes the held settings again as a new
  * version, Remove request deletes an unassigned request, and Release removes
  * the request, then ends a hand crew's lease. Nothing for argo, the viewer
  * ship or a retired ship, which never hold one.
@@ -38,6 +41,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
   const [releaseError, setReleaseError] = useState<string>();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [replacedPrompt, setReplacedPrompt] = useState<{ issuedAt: string }>();
+  const requestFlow = useRequestCrewFlow(ship.kind === 'agent' && ship.status !== 'retired' ? { shipId: ship.id, shipName: ship.name, heldSettings: ship.crewRequest?.settings } : undefined);
 
   if (ship.kind !== 'agent' || ship.status === 'retired') {
     return null;
@@ -120,7 +124,15 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         hasTrierarchs={hasTrierarchs}
         busy={busy}
         error={error}
-        onRequest={() => void onRequest()}
+        settingsRows={request === null ? undefined : settingsRows(request.settings)}
+        onRequest={() => {
+          if (hasTrierarchs) {
+            requestFlow.open('request');
+          } else {
+            void onRequest();
+          }
+        }}
+        {...(hasTrierarchs ? { onEdit: () => { requestFlow.open('edit'); } } : {})}
         onRemove={() => void run('remove', () => removeCrewRequest.mutateAsync({ shipId: ship.id }))}
         onRelease={() => {
           setReleaseError(undefined);
@@ -129,6 +141,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         onRestart={() => void onRestart()}
         onGetStartingPrompt={requestPrompt}
       />
+      {requestFlow.dialog}
       {stage.kind === 'crewedByHand' || stage.kind === 'assigned' ? (
         <CrewReleaseDialog
           shipName={ship.name}
