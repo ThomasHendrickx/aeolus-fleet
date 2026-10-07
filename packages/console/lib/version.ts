@@ -33,6 +33,19 @@ const trierarchPluginVersionSchema = z.object({
   installation: z.enum(['enabled', 'open']),
 });
 
+/** What the console's /version answers of the trierarch plugin, as a page reads it. */
+const consoleVersionSchema = z.object({ trierarchPlugin: trierarchPluginVersionSchema.nullable().optional() });
+
+/**
+ * The trierarch plugin's version from the console's own /version, for the
+ * Trierarchs header (#332); undefined when the plugin does not answer, the
+ * console has none, or the answer is something else.
+ */
+export function trierarchPluginVersionOf(body: unknown): string | undefined {
+  const parsed = consoleVersionSchema.safeParse(body);
+  return parsed.success ? parsed.data.trierarchPlugin?.trierarchPlugin : undefined;
+}
+
 export interface WebVersion {
   /** The version of the web app this process runs. */
   web: string;

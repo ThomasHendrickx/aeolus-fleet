@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
 import { fn } from 'storybook/test';
 
+import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { ListLayout } from './list-layout';
 
@@ -59,3 +60,14 @@ type Story = StoryObj<typeof meta>;
 
 export const Desktop: Story = {};
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** A fact beside the title: the Trierarchs page shows the version the trierarch plugin runs. */
+export const WithTitleMeta: Story = {
+  args: {
+    title: 'Trierarchs',
+    description: 'Machines that run sessions for crew requests. The plugin picks a trierarch for each request.',
+    titleMeta: <Badge variant="outline">trierarch plugin 0.20.0</Badge>,
+    nav: { active: 'trierarchs', hasTrierarchs: true },
+  },
+};
+export const WithTitleMetaPhone: Story = { ...WithTitleMeta, globals: { viewport: { value: 'mobile1' } } };

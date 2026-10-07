@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import { z } from 'zod';
 
+import { trierarchPluginVersionOf } from './version';
+
 /**
  * The trierarch plugin as the console reads it, through the web app's server
  * (decision 0030): its connection (`/trierarch-plugin/connection`), and its
@@ -55,6 +57,23 @@ export function useTrierarchPluginSettings() {
     enabled: isConfigured,
     initialData: isConfigured ? undefined : { configured: false },
   });
+}
+
+const VERSION_PATH = '/version';
+
+/**
+ * The trierarch plugin's version, from the console's own /version (#332, the
+ * Trierarchs header); undefined while it loads, when the plugin does not
+ * answer, and on a console without it, which asks nothing.
+ */
+export function useTrierarchPluginVersion(): string | undefined {
+  const isConfigured = useContext(TrierarchPluginConfiguredContext);
+  const query = useQuery({
+    queryKey: ['console-version', 'trierarch-plugin'],
+    queryFn: async () => trierarchPluginVersionOf(await (await fetch(VERSION_PATH, { cache: 'no-store' })).json()) ?? null,
+    enabled: isConfigured,
+  });
+  return query.data ?? undefined;
 }
 
 /** Connect the trierarch plugin: the web app's server does the rest; the answer is the new connection. */

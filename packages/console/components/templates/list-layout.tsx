@@ -14,6 +14,8 @@ interface ListLayoutProps {
   /** The page title: the desktop h1 and the phone TopBar title. */
   title: string;
   description?: ReactNode;
+  /** A fact beside the title, such as the version a plugin runs; on phone, above the description. */
+  titleMeta?: ReactNode;
   /** The page's one primary action, beside the title. */
   primaryAction?: ReactNode;
   /** Search and filters, under the title row. */
@@ -44,6 +46,7 @@ interface ListLayoutProps {
 export function ListLayout({
   title,
   description,
+  titleMeta,
   primaryAction,
   toolbar,
   live,
@@ -93,7 +96,10 @@ export function ListLayout({
         <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
           <div className="flex flex-wrap items-start justify-between gap-4 max-sm:gap-3">
             <div className="flex min-w-0 flex-col gap-1">
-              <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:hidden">{title}</h1>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:hidden">{title}</h1>
+                {titleMeta}
+              </div>
               {description ? (
                 <p className="text-meta text-muted-foreground max-sm:text-body-touch">{description}</p>
               ) : null}
