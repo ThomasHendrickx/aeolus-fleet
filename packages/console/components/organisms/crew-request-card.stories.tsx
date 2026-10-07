@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
+import { MACHINE_LABELS, MACHINE_VALUES } from './machines.fixtures';
 import { ARGO, minutesAgo, NOW, PLANNER } from './ship-page.fixtures';
 import { CrewRequestCard } from './crew-request-card';
 
@@ -63,3 +64,15 @@ export const NeedsCrewWithPlugin: Story = {
 export const WaitingForAssignment: Story = { args: { stage: { kind: 'needsCrew', requestedAt: minutesAgo(1), reason: null }, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
 export const RunningWithPlugin: Story = { args: { ...Running.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
 export const CrashedWithPlugin: Story = { args: { ...Crashed.args, hasTrierarchs: true, settingsRows: ROWS, onEdit: () => undefined } };
+/** A request for machines carrying os=linux and arch=arm64, which none does: it waits, and says why (canvas LbBlockNoMatch). */
+export const NoMachineMatches: Story = {
+  args: {
+    stage: { kind: 'needsCrew', requestedAt: minutesAgo(2), reason: 'no machine matches its labels' },
+    hasTrierarchs: true,
+    settingsRows: ROWS,
+    machineLabels: MACHINE_LABELS.chipsOf([MACHINE_VALUES.linux, MACHINE_VALUES.arm64]),
+    onEdit: () => undefined,
+  },
+};
+/** A running request on a machine carrying the labels it asked for. */
+export const RunningWithMachineLabels: Story = { args: { ...RunningWithPlugin.args, machineLabels: MACHINE_LABELS.chipsOf([MACHINE_VALUES.macos, MACHINE_VALUES.arm64]) } };

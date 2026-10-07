@@ -2,10 +2,12 @@ import { useId, type ReactNode } from 'react';
 
 import { byteSize, FIRST_PROMPT_MAX_BYTES, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
+import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { Label } from '../atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../atoms/select';
 import { Textarea } from '../atoms/textarea';
 import { InlineError } from './inline-error';
+import { MachineLabelsField } from './machine-labels-field';
 
 interface CrewSettingsFieldsProps {
   offers: readonly HarnessOffer[];
@@ -16,6 +18,8 @@ interface CrewSettingsFieldsProps {
   /** The field the trierarch plugin refused, with why: its error shows under it. */
   refusal?: { field: string; reason: string };
   isDisabled?: boolean;
+  /** The fleet's labels and machines, for the request's machine labels; the field is left out without them. */
+  machineLabels?: MachineLabelsInput & { shipName: string };
 }
 
 const NONE = '';
@@ -80,11 +84,12 @@ function Pick({ id, items, value, onPick, isDisabled, testId }: { id: string; it
 
 /**
  * A crew request's settings as fields (canvas CrRequestForm; #245, S3): the
- * harness, the workspace, each option the harness offers, a first prompt and,
- * with squadrons, a squadron with its hint (decision 12). Built from what the
+ * harness, the workspace, with the fleet's labels its machine labels (#102),
+ * each option the harness offers, a first prompt and, with squadrons, a
+ * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
-export function CrewSettingsFields({ offers, values, onChange, squadrons, refusal, isDisabled = false }: CrewSettingsFieldsProps) {
+export function CrewSettingsFields({ offers, values, onChange, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
   const ids = { harness: useId(), workspace: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
@@ -121,6 +126,21 @@ export function CrewSettingsFields({ offers, values, onChange, squadrons, refusa
           }}
         />
       </Field>
+      {machineLabels === undefined ? null : (
+        <MachineLabelsField
+          shipName={machineLabels.shipName}
+          picked={machineLabels.chipsOf(values.machineLabels)}
+          groups={machineLabels.groups}
+          match={machineLabels.matchOf(values.machineLabels)}
+          isDisabled={isDisabled}
+          onAdd={(valueId) => {
+            onChange({ ...values, machineLabels: [...values.machineLabels, valueId] });
+          }}
+          onRemove={(valueId) => {
+            onChange({ ...values, machineLabels: values.machineLabels.filter((each) => each !== valueId) });
+          }}
+        />
+      )}
       {(offer?.options ?? []).map((option, index) => (
         <Field key={option.name} id={`${ids.options}-${String(index)}`} label={option.name} error={index === 0 ? errorOf('options') : undefined}>
           <Pick

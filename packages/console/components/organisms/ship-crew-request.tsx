@@ -6,7 +6,9 @@ import { useState } from 'react';
 import { useAccess } from '../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../lib/crew-request';
 import { settingsRows } from '../../lib/crew-settings-form';
-import { useGetStartingPrompt, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../lib/fleet';
+import { useGetStartingPrompt, useLabelContext, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../lib/fleet';
+import { pickedChips } from '../../lib/labels';
+import { machineLabelIdsOf } from '../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { useHasTrierarchPlugin } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
@@ -32,6 +34,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
   const access = useAccess();
   const hasTrierarchs = useHasTrierarchPlugin();
   const requestCrew = useRequestCrew();
+  const labelContext = useLabelContext();
   const removeCrewRequest = useRemoveCrewRequest();
   const releaseShip = useReleaseShip();
   const getStartingPrompt = useGetStartingPrompt();
@@ -125,6 +128,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         busy={busy}
         error={error}
         settingsRows={request === null ? undefined : settingsRows(request.settings)}
+        {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(request.settings), labelContext) })}
         onRequest={() => {
           if (hasTrierarchs) {
             requestFlow.open('request');

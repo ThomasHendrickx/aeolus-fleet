@@ -16,6 +16,8 @@ interface LabelPickerProps {
   size?: 'sm' | 'touch';
   /** What a value already picked says: Picked in a filter, Carried on a ship. */
   pickedWord?: string;
+  /** What each value's count counts: ships, or machines for a crew request's machine labels. */
+  countWord?: 'ship' | 'machine';
 }
 
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
@@ -30,7 +32,7 @@ function count(amount: number, one: string): string {
  * values, each with how many ships carry it. Back returns to the keys. Props
  * only; what it shows while picking is its own.
  */
-export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', pickedWord = 'Picked' }: LabelPickerProps) {
+export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', pickedWord = 'Picked', countWord = 'ship' }: LabelPickerProps) {
   const [query, setQuery] = useState('');
   const [openKey, setOpenKey] = useState<FilterKey | undefined>(undefined);
   const isTouch = size === 'touch';
@@ -54,7 +56,7 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', picke
             <ChevronLeft aria-hidden />
             {openKey.key}=
           </button>
-          <span className="text-meta text-muted-foreground">Ships with each</span>
+          <span className="text-meta text-muted-foreground">{countWord === 'ship' ? 'Ships' : 'Machines'} with each</span>
         </div>
         <ul className="flex flex-col">
           {openKey.values.map((value) => {
@@ -73,7 +75,7 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', picke
                   }}
                 >
                   <span className="min-w-0 grow truncate font-mono">{value.value}</span>
-                  <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{isPicked ? pickedWord : count(value.shipCount, 'ship')}</span>
+                  <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{isPicked ? pickedWord : count(value.shipCount, countWord)}</span>
                 </button>
               </li>
             );

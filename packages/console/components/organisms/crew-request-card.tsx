@@ -1,15 +1,18 @@
-import type { Party } from '@aeolus-fleet/common';
+import { NO_MACHINE_MATCHES_REASON, type Party } from '@aeolus-fleet/common';
 import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateCcw, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../lib/crew-request';
 import type { SettingsRow } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
+import type { LabelChip as LabelChipData } from '../../lib/labels';
+import { machineLabelsText, noMatchWords } from '../../lib/machine-labels';
 import { fullDateTime, relativeTime, sinceTime } from '../../lib/relative-time';
 import { capitalised, OPERATOR_NAME } from '../../lib/sentence';
 import { Button } from '../atoms/button';
 import { InlineError } from '../molecules/inline-error';
+import { LabelChip } from '../molecules/label-chip';
 import { StatusBadge } from '../molecules/status-badge';
 
 /** What the card is doing: the action whose call is out. */
@@ -34,6 +37,8 @@ interface CrewRequestCardProps {
   hasTrierarchs?: boolean;
   /** The request's settings as rows, when they are crew settings. */
   settingsRows?: readonly SettingsRow[];
+  /** The machine labels it asks for, as chips; none for any machine (#102). */
+  machineLabels?: readonly LabelChipData[];
   /** Edit the request's settings (decision 3); none without the plugin. */
   onEdit?: () => void;
   busy?: CrewRequestBusy;
@@ -167,7 +172,7 @@ function SessionMeta({ stage, now }: { stage: Extract<CrewRequestStage, { kind: 
 }
 
 /** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
-function SettingsGrid({ rows }: { rows: readonly SettingsRow[] }) {
+function SettingsGrid({ rows, machineLabels = [] }: { rows: readonly SettingsRow[]; machineLabels?: readonly LabelChipData[] }) {
   return (
     <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
       {rows.map((row) => (
@@ -183,6 +188,19 @@ function SettingsGrid({ rows }: { rows: readonly SettingsRow[] }) {
           </dd>
         </div>
       ))}
+      {machineLabels.length === 0 ? null : (
+        <div className="col-span-full flex min-w-0 flex-col gap-0.5" data-testid="crew-request-machine-labels">
+          <dt className="text-caption font-medium text-muted-foreground">Machine labels</dt>
+          <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {machineLabels.map((chip, index) => (
+              <Fragment key={chip.valueId}>
+                {index === 0 ? null : <span className="text-meta text-muted-foreground">and</span>}
+                <LabelChip chip={chip} />
+              </Fragment>
+            ))}
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }
@@ -307,6 +325,11 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
           <Note tone="note" icon={<LoaderCircle aria-hidden />}>
             Waiting for the trierarch plugin to assign a trierarch.
           </Note>
+        ) : stage.reason === NO_MACHINE_MATCHES_REASON && props.machineLabels !== undefined && props.machineLabels.length > 0 ? (
+          <Note tone="waiting" icon={<Clock aria-hidden />}>
+            <strong className="font-medium">No machine matches these labels.</strong> The plugin places this ship only on a machine with {machineLabelsText(props.machineLabels)}, and none{' '}
+            {noMatchWords(props.machineLabels.length).carries}. It assigns a trierarch as soon as one does; until then this ship is on Needs crew.
+          </Note>
         ) : (
           <Note tone="waiting" icon={<Clock aria-hidden />}>
             <strong className="font-medium">{capitalised(stage.reason)}.</strong> The plugin assigns a trierarch as soon as one fits. Until then this ship is on Needs crew.
@@ -314,7 +337,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         )
       ) : null}
       {failed}
-      {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} />}
+      {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} machineLabels={props.machineLabels} />}
       <p className="text-meta text-muted-foreground">
         {stage.kind === 'needsCrew' && !props.hasTrierarchs
           ? 'On your Needs crew list. Crew it by hand: get a starting prompt and start a session with it. Crewing it fulfils the request; the request stays until you remove it. '
