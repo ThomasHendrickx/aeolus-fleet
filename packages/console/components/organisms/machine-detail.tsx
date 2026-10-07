@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { restartWords } from '../../lib/crew-request';
+import type { LabelChip as LabelChipData } from '../../lib/labels';
 import { clockTime, fullDateTime, sinceTime } from '../../lib/relative-time';
 import type { Spot } from '../../lib/machines';
 import type { Machine } from '../../lib/trierarch-plugin';
@@ -12,6 +13,7 @@ import { CopyButton } from '../atoms/copy-button';
 import { Skeleton } from '../atoms/skeleton';
 import { CapacityBar } from '../molecules/capacity-bar';
 import { EmptyState } from '../molecules/empty-state';
+import { ShipLabels } from '../molecules/ship-labels';
 import { LocationTag } from '../molecules/location-tag';
 import { StatusBadge } from '../molecules/status-badge';
 import { HarnessOffer, lastAnswer, MachineLiveness, WorkspaceOffer } from './machine-card';
@@ -22,6 +24,8 @@ interface MachineDetailProps {
   state: 'ready' | 'loading' | 'not-found';
   spots: readonly Spot[];
   location: { kind: LocationKind; description: string | null } | null;
+  /** Its trierarch ship's labels as chips, the trierarch plugin's os and arch among them; undefined while they load (#102). */
+  labels?: readonly LabelChipData[];
   now: Date;
 }
 
@@ -91,7 +95,7 @@ function WorktreeRow({ icon, path, meta }: { icon: ReactNode; path: string; meta
  * read-only. While its trierarch does not answer, everything is its last
  * answer, and the page says so.
  */
-export function MachineDetail({ machine, state, spots, location, now }: MachineDetailProps) {
+export function MachineDetail({ machine, state, spots, location, labels, now }: MachineDetailProps) {
   if (state === 'loading' || (state === 'ready' && machine === undefined)) {
     return (
       <div aria-busy data-testid="machine-detail" className="flex flex-col gap-4">
@@ -159,6 +163,11 @@ export function MachineDetail({ machine, state, spots, location, now }: MachineD
           <CopyButton value={machine.shipId} label="Copy ship id" />
         </MetaCell>
       </dl>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-testid="machine-labels-row">
+        <span className="text-caption font-medium text-muted-foreground">Labels</span>
+        {labels === undefined ? <Skeleton className="h-5.5 w-40" /> : <ShipLabels chips={labels} />}
+        <span className="text-meta text-muted-foreground">Read-only here. Crew requests that ask for machine labels go only to machines carrying all of them.</span>
+      </div>
       {isSilent && machine.lastSeenAt !== null ? (
         <p role="alert" data-testid="machine-silent" className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg px-3.5 py-2.5 text-meta text-tone-attention-fg [&_svg]:mt-0.5 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
           <CircleX aria-hidden />

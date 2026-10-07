@@ -11,7 +11,8 @@ import { MachineList } from '../../../components/organisms/machine-list';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
-import { useFleetSnapshot } from '../../../lib/fleet';
+import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
+import { chipsOf } from '../../../lib/labels';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { spotsOf, withWorkspaces } from '../../../lib/machines';
@@ -32,6 +33,7 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const fleet = useFleetSnapshot();
+  const labelContext = useLabelContext();
   const connection = useTrierarchPluginConnection();
   const machines = useMachines();
   const access = useAccess();
@@ -42,6 +44,7 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const machine = machines.data?.find((each) => each.shipId === shipId);
   const ships = fleet.data ?? [];
   const spots = machine === undefined ? [] : spotsOf(machine, ships);
+  const trierarchShip = ships.find((ship) => ship.id === shipId);
   // Each ship's workspace sits in its crew request's settings, which only its page read answers.
   const shipPages = useShips(spots.map((spot) => spot.shipId));
   const settingsByShip = new Map([...shipPages].map(([id, ship]) => [id, ship.crewRequest?.settings]));
@@ -75,7 +78,8 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
             machine={machine}
             state={machines.data === undefined ? 'loading' : machine === undefined ? 'not-found' : 'ready'}
             spots={withWorkspaces(spots, settingsByShip)}
-            location={ships.find((ship) => ship.id === shipId)?.location ?? null}
+            location={trierarchShip?.location ?? null}
+            {...(labelContext === undefined || trierarchShip === undefined ? {} : { labels: chipsOf(trierarchShip, labelContext) })}
             now={now}
           />
         ) : (
