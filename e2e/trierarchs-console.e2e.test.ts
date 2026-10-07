@@ -159,5 +159,11 @@ describe('Trierarchs in the console', () => {
     await page.getByTestId('needs-crew-row').getByText('scout').waitFor();
     await page.getByTestId('nav-overview').click();
     await expect.poll(() => page.getByTestId('fleet-row-scout').getByTestId('fleet-crew-request').textContent()).toBe('Crewing');
+
+    // Its machine's page shows the ship with the workspace its settings name, and Trierarchs the plugin's version.
+    await page.goto(`/trierarchs/${shipId}`);
+    await expect.poll(() => page.getByTestId('machine-spot-workspace').textContent(), { timeout: 30_000 }).toContain('aeolus-fleet');
+    await page.goto('/trierarchs');
+    await expect.poll(() => page.getByTestId('trierarchs-plugin-version').textContent()).toMatch(/^trierarch plugin \d+\.\d+\.\d+/);
   });
 });

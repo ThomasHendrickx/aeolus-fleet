@@ -1,4 +1,4 @@
-import type { CrewStatus, ListedShip } from '@aeolus-fleet/common';
+import { crewSettingsSchema, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 
 import type { Machine } from './trierarch-plugin';
 
@@ -29,6 +29,8 @@ export interface Spot {
   status: CrewStatus;
   attempt: number;
   startedAt: string | null;
+  /** The workspace its crew request's settings name, once read (#332): a repository for a new worktree, or a folder used as it is. */
+  workspace?: { name: string; kind: 'worktree' | 'folder' };
 }
 
 /** The order spots show in: running first, then what needs a look, then what is on its way. */
@@ -43,6 +45,26 @@ export function spotsOf(machine: Pick<Machine, 'shipId'>, ships: readonly Listed
         : [],
     )
     .toSorted((one, other) => SPOT_ORDER.indexOf(one.status) - SPOT_ORDER.indexOf(other.status) || one.name.localeCompare(other.name));
+}
+
+/**
+ * Spots with the workspace each one's crew request names (#332): a
+ * repository, for a new worktree of it, or a folder. Settings come from each
+ * ship's page read, by ship id; a spot whose settings are not read yet, or
+ * are no crew settings, has none.
+ */
+export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyMap<string, unknown>): Spot[] {
+  return spots.map((spot) => {
+    const parsed = crewSettingsSchema.safeParse(settingsByShip.get(spot.shipId));
+    if (!parsed.success) {
+      return spot;
+    }
+    const { workspace } = parsed.data;
+    return {
+      ...spot,
+      workspace: workspace.kind === 'worktree' ? { name: workspace.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },
+    };
+  });
 }
 
 /**

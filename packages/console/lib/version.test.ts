@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { webVersion } from './version';
+import { trierarchPluginVersionOf, webVersion } from './version';
 
 const serverSays = (status: number, body: unknown) => () => Promise.resolve(Response.json(body, { status }));
 const SERVER = { server: '0.7.0', common: '0.7.0', migration: '20261001040000_lease_last_seen' };
@@ -63,5 +63,24 @@ describe('webVersion', () => {
     await expect(
       webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchTrierarchPluginVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' }),
     ).resolves.toEqual({ web: '0.7.0', server: SERVER, trierarchPlugin: null });
+  });
+});
+
+describe('trierarchPluginVersionOf', () => {
+  const PLUGIN = { trierarchPlugin: '0.20.0', migration: null, connectedFleets: 1, installation: 'enabled' };
+
+  it('reads the version the trierarch plugin answers', () => {
+    expect(trierarchPluginVersionOf({ web: '0.20.0', server: SERVER, trierarchPlugin: PLUGIN })).toBe('0.20.0');
+  });
+
+  it('is undefined when the plugin does not answer or the console has none', () => {
+    expect([trierarchPluginVersionOf({ web: '0.20.0', server: SERVER, trierarchPlugin: null }), trierarchPluginVersionOf({ web: '0.20.0', server: SERVER })]).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('is undefined for an answer that is something else', () => {
+    expect(trierarchPluginVersionOf('Bad gateway')).toBeUndefined();
   });
 });
