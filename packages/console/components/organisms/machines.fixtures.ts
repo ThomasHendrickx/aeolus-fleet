@@ -1,8 +1,11 @@
 import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 
 import { offersOf } from '../../lib/crew-settings-form';
+import { labelContextOf } from '../../lib/labels';
+import { machineLabelsInputOf } from '../../lib/machine-labels';
 import type { Spot } from '../../lib/machines';
 import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin';
+import { ARCH, carried, LABELS, labelledFleet, OS } from './labels.fixtures';
 import { minutesAgo, NOW } from './ship-page.fixtures';
 
 /** Example machines for the Trierarchs stories: trierarch-mac alive, trierarch-macbook silent, trierarch-new joined. */
@@ -129,3 +132,21 @@ export const NEEDS_CREW_WITH_PLUGIN: ListedShip[] = [
   { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null, attempt: 0, startedAt: null } },
   ...SPOTS.filter((spot) => spot.status !== 'running').map((spot) => FLEET.find((ship) => ship.id === spot.shipId)).filter((ship) => ship !== undefined),
 ];
+
+/** The labels the trierarch plugin put on each machine: trierarch-mac and trierarch-macbook run macOS on arm64; trierarch-new has not reported. */
+export const MACHINE_CARRIED: Readonly<Record<string, ListedShip['labels']>> = {
+  [ALIVE_MACHINE.shipId]: [carried(OS, 'macos'), carried(ARCH, 'arm64')],
+  [SILENT_MACHINE.shipId]: [carried(OS, 'macos'), carried(ARCH, 'arm64')],
+};
+
+/** The fleet's labels and machines as the Request crew form reads them. */
+export const MACHINE_LABELS = machineLabelsInputOf(
+  labelContextOf([...LABELS, ARCH], {
+    ships: [...labelledFleet().slice(0, 3), ...FLEET.map((ship) => ({ ...ship, labels: MACHINE_CARRIED[ship.id] ?? ship.labels }))],
+    isOperator: true,
+  }),
+  MACHINES,
+);
+
+/** The value ids of os=macos and arch=arm64, which two machines carry, and os=linux, which none does. */
+export const MACHINE_VALUES = { macos: carried(OS, 'macos').valueId, arm64: carried(ARCH, 'arm64').valueId, linux: carried(OS, 'linux').valueId };

@@ -34,6 +34,8 @@ export const COST = aLabel('cost', { suffix: 'cs', values: ['low', 'high'], owne
 export const OS = aLabel('os', { suffix: 'x5', values: ['macos', 'linux'], owner: OWNERS.trierarchPlugin });
 export const BLUEPRINT = aLabel('blueprint', { suffix: 'bp', values: ['hemma-feature', 'aeolus-review'], owner: OWNERS.squadrons });
 export const LABELS: ListedLabel[] = [PROJECT, AREA, COST, OS, BLUEPRINT];
+/** The trierarch plugin's arch, for the machine label stories; not in LABELS, so the Labels page stories keep their rows. */
+export const ARCH = aLabel('arch', { suffix: 'x6', values: ['arm64', 'amd64'], owner: OWNERS.trierarchPlugin });
 
 /** One value of a label as a ship carries it. */
 export function carried(label: ListedLabel, value: string): ListedShip['labels'][number] {

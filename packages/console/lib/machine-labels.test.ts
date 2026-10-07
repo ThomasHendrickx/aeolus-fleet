@@ -2,7 +2,7 @@ import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fl
 import { describe, expect, it } from 'vitest';
 
 import { labelContextOf } from './labels';
-import { machineLabelGroupsOf, machineMatchOf, noMatchWords } from './machine-labels';
+import { machineLabelGroupsOf, machineLabelsInputOf, machineMatchOf, noMatchWords } from './machine-labels';
 
 const newId = createIdGenerator();
 
@@ -93,5 +93,15 @@ describe('noMatchWords', () => {
       { these: 'both', carries: 'carries both' },
       { these: 'these labels', carries: 'carries them all' },
     ]);
+  });
+});
+
+describe('machineLabelsInputOf', () => {
+  it('gives the form the values picked as chips, in the order picked, and which machines carry them', () => {
+    const input = machineLabelsInputOf(CONTEXT, MACHINES);
+    const picked = [value(ARCH, 'amd64').id, value(OS, 'linux').id];
+
+    expect(input.chipsOf(picked).map((chip) => `${chip.key}=${chip.value}`)).toEqual(['arch=amd64', 'os=linux']);
+    expect(input.matchOf(picked)).toEqual({ matching: ['trierarch-hetzner'], total: 3 });
   });
 });

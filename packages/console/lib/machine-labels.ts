@@ -1,4 +1,4 @@
-import type { FilterGroup, FilterKey, LabelContext } from './labels';
+import { pickedChips, type FilterGroup, type FilterKey, type LabelChip, type LabelContext } from './labels';
 
 /**
  * A crew request's machine labels as the console shows them (#102; canvas
@@ -62,4 +62,20 @@ export function noMatchWords(count: number): { these: string; carries: string } 
     return { these: 'this label', carries: 'carries it' };
   }
   return count === 2 ? { these: 'both', carries: 'carries both' } : { these: 'these labels', carries: 'carries them all' };
+}
+
+/** What the Request crew form needs for machine labels: the picker's keys, the chips of the values picked and which machines carry them. */
+export interface MachineLabelsInput {
+  groups: FilterGroup[];
+  chipsOf: (valueIds: readonly string[]) => LabelChip[];
+  matchOf: (valueIds: readonly string[]) => MachineMatch;
+}
+
+/** The form's machine labels from the fleet's labels and the machines the plugin lists. */
+export function machineLabelsInputOf(context: LabelContext, machines: readonly MachineRef[]): MachineLabelsInput {
+  return {
+    groups: machineLabelGroupsOf(context, machines),
+    chipsOf: (valueIds) => pickedChips(valueIds, context),
+    matchOf: (valueIds) => machineMatchOf(context, { machines, valueIds }),
+  };
 }

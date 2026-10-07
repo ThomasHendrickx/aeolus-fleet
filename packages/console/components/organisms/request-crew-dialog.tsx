@@ -5,6 +5,7 @@ import { CircleX, Clock, LoaderCircle, RotateCw, ShipWheel } from 'lucide-react'
 import { useState, type ReactNode } from 'react';
 
 import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
+import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { secondsTime } from '../../lib/relative-time';
 import type { SettingsCheck } from '../../lib/trierarch-plugin';
 import { Button } from '../atoms/button';
@@ -26,6 +27,8 @@ interface RequestCrewDialogProps {
   heldSettings?: unknown;
   /** The fleet's squadrons, when squadrons is on. */
   squadrons?: readonly string[];
+  /** The fleet's labels and machines, for the request's machine labels; the field waits for them. */
+  machineLabels?: MachineLabelsInput;
   /** The trierarch plugin's check of the settings as the form makes them now. */
   check?: SettingsCheck;
   /** When the last request was refused by the check made at that moment: nothing was requested. */
@@ -77,12 +80,13 @@ function Banner({ tone, icon, children }: { tone: keyof typeof TONES; icon: Reac
 
 /** The open dialog's form: it starts from the held settings, or the defaults, each time it opens. */
 function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenChange'>) {
-  const { shipName, mode, offers, heldSettings, squadrons, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
+  const { shipName, mode, offers, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
   const words = WORDS[mode];
   const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, offers) : defaultValues(offers)));
   const settings = settingsOf(values);
   const refusal = check?.kind === 'refused' ? check : undefined;
   const isPromptTooLong = promptBytes(values.firstPrompt) > FIRST_PROMPT_MAX_BYTES;
+  const isWaitingForMachine = values.machineLabels.length > 0 && machineLabels?.matchOf(values.machineLabels).matching.length === 0;
   const canSubmit = settings !== undefined && refusal === undefined && !isPromptTooLong && !isPending;
   const change = (next: CrewSettingsValues) => {
     setValues(next);
@@ -112,20 +116,31 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
         <Banner tone="attention" icon={<CircleX aria-hidden />}>
           The trierarch plugin refused: {refusal.field}. Nothing was requested. Change the field below and try again.
         </Banner>
-      ) : check?.kind === 'noRoom' ? (
+      ) : check?.kind === 'noRoom' && !isWaitingForMachine ? (
+        // No machine carrying the labels reads as no room to the plugin's check; the field says why instead.
         <Banner tone="waiting" icon={<Clock aria-hidden />}>
           No trierarch has a free slot right now. You can still request: the request waits on Needs crew and the plugin assigns a trierarch when a slot frees up.
         </Banner>
       ) : null}
-      {offers.length === 0 ? null : <CrewSettingsFields offers={offers} values={values} onChange={change} squadrons={squadrons} refusal={refusal} isDisabled={isPending} />}
+      {offers.length === 0 ? null : <CrewSettingsFields
+          offers={offers}
+          values={values}
+          onChange={change}
+          squadrons={squadrons}
+          refusal={refusal}
+          isDisabled={isPending}
+          {...(machineLabels === undefined ? {} : { machineLabels: { ...machineLabels, shipName } })}
+        />}
       {error === undefined ? null : <InlineError title={mode === 'edit' ? 'Couldn’t save the settings' : 'Couldn’t request crew'} description={`${error} Nothing changed.`} />}
       <DialogFooter className="items-center">
         <span className="mr-auto text-meta text-muted-foreground" data-testid="request-crew-note">
           {refusal !== undefined && refusedAt !== undefined
             ? `Refused at ${secondsTime(refusedAt)}. Nothing was requested.`
-            : check?.kind === 'noRoom'
-              ? 'The request will wait for room.'
-              : null}
+            : isWaitingForMachine
+              ? 'The request will wait for a machine with these labels.'
+              : check?.kind === 'noRoom'
+                ? 'The request will wait for room.'
+                : null}
         </span>
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" icon={<ShipWheel />} isLoading={isPending} disabled={!canSubmit} data-testid="request-crew-submit">

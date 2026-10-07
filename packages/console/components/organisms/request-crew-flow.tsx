@@ -4,7 +4,8 @@ import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../lib/crew-settings-form';
-import { useRequestCrew } from '../../lib/fleet';
+import { useLabelContext, useRequestCrew } from '../../lib/fleet';
+import { machineLabelsInputOf } from '../../lib/machine-labels';
 import { useSquadronsConnection } from '../../lib/squadrons';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines } from '../../lib/trierarch-plugin';
@@ -31,11 +32,13 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const requestCrew = useRequestCrew();
+  const labelContext = useLabelContext();
   const [mode, setMode] = useState<'request' | 'edit'>();
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
   const [refusedAt, setRefusedAt] = useState<Date>();
   const offers = offersOf(machines.data ?? []);
+  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
   const initial = settingsOf(mode === 'edit' ? valuesOf(of?.heldSettings, offers) : defaultValues(offers));
   const isOpen = mode !== undefined && of !== undefined;
   const settings = edited === null ? initial : edited;
@@ -87,6 +90,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           offers={offers}
           heldSettings={of.heldSettings}
           squadrons={squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined}
+          {...(machineLabels === undefined ? {} : { machineLabels })}
           check={check.data}
           refusedAt={refusedAt}
           error={requestCrew.error?.message}
