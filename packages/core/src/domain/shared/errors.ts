@@ -50,6 +50,7 @@ export type DomainErrorKind =
   | 'INVALID_SHIP_NAME'
   | 'INVALID_SHIP_NOTE'
   | 'INVALID_SHIP_TYPE'
+  | 'LABEL_CARRIED'
   | 'LABEL_KEY_TAKEN'
   | 'LABEL_NOT_FOUND'
   | 'LABEL_ON_OWN_SHIP'

@@ -60,6 +60,8 @@ import type { ReadFleetEvents } from '../../domain/shared/read-fleet-events.js';
 import type { AssignLabel } from '../../domain/registry/assign-label.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
+import type { DeleteLabel } from '../../domain/registry/delete-label.js';
+import type { FindLabelValue } from '../../domain/registry/find-label-value.js';
 import type { ListLabels } from '../../domain/registry/list-labels.js';
 import type { UnassignLabel } from '../../domain/registry/unassign-label.js';
 import type { FollowFleet } from '../../domain/shared/follow-fleet.js';
@@ -109,6 +111,8 @@ export interface UseCases {
   assignLabel: AssignLabel;
   unassignLabel: UnassignLabel;
   listLabels: ListLabels;
+  deleteLabel: DeleteLabel;
+  findLabelValue: FindLabelValue;
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;

@@ -76,6 +76,8 @@ import { createChangeLabelValues, type ChangeLabelValues } from './domain/regist
 import { createAssignLabel, type AssignLabel } from './domain/registry/assign-label.js';
 import { createUnassignLabel, type UnassignLabel } from './domain/registry/unassign-label.js';
 import { createListLabels, type ListLabels } from './domain/registry/list-labels.js';
+import { createDeleteLabel, type DeleteLabel } from './domain/registry/delete-label.js';
+import { createFindLabelValue, type FindLabelValue } from './domain/registry/find-label-value.js';
 import { createReadReportLog, type ReadReportLog } from './domain/registry/report-log.js';
 import { createWhoami, type Whoami } from './domain/registry/whoami.js';
 import type { Clock } from './domain/shared/clock.js';
@@ -126,6 +128,8 @@ export interface UseCases {
   assignLabel: AssignLabel;
   unassignLabel: UnassignLabel;
   listLabels: ListLabels;
+  deleteLabel: DeleteLabel;
+  findLabelValue: FindLabelValue;
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
@@ -250,6 +254,8 @@ export function createUseCases(options: {
     assignLabel: createAssignLabel({ uow, clock, ids }),
     unassignLabel: createUnassignLabel({ uow, clock, ids }),
     listLabels: createListLabels({ listing: createPrismaFleetListing(prisma) }),
+    deleteLabel: createDeleteLabel({ uow, clock, ids }),
+    findLabelValue: createFindLabelValue({ listing: createPrismaFleetListing(prisma) }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),

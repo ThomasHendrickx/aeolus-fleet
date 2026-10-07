@@ -203,6 +203,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text(`Label ${labelOf(entry)} values changed: ${valuesOf(entry)}`)], tone: 'ended', icon: 'reported' };
     case 'LabelRetired':
       return { parts: [text(`Label ${labelOf(entry)} retired`)], tone: 'ended', icon: 'retired' };
+    case 'LabelDeleted':
+      return { parts: [text(`Label ${labelOf(entry)} deleted`)], tone: 'ended', icon: 'retired' };
     case 'LabelAssigned':
       return { parts: [text(`Labelled ${labelOf(entry)}=${stringDetail(entry, 'value') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'reported' };
     case 'LabelUnassigned':

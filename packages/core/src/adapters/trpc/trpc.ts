@@ -104,6 +104,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_SHIP_NOTE: 'BAD_REQUEST',
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
   // The crew token belonged to that lease: it no longer authenticates anyone.
+  LABEL_CARRIED: 'CONFLICT',
   LABEL_KEY_TAKEN: 'CONFLICT',
   LABEL_NOT_FOUND: 'NOT_FOUND',
   LABEL_ON_OWN_SHIP: 'FORBIDDEN',

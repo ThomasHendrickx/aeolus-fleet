@@ -54,6 +54,9 @@ import {
   changeLabelValuesOutputSchema,
   defineLabelInputSchema,
   defineLabelOutputSchema,
+  deleteLabelInputSchema,
+  findLabelValueInputSchema,
+  findLabelValueOutputSchema,
   fleetListInputSchema,
   labelWriteOutputSchema,
   labelsOutputSchema,
@@ -408,6 +411,33 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.unassignLabel(ctx.caller, input));
       return {};
     }),
+
+  /** The owner deletes its label, freeing its key. */
+  deleteLabel: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        "Needs labels:define, and only the label's owner deletes it. Deletes the label, by its id, with its values, freeing its key.",
+        'A label any ship carries a value of is never deleted: CONFLICT, naming the ships that carry it.',
+      ].join(' '),
+    })
+    .input(deleteLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.deleteLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The ids of a label and one of its values, by their texts. */
+  findLabelValue: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        'Needs fleet:read. The label id and the value id for a key and a value as people write them (os, macos): both lowercased, then matched exactly.',
+        'Assigning and selecting take the ids. A key or value the fleet does not have is NOT_FOUND.',
+      ].join(' '),
+    })
+    .input(findLabelValueInputSchema)
+    .output(findLabelValueOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.findLabelValue(ctx.caller, input))),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: anyScopeProcedure('fleet:read', 'crew:run')

@@ -274,6 +274,27 @@ export function changeLabelValues(
   });
 }
 
+export type DeleteLabelRefusal = NotTheOwner | DomainError<'LABEL_CARRIED'>;
+
+/**
+ * The owner deletes its label with its values, freeing its key. A label any
+ * ship carries a value of is never deleted: the refusal names the ships.
+ * LabelDeleted names the owner, with the label.
+ */
+export function deleteLabel(
+  { label, ownerName, carrierNames }: { label: Label; ownerName: string; carrierNames: readonly string[] },
+  input: { callerShipId: ShipId; at: Date; actor: Actor },
+): Result<{ events: NewEvent[] }, DeleteLabelRefusal> {
+  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'deletes' });
+  if (!owned.isOk) {
+    return owned;
+  }
+  if (carrierNames.length > 0) {
+    return refuse('LABEL_CARRIED', `Ships carry the label ${label.key}: ${[...new Set(carrierNames)].join(', ')}`);
+  }
+  return ok({ events: [labelEvent(label, { at: input.at, actor: input.actor, type: 'LabelDeleted' })] });
+}
+
 function assignmentEvent(
   { label, assignment }: { label: Label; assignment: ShipLabel },
   change: { type: 'LabelAssigned' | 'LabelUnassigned'; at: Date; actor: Actor },

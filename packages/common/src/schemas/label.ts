@@ -49,6 +49,15 @@ export const changeLabelValuesInputSchema = z.object({ labelId: idSchema('label'
 /** Output of `fleet.changeLabelValues`: each value with its id, a kept value with the id it had. */
 export const changeLabelValuesOutputSchema = z.object({ values: z.array(labelValueSchema) });
 
+/** Input of `fleet.deleteLabel` (labels:define, owner only): the label by its id. */
+export const deleteLabelInputSchema = z.object({ labelId: idSchema('label') });
+
+/** Input of `fleet.findLabelValue` (fleet:read): a key and a value as people write them. */
+export const findLabelValueInputSchema = z.object({ key: labelTextSchema, value: labelTextSchema });
+
+/** Output of `fleet.findLabelValue`: the label's id and the value's id. */
+export const findLabelValueOutputSchema = z.object({ labelId: idSchema('label'), valueId: idSchema('labelValue') });
+
 /** Input of `fleet.assignLabel` (labels:assign, owner only): the ship and the value it carries from now on, by their ids. */
 export const assignLabelInputSchema = z.object({ shipId: idSchema('ship'), valueId: idSchema('labelValue') });
 
