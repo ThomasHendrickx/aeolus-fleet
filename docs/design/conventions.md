@@ -77,6 +77,10 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - UpgradeBlueprintDialog lists every change per member and per hand-off.
 - Disbanded squadrons hide behind "Show disbanded (n)", like retired ships, and keep a read-only page.
 
+## Crew requests and trierarchs
+- "Requested by" on a crew request names the actor of the ship's latest `CrewRequested` event, from its timeline; no stored field holds it. argo reads "you".
+- The Trierarchs sidebar count is silent machines only. Requests no trierarch can take already show on Needs crew; they are not counted twice.
+
 ## States
 - Every data view builds four states: ready, empty, loading, error.
 - Loading: keep chrome and headings; LoadingSkeleton in the content's shape; no page spinners; spinner only inside a busy Button; after 10 s show the error state.
