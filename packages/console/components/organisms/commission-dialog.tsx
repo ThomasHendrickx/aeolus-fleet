@@ -62,6 +62,8 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
   'fleet:manage': 'Manage the fleet',
   'crew:assign': 'Assign crews',
   'crew:run': 'Run crews',
+  'labels:define': 'Define labels',
+  'labels:assign': 'Assign labels',
 };
 
 /** The open dialog's fields: they start empty each time it opens. */
