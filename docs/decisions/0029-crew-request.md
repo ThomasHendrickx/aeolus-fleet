@@ -8,7 +8,7 @@
   - the request (settings), by a requester with `fleet:manage`;
   - the assignment (which trierarch ship), by a ship with `crew:assign`, only if still unassigned (optimistic claim);
   - the status (crewing, running, restarting, crashed, releasing), by the assigned trierarch with `crew:run`.
-- Two scopes replace `fleet:crew`:
+- Two scopes, not one that crews any ship:
   - `crew:assign` writes assignments;
   - `crew:run` reads the requests assigned to its ship, and only for those ships gets the starting prompt, releases and writes status.
 - Assignment goes to any active ship of the fleet: the fleet does no routing, and a ship that is no trierarch just gets work it does not understand. Only an unassigned request of a ship that awaits crew is assigned.
@@ -21,4 +21,4 @@
 
 Why: assigning crews was the operator's manual work, never state the server held. Declared state in the fleet lets any requester ask for a crew without knowing who provides it, and lets a plugin take the manual work away.
 
-Rejected: crew state in a plugin's own database (requesters would have to know the plugin); `fleet:crew` for any ship (a trierarch could take any ship's crew); a one-off "crew it once" command (edge, not level).
+Rejected: crew state in a plugin's own database (requesters would have to know the plugin); one scope crewing any ship (a trierarch could take any ship's crew); a one-off "crew it once" command (edge, not level).
