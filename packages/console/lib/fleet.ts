@@ -84,3 +84,20 @@ export function useRenameShip() {
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.rename.mutationOptions({ onSuccess: refresh }));
 }
+
+/**
+ * Writes a ship's crew request, replacing any it holds, with a new settings
+ * version: Request crew, and Restart, which writes the same settings again.
+ */
+export function useRequestCrew() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.crewRequest.mutationOptions({ onSuccess: refresh }));
+}
+
+/** Removes a ship's crew request: an unassigned one goes, an assigned one releases through its trierarch. */
+export function useRemoveCrewRequest() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.removeCrewRequest.mutationOptions({ onSuccess: refresh }));
+}
