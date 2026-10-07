@@ -18,10 +18,18 @@ export interface TemporaryRepository {
 export function createTemporaryRepository(): TemporaryRepository {
   const path = mkdtempSync(join(tmpdir(), 'aeolus-check-'));
   // Isolated from the machine's git configuration, commit signing included.
+  // No automatic maintenance: a commit would start it detached, still working
+  // in the repository after the commit returned, so removing the repository
+  // would race it (#335).
   const env = {
     ...process.env,
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
+    GIT_CONFIG_COUNT: '2',
+    GIT_CONFIG_KEY_0: 'maintenance.auto',
+    GIT_CONFIG_VALUE_0: 'false',
+    GIT_CONFIG_KEY_1: 'gc.auto',
+    GIT_CONFIG_VALUE_1: '0',
     GIT_AUTHOR_NAME: 'Test',
     GIT_AUTHOR_EMAIL: 'test@example.com',
     GIT_COMMITTER_NAME: 'Test',
