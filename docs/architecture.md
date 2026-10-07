@@ -151,7 +151,7 @@ Every promise in the blueprint maps to one Postgres transaction. Nothing the gua
 
 ### Core tables
 
-Every table except `fleets` and the installation's `installation_requests`, `installation_settings`, `notices` and `guides` carries a `fleet_id`, and every uniqueness rule is per fleet. A self-hosted server creates one fleet at first run; a hosting installation creates more through the installation procedures.
+Every table except `fleets` and the installation's `installation_requests`, `installation_settings`, `notices` and `guides` carries a `fleet_id`, and every uniqueness rule is per fleet. Every foreign key has an index leading with its columns, so deleting a referenced row (deleting a fleet deletes all of its rows) checks the rows that reference it with an index, never a scan. A self-hosted server creates one fleet at first run; a hosting installation creates more through the installation procedures.
 
 | Table | Holds | Key constraints |
 | --- | --- | --- |

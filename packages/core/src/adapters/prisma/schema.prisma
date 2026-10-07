@@ -168,6 +168,9 @@ model Lease {
   @@unique([fleetId, id])
   /// At most one open lease per ship.
   @@unique([shipId], map: "leases_ship_id_open_key", where: { endedAt: null })
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, shipId])
   @@map("leases")
 }
 
@@ -286,6 +289,9 @@ model Credential {
 
   /// At most one valid secret per ship.
   @@unique([shipId], map: "credentials_ship_id_valid_key", where: { invalidatedAt: null })
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, shipId])
   @@map("credentials")
 }
 
@@ -334,6 +340,11 @@ model Message {
   @@unique([fleetId, senderShipId, idempotencyKey])
   /// A ship's current model is its newest message with a model.
   @@index([fleetId, senderShipId, createdAt])
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, selectorShipId])
+  @@index([fleetId, inReplyToMessageId])
+  @@index([fleetId, resendOfMessageId])
   @@map("messages")
 }
 
@@ -381,6 +392,10 @@ model Delivery {
   @@index([fleetId, recipientType, state])
   /// A crew's own deliveries in flight, which its next receive returns first.
   @@index([fleetId, claimedByLeaseId, state])
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, messageId])
+  @@index([fleetId, claimedByShipId])
   @@map("deliveries")
 }
 
@@ -410,6 +425,12 @@ model Event {
   delivery  Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
 
   @@unique([fleetId, seq])
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, actorShipId])
+  @@index([fleetId, shipId])
+  @@index([fleetId, messageId])
+  @@index([fleetId, deliveryId])
   @@map("events")
 }
 
@@ -482,6 +503,10 @@ model ConsoleSession {
 
   /// At most one live session holding argo's lease per fleet: signing in ends the previous one. Viewer sessions run beside it.
   @@unique([fleetId], map: "console_sessions_fleet_id_open_key", where: raw("ended_at IS NULL AND lease_id IS NOT NULL"))
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, shipId])
+  @@index([fleetId, leaseId])
   @@map("console_sessions")
 }
 

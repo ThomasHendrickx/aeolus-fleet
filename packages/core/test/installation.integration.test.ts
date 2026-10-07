@@ -1,10 +1,11 @@
-import { createIdGenerator, SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, SCOPES, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createApp } from '../src/app.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
@@ -70,6 +71,38 @@ async function codeOf(call: Promise<unknown>): Promise<string | undefined> {
 /** argo of a fleet as the caller, as its console session makes it. */
 function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): Caller {
   return { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
+}
+
+/** As many messages as the demo fleet that could no longer be deleted had (#331), each with its delivery and five events. */
+const SEEDED_MESSAGES = 7_500;
+const EVENTS_PER_MESSAGE = 5;
+
+/**
+ * A fleet's long history, written straight into its tables: copies of one
+ * message the fleet sent, each with a copy of its delivery and its events,
+ * as thousands of sends would leave them.
+ */
+async function seedTraffic({ fleetId, from, copies }: { fleetId: FleetId; from: MessageId; copies: number }): Promise<void> {
+  // Ids in the format of common/src/ids, numbered past any the generator gives.
+  const idOf = (prefix: string) => Prisma.sql`${prefix} || '_7zzzz' || lpad(n::text, 21, '0')`;
+  await database.$executeRaw`
+    INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, selector_type, payload, content_type, model,
+                          idempotency_key, request_hash, created_at)
+    SELECT ${idOf('msg')}, m.fleet_id, m.sender_ship_id, m.selector_kind, m.selector_ship_id, m.selector_type, m.payload, m.content_type, m.model,
+           'seeded-' || n, m.request_hash, m.created_at
+    FROM messages m, generate_series(1, ${copies}) AS n
+    WHERE m.fleet_id = ${fleetId} AND m.id = ${from}`;
+  await database.$executeRaw`
+    INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, recipient_type, state, attempts, created_at)
+    SELECT ${idOf('dlv')}, d.fleet_id, ${idOf('msg')}, d.recipient_ship_id, d.recipient_type, d.state, d.attempts, d.created_at
+    FROM deliveries d, generate_series(1, ${copies}) AS n
+    WHERE d.fleet_id = ${fleetId} AND d.message_id = ${from}`;
+  await database.$executeRaw`
+    INSERT INTO events (id, fleet_id, type, occurred_at, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
+    SELECT 'evt_7zzz' || lpad((n * ${EVENTS_PER_MESSAGE} + e)::text, 22, '0'), m.fleet_id, 'MessageAccepted', m.created_at,
+           m.sender_ship_id, m.selector_ship_id, ${idOf('msg')}, ${idOf('dlv')}, '{}'::jsonb, 1000000 + n * ${EVENTS_PER_MESSAGE} + e
+    FROM messages m, generate_series(1, ${copies}) AS n, generate_series(0, ${EVENTS_PER_MESSAGE - 1}) AS e
+    WHERE m.fleet_id = ${fleetId} AND m.id = ${from}`;
 }
 
 /** How many rows every table holds for the fleet: each table with a fleet_id column, and the fleet itself. */
@@ -171,6 +204,19 @@ describe('the installation procedures on a hosting server', () => {
     await expect(codeOf(installation().get.query({ fleetId: created.fleetId }))).resolves.toBe('NOT_FOUND');
     await expect(installation().delete.mutate({ requestId: 'delete-doomed', fleetId: created.fleetId })).resolves.toEqual({});
     await expect(codeOf(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId }))).resolves.toBe('NOT_FOUND');
+  });
+
+  it('delete a fleet of thousands of messages, deliveries and events within the transaction limit', async () => {
+    const created = await installation().create.mutate({ requestId: newKey(), name: 'long-lived', operatorEmail: 'long-lived@example.com' });
+    const argo = argoOf(created);
+    const { shipId } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { messageId } = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review', idempotencyKey: newKey() }));
+    await seedTraffic({ fleetId: created.fleetId, from: messageId, copies: SEEDED_MESSAGES });
+    await expect(rowsOf(created.fleetId)).resolves.toMatchObject({ messages: SEEDED_MESSAGES + 1, deliveries: SEEDED_MESSAGES + 1 });
+
+    await expect(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })).resolves.toEqual({});
+
+    expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
   });
 
   it('are not served as REST', async () => {
