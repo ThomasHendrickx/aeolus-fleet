@@ -26,6 +26,22 @@ export interface Label {
   ownerShipId: ShipId;
 }
 
+/** A label as the fleet lists it: its key, its values and its owner by id and name. */
+export interface ListedLabel {
+  key: string;
+  values: readonly string[];
+  owner: { id: ShipId; name: string };
+}
+
+/**
+ * Whether a ship carries every label of the selector with its value: exact
+ * matches, combined with AND (decision 0031). No selector, or an empty one,
+ * selects every ship.
+ */
+export function carriesEvery(carried: Readonly<Record<string, string>>, selector: Readonly<Record<string, string>> | undefined): boolean {
+  return Object.entries(selector ?? {}).every(([key, value]) => carried[key] === value);
+}
+
 /** One label a ship carries: at most one value per key. */
 export interface ShipLabel {
   fleetId: FleetId;

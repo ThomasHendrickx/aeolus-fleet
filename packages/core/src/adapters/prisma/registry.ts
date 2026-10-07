@@ -18,6 +18,7 @@ import {
   toFleet,
   toLabelFromSql,
   toLease,
+  toListedLabel,
   toLeaseShipId,
   toShip,
   toShipFacts,
@@ -438,6 +439,15 @@ const lastPingOfShip = Prisma.sql`
  * claimed with, the actor of its last StartingPromptIssued before the lease
  * started. None while no lease is open.
  */
+/**
+ * The labels the ship carries as one JSON object, value by key, in the order
+ * of their keys: json keeps that order, where jsonb would sort the keys by
+ * length first. An empty object for a ship without labels.
+ */
+const labelsOfShip = Prisma.sql`
+  COALESCE((SELECT json_object_agg(sl.key, sl.value ORDER BY sl.key) FROM ship_labels sl
+            WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id), '{}'::json)`;
+
 const crewedByOfShip = Prisma.sql`
   SELECT a.id, a.name
   FROM events e
@@ -468,7 +478,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                (SELECT max(cs.last_used_at) FROM console_sessions cs
                  WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
                (SELECT max(el.ended_at) FROM leases el
-                 WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at
+                 WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
+               ${labelsOfShip} AS labels
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
@@ -480,6 +491,15 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         WHERE s.fleet_id = ${fleetId}
         ORDER BY s.id`;
       return rows.map(toShipFacts);
+    },
+    labels: async (fleetId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT l.key, l.values, l.owner_ship_id, o.name AS owner_name
+        FROM labels l
+        JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
+        WHERE l.fleet_id = ${fleetId}
+        ORDER BY l.key`;
+      return rows.map(toListedLabel);
     },
     deliveryCounts: async (fleetId, shipId) => {
       const [inFlight, open] = await Promise.all([
@@ -505,7 +525,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                (SELECT max(cs.last_used_at) FROM console_sessions cs
                  WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
                (SELECT max(el.ended_at) FROM leases el
-                 WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at
+                 WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
+               ${labelsOfShip} AS labels
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL

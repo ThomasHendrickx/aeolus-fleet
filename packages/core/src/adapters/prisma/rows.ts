@@ -23,7 +23,7 @@ import type { OperatorAccount } from '../../domain/identity/operator-account.js'
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
-import type { Label, ShipLabel } from '../../domain/registry/label.js';
+import type { Label, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
 import type { FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
 import type { DeliveryNotice } from '../../domain/shared/notifier.js';
 import type { Fleet } from '../../domain/registry/fleet.js';
@@ -132,6 +132,15 @@ export function toLabelFromSql(row: unknown): Label {
 
 const shipLabelRow = z.object({ fleetId: idSchema('fleet'), shipId: idSchema('ship'), key: z.string(), value: z.string() });
 
+const listedLabelSqlRow = z
+  .object({ key: z.string(), values: z.array(z.string()), owner_ship_id: idSchema('ship'), owner_name: z.string() })
+  .transform(({ key, values, owner_ship_id, owner_name }): ListedLabel => ({ key, values, owner: { id: owner_ship_id, name: owner_name } }));
+
+/** A label with its owner's name, as the fleet listing reads it. */
+export function toListedLabel(row: unknown): ListedLabel {
+  return listedLabelSqlRow.parse(row);
+}
+
 /** A label a ship carries, as Prisma reads its row. */
 export function toShipLabel(row: unknown): ShipLabel {
   return shipLabelRow.parse(row);
@@ -183,6 +192,7 @@ const shipFactsSqlRow = z.object({
   crew_request_reason: z.string().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
+  labels: z.record(z.string(), z.string()),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -211,6 +221,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_reason,
     crewed_by_id,
     crewed_by_name,
+    labels,
   } = shipFactsSqlRow.parse(row);
   const ship = toShipFromSql(row);
   return {
@@ -242,6 +253,7 @@ export function toShipFacts(row: unknown): ShipFacts {
         : null,
     crewRequestAssignee:
       crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
+    labels,
     crewedBy: crewed_by_id && crewed_by_name !== null ? { id: crewed_by_id, name: crewed_by_name } : null,
     lastPing:
       ping_sent_at && ping_delivery_state

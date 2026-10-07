@@ -4,7 +4,7 @@ import type { Recipient } from '../shared/selector.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
-import type { Label, ShipLabel } from './label.js';
+import type { Label, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { Ship } from './ship.js';
@@ -233,6 +233,8 @@ export interface ShipFacts {
   crewRequest: CrewRequest | null;
   /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
   crewRequestAssignee: { id: ShipId; name: string } | null;
+  /** The labels the ship carries, value by key, in the order of their keys (decision 0031). */
+  labels: Readonly<Record<string, string>>;
   /**
    * The ship that got the starting prompt the open lease claimed with, by id
    * and name: the actor of the ship's last StartingPromptIssued before the
@@ -292,6 +294,8 @@ export interface InstallationFleets {
 
 export interface FleetListing {
   ships(fleetId: FleetId): Promise<ShipFacts[]>;
+  /** The fleet's labels by key, each with its values and its owner by id and name (decision 0031). */
+  labels(fleetId: FleetId): Promise<ListedLabel[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
   /**
