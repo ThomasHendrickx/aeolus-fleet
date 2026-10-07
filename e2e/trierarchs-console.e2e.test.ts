@@ -86,7 +86,7 @@ async function pluginConnectedFleets(): Promise<number> {
 }
 
 describe('Trierarchs in the console', () => {
-  it('connects the trierarch plugin from Settings as trierarch-plugin, which may assign crew requests, and the browser never gets the secret', async () => {
+  it('connects the trierarch plugin from Settings as trierarch-plugin, which may assign crew requests and label machines, and the browser never gets the secret', async () => {
     const page = await signedIn();
     await page.getByTestId('nav-settings').click();
     await expect(page.getByTestId('settings-trierarchs-state').textContent()).resolves.toContain('Not connected');
@@ -99,7 +99,7 @@ describe('Trierarchs in the console', () => {
     await page.getByTestId('settings-trierarchs').getByText('Connected as').waitFor();
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'trierarch-plugin', retiredAt: null } });
-    expect(ship).toMatchObject({ type: 'trierarch-plugin', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign'] });
+    expect(ship).toMatchObject({ type: 'trierarch-plugin', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] });
     await expect(pluginConnectedFleets()).resolves.toBe(1);
   });
 
