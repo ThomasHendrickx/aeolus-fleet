@@ -3,6 +3,8 @@ import { err, type Err } from './result.js';
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
   | 'ASSIGNEE_NOT_ACTIVE'
+  | 'CLEAR_REQUEST_LIMIT_REACHED'
+  | 'CLEAR_REQUEST_NOT_FOUND'
   | 'CREW_REQUEST_ALREADY_ASSIGNED'
   | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'
   | 'CREW_REQUEST_NOT_FOUND'
@@ -58,6 +60,7 @@ export type DomainErrorKind =
   | 'LABEL_VALUE_NOT_FOUND'
   | 'LEASE_ENDED'
   | 'MESSAGE_NOT_FOUND'
+  | 'NOT_A_TRIERARCH'
   | 'NOT_THE_LABEL_OWNER'
   | 'NOT_THE_OPERATOR_SHIP'
   | 'OPERATOR_EMAIL_TAKEN'

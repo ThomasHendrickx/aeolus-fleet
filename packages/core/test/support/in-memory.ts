@@ -41,6 +41,7 @@ import type {
   InstallationRequestRepository,
   InstallationSettingsRepository,
   LeaseRepository,
+  ClearRequestRepository,
   CrewRequestRepository,
   LabelRepository,
   ShipRepository,
@@ -48,6 +49,7 @@ import type {
 import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
+import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/domain/shared/events.js';
@@ -95,6 +97,8 @@ export interface InMemoryState {
   /** Each lease's crew report: the report columns, apart from the Lease. */
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
   crewRequests: CrewRequest[];
+  /** The pending clear requests (decision 0032). */
+  clearRequests: ClearRequest[];
   /** The fleet's labels, by key (decision 0031): a retired label is gone. */
   labels: Label[];
   /** The label values each ship carries: a set of value ids per ship. */
@@ -117,6 +121,7 @@ export interface InMemoryTx {
   ships: ShipRepository;
   leases: LeaseRepository;
   crewRequests: CrewRequestRepository;
+  clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -157,6 +162,8 @@ export interface InMemoryCore {
   leases: LeaseRepository;
   /** The crew requests, read outside a unit of work. */
   crewRequests: CrewRequestRepository;
+  /** The clear requests, read outside a unit of work. */
+  clearRequests: ClearRequestRepository;
   /** The labels and what ships carry, read outside a unit of work. */
   labels: LabelRepository;
   callers: CallerLookup;
@@ -210,6 +217,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseSeen: [],
     leaseReports: [],
     crewRequests: [],
+    clearRequests: [],
     labels: [],
     shipLabels: [],
     events: [],
@@ -396,6 +404,34 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+    },
+    clearRequests: {
+      find: (fleetId, key) => {
+        const request = state.clearRequests.find((held) => held.fleetId === fleetId && isClearRequestKey(held, key));
+        return Promise.resolve(request && { ...request });
+      },
+      save: (request) => {
+        state.clearRequests.push({ ...request });
+        return Promise.resolve();
+      },
+      remove: (fleetId, key) => {
+        state.clearRequests.splice(0, state.clearRequests.length, ...state.clearRequests.filter((held) => held.fleetId !== fleetId || !isClearRequestKey(held, key)));
+        return Promise.resolve();
+      },
+      list: (fleetId) =>
+        Promise.resolve(
+          state.clearRequests
+            .filter((held) => held.fleetId === fleetId)
+            .sort((first, second) => first.trierarchShipId.localeCompare(second.trierarchShipId) || first.requestedAt.getTime() - second.requestedAt.getTime())
+            .map((held) => ({ ...held })),
+        ),
+      listFor: (fleetId, trierarchShipId) =>
+        Promise.resolve(
+          state.clearRequests
+            .filter((held) => held.fleetId === fleetId && held.trierarchShipId === trierarchShipId)
+            .sort((first, second) => first.requestedAt.getTime() - second.requestedAt.getTime())
+            .map((held) => ({ ...held })),
+        ),
     },
     labels: {
       // One test runs one unit of work at a time: nothing to wait for.
@@ -1314,7 +1350,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, labels: tx.labels, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1331,6 +1367,7 @@ const FLEET_TABLES = [
   'leaseSeen',
   'leaseReports',
   'crewRequests',
+  'clearRequests',
   'labels',
   'shipLabels',
   'events',
@@ -1354,6 +1391,7 @@ const TABLES = [
   'leaseSeen',
   'leaseReports',
   'crewRequests',
+  'clearRequests',
   'labels',
   'shipLabels',
   'events',
@@ -1369,4 +1407,8 @@ function restore(state: InMemoryState, snapshot: InMemoryState): void {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }
+}
+
+function isClearRequestKey(held: ClearRequest, key: { trierarchShipId: ClearRequest['trierarchShipId']; shipId: ClearRequest['shipId']; repository: string }): boolean {
+  return held.trierarchShipId === key.trierarchShipId && held.shipId === key.shipId && held.repository === key.repository;
 }

@@ -182,6 +182,7 @@ describe('initialise fleet', () => {
       leaseSeen: [],
       leaseReports: [],
       crewRequests: [],
+      clearRequests: [],
       labels: [],
       shipLabels: [],
       events: [],

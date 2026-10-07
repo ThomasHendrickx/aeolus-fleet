@@ -1,6 +1,7 @@
 import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
+import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
@@ -153,6 +154,21 @@ export interface CrewRequestRepository {
   remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
   /** The requests assigned to this trierarch ship, oldest ship first. */
   listAssignedTo(fleetId: FleetId, trierarchShipId: ShipId): Promise<CrewRequest[]>;
+}
+
+/**
+ * Outbound port: the pending clear requests (decision 0032), one per
+ * trierarch, ship and repository, always within one fleet. Lock the
+ * trierarch ship first.
+ */
+export interface ClearRequestRepository {
+  find(fleetId: FleetId, key: { trierarchShipId: ShipId; shipId: ShipId; repository: string }): Promise<ClearRequest | undefined>;
+  save(request: ClearRequest): Promise<void>;
+  remove(fleetId: FleetId, key: { trierarchShipId: ShipId; shipId: ShipId; repository: string }): Promise<void>;
+  /** Every trierarch's, by trierarch, oldest first. */
+  list(fleetId: FleetId): Promise<ClearRequest[]>;
+  /** One trierarch's, oldest first. */
+  listFor(fleetId: FleetId, trierarchShipId: ShipId): Promise<ClearRequest[]>;
 }
 
 /**

@@ -187,6 +187,23 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'reported',
       };
     }
+    case 'WorktreeClearRequested':
+      return { parts: [text(`Clearing of the kept ${stringDetail(entry, 'repository') ?? ''} worktree requested`), ...by(entry.actor)], tone: 'waiting', icon: 'reported' };
+    case 'WorktreeCleared':
+      return {
+        parts: [
+          text(
+            stringDetail(entry, 'outcome') === 'not-kept'
+              ? `Kept ${stringDetail(entry, 'repository') ?? ''} worktree cleared (none was kept)`
+              : `Kept ${stringDetail(entry, 'repository') ?? ''} worktree cleared`,
+          ),
+          ...by(entry.actor),
+        ],
+        tone: 'ended',
+        icon: 'retired',
+      };
+    case 'WorktreeClearRemoved':
+      return { parts: [text(`Clearing of the kept ${stringDetail(entry, 'repository') ?? ''} worktree dropped`), ...by(entry.actor)], tone: 'ended', icon: 'released' };
     case 'CrewAssigned':
       return { parts: [text('Crew request assigned'), ...by(entry.actor)], tone: 'waiting', icon: 'claimed' };
     case 'CrewStatusChanged': {

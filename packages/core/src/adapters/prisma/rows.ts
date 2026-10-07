@@ -24,6 +24,7 @@ import type { Credential } from '../../domain/identity/credential.js';
 import type { OperatorAccount } from '../../domain/identity/operator-account.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
+import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
 import type { Label, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
 import type { FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
@@ -119,6 +120,20 @@ const crewRequestRow = z.object({
   attempt: z.int().min(0),
   sessionStartedAt: z.date().nullable(),
 });
+
+const clearRequestRow = z.object({
+  fleetId: idSchema('fleet'),
+  trierarchShipId: idSchema('ship'),
+  shipId: idSchema('ship'),
+  repository: z.string(),
+  requestedBy: idSchema('ship'),
+  requestedAt: z.date(),
+});
+
+/** A clear request as Prisma reads its row. */
+export function toClearRequest(row: unknown): ClearRequest {
+  return clearRequestRow.parse(row);
+}
 
 /** A crew request as Prisma reads its row. */
 export function toCrewRequest(row: unknown): CrewRequest {

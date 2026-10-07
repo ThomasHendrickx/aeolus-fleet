@@ -46,6 +46,7 @@ model Fleet {
   ships            Ship[]
   leases           Lease[]
   crewRequests     CrewRequest[]
+  clearRequests    WorktreeClearRequest[]
   labels           Label[]
   labelValues      LabelValue[]
   shipLabels       ShipLabel[]
@@ -100,6 +101,9 @@ model Ship {
   events            Event[]          @relation("EventShip")
   crewRequest       CrewRequest?     @relation("CrewRequestShip")
   assignedCrews     CrewRequest[]    @relation("CrewRequestAssignee")
+  clearRequests     WorktreeClearRequest[] @relation("WorktreeClearRequestTrierarch")
+  clearedWorktrees  WorktreeClearRequest[] @relation("WorktreeClearRequestShip")
+  requestedClears   WorktreeClearRequest[] @relation("WorktreeClearRequestRequester")
   ownedLabels       Label[]          @relation("LabelOwner")
   labels            ShipLabel[]      @relation("ShipLabelShip")
 
@@ -213,6 +217,27 @@ model CrewRequest {
   /// A trierarch reads the requests assigned to it.
   @@index([fleetId, assignedTo])
   @@map("crew_requests")
+}
+
+/// A pending request that a trierarch clear a worktree it kept (decision 0032),
+/// named by the ship it belonged to and its repository: never a path.
+model WorktreeClearRequest {
+  fleetId         String   @map("fleet_id")
+  trierarchShipId String   @map("trierarch_ship_id")
+  shipId          String   @map("ship_id")
+  repository      String
+  requestedBy     String   @map("requested_by_ship_id")
+  requestedAt     DateTime @map("requested_at") @db.Timestamptz(3)
+
+  fleet     Fleet @relation(fields: [fleetId], references: [id])
+  trierarch Ship  @relation("WorktreeClearRequestTrierarch", fields: [fleetId, trierarchShipId], references: [fleetId, id])
+  ship      Ship  @relation("WorktreeClearRequestShip", fields: [fleetId, shipId], references: [fleetId, id])
+  requester Ship  @relation("WorktreeClearRequestRequester", fields: [fleetId, requestedBy], references: [fleetId, id])
+
+  @@id([fleetId, trierarchShipId, shipId, repository])
+  @@index([fleetId, shipId])
+  @@index([fleetId, requestedBy])
+  @@map("worktree_clear_requests")
 }
 
 /// A label (decision 0031): a key unique in its fleet with its defined values,
