@@ -22,11 +22,13 @@ export function machineLiveness(machine: Pick<Machine, 'status' | 'isSilent' | '
   return machine.isSilent ? 'silent' : 'alive';
 }
 
-/** One spot of a machine: a ship it crews, with its crew status. */
+/** One spot of a machine: a ship it crews, with its crew status, its restart attempt and when its session started (#332). */
 export interface Spot {
   shipId: ListedShip['id'];
   name: string;
   status: CrewStatus;
+  attempt: number;
+  startedAt: string | null;
 }
 
 /** The order spots show in: running first, then what needs a look, then what is on its way. */
@@ -36,7 +38,9 @@ const SPOT_ORDER: readonly CrewStatus[] = ['running', 'crashed', 'restarting', '
 export function spotsOf(machine: Pick<Machine, 'shipId'>, ships: readonly ListedShip[]): Spot[] {
   return ships
     .flatMap((ship) =>
-      ship.crewRequest?.assignedTo?.id === machine.shipId ? [{ shipId: ship.id, name: ship.name, status: ship.crewRequest.status ?? 'crewing' }] : [],
+      ship.crewRequest?.assignedTo?.id === machine.shipId
+        ? [{ shipId: ship.id, name: ship.name, status: ship.crewRequest.status ?? 'crewing', attempt: ship.crewRequest.attempt, startedAt: ship.crewRequest.startedAt }]
+        : [],
     )
     .toSorted((one, other) => SPOT_ORDER.indexOf(one.status) - SPOT_ORDER.indexOf(other.status) || one.name.localeCompare(other.name));
 }

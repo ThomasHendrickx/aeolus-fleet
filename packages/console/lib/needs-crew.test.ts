@@ -68,6 +68,6 @@ describe('crewRequestCell', () => {
   it('words each stage with its tone, and nothing without a request', () => {
     expect(crewRequestCell({ kind: 'none' })).toBeUndefined();
     expect(crewRequestCell({ kind: 'needsCrew', requestedAt: '', reason: null })).toEqual({ tone: 'waiting', word: 'Needs crew' });
-    expect(crewRequestCell({ kind: 'assigned', requestedAt: '', trierarch: TRIERARCH, status: 'crashed' })).toEqual({ tone: 'attention', word: 'Crashed' });
+    expect(crewRequestCell({ kind: 'assigned', requestedAt: '', trierarch: TRIERARCH, status: 'crashed', attempt: 0, startedAt: null })).toEqual({ tone: 'attention', word: 'Crashed' });
   });
 });

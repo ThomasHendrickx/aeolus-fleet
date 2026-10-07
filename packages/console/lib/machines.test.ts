@@ -13,7 +13,7 @@ function aShip(name: string, crewRequest: ListedShip['crewRequest']): ListedShip
   };
 }
 
-function assigned(status: CrewStatus | null, to = TRIERARCH): ListedShip['crewRequest'] {
+function assigned(status: CrewStatus | null, to = TRIERARCH): NonNullable<ListedShip['crewRequest']> {
   return { settingsVersion: 1, requestedAt: '2026-10-07T09:00:00.000Z', assignedTo: to, status, reason: null, crewedBy: null, attempt: 0, startedAt: null };
 }
 
@@ -53,10 +53,16 @@ describe('spotsOf', () => {
       ['scout-1', 'crewing'],
     ]);
   });
+
+  it('carries each ship’s restart attempt and when its session started', () => {
+    const ships = [aShip('builder', { ...assigned('running'), attempt: 1, startedAt: '2026-10-07T09:30:00.000Z' })];
+
+    expect(spotsOf({ shipId: TRIERARCH.id }, ships)).toMatchObject([{ name: 'builder', attempt: 1, startedAt: '2026-10-07T09:30:00.000Z' }]);
+  });
 });
 
 describe('capacityLine', () => {
-  const spot = (status: 'running' | 'crashed' | 'crewing') => ({ shipId: newId('ship'), name: 'a', status });
+  const spot = (status: 'running' | 'crashed' | 'crewing') => ({ shipId: newId('ship'), name: 'a', status, attempt: 0, startedAt: null });
 
   it('says how many run out of the ships it crews at most, and what else is there', () => {
     expect(capacityLine([spot('running'), spot('running'), spot('crashed')], { ships: 6 })).toBe('2 of 6 running · 1 crashed');

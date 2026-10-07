@@ -25,8 +25,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const assigned = (status: 'crewing' | 'running' | 'restarting' | 'crashed' | 'releasing') =>
-  ({ kind: 'assigned', requestedAt: minutesAgo(90), trierarch: TRIERARCH, status }) as const;
+const assigned = (status: 'crewing' | 'running' | 'restarting' | 'crashed' | 'releasing', session: { attempt?: number; startedAt?: string } = {}) =>
+  ({ kind: 'assigned', requestedAt: minutesAgo(90), trierarch: TRIERARCH, status, attempt: session.attempt ?? 0, startedAt: session.startedAt ?? null }) as const;
 
 export const None: Story = {};
 export const Requesting: Story = { args: { busy: 'request' } };
@@ -38,9 +38,10 @@ export const CrewedByHand: Story = {
   args: { stage: { kind: 'crewedByHand', requestedAt: minutesAgo(45), crewedBy: ARGO, since: minutesAgo(20) }, isAwaitingCrew: false },
 };
 export const Crewing: Story = { args: { stage: assigned('crewing'), isAwaitingCrew: false } };
-export const Running: Story = { args: { stage: assigned('running'), isAwaitingCrew: false } };
-export const Restarting: Story = { args: { stage: assigned('restarting'), statusChangedAt: minutesAgo(3), isAwaitingCrew: false } };
-export const Crashed: Story = { args: { stage: assigned('crashed'), statusChangedAt: minutesAgo(3), isAwaitingCrew: false } };
+export const Running: Story = { args: { stage: assigned('running', { startedAt: minutesAgo(80) }), isAwaitingCrew: false } };
+export const RunningAfterRestart: Story = { args: { stage: assigned('running', { attempt: 1, startedAt: minutesAgo(12) }), isAwaitingCrew: false } };
+export const Restarting: Story = { args: { stage: assigned('restarting', { attempt: 2 }), statusChangedAt: minutesAgo(3), isAwaitingCrew: false } };
+export const Crashed: Story = { args: { stage: assigned('crashed', { attempt: 5 }), statusChangedAt: minutesAgo(3), isAwaitingCrew: false } };
 export const RestartFailed: Story = { args: { ...Crashed.args, error: { action: 'restart', message: 'The server did not answer.' } } };
 export const Releasing: Story = { args: { stage: assigned('releasing'), statusChangedAt: minutesAgo(1), isAwaitingCrew: false } };
 export const RequestedByAnotherShip: Story = { args: { ...Running.args, requestedBy: PLANNER } };

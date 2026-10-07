@@ -9,7 +9,7 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: {
     shipName: 'aeolus-fleet',
-    stage: { kind: 'assigned', requestedAt: minutesAgo(90), trierarch: { ...PLANNER, name: 'trierarch-mac' }, status: 'running' },
+    stage: { kind: 'assigned', requestedAt: minutesAgo(90), trierarch: { ...PLANNER, name: 'trierarch-mac' }, status: 'running', attempt: 0, startedAt: minutesAgo(80) },
     inFlightCount: 1,
     isOpen: true,
     onOpenChange: () => undefined,

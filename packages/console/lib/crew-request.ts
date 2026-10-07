@@ -5,14 +5,14 @@ import type { CrewStatus, ListedShip, Party, TimelineEntry } from '@aeolus-fleet
  * (docs/design/README.md, CrewRequest; decision 0029): none; needs crew, the
  * operator's to-do, with the trierarch plugin's reason when it gave one;
  * crewed by hand while still unassigned; or assigned to a trierarch, with the
- * status it wrote. An assigned request with no status yet is crewing: the
+ * status it wrote, its restart attempt and when its session started. An assigned request with no status yet is crewing: the
  * crew writes its first status itself.
  */
 export type CrewRequestStage =
   | { kind: 'none' }
   | { kind: 'needsCrew'; requestedAt: string; reason: string | null }
   | { kind: 'crewedByHand'; requestedAt: string; crewedBy: Party; since: string | null }
-  | { kind: 'assigned'; requestedAt: string; trierarch: Party; status: CrewStatus };
+  | { kind: 'assigned'; requestedAt: string; trierarch: Party; status: CrewStatus; attempt: number; startedAt: string | null };
 
 /** The stage of a ship's crew request, from the fleet list or the ship page; when it was crewed, where the page knows it. */
 export function crewRequestStage(ship: Pick<ListedShip, 'crewRequest'> & { crewedSince?: string | null }): CrewRequestStage {
@@ -21,7 +21,14 @@ export function crewRequestStage(ship: Pick<ListedShip, 'crewRequest'> & { crewe
     return { kind: 'none' };
   }
   if (request.assignedTo !== null) {
-    return { kind: 'assigned', requestedAt: request.requestedAt, trierarch: request.assignedTo, status: request.status ?? 'crewing' };
+    return {
+      kind: 'assigned',
+      requestedAt: request.requestedAt,
+      trierarch: request.assignedTo,
+      status: request.status ?? 'crewing',
+      attempt: request.attempt,
+      startedAt: request.startedAt,
+    };
   }
   if (request.crewedBy !== null) {
     return { kind: 'crewedByHand', requestedAt: request.requestedAt, crewedBy: request.crewedBy, since: ship.crewedSince ?? null };
@@ -44,6 +51,28 @@ export function crewRequestAction(stage: CrewRequestStage): 'remove' | 'release'
       return 'release';
     case 'assigned':
       return stage.status === 'releasing' ? undefined : 'release';
+  }
+}
+
+/**
+ * The restart attempt in words (canvas TpMachine "Running here",
+ * CrBlockRestarting, CrBlockCrashed; #332): "attempt 2" while restarting,
+ * "3 restarts" once crashed, "1 restart" while running after one. None on a
+ * first start, nor while crewing or releasing. The trierarch's restart budget
+ * is its own, so no "of 3".
+ */
+export function restartWords({ status, attempt }: { status: CrewStatus; attempt: number }): string | undefined {
+  const restarts = `${String(attempt)} ${attempt === 1 ? 'restart' : 'restarts'}`;
+  switch (status) {
+    case 'restarting':
+      return `attempt ${String(attempt)}`;
+    case 'crashed':
+      return restarts;
+    case 'running':
+      return attempt === 0 ? undefined : restarts;
+    case 'crewing':
+    case 'releasing':
+      return undefined;
   }
 }
 

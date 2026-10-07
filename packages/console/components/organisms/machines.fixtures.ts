@@ -56,10 +56,10 @@ export const NEW_MACHINE: Machine = { shipId: shipId('trnw'), name: 'trierarch-n
 export const MACHINES: Machine[] = [ALIVE_MACHINE, SILENT_MACHINE, NEW_MACHINE];
 
 export const SPOTS: Spot[] = [
-  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running' },
-  { shipId: shipId('sp02'), name: 'website-editor', status: 'running' },
-  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed' },
-  { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing' },
+  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running', attempt: 0, startedAt: minutesAgo(172) },
+  { shipId: shipId('sp02'), name: 'website-editor', status: 'running', attempt: 1, startedAt: minutesAgo(41) },
+  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed', attempt: 5, startedAt: null },
+  { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing', attempt: 0, startedAt: null },
 ];
 
 /** The fleet as the list reads it: the trierarchs' ships, with where they run, and ships assigned to trierarch-mac. */
@@ -76,7 +76,7 @@ export const FLEET: ListedShip[] = [
     (spot): ListedShip => ({
       id: spot.shipId, name: spot.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
       scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null,
-      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: 0, startedAt: null },
+      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt },
     }),
   ),
 ];

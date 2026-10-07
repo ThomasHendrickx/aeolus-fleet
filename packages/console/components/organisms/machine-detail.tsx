@@ -3,7 +3,8 @@ import { CircleAlert, CircleX, FolderX, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { clockTime, fullDateTime } from '../../lib/relative-time';
+import { restartWords } from '../../lib/crew-request';
+import { clockTime, fullDateTime, sinceTime } from '../../lib/relative-time';
 import type { Spot } from '../../lib/machines';
 import type { Machine } from '../../lib/trierarch-plugin';
 import { Button } from '../atoms/button';
@@ -22,6 +23,29 @@ interface MachineDetailProps {
   spots: readonly Spot[];
   location: { kind: LocationKind; description: string | null } | null;
   now: Date;
+}
+
+/** How a spot's session stands (#332): since when it runs, and its restart attempt, as its trierarch wrote them. */
+function SpotSession({ spot, now }: { spot: Spot; now: Date }) {
+  const startedAt = spot.status === 'running' ? spot.startedAt : null;
+  const restarts = restartWords(spot);
+  if (startedAt === null && restarts === undefined) {
+    return null;
+  }
+  return (
+    <span className="text-meta text-muted-foreground" data-testid="machine-spot-session">
+      {startedAt === null ? null : (
+        <>
+          since{' '}
+          <time dateTime={startedAt} title={fullDateTime(new Date(startedAt))} className="tabular-nums">
+            {sinceTime(new Date(startedAt), now)}
+          </time>
+        </>
+      )}
+      {startedAt !== null && restarts !== undefined ? ' · ' : null}
+      {restarts}
+    </span>
+  );
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -157,7 +181,10 @@ export function MachineDetail({ machine, state, spots, location, now }: MachineD
                 <Link href={`/ships/${spot.shipId}`} className="truncate text-body font-medium hover:underline">
                   {spot.name}
                 </Link>
-                <StatusBadge status={spot.status} />
+                <span className="flex shrink-0 items-center gap-2.5">
+                  <SpotSession spot={spot} now={now} />
+                  <StatusBadge status={spot.status} />
+                </span>
               </li>
             ))}
           </ul>

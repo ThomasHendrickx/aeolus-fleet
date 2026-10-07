@@ -14,6 +14,11 @@ export function clockTime(at: Date): string {
   return `${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;
 }
 
+/** "10:20" within a day, "28 Sep, 14:21" once over a day ago: when something began, as "since 10:20". */
+export function sinceTime(at: Date, now: Date): string {
+  return now.getTime() - at.getTime() < DAY_MS ? clockTime(at) : shortDateTime(at);
+}
+
 /** "14:27:40": a 24 h clock to the second, for DeliveryHistory and envelopes. */
 export function secondsTime(at: Date): string {
   return `${clockTime(at)}:${twoDigits(at.getSeconds())}`;
