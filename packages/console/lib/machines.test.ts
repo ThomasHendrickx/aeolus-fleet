@@ -9,7 +9,7 @@ const TRIERARCH = { id: newId('ship'), name: 'trierarch-mac' };
 function aShip(name: string, crewRequest: ListedShip['crewRequest']): ListedShip {
   return {
     id: newId('ship'), name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest, retiredAt: null,
+    scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest, retiredAt: null,
   };
 }
 
