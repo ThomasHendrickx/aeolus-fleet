@@ -58,6 +58,7 @@ import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
+import { createDefineLabel } from '../../src/domain/registry/define-label.js';
 import { createRemoveCrewRequest } from '../../src/domain/registry/remove-crew-request.js';
 import { createAssignCrew } from '../../src/domain/registry/assign-crew.js';
 import { createReportCrewStatus } from '../../src/domain/registry/report-crew-status.js';
@@ -149,6 +150,7 @@ export function registryUseCases(core: InMemoryCore) {
     confirmCrewRelease: createConfirmCrewRelease(deps),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests }),
     explainCrewRequest: createExplainCrewRequest(deps),
+    defineLabel: createDefineLabel(deps),
     renameShip: createRenameShip(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),

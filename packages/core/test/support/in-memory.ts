@@ -42,8 +42,10 @@ import type {
   InstallationSettingsRepository,
   LeaseRepository,
   CrewRequestRepository,
+  LabelRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
+import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
@@ -93,6 +95,10 @@ export interface InMemoryState {
   /** Each lease's crew report: the report columns, apart from the Lease. */
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
   crewRequests: CrewRequest[];
+  /** The fleet's labels, by key (decision 0031): a retired label is gone. */
+  labels: Label[];
+  /** The labels each ship carries: one value per key. */
+  shipLabels: ShipLabel[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
@@ -111,6 +117,7 @@ export interface InMemoryTx {
   ships: ShipRepository;
   leases: LeaseRepository;
   crewRequests: CrewRequestRepository;
+  labels: LabelRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -150,6 +157,8 @@ export interface InMemoryCore {
   leases: LeaseRepository;
   /** The crew requests, read outside a unit of work. */
   crewRequests: CrewRequestRepository;
+  /** The labels and what ships carry, read outside a unit of work. */
+  labels: LabelRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -201,6 +210,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseSeen: [],
     leaseReports: [],
     crewRequests: [],
+    labels: [],
+    shipLabels: [],
     events: [],
     installationRequests: [],
     installationSettings: [],
@@ -232,6 +243,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const passwords: PasswordHasher = {
     hash: (password) => Promise.resolve(`argon2id(${password})`),
     verify: (password, passwordHash) => Promise.resolve(passwordHash === `argon2id(${password})`),
+  };
+
+  const labelOf = (fleetId: FleetId, key: string): Label | undefined => {
+    const held = state.labels.find((label) => label.fleetId === fleetId && label.key === key);
+    return held && { ...held, values: [...held.values] };
   };
 
   const ship = (fleetId: FleetId, shipId: ShipId): Ship | undefined =>
@@ -377,6 +393,64 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         if (index !== -1) {
           state.crewRequests.splice(index, 1);
         }
+        return Promise.resolve();
+      },
+    },
+    labels: {
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockKey: () => Promise.resolve(),
+      find: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
+      findForUpdate: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
+      findForShare: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
+      listOwnedByForUpdate: (fleetId, ownerShipId) =>
+        Promise.resolve(
+          state.labels
+            .filter((label) => label.fleetId === fleetId && label.ownerShipId === ownerShipId)
+            .sort((first, second) => first.key.localeCompare(second.key))
+            .map((label) => ({ ...label, values: [...label.values] })),
+        ),
+      save: (label) => {
+        const index = state.labels.findIndex((held) => held.fleetId === label.fleetId && held.key === label.key);
+        state.labels.splice(index === -1 ? state.labels.length : index, index === -1 ? 0 : 1, { ...label, values: [...label.values] });
+        return Promise.resolve();
+      },
+      remove: (fleetId, key) => {
+        if (state.shipLabels.some((held) => held.fleetId === fleetId && held.key === key)) {
+          return Promise.reject(new Error('foreign key violation: ships still carry the label'));
+        }
+        state.labels.splice(0, state.labels.length, ...state.labels.filter((held) => held.fleetId !== fleetId || held.key !== key));
+        return Promise.resolve();
+      },
+      carriedBy: (fleetId, shipId) =>
+        Promise.resolve(
+          state.shipLabels
+            .filter((held) => held.fleetId === fleetId && held.shipId === shipId)
+            .sort((first, second) => first.key.localeCompare(second.key))
+            .map((held) => ({ ...held })),
+        ),
+      carriersOf: (fleetId, key) =>
+        Promise.resolve(
+          state.shipLabels
+            .filter((held) => held.fleetId === fleetId && held.key === key)
+            .sort((first, second) => first.shipId.localeCompare(second.shipId))
+            .map((held) => ({ ...held })),
+        ),
+      assign: (assignment) => {
+        if (!labelOf(assignment.fleetId, assignment.key)) {
+          return Promise.reject(new Error('foreign key violation: no such label'));
+        }
+        const index = state.shipLabels.findIndex(
+          (held) => held.fleetId === assignment.fleetId && held.shipId === assignment.shipId && held.key === assignment.key,
+        );
+        state.shipLabels.splice(index === -1 ? state.shipLabels.length : index, index === -1 ? 0 : 1, { ...assignment });
+        return Promise.resolve();
+      },
+      unassign: ({ fleetId, shipId, key }) => {
+        state.shipLabels.splice(
+          0,
+          state.shipLabels.length,
+          ...state.shipLabels.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || held.key !== key),
+        );
         return Promise.resolve();
       },
     },
@@ -873,6 +947,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
+      labels: Object.fromEntries(
+        state.shipLabels
+          .filter((carried) => carried.fleetId === held.fleetId && carried.shipId === held.id)
+          .sort((first, second) => first.key.localeCompare(second.key))
+          .map((carried) => [carried.key, carried.value]),
+      ),
       crewedBy: crewedByOf(held, lease),
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
@@ -938,6 +1018,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
     },
+    labels: (fleetId) =>
+      Promise.resolve(
+        state.labels
+          .filter((label) => label.fleetId === fleetId)
+          .sort((first, second) => first.key.localeCompare(second.key))
+          .map((label) => {
+            const owner = state.ships.find((each) => each.fleetId === fleetId && each.id === label.ownerShipId);
+            return { key: label.key, values: [...label.values], owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
+          }),
+      ),
     deliveryCounts: (fleetId, shipId) => {
       const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
       return Promise.resolve({
@@ -1216,7 +1306,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, labels: tx.labels, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1233,6 +1323,8 @@ const FLEET_TABLES = [
   'leaseSeen',
   'leaseReports',
   'crewRequests',
+  'labels',
+  'shipLabels',
   'events',
   'notices',
   'noticeDismissals',
@@ -1254,6 +1346,8 @@ const TABLES = [
   'leaseSeen',
   'leaseReports',
   'crewRequests',
+  'labels',
+  'shipLabels',
   'events',
   'installationRequests',
   'installationSettings',
