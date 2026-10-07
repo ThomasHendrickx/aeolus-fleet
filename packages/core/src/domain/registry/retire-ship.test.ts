@@ -10,6 +10,7 @@ import {
   registryUseCases,
   secretOf,
 } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
@@ -162,5 +163,67 @@ describe('retiring a ship', () => {
     await registry.retireShip(argo, { shipId: argo.shipId });
 
     expect(core.state).toEqual(before);
+  });
+});
+
+describe('the labels of a retired ship', () => {
+  let plugin: Caller;
+  let pluginId: ShipId;
+  let builderId: ShipId;
+
+  beforeEach(async () => {
+    plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+    pluginId = plugin.shipId;
+    ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+    unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
+    unwrap(await registry.assignLabel(plugin, { shipId: builderId, key: 'os', value: 'macos' }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, key: 'os', value: 'linux' }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, key: 'project', value: 'hemma' }));
+    core.clock.advance(60_000);
+    core.state.events.length = 0;
+  });
+
+  function carried() {
+    return core.state.shipLabels.map(({ shipId, key, value }) => ({ shipId, label: `${key}=${value}` }));
+  }
+
+  it('go with it: the ship carries none, with one LabelUnassigned each, caused by the retirer', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(carried()).toEqual([{ shipId: builderId, label: 'os=macos' }]);
+    expect(eventsOfType('LabelUnassigned')).toEqual([
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, occurredAt: core.clock.now(), details: { key: 'os', value: 'linux' } }),
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, occurredAt: core.clock.now(), details: { key: 'project', value: 'hemma' } }),
+    ]);
+  });
+
+  it('it owns retire with it: their definitions and every assignment of them go, with LabelUnassigned and LabelRetired', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: pluginId }));
+
+    expect(core.state.labels).toEqual([]);
+    expect(carried()).toEqual([]);
+    expect(core.state.events.filter((event) => event.type.startsWith('Label')).map((event) => [event.type, event.shipId, event.details])).toEqual([
+      ['LabelUnassigned', scoutId, { key: 'os', value: 'linux' }],
+      ['LabelUnassigned', builderId, { key: 'os', value: 'macos' }],
+      ['LabelRetired', pluginId, { key: 'os' }],
+      ['LabelUnassigned', scoutId, { key: 'project', value: 'hemma' }],
+      ['LabelRetired', pluginId, { key: 'project' }],
+    ]);
+  });
+
+  it('it owned can be defined again once it retired, by another ship', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: pluginId }));
+
+    await expect(registry.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toEqual({ isOk: true, value: undefined });
+  });
+
+  it('it owns stay while it is only released: its meaning retires with its owner, not its crew', async () => {
+    const crew = crewAboard(core, { fleetId, shipId: pluginId });
+    unwrap(await registry.releaseShip(argo, { shipId: crew.shipId }));
+
+    expect(core.state.labels.map((label) => label.key)).toEqual(['os', 'project']);
+    expect(carried()).toHaveLength(3);
+    expect(core.state.events.filter((event) => event.type.startsWith('Label'))).toEqual([]);
   });
 });
