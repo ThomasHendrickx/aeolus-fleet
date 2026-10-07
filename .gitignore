@@ -37,3 +37,6 @@ packages/trierarch-plugin/src/adapters/prisma/generated/
 
 # Storybook build output
 storybook-static/
+
+# Each published package's LICENSE, copied from the root one while npm packs it
+packages/*/LICENSE
