@@ -48,4 +48,10 @@ export const crewSettingsSchema = z.strictObject({
   machineLabels: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
 });
 
+/**
+ * The reason the trierarch plugin writes on a request no machine carries
+ * every machine label of; it waits, and the console words it in full.
+ */
+export const NO_MACHINE_MATCHES_REASON = 'no machine matches its labels';
+
 export type CrewSettings = z.infer<typeof crewSettingsSchema>;
