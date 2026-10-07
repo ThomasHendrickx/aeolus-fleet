@@ -52,7 +52,8 @@ beforeAll(async () => {
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
-  plugin = createTrierarchPluginApp({ databaseUrl: await createPluginDatabase(), fleetUrl: serverUrl, logger: false });
+  // The plugin reads the machines' last seen, which the server stamps with the test clock: on the same clock, a machine is never silent by real time passing.
+  plugin = createTrierarchPluginApp({ databaseUrl: await createPluginDatabase(), fleetUrl: serverUrl, clock, logger: false });
   await plugin.restoreConnections();
   pluginUrl = await plugin.server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl, trierarchPluginUrl: pluginUrl });
