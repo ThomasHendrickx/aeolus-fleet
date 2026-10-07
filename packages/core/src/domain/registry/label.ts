@@ -101,3 +101,51 @@ export function defineLabel(
     events: [labelEvent(label, { at: input.at, actor: input.actor, type: 'LabelDefined', details: { key: label.key, values: valuesDetail(label.values) } })],
   });
 }
+
+type NotTheOwner = DomainError<'NOT_THE_LABEL_OWNER'>;
+
+/** Only a label's owner changes it or assigns it. */
+function checkOwner({ label, ownerName }: { label: Label; ownerName: string }, callerShipId: ShipId): Result<void, NotTheOwner> {
+  return label.ownerShipId === callerShipId
+    ? ok(undefined)
+    : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${ownerName}: only its owner changes it`);
+}
+
+export type ChangeLabelValuesRefusal = NotTheOwner | InvalidValue | InvalidValues | DomainError<'LABEL_VALUE_CARRIED'>;
+
+/**
+ * The owner gives its label the values it has from now on, adding and
+ * removing at once. A value ships carry is never removed: the refusal names
+ * them. The values it has already, in any order, change nothing.
+ */
+export function changeLabelValues(
+  { label, ownerName, carriers }: { label: Label; ownerName: string; carriers: readonly { value: string; shipName: string }[] },
+  input: { callerShipId: ShipId; values: readonly string[]; at: Date; actor: Actor },
+): Result<{ label: Label; events: NewEvent[] }, ChangeLabelValuesRefusal> {
+  const owned = checkOwner({ label, ownerName }, input.callerShipId);
+  if (!owned.isOk) {
+    return owned;
+  }
+  const values = labelValues(input.values);
+  if (!values.isOk) {
+    return values;
+  }
+  const removed = label.values.filter((value) => !values.value.includes(value));
+  const carried = removed
+    .map((value) => ({ value, ships: carriers.filter((carrier) => carrier.value === value).map((carrier) => carrier.shipName) }))
+    .filter(({ ships }) => ships.length > 0);
+  if (carried.length > 0) {
+    const named = carried.map(({ value, ships }) => `${label.key}=${value}: ${ships.join(', ')}`).join('; ');
+    return refuse('LABEL_VALUE_CARRIED', `Ships carry ${named}`);
+  }
+  if (removed.length === 0 && values.value.length === label.values.length) {
+    return ok({ label, events: [] });
+  }
+  const changed: Label = { ...label, values: values.value };
+  return ok({
+    label: changed,
+    events: [
+      labelEvent(changed, { at: input.at, actor: input.actor, type: 'LabelValuesChanged', details: { key: changed.key, values: valuesDetail(changed.values) } }),
+    ],
+  });
+}
