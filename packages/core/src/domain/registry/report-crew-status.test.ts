@@ -50,9 +50,34 @@ describe("the assigned trierarch's status", () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: trierarch.shipId },
         shipId: scoutId,
-        details: { status: 'crewing' },
+        details: { status: 'crewing', attempt: 0 },
       }),
     ]);
+  });
+
+  it('keeps the restart attempt and when the session started, with the status (#332)', async () => {
+    const startedAt = '2026-10-06T17:00:30.000Z';
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'restarting', attempt: 2, startedAt }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ status: 'restarting', attempt: 2, sessionStartedAt: new Date(startedAt) });
+  });
+
+  it('counts a status without them as the first start, with no session running', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'restarting', attempt: 2, startedAt: '2026-10-06T17:00:30.000Z' }));
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    expect(core.state.crewRequests.find((request) => request.shipId === scoutId)).toMatchObject({ status: 'crewing', attempt: 0, sessionStartedAt: null });
+  });
+
+  it('writes CrewStatusChanged when only the attempt moves, with the attempt', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'restarting', attempt: 1 }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'restarting', attempt: 2 }));
+
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'CrewStatusChanged', details: { status: 'restarting', attempt: 2 } })]);
   });
 
   it('writes no event when the status stays the same', async () => {
