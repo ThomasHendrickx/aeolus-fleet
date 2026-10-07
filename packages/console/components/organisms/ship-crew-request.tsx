@@ -7,6 +7,7 @@ import { useAccess } from '../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../lib/crew-request';
 import { useGetStartingPrompt, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../lib/fleet';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
+import { useHasTrierarchPlugin } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
 import { CrewReleaseDialog } from './crew-release-dialog';
 import { CrewRequestCard, type CrewRequestBusy } from './crew-request-card';
@@ -26,6 +27,7 @@ function sessionLocationOf(ship: ShipDetail): string | null {
  */
 export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; timeline: readonly TimelineEntry[]; now: Date }) {
   const access = useAccess();
+  const hasTrierarchs = useHasTrierarchPlugin();
   const requestCrew = useRequestCrew();
   const removeCrewRequest = useRemoveCrewRequest();
   const releaseShip = useReleaseShip();
@@ -115,6 +117,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         now={now}
         canManage={access.canManage}
         isAwaitingCrew={ship.status === 'awaitingCrew'}
+        hasTrierarchs={hasTrierarchs}
         busy={busy}
         error={error}
         onRequest={() => void onRequest()}

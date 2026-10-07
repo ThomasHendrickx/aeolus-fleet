@@ -39,7 +39,8 @@ export async function reserveWebUrl(): Promise<string> {
 
 /**
  * Starts the web app with `next dev` at the reserved URL, with the given
- * server as its AEOLUS_SERVER_URL (and squadrons as its AEOLUS_SQUADRONS_URL, and the hosting service's sign-in as its
+ * server as its AEOLUS_SERVER_URL (and squadrons as its AEOLUS_SQUADRONS_URL, the trierarch plugin as its
+ * AEOLUS_TRIERARCH_PLUGIN_URL, and the hosting service's sign-in as its
  * AEOLUS_HOSTED_SIGN_IN_URL, when given), and waits until the sign-in page answers
  * (the first request compiles it). The console bundles common's built
  * package, as `npm run dev` does, so common is built first.
@@ -48,7 +49,7 @@ export async function reserveWebUrl(): Promise<string> {
  * like the console: one site, or the SameSite=Strict session cookie would
  * stay behind.
  */
-export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>> }): Promise<RunningWeb> {
+export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; trierarchPluginUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>> }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = new URL(url).port;
@@ -61,6 +62,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
       ...process.env,
       AEOLUS_SERVER_URL: sameSiteServer.origin,
       ...(web.squadronsUrl === undefined ? {} : { AEOLUS_SQUADRONS_URL: web.squadronsUrl }),
+      ...(web.trierarchPluginUrl === undefined ? {} : { AEOLUS_TRIERARCH_PLUGIN_URL: web.trierarchPluginUrl }),
       ...(web.hostedSignInUrl === undefined ? {} : { AEOLUS_HOSTED_SIGN_IN_URL: web.hostedSignInUrl }),
       ...(web.hostedAccountUrl === undefined ? {} : { AEOLUS_HOSTED_ACCOUNT_URL: web.hostedAccountUrl }),
       ...web.hostedAnalytics,
