@@ -57,7 +57,11 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # The browser only: the runner image has Chromium's system libraries, and
+      # --with-deps would run apt-get, which hung 50 minutes on a mirror (#354).
+      # The browser download has its own retries; the timeout bounds a stall.
+      - run: npx playwright install chromium
+        timeout-minutes: 5
       - run: npm run test:stories
 
   guardrails:
@@ -117,7 +121,11 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # The browser only: the runner image has Chromium's system libraries, and
+      # --with-deps would run apt-get, which hung 50 minutes on a mirror (#354).
+      # The browser download has its own retries; the timeout bounds a stall.
+      - run: npx playwright install chromium
+        timeout-minutes: 5
       - run: npm run test:e2e
 
   publish-dry-run:
