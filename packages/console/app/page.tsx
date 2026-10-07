@@ -1,8 +1,11 @@
 'use client';
 
+import { Tag } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
+import { Button } from '../components/atoms/button';
 import { ComposeMessage } from '../components/organisms/compose-message';
 import { ConsoleCommands } from '../components/organisms/console-commands';
 import { ConsoleGuide } from '../components/organisms/console-guide';
@@ -67,17 +70,22 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
       title="Fleet overview"
       description={fleet.data ? overviewSubtitle({ ships: fleet.data, canCommission: access.canManage }) : 'Loading your fleet'}
       primaryAction={
-        access.canManage ? (
-          <CommissionShip
-            isOpen={isCommissioning || isCommissionAsked}
-            onOpenChange={(isOpen) => {
-              setIsCommissioning(isOpen);
-              if (!isOpen && isCommissionAsked) {
-                changeView(view);
-              }
-            }}
-          />
-        ) : undefined
+        <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+          <Button render={<Link href="/labels" />} nativeButton={false} icon={<Tag />} data-testid="overview-labels">
+            {access.canDefineLabels ? 'Manage labels' : 'View labels'}
+          </Button>
+          {access.canManage ? (
+            <CommissionShip
+              isOpen={isCommissioning || isCommissionAsked}
+              onOpenChange={(isOpen) => {
+                setIsCommissioning(isOpen);
+                if (!isOpen && isCommissionAsked) {
+                  changeView(view);
+                }
+              }}
+            />
+          ) : null}
+        </div>
       }
       live={liveFleet.live}
       nav={{ active: 'overview', inboxCount, attentionCount, ...pluginNav }}
