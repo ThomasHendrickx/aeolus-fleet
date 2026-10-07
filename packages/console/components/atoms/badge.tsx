@@ -20,6 +20,8 @@ const badgeVariants = cva(
         kind: 'h-5.5 rounded-sm border-transparent bg-highlight px-1.5 font-mono text-id text-primary',
         count:
           'h-5 min-w-5 rounded-full border-transparent bg-primary px-1.5 text-micro font-semibold text-primary-foreground tabular-nums',
+        'count-neutral':
+          'h-5 min-w-5 rounded-full border-transparent bg-secondary px-1.5 text-micro font-semibold text-foreground tabular-nums',
         'count-attention':
           'h-5 min-w-5 rounded-full border-tone-attention-border bg-tone-attention-bg px-1.5 text-micro font-semibold text-tone-attention-fg tabular-nums',
       },
