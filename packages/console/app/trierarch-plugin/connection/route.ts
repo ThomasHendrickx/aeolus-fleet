@@ -24,8 +24,8 @@ export async function GET(request: Request): Promise<Response> {
 
 /**
  * Connect the trierarch plugin, the operator's one button (decision 0030):
- * commissions its ship, trierarch-plugin with fleet:read, fleet:manage and
- * crew:assign, or gives it a new starting prompt, and hands its secret to the
+ * commissions its ship, trierarch-plugin with fleet:read, fleet:manage,
+ * crew:assign, labels:define and labels:assign, or gives it a new starting prompt, and hands its secret to the
  * trierarch plugin, server to server. The browser gets the connection only.
  * The request's Origin goes along to the fleet, which takes the session's
  * state-changing calls only from the console.
