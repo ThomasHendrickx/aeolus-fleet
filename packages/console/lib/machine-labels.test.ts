@@ -2,7 +2,7 @@ import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fl
 import { describe, expect, it } from 'vitest';
 
 import { labelContextOf } from './labels';
-import { machineLabelGroupsOf, machineLabelsInputOf, machineMatchOf, noMatchWords } from './machine-labels';
+import { machineLabelGroupsOf, machineLabelIdsOf, machineLabelsInputOf, machineLabelsText, machineMatchOf, noMatchWords } from './machine-labels';
 
 const newId = createIdGenerator();
 
@@ -103,5 +103,25 @@ describe('machineLabelsInputOf', () => {
 
     expect(input.chipsOf(picked).map((chip) => `${chip.key}=${chip.value}`)).toEqual(['arch=amd64', 'os=linux']);
     expect(input.matchOf(picked)).toEqual({ matching: ['trierarch-hetzner'], total: 3 });
+  });
+});
+
+describe('machineLabelIdsOf', () => {
+  it('reads the machine labels a request asks for, and none from settings without them or no crew settings', () => {
+    const settings = { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} };
+
+    expect(machineLabelIdsOf({ ...settings, machineLabels: [value(OS, 'linux').id] })).toEqual([value(OS, 'linux').id]);
+    expect(machineLabelIdsOf(settings)).toEqual([]);
+    expect(machineLabelIdsOf({})).toEqual([]);
+  });
+});
+
+describe('machineLabelsText', () => {
+  it('joins two with and, and more with commas then and', () => {
+    const chips = [{ key: 'os', value: 'linux' }, { key: 'arch', value: 'arm64' }, { key: 'site', value: 'home' }];
+
+    expect(machineLabelsText(chips.slice(0, 1))).toBe('os=linux');
+    expect(machineLabelsText(chips.slice(0, 2))).toBe('os=linux and arch=arm64');
+    expect(machineLabelsText(chips)).toBe('os=linux, arch=arm64 and site=home');
   });
 });

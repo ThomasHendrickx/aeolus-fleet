@@ -1,3 +1,5 @@
+import { crewSettingsSchema } from '@aeolus-fleet/common';
+
 import { pickedChips, type FilterGroup, type FilterKey, type LabelChip, type LabelContext } from './labels';
 
 /**
@@ -78,4 +80,16 @@ export function machineLabelsInputOf(context: LabelContext, machines: readonly M
     chipsOf: (valueIds) => pickedChips(valueIds, context),
     matchOf: (valueIds) => machineMatchOf(context, { machines, valueIds }),
   };
+}
+
+/** The machine labels a request's settings ask for, as value ids; none for settings without them or no crew settings. */
+export function machineLabelIdsOf(settings: unknown): string[] {
+  const parsed = crewSettingsSchema.safeParse(settings);
+  return parsed.success ? [...(parsed.data.machineLabels ?? [])] : [];
+}
+
+/** "os=linux and arch=arm64": the machine labels as one phrase. */
+export function machineLabelsText(chips: readonly Pick<LabelChip, 'key' | 'value'>[]): string {
+  const texts = chips.map((chip) => `${chip.key}=${chip.value}`);
+  return texts.length <= 2 ? texts.join(' and ') : `${texts.slice(0, -1).join(', ')} and ${texts.at(-1) ?? ''}`;
 }
