@@ -12,7 +12,7 @@ export function labelIdOf(core: InMemoryCore, key: string): LabelId {
 }
 
 /** The id of the value of the fleet's label with this key, as the state holds it. */
-export function valueIdOf(core: InMemoryCore, key: string, value: string): LabelValueId {
+export function valueIdOf(core: InMemoryCore, { key, value }: { key: string; value: string }): LabelValueId {
   const found = core.state.labels.find((held) => held.key === key)?.values.find((held) => held.value === value);
   if (!found) {
     throw new Error(`no value ${value} of the label ${key} in the state`);

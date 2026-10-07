@@ -1,10 +1,10 @@
-import type { Scope, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { LabelValueId, Scope, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
-import { carriesEvery } from './label.js';
+import { carriesEvery, type CarriedLabel } from './label.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 import { shipStatus } from './ship.js';
@@ -42,8 +42,8 @@ export interface ListedShip {
         crewedBy: { id: ShipId; name: string } | null;
       })
     | null;
-  /** The labels the ship carries, value by key (decision 0031); none for a ship without. */
-  labels: Readonly<Record<string, string>>;
+  /** The label values the ship carries, with their labels, by key then value (decision 0031); none for a ship without. */
+  labels: readonly CarriedLabel[];
   /** The harness the crewing session stated, read together with its location; null while no session crews the ship. */
   harness: string | null;
   /** The ship's current model: the last its sessions stated on a send, and when; null before any. */
@@ -54,17 +54,17 @@ export interface ListedShip {
   retiredAt: Date | null;
 }
 
-export type ListFleet = (caller: Caller, input?: { labels?: Readonly<Record<string, string>> }) => Promise<ListedShip[]>;
+export type ListFleet = (caller: Caller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<ListedShip[]>;
 
 /**
  * Use case: every ship of the caller's fleet, `argo` included, oldest first,
- * or with labels only the ships that carry every one of them with its value
+ * or with label value ids only the ships that carry every one of them
  * (decision 0031). Never a secret, a crew token or their hashes. The
  * caller's scope (fleet:read) is checked before this runs.
  */
 export function createListFleet(deps: { listing: FleetListing }): ListFleet {
   return async (caller, input) =>
-    (await deps.listing.ships(caller.fleetId)).filter((facts) => carriesEvery(facts.labels, input?.labels)).map(listedShipOf);
+    (await deps.listing.ships(caller.fleetId)).filter((facts) => carriesEvery(facts.labels, input?.valueIds)).map(listedShipOf);
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */

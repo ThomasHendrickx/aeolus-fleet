@@ -93,14 +93,20 @@ export function createRetireShip(deps: {
         }
       }
       const owned = await Promise.all(
-        (await tx.labels.listOwnedByForUpdate(fleetId, shipId)).map(async (label) => ({ label, carriers: await tx.labels.carriersOf(fleetId, label.key) })),
+        (await tx.labels.listOwnedByForUpdate(fleetId, shipId)).map(async (label) => ({ label, carriers: await tx.labels.carriersOf(fleetId, label.id) })),
       );
-      const labels = retireLabelsWith({ owned, carried: await tx.labels.carriedBy(fleetId, shipId) }, { at, actor });
+      const carried = await Promise.all(
+        (await tx.labels.carriedBy(fleetId, shipId)).map(async (assignment) => ({ label: await tx.labels.find(fleetId, assignment.labelId), assignment })),
+      );
+      const labels = retireLabelsWith(
+        { owned, carried: carried.flatMap(({ label, assignment }) => (label ? [{ label, assignment }] : [])) },
+        { at, actor },
+      );
       for (const assignment of labels.unassigned) {
         await tx.labels.unassign(assignment);
       }
       for (const label of labels.retired) {
-        await tx.labels.remove(fleetId, label.key);
+        await tx.labels.remove(fleetId, label.id);
       }
       for (const event of labels.events) {
         await recordEvent(recorded, event);

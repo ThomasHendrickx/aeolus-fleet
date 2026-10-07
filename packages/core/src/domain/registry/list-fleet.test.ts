@@ -385,15 +385,15 @@ describe('the labels a ship carries, and selecting ships by them', () => {
     ({ shipId: testerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' })));
     unwrap(await useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
     unwrap(await useCases.defineLabel(plugin, { key: 'project', values: ['hemma', 'aeolus'] }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'project', 'hemma') }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'os', 'macos') }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, 'os', 'macos') }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, 'os', 'linux') }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'os', 'linux') }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
   });
 
   async function namesSelected(...values: [string, string][]) {
-    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, key, value)) })).map((ship) => ship.name);
+    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, { key, value })) })).map((ship) => ship.name);
   }
 
   it('lists each ship with the labels it carries, ids and text, by key then value, and none for a ship without', async () => {
@@ -407,7 +407,7 @@ describe('the labels a ship carries, and selecting ships by them', () => {
       ['tester', ['os=linux', 'os=macos']],
     ]);
     expect(listed.find((ship) => ship.name === 'scout')?.labels).toEqual([
-      { labelId: labelIdOf(core, 'os'), key: 'os', valueId: valueIdOf(core, 'os', 'linux'), value: 'linux' },
+      { labelId: labelIdOf(core, 'os'), key: 'os', valueId: valueIdOf(core, { key: 'os', value: 'linux' }), value: 'linux' },
     ]);
   });
 

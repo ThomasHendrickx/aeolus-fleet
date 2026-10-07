@@ -1,4 +1,4 @@
-import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -11,16 +11,16 @@ import type { LabelRepository, ShipRepository } from './ports.js';
 
 export interface UnassignLabelTx {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
-  labels: Pick<LabelRepository, 'findForShare' | 'carriedBy' | 'unassign'>;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'unassign'>;
   events: EventLog;
 }
 
-export type UnassignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_NOT_FOUND'> | UnassignLabelRefusal;
+export type UnassignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND'> | UnassignLabelRefusal;
 
-export type UnassignLabel = (caller: Caller, input: { shipId: ShipId; key: string }) => Promise<Result<undefined, UnassignLabelFailure>>;
+export type UnassignLabel = (caller: Caller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, UnassignLabelFailure>>;
 
 /**
- * Use case: a label's owner takes it off a ship (decision 0031). Its scope
+ * Use case: a label's owner takes one of its values off a ship, by the value's id (decision 0031). Its scope
  * (labels:assign) is checked before this runs. In one unit of work, locking
  * the ship, then holding the label, as an assignment does: the assignment
  * goes, with LabelUnassigned.
@@ -33,14 +33,15 @@ export function createUnassignLabel(deps: { uow: UnitOfWork<UnassignLabelTx>; cl
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const label = await tx.labels.findForShare(fleetId, input.key);
-      if (!label) {
-        return refuse('LABEL_NOT_FOUND', `The fleet has no label ${input.key}`);
+      const label = await tx.labels.findByValueForShare(fleetId, input.valueId);
+      // Read after the lock: a change of values that came first may have removed the value.
+      if (!label?.values.some((value) => value.id === input.valueId)) {
+        return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${input.valueId}`);
       }
       const owner = await tx.ships.find(fleetId, label.ownerShipId);
       const unassigned = unassignLabel(
         { label, ownerName: owner?.name ?? label.ownerShipId, ship, carried: await tx.labels.carriedBy(fleetId, ship.id) },
-        { callerShipId: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { callerShipId: caller.shipId, valueId: input.valueId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
       );
       if (!unassigned.isOk) {
         return unassigned;

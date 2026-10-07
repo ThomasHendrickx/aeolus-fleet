@@ -31,8 +31,8 @@ beforeEach(async () => {
   pluginId = plugin.shipId;
   ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
   ({ labelId: osId } = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] })));
-  macos = valueIdOf(core, 'os', 'macos');
-  linux = valueIdOf(core, 'os', 'linux');
+  macos = valueIdOf(core, { key: 'os', value: 'macos' });
+  linux = valueIdOf(core, { key: 'os', value: 'linux' });
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
@@ -131,10 +131,10 @@ describe('assigning a label', () => {
       const values = Array.from({ length: 19 }, (_, index) => `v${String(index)}`);
       unwrap(await registry.defineLabel(plugin, { key: 'many', values }));
       for (const value of values) {
-        unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'many', value) }));
+        unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'many', value: value }) }));
       }
       unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
-      hemma = valueIdOf(core, 'project', 'hemma');
+      hemma = valueIdOf(core, { key: 'project', value: 'hemma' });
     });
 
     it('takes a twentieth value', async () => {

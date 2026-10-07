@@ -7,6 +7,8 @@ import {
   reportStateSchema,
   eventTypeSchema,
   idSchema,
+  carriedLabelSchema,
+  labelValueSchema,
   locationKindSchema,
   scopeSchema,
   shipKindSchema,
@@ -122,19 +124,19 @@ export function toCrewRequest(row: unknown): CrewRequest {
 }
 
 const labelSqlRow = z
-  .object({ fleet_id: idSchema('fleet'), key: z.string(), values: z.array(z.string()), owner_ship_id: idSchema('ship') })
-  .transform(({ fleet_id, key, values, owner_ship_id }): Label => ({ fleetId: fleet_id, key, values, ownerShipId: owner_ship_id }));
+  .object({ fleet_id: idSchema('fleet'), id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship') })
+  .transform(({ fleet_id, id, key, values, owner_ship_id }): Label => ({ fleetId: fleet_id, id, key, values, ownerShipId: owner_ship_id }));
 
 /** A label as raw SQL returns it, in snake_case. */
 export function toLabelFromSql(row: unknown): Label {
   return labelSqlRow.parse(row);
 }
 
-const shipLabelRow = z.object({ fleetId: idSchema('fleet'), shipId: idSchema('ship'), key: z.string(), value: z.string() });
+const shipLabelRow = z.object({ fleetId: idSchema('fleet'), shipId: idSchema('ship'), labelId: idSchema('label'), valueId: idSchema('labelValue') });
 
 const listedLabelSqlRow = z
-  .object({ key: z.string(), values: z.array(z.string()), owner_ship_id: idSchema('ship'), owner_name: z.string() })
-  .transform(({ key, values, owner_ship_id, owner_name }): ListedLabel => ({ key, values, owner: { id: owner_ship_id, name: owner_name } }));
+  .object({ id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship'), owner_name: z.string() })
+  .transform(({ id, key, values, owner_ship_id, owner_name }): ListedLabel => ({ id, key, values, owner: { id: owner_ship_id, name: owner_name } }));
 
 /** A label with its owner's name, as the fleet listing reads it. */
 export function toListedLabel(row: unknown): ListedLabel {
@@ -192,7 +194,7 @@ const shipFactsSqlRow = z.object({
   crew_request_reason: z.string().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
-  labels: z.record(z.string(), z.string()),
+  labels: z.array(carriedLabelSchema),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */

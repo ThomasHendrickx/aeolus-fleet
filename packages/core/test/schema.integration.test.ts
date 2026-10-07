@@ -106,6 +106,7 @@ describe('migrations', () => {
       'guides',
       'installation_requests',
       'installation_settings',
+      'label_values',
       'labels',
       'leases',
       'messages',

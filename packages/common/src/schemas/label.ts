@@ -4,8 +4,10 @@ import { idSchema } from '../ids/index.js';
 
 /**
  * Labels (decision 0031): an owned vocabulary for selecting ships. A label is
- * a key with a defined set of values; a ship carries at most one value per
- * key. The limits below are the decision's; every refusal names it.
+ * a key with a defined set of values, the label and each value with its own
+ * id; a ship holds a set of value ids. Ids are for machines, key and value
+ * texts for people. The limits below are the decision's; every refusal names
+ * it.
  */
 
 /** The most characters a label's key or one of its values may have. */
@@ -17,7 +19,7 @@ export const LABEL_HANDLE_PATTERN = /^[a-z0-9-]+$/;
 /** The most values one label may define. */
 export const LABEL_VALUES_MAX = 50;
 
-/** The most labels one ship may carry. */
+/** The most label values one ship may carry. */
 export const SHIP_LABELS_MAX = 20;
 
 /**
@@ -26,31 +28,41 @@ export const SHIP_LABELS_MAX = 20;
  */
 const labelTextSchema = z.string();
 
-/** Labels to select ships by, value by key: exact matches, combined with AND. */
-export const labelSelectorSchema = z.record(z.string(), z.string());
+/** One value of a label: its id and its text. */
+export const labelValueSchema = z.object({ id: idSchema('labelValue'), value: z.string() });
 
-/** Input of `fleet.list`: none, or the labels a listed ship must carry, each with its value. */
-export const fleetListInputSchema = z.object({ labels: labelSelectorSchema.optional() }).optional();
+/** One value a ship carries, with its label: ids and texts. */
+export const carriedLabelSchema = z.object({ labelId: idSchema('label'), key: z.string(), valueId: idSchema('labelValue'), value: z.string() });
+
+/** Input of `fleet.list`: none, or the value ids a listed ship must carry: exact matches, combined with AND. */
+export const fleetListInputSchema = z.object({ valueIds: z.array(idSchema('labelValue')).optional() }).optional();
 
 /** Input of `fleet.defineLabel` (labels:define): the key, unique in the fleet, and its values. */
 export const defineLabelInputSchema = z.object({ key: labelTextSchema, values: z.array(labelTextSchema) });
 
-/** Input of `fleet.changeLabelValues` (labels:define, owner only): the key and every value it has from now on. */
-export const changeLabelValuesInputSchema = defineLabelInputSchema;
+/** Output of `fleet.defineLabel`: the label's id and each value with its id. */
+export const defineLabelOutputSchema = z.object({ labelId: idSchema('label'), values: z.array(labelValueSchema) });
 
-/** Input of `fleet.assignLabel` (labels:assign, owner only): the ship and the value it carries from now on. */
-export const assignLabelInputSchema = z.object({ shipId: idSchema('ship'), key: labelTextSchema, value: labelTextSchema });
+/** Input of `fleet.changeLabelValues` (labels:define, owner only): the label by its id and every value it has from now on. */
+export const changeLabelValuesInputSchema = z.object({ labelId: idSchema('label'), values: z.array(labelTextSchema) });
 
-/** Input of `fleet.unassignLabel` (labels:assign, owner only): the ship and the key it no longer carries. */
-export const unassignLabelInputSchema = z.object({ shipId: idSchema('ship'), key: labelTextSchema });
+/** Output of `fleet.changeLabelValues`: each value with its id, a kept value with the id it had. */
+export const changeLabelValuesOutputSchema = z.object({ values: z.array(labelValueSchema) });
 
-/** Output of the label writes: nothing, the OK is the answer. */
+/** Input of `fleet.assignLabel` (labels:assign, owner only): the ship and the value it carries from now on, by their ids. */
+export const assignLabelInputSchema = z.object({ shipId: idSchema('ship'), valueId: idSchema('labelValue') });
+
+/** Input of `fleet.unassignLabel` (labels:assign, owner only): the ship and the value it no longer carries, by their ids. */
+export const unassignLabelInputSchema = assignLabelInputSchema;
+
+/** Output of the label assignments: nothing, the OK is the answer. */
 export const labelWriteOutputSchema = z.object({});
 
-/** One label of the fleet: its key, its values and its owner by id and name. */
+/** One label of the fleet: its id, its key, its values with their ids and its owner by id and name. */
 export const listedLabelSchema = z.object({
+  id: idSchema('label'),
   key: z.string(),
-  values: z.array(z.string()),
+  values: z.array(labelValueSchema),
   owner: z.object({ id: idSchema('ship'), name: z.string() }),
 });
 

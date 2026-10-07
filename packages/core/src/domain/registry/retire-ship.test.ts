@@ -178,9 +178,9 @@ describe('the labels of a retired ship', () => {
     ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
     unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
     unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
-    unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'os', 'macos') }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'os', 'linux') }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'project', 'hemma') }));
+    unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
     core.clock.advance(60_000);
     core.state.events.length = 0;
   });

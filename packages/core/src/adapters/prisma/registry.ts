@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, type FleetId, type LabelId } from '@aeolus-fleet/common';
 
 import type {
   CrewRequestRepository,
@@ -81,6 +81,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
@@ -115,62 +116,75 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
   };
 }
 
+/** A label's columns, read from `labels l`, with its values in their order as one JSON array. */
+const labelColumns = Prisma.sql`
+  l.fleet_id, l.id, l.key, l.owner_ship_id,
+  COALESCE((SELECT json_agg(json_build_object('id', v.id, 'value', v.value) ORDER BY v.position)
+            FROM label_values v WHERE v.fleet_id = l.fleet_id AND v.label_id = l.id), '[]'::json) AS values`;
+
 export function createPrismaLabelRepository(db: Db): LabelRepository {
+  const findLabel = async ({ fleetId, labelId }: { fleetId: FleetId; labelId: LabelId }, lock: Prisma.Sql) => {
+    const [row] = await db.$queryRaw<unknown[]>`SELECT ${labelColumns} FROM labels l WHERE l.fleet_id = ${fleetId} AND l.id = ${labelId} ${lock}`;
+    return row === undefined ? undefined : toLabelFromSql(row);
+  };
   return {
     lockKey: async (fleetId, key) => {
       // As for a ship's name: a transaction-level advisory lock on the fleet and
       // the key, so the second definition of one key waits and then finds it.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${`label:${key}`}))`;
     },
-    find: async (fleetId, key) => {
-      const [row] = await db.$queryRaw<unknown[]>`
-        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key}`;
+    findByKey: async (fleetId, key) => {
+      const [row] = await db.$queryRaw<unknown[]>`SELECT ${labelColumns} FROM labels l WHERE l.fleet_id = ${fleetId} AND l.key = ${key}`;
       return row === undefined ? undefined : toLabelFromSql(row);
     },
-    findForUpdate: async (fleetId, key) => {
-      // FOR NO KEY UPDATE: a change of values waits for the assignments holding
-      // the label, and they for it; the key itself stays.
-      const [row] = await db.$queryRaw<unknown[]>`
-        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key} FOR NO KEY UPDATE`;
-      return row === undefined ? undefined : toLabelFromSql(row);
-    },
-    findForShare: async (fleetId, key) => {
-      // FOR SHARE: a change of values and a retire wait for the assignment,
-      // while other assignments of the label share the lock.
-      const [row] = await db.$queryRaw<unknown[]>`
-        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key} FOR SHARE`;
-      return row === undefined ? undefined : toLabelFromSql(row);
+    find: (fleetId, labelId) => findLabel({ fleetId, labelId }, Prisma.empty),
+    // FOR NO KEY UPDATE: a change of values waits for the assignments holding
+    // the label, and they for it; the label itself stays.
+    findForUpdate: (fleetId, labelId) => findLabel({ fleetId, labelId }, Prisma.sql`FOR NO KEY UPDATE`),
+    findByValueForShare: async (fleetId, valueId) => {
+      // FOR SHARE: a change of values, a delete and a retire wait for the
+      // assignment, while other assignments of the label share the lock. The
+      // label is read again after the lock, so values a change removed while
+      // this waited are gone from it.
+      const [held] = await db.$queryRaw<{ id: string }[]>`
+        SELECT l.id FROM labels l
+        JOIN label_values v ON v.fleet_id = l.fleet_id AND v.label_id = l.id
+        WHERE l.fleet_id = ${fleetId} AND v.id = ${valueId}
+        FOR SHARE OF l`;
+      return held === undefined ? undefined : findLabel({ fleetId, labelId: idSchema('label').parse(held.id) }, Prisma.empty);
     },
     listOwnedByForUpdate: async (fleetId, ownerShipId) => {
       // FOR UPDATE: the label goes, so new assignments of it wait and then find it gone.
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT fleet_id, key, values, owner_ship_id FROM labels
-        WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId}
-        ORDER BY key
-        FOR UPDATE`;
+        SELECT ${labelColumns} FROM labels l
+        WHERE l.fleet_id = ${fleetId} AND l.owner_ship_id = ${ownerShipId}
+        ORDER BY l.key
+        FOR UPDATE OF l`;
       return rows.map(toLabelFromSql);
     },
-    save: async ({ fleetId, key, values, ownerShipId }) => {
-      await db.label.upsert({
-        where: { fleetId_key: { fleetId, key } },
-        create: { fleetId, key, values: [...values], ownerShipId },
-        update: { values: [...values] },
-      });
+    save: async ({ fleetId, id, key, values, ownerShipId }) => {
+      await db.label.upsert({ where: { id }, create: { id, fleetId, key, ownerShipId }, update: {} });
+      await db.labelValue.deleteMany({ where: { fleetId, labelId: id, id: { notIn: values.map((value) => value.id) } } });
+      for (const [position, value] of values.entries()) {
+        await db.labelValue.upsert({
+          where: { id: value.id },
+          create: { id: value.id, fleetId, labelId: id, value: value.value, position },
+          update: { position },
+        });
+      }
     },
-    remove: async (fleetId, key) => {
-      await db.label.deleteMany({ where: { fleetId, key } });
+    remove: async (fleetId, labelId) => {
+      await db.labelValue.deleteMany({ where: { fleetId, labelId } });
+      await db.label.deleteMany({ where: { fleetId, id: labelId } });
     },
-    carriedBy: async (fleetId, shipId) => (await db.shipLabel.findMany({ where: { fleetId, shipId }, orderBy: { key: 'asc' } })).map(toShipLabel),
-    carriersOf: async (fleetId, key) => (await db.shipLabel.findMany({ where: { fleetId, key }, orderBy: { shipId: 'asc' } })).map(toShipLabel),
-    assign: async ({ fleetId, shipId, key, value }) => {
-      await db.shipLabel.upsert({
-        where: { fleetId_shipId_key: { fleetId, shipId, key } },
-        create: { fleetId, shipId, key, value },
-        update: { value },
-      });
+    carriedBy: async (fleetId, shipId) => (await db.shipLabel.findMany({ where: { fleetId, shipId }, orderBy: { valueId: 'asc' } })).map(toShipLabel),
+    carriersOf: async (fleetId, labelId) =>
+      (await db.shipLabel.findMany({ where: { fleetId, labelId }, orderBy: [{ shipId: 'asc' }, { valueId: 'asc' }] })).map(toShipLabel),
+    assign: async (assignment) => {
+      await db.shipLabel.create({ data: assignment });
     },
-    unassign: async ({ fleetId, shipId, key }) => {
-      await db.shipLabel.deleteMany({ where: { fleetId, shipId, key } });
+    unassign: async ({ fleetId, shipId, valueId }) => {
+      await db.shipLabel.deleteMany({ where: { fleetId, shipId, valueId } });
     },
   };
 }
@@ -440,13 +454,15 @@ const lastPingOfShip = Prisma.sql`
  * started. None while no lease is open.
  */
 /**
- * The labels the ship carries as one JSON object, value by key, in the order
- * of their keys: json keeps that order, where jsonb would sort the keys by
- * length first. An empty object for a ship without labels.
+ * The label values the ship carries, each with its label, by key then value,
+ * as one JSON array. An empty array for a ship without labels.
  */
 const labelsOfShip = Prisma.sql`
-  COALESCE((SELECT json_object_agg(sl.key, sl.value ORDER BY sl.key) FROM ship_labels sl
-            WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id), '{}'::json)`;
+  COALESCE((SELECT json_agg(json_build_object('labelId', sl.label_id, 'key', lb.key, 'valueId', sl.value_id, 'value', v.value) ORDER BY lb.key, v.value)
+            FROM ship_labels sl
+            JOIN labels lb ON lb.fleet_id = sl.fleet_id AND lb.id = sl.label_id
+            JOIN label_values v ON v.fleet_id = sl.fleet_id AND v.id = sl.value_id
+            WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id), '[]'::json)`;
 
 const crewedByOfShip = Prisma.sql`
   SELECT a.id, a.name
@@ -494,7 +510,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     },
     labels: async (fleetId) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT l.key, l.values, l.owner_ship_id, o.name AS owner_name
+        SELECT ${labelColumns}, o.name AS owner_name
         FROM labels l
         JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
         WHERE l.fleet_id = ${fleetId}
