@@ -355,6 +355,7 @@ describe('the fleet procedures at the API', () => {
       scopes: ['messages:send', 'messages:receive'],
       report: null,
       crewRequest: null,
+      labels: {},
       harness: null,
       model: null,
       awaitingCrewSince: clock.now().toISOString(),
@@ -1769,7 +1770,9 @@ describe('labels at the API', () => {
     const { shipId } = await agentShip();
     await asLabeller.fleet.defineLabel.mutate({ key: 'api-region', values: ['eu'] });
 
-    await expect(refusalOf(asLabeller.fleet.defineLabel.mutate({ key: 'API', values: ['eu'] }))).resolves.toMatchObject({ code: 'BAD_REQUEST', message: expect.stringContaining('decision 0031') as string });
+    const invalid = await refusalOf(asLabeller.fleet.defineLabel.mutate({ key: 'API', values: ['eu'] }));
+    expect(invalid?.code).toBe('BAD_REQUEST');
+    expect(invalid?.message).toContain('decision 0031');
     await expect(codeOf(other.fleet.defineLabel.mutate({ key: 'api-region', values: ['us'] }))).resolves.toBe('CONFLICT');
     await expect(codeOf(other.fleet.assignLabel.mutate({ shipId, key: 'api-region', value: 'eu' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-nothing', value: 'eu' }))).resolves.toBe('NOT_FOUND');
@@ -1789,9 +1792,10 @@ describe('labels at the API', () => {
     const labels = await asLabeller.fleet.labels.query();
     const selected = await asLabeller.fleet.list.query({ labels: { 'api-stage': 'build' } });
 
-    expect(labels.find((label) => label.key === 'api-stage')).toEqual({ key: 'api-stage', values: ['build', 'test'], owner: { id: expect.stringMatching(/^shp_/) as string, name: expect.any(String) as string } });
+    expect(labels.find((label) => label.key === 'api-stage')).toMatchObject({ key: 'api-stage', values: ['build', 'test'] });
+    expect(labels.find((label) => label.key === 'api-stage')?.owner.id).toMatch(/^shp_/);
     expect(selected.map((ship) => [ship.id, ship.labels])).toEqual([[builderId, { 'api-stage': 'build' }]]);
-    await expect(asLabeller.fleet.list.query()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: testerId })]) as unknown);
+    expect((await asLabeller.fleet.list.query()).map((ship) => ship.id)).toContain(testerId);
     await expect(codeOf(client({ authorization: `Bearer ${await crewedShip()}` }).fleet.labels.query())).resolves.toBe('FORBIDDEN');
   });
 

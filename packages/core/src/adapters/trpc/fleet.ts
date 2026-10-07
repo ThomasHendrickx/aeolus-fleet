@@ -49,6 +49,13 @@ import {
   retireShipInputSchema,
   retireShipOutputSchema,
   startingPromptOutputSchema,
+  assignLabelInputSchema,
+  changeLabelValuesInputSchema,
+  defineLabelInputSchema,
+  fleetListInputSchema,
+  labelWriteOutputSchema,
+  labelsOutputSchema,
+  unassignLabelInputSchema,
 } from '@aeolus-fleet/common';
 import { tracked, type TrackedEnvelope } from '@trpc/server';
 // The subscription's output type names TrackedData, which tRPC exports only
@@ -305,16 +312,18 @@ export const fleetRouter = router({
       return { ships, dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() } };
     }),
 
-  /** Every ship of the caller's fleet with its status and prompt state. Never a secret. */
+  /** Every ship of the caller's fleet with its status and prompt state, or the ships that carry the labels given. Never a secret. */
   list: scopedProcedure('fleet:read')
     .meta({
       description: [
-        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        'With labels ({ "os": "macos" }), only the ships that carry every one of them with that value: exact matches, combined with AND.',
       ].join(' '),
     })
+    .input(fleetListInputSchema)
     .output(fleetListOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.listFleet(ctx.caller)).map((ship) => ({
+    .query(async ({ ctx, input }) =>
+      (await ctx.useCases.listFleet(ctx.caller, { labels: input?.labels })).map((ship) => ({
         ...ship,
         startingPrompt: ship.startingPrompt && {
           issuedAt: ship.startingPrompt.issuedAt.toISOString(),
@@ -330,6 +339,72 @@ export const fleetRouter = router({
         retiredAt: ship.retiredAt?.toISOString() ?? null,
       })),
     ),
+
+  /** The fleet's labels, each with its values and its owner (decision 0031). */
+  labels: scopedProcedure('fleet:read')
+    .meta({
+      description: ["Needs fleet:read. The fleet's labels by key: each with its values and its owner ship, by id and name."].join(' '),
+    })
+    .output(labelsOutputSchema)
+    .query(async ({ ctx }) => (await ctx.useCases.listLabels(ctx.caller)).map((label) => ({ ...label, values: [...label.values] }))),
+
+  /** Defines a label the caller's ship then owns (decision 0031). */
+  defineLabel: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        'Needs labels:define. Defines a label your ship then owns: a key unique in the fleet and its values, 1 to 50, each once.',
+        'Keys and values are lowercase a-z, 0-9 and -, at most 63 characters (decision 0031). A key the fleet has is CONFLICT, naming its owner.',
+        'The label retires with its owner.',
+      ].join(' '),
+    })
+    .input(defineLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.defineLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The owner gives its label the values it has from now on. */
+  changeLabelValues: scopedProcedure('labels:define')
+    .meta({
+      description: [
+        "Needs labels:define, and only the label's owner changes it. Gives it every value it has from now on, adding and removing at once, within decision 0031's limits.",
+        'A value ships carry is never removed: CONFLICT, naming the ships that carry it.',
+      ].join(' '),
+    })
+    .input(changeLabelValuesInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeLabelValues(ctx.caller, input));
+      return {};
+    }),
+
+  /** The owner gives a ship one of its label's values. */
+  assignLabel: scopedProcedure('labels:assign')
+    .meta({
+      description: [
+        "Needs labels:assign, and only the label's owner assigns it. Gives a ship one of its values, in place of the value of it the ship carries: one value per key.",
+        'Never your own ship or a retired one. A ship carries at most 20 labels (decision 0031).',
+      ].join(' '),
+    })
+    .input(assignLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.assignLabel(ctx.caller, input));
+      return {};
+    }),
+
+  /** The owner takes its label off a ship. */
+  unassignLabel: scopedProcedure('labels:assign')
+    .meta({
+      description: ["Needs labels:assign, and only the label's owner unassigns it. Takes it off a ship; a ship that does not carry it changes nothing."].join(' '),
+    })
+    .input(unassignLabelInputSchema)
+    .output(labelWriteOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.unassignLabel(ctx.caller, input));
+      return {};
+    }),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: anyScopeProcedure('fleet:read', 'crew:run')

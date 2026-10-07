@@ -30,6 +30,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
     awaitingCrewSince: null,
     crewRequest: null,
+    labels: {},
     retiredAt: null,
     ...changes,
   };
