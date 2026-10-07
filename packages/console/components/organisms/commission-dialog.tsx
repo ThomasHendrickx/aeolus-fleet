@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
+import type { MachineLabelsInput } from '../../lib/machine-labels';
 import type { SettingsCheck } from '../../lib/trierarch-plugin';
 import { asHandle, checkShipName, typeHint } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
@@ -50,6 +51,8 @@ interface CommissionDialogProps {
   crewRequest?: {
     offers: readonly HarnessOffer[];
     squadrons?: readonly string[];
+    /** The fleet's labels and machines, for the request's machine labels (#357); the field waits for them. */
+    machineLabels?: MachineLabelsInput;
     check?: SettingsCheck;
     onSettingsChange: (settings: CrewSettings | undefined) => void;
   };
@@ -82,6 +85,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
   const [crewValues, setCrewValues] = useState<CrewSettingsValues>(() => defaultValues(crewRequest?.offers ?? []));
+  const isWaitingForMachine = crewValues.machineLabels.length > 0 && crewRequest?.machineLabels?.matchOf(crewValues.machineLabels).matching.length === 0;
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
   const isCrewReady =
@@ -235,6 +239,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
             squadrons={crewRequest.squadrons}
             refusal={refusal}
             isDisabled={isPending}
+            {...(crewRequest.machineLabels === undefined ? {} : { machineLabels: { ...crewRequest.machineLabels, shipName: name.trim() === '' ? 'this ship' : name.trim() } })}
           />
         ) : null}
       </div>
@@ -242,7 +247,13 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
       <DialogFooter className="items-center">
         {crewRequest === undefined ? null : (
           <span className="mr-auto text-meta text-muted-foreground" data-testid="commission-crew-note">
-            {!isCrewRequested ? null : crewRequest.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Uncheck Request a crew to get the starting prompt instead.'}
+            {!isCrewRequested
+              ? null
+              : isWaitingForMachine
+                ? 'The request will wait for a machine with these labels.'
+                : crewRequest.check?.kind === 'noRoom'
+                  ? 'The request will wait for room.'
+                  : 'Uncheck Request a crew to get the starting prompt instead.'}
           </span>
         )}
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>

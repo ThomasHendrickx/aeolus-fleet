@@ -5,7 +5,8 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
 import { defaultValues, offersOf, settingsOf } from '../../lib/crew-settings-form';
-import { useCommissionShip, useFleetSnapshot, useRequestCrew } from '../../lib/fleet';
+import { useCommissionShip, useFleetSnapshot, useLabelContext, useRequestCrew } from '../../lib/fleet';
+import { machineLabelsInputOf } from '../../lib/machine-labels';
 import { Button } from '../atoms/button';
 import { showToast } from '../atoms/toast';
 import { useFleetLimits } from '../../lib/fleet-limits';
@@ -40,6 +41,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
   const offers = offersOf(machines.data ?? []);
+  const labelContext = useLabelContext();
+  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
 
@@ -98,6 +101,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
               crewRequest: {
                 offers,
                 squadrons: squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined,
+                ...(machineLabels === undefined ? {} : { machineLabels }),
                 check: check.data,
                 onSettingsChange: setCrewSettings,
               },
