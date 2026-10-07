@@ -120,6 +120,28 @@ describe('migrations', () => {
     // The installation's settings, notices and guide belong to no fleet (decisions 0020, 0023 and 0024).
     expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'guides', 'installation_settings', 'notices']);
   });
+
+  it('index every foreign key by its columns, so a delete checks each row it removes with an index, never a scan', async () => {
+    // A foreign key is served by an index whose leading columns are exactly
+    // its columns, in any order. A partial index serves only some rows, so it
+    // does not count.
+    const unindexed = await database.$queryRaw<{ table_name: string; columns: string }[]>`
+      SELECT c.conrelid::regclass::text AS table_name,
+             (SELECT string_agg(a.attname, ', ' ORDER BY k.position)
+                FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, position)
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum) AS columns
+      FROM pg_constraint c
+      WHERE c.contype = 'f' AND c.connamespace = 'public'::regnamespace
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_index i
+          WHERE i.indrelid = c.conrelid AND i.indpred IS NULL
+            AND (string_to_array(i.indkey::text, ' ')::int2[])[1:cardinality(c.conkey)] @> c.conkey
+            AND (string_to_array(i.indkey::text, ' ')::int2[])[1:cardinality(c.conkey)] <@ c.conkey
+        )
+      ORDER BY 1, 2`;
+
+    expect(unindexed.map((key) => `${key.table_name} (${key.columns})`)).toEqual([]);
+  });
 });
 
 describe('the operator login migration', () => {
