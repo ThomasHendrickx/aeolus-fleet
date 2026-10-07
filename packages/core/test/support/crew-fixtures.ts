@@ -21,7 +21,7 @@ export async function shipWithScopes(
   return callerOf({ fleetId: argo.fleetId, shipId }, ['messages:send', 'messages:receive', ...fleetScopes]);
 }
 
-function isFleetScope(scope: Scope): scope is 'fleet:read' | 'fleet:manage' | 'fleet:crew' | 'crew:assign' | 'crew:run' {
+function isFleetScope(scope: Scope): scope is 'fleet:read' | 'fleet:manage' | 'crew:assign' | 'crew:run' {
   return scope !== 'messages:send' && scope !== 'messages:receive';
 }
 

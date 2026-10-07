@@ -76,11 +76,11 @@ describe('a ship with crew:run', () => {
   });
 });
 
-describe('a ship with fleet:manage or fleet:crew', () => {
-  it('reaches every ship as before', async () => {
-    const crew = await shipWithScopes({ registry, argo }, { name: 'old-trierarch', type: 'trierarch', scopes: ['fleet:crew'] });
+describe('a ship with fleet:manage', () => {
+  it('reaches every ship', async () => {
+    const manager = await shipWithScopes({ registry, argo }, { name: 'manager', type: 'orchestrator', scopes: ['fleet:manage'] });
 
-    await expect(registry.getStartingPrompt(crew, { shipId: otherId })).resolves.toMatchObject({ isOk: true });
+    await expect(registry.getStartingPrompt(manager, { shipId: otherId })).resolves.toMatchObject({ isOk: true });
     await expect(registry.getStartingPrompt(argo, { shipId: otherId })).resolves.toMatchObject({ isOk: true });
   });
 });

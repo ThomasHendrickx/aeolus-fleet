@@ -250,35 +250,12 @@ describe('the ship tools at /mcp', () => {
     expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
   });
 
-  it('serves a ship with fleet:crew one ship, its starting prompt and its release', async () => {
-    const trierarch = await commissionedWithFleetScopes(['fleet:crew']);
-    const awaiting = await commissioned();
-    const crewed = await commissioned();
-    const session = await connect();
-    const crewToken = await register(session, trierarch);
-    await register(await connect(), crewed);
-
-    const read = await call(session, { tool: { name: 'fleet_ship', answers: z.object({ id: z.string() }) }, arguments: { crewToken, shipId: awaiting.shipId } });
-    const prompt = await call(session, {
-      tool: { name: 'fleet_getStartingPrompt', answers: z.object({ prompt: z.string() }) },
-      arguments: { crewToken, shipId: awaiting.shipId },
-    });
-    await call(session, { tool: { name: 'fleet_release', answers: z.object({}) }, arguments: { crewToken, shipId: crewed.shipId } });
-
-    expect(read.id).toBe(awaiting.shipId);
-    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
-    await expect(database.lease.count({ where: { shipId: crewed.shipId, endedAt: null } })).resolves.toBe(0);
-    await expect(database.ship.findUniqueOrThrow({ where: { id: trierarch.shipId } })).resolves.toMatchObject({
-      scopes: ['messages:send', 'messages:receive', 'fleet:crew'],
-    });
-  });
-
-  it('refuses every other fleet tool to a ship with only fleet:crew', async () => {
-    const trierarch = await commissionedWithFleetScopes(['fleet:crew']);
+  it('refuses every fleet tool but its own to a ship with only crew:run', async () => {
+    const trierarch = await commissionedWithFleetScopes(['crew:run']);
     const session = await connect();
     const crewToken = await register(session, trierarch);
     const others = SHIP_CALLS.map((each) => each.name).filter(
-      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release'].includes(name),
+      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_confirmCrewRelease', 'fleet_assignedCrewRequests'].includes(name),
     );
 
     const refusals = await Promise.all(others.map(async (name) => [name, await refusalOf(session, { name, arguments: { crewToken } })]));

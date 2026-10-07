@@ -3,15 +3,24 @@ import { describe, expect, it } from 'vitest';
 import {
   deliveryStateSchema,
   eventTypeSchema,
+  FLEET_SCOPES,
   locationKindSchema,
+  SCOPES,
   scopeSchema,
   selectorKindSchema,
   shipKindSchema,
   shipStatusSchema,
 } from './index.js';
 
+describe('the scopes', () => {
+  it('are the message scopes, then the fleet scopes, and nothing else', () => {
+    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run']);
+    expect(FLEET_SCOPES).toEqual(['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run']);
+  });
+});
+
 describe('scopeSchema', () => {
-  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'fleet:crew', 'crew:assign', 'crew:run'])('accepts %s', (scope) => {
+  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run'])('accepts %s', (scope) => {
     expect(scopeSchema.parse(scope)).toBe(scope);
   });
 

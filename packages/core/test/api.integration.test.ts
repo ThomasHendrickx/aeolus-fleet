@@ -303,26 +303,9 @@ describe('the fleet procedures at the API', () => {
     );
   });
 
-  it('serve a ship with fleet:crew one ship, its starting prompt and its release', async () => {
-    const trierarch = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:crew'])}` });
-    const awaiting = await agentShip();
-    const { shipId: crewed } = await agentShip();
-    await database.lease.create({
-      data: { id: newId('lease'), fleetId, shipId: crewed, location: 'DEVICE', crewTokenHash: sha256Hasher.hash(newId('lease')), startedAt: clock.now() },
-    });
-
-    const read = await trierarch.fleet.ship.query({ shipId: awaiting.shipId });
-    const prompt = await trierarch.fleet.getStartingPrompt.mutate({ shipId: awaiting.shipId });
-    await trierarch.fleet.release.mutate({ shipId: crewed });
-
-    expect(read.id).toBe(awaiting.shipId);
-    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
-    await expect(database.lease.count({ where: { shipId: crewed, endedAt: null } })).resolves.toBe(0);
-  });
-
-  it('refuse every other fleet procedure to a ship with only fleet:crew', async () => {
-    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:crew']);
-    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release'].includes(name));
+  it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'assignedCrewRequests'].includes(name));
     // argo's inbox takes the message scopes every agent ship holds, and refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
