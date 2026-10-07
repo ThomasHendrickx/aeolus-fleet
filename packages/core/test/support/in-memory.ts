@@ -97,7 +97,7 @@ export interface InMemoryState {
   crewRequests: CrewRequest[];
   /** The fleet's labels, by key (decision 0031): a retired label is gone. */
   labels: Label[];
-  /** The labels each ship carries: one value per key. */
+  /** The label values each ship carries: a set of value ids per ship. */
   shipLabels: ShipLabel[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
