@@ -56,9 +56,9 @@ export const NEW_MACHINE: Machine = { shipId: shipId('trnw'), name: 'trierarch-n
 export const MACHINES: Machine[] = [ALIVE_MACHINE, SILENT_MACHINE, NEW_MACHINE];
 
 export const SPOTS: Spot[] = [
-  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running', attempt: 0, startedAt: minutesAgo(172), workspace: 'aeolus-fleet' },
-  { shipId: shipId('sp02'), name: 'website-editor', status: 'running', attempt: 1, startedAt: minutesAgo(41), workspace: 'website' },
-  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed', attempt: 5, startedAt: null, workspace: 'notes' },
+  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running', attempt: 0, startedAt: minutesAgo(172), workspace: { name: 'aeolus-fleet', kind: 'worktree' } },
+  { shipId: shipId('sp02'), name: 'website-editor', status: 'running', attempt: 1, startedAt: minutesAgo(41), workspace: { name: 'website', kind: 'folder' } },
+  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed', attempt: 5, startedAt: null, workspace: { name: 'notes', kind: 'worktree' } },
   { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing', attempt: 0, startedAt: null },
 ];
 

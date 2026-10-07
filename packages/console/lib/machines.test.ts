@@ -72,7 +72,10 @@ describe('withWorkspaces', () => {
       [writer.shipId, { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} }],
     ]);
 
-    expect(withWorkspaces([builder, writer], settings).map((each) => each.workspace)).toEqual(['aeolus-fleet', 'notes']);
+    expect(withWorkspaces([builder, writer], settings).map((each) => each.workspace)).toEqual([
+      { name: 'aeolus-fleet', kind: 'worktree' },
+      { name: 'notes', kind: 'folder' },
+    ]);
   });
 
   it('names none while the settings are not read, or are no crew settings', () => {

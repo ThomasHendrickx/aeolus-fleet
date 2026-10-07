@@ -183,9 +183,9 @@ export function MachineDetail({ machine, state, spots, location, now }: MachineD
                     {spot.name}
                   </Link>
                   {spot.workspace === undefined ? null : (
-                    <span className="truncate font-mono text-id text-muted-foreground" data-testid="machine-spot-workspace">
+                    <span className="truncate text-meta text-muted-foreground" data-testid="machine-spot-workspace">
                       <span className="sr-only">Workspace: </span>
-                      {spot.workspace}
+                      <span className="font-mono text-id">{spot.workspace.name}</span> · {spot.workspace.kind === 'worktree' ? 'new worktree' : 'folder, as it is'}
                     </span>
                   )}
                 </span>

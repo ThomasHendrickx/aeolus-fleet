@@ -29,8 +29,8 @@ export interface Spot {
   status: CrewStatus;
   attempt: number;
   startedAt: string | null;
-  /** The workspace its crew request's settings name, once read (#332). */
-  workspace?: string;
+  /** The workspace its crew request's settings name, once read (#332): a repository for a new worktree, or a folder used as it is. */
+  workspace?: { name: string; kind: 'worktree' | 'folder' };
 }
 
 /** The order spots show in: running first, then what needs a look, then what is on its way. */
@@ -60,7 +60,10 @@ export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyM
       return spot;
     }
     const { workspace } = parsed.data;
-    return { ...spot, workspace: workspace.kind === 'worktree' ? workspace.repository : workspace.name };
+    return {
+      ...spot,
+      workspace: workspace.kind === 'worktree' ? { name: workspace.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },
+    };
   });
 }
 
