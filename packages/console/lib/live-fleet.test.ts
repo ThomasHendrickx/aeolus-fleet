@@ -1,7 +1,7 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 
-import { isAttentionChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
+import { isAttentionChange, isLabelChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -25,6 +25,9 @@ describe('isShipChange', () => {
     'DeliveryAcknowledged',
     'DeliveryUndeliverable',
     'ShipReported',
+    'LabelAssigned',
+    'LabelUnassigned',
+    'LabelRetired',
   ] as const)(
     'reloads the snapshot for %s',
     (type) => {
@@ -38,6 +41,16 @@ describe('isShipChange', () => {
       expect(isShipChange(type)).toBe(false);
     },
   );
+});
+
+describe('isLabelChange', () => {
+  it.each(['LabelDefined', 'LabelValuesChanged', 'LabelRetired', 'LabelAssigned', 'LabelUnassigned', 'LabelDeleted'] as const)('reloads the labels for %s', (type) => {
+    expect(isLabelChange(type)).toBe(true);
+  });
+
+  it.each(['ShipCommissioned', 'ShipRetired', 'MessageAccepted'] as const)('leaves the labels alone for %s', (type) => {
+    expect(isLabelChange(type)).toBe(false);
+  });
 });
 
 describe('isAttentionChange', () => {
