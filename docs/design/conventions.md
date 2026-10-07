@@ -80,6 +80,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Crew requests and trierarchs
 - "Requested by" on a crew request names the actor of the ship's latest `CrewRequested` event, from its timeline; no stored field holds it. argo reads "you".
 - The Trierarchs sidebar count is silent machines only. Requests no trierarch can take already show on Needs crew; they are not counted twice.
+- Commissioning: Request a crew is on by default while the trierarch plugin is connected, off otherwise.
 
 ## States
 - Every data view builds four states: ready, empty, loading, error.

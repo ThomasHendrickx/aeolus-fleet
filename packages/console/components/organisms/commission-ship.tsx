@@ -13,7 +13,7 @@ import { useHostedAccountUrl } from '../../lib/hosted-account';
 import { shipLimitReached } from '../../lib/limits';
 import { useSquadronsConnection } from '../../lib/squadrons';
 import { useSquadrons } from '../../lib/squadrons-api';
-import { useCrewSettingsCheck, useHasTrierarchPlugin, useMachines } from '../../lib/trierarch-plugin';
+import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../lib/trierarch-plugin';
 import { CommissionDialog } from './commission-dialog';
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
@@ -21,7 +21,7 @@ import { StartingPromptDialog } from './starting-prompt-dialog';
  * Commission ship, the fleet overview's one primary action: the
  * CommissionDialog, then, once the ship exists, its crew request when Request
  * a crew is on (#245), and its first starting prompt in the
- * StartingPromptDialog, shown once. With the trierarch plugin on, a ship
+ * StartingPromptDialog, shown once. With the trierarch plugin connected, a ship
  * whose crew is requested gets no starting prompt here: a trierarch crews it.
  * The page or the command palette may open it too, through `isOpen`.
  */
@@ -31,7 +31,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const accountUrl = useHostedAccountUrl();
   const commission = useCommissionShip();
   const requestCrew = useRequestCrew();
-  const hasTrierarchs = useHasTrierarchPlugin();
+  // Only a connected plugin can place a request: until then, a request is crewed by hand.
+  const hasTrierarchs = useTrierarchPluginConnection() === 'connected';
   const machines = useMachines();
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
