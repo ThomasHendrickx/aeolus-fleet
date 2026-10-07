@@ -1,5 +1,5 @@
 import type { LocationKind } from '@aeolus-fleet/common';
-import { Bot, CircleDashed, FolderOpen, GitBranch, ShipWheel } from 'lucide-react';
+import { Bot, CircleDashed, FolderOpen, GitBranch, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -64,7 +64,11 @@ function Column({ title, children, className }: { title: string; children: React
   );
 }
 
-/** A harness the machine offers: its options' values, its default marked, and the flags every launch gets, shown plainly. */
+/**
+ * A harness the machine offers: its options' values, its default marked, and
+ * the flags every launch gets, each flag its trierarch reports as risky marked
+ * in the waiting tone (#326).
+ */
 export function HarnessOffer({ harness }: { harness: NonNullable<Machine['details']>['harnesses'][number] }) {
   return (
     <div className="flex flex-col gap-1.5 border-t border-border py-2.5 first-of-type:border-t-0 first-of-type:pt-0">
@@ -85,11 +89,24 @@ export function HarnessOffer({ harness }: { harness: NonNullable<Machine['detail
       ))}
       {harness.flags.length === 0 ? null : (
         <span className="flex flex-wrap items-center gap-1.5">
-          {harness.flags.map((flag) => (
-            <code key={flag} className="rounded-sm bg-muted px-1.5 font-mono text-id">
-              {flag}
-            </code>
-          ))}
+          {harness.flags.map((flag) =>
+            harness.riskyFlags?.includes(flag) === true ? (
+              <code
+                key={flag}
+                data-testid="machine-risky-flag"
+                title="Risky: every launch runs without its harness's safeguards"
+                className="inline-flex items-center gap-1 rounded-sm border border-tone-waiting-border bg-tone-waiting-bg px-1.5 font-mono text-id text-tone-waiting-fg [&_svg]:size-(--size-icon-sm)"
+              >
+                <TriangleAlert aria-hidden />
+                {flag}
+                <span className="sr-only"> (risky)</span>
+              </code>
+            ) : (
+              <code key={flag} className="rounded-sm bg-muted px-1.5 font-mono text-id">
+                {flag}
+              </code>
+            ),
+          )}
         </span>
       )}
     </div>

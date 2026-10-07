@@ -19,6 +19,12 @@ export const trierarchReportDetailsSchema = z.strictObject({
       options: z.record(z.string(), z.json()),
       /** The flags every launch of this harness gets, as the configuration makes them. */
       flags: z.array(z.string()),
+      /**
+       * Which of those flags are risky, as the trierarch's adapter for the
+       * harness knows them, so a reader needs no harness knowledge (#326).
+       * None from a trierarch before 0.20.0, which marked none.
+       */
+      riskyFlags: z.array(z.string()).optional(),
     }),
   ),
   workspaces: z.strictObject({ repositories: z.array(trierarchNameSchema), folders: z.array(trierarchNameSchema) }),

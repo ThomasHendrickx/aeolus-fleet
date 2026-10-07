@@ -179,7 +179,7 @@ describe('a joined machine reporting', () => {
       fleet: createRestFleet({ fleetUrl, crewToken }),
       processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
       state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
-      setup: { configuration, version: '0.19.0', adapterFlags: {} },
+      setup: { configuration, version: '0.19.0', adapterFlags: {}, riskyFlags: {} },
     });
 
     await reportSelf();
@@ -195,7 +195,7 @@ describe('a joined machine reporting', () => {
         isSilent: false,
         report: { state: 'idle', note: '0 of 6 running', reportedAt: null },
         details: {
-          harnesses: [{ harness: 'claude-code', options: { type: 'object', properties: {}, additionalProperties: false }, flags: ['--remote-control'] }],
+          harnesses: [{ harness: 'claude-code', options: { type: 'object', properties: {}, additionalProperties: false }, flags: ['--remote-control'], riskyFlags: [] }],
           workspaces: { repositories: ['aeolus-fleet'], folders: [] },
           caps: { ships: 6, running: 3 },
           kept: [],
@@ -221,6 +221,7 @@ describe('assignment against a real fleet', () => {
         configuration: { caps: { ships: 4, running: 2 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
         version: '0.19.0',
         adapterFlags: {},
+        riskyFlags: {},
       },
     })();
     const scout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'implementer' }));
@@ -263,6 +264,7 @@ describe('checking crew settings before a request (#245)', () => {
         configuration: { caps: { ships: 4, running: 2 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
         version: '0.19.0',
         adapterFlags: {},
+        riskyFlags: {},
       },
     })();
     const settings = { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: {} };

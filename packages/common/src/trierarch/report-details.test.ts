@@ -31,7 +31,21 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes the flags a harness marks as risky, per harness (#326)', () => {
+    const details = {
+      harnesses: [{ harness: 'claude-code', options: {}, flags: ['--remote-control', '--dangerously-skip-permissions'], riskyFlags: ['--dangerously-skip-permissions'] }],
+      workspaces: { repositories: [], folders: ['notes'] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      version: '0.20.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
   it.each([
+    ['risky flags that are not a list of text', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], riskyFlags: '--search' }] })],
     ['an unknown field', (details: Record<string, unknown>) => ({ ...details, entries: [] })],
     ['an unknown field in a harness', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], adapterFlags: [] }] })],
     ['no version', (details: Record<string, unknown>) => ({ ...details, version: undefined })],

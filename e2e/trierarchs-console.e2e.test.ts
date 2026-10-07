@@ -135,6 +135,7 @@ describe('Trierarchs in the console', () => {
         configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
         version: '0.19.0',
         adapterFlags: {},
+        riskyFlags: {},
       },
     })();
     const scout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'implementer' }));
