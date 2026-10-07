@@ -2,6 +2,7 @@ import {
   LABEL_HANDLE_MAX_LENGTH,
   LABEL_HANDLE_PATTERN,
   LABEL_VALUES_MAX,
+  SHIP_LABELS_MAX,
   type FleetId,
   type ShipId,
 } from '@aeolus-fleet/common';
@@ -105,10 +106,13 @@ export function defineLabel(
 type NotTheOwner = DomainError<'NOT_THE_LABEL_OWNER'>;
 
 /** Only a label's owner changes it or assigns it. */
-function checkOwner({ label, ownerName }: { label: Label; ownerName: string }, callerShipId: ShipId): Result<void, NotTheOwner> {
-  return label.ownerShipId === callerShipId
+function checkOwner(
+  { label, ownerName }: { label: Label; ownerName: string },
+  caller: { shipId: ShipId; act: 'changes' | 'assigns' | 'unassigns' },
+): Result<void, NotTheOwner> {
+  return label.ownerShipId === caller.shipId
     ? ok(undefined)
-    : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${ownerName}: only its owner changes it`);
+    : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${ownerName}: only its owner ${caller.act} it`);
 }
 
 export type ChangeLabelValuesRefusal = NotTheOwner | InvalidValue | InvalidValues | DomainError<'LABEL_VALUE_CARRIED'>;
@@ -122,7 +126,7 @@ export function changeLabelValues(
   { label, ownerName, carriers }: { label: Label; ownerName: string; carriers: readonly { value: string; shipName: string }[] },
   input: { callerShipId: ShipId; values: readonly string[]; at: Date; actor: Actor },
 ): Result<{ label: Label; events: NewEvent[] }, ChangeLabelValuesRefusal> {
-  const owned = checkOwner({ label, ownerName }, input.callerShipId);
+  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'changes' });
   if (!owned.isOk) {
     return owned;
   }
@@ -148,4 +152,63 @@ export function changeLabelValues(
       labelEvent(changed, { at: input.at, actor: input.actor, type: 'LabelValuesChanged', details: { key: changed.key, values: valuesDetail(changed.values) } }),
     ],
   });
+}
+
+function assignmentEvent(assignment: ShipLabel, change: { type: 'LabelAssigned' | 'LabelUnassigned'; at: Date; actor: Actor }): NewEvent {
+  return {
+    fleetId: assignment.fleetId,
+    occurredAt: change.at,
+    actor: change.actor,
+    shipId: assignment.shipId,
+    type: change.type,
+    details: { key: assignment.key, value: assignment.value },
+  };
+}
+
+type OwnShip = DomainError<'LABEL_ON_OWN_SHIP'>;
+
+/** No ship labels itself: that would let it enforce a plugin's policy on its own (decision 0031). */
+function checkNotOwnShip(label: Label, ship: Ship): Result<void, OwnShip> {
+  return ship.id === label.ownerShipId ? refuse('LABEL_ON_OWN_SHIP', `No ship labels itself: ${label.key} is your own ship's label`) : ok(undefined);
+}
+
+export type AssignLabelRefusal =
+  | NotTheOwner
+  | OwnShip
+  | DomainError<'SHIP_ALREADY_RETIRED' | 'LABEL_VALUE_NOT_DEFINED' | 'SHIP_LABEL_LIMIT_REACHED'>;
+
+/**
+ * The owner gives a ship one of its label's values, in place of the value of
+ * it the ship carries; the value it carries changes nothing. Never the
+ * owner's own ship or a retired ship; argo and the viewer ship as any other
+ * (decision 0016). A ship carries at most 20 labels. LabelAssigned names the
+ * ship, with the key and the value.
+ */
+export function assignLabel(
+  { label, ownerName, ship, carried }: { label: Label; ownerName: string; ship: Ship; carried: readonly ShipLabel[] },
+  input: { callerShipId: ShipId; value: string; at: Date; actor: Actor },
+): Result<{ assignment: ShipLabel | undefined; events: NewEvent[] }, AssignLabelRefusal> {
+  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'assigns' });
+  if (!owned.isOk) {
+    return owned;
+  }
+  const notOwn = checkNotOwnShip(label, ship);
+  if (!notOwn.isOk) {
+    return notOwn;
+  }
+  if (ship.retiredAt !== null) {
+    return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired`);
+  }
+  if (!label.values.includes(input.value)) {
+    return refuse('LABEL_VALUE_NOT_DEFINED', `The label ${label.key} has no value ${input.value}: its values are ${label.values.join(', ')}`);
+  }
+  const current = carried.find((each) => each.key === label.key);
+  if (current?.value === input.value) {
+    return ok({ assignment: undefined, events: [] });
+  }
+  if (!current && carried.length >= SHIP_LABELS_MAX) {
+    return refuse('SHIP_LABEL_LIMIT_REACHED', `${ship.name} carries ${String(SHIP_LABELS_MAX)} labels, the most a ship carries (decision 0031)`);
+  }
+  const assignment: ShipLabel = { fleetId: ship.fleetId, shipId: ship.id, key: label.key, value: input.value };
+  return ok({ assignment, events: [assignmentEvent(assignment, { type: 'LabelAssigned', at: input.at, actor: input.actor })] });
 }
