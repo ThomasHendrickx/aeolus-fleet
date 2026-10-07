@@ -19,13 +19,17 @@ export type ReportCrewStatusRefusal = DomainError<
   'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' | 'CREW_REQUEST_RELEASING'
 >;
 
-export type ReportCrewStatus = (caller: Caller, input: { shipId: ShipId; status: CrewStatus }) => Promise<Result<undefined, ReportCrewStatusRefusal>>;
+export type ReportCrewStatus = (
+  caller: Caller,
+  input: { shipId: ShipId; status: CrewStatus; attempt?: number; startedAt?: string | null },
+) => Promise<Result<undefined, ReportCrewStatusRefusal>>;
 
 /**
  * Use case: the trierarch a ship's crew request is assigned to writes how its
- * crew stands. Its scope (crew:run) is checked before this runs. In one unit
- * of work, locking the ship first: the status and, when it changed,
- * CrewStatusChanged.
+ * crew stands, with the restart attempt and when the session started (#332;
+ * left out, the first start with no session running). Its scope (crew:run)
+ * is checked before this runs. In one unit of work, locking the ship first:
+ * the status and, when anything of it changed, CrewStatusChanged.
  */
 export function createReportCrewStatus(deps: { uow: UnitOfWork<ReportCrewStatusTx>; clock: Clock; ids: IdGenerator }): ReportCrewStatus {
   return (caller, input) =>
@@ -36,7 +40,13 @@ export function createReportCrewStatus(deps: { uow: UnitOfWork<ReportCrewStatusT
       }
       const reported = reportCrewStatus(
         { ship, current: await tx.crewRequests.find(caller.fleetId, ship.id), trierarchShipId: caller.shipId },
-        { status: input.status, at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        {
+          status: input.status,
+          attempt: input.attempt ?? 0,
+          sessionStartedAt: input.startedAt === undefined || input.startedAt === null ? null : new Date(input.startedAt),
+          at: deps.clock.now(),
+          actor: shipActor(caller.shipId),
+        },
       );
       if (!reported.isOk) {
         return reported;

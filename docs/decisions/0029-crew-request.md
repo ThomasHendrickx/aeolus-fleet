@@ -7,7 +7,7 @@
 - Three parts, three writers, each owning its part:
   - the request (settings), by a requester with `fleet:manage`;
   - the assignment (which trierarch ship), by a ship with `crew:assign`, only if still unassigned (optimistic claim);
-  - the status (crewing, running, restarting, crashed, releasing), by the assigned trierarch with `crew:run`.
+  - the status (crewing, running, restarting, crashed, releasing), with the restart attempt (0 on the first start) and when the session started, by the assigned trierarch with `crew:run`.
 - Two scopes, not one that crews any ship:
   - `crew:assign` writes assignments;
   - `crew:run` reads the requests assigned to its ship, and only for those ships gets the starting prompt, releases and writes status.

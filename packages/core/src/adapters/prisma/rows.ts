@@ -116,6 +116,8 @@ const crewRequestRow = z.object({
   assignedTo: idSchema('ship').nullable(),
   status: crewStatusSchema.nullable(),
   reason: z.string().nullable(),
+  attempt: z.int().min(0),
+  sessionStartedAt: z.date().nullable(),
 });
 
 /** A crew request as Prisma reads its row. */
@@ -192,6 +194,8 @@ const shipFactsSqlRow = z.object({
   crew_request_status: crewStatusSchema.nullable(),
   crew_request_assignee_name: z.string().nullable(),
   crew_request_reason: z.string().nullable(),
+  crew_request_attempt: z.int().min(0).nullable(),
+  crew_request_session_started_at: z.date().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
   labels: z.array(carriedLabelSchema),
@@ -221,6 +225,8 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_status,
     crew_request_assignee_name,
     crew_request_reason,
+    crew_request_attempt,
+    crew_request_session_started_at,
     crewed_by_id,
     crewed_by_name,
     labels,
@@ -251,6 +257,8 @@ export function toShipFacts(row: unknown): ShipFacts {
             assignedTo: crew_request_assigned_to,
             status: crew_request_status,
             reason: crew_request_reason,
+            attempt: crew_request_attempt ?? 0,
+            sessionStartedAt: crew_request_session_started_at,
           }
         : null,
     crewRequestAssignee:

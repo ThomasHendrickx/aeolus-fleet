@@ -39,6 +39,10 @@ export interface CrewRequest {
   status: CrewStatus | null;
   /** Why no trierarch can take it, written by the assigner while unassigned; null when none. */
   reason: string | null;
+  /** How many times its trierarch restarted the session within its restart window, written with the status: 0 on its first start (#332). */
+  attempt: number;
+  /** When the session its trierarch runs now started, written with the status; null while none runs. */
+  sessionStartedAt: Date | null;
 }
 
 type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
@@ -90,6 +94,8 @@ export function requestCrew(
     assignedTo: current?.assignedTo ?? null,
     status: current?.status ?? null,
     reason: current?.reason ?? null,
+    attempt: current?.attempt ?? 0,
+    sessionStartedAt: current?.sessionStartedAt ?? null,
   };
   return ok({ request, events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequested', details: { settingsVersion: request.settingsVersion } })] });
 }
@@ -191,13 +197,13 @@ function checkAssignedTo({ ship, current, trierarchShipId }: { ship: Ship; curre
 }
 
 /**
- * The assigned trierarch writes how its crew of the ship stands, with
- * CrewStatusChanged when it changes. Once the request is releasing, only
- * releasing.
+ * The assigned trierarch writes how its crew of the ship stands, with the
+ * restart attempt and when the session started (#332), and CrewStatusChanged
+ * when any of them changes. Once the request is releasing, only releasing.
  */
 export function reportCrewStatus(
   { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
-  input: { status: CrewStatus; at: Date; actor: Actor },
+  input: { status: CrewStatus; attempt: number; sessionStartedAt: Date | null; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, NotFound | NotTheCallers | Releasing> {
   if (!current) {
     return notFound(ship);
@@ -209,12 +215,13 @@ export function reportCrewStatus(
   if (current.status === 'releasing' && input.status !== 'releasing') {
     return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: stop its session, end its lease and confirm`);
   }
-  if (current.status === input.status) {
+  const isSameStart = (current.sessionStartedAt?.getTime() ?? null) === (input.sessionStartedAt?.getTime() ?? null);
+  if (current.status === input.status && current.attempt === input.attempt && isSameStart) {
     return ok({ request: current, events: [] });
   }
   return ok({
-    request: { ...current, status: input.status },
-    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewStatusChanged', details: { status: input.status } })],
+    request: { ...current, status: input.status, attempt: input.attempt, sessionStartedAt: input.sessionStartedAt },
+    events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewStatusChanged', details: { status: input.status, attempt: input.attempt } })],
   });
 }
 

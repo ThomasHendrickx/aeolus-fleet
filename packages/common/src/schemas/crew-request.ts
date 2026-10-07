@@ -77,6 +77,10 @@ export const listedCrewRequestSchema = z.object({
   reason: z.string().nullable(),
   /** The ship that got the starting prompt the ship's crew claimed with: argo for a hand crew, or its trierarch; null while not crewed. */
   crewedBy: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  /** How many times its trierarch restarted the session within its restart window, with the status: 0 on its first start. */
+  attempt: z.int().min(0),
+  /** When the session its trierarch runs now started, with the status; null while none runs. */
+  startedAt: z.iso.datetime().nullable(),
 });
 
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
@@ -89,7 +93,14 @@ export const assignCrewInputSchema = z.object({ shipId: idSchema('ship'), triera
 export const assignCrewOutputSchema = z.strictObject({});
 
 /** Input of `fleet.reportCrewStatus` (crew:run): the ship and how its crew stands. */
-export const reportCrewStatusInputSchema = z.object({ shipId: idSchema('ship'), status: crewStatusSchema });
+export const reportCrewStatusInputSchema = z.object({
+  shipId: idSchema('ship'),
+  status: crewStatusSchema,
+  /** How many times the trierarch restarted the session within its restart window: 0 on its first start (#332). Left out, 0. */
+  attempt: z.int().min(0).optional(),
+  /** When the session it runs now started (ISO 8601 in UTC); null while none runs. Left out, null. */
+  startedAt: z.iso.datetime().nullable().optional(),
+});
 
 /** Output of `fleet.reportCrewStatus`: nothing; the OK is the answer. */
 export const reportCrewStatusOutputSchema = z.strictObject({});

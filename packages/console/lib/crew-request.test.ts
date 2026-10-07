@@ -12,7 +12,7 @@ const REQUESTED_AT = '2026-10-07T10:20:00.000Z';
 const CREWED_SINCE = '2026-10-07T10:42:00.000Z';
 
 function aRequest(overrides: Partial<CrewRequest> = {}): CrewRequest {
-  return { settings: {}, settingsVersion: 1, requestedAt: REQUESTED_AT, assignedTo: null, status: null, reason: null, crewedBy: null, ...overrides };
+  return { settings: {}, settingsVersion: 1, requestedAt: REQUESTED_AT, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, ...overrides };
 }
 
 function anEvent(entry: Pick<TimelineEntry, 'type' | 'occurredAt' | 'actor'>): TimelineEntry {
@@ -33,7 +33,7 @@ describe('crewRequestStage', () => {
   });
 
   it('is crewed by hand while unassigned and a crew is aboard', () => {
-    expect(crewRequestStage({ crewRequest: aRequest({ crewedBy: ARGO }), crewedSince: CREWED_SINCE })).toEqual({
+    expect(crewRequestStage({ crewRequest: aRequest({ crewedBy: ARGO, attempt: 0, startedAt: null }), crewedSince: CREWED_SINCE })).toEqual({
       kind: 'crewedByHand',
       requestedAt: REQUESTED_AT,
       crewedBy: ARGO,
@@ -42,7 +42,7 @@ describe('crewRequestStage', () => {
   });
 
   it('is assigned with the status its trierarch wrote', () => {
-    expect(crewRequestStage({ crewRequest: aRequest({ assignedTo: TRIERARCH, status: 'running', crewedBy: TRIERARCH }), crewedSince: CREWED_SINCE })).toEqual({
+    expect(crewRequestStage({ crewRequest: aRequest({ assignedTo: TRIERARCH, status: 'running', crewedBy: TRIERARCH, attempt: 0, startedAt: null }), crewedSince: CREWED_SINCE })).toEqual({
       kind: 'assigned',
       requestedAt: REQUESTED_AT,
       trierarch: TRIERARCH,

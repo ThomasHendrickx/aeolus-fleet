@@ -72,6 +72,15 @@ import type { SequencedEvent } from '../../domain/shared/events.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
+/** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
+function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null }>(request: T | null) {
+  if (request === null) {
+    return null;
+  }
+  const { sessionStartedAt, ...rest } = request;
+  return { ...rest, requestedAt: request.requestedAt.toISOString(), startedAt: sessionStartedAt?.toISOString() ?? null };
+}
+
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 function pingOutputOf(ping: PingStatus | null) {
   return ping && { state: ping.state, sentAt: ping.sentAt.toISOString(), answeredAt: ping.answeredAt?.toISOString() ?? null };
@@ -339,7 +348,7 @@ export const fleetRouter = router({
         scopes: [...ship.scopes],
         labels: [...ship.labels],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
-        crewRequest: ship.crewRequest && { ...ship.crewRequest, requestedAt: ship.crewRequest.requestedAt.toISOString() },
+        crewRequest: crewRequestOutputOf(ship.crewRequest),
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
@@ -461,7 +470,7 @@ export const fleetRouter = router({
         scopes: [...ship.scopes],
         labels: [...ship.labels],
         report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
-        crewRequest: ship.crewRequest && { ...ship.crewRequest, requestedAt: ship.crewRequest.requestedAt.toISOString() },
+        crewRequest: crewRequestOutputOf(ship.crewRequest),
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
