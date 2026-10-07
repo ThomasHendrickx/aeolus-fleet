@@ -7,4 +7,4 @@
 
 Why: Instant revocation (release ends the lease and its crew token); scopes cannot be forged by a ship.
 
-Rejected: JWT as the ship credential (no instant revoke); `fleet:manage` for a trierarch (it would commission and retire, which crewing never needs); `fleet:crew`, crewing any ship of the fleet (0029). Short-lived JWTs for third parties stay possible later.
+Rejected: JWT as the ship credential (no instant revoke); `fleet:manage` for a trierarch (it would commission and retire, which crewing never needs); a scope crewing any ship of the fleet (0029). Short-lived JWTs for third parties stay possible later.

@@ -29,11 +29,11 @@ export type GetShip = (
 ) => Promise<Result<ShipDetail, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
 
 /** The scopes that read every ship; crew:run reads only the ships assigned to the caller's ship. */
-const READ_SCOPES = ['fleet:read', 'fleet:crew'] as const;
+const READ_SCOPES = ['fleet:read'] as const;
 
 /**
  * Use case: one ship of the caller's fleet, retired ships included: they keep
- * their page. The caller's scope (fleet:read, fleet:crew or crew:run) is
+ * their page. The caller's scope (fleet:read or crew:run) is
  * checked before this runs; crew:run reads only the ships whose crew requests
  * are assigned to the caller's ship.
  */

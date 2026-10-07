@@ -94,10 +94,10 @@ export const fleetRouter = router({
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
-  getStartingPrompt: anyScopeProcedure('fleet:manage', 'fleet:crew', 'crew:run')
+  getStartingPrompt: anyScopeProcedure('fleet:manage', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
+        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
       ].join(' '),
     })
     .input(getStartingPromptInputSchema)
@@ -130,10 +130,10 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: anyScopeProcedure('fleet:manage', 'fleet:crew', 'crew:run')
+  release: anyScopeProcedure('fleet:manage', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
+        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
         'Never argo; a ship awaiting crew gets a new starting prompt instead.',
       ].join(' '),
     })
@@ -332,10 +332,10 @@ export const fleetRouter = router({
     ),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
-  ship: anyScopeProcedure('fleet:read', 'fleet:crew', 'crew:run')
+  ship: anyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:read or fleet:crew, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
       ].join(' '),
     })
     .input(shipInputSchema)

@@ -30,7 +30,7 @@ export const SHIP_NOTE_MAX_LENGTH = 500;
 /**
  * Input of `fleet.commission`. The note is free text for the operator;
  * whitespace around it is dropped. `fleetScopes` adds fleet:read,
- * fleet:manage and/or fleet:crew to the scopes every agent ship has; none
+ * fleet:manage, crew:assign and/or crew:run to the scopes every agent ship has; none
  * when left out.
  * `idempotencyKey` is the caller's own key, as for a send: a retry with the
  * same key and the same request commissions no second ship.

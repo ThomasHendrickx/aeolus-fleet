@@ -182,18 +182,18 @@ describe('commissioning a ship in the console', () => {
     await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['fleet:read', 'fleet:manage']);
   });
 
-  it('commissions a trierarch with fleet:crew, shown on its page', async () => {
+  it('commissions a trierarch with crew:run, shown on its page', async () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'mac-mini', type: 'trierarch' });
     const dialog = page.getByTestId('commission-dialog');
-    await dialog.getByTestId('commission-fleet-crew').click();
+    await dialog.getByTestId('commission-crew-run').click();
 
     await dialog.getByTestId('commission-submit').click();
 
     await promptBlock(page, 'mac-mini').getByRole('button', { name: 'Done' }).click();
     await shipRow(page, 'mac-mini').getByRole('link', { name: /mac-mini/ }).click();
-    await page.getByTestId('ship-fleet-scope').getByText('fleet:crew').waitFor();
-    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['fleet:crew']);
+    await page.getByTestId('ship-fleet-scope').getByText('crew:run').waitFor();
+    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['crew:run']);
   });
 
   it('replaces an unclaimed prompt at once, saying the old one stops working', async () => {

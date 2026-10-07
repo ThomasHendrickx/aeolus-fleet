@@ -7,4 +7,4 @@
 
 Why: harnesses and machines differ (remote control, permission modes, sandboxes). A fixed option list would bend around one harness or grow without end, and a schema lets the console draw a form for any trierarch.
 
-Rejected: one fixed settings shape with every option named; free-form options with no schema; the 0.17 message protocol (describe, want, release, list and their notices), replaced by the crew request and the report.
+Rejected: one fixed settings shape with every option named; free-form options with no schema; a message protocol to the trierarch's ship, replaced by the crew request and the report.

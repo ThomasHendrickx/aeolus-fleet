@@ -104,7 +104,7 @@ export function commissionAgentShip(
     name: string;
     type: string;
     note?: string;
-    /** fleet:read, fleet:manage and/or fleet:crew, added to the agent scopes (ADR 0002). */
+    /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
     fleetScopes?: readonly FleetScope[];
     at: Date;
     actor: Actor;

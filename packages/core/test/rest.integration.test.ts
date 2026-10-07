@@ -368,28 +368,10 @@ describe('the fleet actions at /api/v1/fleet', () => {
     });
   });
 
-  it('serve a ship with fleet:crew one ship, its starting prompt and its release', async () => {
-    const trierarch = await crewedWithFleetScopes(['fleet:crew']);
-    const awaiting = await commissioned();
-    const crewed = await commissioned();
-    await register(crewed);
-
-    const read = await ok(request('fleet/ship', { crewToken: trierarch.crewToken, body: { shipId: awaiting.shipId } }), z.object({ id: z.string() }));
-    const prompt = await ok(
-      request('fleet/getStartingPrompt', { crewToken: trierarch.crewToken, body: { shipId: awaiting.shipId } }),
-      z.object({ prompt: z.string() }),
-    );
-    await ok(request('fleet/release', { crewToken: trierarch.crewToken, body: { shipId: crewed.shipId } }), z.object({}));
-
-    expect(read.id).toBe(awaiting.shipId);
-    expect(prompt.prompt).toContain(`Ship id: ${awaiting.shipId}`);
-    await expect(database.lease.count({ where: { shipId: crewed.shipId, endedAt: null } })).resolves.toBe(0);
-  });
-
-  it('refuse every other fleet route with 403 to a ship with only fleet:crew', async () => {
-    const trierarch = await crewedWithFleetScopes(['fleet:crew']);
+  it('refuse every fleet route but its own with 403 to a ship with only crew:run', async () => {
+    const trierarch = await crewedWithFleetScopes(['crew:run']);
     const others = SHIP_CALLS.filter(
-      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release'].includes(each.route),
+      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/assignedCrewRequests'].includes(each.route),
     );
 
     const answers = await Promise.all(

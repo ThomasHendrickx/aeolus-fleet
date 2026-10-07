@@ -12,7 +12,7 @@ import { trierarchNameSchema } from './names.js';
 
 const placeSchema = z.strictObject({ path: z.string().min(1) });
 
-/** An option a want may set: its values by name, each with the flags it adds, and the value used when the want sets none. */
+/** An option a crew request's settings may set: its values by name, each with the flags it adds, and the value used when the settings set none. */
 const optionSchema = z
   .strictObject({ values: z.record(trierarchNameSchema, z.array(z.string())), default: trierarchNameSchema.optional() })
   .refine((option) => option.default === undefined || option.default in option.values, {

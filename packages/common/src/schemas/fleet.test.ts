@@ -72,8 +72,8 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
-  it('accepts fleet:crew among the fleet scopes, for a trierarch', () => {
-    const input = { name: 'mac-mini', type: 'trierarch', fleetScopes: ['fleet:crew', 'crew:run'], idempotencyKey: 'commission-mac-mini' };
+  it('accepts crew:run among the fleet scopes, for a trierarch', () => {
+    const input = { name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'], idempotencyKey: 'commission-mac-mini' };
 
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });

@@ -20,7 +20,7 @@ export interface ReleaseShipTx extends LeaseTx, CredentialTx {
 export type ReleaseShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'> | ReleaseRefusal;
 
 /** The scopes that release every ship; crew:run releases only the ships assigned to the caller's ship. */
-const RELEASE_SCOPES = ['fleet:manage', 'fleet:crew'] as const;
+const RELEASE_SCOPES = ['fleet:manage'] as const;
 
 export type ReleaseShip = (
   caller: Caller,
@@ -33,7 +33,7 @@ export type ReleaseShip = (
  * one unit of work: the secret is invalidated, the lease ends and with it the
  * crew token, and the deliveries the lease held in flight return to pending,
  * their attempts kept. The next crew needs a new starting prompt. The caller's
- * scope (fleet:manage, fleet:crew or crew:run) is checked before this runs;
+ * scope (fleet:manage or crew:run) is checked before this runs;
  * crew:run reaches only the ships whose crew requests are assigned to the
  * caller's ship.
  *

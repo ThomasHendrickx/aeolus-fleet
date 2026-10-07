@@ -2,9 +2,19 @@ import { z } from 'zod';
 
 import { shipHandleSchema } from '../schemas/fleet.js';
 import { harnessSchema } from '../schemas/ship.js';
-import { FIRST_PROMPT_MAX_BYTES, trierarchWorkspaceSchema } from './protocol.js';
+import { trierarchNameSchema } from './names.js';
 
 const utf8 = new TextEncoder();
+
+/** The longest first prompt, in UTF-8 bytes: 8 KB, given on the first start only. */
+export const FIRST_PROMPT_MAX_BYTES = 8192;
+
+/** A new git worktree of a configured repository, or a configured folder used as it is: named, never a path. */
+export const trierarchWorkspaceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('worktree'), repository: trierarchNameSchema, ref: z.string().min(1).optional() }),
+  z.strictObject({ kind: z.literal('folder'), name: trierarchNameSchema }),
+]);
+export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
 
 /**
  * A crew request's settings as a trierarch reads them (decision 0027): the
