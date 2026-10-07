@@ -1,11 +1,13 @@
 import type { Party } from '@aeolus-fleet/common';
-import { CircleX, KeyRound, ListChecks, LoaderCircle, Power, RotateCcw, ShipWheel } from 'lucide-react';
+import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateCcw, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { crewRequestAction, isRestartable, type CrewRequestStage } from '../../lib/crew-request';
+import type { SettingsRow } from '../../lib/crew-settings-form';
+import { harnessWord } from '../../lib/harness';
 import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../lib/relative-time';
-import { OPERATOR_NAME } from '../../lib/sentence';
+import { capitalised, OPERATOR_NAME } from '../../lib/sentence';
 import { Button } from '../atoms/button';
 import { InlineError } from '../molecules/inline-error';
 import { StatusBadge } from '../molecules/status-badge';
@@ -26,8 +28,16 @@ interface CrewRequestCardProps {
   canManage: boolean;
   /** Whether the ship awaits crew, so a starting prompt crews it by hand. */
   isAwaitingCrew: boolean;
-  /** Whether the Trierarchs section is on: the trierarch then links to its machine there, else to its ship. */
+  /**
+   * Whether the trierarch plugin is on: Request crew then asks for settings,
+   * Edit changes them, the trierarch links to its machine, and no starting
+   * prompt is offered on the card (the ship header still offers it).
+   */
   hasTrierarchs?: boolean;
+  /** The request's settings as rows, when they are crew settings. */
+  settingsRows?: readonly SettingsRow[];
+  /** Edit the request's settings (decision 3); none without the plugin. */
+  onEdit?: () => void;
   busy?: CrewRequestBusy;
   /** The last action that failed, with why: nothing changed. */
   error?: { action: Exclude<CrewRequestBusy, undefined>; message: string };
@@ -144,6 +154,27 @@ function statusNote(stage: Extract<CrewRequestStage, { kind: 'assigned' }>, at: 
   }
 }
 
+/** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
+function SettingsGrid({ rows }: { rows: readonly SettingsRow[] }) {
+  return (
+    <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
+      {rows.map((row) => (
+        <div key={row.label} className="flex min-w-0 flex-col gap-0.5">
+          <dt className="text-caption font-medium text-muted-foreground">{row.label}</dt>
+          <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body font-medium">
+            {row.value === null ? (
+              <span className="font-normal text-muted-foreground">None</span>
+            ) : (
+              <span className={row.isMono ? 'truncate font-mono text-id' : 'truncate'}>{row.label === 'Harness' ? harnessWord(row.value) : row.value}</span>
+            )}
+            {row.meta === undefined ? null : <span className="text-meta font-normal text-muted-foreground">{row.meta}</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function Heading() {
   return (
     <span className="inline-flex items-center gap-2">
@@ -171,7 +202,9 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         <div className="flex flex-wrap items-center gap-3.5">
           <Heading />
           <p className="min-w-0 flex-1 text-meta text-muted-foreground">
-            No crew request. A crew request puts this ship on your Needs crew list until you crew it by hand.
+            {props.hasTrierarchs
+              ? 'No crew request. A crew request keeps this ship crewed: a trierarch starts a session for it and restarts it when it stops.'
+              : 'No crew request. A crew request puts this ship on your Needs crew list until you crew it by hand.'}
           </p>
           {canManage ? (
             <Button size="sm" icon={<ListChecks />} isLoading={busy === 'request'} onClick={props.onRequest} data-testid="crew-request-request">
@@ -233,12 +266,17 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
                 Restart
               </Button>
             ) : null}
+            {props.onEdit !== undefined && action !== undefined ? (
+              <Button size="sm" icon={<Pen />} disabled={isBusy} onClick={props.onEdit} data-testid="crew-request-edit">
+                Edit…
+              </Button>
+            ) : null}
             {action === 'release' ? (
               <Button size="sm" icon={<Power />} disabled={isBusy} onClick={props.onRelease} data-testid="crew-request-release">
                 Release…
               </Button>
             ) : null}
-            {stage.kind === 'needsCrew' && isAwaitingCrew ? (
+            {stage.kind === 'needsCrew' && isAwaitingCrew && !props.hasTrierarchs ? (
               <Button size="sm" variant="primary" icon={<KeyRound />} disabled={isBusy} onClick={props.onGetStartingPrompt} data-testid="crew-request-prompt">
                 Get starting prompt
               </Button>
@@ -247,9 +285,21 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         ) : null}
       </div>
       {stage.kind === 'assigned' ? statusNote(stage, { statusChangedAt: props.statusChangedAt, now }) : null}
+      {stage.kind === 'needsCrew' && props.hasTrierarchs ? (
+        stage.reason === null ? (
+          <Note tone="note" icon={<LoaderCircle aria-hidden />}>
+            Waiting for the trierarch plugin to assign a trierarch.
+          </Note>
+        ) : (
+          <Note tone="waiting" icon={<Clock aria-hidden />}>
+            <strong className="font-medium">{capitalised(stage.reason)}.</strong> The plugin assigns a trierarch as soon as one fits. Until then this ship is on Needs crew.
+          </Note>
+        )
+      ) : null}
       {failed}
+      {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} />}
       <p className="text-meta text-muted-foreground">
-        {stage.kind === 'needsCrew'
+        {stage.kind === 'needsCrew' && !props.hasTrierarchs
           ? 'On your Needs crew list. Crew it by hand: get a starting prompt and start a session with it. Crewing it fulfils the request; the request stays until you remove it. '
           : null}
         {stage.kind === 'crewedByHand'
