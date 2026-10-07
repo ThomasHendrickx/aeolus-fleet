@@ -1,4 +1,5 @@
 import { Boxes, Ship, ShipWheel, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import type { LabelChip as LabelChipData, OwnerMark } from '../../lib/labels';
@@ -9,6 +10,8 @@ interface LabelChipProps {
   onRemove?: () => void;
   testId?: string;
   className?: string;
+  /** What ends the chip when it opens a menu: a chevron. */
+  trailing?: ReactNode;
 }
 
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
@@ -19,7 +22,7 @@ const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plug
  * yours (Q10). Its title names the owner. In a filter it ends in an × that
  * takes it out.
  */
-export function LabelChip({ chip, onRemove, testId, className }: LabelChipProps) {
+export function LabelChip({ chip, onRemove, testId, className, trailing }: LabelChipProps) {
   const Mark = chip.mark === 'none' ? null : MARKS[chip.mark];
   const text = `${chip.key}=${chip.value}`;
   const owner = chip.mark === 'none' ? 'you' : chip.ownerName;
@@ -38,6 +41,7 @@ export function LabelChip({ chip, onRemove, testId, className }: LabelChipProps)
         <span className="text-muted-foreground">{chip.key}=</span>
         <span className="font-medium">{chip.value}</span>
       </span>
+      {trailing}
       {onRemove === undefined ? null : (
         <button
           type="button"
