@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown, Plus, Tag } from 'lucide-react';
+import { ChevronDown, Plus, Tag, Tags } from 'lucide-react';
+import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
@@ -34,7 +35,12 @@ function PickerPopover({ groups, picked, onPick, trigger }: Pick<LabelFilterProp
             setIsOpen(false);
           }}
         />
-        <p className="mt-2 border-t border-border px-2 pt-2 text-meta text-muted-foreground">Exact matches, all must hold.</p>
+        <p className="mt-2 flex items-center justify-between gap-2 border-t border-border px-2 pt-2 text-meta text-muted-foreground">
+          Exact matches, all must hold.
+          <Link href="/labels" className="font-medium text-foreground hover:underline" data-testid="label-filter-manage">
+            Manage labels
+          </Link>
+        </p>
       </PopoverContent>
     </Popover>
   );
@@ -158,6 +164,10 @@ export function PhoneLabelFilter({ groups, picked, onPick, onRemove }: Omit<Labe
           Add label
         </Button>
       )}
+      <Link href="/labels" className="inline-flex items-center gap-1.5 self-start text-meta text-muted-foreground hover:underline [&_svg]:size-(--size-icon-sm)">
+        <Tags aria-hidden />
+        All labels and their owners
+      </Link>
     </div>
   );
 }

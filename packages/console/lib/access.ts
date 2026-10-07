@@ -19,19 +19,27 @@ export interface Access {
   canSend: boolean;
   /** messages:receive: the operator inbox's Mark read, Mark done and Reply. */
   canReceive: boolean;
+  /** labels:define: Define a label, and change or delete the session's own (decision 0031). */
+  canDefineLabels: boolean;
   /** A viewer session: the read-only console's own copy (the sidebar foot, the account menu). */
   isViewer: boolean;
 }
 
 /** Until the session is known nothing is offered, so a viewer never sees a write flash by. */
-export const NO_ACCESS: Access = { canManage: false, canSend: false, canReceive: false, isViewer: false };
+export const NO_ACCESS: Access = { canManage: false, canSend: false, canReceive: false, canDefineLabels: false, isViewer: false };
 
 export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> | undefined): Access {
   if (session === undefined) {
     return NO_ACCESS;
   }
   const holds = (scope: Scope) => session.scopes.includes(scope);
-  return { canManage: holds('fleet:manage'), canSend: holds('messages:send'), canReceive: holds('messages:receive'), isViewer: session.kind === 'viewer' };
+  return {
+    canManage: holds('fleet:manage'),
+    canSend: holds('messages:send'),
+    canReceive: holds('messages:receive'),
+    canDefineLabels: holds('labels:define'),
+    isViewer: session.kind === 'viewer',
+  };
 }
 
 export function useAccess(): Access {

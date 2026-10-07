@@ -56,3 +56,25 @@ export function ownerShips(base: ListedShip): ListedShip[] {
 export function labelContext(ships: readonly ListedShip[], isOperator = true): LabelContext {
   return labelContextOf(LABELS, { ships, isOperator });
 }
+
+/** A ship carrying the given values, for stories of the Labels page; its id from a four-character suffix. */
+function labelledShip(suffix: string, ship: { name: string; labels: ListedShip['labels'] }): ListedShip {
+  return {
+    id: ownerId(suffix), name: ship.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
+    scopes: ['messages:send', 'messages:receive'], labels: ship.labels, report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null,
+  };
+}
+
+/** A fleet for the Labels page: argo, the plugins that own labels and a few ships carrying values. */
+export function labelledFleet(): ListedShip[] {
+  const argo: ListedShip = { ...labelledShip('h1aa', { name: 'argo', labels: [] }), type: 'operator', kind: 'operator' };
+  return [
+    argo,
+    ...ownerShips(argo),
+    labelledShip('m0a1', { name: 'aeolus-fleet', labels: [carried(PROJECT, 'aeolus'), carried(AREA, 'backend'), carried(OS, 'macos')] }),
+    labelledShip('m0a2', { name: 'hemma-api', labels: [carried(PROJECT, 'hemma'), carried(AREA, 'backend'), carried(BLUEPRINT, 'hemma-feature')] }),
+    labelledShip('m0a3', { name: 'hemma-web', labels: [carried(PROJECT, 'hemma'), carried(AREA, 'frontend')] }),
+    labelledShip('m0a4', { name: 'website-editor', labels: [carried(PROJECT, 'website'), carried(OS, 'linux')] }),
+    labelledShip('m0a5', { name: 'scout-1', labels: [] }),
+  ];
+}

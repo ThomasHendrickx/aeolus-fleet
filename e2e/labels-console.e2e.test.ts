@@ -157,4 +157,43 @@ describe('Labels in the console', () => {
     await expect.poll(() => page.getByTestId('ship-labels').textContent(), WITHIN).toContain('area=backend');
     await expect(page.getByTestId('ship-labels').textContent()).resolves.toContain('project=hemma');
   });
+
+  it('defines a label on the Labels page, changes its values at once, refuses removing a value ships carry, and deletes a label no ship carries', async () => {
+    const page = await signedIn();
+    await page.getByTestId('overview-labels').click();
+    await page.getByRole('heading', { name: 'Labels', exact: true }).waitFor();
+
+    await page.getByTestId('labels-define').click();
+    const define = page.getByTestId('define-label-dialog');
+    await define.getByTestId('define-label-key').fill('site');
+    for (const value of ['home', 'office']) {
+      await define.getByTestId('define-label-value-input').fill(value);
+      await define.getByTestId('define-label-value-input').press('Enter');
+    }
+    await define.getByTestId('define-label-submit').click();
+    await define.waitFor({ state: 'hidden' });
+    await expect.poll(() => page.getByTestId('labels-row-site').textContent(), WITHIN).toContain('office');
+
+    await page.getByTestId('labels-row-site').getByTestId('labels-row-menu').click();
+    await page.getByTestId('labels-change-values').click();
+    const values = page.getByTestId('label-values-dialog');
+    await values.getByTestId('label-values-new').fill('lab');
+    await values.getByTestId('label-values-add').click();
+    await expect.poll(() => values.getByTestId('label-values').textContent(), WITHIN).toContain('lab');
+    await values.getByRole('button', { name: 'Remove value home' }).click();
+    await expect.poll(() => values.getByTestId('label-values').textContent(), WITHIN).not.toContain('home');
+    await values.getByRole('button', { name: 'Close' }).click();
+
+    await page.getByTestId('labels-row-project').getByTestId('labels-row-menu').click();
+    await page.getByTestId('labels-change-values').click();
+    await values.getByRole('button', { name: 'Remove value hemma' }).click();
+    await expect.poll(() => values.textContent(), WITHIN).toContain('Couldn’t remove hemma');
+    await expect(values.textContent()).resolves.toContain('hemma-api');
+    await values.getByRole('button', { name: 'Close' }).click();
+
+    await page.getByTestId('labels-row-site').getByTestId('labels-row-menu').click();
+    await page.getByTestId('labels-delete').click();
+    await page.getByTestId('delete-label-confirm').click();
+    await expect.poll(() => page.getByTestId('labels-row-site').count(), WITHIN).toBe(0);
+  });
 });

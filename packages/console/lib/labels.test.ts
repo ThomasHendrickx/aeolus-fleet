@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { carriesEvery, chipsOf, filterGroupsOf, labelContextOf, pickedChips, rowChips } from './labels';
+import { activeShipCount, carriesEvery, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
 
 const newId = createIdGenerator();
 
@@ -37,7 +37,7 @@ function carried(label: ListedLabel, index: number): ListedShip['labels'][number
   return { labelId: label.id, key: label.key, valueId: value.id, value: value.value };
 }
 
-function valueId(label: ListedLabel, index: number): string {
+function valueId(label: ListedLabel, index: number): ListedShip['labels'][number]['valueId'] {
   return carried(label, index).valueId;
 }
 
@@ -143,5 +143,62 @@ describe('pickedChips', () => {
     const context = labelContextOf(LABELS, { ships: SHIPS, isOperator: true });
 
     expect(pickedChips([newId('labelValue')], context)).toEqual([]);
+  });
+});
+
+describe('labelRowsOf', () => {
+  const rows = labelRowsOf(labelContextOf(LABELS, { ships: SHIPS, isOperator: true }));
+
+  it('lists yours first, then each owner’s by name, each by key', () => {
+    expect(rows.map((row) => [row.key, row.owner.name, row.owner.isYours])).toEqual([
+      ['area', 'argo', true],
+      ['project', 'argo', true],
+      ['cost', 'orchestrator', false],
+      ['blueprint', 'squadrons', false],
+      ['os', 'trierarch-plugin', false],
+    ]);
+  });
+
+  it('counts the ships that carry each value, and any value of the label, leaving retired ships out', () => {
+    expect(rows.find((row) => row.key === 'project')).toMatchObject({
+      shipCount: 2,
+      values: [
+        { value: 'aeolus', shipCount: 1 },
+        { value: 'hemma', shipCount: 1 },
+      ],
+    });
+  });
+
+  it('counts the ships that are not retired', () => {
+    expect(activeShipCount({ ships: SHIPS })).toBe(6);
+  });
+});
+
+describe('matchesLabelQuery', () => {
+  const row = { key: 'project', values: [{ valueId: valueId(PROJECT, 1), value: 'hemma', shipCount: 1 }] };
+
+  it('matches the key or a value, ignoring case', () => {
+    expect([matchesLabelQuery(row, 'PROJ'), matchesLabelQuery(row, 'hem'), matchesLabelQuery(row, ' ')]).toEqual([true, true, true]);
+  });
+
+  it('misses text in neither', () => {
+    expect(matchesLabelQuery(row, 'aeolus')).toBe(false);
+  });
+});
+
+describe('labelTextProblem', () => {
+  it('names the field and the rule for capitals or spaces', () => {
+    expect(labelTextProblem('Project X', 'Key')).toBe('Key: use lowercase letters, digits and - only, at most 63 characters (decision 0031).');
+  });
+
+  it('refuses one character over the most', () => {
+    expect([labelTextProblem('a'.repeat(63), 'Value'), labelTextProblem('a'.repeat(64), 'Value')]).toEqual([
+      undefined,
+      'Value: use lowercase letters, digits and - only, at most 63 characters (decision 0031).',
+    ]);
+  });
+
+  it('says nothing while the field is empty', () => {
+    expect(labelTextProblem('', 'Key')).toBeUndefined();
   });
 });
