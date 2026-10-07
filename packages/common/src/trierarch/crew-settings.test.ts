@@ -36,6 +36,23 @@ describe('crewSettingsSchema (decision 0027)', () => {
     expect(crewSettingsSchema.safeParse({ ...documentedSettings(), ...change }).success).toBe(false);
   });
 
+  it('takes machine labels: the label value ids a machine carries every one of (#102)', () => {
+    const settings = { harness: 'codex', workspace: { kind: 'folder', name: 'notes' }, options: {}, machineLabels: ['lbv_01m3tbfspe96yf1rnr4ank9h1a', 'lbv_01m3tbfspe96yf1rnr4ank9h2a'] };
+
+    expect(crewSettingsSchema.parse(settings)).toEqual(settings);
+  });
+
+  it('takes 20 machine labels, the most a machine carries, and refuses 21', () => {
+    const labels = (count: number) => Array.from({ length: count }, (_, index) => `lbv_01m3tbfspe96yf1rnr4ank9h${'0123456789abcdefghjkmnpqrstvwxyz'.charAt(index)}a`);
+    const settings = (count: number) => ({ ...documentedSettings(), machineLabels: labels(count) });
+
+    expect([crewSettingsSchema.safeParse(settings(20)).success, crewSettingsSchema.safeParse(settings(21)).success]).toEqual([true, false]);
+  });
+
+  it('refuses a machine label that is not a label value id', () => {
+    expect(crewSettingsSchema.safeParse({ ...documentedSettings(), machineLabels: ['os=macos'] }).success).toBe(false);
+  });
+
   it('takes a first prompt of exactly 8 KB', () => {
     expect(crewSettingsSchema.safeParse({ ...documentedSettings(), firstPrompt: 'x'.repeat(8 * 1024) }).success).toBe(true);
   });
