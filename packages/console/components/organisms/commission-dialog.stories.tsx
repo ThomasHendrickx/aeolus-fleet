@@ -1,9 +1,10 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 import { createIdGenerator } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
-import { OFFERS } from './machines.fixtures';
+import { MACHINE_LABELS, OFFERS } from './machines.fixtures';
 
 const newId = createIdGenerator();
 
@@ -43,5 +44,17 @@ export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** With the trierarch plugin on: Request a crew carries the crew request's settings. */
-export const WithTrierarchPlugin: Story = { args: { crewRequest: { offers: OFFERS, squadrons: ['hemma-feature-63p5sx'], onSettingsChange: () => undefined } } };
+export const WithTrierarchPlugin: Story = { args: { crewRequest: { offers: OFFERS, squadrons: ['hemma-feature-63p5sx'], machineLabels: MACHINE_LABELS, onSettingsChange: () => undefined } } };
 export const WithTrierarchPluginNoRoom: Story = { args: { crewRequest: { offers: OFFERS, check: { kind: 'noRoom', reason: 'no trierarch with room: all 1 that fit are full' }, onSettingsChange: () => undefined } } };
+/** A machine label no machine carries, picked while commissioning: the request still goes, and waits for such a machine (#357). */
+export const WithMachineLabelNoMachineCarries: Story = {
+  args: WithTrierarchPlugin.args,
+  play: async () => {
+    await userEvent.click(await screen.findByTestId('machine-labels-add'));
+    await userEvent.click(await screen.findByRole('button', { name: /^os/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^linux/ }));
+    await waitFor(async () => {
+      await expect(screen.getByTestId('commission-crew-note')).toHaveTextContent('The request will wait for a machine with these labels.');
+    });
+  },
+};
