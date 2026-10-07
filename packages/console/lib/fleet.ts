@@ -124,3 +124,24 @@ export function useRemoveCrewRequest() {
   const refresh = useRefreshFleetSnapshot();
   return useMutation(trpc.fleet.removeCrewRequest.mutationOptions({ onSuccess: refresh }));
 }
+
+/** Defines a label argo then owns (decision 0031): its key and its values. A refusal names the rule or the key's owner. */
+export function useDefineLabel() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.defineLabel.mutationOptions({ onSuccess: refresh }));
+}
+
+/** Gives one of argo's labels every value it has from now on: adding or removing one at once. A value ships carry is refused, naming them. */
+export function useChangeLabelValues() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.changeLabelValues.mutationOptions({ onSuccess: refresh }));
+}
+
+/** Deletes one of argo's labels while no ship carries any of its values (#102, point 12). */
+export function useDeleteLabel() {
+  const trpc = useTRPC();
+  const refresh = useRefreshFleetSnapshot();
+  return useMutation(trpc.fleet.deleteLabel.mutationOptions({ onSuccess: refresh }));
+}

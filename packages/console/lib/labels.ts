@@ -1,4 +1,4 @@
-import type { ListedLabel, ListedShip } from '@aeolus-fleet/common';
+import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
@@ -139,4 +139,58 @@ export function pickedChips(valueIds: readonly string[], context: LabelContext):
     const owner = context.ownerOf.get(label.id);
     return [{ labelId: label.id, valueId, key: label.key, value: value.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name }];
   });
+}
+
+/** One label as the Labels page lists it (canvas Labels, LbList). */
+export interface LabelRow {
+  labelId: ListedLabel['id'];
+  key: string;
+  owner: { name: string; isYours: boolean; mark: OwnerMark };
+  values: { valueId: ListedLabel['values'][number]['id']; value: string; shipCount: number }[];
+  /** How many ships that are not retired carry any of its values. */
+  shipCount: number;
+}
+
+/** The ships that are not retired: "of 15" on the Labels page. */
+export function activeShipCount(context: Pick<LabelContext, 'ships'>): number {
+  return context.ships.filter((ship) => ship.status !== 'retired').length;
+}
+
+/** The Labels page's rows: yours first, then by owner name, each owner's by key. */
+export function labelRowsOf(context: LabelContext): LabelRow[] {
+  const active = context.ships.filter((ship) => ship.status !== 'retired');
+  return context.labels
+    .map((label) => {
+      const owner = context.ownerOf.get(label.id);
+      const carries = (valueId: string) => (ship: ListedShip) => ship.labels.some((carried) => carried.valueId === valueId);
+      return {
+        labelId: label.id,
+        key: label.key,
+        owner: { name: label.owner.name, isYours: owner?.isYours ?? false, mark: owner?.mark ?? 'ship' },
+        values: label.values.map((value) => ({ valueId: value.id, value: value.value, shipCount: active.filter(carries(value.id)).length })),
+        shipCount: active.filter((ship) => ship.labels.some((carried) => carried.labelId === label.id)).length,
+      };
+    })
+    .toSorted(
+      (one, other) =>
+        Number(other.owner.isYours) - Number(one.owner.isYours) || one.owner.name.localeCompare(other.owner.name) || one.key.localeCompare(other.key),
+    );
+}
+
+/** Whether a row matches the Labels page's search: its key or one of its values holds the text, ignoring case. */
+export function matchesLabelQuery(row: Pick<LabelRow, 'key' | 'values'>, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  return needle === '' || row.key.includes(needle) || row.values.some((value) => value.value.includes(needle));
+}
+
+/**
+ * What is wrong with a key or value as typed, in the words the Define and
+ * Values dialogs show under the field (canvas LbDefineInvalid); undefined when
+ * it is fine. The server checks the same rule (decision 0031).
+ */
+export function labelTextProblem(text: string, field: 'Key' | 'Value'): string | undefined {
+  if (text === '' || (text.length <= LABEL_HANDLE_MAX_LENGTH && LABEL_HANDLE_PATTERN.test(text))) {
+    return undefined;
+  }
+  return `${field}: use lowercase letters, digits and - only, at most ${String(LABEL_HANDLE_MAX_LENGTH)} characters (decision 0031).`;
 }
