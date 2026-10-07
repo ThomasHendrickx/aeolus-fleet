@@ -42,7 +42,8 @@ function PopoverContent({
   );
 }
 
+const PopoverTrigger = PopoverPrimitive.Trigger;
 const PopoverTitle = PopoverPrimitive.Title;
 const PopoverDescription = PopoverPrimitive.Description;
 
-export { Popover, PopoverContent, PopoverDescription, PopoverTitle };
+export { Popover, PopoverContent, PopoverDescription, PopoverTitle, PopoverTrigger };

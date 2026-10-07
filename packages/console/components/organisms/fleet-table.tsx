@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import {
+  activeFilterCount,
   activeFilterLabels,
   DEFAULT_FLEET_VIEW,
   filterFleet,
@@ -15,6 +16,7 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../../lib/fleet-filter';
+import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../lib/labels';
 import { dayMonth, fullDateTime, relativeTime } from '../../lib/relative-time';
 import type { ShipInSquadron } from '../../lib/squadrons-view';
 import { crewRequestStage } from '../../lib/crew-request';
@@ -29,6 +31,8 @@ import { Switch } from '../atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
+import { LabelChip } from '../molecules/label-chip';
+import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
 import { LocationTag } from '../molecules/location-tag';
@@ -38,6 +42,7 @@ import { ReportLine } from '../molecules/report-line';
 import { SquadronTag } from '../molecules/squadron-tag';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
+import { LabelFilterButton, PhoneLabelFilter, PickedLabels } from './label-filter';
 
 /** Where row actions render: the desktop row menu, the phone row's actions sheet, or the one next step in the Report cell. */
 export type RowActionsLayout = 'table' | 'phone' | 'next';
@@ -61,6 +66,16 @@ interface FleetTableProps {
   emptyAction?: ReactNode;
   /** With squadrons on, each flagship's and member's squadron, by ship id. */
   squadronsOf?: ReadonlyMap<string, ShipInSquadron>;
+  /** The fleet's labels, once read (#102): chips on rows and the label filter. */
+  labels?: LabelContext;
+}
+
+/** How much of a row's labels fit beside its name column, in characters, before the rest fold into "+n" (canvas Labels, Q2). */
+const ROW_LABELS_WIDTH = 22;
+
+/** The view with one more label value picked, one taken out, or none. */
+function withLabels(view: FleetView, labelValueIds: readonly string[]): FleetView {
+  return { ...view, filters: { ...view.filters, labelValueIds } };
 }
 
 const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
@@ -82,7 +97,7 @@ function isCrewRequestFilter(value: string): value is CrewRequestKey | 'all' {
 
 /** What the no-results action clears: the search, the filters, or both. */
 function clearLabel(query: string, filters: FleetFilters): string {
-  const isFiltered = activeFilterLabels(filters).length > 0;
+  const isFiltered = activeFilterCount(filters) > 0;
   if (query === '') {
     return 'Clear filters';
   }
@@ -210,7 +225,8 @@ function FilterControls({
   onViewChange,
   size,
   squadronsOf,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { size: 'sm' | 'touch' }) {
+  labels,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
   const { filters } = view;
   const types = fleetTypes(ships, filters.isRetiredShown);
   const typeItems: Record<string, string> = { all: 'All', ...Object.fromEntries(types.map((type) => [type, type])) };
@@ -317,6 +333,15 @@ function FilterControls({
           </SelectContent>
         </Select>
       )}
+      {labels === undefined || isTouch ? null : (
+        <LabelFilterButton
+          groups={filterGroupsOf(labels)}
+          picked={pickedChips(filters.labelValueIds, labels)}
+          onPick={(valueId) => {
+            onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
+          }}
+        />
+      )}
       {activeFilterLabels(filters).length > 0 && !isTouch ? (
         <Button
           variant="ghost"
@@ -376,12 +401,13 @@ function PhoneFilters({
   onViewChange,
   shownCount,
   squadronsOf,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { shownCount: number }) {
+  labels,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
   const { filters } = view;
   const change = (next: Partial<FleetFilters>) => {
     onViewChange({ ...view, filters: { ...filters, ...next } });
   };
-  const active = activeFilterLabels(filters).length;
+  const active = activeFilterCount(filters);
   const retired = retiredCount(ships);
   return (
     <Sheet>
@@ -490,6 +516,18 @@ function PhoneFilters({
               </div>
             </div>
           )}
+          {labels === undefined ? null : (
+            <PhoneLabelFilter
+              groups={filterGroupsOf(labels)}
+              picked={pickedChips(filters.labelValueIds, labels)}
+              onPick={(valueId) => {
+                onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
+              }}
+              onRemove={(valueId) => {
+                onViewChange(withLabels(view, filters.labelValueIds.filter((each) => each !== valueId)));
+              }}
+            />
+          )}
           <div className="flex items-center justify-between gap-2 py-1">
             <Label htmlFor="fleet-show-retired-touch" className="text-body-touch font-normal">
               Show retired ships <span className="text-muted-foreground">({retired})</span>
@@ -512,17 +550,27 @@ function PhoneFilters({
 }
 
 /** The filters in force as chips under the phone's search, with Clear filters. */
-function PhoneFilterChips({ view, onViewChange }: Pick<FleetTableProps, 'view' | 'onViewChange'>) {
-  const labels = activeFilterLabels(view.filters);
-  if (labels.length === 0) {
+function PhoneFilterChips({ view, onViewChange, labels }: Pick<FleetTableProps, 'view' | 'onViewChange' | 'labels'>) {
+  const words = activeFilterLabels(view.filters);
+  const picked = labels === undefined ? [] : pickedChips(view.filters.labelValueIds, labels);
+  if (words.length === 0 && picked.length === 0) {
     return null;
   }
   return (
     <div className="flex w-full flex-wrap items-center gap-1.5 sm:hidden" data-testid="fleet-filter-chips">
-      {labels.map((label) => (
-        <Badge key={label} variant="outline" className="max-w-full truncate">
-          {label}
+      {words.map((word) => (
+        <Badge key={word} variant="outline" className="max-w-full truncate">
+          {word}
         </Badge>
+      ))}
+      {picked.map((chip) => (
+        <LabelChip
+          key={chip.valueId}
+          chip={chip}
+          onRemove={() => {
+            onViewChange(withLabels(view, view.filters.labelValueIds.filter((each) => each !== chip.valueId)));
+          }}
+        />
       ))}
       <Button
         variant="ghost"
@@ -543,7 +591,8 @@ function Toolbar({
   onViewChange,
   shownCount,
   squadronsOf,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf'> & { shownCount: number }) {
+  labels,
+}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
   return (
     <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2">
       <div className="w-60 max-sm:min-w-0 max-sm:flex-1">
@@ -561,10 +610,10 @@ function Toolbar({
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 max-sm:hidden sm:flex-1">
-        <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} size="sm" />
+        <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
       </div>
-      <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} />
-      <PhoneFilterChips view={view} onViewChange={onViewChange} />
+      <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} labels={labels} />
+      <PhoneFilterChips view={view} onViewChange={onViewChange} labels={labels} />
       <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums max-sm:w-full">
         {shownCount} of {ships.length} ships
       </p>
@@ -584,13 +633,14 @@ function DesktopTable({
   now,
   renderRowActions,
   squadronsOf,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
+  labels,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels'> & { ships: readonly ListedShip[] }) {
   return (
     <div className="max-sm:hidden">
       <Table aria-label="Ships">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>{labels === undefined || labels.labels.length === 0 ? 'Name' : 'Name and labels'}</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Crew request</TableHead>
             <TableHead>Report</TableHead>
@@ -611,9 +661,12 @@ function DesktopTable({
               className="h-12"
             >
               <TableCell className="max-w-64">
-                <span className="flex min-w-0 items-center gap-2">
-                  <ShipNameCell ship={ship} />
-                  <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ShipNameCell ship={ship} />
+                    <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+                  </span>
+                  {labels === undefined ? null : <LabelChips chips={chipsOf(ship, labels)} width={ROW_LABELS_WIDTH} testId="fleet-labels" />}
                 </span>
               </TableCell>
               <TableCell>
@@ -684,7 +737,8 @@ function PhoneList({
 
 /**
  * The fleet overview list (docs/design/png/FleetTable.png): one calm 48 px
- * line per ship. Columns name (with the operator chip, flagship chip or
+ * line per ship, with its labels on a second line once the fleet's labels are
+ * read (canvas Labels, Q2; none on phone, Q3). Columns name (with the operator chip, flagship chip or
  * SquadronTag), status, crew request (a tone dot and a word; #245), report, runs on (harness and location kind; an
  * awaiting ship's prompt status), model and last seen (an icon). argo sorts
  * first and never reports; search and filters apply to it like any ship.
@@ -704,6 +758,7 @@ export function FleetTable({
   renderRowActions,
   emptyAction,
   squadronsOf,
+  labels,
 }: FleetTableProps) {
   if (state === 'loading') {
     return (
@@ -731,7 +786,7 @@ export function FleetTable({
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (
       <div data-slot="fleet-table" data-state="empty" className="flex flex-col gap-3">
-        <DesktopTable ships={argo} {...rows} />
+        <DesktopTable ships={argo} labels={labels} {...rows} />
         <PhoneList ships={argo} {...rows} />
         <EmptyState
           icon={<Ship />}
@@ -747,7 +802,22 @@ export function FleetTable({
   const query = view.query.trim();
   return (
     <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">
-      <Toolbar ships={ships} view={view} onViewChange={onViewChange} shownCount={shown.length} squadronsOf={squadronsOf} />
+      <Toolbar ships={ships} view={view} onViewChange={onViewChange} shownCount={shown.length} squadronsOf={squadronsOf} labels={labels} />
+      {labels === undefined ? null : (
+        <PickedLabels
+          groups={filterGroupsOf(labels)}
+          picked={pickedChips(view.filters.labelValueIds, labels)}
+          onPick={(valueId) => {
+            onViewChange(withLabels(view, [...view.filters.labelValueIds, valueId]));
+          }}
+          onRemove={(valueId) => {
+            onViewChange(withLabels(view, view.filters.labelValueIds.filter((each) => each !== valueId)));
+          }}
+          onClear={() => {
+            onViewChange(withLabels(view, []));
+          }}
+        />
+      )}
       {shown.length === 0 ? (
         <EmptyState
           variant="no-results"
@@ -766,7 +836,7 @@ export function FleetTable({
         />
       ) : (
         <>
-          <DesktopTable ships={shown} {...rows} />
+          <DesktopTable ships={shown} labels={labels} {...rows} />
           <PhoneList ships={shown} {...rows} />
         </>
       )}
