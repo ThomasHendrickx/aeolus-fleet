@@ -42,9 +42,10 @@ interface CommissionDialogProps {
   /** Where the hosted account lists the limits, for View limits. */
   accountUrl?: string;
   /**
-   * With the trierarch plugin on: what the machines offer, the fleet's
-   * squadrons, and the plugin's check of the settings as the form makes them.
-   * Without it, Request a crew puts the ship on Needs crew, to crew by hand.
+   * With the trierarch plugin connected: what the machines offer, the fleet's
+   * squadrons, and the plugin's check of the settings as the form makes them;
+   * Request a crew then starts on. Without it, Request a crew starts off and
+   * puts the ship on Needs crew, to crew by hand.
    */
   crewRequest?: {
     offers: readonly HarnessOffer[];
@@ -78,8 +79,8 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
   const [fleetScopes, setFleetScopes] = useState<readonly FleetScope[]>([]);
-  // On by default, as the canvas draws it (CrCommission, CrCommissionOff).
-  const [isCrewRequested, setIsCrewRequested] = useState(true);
+  // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
+  const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
   const [crewValues, setCrewValues] = useState<CrewSettingsValues>(() => defaultValues(crewRequest?.offers ?? []));
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;

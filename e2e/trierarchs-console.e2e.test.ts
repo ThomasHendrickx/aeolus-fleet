@@ -150,5 +150,12 @@ describe('Trierarchs in the console', () => {
     await plugin.assignOnce();
     await card.getByTestId('crew-request-trierarch').getByText('trierarch-mac').waitFor({ timeout: 30_000 });
     await expect(card.getByTestId('crew-request-trierarch').getAttribute('href')).resolves.toBe(`/trierarchs/${shipId}`);
+
+    // Crewing is not running yet: the request is on Needs crew, and the overview shows where it stands.
+    await expect.poll(() => page.getByTestId('nav-needs-crew-count').textContent(), { timeout: 30_000 }).toContain('1');
+    await page.getByTestId('nav-needs-crew').click();
+    await page.getByTestId('needs-crew-row').getByText('scout').waitFor();
+    await page.getByTestId('nav-overview').click();
+    await expect.poll(() => page.getByTestId('fleet-row-scout').getByTestId('fleet-crew-request').textContent()).toBe('Crewing');
   });
 });

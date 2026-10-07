@@ -20,3 +20,6 @@ export const InboxActive: Story = { args: { active: 'inbox' } };
 export const AttentionActiveNoCounts: Story = {
   args: { active: 'attention', inboxCount: undefined, attentionCount: undefined },
 };
+
+/** With squadrons and the trierarch plugin on: Trierarchs follows Squadrons, counting its silent machines. */
+export const WithTrierarchs: Story = { args: { active: 'trierarchs', hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1 } };

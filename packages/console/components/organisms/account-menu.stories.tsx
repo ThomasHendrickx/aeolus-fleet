@@ -141,3 +141,9 @@ export const PhoneHosted: Story = {
     await userEvent.click(within(canvasElement).getByTestId('account-menu'));
   },
 };
+
+/** On phone with the trierarch plugin on: Settings moves into the account sheet (#245). */
+export const SheetWithSettings: Story = {
+  args: { settingsHref: '/settings' },
+  render: (args) => <AccountMenuSheet {...args} />,
+};

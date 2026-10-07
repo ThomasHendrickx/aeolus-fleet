@@ -94,3 +94,37 @@ export const OFFERS = offersOf(MACHINES);
 
 /** Crew settings as the plugin's form makes them. */
 export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, firstPrompt: 'Triage new GitHub issues on aeolus-fleet and send argo a summary each morning.' };
+
+/** A plain agent ship awaiting crew, for the Needs crew stories. */
+const AWAITING: ListedShip = {
+  id: shipId('nc00'), name: 'awaiting', type: 'implementer', kind: 'agent', status: 'awaitingCrew', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
+  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null,
+};
+
+const TRIAGE: ListedShip = {
+  ...AWAITING,
+  id: shipId('nc01'), name: 'triage-bot', type: 'triage',
+  crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(190), assignedTo: null, status: null, reason: null, crewedBy: null },
+};
+
+/** Ships on Needs crew: without the plugin, to crew by hand; with it, requests that are not running. */
+export const NEEDS_CREW_BY_HAND: ListedShip[] = [
+  TRIAGE,
+  {
+    ...AWAITING,
+    id: shipId('nc02'), name: 'reviewer-3', type: 'reviewer',
+    startingPrompt: { issuedAt: minutesAgo(12), isClaimed: false },
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(87), assignedTo: null, status: null, reason: null, crewedBy: null },
+  },
+  {
+    ...AWAITING,
+    id: shipId('nc03'), name: 'planner-2', type: 'planner',
+    startingPrompt: { issuedAt: minutesAgo(3000), isClaimed: true }, awaitingCrewSince: minutesAgo(375),
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(3000), assignedTo: null, status: null, reason: null, crewedBy: null },
+  },
+];
+
+export const NEEDS_CREW_WITH_PLUGIN: ListedShip[] = [
+  { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null } },
+  ...SPOTS.filter((spot) => spot.status !== 'running').map((spot) => FLEET.find((ship) => ship.id === spot.shipId)).filter((ship) => ship !== undefined),
+];

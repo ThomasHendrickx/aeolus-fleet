@@ -13,6 +13,7 @@ import { FleetLimits } from '../components/organisms/fleet-limits';
 import { FleetOverview } from '../components/organisms/fleet-overview';
 import { LimitNotice } from '../components/molecules/limit-notice';
 import { ListLayout } from '../components/templates/list-layout';
+import { FleetSegments } from '../components/molecules/fleet-segments';
 import { useAccess } from '../lib/access';
 import { useFleetLimits } from '../lib/fleet-limits';
 import { useHostedAccountUrl } from '../lib/hosted-account';
@@ -110,6 +111,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
         </>
       }
     >
+      <FleetSegments active="ships" needsCrewCount={pluginNav.needsCrewCount} />
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <FleetLimits />
       <OverviewMetrics />

@@ -157,7 +157,7 @@ function statusNote(stage: Extract<CrewRequestStage, { kind: 'assigned' }>, at: 
 /** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
 function SettingsGrid({ rows }: { rows: readonly SettingsRow[] }) {
   return (
-    <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
+    <dl data-testid="crew-request-settings" className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-5 gap-y-3 border-t border-border pt-3">
       {rows.map((row) => (
         <div key={row.label} className="flex min-w-0 flex-col gap-0.5">
           <dt className="text-caption font-medium text-muted-foreground">{row.label}</dt>

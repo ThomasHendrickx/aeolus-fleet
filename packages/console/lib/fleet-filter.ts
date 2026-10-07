@@ -1,10 +1,14 @@
 import { shipStatusSchema, type ListedShip, type ShipStatus } from '@aeolus-fleet/common';
 
+import { crewRequestStage } from './crew-request';
+import { CREW_REQUEST_KEYS, crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from './needs-crew';
 import type { ShipInSquadron } from './squadrons-view';
 
-/** The overview filters (docs/design/png/FleetTable.png): status, type, squadron (with squadrons on) and Show retired. */
+/** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), type, squadron (with squadrons on) and Show retired. */
 export interface FleetFilters {
   status: Exclude<ShipStatus, 'retired'> | 'all';
+  /** Where a ship's crew request stands, or `all`. */
+  crewRequest: CrewRequestKey | 'all';
   /** A ship type, or `all`. */
   type: string;
   /** A squadron's id: its flagship and members only; or `all`. */
@@ -20,14 +24,14 @@ export interface FleetView {
 
 export const DEFAULT_FLEET_VIEW: FleetView = {
   query: '',
-  filters: { status: 'all', type: 'all', squadron: 'all', isRetiredShown: false },
+  filters: { status: 'all', crewRequest: 'all', type: 'all', squadron: 'all', isRetiredShown: false },
 };
 
 /** The view as filtering reads it: with squadrons on, which squadron each ship belongs to. */
 export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron> };
 
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-const PARAMS = { query: 'q', status: 'status', type: 'type', squadron: 'squadron', isRetiredShown: 'retired' } as const;
+const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired' } as const;
 const RETIRED_SHOWN = '1';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
@@ -44,6 +48,9 @@ function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | '
     return false;
   }
   if (filters.status !== 'all' && ship.status !== filters.status) {
+    return false;
+  }
+  if (filters.crewRequest !== 'all' && crewRequestKey(crewRequestStage(ship)) !== filters.crewRequest) {
     return false;
   }
   return filters.type === 'all' || ship.type === filters.type;
@@ -83,12 +90,17 @@ function readStatus(value: string | null): FleetFilters['status'] {
   return parsed.success && parsed.data !== 'retired' ? parsed.data : 'all';
 }
 
+function readCrewRequest(value: string | null): FleetFilters['crewRequest'] {
+  return CREW_REQUEST_KEYS.find((key) => key === value) ?? 'all';
+}
+
 /** Reads the overview's view from the URL; anything unknown falls back to the default. */
 export function readFleetView(params: URLSearchParams): FleetView {
   return {
     query: params.get(PARAMS.query) ?? '',
     filters: {
       status: readStatus(params.get(PARAMS.status)),
+      crewRequest: readCrewRequest(params.get(PARAMS.crewRequest)),
       type: params.get(PARAMS.type) ?? 'all',
       squadron: params.get(PARAMS.squadron) ?? 'all',
       isRetiredShown: params.get(PARAMS.isRetiredShown) === RETIRED_SHOWN,
@@ -104,6 +116,9 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
   }
   if (view.filters.status !== 'all') {
     params.set(PARAMS.status, view.filters.status);
+  }
+  if (view.filters.crewRequest !== 'all') {
+    params.set(PARAMS.crewRequest, view.filters.crewRequest);
   }
   if (view.filters.type !== 'all') {
     params.set(PARAMS.type, view.filters.type);
@@ -126,12 +141,13 @@ const STATUS_WORDS: Record<Exclude<FleetFilters['status'], 'all'>, string> = { c
 
 /**
  * The filters in force, in words, for the phone's chips under the search
- * (canvas, MOverviewFilters): "Status: Crewed", "Type: reviewer",
+ * (canvas, MOverviewFilters): "Status: Crewed", "Crew request: Needs crew", "Type: reviewer",
  * "Squadron: <id>", "Retired shown". None for the defaults.
  */
 export function activeFilterLabels(filters: FleetFilters): string[] {
   return [
     filters.status === 'all' ? undefined : `Status: ${STATUS_WORDS[filters.status]}`,
+    filters.crewRequest === 'all' ? undefined : `Crew request: ${crewRequestKeyWord(filters.crewRequest)}`,
     filters.type === 'all' ? undefined : `Type: ${filters.type}`,
     filters.squadron === 'all' ? undefined : `Squadron: ${filters.squadron}`,
     filters.isRetiredShown ? 'Retired shown' : undefined,

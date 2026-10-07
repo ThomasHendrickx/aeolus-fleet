@@ -1,6 +1,6 @@
 'use client';
 
-import { CodeXml, Inbox, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { CodeXml, Inbox, ListChecks, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,7 +10,7 @@ import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'settings';
+export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
@@ -19,6 +19,8 @@ interface SidebarProps extends AccountMenuProps {
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
+  /** Ships on Needs crew; hidden until known, and when there are none. */
+  needsCrewCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
   /** Whether the console has the trierarch plugin: Trierarchs then comes after Squadrons. */
@@ -75,6 +77,22 @@ function InboxCount({ count }: { count: number | undefined }) {
   );
 }
 
+/** The Needs crew count: a neutral pill from 1024 px, a dot on the rail, the number kept for assistive technology either way. */
+function NeedsCrewCount({ count }: { count: number | undefined }) {
+  if (count === undefined || count === 0) {
+    return null;
+  }
+  return (
+    <>
+      <Badge variant="count-neutral" data-testid="nav-needs-crew-count" className="max-lg:sr-only">
+        {count}
+        <span className="sr-only"> need crew</span>
+      </Badge>
+      <span aria-hidden className="absolute top-1.5 right-4 size-1.5 rounded-full bg-muted-foreground lg:hidden" />
+    </>
+  );
+}
+
 /**
  * The attention count: a pill in the attention tone from 1024 px, a dot on the
  * rail, the number kept for assistive technology either way.
@@ -100,6 +118,7 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * upwards. 256 px
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
+ * Needs crew, which counts the ships on it (#245);
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
@@ -107,7 +126,7 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * silent machines in the attention tone (#245). Settings, which holds the
  * plugins, sits with the link to the source on GitHub above the account menu.
  */
-export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -127,6 +146,14 @@ export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = fal
           icon={<Ship aria-hidden />}
           isActive={active === 'overview'}
           testId="nav-overview"
+        />
+        <NavItem
+          href="/needs-crew"
+          label="Needs crew"
+          icon={<ListChecks aria-hidden />}
+          isActive={active === 'needs-crew'}
+          testId="nav-needs-crew"
+          count={<NeedsCrewCount count={needsCrewCount} />}
         />
         {hasSquadrons && (
           <NavItem href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="nav-squadrons" />

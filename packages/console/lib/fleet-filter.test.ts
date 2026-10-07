@@ -112,14 +112,27 @@ describe('retiredCount', () => {
   });
 });
 
+describe('the crew request filter (#245)', () => {
+  const requested = aShip({ name: 'scout', status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-07T10:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null } });
+
+  it('keeps the ships whose crew request stands so, and those without one for No request', () => {
+    expect(names(filterFleet([...fleet, requested], view({ crewRequest: 'needsCrew' })))).toEqual(['scout']);
+    expect(names(filterFleet([...fleet, requested], view({ crewRequest: 'none' })))).toEqual(['argo', 'builder-web', 'reviewer-01']);
+  });
+});
+
 describe('the view in the URL', () => {
   it('leaves every default out', () => {
     expect(fleetViewParams(DEFAULT_FLEET_VIEW).toString()).toBe('');
   });
 
   it('reads back what it wrote', () => {
-    const written = view({ query: 'rev', status: 'crewed', type: 'reviewer', squadron: 'team-a1b2c3', isRetiredShown: true });
+    const written = view({ query: 'rev', status: 'crewed', crewRequest: 'crashed', type: 'reviewer', squadron: 'team-a1b2c3', isRetiredShown: true });
     expect(readFleetView(fleetViewParams(written))).toEqual(written);
+  });
+
+  it('falls back to the default for a crew request stage it does not know', () => {
+    expect(readFleetView(new URLSearchParams('crew=sailing')).filters.crewRequest).toBe('all');
   });
 
   it('falls back to the default for a status it does not know', () => {
@@ -133,8 +146,9 @@ describe('activeFilterLabels', () => {
   });
 
   it('names each filter in force, in the order of the controls', () => {
-    expect(activeFilterLabels({ status: 'awaitingCrew', type: 'reviewer', squadron: 'hemma-feature-a1b2c3', isRetiredShown: true })).toEqual([
+    expect(activeFilterLabels({ status: 'awaitingCrew', crewRequest: 'needsCrew', type: 'reviewer', squadron: 'hemma-feature-a1b2c3', isRetiredShown: true })).toEqual([
       'Status: Awaiting crew',
+      'Crew request: Needs crew',
       'Type: reviewer',
       'Squadron: hemma-feature-a1b2c3',
       'Retired shown',

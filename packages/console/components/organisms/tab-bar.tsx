@@ -1,11 +1,11 @@
-import { Inbox, Shapes, Ship, TriangleAlert } from 'lucide-react';
+import { Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'squadrons' | 'inbox' | 'attention';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
@@ -16,6 +16,10 @@ interface TabBarProps {
   attentionCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
+  /** Whether the trierarch plugin is on: Trierarchs then follows Squadrons, counting its silent machines (#245, decision 6). */
+  hasTrierarchs?: boolean;
+  /** Silent machines; hidden until known, and when there are none. */
+  trierarchsCount?: number;
 }
 
 const TAB =
@@ -64,10 +68,11 @@ function Tab({
  * area, the same destinations and counts as Sidebar: Fleet; Inbox with the
  * open messages to argo counted on its icon in --primary; and Attention with
  * the undeliverable deliveries counted in the attention tone. With squadrons
- * on, Squadrons is the second of five tabs. The active tab uses --primary for
- * icon and label.
+ * on, Squadrons is the second tab; with the trierarch plugin on, Trierarchs
+ * follows it, and Settings moves into the account sheet. The active tab uses
+ * --primary for icon and label.
  */
-export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false }: TabBarProps) {
+export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
@@ -76,6 +81,16 @@ export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = fals
     >
       <Tab href="/" label="Fleet" icon={<Ship aria-hidden />} isActive={active === 'fleet'} testId="tab-fleet" />
       {hasSquadrons && <Tab href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="tab-squadrons" />}
+      {hasTrierarchs && (
+        <Tab
+          href="/trierarchs"
+          label="Trierarchs"
+          icon={<ShipWheel aria-hidden />}
+          isActive={active === 'trierarchs'}
+          testId="tab-trierarchs"
+          count={{ value: trierarchsCount, tone: 'attention', words: 'silent' }}
+        />
+      )}
       <Tab
         href="/inbox"
         label="Inbox"
