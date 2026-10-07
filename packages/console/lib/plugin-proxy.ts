@@ -1,11 +1,12 @@
 /**
- * What the squadrons proxy (app/api/squadrons/[procedure]) lets through. It
- * forwards the operator's console session, so a mutation must come from the
- * console itself: a page on a sibling host shares the site, and SameSite does
- * not stop it from posting a form with the cookie.
+ * What a plugin's proxy (app/api/squadrons/[procedure],
+ * app/api/trierarch-plugin/[procedure]) lets through. It forwards the
+ * operator's console session, so a mutation must come from the console
+ * itself: a page on a sibling host shares the site, and SameSite does not
+ * stop it from posting a form with the cookie.
  */
 
-/** The console session cookie the fleet sets: the only cookie squadrons needs. */
+/** The console session cookie the fleet sets: the only cookie a plugin needs. */
 const SESSION_COOKIE_NAME = 'aeolus_session';
 
 /**
@@ -13,15 +14,15 @@ const SESSION_COOKIE_NAME = 'aeolus_session';
  * the console's own origin (Sec-Fetch-Site same-origin, or without that header
  * an Origin equal to the console's) and carry JSON, which a plain form cannot.
  */
-export function mutationRefusal(request: Request): string | undefined {
+export function mutationRefusal(request: Request, plugin: string): string | undefined {
   const fetchSite = request.headers.get('sec-fetch-site');
   const isSameOrigin = fetchSite === null ? request.headers.get('origin') === new URL(request.url).origin : fetchSite === 'same-origin';
   if (!isSameOrigin) {
-    return 'Squadrons changes come only from the console';
+    return `${plugin.charAt(0).toUpperCase()}${plugin.slice(1)} changes come only from the console`;
   }
   const contentType = request.headers.get('content-type') ?? '';
   if (contentType.split(';')[0]?.trim().toLowerCase() !== 'application/json') {
-    return 'A squadrons change is sent as JSON';
+    return `A ${plugin} change is sent as JSON`;
   }
   return undefined;
 }

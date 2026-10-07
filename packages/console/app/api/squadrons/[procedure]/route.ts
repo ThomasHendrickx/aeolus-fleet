@@ -1,4 +1,4 @@
-import { mutationRefusal, sessionCookieOf } from '../../../../lib/squadrons-proxy';
+import { mutationRefusal, sessionCookieOf } from '../../../../lib/plugin-proxy';
 import { squadronsUrlFrom } from '../../../../lib/squadrons-url';
 
 // Answer every request fresh: squadrons' state changes.
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * fleet (decision 0017). Only the procedures the console uses pass; the
  * connection has its own route, which keeps the management secret server side.
  * A mutation passes only from the console, as JSON, and only the session
- * cookie goes along (lib/squadrons-proxy.ts).
+ * cookie goes along (lib/plugin-proxy.ts).
  */
 const QUERIES = new Set(['catalogue.list', 'squadrons.list', 'squadrons.messages', 'repositories.list']);
 const MUTATIONS = new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'squadrons.removeMember', 'squadrons.newCrewLine', 'catalogue.refresh', 'repositories.add', 'repositories.remove']);
@@ -94,7 +94,7 @@ export async function POST(request: Request, context: { params: Promise<{ proced
       { status: 404 },
     );
   }
-  const refusal = mutationRefusal(request);
+  const refusal = mutationRefusal(request, 'squadrons');
   if (refusal !== undefined) {
     return Response.json({ error: { message: refusal, data: { code: 'FORBIDDEN' } } }, { status: 403 });
   }
