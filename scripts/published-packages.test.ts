@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -24,5 +26,20 @@ function tarballFiles(name: string): string[] {
 describe.each(PUBLISHED_PACKAGES)('the published package %s', (name) => {
   it('ships the LICENSE', { timeout: 30_000 }, () => {
     expect(tarballFiles(name)).toContain('LICENSE');
+  });
+});
+
+describe('the published package console', () => {
+  it('ships no source maps of the server build', { timeout: 30_000 }, () => {
+    // A stand-in for the maps next build writes, so the test needs no build.
+    const serverFolder = join(repositoryRoot, 'packages', 'console', '.next', 'server');
+    const createdFolder = mkdirSync(serverFolder, { recursive: true });
+    const sourceMap = join(serverFolder, 'aeolus-published-packages-test.js.map');
+    writeFileSync(sourceMap, '{}');
+    try {
+      expect(tarballFiles('console').filter((path) => path.endsWith('.map'))).toEqual([]);
+    } finally {
+      rmSync(createdFolder ?? sourceMap, { recursive: true, force: true });
+    }
   });
 });
