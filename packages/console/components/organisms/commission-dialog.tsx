@@ -1,10 +1,12 @@
 'use client';
 
-import { FLEET_SCOPES, SHIP_HANDLE_MAX_LENGTH, shipHandleSchema, type FleetScope, type ListedShip } from '@aeolus-fleet/common';
+import { FLEET_SCOPES, SHIP_HANDLE_MAX_LENGTH, shipHandleSchema, type CrewSettings, type FleetScope, type ListedShip } from '@aeolus-fleet/common';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
+import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
+import type { SettingsCheck } from '../../lib/trierarch-plugin';
 import { asHandle, checkShipName, typeHint } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import { Combobox } from '../atoms/combobox';
@@ -22,6 +24,7 @@ import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
 import { Switch } from '../atoms/switch';
 import { Textarea } from '../atoms/textarea';
+import { CrewSettingsFields } from '../molecules/crew-settings-fields';
 import { InlineError } from '../molecules/inline-error';
 import { LimitNotice } from '../molecules/limit-notice';
 import { shipLimitNotice } from '../../lib/limits';
@@ -38,7 +41,19 @@ interface CommissionDialogProps {
   shipLimit?: number;
   /** Where the hosted account lists the limits, for View limits. */
   accountUrl?: string;
-  onSubmit: (ship: { name: string; type: string; note?: string; fleetScopes?: FleetScope[] }) => void;
+  /**
+   * With the trierarch plugin on: what the machines offer, the fleet's
+   * squadrons, and the plugin's check of the settings as the form makes them.
+   * Without it, Request a crew puts the ship on Needs crew, to crew by hand.
+   */
+  crewRequest?: {
+    offers: readonly HarnessOffer[];
+    squadrons?: readonly string[];
+    check?: SettingsCheck;
+    onSettingsChange: (settings: CrewSettings | undefined) => void;
+  };
+  /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
+  onSubmit: (ship: { name: string; type: string; note?: string; fleetScopes?: FleetScope[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
 }
 
 /** What each fleet scope lets a ship's session do, beside its name. */
@@ -50,23 +65,32 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
 };
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, crewRequest, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const nameId = useId();
   const nameStatusId = useId();
   const typeId = useId();
   const typeHintId = useId();
   const noteId = useId();
+  const crewId = useId();
   const [name, setName] = useState('');
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
   const [fleetScopes, setFleetScopes] = useState<readonly FleetScope[]>([]);
+  // On by default, as the canvas draws it (CrCommission, CrCommissionOff).
+  const [isCrewRequested, setIsCrewRequested] = useState(true);
+  const [crewValues, setCrewValues] = useState<CrewSettingsValues>(() => defaultValues(crewRequest?.offers ?? []));
+  const crewSettings = settingsOf(crewValues);
+  const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
+  const isCrewReady =
+    !isCrewRequested || crewRequest === undefined || (crewSettings !== undefined && refusal === undefined && promptBytes(crewValues.firstPrompt) <= FIRST_PROMPT_MAX_BYTES);
   const check = checkShipName(name, { activeNames: activeShips.map((ship) => ship.name) });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
   const isTypeValid = shipHandleSchema.safeParse(trimmedType).success;
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const types = [...new Set(activeShips.map((ship) => ship.type))].sort();
-  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined;
+  const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady;
+  const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
   return (
     <form
@@ -76,19 +100,23 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
       onSubmit={(event) => {
         event.preventDefault();
         if (canCommission) {
-          onSubmit({
+          const ship = {
             name,
             type: trimmedType,
             ...(note.trim() === '' ? {} : { note }),
             ...(fleetScopes.length === 0 ? {} : { fleetScopes: [...fleetScopes] }),
-          });
+          };
+          // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
+          onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
         }
       }}
     >
       <DialogHeader>
         <DialogTitle>Commission a ship</DialogTitle>
         <DialogDescription>
-          A ship is a durable agent identity with its own inbox. Next, you get the starting prompt.
+          {hasCrewSettings
+            ? 'A durable identity with its own inbox, and a crew request so it gets a session right away.'
+            : 'A ship is a durable agent identity with its own inbox. Next, you get the starting prompt.'}
         </DialogDescription>
       </DialogHeader>
       {shipLimit === undefined ? null : <LimitNotice {...shipLimitNotice(shipLimit)} accountUrl={accountUrl} testId="commission-ship-limit" />}
@@ -183,11 +211,40 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
         ))}
         <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
       </fieldset>
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor={crewId}>Request a crew</Label>
+          <Switch id={crewId} checked={isCrewRequested} onCheckedChange={setIsCrewRequested} data-testid="commission-request-crew" />
+        </div>
+        <p className="-mt-2 text-meta text-muted-foreground">
+          {crewRequest === undefined
+            ? `Puts ${name === '' ? 'the ship' : name} on your Needs crew list until you crew it by hand. You get its starting prompt next either way.`
+            : 'The trierarch plugin picks a trierarch that starts the session and keeps it crewed.'}
+        </p>
+        {hasCrewSettings ? (
+          <CrewSettingsFields
+            offers={crewRequest.offers}
+            values={crewValues}
+            onChange={(next) => {
+              setCrewValues(next);
+              crewRequest.onSettingsChange(settingsOf(next));
+            }}
+            squadrons={crewRequest.squadrons}
+            refusal={refusal}
+            isDisabled={isPending}
+          />
+        ) : null}
+      </div>
       {error === undefined ? null : <InlineError title="Not commissioned" description={error} />}
-      <DialogFooter>
+      <DialogFooter className="items-center">
+        {crewRequest === undefined ? null : (
+          <span className="mr-auto text-meta text-muted-foreground" data-testid="commission-crew-note">
+            {!isCrewRequested ? null : crewRequest.check?.kind === 'noRoom' ? 'The request will wait for room.' : 'Uncheck Request a crew to get the starting prompt instead.'}
+          </span>
+        )}
         <DialogClose render={<Button type="button" disabled={isPending} />}>Cancel</DialogClose>
         <Button type="submit" variant="primary" isLoading={isPending} disabled={!canCommission} data-testid="commission-submit">
-          {isPending ? 'Commissioning' : 'Commission ship'}
+          {isPending ? 'Commissioning' : hasCrewSettings ? 'Commission and request crew' : 'Commission ship'}
         </Button>
       </DialogFooter>
     </form>
@@ -198,7 +255,9 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
  * Step 1 of commissioning (docs/design/png/CommissionForm.png): the name,
  * checked as the operator types (the rule, a counter, and one status line
  * that says available or why not), the type with suggestions from the fleet
- * and what it means, and the optional note the blueprint keeps. The button
+ * and what it means, and the optional note the blueprint keeps, and Request a
+ * crew (#245): without the trierarch plugin it puts the ship on Needs crew;
+ * with it, the crew request's settings, checked by the plugin. The button
  * stays disabled until the name is free and the type a handle. Desktop: a
  * dialog; phone: full screen. On success the page hands over to the
  * StartingPromptDialog.

@@ -1,29 +1,74 @@
 'use client';
 
+import type { CrewSettings } from '@aeolus-fleet/common';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
-import { useCommissionShip, useFleetSnapshot } from '../../lib/fleet';
+import { defaultValues, offersOf, settingsOf } from '../../lib/crew-settings-form';
+import { useCommissionShip, useFleetSnapshot, useRequestCrew } from '../../lib/fleet';
 import { Button } from '../atoms/button';
+import { showToast } from '../atoms/toast';
 import { useFleetLimits } from '../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../lib/hosted-account';
 import { shipLimitReached } from '../../lib/limits';
+import { useSquadronsConnection } from '../../lib/squadrons';
+import { useSquadrons } from '../../lib/squadrons-api';
+import { useCrewSettingsCheck, useHasTrierarchPlugin, useMachines } from '../../lib/trierarch-plugin';
 import { CommissionDialog } from './commission-dialog';
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
 /**
  * Commission ship, the fleet overview's one primary action: the
- * CommissionDialog, then, once the ship exists, its first starting prompt in
- * the StartingPromptDialog, shown once. The page or the command palette may
- * open it too, through `isOpen`.
+ * CommissionDialog, then, once the ship exists, its crew request when Request
+ * a crew is on (#245), and its first starting prompt in the
+ * StartingPromptDialog, shown once. With the trierarch plugin on, a ship
+ * whose crew is requested gets no starting prompt here: a trierarch crews it.
+ * The page or the command palette may open it too, through `isOpen`.
  */
 export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void }) {
   const fleet = useFleetSnapshot();
   const limits = useFleetLimits();
   const accountUrl = useHostedAccountUrl();
   const commission = useCommissionShip();
+  const requestCrew = useRequestCrew();
+  const hasTrierarchs = useHasTrierarchPlugin();
+  const machines = useMachines();
+  const squadronsConnection = useSquadronsConnection();
+  const squadrons = useSquadrons();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
+  // Null until the form changes: the check then asks for the settings the form starts with.
+  const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
+  const offers = offersOf(machines.data ?? []);
+  const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
+
+  const commissionThenRequest = (ship: Parameters<typeof commission.mutate>[0], request: { settings: CrewSettings | Record<string, never> } | undefined) => {
+    commission.mutate(ship, {
+      onSuccess: ({ shipId }) => {
+        onOpenChange(false);
+        const isCrewedByTrierarch = hasTrierarchs && request !== undefined;
+        if (!isCrewedByTrierarch) {
+          setIsPromptOpen(true);
+        }
+        if (request === undefined) {
+          return;
+        }
+        requestCrew.mutate(
+          { shipId, settings: request.settings },
+          {
+            onSuccess: () => {
+              if (isCrewedByTrierarch) {
+                showToast({ title: `${ship.name} commissioned, crew requested`, description: 'The trierarch plugin assigns a trierarch that fits.', tone: 'success' });
+              }
+            },
+            onError: (error) => {
+              showToast({ title: `Couldn’t request a crew for ${ship.name}`, description: `${error.message} The ship is commissioned; request a crew on its page.`, tone: 'error' });
+            },
+          },
+        );
+      },
+    });
+  };
 
   return (
     <>
@@ -33,6 +78,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         data-testid="fleet-commission"
         onClick={() => {
           commission.reset();
+          setCrewSettings(null);
           onOpenChange(true);
         }}
       >
@@ -46,14 +92,33 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         error={commission.error?.message}
         shipLimit={shipLimitReached(limits.data)}
         accountUrl={accountUrl}
-        onSubmit={(ship) => {
+        {...(hasTrierarchs
+          ? {
+              crewRequest: {
+                offers,
+                squadrons: squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined,
+                check: check.data,
+                onSettingsChange: setCrewSettings,
+              },
+            }
+          : {})}
+        onSubmit={(ship, request) => {
           // A new key for every submission: the server's guard against a retried request, not a way to resubmit.
-          commission.mutate({ ...ship, idempotencyKey: crypto.randomUUID() }, {
-            onSuccess: () => {
-              onOpenChange(false);
-              setIsPromptOpen(true);
-            },
-          });
+          const commissioned = { ...ship, idempotencyKey: crypto.randomUUID() };
+          if (!hasTrierarchs || request === undefined) {
+            commissionThenRequest(commissioned, request);
+            return;
+          }
+          // Asked afresh before anything is commissioned: a refusal commissions nothing, and its field shows why.
+          check
+            .checkNow()
+            .catch(() => undefined)
+            .then((checked) => {
+              if (checked?.kind !== 'refused') {
+                commissionThenRequest(commissioned, request);
+              }
+            })
+            .catch(() => undefined);
         }}
       />
       <StartingPromptDialog
