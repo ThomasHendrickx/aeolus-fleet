@@ -26,6 +26,8 @@ interface CrewRequestCardProps {
   canManage: boolean;
   /** Whether the ship awaits crew, so a starting prompt crews it by hand. */
   isAwaitingCrew: boolean;
+  /** Whether the Trierarchs section is on: the trierarch then links to its machine there, else to its ship. */
+  hasTrierarchs?: boolean;
   busy?: CrewRequestBusy;
   /** The last action that failed, with why: nothing changed. */
   error?: { action: Exclude<CrewRequestBusy, undefined>; message: string };
@@ -57,11 +59,11 @@ function Time({ at, now, children }: { at: string; now: Date; children?: ReactNo
   );
 }
 
-/** A trierarch as the card names it: a link to its ship. */
-function TrierarchLink({ trierarch }: { trierarch: Party }) {
+/** A trierarch as the card names it: a link to its machine in the Trierarchs section, or to its ship without it. */
+function TrierarchLink({ trierarch, hasTrierarchs }: { trierarch: Party; hasTrierarchs: boolean }) {
   return (
     <Link
-      href={`/ships/${trierarch.id}`}
+      href={hasTrierarchs ? `/trierarchs/${trierarch.id}` : `/ships/${trierarch.id}`}
       data-testid="crew-request-trierarch"
       className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground underline decoration-input underline-offset-3 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
     >
@@ -154,7 +156,7 @@ function Heading() {
 /**
  * A ship's crew request on its page (canvas CrewRequest, layout A; #245):
  * between the ship's head and its meta strip, its state, the trierarch that
- * crews it as a link to its ship, and its one action, Remove request before a
+ * crews it as a link to its machine (to its ship without the Trierarchs section), and its one action, Remove request before a
  * crew and Release once crewed, with Restart on a crashed request. Without a
  * request it offers Request crew, which puts the ship on the operator's to-do
  * to crew by hand. A viewer reads it without actions.
@@ -212,7 +214,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         </span>
         {stage.kind === 'assigned' ? (
           <span className="inline-flex min-w-0 items-center gap-1 text-meta">
-            on <TrierarchLink trierarch={stage.trierarch} />
+            on <TrierarchLink trierarch={stage.trierarch} hasTrierarchs={props.hasTrierarchs ?? false} />
           </span>
         ) : null}
         <span className="flex-1" />

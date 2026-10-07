@@ -26,7 +26,7 @@ import { useNow } from '../lib/now';
 import { useAttentionCount } from '../lib/needs-attention';
 import { useAccountMenu } from '../lib/account';
 import { useSignInWhenSessionEnds } from '../lib/session';
-import { useHasSquadrons } from '../lib/squadrons';
+import { usePluginNav } from '../lib/plugin-nav';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -57,11 +57,11 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
   const liveFleet = useLiveFleet();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const messageLimit = messageLimitReached(useFleetLimits().data);
   const accountUrl = useHostedAccountUrl();
   const inboxCount = useOpenInboxCount();
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isCommissioning, setIsCommissioning] = useState(false);
@@ -91,7 +91,7 @@ export default function FleetPage({ searchParams }: { searchParams: Promise<Sear
         ) : undefined
       }
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'overview', inboxCount, attentionCount, ...pluginNav }}
       onCompose={
         access.canSend
           ? () => {

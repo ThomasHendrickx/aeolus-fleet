@@ -30,10 +30,10 @@ import { useNow } from '../../lib/now';
 import { useAccountMenu } from '../../lib/account';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useFleetSnapshot } from '../../lib/fleet';
-import { useHasSquadrons } from '../../lib/squadrons';
 import { useShips } from '../../lib/ship';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { silentMembers } from '../../lib/squadrons-view';
+import { usePluginNav } from '../../lib/plugin-nav';
 
 /**
  * Needs attention, live: every undeliverable delivery, oldest first. Resend
@@ -49,7 +49,6 @@ export default function NeedsAttentionPage() {
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons();
   const silent = silentMembers(squadrons.data ?? []);
   const silentShips = useShips(silent.map(({ member }) => member.shipId));
@@ -58,6 +57,7 @@ export default function NeedsAttentionPage() {
   const attentionCount = useAttentionCount();
   const inboxCount = useOpenInboxCount();
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -119,7 +119,7 @@ export default function NeedsAttentionPage() {
       title="Needs attention"
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
-      nav={{ active: 'attention', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'attention', inboxCount, attentionCount, ...pluginNav }}
       onCompose={
         access.canSend
           ? () => {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import { ConnectSquadronsError, connectSquadrons } from '../../../lib/connect-squadrons';
-import { readSquadronsConnection, squadronsCalls } from '../../../lib/squadrons-calls';
+import { ConnectPluginError, connectPlugin, SQUADRONS_SHIP } from '../../../lib/connect-plugin';
+import { pluginCalls, readPluginConnection } from '../../../lib/plugin-calls';
 import { serverInternalUrlFrom } from '../../../lib/server-url';
 import { squadronsUrlFrom } from '../../../lib/squadrons-url';
 
@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ configured: false });
   }
   try {
-    const connection = await readSquadronsConnection(squadronsUrl, request.headers.get('cookie') ?? '');
+    const connection = await readPluginConnection(squadronsUrl, request.headers.get('cookie') ?? '');
     return Response.json({ configured: true, connection });
   } catch (error) {
     return Response.json({ message: messageOf(error) }, { status: 502 });
@@ -38,15 +38,15 @@ export async function POST(request: Request): Promise<Response> {
   if (origin === null) {
     return Response.json({ message: 'Connect from the console' }, { status: 403 });
   }
-  const calls = squadronsCalls({ serverUrl: serverInternalUrlFrom(process.env), squadronsUrl }, { cookie: request.headers.get('cookie') ?? '', origin });
+  const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: squadronsUrl }, { cookie: request.headers.get('cookie') ?? '', origin });
   try {
-    return Response.json({ configured: true, connection: await connectSquadrons(calls, randomUUID) });
+    return Response.json({ configured: true, connection: await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey: randomUUID }) });
   } catch (error) {
-    return Response.json({ message: messageOf(error) }, { status: error instanceof ConnectSquadronsError ? 409 : 502 });
+    return Response.json({ message: messageOf(error) }, { status: error instanceof ConnectPluginError ? 409 : 502 });
   }
 }
 
 /** A refusal's words are safe to show; anything else says only that squadrons or the fleet did not answer. */
 function messageOf(error: unknown): string {
-  return error instanceof ConnectSquadronsError ? error.message : 'squadrons or the fleet did not answer: try again in a moment';
+  return error instanceof ConnectPluginError ? error.message : 'squadrons or the fleet did not answer: try again in a moment';
 }

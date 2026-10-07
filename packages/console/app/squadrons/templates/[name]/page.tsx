@@ -20,9 +20,10 @@ import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useAttentionCount, useNeedsAttention } from '../../../../lib/needs-attention';
 import { useNow } from '../../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
-import { useHasSquadrons, useSquadronsConnection } from '../../../../lib/squadrons';
+import { useSquadronsConnection } from '../../../../lib/squadrons';
 import { useCatalogue } from '../../../../lib/squadrons-api';
 import { templateChoices, templatePath } from '../../../../lib/squadrons-view';
+import { usePluginNav } from '../../../../lib/plugin-nav';
 
 /** A ship template's page: one version read only, picked in the URL (the latest when none is). */
 export default function TemplatePage({
@@ -37,7 +38,6 @@ export default function TemplatePage({
   const router = useRouter();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
   const attentionCount = useAttentionCount();
@@ -45,6 +45,7 @@ export default function TemplatePage({
   const catalogue = useCatalogue();
   const connection = useSquadronsConnection();
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -60,7 +61,7 @@ export default function TemplatePage({
       parents={[{ href: '/squadrons', label: 'Squadrons' }, { href: '/squadrons?tab=templates', label: 'Templates' }]}
       header={<h1 className="text-title font-semibold">{name}</h1>}
       live={liveFleet.live}
-      nav={{ active: 'squadrons', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'squadrons', inboxCount, attentionCount, ...pluginNav }}
       onCompose={
         access.canSend
           ? () => {

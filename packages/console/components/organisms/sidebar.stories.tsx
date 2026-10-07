@@ -42,3 +42,6 @@ export const AttentionActive: Story = { args: { active: 'attention' } };
 
 /** Counts hide until they are known, and when nothing needs attention. */
 export const NoCounts: Story = { args: { inboxCount: undefined, attentionCount: undefined } };
+
+/** With the trierarch plugin on: Trierarchs after Squadrons, counting its silent machines. */
+export const WithTrierarchs: Story = { args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' } };

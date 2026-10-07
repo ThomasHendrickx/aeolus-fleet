@@ -8,6 +8,7 @@ import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { SquadronsConnection } from '../../components/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../components/organisms/template-repositories';
+import { TrierarchPluginConnection } from '../../components/organisms/trierarch-plugin-connection';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
@@ -18,8 +19,15 @@ import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../lib/squadrons';
 import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../lib/squadrons-api';
+import { usePluginNav } from '../../lib/plugin-nav';
+import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../lib/trierarch-plugin';
 
-/** Settings: the installation's own settings, argo's alone: with squadrons, connecting it, and once connected, the repositories it reads; without, nothing of squadrons. */
+/**
+ * Settings: the installation's own settings, argo's alone: with squadrons,
+ * connecting it, and once connected, the repositories it reads; without,
+ * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
+ * not set up, connecting it, or connected.
+ */
 export default function SettingsPage() {
   const now = useNow();
   const accountMenu = useAccountMenu(now);
@@ -29,6 +37,8 @@ export default function SettingsPage() {
   const attentionCount = useAttentionCount();
   const settings = useSquadronsSettings();
   const connect = useConnectSquadrons();
+  const trierarchPlugin = useTrierarchPluginSettings();
+  const connectTrierarchPlugin = useConnectTrierarchPlugin();
   const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
@@ -37,6 +47,7 @@ export default function SettingsPage() {
   const removeRepository = useRemoveRepository();
   const refreshCatalogue = useRefreshCatalogue();
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -46,7 +57,7 @@ export default function SettingsPage() {
       title="Settings"
       description="How this installation runs. Only argo, the operator, sees this page."
       live={liveFleet.live}
-      nav={{ active: 'settings', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'settings', inboxCount, attentionCount, ...pluginNav }}
       onCompose={
         access.canSend
           ? () => {
@@ -76,6 +87,20 @@ export default function SettingsPage() {
           connectError={connect.isError ? connect.error.message : undefined}
           onConnect={() => {
             connect.mutate();
+          }}
+        />
+      )}
+      {pluginNav.hasSettings && (
+        <TrierarchPluginConnection
+          settings={trierarchPlugin.data}
+          loadError={trierarchPlugin.isError ? trierarchPlugin.error.message : undefined}
+          onRetry={() => {
+            void trierarchPlugin.refetch();
+          }}
+          isConnecting={connectTrierarchPlugin.isPending}
+          connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
+          onConnect={() => {
+            connectTrierarchPlugin.mutate();
           }}
         />
       )}
