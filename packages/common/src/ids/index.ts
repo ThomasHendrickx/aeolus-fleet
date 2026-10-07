@@ -20,6 +20,8 @@ export const ID_PREFIXES = {
   credential: 'crd',
   operator: 'opr',
   consoleSession: 'ses',
+  label: 'lbl',
+  labelValue: 'lbv',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -42,6 +44,8 @@ export type LeaseId = Id<'lease'>;
 export type CredentialId = Id<'credential'>;
 export type OperatorId = Id<'operator'>;
 export type ConsoleSessionId = Id<'consoleSession'>;
+export type LabelId = Id<'label'>;
+export type LabelValueId = Id<'labelValue'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
