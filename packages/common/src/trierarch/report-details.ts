@@ -4,6 +4,12 @@ import { idSchema } from '../ids/index.js';
 import { harnessSchema } from '../schemas/ship.js';
 import { trierarchNameSchema } from './names.js';
 
+/** The operating systems a trierarch names its machine by, for the trierarch plugin's os label (#102); any other is left out. */
+export const MACHINE_OS = ['macos', 'linux', 'windows'] as const;
+
+/** The architectures a trierarch names its machine by, for the trierarch plugin's arch label (#102); any other is left out. */
+export const MACHINE_ARCH = ['arm64', 'amd64'] as const;
+
 /**
  * The details of a trierarch's report (docs/trierarch.md, "What a trierarch
  * reports"; decision 0028): what its machine can do, read from its local
@@ -34,6 +40,12 @@ export const trierarchReportDetailsSchema = z.strictObject({
   kept: z.array(z.strictObject({ shipId: idSchema('ship'), path: z.string().min(1) })),
   /** Worktrees under the trierarch's root with no assigned request: reported, never deleted. */
   orphans: z.array(z.strictObject({ path: z.string().min(1) })),
+  /**
+   * The machine it runs on, for the trierarch plugin to label its ship by
+   * (docs/trierarch.md, "Machine labels"): an os or arch outside the known
+   * ones is left out. None from a trierarch before 0.20.0.
+   */
+  machine: z.strictObject({ os: z.enum(MACHINE_OS).optional(), arch: z.enum(MACHINE_ARCH).optional() }).optional(),
   /** The trierarch's own version. */
   version: z.string().min(1),
 });
