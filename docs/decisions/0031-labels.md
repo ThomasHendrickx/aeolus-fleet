@@ -1,0 +1,20 @@
+# 0031 Labels: an owned vocabulary for selecting ships
+
+- A label is a key with a defined set of values (`os` with `macos` and `linux`). Labels are never free text: they are defined, then assigned.
+- A label and each of its values have an id (`lbl_`, `lbv_`, 0005). Ids are for machines, key and value texts for people. Assigning, unassigning and selecting take value ids; changing values and deleting take the label id. `fleet.findLabelValue` (`fleet:read`) answers the ids for a key and a value as people write them: both lowercased, then matched exactly; a key or value the fleet does not have is NOT_FOUND.
+- They serve selection only: placement (the trierarch plugin matches a selector in a crew request's settings against them; the core only offers labels and selecting ships by them), filtering in the console, later reach. Not for squadron membership or any lifecycle, trierarch references, status, data, configuration or secrets; `type` stays plain metadata.
+- Two scopes, given at commission as any fleet scope (0002): `labels:define` defines labels, changes their values and deletes them; `labels:assign` assigns and unassigns. argo holds both; the viewer ship holds neither.
+- A label belongs to the ship that defined it. A key is unique in the fleet; defining one the fleet has is refused, naming its owner.
+- Only the owner changes the values, deletes the label and assigns and unassigns its values, never on its own ship. Changing gives the whole set at once, adding and removing: a value the label has keeps its id, a new one gets a new id. Removing a value ships carry is refused, naming them. Deleting a label any ship carries a value of is refused, naming the ships; a deleted label frees its key.
+- A ship holds a set of value ids: it may carry several values of one key, and assigning a value adds it beside those it carries. argo and the viewer ship take labels as any ship (0016); a retired ship takes none.
+- Releasing the owner keeps its labels. Retiring it retires its labels: every assignment of them goes, then the label, and the key is free again. Retiring a ship removes the values it carries.
+- Selection: the fleet list takes value ids and answers the ships that carry every one of them. Exact matches, combined with AND. No in, not or exists. An unknown id selects no ship. `fleet.list` and `fleet.ship` show each value a ship carries with its label, ids and texts; `fleet.labels` lists the labels with their values and owners (`fleet:read`).
+- Limits, named by every refusal of them:
+  - keys and values: lowercase `a-z`, `0-9` and `-`, 1 to 63 characters (`LABEL_HANDLE_MAX_LENGTH`, `LABEL_HANDLE_PATTERN` in common);
+  - 1 to 50 values per key, each once (`LABEL_VALUES_MAX`);
+  - at most 20 label values per ship, counted as the value ids it carries (`SHIP_LABELS_MAX`).
+- Events, each in the same transaction as its change: LabelDefined, LabelValuesChanged, LabelRetired, LabelDeleted, LabelAssigned, LabelUnassigned. Details hold ids and texts: the label id and key, and the value id and value, or the values and their ids comma separated.
+
+Why: placement and filtering need ships selected by what they are, from a vocabulary someone answers for. Ownership solves several writers: one ship's labels mean one thing, and its owner answers for how they are used, so a ship may carry several values of one key when the owner says so. Ids keep a reference stable while texts stay for people. No self-labelling, so a ship cannot enforce a plugin's policy on itself. Labels retire with their owner because their meaning does. The limits keep a hosted fleet from being an open door: a label is a selector, not storage.
+
+Rejected: free-text labels on ships (no owner, coincidences between writers); one value per key, assigning replacing it (the owner decides what its values mean together); selecting and assigning by texts (a text is for people, an id stays); labels as indexes or richer selectors (in, not, exists) before anyone needs them; squadron membership in labels (squadrons addresses its members from its own data); labels in a plugin's database (every reader would need the plugin).
