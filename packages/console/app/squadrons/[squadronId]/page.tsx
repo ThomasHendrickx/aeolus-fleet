@@ -30,7 +30,7 @@ import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attenti
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
-import { useHasSquadrons, useSquadronsConnection } from '../../../lib/squadrons';
+import { useSquadronsConnection } from '../../../lib/squadrons';
 import {
   type AddedMember,
   useAddMember,
@@ -44,6 +44,7 @@ import {
   useStandDown,
 } from '../../../lib/squadrons-api';
 import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../lib/squadrons-view';
+import { usePluginNav } from '../../../lib/plugin-nav';
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -64,7 +65,6 @@ export default function SquadronPage({
   const router = useRouter();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
   const attentionCount = useAttentionCount();
@@ -84,6 +84,7 @@ export default function SquadronPage({
   const removeMember = useRemoveMember();
   const [removing, setRemoving] = useState<Squadron['members'][number] | undefined>(undefined);
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isMessagingFlagship, setIsMessagingFlagship] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -155,8 +156,7 @@ export default function SquadronPage({
         active: 'squadrons',
         inboxCount,
         attentionCount,
-        hasSquadrons,
-        hasSettings: hasSquadrons && access.canManage,
+        ...pluginNav,
       }}
       onCompose={
         access.canSend

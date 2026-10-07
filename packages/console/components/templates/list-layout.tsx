@@ -20,8 +20,8 @@ interface ListLayoutProps {
   toolbar?: ReactNode;
   live: LiveState;
   /** Where the operator is, and the counts the navigation shows once known. */
-  /** hasSquadrons: whether the console has squadrons, which adds them to the navigation; hasSettings: whether Settings is offered (squadrons on and a session that manages the fleet). */
-  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean; hasSettings?: boolean };
+  /** hasSquadrons, hasTrierarchs: whether the console has squadrons or the trierarch plugin, which adds them to the navigation; hasSettings: whether Settings is offered (a plugin on and a session that manages the fleet). */
+  nav: { active: SidebarDestination; inboxCount?: number; attentionCount?: number; hasSquadrons?: boolean; hasTrierarchs?: boolean; trierarchsCount?: number; hasSettings?: boolean };
   /** Opens Compose: the Header's button, and on phone the TopBar's icon on a root page. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
@@ -61,6 +61,8 @@ export function ListLayout({
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}
         hasSquadrons={nav.hasSquadrons}
+        hasTrierarchs={nav.hasTrierarchs}
+        trierarchsCount={nav.trierarchsCount}
         hasSettings={nav.hasSettings}
         {...account}
       />
@@ -102,7 +104,7 @@ export function ListLayout({
         </main>
       </div>
       <TabBar
-        active={nav.active === 'overview' ? 'fleet' : nav.active === 'settings' ? undefined : nav.active}
+        active={nav.active === 'overview' ? 'fleet' : nav.active === 'settings' || nav.active === 'trierarchs' ? undefined : nav.active}
         hasSquadrons={nav.hasSquadrons}
         inboxCount={nav.inboxCount}
         attentionCount={nav.attentionCount}

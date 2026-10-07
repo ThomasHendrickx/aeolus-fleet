@@ -1,6 +1,6 @@
 'use client';
 
-import { CodeXml, Inbox, Settings, Shapes, Ship, TriangleAlert } from 'lucide-react';
+import { CodeXml, Inbox, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,7 +10,7 @@ import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'squadrons' | 'inbox' | 'attention' | 'settings';
+export type SidebarDestination = 'overview' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
@@ -21,7 +21,11 @@ interface SidebarProps extends AccountMenuProps {
   attentionCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
-  /** Whether Settings is offered: it holds squadrons alone today, and only a session that manages the fleet changes them. */
+  /** Whether the console has the trierarch plugin: Trierarchs then comes after Squadrons. */
+  hasTrierarchs?: boolean;
+  /** Silent machines; hidden until known, and when there are none. */
+  trierarchsCount?: number;
+  /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
   hasSettings?: boolean;
 }
 
@@ -75,13 +79,13 @@ function InboxCount({ count }: { count: number | undefined }) {
  * The attention count: a pill in the attention tone from 1024 px, a dot on the
  * rail, the number kept for assistive technology either way.
  */
-function AttentionCount({ count }: { count: number | undefined }) {
+function AttentionCount({ count, testId = 'nav-attention-count' }: { count: number | undefined; testId?: string }) {
   if (count === undefined || count === 0) {
     return null;
   }
   return (
     <>
-      <Badge variant="count-attention" data-testid="nav-attention-count" className="max-lg:sr-only">
+      <Badge variant="count-attention" data-testid={testId} className="max-lg:sr-only">
         {count}
         <span className="sr-only"> need attention</span>
       </Badge>
@@ -99,10 +103,11 @@ function AttentionCount({ count }: { count: number | undefined }) {
  * Operator inbox, which counts the open messages to argo in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
- * comes second, and Settings, which holds squadrons alone today, sits with
- * the link to the source on GitHub above the account menu.
+ * comes second; with the trierarch plugin on, Trierarchs follows, counting its
+ * silent machines in the attention tone (#245). Settings, which holds the
+ * plugins, sits with the link to the source on GitHub above the account menu.
  */
-export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -125,6 +130,16 @@ export function Sidebar({ active, inboxCount, attentionCount, hasSquadrons = fal
         />
         {hasSquadrons && (
           <NavItem href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="nav-squadrons" />
+        )}
+        {hasTrierarchs && (
+          <NavItem
+            href="/trierarchs"
+            label="Trierarchs"
+            icon={<ShipWheel aria-hidden />}
+            isActive={active === 'trierarchs'}
+            testId="nav-trierarchs"
+            count={<AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" />}
+          />
         )}
         <NavItem
           href="/inbox"

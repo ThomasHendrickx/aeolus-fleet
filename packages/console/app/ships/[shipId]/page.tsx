@@ -26,9 +26,9 @@ import { useNow } from '../../../lib/now';
 import { useAccountMenu } from '../../../lib/account';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
-import { useHasSquadrons } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
+import { usePluginNav } from '../../../lib/plugin-nav';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -67,10 +67,10 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
   const message = useMessage(messageId);
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons();
   const inboxCount = useOpenInboxCount();
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [replyTo, setReplyTo] = useState<{ messageId: MessageId; sender: Party }>();
@@ -100,7 +100,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           : [{ href: '/', label: 'Fleet overview' }]
       }
       live={liveFleet.live}
-      nav={{ active: 'overview', inboxCount, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'overview', inboxCount, attentionCount, ...pluginNav }}
       onCompose={
         access.canSend
           ? () => {

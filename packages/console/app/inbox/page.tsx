@@ -27,7 +27,7 @@ import { useAttentionCount } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useAccountMenu } from '../../lib/account';
 import { useSignInWhenSessionEnds } from '../../lib/session';
-import { useHasSquadrons } from '../../lib/squadrons';
+import { usePluginNav } from '../../lib/plugin-nav';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -60,9 +60,9 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
   const attentionCount = useAttentionCount();
   const liveFleet = useLiveFleet();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
@@ -87,7 +87,7 @@ export default function InboxPage({ searchParams }: { searchParams: Promise<Sear
       title="Operator inbox"
       description="Messages ships sent to argo. Opening one marks it read; Mark done or Reply acknowledges it."
       live={liveFleet.live}
-      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, hasSquadrons, hasSettings: hasSquadrons && access.canManage }}
+      nav={{ active: 'inbox', inboxCount: filterCounts(all).open, attentionCount, ...pluginNav }}
       account={accountMenu}
       banner={
         <>

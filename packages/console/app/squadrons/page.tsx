@@ -23,10 +23,11 @@ import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
-import { useHasSquadrons, useSquadronsConnection } from '../../lib/squadrons';
+import { useSquadronsConnection } from '../../lib/squadrons';
 import { useCatalogue, useFormSquadron, useSquadrons } from '../../lib/squadrons-api';
 import { readSquadronView, squadronViewParams, type SquadronView } from '../../lib/squadron-filter';
 import { blueprintChoices, templateChoices } from '../../lib/squadrons-view';
+import { usePluginNav } from '../../lib/plugin-nav';
 
 /** The page's sections, in the URL as `tab`; Squadrons when none. */
 const TABS = ['squadrons', 'blueprints', 'templates'] as const;
@@ -55,7 +56,6 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   };
   const now = useNow();
   const accountMenu = useAccountMenu(now);
-  const hasSquadrons = useHasSquadrons();
   const inboxCount = useOpenInboxCount();
   const attention = useNeedsAttention();
   const attentionCount = useAttentionCount();
@@ -66,6 +66,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
   const access = useAccess();
+  const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
@@ -84,8 +85,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
         active: 'squadrons',
         inboxCount,
         attentionCount,
-        hasSquadrons,
-        hasSettings: hasSquadrons && access.canManage,
+        ...pluginNav,
       }}
       primaryAction={
         access.canManage && blueprints.length > 0 ? (
