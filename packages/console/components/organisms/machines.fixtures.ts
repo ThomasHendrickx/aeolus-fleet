@@ -98,7 +98,7 @@ export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' 
 /** A plain agent ship awaiting crew, for the Needs crew stories. */
 const AWAITING: ListedShip = {
   id: shipId('nc00'), name: 'awaiting', type: 'implementer', kind: 'agent', status: 'awaitingCrew', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null,
+  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null,
 };
 
 const TRIAGE: ListedShip = {

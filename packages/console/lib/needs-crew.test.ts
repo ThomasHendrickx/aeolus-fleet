@@ -10,7 +10,7 @@ const ARGO = { id: newId('ship'), name: 'argo' };
 function aShip(overrides: Partial<ListedShip> = {}): ListedShip {
   return {
     id: newId('ship'), name: 'scout', type: 'implementer', kind: 'agent', status: 'awaitingCrew', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ...overrides,
+    scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ...overrides,
   };
 }
 
