@@ -3,6 +3,7 @@ import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
 import type {
   CrewRequestRepository,
   FleetListing,
+  LabelRepository,
   FleetRepository,
   InFlightDeliveries,
   LeaseRepository,
@@ -15,11 +16,13 @@ import {
   toCrewRequest,
   toDeliveryFromSql,
   toFleet,
+  toLabelFromSql,
   toLease,
   toLeaseShipId,
   toShip,
   toShipFacts,
   toShipFromSql,
+  toShipLabel,
   toShipReport,
 } from './rows.js';
 
@@ -76,6 +79,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ships WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM operators WHERE fleet_id = ${fleetId}`;
@@ -105,6 +110,66 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
     },
     remove: async (fleetId, shipId) => {
       await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
+    },
+  };
+}
+
+export function createPrismaLabelRepository(db: Db): LabelRepository {
+  return {
+    lockKey: async (fleetId, key) => {
+      // As for a ship's name: a transaction-level advisory lock on the fleet and
+      // the key, so the second definition of one key waits and then finds it.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${`label:${key}`}))`;
+    },
+    find: async (fleetId, key) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key}`;
+      return row === undefined ? undefined : toLabelFromSql(row);
+    },
+    findForUpdate: async (fleetId, key) => {
+      // FOR NO KEY UPDATE: a change of values waits for the assignments holding
+      // the label, and they for it; the key itself stays.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key} FOR NO KEY UPDATE`;
+      return row === undefined ? undefined : toLabelFromSql(row);
+    },
+    findForShare: async (fleetId, key) => {
+      // FOR SHARE: a change of values and a retire wait for the assignment,
+      // while other assignments of the label share the lock.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT fleet_id, key, values, owner_ship_id FROM labels WHERE fleet_id = ${fleetId} AND key = ${key} FOR SHARE`;
+      return row === undefined ? undefined : toLabelFromSql(row);
+    },
+    listOwnedByForUpdate: async (fleetId, ownerShipId) => {
+      // FOR UPDATE: the label goes, so new assignments of it wait and then find it gone.
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT fleet_id, key, values, owner_ship_id FROM labels
+        WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId}
+        ORDER BY key
+        FOR UPDATE`;
+      return rows.map(toLabelFromSql);
+    },
+    save: async ({ fleetId, key, values, ownerShipId }) => {
+      await db.label.upsert({
+        where: { fleetId_key: { fleetId, key } },
+        create: { fleetId, key, values: [...values], ownerShipId },
+        update: { values: [...values] },
+      });
+    },
+    remove: async (fleetId, key) => {
+      await db.label.deleteMany({ where: { fleetId, key } });
+    },
+    carriedBy: async (fleetId, shipId) => (await db.shipLabel.findMany({ where: { fleetId, shipId }, orderBy: { key: 'asc' } })).map(toShipLabel),
+    carriersOf: async (fleetId, key) => (await db.shipLabel.findMany({ where: { fleetId, key }, orderBy: { shipId: 'asc' } })).map(toShipLabel),
+    assign: async ({ fleetId, shipId, key, value }) => {
+      await db.shipLabel.upsert({
+        where: { fleetId_shipId_key: { fleetId, shipId, key } },
+        create: { fleetId, shipId, key, value },
+        update: { value },
+      });
+    },
+    unassign: async ({ fleetId, shipId, key }) => {
+      await db.shipLabel.deleteMany({ where: { fleetId, shipId, key } });
     },
   };
 }

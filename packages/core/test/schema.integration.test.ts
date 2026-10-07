@@ -106,11 +106,13 @@ describe('migrations', () => {
       'guides',
       'installation_requests',
       'installation_settings',
+      'labels',
       'leases',
       'messages',
       'notice_dismissals',
       'notices',
       'operators',
+      'ship_labels',
       'ships',
       'sign_in_tickets',
     ]);

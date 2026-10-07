@@ -238,3 +238,27 @@ export function unassignLabel(
   }
   return ok({ unassigned: current, events: [assignmentEvent(current, { type: 'LabelUnassigned', at: input.at, actor: input.actor })] });
 }
+
+/**
+ * A ship is retired: the labels it owns retire with it (their meaning
+ * retires with their owner), each after every assignment of it goes, and
+ * the labels it carries go. LabelUnassigned for every assignment that goes,
+ * LabelRetired for every label.
+ */
+export function retireLabelsWith(
+  { owned, carried }: { owned: readonly { label: Label; carriers: readonly ShipLabel[] }[]; carried: readonly ShipLabel[] },
+  input: { at: Date; actor: Actor },
+): { unassigned: ShipLabel[]; retired: Label[]; events: NewEvent[] } {
+  const unassigned: ShipLabel[] = [];
+  const events: NewEvent[] = [];
+  const unassign = (assignment: ShipLabel) => {
+    unassigned.push(assignment);
+    events.push(assignmentEvent(assignment, { type: 'LabelUnassigned', ...input }));
+  };
+  for (const { label, carriers } of owned) {
+    carriers.forEach(unassign);
+    events.push(labelEvent(label, { ...input, type: 'LabelRetired', details: { key: label.key } }));
+  }
+  carried.forEach(unassign);
+  return { unassigned, retired: owned.map(({ label }) => label), events };
+}

@@ -46,6 +46,8 @@ model Fleet {
   ships            Ship[]
   leases           Lease[]
   crewRequests     CrewRequest[]
+  labels           Label[]
+  shipLabels       ShipLabel[]
   credentials      Credential[]
   messages         Message[]
   deliveries       Delivery[]
@@ -97,6 +99,8 @@ model Ship {
   events            Event[]          @relation("EventShip")
   crewRequest       CrewRequest?     @relation("CrewRequestShip")
   assignedCrews     CrewRequest[]    @relation("CrewRequestAssignee")
+  ownedLabels       Label[]          @relation("LabelOwner")
+  labels            ShipLabel[]      @relation("ShipLabelShip")
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning ship.
@@ -201,6 +205,42 @@ model CrewRequest {
   /// A trierarch reads the requests assigned to it.
   @@index([fleetId, assignedTo])
   @@map("crew_requests")
+}
+
+/// A label (decision 0031): a key unique in its fleet with its defined values,
+/// owned by the ship that defined it. A retired label is deleted; its events stay.
+model Label {
+  fleetId     String   @map("fleet_id")
+  key         String
+  /// In the order the owner gave them, each once, at most 50.
+  values      String[]
+  ownerShipId String   @map("owner_ship_id")
+
+  fleet    Fleet       @relation(fields: [fleetId], references: [id])
+  owner    Ship        @relation("LabelOwner", fields: [fleetId, ownerShipId], references: [fleetId, id])
+  carriers ShipLabel[]
+
+  @@id([fleetId, key])
+  /// A retire finds the labels its ship owns.
+  @@index([fleetId, ownerShipId])
+  @@map("labels")
+}
+
+/// A label a ship carries: one value per key, so the ship and the key are its key.
+model ShipLabel {
+  fleetId String @map("fleet_id")
+  shipId  String @map("ship_id")
+  key     String
+  value   String
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation("ShipLabelShip", fields: [fleetId, shipId], references: [fleetId, id])
+  label Label @relation(fields: [fleetId, key], references: [fleetId, key])
+
+  @@id([fleetId, shipId, key])
+  /// A change of values and a retire find every ship that carries a label.
+  @@index([fleetId, key])
+  @@map("ship_labels")
 }
 
 /// A ship secret, stored only as its hash. Ids start with crd_.

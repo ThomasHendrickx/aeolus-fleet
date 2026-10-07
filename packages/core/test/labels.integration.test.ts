@@ -9,7 +9,7 @@ import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { newKey } from './support/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { refusalOf, unwrap } from './support/result.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
 // two ships define it at once; assignments one value per key; a change of
@@ -105,7 +105,7 @@ describe('labels on Postgres', () => {
     ]);
 
     expect(defined.filter((result) => result.isOk)).toHaveLength(1);
-    expect(defined.filter((result) => !result.isOk)).toEqual([{ isOk: false, error: expect.objectContaining({ kind: 'LABEL_KEY_TAKEN' }) as unknown }]);
+    expect(defined.filter((result) => !result.isOk).map((result) => refusalOf(result).kind)).toEqual(['LABEL_KEY_TAKEN']);
     await expect(core.prisma.label.count({ where: { key: 'project' } })).resolves.toBe(1);
   });
 });
@@ -191,7 +191,7 @@ describe('two assignments to one ship at its label limit', () => {
       core.useCases.assignLabel(plugin, { shipId: builderId, key: 'project', value: 'hemma' }),
     ]);
 
-    expect(assigned.filter((result) => !result.isOk)).toEqual([{ isOk: false, error: expect.objectContaining({ kind: 'SHIP_LABEL_LIMIT_REACHED' }) as unknown }]);
+    expect(assigned.filter((result) => !result.isOk).map((result) => refusalOf(result).kind)).toEqual(['SHIP_LABEL_LIMIT_REACHED']);
     await expect(core.prisma.shipLabel.count({ where: { shipId: builderId } })).resolves.toBe(20);
   });
 });

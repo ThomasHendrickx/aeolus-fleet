@@ -71,6 +71,10 @@ import { createReportCrewStatus, type ReportCrewStatus } from './domain/registry
 import { createConfirmCrewRelease, type ConfirmCrewRelease } from './domain/registry/confirm-crew-release.js';
 import { createReadAssignedCrewRequests, type ReadAssignedCrewRequests } from './domain/registry/read-assigned-crew-requests.js';
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
+import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
+import { createChangeLabelValues, type ChangeLabelValues } from './domain/registry/change-label-values.js';
+import { createAssignLabel, type AssignLabel } from './domain/registry/assign-label.js';
+import { createUnassignLabel, type UnassignLabel } from './domain/registry/unassign-label.js';
 import { createReadReportLog, type ReadReportLog } from './domain/registry/report-log.js';
 import { createWhoami, type Whoami } from './domain/registry/whoami.js';
 import type { Clock } from './domain/shared/clock.js';
@@ -116,6 +120,10 @@ export interface UseCases {
   confirmCrewRelease: ConfirmCrewRelease;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
   explainCrewRequest: ExplainCrewRequest;
+  defineLabel: DefineLabel;
+  changeLabelValues: ChangeLabelValues;
+  assignLabel: AssignLabel;
+  unassignLabel: UnassignLabel;
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
@@ -235,6 +243,10 @@ export function createUseCases(options: {
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma) }),
     explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
+    defineLabel: createDefineLabel({ uow, clock, ids }),
+    changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
+    assignLabel: createAssignLabel({ uow, clock, ids }),
+    unassignLabel: createUnassignLabel({ uow, clock, ids }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),

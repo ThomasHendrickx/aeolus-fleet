@@ -8,13 +8,15 @@ import { recordEvent, shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { removeCrewRequest } from './crew-request.js';
+import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
-import type { CrewRequestRepository, ShipRepository } from './ports.js';
+import type { CrewRequestRepository, LabelRepository, ShipRepository } from './ports.js';
 import { checkCanRetire, type RetireRefusal } from './ship.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
   ships: ShipRepository;
   crewRequests: CrewRequestRepository;
+  labels: LabelRepository;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
@@ -33,8 +35,10 @@ export type RetireShip = (
  * is retired: never claimed or addressed again, its name free. Deliveries to
  * its type stay for the other ships of the type, and an undeliverable one
  * stays for the operator. Its crew request, if any, goes with
- * CrewRequestRemoved: no one crews a retired ship. The caller's scope (fleet:manage) is checked before
- * this runs.
+ * CrewRequestRemoved: no one crews a retired ship. The labels it carries go,
+ * and the labels it owns retire with it, each locked first and every
+ * assignment of it gone first (decision 0031). The caller's scope
+ * (fleet:manage) is checked before this runs.
  *
  * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
  * the ship holds it FOR SHARE while it resolves the selector, so the two
@@ -87,6 +91,19 @@ export function createRetireShip(deps: {
         for (const event of removed.value.events) {
           await recordEvent(recorded, event);
         }
+      }
+      const owned = await Promise.all(
+        (await tx.labels.listOwnedByForUpdate(fleetId, shipId)).map(async (label) => ({ label, carriers: await tx.labels.carriersOf(fleetId, label.key) })),
+      );
+      const labels = retireLabelsWith({ owned, carried: await tx.labels.carriedBy(fleetId, shipId) }, { at, actor });
+      for (const assignment of labels.unassigned) {
+        await tx.labels.unassign(assignment);
+      }
+      for (const label of labels.retired) {
+        await tx.labels.remove(fleetId, label.key);
+      }
+      for (const event of labels.events) {
+        await recordEvent(recorded, event);
       }
       return ok({ abandonedDeliveries: abandoned.length });
     });

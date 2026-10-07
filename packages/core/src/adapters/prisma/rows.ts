@@ -23,6 +23,7 @@ import type { OperatorAccount } from '../../domain/identity/operator-account.js'
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
+import type { Label, ShipLabel } from '../../domain/registry/label.js';
 import type { FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
 import type { DeliveryNotice } from '../../domain/shared/notifier.js';
 import type { Fleet } from '../../domain/registry/fleet.js';
@@ -118,6 +119,22 @@ const crewRequestRow = z.object({
 /** A crew request as Prisma reads its row. */
 export function toCrewRequest(row: unknown): CrewRequest {
   return crewRequestRow.parse(row);
+}
+
+const labelSqlRow = z
+  .object({ fleet_id: idSchema('fleet'), key: z.string(), values: z.array(z.string()), owner_ship_id: idSchema('ship') })
+  .transform(({ fleet_id, key, values, owner_ship_id }): Label => ({ fleetId: fleet_id, key, values, ownerShipId: owner_ship_id }));
+
+/** A label as raw SQL returns it, in snake_case. */
+export function toLabelFromSql(row: unknown): Label {
+  return labelSqlRow.parse(row);
+}
+
+const shipLabelRow = z.object({ fleetId: idSchema('fleet'), shipId: idSchema('ship'), key: z.string(), value: z.string() });
+
+/** A label a ship carries, as Prisma reads its row. */
+export function toShipLabel(row: unknown): ShipLabel {
+  return shipLabelRow.parse(row);
 }
 
 const shipReportSqlRow = z.object({
