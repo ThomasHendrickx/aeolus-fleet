@@ -1,9 +1,11 @@
-import type { DeliveryState, ShipStatus } from '@aeolus-fleet/common';
+import type { CrewStatus, DeliveryState, ShipStatus } from '@aeolus-fleet/common';
 import {
   Anchor,
   Archive,
   Ban,
   CircleArrowRight,
+  CirclePlay,
+  Clock,
   CircleCheck,
   CircleDashed,
   CircleDotDashed,
@@ -12,6 +14,9 @@ import {
   FlagOff,
   Gauge,
   Hourglass,
+  LoaderCircle,
+  Power,
+  RotateCcw,
   Sailboat,
   TriangleAlert,
   UserCheck,
@@ -23,7 +28,9 @@ import type { SquadronState } from '../../lib/squadrons-api';
 
 /** A count at its limit, or over it once a limit is lowered below use (the LimitMeter part). */
 export type LimitState = 'at-limit' | 'over-limit';
-type Status = ShipStatus | DeliveryState | SquadronState | LimitState;
+/** A crew request with no trierarch: on the operator's to-do, or crewed by hand. */
+export type UnassignedCrewState = 'needsCrew' | 'crewedByHand';
+type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -37,7 +44,7 @@ const TONE_CLASSES: Record<Tone, string> = {
 };
 
 /**
- * Every ship status, delivery state, squadron state and limit state with its tone, icon
+ * Every ship status, delivery state, squadron state, limit state and crew request state with its tone, icon
  * and label (docs/design/conventions.md, "Colour"). A delivered delivery is in
  * flight: claimed by a crew and not yet acknowledged.
  */
@@ -57,6 +64,13 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   disbanded: { tone: 'ended', Icon: FlagOff, label: 'Disbanded' },
   'at-limit': { tone: 'waiting', Icon: Gauge, label: 'At limit' },
   'over-limit': { tone: 'attention', Icon: TriangleAlert, label: 'Over limit' },
+  needsCrew: { tone: 'waiting', Icon: Clock, label: 'Needs crew' },
+  crewedByHand: { tone: 'ok', Icon: UserCheck, label: 'Crewed by hand' },
+  crewing: { tone: 'active', Icon: LoaderCircle, label: 'Crewing' },
+  running: { tone: 'ok', Icon: CirclePlay, label: 'Running' },
+  restarting: { tone: 'waiting', Icon: RotateCcw, label: 'Restarting' },
+  crashed: { tone: 'attention', Icon: CircleX, label: 'Crashed' },
+  releasing: { tone: 'active', Icon: Power, label: 'Releasing' },
 };
 
 /**

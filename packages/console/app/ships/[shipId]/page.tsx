@@ -11,6 +11,7 @@ import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
+import { ShipCrewRequest } from '../../../components/organisms/ship-crew-request';
 import { ShipSquadron } from '../../../components/organisms/ship-squadron';
 import { ShipActions } from '../../../components/organisms/ship-actions';
 import { ShipHeader } from '../../../components/organisms/ship-header';
@@ -125,6 +126,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
           actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
+          crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
         </>

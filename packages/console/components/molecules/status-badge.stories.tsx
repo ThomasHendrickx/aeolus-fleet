@@ -37,3 +37,13 @@ export const StandingDown: Story = { args: { status: 'standing-down' } };
 export const Disbanded: Story = { args: { status: 'disbanded' } };
 export const AtLimit: Story = { args: { status: 'at-limit' } };
 export const OverLimit: Story = { args: { status: 'over-limit' } };
+export const CrewStates: Story = {
+  args: { status: 'needsCrew' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      {(['needsCrew', 'crewedByHand', 'crewing', 'running', 'restarting', 'crashed', 'releasing'] as const).map((status) => (
+        <StatusBadge key={status} status={status} />
+      ))}
+    </div>
+  ),
+};
