@@ -15,10 +15,10 @@ function aShip(overrides: Partial<ListedShip> = {}): ListedShip {
 }
 
 function aRequest(overrides: Partial<NonNullable<ListedShip['crewRequest']>> = {}): ListedShip['crewRequest'] {
-  return { settingsVersion: 1, requestedAt: '2026-10-07T10:20:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, ...overrides };
+  return { settingsVersion: 1, requestedAt: '2026-10-07T10:20:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, ...overrides };
 }
 
-const assigned = (status: CrewStatus) => aShip({ status: 'crewed', crewRequest: aRequest({ assignedTo: TRIERARCH, status, crewedBy: TRIERARCH }) });
+const assigned = (status: CrewStatus) => aShip({ status: 'crewed', crewRequest: aRequest({ assignedTo: TRIERARCH, status, crewedBy: TRIERARCH, attempt: 0, startedAt: null }) });
 
 describe('Needs crew without the trierarch plugin', () => {
   const plugin = { hasTrierarchs: false };
@@ -28,7 +28,7 @@ describe('Needs crew without the trierarch plugin', () => {
   });
 
   it('leaves out a ship crewed by hand, one without a request, and a retired one', () => {
-    expect(isNeedingCrew(aShip({ status: 'crewed', crewRequest: aRequest({ crewedBy: ARGO }) }), plugin)).toBe(false);
+    expect(isNeedingCrew(aShip({ status: 'crewed', crewRequest: aRequest({ crewedBy: ARGO, attempt: 0, startedAt: null }) }), plugin)).toBe(false);
     expect(isNeedingCrew(aShip(), plugin)).toBe(false);
     expect(isNeedingCrew(aShip({ status: 'retired', crewRequest: aRequest() }), plugin)).toBe(false);
   });
@@ -45,7 +45,7 @@ describe('Needs crew with the trierarch plugin', () => {
   it('leaves out a running crew, a request being released, and a ship crewed by hand', () => {
     expect(isNeedingCrew(assigned('running'), plugin)).toBe(false);
     expect(isNeedingCrew(assigned('releasing'), plugin)).toBe(false);
-    expect(isNeedingCrew(aShip({ status: 'crewed', crewRequest: aRequest({ crewedBy: ARGO }) }), plugin)).toBe(false);
+    expect(isNeedingCrew(aShip({ status: 'crewed', crewRequest: aRequest({ crewedBy: ARGO, attempt: 0, startedAt: null }) }), plugin)).toBe(false);
   });
 
   it('lists the oldest request first', () => {
@@ -68,6 +68,6 @@ describe('crewRequestCell', () => {
   it('words each stage with its tone, and nothing without a request', () => {
     expect(crewRequestCell({ kind: 'none' })).toBeUndefined();
     expect(crewRequestCell({ kind: 'needsCrew', requestedAt: '', reason: null })).toEqual({ tone: 'waiting', word: 'Needs crew' });
-    expect(crewRequestCell({ kind: 'assigned', requestedAt: '', trierarch: TRIERARCH, status: 'crashed' })).toEqual({ tone: 'attention', word: 'Crashed' });
+    expect(crewRequestCell({ kind: 'assigned', requestedAt: '', trierarch: TRIERARCH, status: 'crashed', attempt: 0, startedAt: null })).toEqual({ tone: 'attention', word: 'Crashed' });
   });
 });

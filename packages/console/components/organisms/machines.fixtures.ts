@@ -56,10 +56,10 @@ export const NEW_MACHINE: Machine = { shipId: shipId('trnw'), name: 'trierarch-n
 export const MACHINES: Machine[] = [ALIVE_MACHINE, SILENT_MACHINE, NEW_MACHINE];
 
 export const SPOTS: Spot[] = [
-  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running' },
-  { shipId: shipId('sp02'), name: 'website-editor', status: 'running' },
-  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed' },
-  { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing' },
+  { shipId: shipId('sp01'), name: 'aeolus-fleet', status: 'running', attempt: 0, startedAt: minutesAgo(172) },
+  { shipId: shipId('sp02'), name: 'website-editor', status: 'running', attempt: 1, startedAt: minutesAgo(41) },
+  { shipId: shipId('sp03'), name: 'docs-writer', status: 'crashed', attempt: 5, startedAt: null },
+  { shipId: shipId('sp04'), name: 'scout-1', status: 'crewing', attempt: 0, startedAt: null },
 ];
 
 /** The fleet as the list reads it: the trierarchs' ships, with where they run, and ships assigned to trierarch-mac. */
@@ -76,7 +76,7 @@ export const FLEET: ListedShip[] = [
     (spot): ListedShip => ({
       id: spot.shipId, name: spot.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
       scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null,
-      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null },
+      crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt },
     }),
   ),
 ];
@@ -104,7 +104,7 @@ const AWAITING: ListedShip = {
 const TRIAGE: ListedShip = {
   ...AWAITING,
   id: shipId('nc01'), name: 'triage-bot', type: 'triage',
-  crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(190), assignedTo: null, status: null, reason: null, crewedBy: null },
+  crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(190), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null },
 };
 
 /** Ships on Needs crew: without the plugin, to crew by hand; with it, requests that are not running. */
@@ -114,17 +114,17 @@ export const NEEDS_CREW_BY_HAND: ListedShip[] = [
     ...AWAITING,
     id: shipId('nc02'), name: 'reviewer-3', type: 'reviewer',
     startingPrompt: { issuedAt: minutesAgo(12), isClaimed: false },
-    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(87), assignedTo: null, status: null, reason: null, crewedBy: null },
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(87), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null },
   },
   {
     ...AWAITING,
     id: shipId('nc03'), name: 'planner-2', type: 'planner',
     startingPrompt: { issuedAt: minutesAgo(3000), isClaimed: true }, awaitingCrewSince: minutesAgo(375),
-    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(3000), assignedTo: null, status: null, reason: null, crewedBy: null },
+    crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(3000), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null },
   },
 ];
 
 export const NEEDS_CREW_WITH_PLUGIN: ListedShip[] = [
-  { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null } },
+  { ...TRIAGE, crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(1), assignedTo: null, status: null, reason: 'no trierarch with room: all 2 that fit are full', crewedBy: null, attempt: 0, startedAt: null } },
   ...SPOTS.filter((spot) => spot.status !== 'running').map((spot) => FLEET.find((ship) => ship.id === spot.shipId)).filter((ship) => ship !== undefined),
 ];

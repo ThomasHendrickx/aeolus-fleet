@@ -7,6 +7,7 @@ import {
   assignCrewInputSchema,
   explainCrewRequestInputSchema,
   assignedCrewRequestsOutputSchema,
+  listedCrewRequestSchema,
   reportCrewStatusInputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
@@ -101,6 +102,31 @@ describe('reportCrewStatusInputSchema', () => {
 
     expect(reportCrewStatusInputSchema.parse({ shipId, status: 'crashed' })).toEqual({ shipId, status: 'crashed' });
     expect(reportCrewStatusInputSchema.safeParse({ shipId, status: 'asleep' }).success).toBe(false);
+  });
+
+  it('takes the restart attempt and when the session started, with the status (#332)', () => {
+    const shipId = newId('ship');
+    const reported = { shipId, status: 'restarting', attempt: 2, startedAt: '2026-10-07T13:24:00.000Z' };
+
+    expect(reportCrewStatusInputSchema.parse(reported)).toEqual(reported);
+    expect(reportCrewStatusInputSchema.parse({ shipId, status: 'crewing', attempt: 0, startedAt: null })).toMatchObject({ startedAt: null });
+  });
+
+  it('refuses a negative or fractional attempt, and a start that is no time', () => {
+    const shipId = newId('ship');
+
+    expect(reportCrewStatusInputSchema.safeParse({ shipId, status: 'restarting', attempt: -1 }).success).toBe(false);
+    expect(reportCrewStatusInputSchema.safeParse({ shipId, status: 'restarting', attempt: 1.5 }).success).toBe(false);
+    expect(reportCrewStatusInputSchema.safeParse({ shipId, status: 'running', startedAt: 'yesterday' }).success).toBe(false);
+  });
+});
+
+describe('listedCrewRequestSchema', () => {
+  it('carries the restart attempt and when the session started (#332)', () => {
+    const listed = { settingsVersion: 1, requestedAt: '2026-10-07T13:00:00.000Z', assignedTo: null, status: 'restarting', reason: null, crewedBy: null, attempt: 2, startedAt: '2026-10-07T13:24:00.000Z' };
+
+    expect(listedCrewRequestSchema.parse(listed)).toEqual(listed);
+    expect(listedCrewRequestSchema.safeParse({ ...listed, attempt: undefined }).success).toBe(false);
   });
 });
 

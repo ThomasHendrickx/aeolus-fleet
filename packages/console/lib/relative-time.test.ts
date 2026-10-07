@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clockTime, dayDate, dayMonth, duration, fullDateTime, lastSeen, relativeTime, secondsTime, shortDateTime } from './relative-time';
+import { clockTime, dayDate, dayMonth, duration, fullDateTime, lastSeen, relativeTime, secondsTime, shortDateTime, sinceTime } from './relative-time';
 
 const NOW = new Date(2026, 8, 28, 14, 21, 5);
 
@@ -41,6 +41,16 @@ describe('shortDateTime and fullDateTime', () => {
 describe('clockTime', () => {
   it('words a moment as a 24 h clock', () => {
     expect(clockTime(new Date(2026, 9, 1, 9, 5, 59))).toBe('09:05');
+  });
+});
+
+describe('sinceTime', () => {
+  it('is a clock within a day', () => {
+    expect(sinceTime(new Date(2026, 8, 28, 10, 20), NOW)).toBe('10:20');
+  });
+
+  it('is day, month and clock once over a day ago', () => {
+    expect(sinceTime(new Date(2026, 8, 26, 9, 5), NOW)).toBe('26 Sep, 09:05');
   });
 });
 

@@ -200,6 +200,10 @@ model CrewRequest {
   status          CrewStatus?
   /// Why no trierarch can take it, written by the assigner while unassigned; null when none.
   reason          String?
+  /// How many times its trierarch restarted the session within its restart window, with the status: 0 on its first start.
+  attempt          Int       @default(0)
+  /// When the session its trierarch runs now started, with the status; null while none runs.
+  sessionStartedAt DateTime? @map("session_started_at") @db.Timestamptz(3)
 
   fleet    Fleet @relation(fields: [fleetId], references: [id])
   ship     Ship  @relation("CrewRequestShip", fields: [fleetId, shipId], references: [fleetId, id])

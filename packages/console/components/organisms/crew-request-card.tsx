@@ -3,16 +3,14 @@ import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateC
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { crewRequestAction, isRestartable, type CrewRequestStage } from '../../lib/crew-request';
+import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../lib/crew-request';
 import type { SettingsRow } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
-import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../lib/relative-time';
+import { fullDateTime, relativeTime, sinceTime } from '../../lib/relative-time';
 import { capitalised, OPERATOR_NAME } from '../../lib/sentence';
 import { Button } from '../atoms/button';
 import { InlineError } from '../molecules/inline-error';
 import { StatusBadge } from '../molecules/status-badge';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** What the card is doing: the action whose call is out. */
 export type CrewRequestBusy = 'request' | 'remove' | 'restart' | undefined;
@@ -55,16 +53,10 @@ const FAILED: Record<Exclude<CrewRequestBusy, undefined>, string> = {
   restart: 'Couldn’t restart the crew',
 };
 
-/** "10:20" today, "28 Sep, 14:21" once over a day ago. */
-function since(at: string, now: Date): string {
-  const when = new Date(at);
-  return now.getTime() - when.getTime() < DAY_MS ? clockTime(when) : shortDateTime(when);
-}
-
 function Time({ at, now, children }: { at: string; now: Date; children?: ReactNode }) {
   return (
     <time dateTime={at} title={fullDateTime(new Date(at))} className="tabular-nums">
-      {children ?? since(at, now)}
+      {children ?? sinceTime(new Date(at), now)}
     </time>
   );
 }
@@ -152,6 +144,26 @@ function statusNote(stage: Extract<CrewRequestStage, { kind: 'assigned' }>, at: 
         </Note>
       );
   }
+}
+
+/** How the session stands beside the badge (#332): since when it runs, and its restart attempt, as the trierarch wrote them. */
+function SessionMeta({ stage, now }: { stage: Extract<CrewRequestStage, { kind: 'assigned' }>; now: Date }) {
+  const startedAt = stage.status === 'running' ? stage.startedAt : null;
+  const restarts = restartWords(stage);
+  if (startedAt === null && restarts === undefined) {
+    return null;
+  }
+  return (
+    <span className="text-meta text-muted-foreground" data-testid="crew-request-session">
+      {startedAt === null ? null : (
+        <>
+          since <Time at={startedAt} now={now} />
+        </>
+      )}
+      {startedAt !== null && restarts !== undefined ? ' · ' : null}
+      {restarts}
+    </span>
+  );
 }
 
 /** A request's settings, as a grid of label and value (canvas CrewRequest, with the plugin). */
@@ -243,6 +255,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
               since <Time at={stage.since} now={now} />
             </span>
           ) : null}
+          {stage.kind === 'assigned' ? <SessionMeta stage={stage} now={now} /> : null}
           {stage.kind === 'assigned' && stage.status === 'releasing' && props.statusChangedAt !== undefined ? (
             <span className="text-meta text-muted-foreground">
               asked <Time at={props.statusChangedAt} now={now} />

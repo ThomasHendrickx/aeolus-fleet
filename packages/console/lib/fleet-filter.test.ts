@@ -113,7 +113,7 @@ describe('retiredCount', () => {
 });
 
 describe('the crew request filter (#245)', () => {
-  const requested = aShip({ name: 'scout', status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-07T10:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null } });
+  const requested = aShip({ name: 'scout', status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-07T10:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null } });
 
   it('keeps the ships whose crew request stands so, and those without one for No request', () => {
     expect(names(filterFleet([...fleet, requested], view({ crewRequest: 'needsCrew' })))).toEqual(['scout']);

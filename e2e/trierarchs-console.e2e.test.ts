@@ -26,7 +26,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // secret over, and no secret reaches the browser. Trierarchs then lists no
 // machine until the operator joins one, whose setup line shows once.
 
-const clock = createTestClock('2026-10-07T12:00:00.000Z');
+// The fleet's clock starts at the real time: the trierarch plugin reads a machine's last seen against its own, real clock.
+const clock = createTestClock(new Date().toISOString());
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
 
