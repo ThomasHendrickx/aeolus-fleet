@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, KeyRound, Tag, TriangleAlert, UserX, Users } from 'lucide-react';
+import { CircleCheck, KeyRound, Tag, Tags, TriangleAlert, UserX, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { abandonedLine, isTypedMatch, retireButtonLabel } from '../../lib/ship-dialogs';
@@ -31,11 +31,14 @@ interface RetireDialogProps {
   /** Why the last try failed; the dialog stays open and nothing changed. */
   error?: string;
   onConfirm: () => void;
+  /** What retiring does to labels, in words (#102, Q11): the values it carries, the labels it owns and the ships that lose them. */
+  labelLines?: readonly string[];
 }
 
-function consequencesOf(isCrewed: boolean): Consequence[] {
+function consequencesOf(isCrewed: boolean, labelLines: readonly string[]): Consequence[] {
   return [
     ...(isCrewed ? [{ icon: UserX, text: 'The session crewing it loses it now.' }] : []),
+    ...labelLines.map((text) => ({ icon: Tags, text })),
     { icon: KeyRound, text: 'Its secret stops working.' },
     { icon: Tag, text: 'It is never crewed or messaged again, and its name is free for a new ship.' },
     { icon: Users, text: 'Deliveries to its type stay, for the other ships of the type.' },
@@ -82,7 +85,7 @@ function RetireDialogBody(props: RetireDialogProps) {
         </AlertDialogDescription>
       </AlertDialogHeader>
       <DeliveriesNote openDeliveries={openDeliveries} />
-      <ConsequenceList consequences={consequencesOf(isCrewed)} />
+      <ConsequenceList consequences={consequencesOf(isCrewed, props.labelLines ?? [])} />
       {isTypingNeeded ? <TypedConfirm expected={shipName} value={typed} onValueChange={setTyped} /> : null}
       {error === undefined ? null : (
         <InlineError title="Couldn’t retire the ship" description={`${error} Nothing changed.`} />
