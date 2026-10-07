@@ -33,22 +33,32 @@ describe('webHealth', () => {
   });
 
   it('adds squadrons, up with its connected fleets and installation, when the console has squadrons', async () => {
-    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(200, { status: 'ok', connectedFleets: 0, installation: 'open' }))).resolves.toEqual({
+    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), { fetchSquadronsHealth: serverSays(200, { status: 'ok', connectedFleets: 0, installation: 'open' }) })).resolves.toEqual({
       isHealthy: true,
       body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'up', connectedFleets: 0, installation: 'open' } },
     });
   });
 
   it('shows squadrons down as its own part and stays healthy when squadrons does not answer', async () => {
-    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), () => Promise.reject(new TypeError('fetch failed')))).resolves.toEqual({
+    await expect(webHealth(serverSays(200, { server: 'up', database: 'up' }), { fetchSquadronsHealth: () => Promise.reject(new TypeError('fetch failed')) })).resolves.toEqual({
       isHealthy: true,
       body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'down' } },
     });
   });
 
   it("shows squadrons down when its database is unreachable", async () => {
-    const { body } = await webHealth(serverSays(200, { server: 'up', database: 'up' }), serverSays(503, { status: 'unavailable' }));
+    const { body } = await webHealth(serverSays(200, { server: 'up', database: 'up' }), { fetchSquadronsHealth: serverSays(503, { status: 'unavailable' }) });
 
     expect(body.squadrons).toEqual({ status: 'down' });
+  });
+
+  it('adds the trierarch plugin as its own part when the console has it, and stays healthy when it is down', async () => {
+    const up = await webHealth(serverSays(200, { server: 'up', database: 'up' }), {
+      fetchTrierarchPluginHealth: serverSays(200, { status: 'ok', connectedFleets: 1, installation: 'enabled' }),
+    });
+    const down = await webHealth(serverSays(200, { server: 'up', database: 'up' }), { fetchTrierarchPluginHealth: () => Promise.reject(new TypeError('fetch failed')) });
+
+    expect(up.body.trierarchPlugin).toEqual({ status: 'up', connectedFleets: 1, installation: 'enabled' });
+    expect(down).toEqual({ isHealthy: true, body: { web: 'up', server: 'up', database: 'up', trierarchPlugin: { status: 'down' } } });
   });
 });

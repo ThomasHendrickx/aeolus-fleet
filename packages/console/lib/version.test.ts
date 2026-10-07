@@ -51,4 +51,17 @@ describe('webVersion', () => {
       webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchSquadronsVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' }),
     ).resolves.toEqual({ web: '0.7.0', server: SERVER, squadrons: null });
   });
+
+  it("passes on the trierarch plugin's own answer when the console has it, null when it does not answer", async () => {
+    const trierarchPlugin = { trierarchPlugin: '0.19.0', migration: '20261005090000_machines', connectedFleets: 1, installation: 'open' };
+
+    await expect(webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchTrierarchPluginVersion: serverSays(200, trierarchPlugin), web: '0.7.0' })).resolves.toEqual({
+      web: '0.7.0',
+      server: SERVER,
+      trierarchPlugin,
+    });
+    await expect(
+      webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchTrierarchPluginVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' }),
+    ).resolves.toEqual({ web: '0.7.0', server: SERVER, trierarchPlugin: null });
+  });
 });
