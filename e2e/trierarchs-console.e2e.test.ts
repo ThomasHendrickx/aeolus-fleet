@@ -30,6 +30,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 const clock = createTestClock(new Date().toISOString());
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
+/** How long a poll waits for the page to catch up with the fleet. */
+const WITHIN = { timeout: 20_000 };
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -37,6 +39,8 @@ let argo: Caller;
 let serverUrl: string;
 /** The joined machine's setup line, shown once in the second test: the third runs its trierarch. */
 let setupLine = '';
+/** The joined machine's trierarch, registered in the third test: the fourth reports its machine with it. */
+let machine = { shipId: '', crewToken: '' };
 let server: FastifyInstance;
 let plugin: TrierarchPluginApp;
 let pluginUrl: string;
@@ -127,6 +131,7 @@ describe('Trierarchs in the console', () => {
     const shipId = z.templateLiteral(['shp_', z.string()]).parse(/--ship-id (\S+)/.exec(setupLine)?.[1]);
     const secret = z.string().parse(/--secret (\S+)/.exec(setupLine)?.[1]);
     const { crewToken } = await createRestFleet({ fleetUrl: serverUrl, crewToken: '' }).registerSelf({ shipId, secret });
+    machine = { shipId, crewToken };
     await createReportSelf({
       fleet: createRestFleet({ fleetUrl: serverUrl, crewToken }),
       processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
@@ -166,5 +171,43 @@ describe('Trierarchs in the console', () => {
     await expect.poll(() => page.getByTestId('machine-spot-workspace').textContent(), { timeout: 30_000 }).toContain('aeolus-fleet');
     await page.goto('/trierarchs');
     await expect.poll(() => page.getByTestId('trierarchs-plugin-version').textContent()).toMatch(/^trierarch plugin \d+\.\d+\.\d+/);
+  });
+
+  it('labels the machine from what it reports, and a request for a machine none matches waits and says why (#102)', async () => {
+    await createReportSelf({
+      fleet: createRestFleet({ fleetUrl: serverUrl, crewToken: machine.crewToken }),
+      processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
+      state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
+      setup: {
+        configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
+        version: '0.20.0',
+        adapterFlags: {},
+        riskyFlags: {},
+        machine: { os: 'macos', arch: 'arm64' },
+      },
+    })();
+    await plugin.assignOnce();
+    const lookout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'implementer' }));
+    const page = await signedIn();
+
+    // Its page shows the labels the plugin put on it, read-only.
+    await page.goto(`/trierarchs/${machine.shipId}`);
+    await expect.poll(() => page.getByTestId('machine-labels-row').textContent(), WITHIN).toContain('os=macos');
+
+    await page.goto(`/ships/${lookout.shipId}`);
+    await page.getByRole('banner').getByText('Live', { exact: true }).waitFor(WITHIN);
+    await page.getByTestId('crew-request-request').click();
+    const dialog = page.getByTestId('request-crew-dialog');
+    await dialog.getByTestId('machine-labels-add').click();
+    const picker = page.locator('[data-testid="machine-labels-popover"][data-open]');
+    await picker.getByTestId('label-picker-key').filter({ hasText: 'os' }).click();
+    await picker.getByTestId('label-picker-value').filter({ hasText: 'linux' }).click();
+    await expect.poll(() => dialog.getByTestId('machine-labels-match').textContent(), WITHIN).toContain('No machine matches this label');
+    await dialog.getByTestId('request-crew-submit').click();
+
+    const card = page.getByTestId('crew-request');
+    await expect.poll(() => card.getByTestId('crew-request-machine-labels').textContent(), WITHIN).toContain('os=linux');
+    await plugin.assignOnce();
+    await expect.poll(() => card.getByTestId('crew-request-note').textContent(), WITHIN).toContain('No machine matches these labels');
   });
 });
