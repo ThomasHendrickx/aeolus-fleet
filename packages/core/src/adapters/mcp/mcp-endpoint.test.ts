@@ -53,6 +53,11 @@ const SHIP_TOOLS = [
   'fleet_reportCrewStatus',
   'fleet_confirmCrewRelease',
   'fleet_assignedCrewRequests',
+  'fleet_labels',
+  'fleet_defineLabel',
+  'fleet_changeLabelValues',
+  'fleet_assignLabel',
+  'fleet_unassignLabel',
 ];
 
 let core: InMemoryCore;
@@ -238,6 +243,12 @@ describe('the ship tools at /mcp', () => {
     ['fleet_commission', [/fleet:manage/, /fleetScopes/, /starting prompt/i]],
     ['fleet_release', [/fleet:manage/, /never argo/i]],
     ['fleet_ping', [/fleet:manage/, /pong/]],
+    ['fleet_list', [/labels/, /exact/i]],
+    ['fleet_labels', [/fleet:read/, /owner/]],
+    ['fleet_defineLabel', [/labels:define/, /decision 0031/]],
+    ['fleet_changeLabelValues', [/labels:define/, /owner/, /carr/]],
+    ['fleet_assignLabel', [/labels:assign/, /owner/, /own ship/]],
+    ['fleet_unassignLabel', [/labels:assign/, /owner/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 

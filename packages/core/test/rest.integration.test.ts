@@ -153,6 +153,11 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/reportCrewStatus',
       '/fleet/confirmCrewRelease',
       '/fleet/assignedCrewRequests',
+      '/fleet/labels',
+      '/fleet/defineLabel',
+      '/fleet/changeLabelValues',
+      '/fleet/assignLabel',
+      '/fleet/unassignLabel',
     ]);
   });
 
@@ -310,7 +315,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const mooring = await commissioned();
     await register(mooring);
 
-    const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'GET' }), z.array(z.object({ name: z.string() })));
+    const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'POST' }), z.array(z.object({ name: z.string() })));
     const commission = { name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' };
     const commissionedByManager = await ok(
       request('fleet/commission', { crewToken: manager.crewToken, body: commission }),
@@ -423,7 +428,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const agent = await commissioned();
     const crewToken = await register(agent);
 
-    await expect(request('fleet/list', { crewToken, method: 'GET' })).resolves.toEqual({
+    await expect(request('fleet/list', { crewToken, method: 'POST' })).resolves.toEqual({
       status: 403,
       body: { code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' },
     });

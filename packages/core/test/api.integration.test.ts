@@ -1730,3 +1730,85 @@ describe('console.session for another service', () => {
     expect(statuses).toEqual([401, 401, 401]);
   });
 });
+
+describe('labels at the API', () => {
+  async function labeller(): Promise<TRPCClient<AppRouter>> {
+    return client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign'])}` });
+  }
+
+  it('let a ship with labels:define define a label and change its values, and refuse a ship without', async () => {
+    const asLabeller = await labeller();
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    await expect(asLabeller.fleet.defineLabel.mutate({ key: 'api-os', values: ['macos'] })).resolves.toEqual({});
+    await expect(asLabeller.fleet.changeLabelValues.mutate({ key: 'api-os', values: ['macos', 'linux'] })).resolves.toEqual({});
+    await expect(refusalOf(reader.fleet.defineLabel.mutate({ key: 'api-team', values: ['core'] }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the labels:define scope',
+    });
+    await expect(codeOf(reader.fleet.changeLabelValues.mutate({ key: 'api-os', values: ['macos'] }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('let the owner with labels:assign assign and unassign its label, and refuse a ship without the scope', async () => {
+    const asLabeller = await labeller();
+    const definer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
+    const { shipId } = await agentShip();
+    await asLabeller.fleet.defineLabel.mutate({ key: 'api-project', values: ['hemma'] });
+    await definer.fleet.defineLabel.mutate({ key: 'api-unassignable', values: ['x'] });
+
+    await expect(asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-project', value: 'hemma' })).resolves.toEqual({});
+    await expect(asLabeller.fleet.ship.query({ shipId })).resolves.toMatchObject({ labels: { 'api-project': 'hemma' } });
+    await expect(asLabeller.fleet.unassignLabel.mutate({ shipId, key: 'api-project' })).resolves.toEqual({});
+    await expect(codeOf(definer.fleet.assignLabel.mutate({ shipId, key: 'api-unassignable', value: 'x' }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(definer.fleet.unassignLabel.mutate({ shipId, key: 'api-unassignable' }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('answer each refusal with its code and a message naming what refused it', async () => {
+    const asLabeller = await labeller();
+    const other = await labeller();
+    const { shipId } = await agentShip();
+    await asLabeller.fleet.defineLabel.mutate({ key: 'api-region', values: ['eu'] });
+
+    await expect(refusalOf(asLabeller.fleet.defineLabel.mutate({ key: 'API', values: ['eu'] }))).resolves.toMatchObject({ code: 'BAD_REQUEST', message: expect.stringContaining('decision 0031') as string });
+    await expect(codeOf(other.fleet.defineLabel.mutate({ key: 'api-region', values: ['us'] }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(other.fleet.assignLabel.mutate({ shipId, key: 'api-region', value: 'eu' }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-nothing', value: 'eu' }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-region', value: 'us' }))).resolves.toBe('BAD_REQUEST');
+    await asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-region', value: 'eu' });
+    await expect(codeOf(asLabeller.fleet.changeLabelValues.mutate({ key: 'api-region', values: ['us'] }))).resolves.toBe('CONFLICT');
+  });
+
+  it('read the labels with fleet:read, and select ships on the fleet list by them', async () => {
+    const asLabeller = await labeller();
+    const { shipId: builderId } = await agentShip();
+    const { shipId: testerId } = await agentShip();
+    await asLabeller.fleet.defineLabel.mutate({ key: 'api-stage', values: ['build', 'test'] });
+    await asLabeller.fleet.assignLabel.mutate({ shipId: builderId, key: 'api-stage', value: 'build' });
+    await asLabeller.fleet.assignLabel.mutate({ shipId: testerId, key: 'api-stage', value: 'test' });
+
+    const labels = await asLabeller.fleet.labels.query();
+    const selected = await asLabeller.fleet.list.query({ labels: { 'api-stage': 'build' } });
+
+    expect(labels.find((label) => label.key === 'api-stage')).toEqual({ key: 'api-stage', values: ['build', 'test'], owner: { id: expect.stringMatching(/^shp_/) as string, name: expect.any(String) as string } });
+    expect(selected.map((ship) => [ship.id, ship.labels])).toEqual([[builderId, { 'api-stage': 'build' }]]);
+    await expect(asLabeller.fleet.list.query()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: testerId })]) as unknown);
+    await expect(codeOf(client({ authorization: `Bearer ${await crewedShip()}` }).fleet.labels.query())).resolves.toBe('FORBIDDEN');
+  });
+
+  it('select ships through REST: the fleet list takes its labels in a POST body', async () => {
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign']);
+    const asLabeller = client({ authorization: `Bearer ${crewToken}` });
+    const { shipId } = await agentShip();
+    await asLabeller.fleet.defineLabel.mutate({ key: 'api-rest', values: ['yes'] });
+    await asLabeller.fleet.assignLabel.mutate({ shipId, key: 'api-rest', value: 'yes' });
+
+    const response = await fetch(`${address}/api/v1/fleet/list`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ labels: { 'api-rest': 'yes' } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(z.array(z.object({ id: z.string() })).parse(await response.json()).map((ship) => ship.id)).toEqual([shipId]);
+  });
+});
