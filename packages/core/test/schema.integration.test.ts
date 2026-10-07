@@ -286,7 +286,7 @@ describe('operator accounts', () => {
 });
 
 describe('scopes', () => {
-  it('are only the six known ones', async () => {
+  it('are only the eight known ones', async () => {
     const id = await createShip(await createFleet());
 
     await expect(
@@ -295,9 +295,9 @@ describe('scopes', () => {
     await expect(
       database.ship.update({
         where: { id },
-        data: { scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run'] },
+        data: { scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] },
       }),
-    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run'] });
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] });
   });
 
   it('are never null', async () => {
