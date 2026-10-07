@@ -118,7 +118,8 @@ async function listed(page: Page): Promise<string[]> {
 
 /** Picks a value in the open label picker; the URL then carries it. */
 async function pick(page: Page, label: { key: string; value: string }): Promise<void> {
-  const popover = page.getByTestId('label-filter-popover');
+  // The open one: a picker that just closed may still be fading out beside it.
+  const popover = page.locator('[data-testid="label-filter-popover"][data-open]');
   await popover.waitFor();
   await popover.getByTestId('label-picker-key').filter({ hasText: label.key }).click();
   await popover.getByTestId('label-picker-value').filter({ hasText: label.value }).click();

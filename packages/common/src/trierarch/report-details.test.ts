@@ -44,7 +44,38 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes the machine a trierarch runs on: its os and arch, for the trierarch plugin to label it (#102)', () => {
+    const details = {
+      harnesses: [{ harness: 'codex', options: {}, flags: [] }],
+      workspaces: { repositories: [], folders: ['notes'] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      machine: { os: 'macos', arch: 'arm64' },
+      version: '0.20.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('takes a machine whose os or arch is outside the known ones, left out', () => {
+    const details = {
+      harnesses: [{ harness: 'codex', options: {}, flags: [] }],
+      workspaces: { repositories: [], folders: ['notes'] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      machine: { os: 'linux' },
+      version: '0.20.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
   it.each([
+    ['an os outside the known ones', (details: Record<string, unknown>) => ({ ...details, machine: { os: 'freebsd' } })],
+    ['an arch outside the known ones', (details: Record<string, unknown>) => ({ ...details, machine: { arch: 'x64' } })],
+    ['an unknown field in the machine', (details: Record<string, unknown>) => ({ ...details, machine: { os: 'linux', site: 'home' } })],
     ['risky flags that are not a list of text', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], riskyFlags: '--search' }] })],
     ['an unknown field', (details: Record<string, unknown>) => ({ ...details, entries: [] })],
     ['an unknown field in a harness', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], adapterFlags: [] }] })],

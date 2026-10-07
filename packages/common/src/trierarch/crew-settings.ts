@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { idSchema } from '../ids/index.js';
 import { shipHandleSchema } from '../schemas/fleet.js';
+import { SHIP_LABELS_MAX } from '../schemas/label.js';
 import { harnessSchema } from '../schemas/ship.js';
 import { trierarchNameSchema } from './names.js';
 
@@ -38,6 +40,12 @@ export const crewSettingsSchema = z.strictObject({
     .optional(),
   /** Named settings, checked against the JSON Schema the trierarch reports for the harness. */
   options: z.record(z.string(), z.json()),
+  /**
+   * The label values a machine carries every one of for the request to go to
+   * it (#102; docs/trierarch.md, "Machine labels"): exact matches, AND. A
+   * machine carries at most 20, so no more can match. None: any machine.
+   */
+  machineLabels: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
 });
 
 export type CrewSettings = z.infer<typeof crewSettingsSchema>;

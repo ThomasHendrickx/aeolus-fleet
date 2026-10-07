@@ -18,8 +18,8 @@ export interface PluginShip {
 /** Squadrons' management ship. */
 export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] };
 
-/** The trierarch plugin's ship: it reads the fleet, commissions machines' ships and assigns crew requests. */
-export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', fleetScopes: ['fleet:read', 'fleet:manage', 'crew:assign'] };
+/** The trierarch plugin's ship: it reads the fleet, commissions machines' ships, assigns crew requests and labels machines (os and arch). */
+export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', fleetScopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */
