@@ -59,6 +59,8 @@ import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
+import { createDeleteLabel } from '../../src/domain/registry/delete-label.js';
+import { createFindLabelValue } from '../../src/domain/registry/find-label-value.js';
 import { createChangeLabelValues } from '../../src/domain/registry/change-label-values.js';
 import { createAssignLabel } from '../../src/domain/registry/assign-label.js';
 import { createUnassignLabel } from '../../src/domain/registry/unassign-label.js';
@@ -158,7 +160,9 @@ export function registryUseCases(core: InMemoryCore) {
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),
     unassignLabel: createUnassignLabel(deps),
+    deleteLabel: createDeleteLabel(deps),
     listLabels: createListLabels({ listing: core.listing }),
+    findLabelValue: createFindLabelValue({ listing: core.listing }),
     renameShip: createRenameShip(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),

@@ -11,6 +11,9 @@ import {
   changeLabelValuesOutputSchema,
   defineLabelInputSchema,
   defineLabelOutputSchema,
+  deleteLabelInputSchema,
+  findLabelValueInputSchema,
+  findLabelValueOutputSchema,
   fleetListInputSchema,
   labelsOutputSchema,
   unassignLabelInputSchema,
@@ -98,5 +101,23 @@ describe('listedShipSchema', () => {
     const carried = [{ labelId: newId('label'), key: 'os', valueId: newId('labelValue'), value: 'macos' }];
 
     expect(listedShipSchema.shape.labels.parse(carried)).toEqual(carried);
+  });
+});
+
+describe('deleteLabelInputSchema', () => {
+  it('takes the label by its id', () => {
+    const input = { labelId: newId('label') };
+
+    expect(deleteLabelInputSchema.parse(input)).toEqual(input);
+    expect(deleteLabelInputSchema.safeParse({ labelId: 'os' }).success).toBe(false);
+  });
+});
+
+describe('findLabelValueInputSchema and findLabelValueOutputSchema', () => {
+  it('take a key and a value as text, and answer the label id and the value id', () => {
+    const found = { labelId: newId('label'), valueId: newId('labelValue') };
+
+    expect(findLabelValueInputSchema.parse({ key: 'OS', value: 'macos' })).toEqual({ key: 'OS', value: 'macos' });
+    expect(findLabelValueOutputSchema.parse(found)).toEqual(found);
   });
 });

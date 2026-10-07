@@ -1823,4 +1823,29 @@ describe('labels at the API', () => {
     expect(response.status).toBe(200);
     expect(z.array(z.object({ id: z.string() })).parse(await response.json()).map((ship) => ship.id)).toEqual([shipId]);
   });
+
+  it('find a value by its key and value text with fleet:read, answering NOT_FOUND for one the fleet does not have', async () => {
+    const asLabeller = await labeller();
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const zone = await asLabeller.fleet.defineLabel.mutate({ key: 'api-zone', values: ['north'] });
+
+    await expect(reader.fleet.findLabelValue.query({ key: 'API-ZONE', value: 'North' })).resolves.toEqual({ labelId: zone.labelId, valueId: zone.values[0]?.id });
+    await expect(codeOf(reader.fleet.findLabelValue.query({ key: 'api-zone', value: 'south' }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(client({ authorization: `Bearer ${await crewedShip()}` }).fleet.findLabelValue.query({ key: 'api-zone', value: 'north' }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('let the owner with labels:define delete a label no ship carries, and refuse one a ship carries, or a ship without the scope', async () => {
+    const asLabeller = await labeller();
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const { shipId } = await agentShip();
+    const carried = await asLabeller.fleet.defineLabel.mutate({ key: 'api-carried', values: ['yes'] });
+    const unused = await asLabeller.fleet.defineLabel.mutate({ key: 'api-unused', values: ['yes'] });
+    await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: carried.values[0]?.id ?? newId('labelValue') });
+
+    await expect(codeOf(reader.fleet.deleteLabel.mutate({ labelId: unused.labelId }))).resolves.toBe('FORBIDDEN');
+    await expect(asLabeller.fleet.deleteLabel.mutate({ labelId: unused.labelId })).resolves.toEqual({});
+    await expect(codeOf(asLabeller.fleet.deleteLabel.mutate({ labelId: carried.labelId }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(asLabeller.fleet.deleteLabel.mutate({ labelId: unused.labelId }))).resolves.toBe('NOT_FOUND');
+    expect((await asLabeller.fleet.labels.query()).map((label) => label.key)).not.toContain('api-unused');
+  });
 });

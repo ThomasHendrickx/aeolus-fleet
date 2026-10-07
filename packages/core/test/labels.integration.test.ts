@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAssignLabel } from '../src/domain/registry/assign-label.js';
 import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
+import { createDeleteLabel } from '../src/domain/registry/delete-label.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
@@ -199,6 +200,69 @@ describe("an assignment racing its owner's retire", () => {
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
     await expect(retire).resolves.toMatchObject({ isOk: true });
     await expect(carried()).resolves.toEqual([]);
+    await expect(labels()).resolves.toEqual([]);
+  });
+});
+
+describe('deleting a label on Postgres', () => {
+  it('deletes it with its values and LabelDeleted, freeing the key, and refuses one a ship carries', async () => {
+    const team = unwrap(await core.useCases.defineLabel(plugin, { key: 'team', values: ['core'] }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
+
+    unwrap(await core.useCases.deleteLabel(plugin, { labelId: team.labelId }));
+    await expect(core.useCases.deleteLabel(plugin, { labelId: osId })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_CARRIED' } });
+
+    await expect(labels()).resolves.toEqual([{ key: 'os', values: ['macos', 'linux'], owner: plugin.shipId }]);
+    await expect(core.prisma.labelValue.count({ where: { labelId: team.labelId } })).resolves.toBe(0);
+    expect((await labelEvents()).at(-1)).toEqual({ type: 'LabelDeleted', shipId: plugin.shipId, details: { labelId: team.labelId, key: 'team' } });
+    await expect(core.useCases.defineLabel(argo, { key: 'team', values: ['web'] })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('finds a value by its key and value text', async () => {
+    await expect(core.useCases.findLabelValue(argo, { key: 'OS', value: 'linux' })).resolves.toEqual({ isOk: true, value: { labelId: osId, valueId: linux } });
+  });
+});
+
+describe('an assignment racing a delete', () => {
+  it('makes the delete wait for an assignment that holds the label, then refuses the delete: a ship carries it', async () => {
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      labels: {
+        ...tx.labels,
+        assign: async (assignment) => {
+          await hold();
+          await tx.labels.assign(assignment);
+        },
+      },
+    }));
+    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: macos });
+    await reached;
+
+    const deleted = core.useCases.deleteLabel(plugin, { labelId: osId });
+
+    await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(deleted).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_CARRIED' } });
+    await expect(carried()).resolves.toEqual(['builder:os=macos']);
+  });
+
+  it('refuses an assignment that waited for a delete that locked the label first: the value is gone', async () => {
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      labels: {
+        ...tx.labels,
+        carriersOf: async (fleetId, labelId) => {
+          await hold();
+          return tx.labels.carriersOf(fleetId, labelId);
+        },
+      },
+    }));
+    const deleted = createDeleteLabel({ uow, clock: core.clock, ids: newId })(plugin, { labelId: osId });
+    await reached;
+
+    const assign = core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos });
+
+    await expect(deleted).resolves.toMatchObject({ isOk: true });
+    await expect(assign).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_VALUE_NOT_FOUND' } });
     await expect(labels()).resolves.toEqual([]);
   });
 });

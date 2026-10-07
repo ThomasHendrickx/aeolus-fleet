@@ -58,6 +58,8 @@ const SHIP_TOOLS = [
   'fleet_changeLabelValues',
   'fleet_assignLabel',
   'fleet_unassignLabel',
+  'fleet_deleteLabel',
+  'fleet_findLabelValue',
 ];
 
 let core: InMemoryCore;
@@ -249,6 +251,8 @@ describe('the ship tools at /mcp', () => {
     ['fleet_changeLabelValues', [/labels:define/, /owner/, /carr/]],
     ['fleet_assignLabel', [/labels:assign/, /owner/, /own ship/]],
     ['fleet_unassignLabel', [/labels:assign/, /owner/]],
+    ['fleet_deleteLabel', [/labels:define/, /owner/, /carr/]],
+    ['fleet_findLabelValue', [/fleet:read/, /lowercas/i]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 

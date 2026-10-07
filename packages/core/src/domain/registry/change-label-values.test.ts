@@ -33,7 +33,7 @@ beforeEach(async () => {
 /** A ship carrying the value, straight into the state, as an assignment leaves it. */
 async function shipCarrying(name: string, value: string): Promise<ShipId> {
   const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'implementer' }));
-  core.state.shipLabels.push({ fleetId, shipId, labelId: osId, valueId: valueIdOf(core, { key: 'os', value: value }) });
+  core.state.shipLabels.push({ fleetId, shipId, labelId: osId, valueId: valueIdOf(core, { key: 'os', value }) });
   core.state.events.length = 0;
   return shipId;
 }

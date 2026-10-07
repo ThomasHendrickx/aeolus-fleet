@@ -158,6 +158,8 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/changeLabelValues',
       '/fleet/assignLabel',
       '/fleet/unassignLabel',
+      '/fleet/deleteLabel',
+      '/fleet/findLabelValue',
     ]);
   });
 

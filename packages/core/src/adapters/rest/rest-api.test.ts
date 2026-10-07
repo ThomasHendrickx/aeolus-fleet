@@ -183,6 +183,8 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/changeLabelValues', ['post']],
       ['/fleet/assignLabel', ['post']],
       ['/fleet/unassignLabel', ['post']],
+      ['/fleet/deleteLabel', ['post']],
+      ['/fleet/findLabelValue', ['post']],
     ]);
   });
 

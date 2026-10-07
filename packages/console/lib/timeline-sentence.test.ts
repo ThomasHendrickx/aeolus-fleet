@@ -313,6 +313,14 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('CrewStatusChanged', { actor: argo, details: { status: 'crashed' } }))).toMatchObject({ tone: 'attention' });
   });
 
+  it('names the label its owner deleted', () => {
+    expect(onScoutsPage(anEntry('LabelDeleted', { actor: argo, details: { key: 'os' } }))).toEqual({
+      sentence: 'Label os deleted',
+      tone: 'ended',
+      icon: 'retired',
+    });
+  });
+
   it('names the label its owner defined, changed or retired, with its values', () => {
     expect(onScoutsPage(anEntry('LabelDefined', { actor: argo, details: { key: 'os', values: 'macos,linux' } }))).toEqual({
       sentence: 'Label os defined: macos, linux',

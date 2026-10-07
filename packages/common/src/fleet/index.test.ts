@@ -78,6 +78,7 @@ describe('eventTypeSchema', () => {
       'LabelRetired',
       'LabelAssigned',
       'LabelUnassigned',
+      'LabelDeleted',
     ]);
   });
 });

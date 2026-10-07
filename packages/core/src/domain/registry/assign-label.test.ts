@@ -131,7 +131,7 @@ describe('assigning a label', () => {
       const values = Array.from({ length: 19 }, (_, index) => `v${String(index)}`);
       unwrap(await registry.defineLabel(plugin, { key: 'many', values }));
       for (const value of values) {
-        unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'many', value: value }) }));
+        unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'many', value }) }));
       }
       unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
       hemma = valueIdOf(core, { key: 'project', value: 'hemma' });
