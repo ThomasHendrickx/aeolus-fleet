@@ -245,9 +245,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     verify: (password, passwordHash) => Promise.resolve(passwordHash === `argon2id(${password})`),
   };
 
-  const labelOf = (fleetId: FleetId, key: string): Label | undefined => {
-    const held = state.labels.find((label) => label.fleetId === fleetId && label.key === key);
-    return held && { ...held, values: [...held.values] };
+  const copyOfLabel = (label: Label): Label => ({ ...label, values: label.values.map((value) => ({ ...value })) });
+  const labelWhere = (matches: (label: Label) => boolean): Label | undefined => {
+    const held = state.labels.find(matches);
+    return held && copyOfLabel(held);
   };
 
   const ship = (fleetId: FleetId, shipId: ShipId): Ship | undefined =>
@@ -399,57 +400,62 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     labels: {
       // One test runs one unit of work at a time: nothing to wait for.
       lockKey: () => Promise.resolve(),
-      find: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
-      findForUpdate: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
-      findForShare: (fleetId, key) => Promise.resolve(labelOf(fleetId, key)),
+      findByKey: (fleetId, key) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.key === key)),
+      find: (fleetId, labelId) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.id === labelId)),
+      findForUpdate: (fleetId, labelId) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.id === labelId)),
+      findByValueForShare: (fleetId, valueId) =>
+        Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.values.some((value) => value.id === valueId))),
       listOwnedByForUpdate: (fleetId, ownerShipId) =>
         Promise.resolve(
           state.labels
             .filter((label) => label.fleetId === fleetId && label.ownerShipId === ownerShipId)
             .sort((first, second) => first.key.localeCompare(second.key))
-            .map((label) => ({ ...label, values: [...label.values] })),
+            .map(copyOfLabel),
         ),
       save: (label) => {
-        const index = state.labels.findIndex((held) => held.fleetId === label.fleetId && held.key === label.key);
-        state.labels.splice(index === -1 ? state.labels.length : index, index === -1 ? 0 : 1, { ...label, values: [...label.values] });
+        const index = state.labels.findIndex((held) => held.fleetId === label.fleetId && held.id === label.id);
+        if (index === -1 && state.labels.some((held) => held.fleetId === label.fleetId && held.key === label.key)) {
+          return Promise.reject(new Error('unique violation: the fleet has a label with this key'));
+        }
+        const kept = new Set(label.values.map((value) => value.id));
+        const held = index === -1 ? undefined : state.labels[index];
+        if (held && state.shipLabels.some((carried) => carried.labelId === label.id && !kept.has(carried.valueId))) {
+          return Promise.reject(new Error('foreign key violation: a ship carries a value the label no longer has'));
+        }
+        state.labels.splice(index === -1 ? state.labels.length : index, index === -1 ? 0 : 1, copyOfLabel(label));
         return Promise.resolve();
       },
-      remove: (fleetId, key) => {
-        if (state.shipLabels.some((held) => held.fleetId === fleetId && held.key === key)) {
+      remove: (fleetId, labelId) => {
+        if (state.shipLabels.some((held) => held.fleetId === fleetId && held.labelId === labelId)) {
           return Promise.reject(new Error('foreign key violation: ships still carry the label'));
         }
-        state.labels.splice(0, state.labels.length, ...state.labels.filter((held) => held.fleetId !== fleetId || held.key !== key));
+        state.labels.splice(0, state.labels.length, ...state.labels.filter((held) => held.fleetId !== fleetId || held.id !== labelId));
         return Promise.resolve();
       },
       carriedBy: (fleetId, shipId) =>
+        Promise.resolve(state.shipLabels.filter((held) => held.fleetId === fleetId && held.shipId === shipId).map((held) => ({ ...held }))),
+      carriersOf: (fleetId, labelId) =>
         Promise.resolve(
           state.shipLabels
-            .filter((held) => held.fleetId === fleetId && held.shipId === shipId)
-            .sort((first, second) => first.key.localeCompare(second.key))
-            .map((held) => ({ ...held })),
-        ),
-      carriersOf: (fleetId, key) =>
-        Promise.resolve(
-          state.shipLabels
-            .filter((held) => held.fleetId === fleetId && held.key === key)
-            .sort((first, second) => first.shipId.localeCompare(second.shipId))
+            .filter((held) => held.fleetId === fleetId && held.labelId === labelId)
+            .sort((first, second) => first.shipId.localeCompare(second.shipId) || first.valueId.localeCompare(second.valueId))
             .map((held) => ({ ...held })),
         ),
       assign: (assignment) => {
-        if (!labelOf(assignment.fleetId, assignment.key)) {
-          return Promise.reject(new Error('foreign key violation: no such label'));
+        const label = labelWhere((held) => held.fleetId === assignment.fleetId && held.id === assignment.labelId);
+        if (!label?.values.some((value) => value.id === assignment.valueId)) {
+          return Promise.reject(new Error('foreign key violation: no such label value'));
         }
-        const index = state.shipLabels.findIndex(
-          (held) => held.fleetId === assignment.fleetId && held.shipId === assignment.shipId && held.key === assignment.key,
-        );
-        state.shipLabels.splice(index === -1 ? state.shipLabels.length : index, index === -1 ? 0 : 1, { ...assignment });
+        if (!state.shipLabels.some((held) => held.fleetId === assignment.fleetId && held.shipId === assignment.shipId && held.valueId === assignment.valueId)) {
+          state.shipLabels.push({ ...assignment });
+        }
         return Promise.resolve();
       },
-      unassign: ({ fleetId, shipId, key }) => {
+      unassign: ({ fleetId, shipId, valueId }) => {
         state.shipLabels.splice(
           0,
           state.shipLabels.length,
-          ...state.shipLabels.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || held.key !== key),
+          ...state.shipLabels.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || held.valueId !== valueId),
         );
         return Promise.resolve();
       },
@@ -947,12 +953,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
-      labels: Object.fromEntries(
-        state.shipLabels
-          .filter((carried) => carried.fleetId === held.fleetId && carried.shipId === held.id)
-          .sort((first, second) => first.key.localeCompare(second.key))
-          .map((carried) => [carried.key, carried.value]),
-      ),
+      labels: state.shipLabels
+        .filter((carried) => carried.fleetId === held.fleetId && carried.shipId === held.id)
+        .flatMap((carried) => {
+          const label = state.labels.find((each) => each.id === carried.labelId);
+          const value = label?.values.find((each) => each.id === carried.valueId);
+          return label && value ? [{ labelId: label.id, key: label.key, valueId: value.id, value: value.value }] : [];
+        })
+        .sort((first, second) => first.key.localeCompare(second.key) || first.value.localeCompare(second.value)),
       crewedBy: crewedByOf(held, lease),
       lastPing: lastPingOf(held),
       lastModel: lastModelOf(held),
@@ -1025,7 +1033,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .sort((first, second) => first.key.localeCompare(second.key))
           .map((label) => {
             const owner = state.ships.find((each) => each.fleetId === fleetId && each.id === label.ownerShipId);
-            return { key: label.key, values: [...label.values], owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
+            return { id: label.id, key: label.key, values: label.values.map((value) => ({ ...value })), owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
           }),
       ),
     deliveryCounts: (fleetId, shipId) => {

@@ -1,10 +1,11 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { LabelValueId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
+import { carriedText, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 
@@ -14,6 +15,7 @@ let argo: Caller;
 let plugin: Caller;
 let pluginId: ShipId;
 let builderId: ShipId;
+let macos: LabelValueId;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-07T09:00:00.000Z');
@@ -25,25 +27,23 @@ beforeEach(async () => {
   ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
   unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
   unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
-  unwrap(await registry.assignLabel(plugin, { shipId: builderId, key: 'os', value: 'macos' }));
-  unwrap(await registry.assignLabel(plugin, { shipId: builderId, key: 'project', value: 'hemma' }));
+  macos = valueIdOf(core, 'os', 'macos');
+  unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: macos }));
+  unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'os', 'linux') }));
+  unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'project', 'hemma') }));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
 
-function carriedBy(shipId: ShipId) {
-  return core.state.shipLabels.filter((carried) => carried.shipId === shipId).map(({ key, value }) => `${key}=${value}`);
-}
-
 describe('unassigning a label', () => {
-  it('lets its owner take it off a ship, which keeps its other labels', async () => {
-    await expect(registry.unassignLabel(plugin, { shipId: builderId, key: 'os' })).resolves.toEqual({ isOk: true, value: undefined });
+  it('lets its owner take one value off a ship, which keeps its other values', async () => {
+    await expect(registry.unassignLabel(plugin, { shipId: builderId, valueId: macos })).resolves.toEqual({ isOk: true, value: undefined });
 
-    expect(carriedBy(builderId)).toEqual(['project=hemma']);
+    expect(carriedText(core, builderId)).toEqual(['os=linux', 'project=hemma']);
   });
 
-  it('writes LabelUnassigned, caused by the owner, naming the ship, with the key and the value it carried', async () => {
-    unwrap(await registry.unassignLabel(plugin, { shipId: builderId, key: 'os' }));
+  it('writes LabelUnassigned, caused by the owner, naming the ship, with the label and the value it carried, ids and text', async () => {
+    unwrap(await registry.unassignLabel(plugin, { shipId: builderId, valueId: macos }));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({
@@ -51,33 +51,36 @@ describe('unassigning a label', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: pluginId },
         shipId: builderId,
-        details: { key: 'os', value: 'macos' },
+        details: { labelId: core.state.labels[0]?.id, key: 'os', valueId: macos, value: 'macos' },
       }),
     ]);
   });
 
-  it('changes nothing and writes no event for a ship that does not carry it', async () => {
-    unwrap(await registry.unassignLabel(plugin, { shipId: builderId, key: 'os' }));
+  it('changes nothing and writes no event for a ship that does not carry the value', async () => {
+    unwrap(await registry.unassignLabel(plugin, { shipId: builderId, valueId: macos }));
     core.state.events.length = 0;
 
-    await expect(registry.unassignLabel(plugin, { shipId: builderId, key: 'os' })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.unassignLabel(plugin, { shipId: builderId, valueId: macos })).resolves.toEqual({ isOk: true, value: undefined });
     expect(core.state.events).toEqual([]);
   });
 
   it('refuses a ship that does not own the label, argo too', async () => {
-    await expect(registry.unassignLabel(argo, { shipId: builderId, key: 'os' })).resolves.toMatchObject({
+    await expect(registry.unassignLabel(argo, { shipId: builderId, valueId: macos })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'NOT_THE_LABEL_OWNER', message: 'The label os is owned by trierarch-plugin: only its owner unassigns it' },
     });
-    expect(carriedBy(builderId)).toEqual(['os=macos', 'project=hemma']);
+    expect(carriedText(core, builderId)).toEqual(['os=linux', 'os=macos', 'project=hemma']);
   });
 
   it("refuses the owner's own ship, which never carries its labels", async () => {
-    await expect(registry.unassignLabel(plugin, { shipId: pluginId, key: 'os' })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_ON_OWN_SHIP' } });
+    await expect(registry.unassignLabel(plugin, { shipId: pluginId, valueId: macos })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_ON_OWN_SHIP' } });
   });
 
-  it('refuses a key the fleet has no label for, and a ship it does not have', async () => {
-    await expect(registry.unassignLabel(plugin, { shipId: builderId, key: 'team' })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_NOT_FOUND' } });
-    await expect(registry.unassignLabel(plugin, { shipId: core.ids('ship'), key: 'os' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_FOUND' } });
+  it('refuses a value the fleet has no label for, and a ship it does not have', async () => {
+    await expect(registry.unassignLabel(plugin, { shipId: builderId, valueId: core.ids('labelValue') })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'LABEL_VALUE_NOT_FOUND' },
+    });
+    await expect(registry.unassignLabel(plugin, { shipId: core.ids('ship'), valueId: macos })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_FOUND' } });
   });
 });

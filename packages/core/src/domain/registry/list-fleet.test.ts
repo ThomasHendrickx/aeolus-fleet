@@ -14,6 +14,7 @@ import {
   secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -182,7 +183,7 @@ describe('listing the fleet', () => {
         scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
         report: null,
         crewRequest: null,
-        labels: {},
+        labels: [],
         harness: null,
         model: null,
         awaitingCrewSince: null,
@@ -201,7 +202,7 @@ describe('listing the fleet', () => {
         scopes: ['messages:send', 'messages:receive'],
         report: null,
         crewRequest: null,
-        labels: {},
+        labels: [],
         harness: null,
         model: null,
         awaitingCrewSince: commissionedAt,
@@ -384,42 +385,47 @@ describe('the labels a ship carries, and selecting ships by them', () => {
     ({ shipId: testerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' })));
     unwrap(await useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
     unwrap(await useCases.defineLabel(plugin, { key: 'project', values: ['hemma', 'aeolus'] }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, key: 'project', value: 'hemma' }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, key: 'os', value: 'macos' }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, key: 'os', value: 'macos' }));
-    unwrap(await useCases.assignLabel(plugin, { shipId: scoutId, key: 'os', value: 'linux' }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'project', 'hemma') }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'os', 'macos') }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, 'os', 'macos') }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: testerId, valueId: valueIdOf(core, 'os', 'linux') }));
+    unwrap(await useCases.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'os', 'linux') }));
   });
 
-  async function namesSelected(labels: Record<string, string>) {
-    return (await useCases.listFleet(argo, { labels })).map((ship) => ship.name);
+  async function namesSelected(...values: [string, string][]) {
+    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, key, value)) })).map((ship) => ship.name);
   }
 
-  it('lists each ship with the labels it carries, by key, and none for a ship without', async () => {
+  it('lists each ship with the labels it carries, ids and text, by key then value, and none for a ship without', async () => {
     const listed = await useCases.listFleet(argo);
 
-    expect(listed.map((ship) => [ship.name, ship.labels])).toEqual([
-      ['argo', {}],
-      ['scout', { os: 'linux' }],
-      ['trierarch-plugin', {}],
-      ['builder', { os: 'macos', project: 'hemma' }],
-      ['tester', { os: 'macos' }],
+    expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
+      ['argo', []],
+      ['scout', ['os=linux']],
+      ['trierarch-plugin', []],
+      ['builder', ['os=macos', 'project=hemma']],
+      ['tester', ['os=linux', 'os=macos']],
+    ]);
+    expect(listed.find((ship) => ship.name === 'scout')?.labels).toEqual([
+      { labelId: labelIdOf(core, 'os'), key: 'os', valueId: valueIdOf(core, 'os', 'linux'), value: 'linux' },
     ]);
   });
 
-  it('selects the ships that carry a label with its value', async () => {
-    await expect(namesSelected({ os: 'macos' })).resolves.toEqual(['builder', 'tester']);
+  it('selects the ships that carry a value, by its id', async () => {
+    await expect(namesSelected(['os', 'macos'])).resolves.toEqual(['builder', 'tester']);
   });
 
-  it('selects by every label given at once: exact matches, combined with AND', async () => {
-    await expect(namesSelected({ os: 'macos', project: 'hemma' })).resolves.toEqual(['builder']);
+  it('selects by every value given at once: exact matches, combined with AND', async () => {
+    await expect(namesSelected(['os', 'macos'], ['project', 'hemma'])).resolves.toEqual(['builder']);
+    await expect(namesSelected(['os', 'macos'], ['os', 'linux'])).resolves.toEqual(['tester']);
   });
 
-  it('selects no ship for a value no ship carries, or a key the fleet has no label for', async () => {
-    await expect(namesSelected({ project: 'aeolus' })).resolves.toEqual([]);
-    await expect(namesSelected({ team: 'core' })).resolves.toEqual([]);
+  it('selects no ship for a value no ship carries, or an id the fleet has no value for', async () => {
+    await expect(namesSelected(['project', 'aeolus'])).resolves.toEqual([]);
+    await expect(useCases.listFleet(argo, { valueIds: [core.ids('labelValue')] })).resolves.toEqual([]);
   });
 
-  it('lists every ship when it selects by no label', async () => {
-    await expect(namesSelected({})).resolves.toHaveLength(5);
+  it('lists every ship when it selects by no value', async () => {
+    await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(5);
   });
 });

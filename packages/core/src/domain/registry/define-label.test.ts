@@ -26,14 +26,34 @@ beforeEach(async () => {
 });
 
 describe('defining a label', () => {
-  it('keeps the key with its values, owned by the ship that defined it', async () => {
-    await expect(registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] })).resolves.toEqual({ isOk: true, value: undefined });
+  it('keeps the key with its values, owned by the ship that defined it, each with its own id', async () => {
+    const defined = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
 
-    expect(core.state.labels).toEqual([{ fleetId, key: 'os', values: ['macos', 'linux'], ownerShipId: pluginId }]);
+    expect(core.state.labels).toEqual([
+      {
+        fleetId,
+        id: defined.labelId,
+        key: 'os',
+        values: [
+          { id: defined.values[0]?.id, value: 'macos' },
+          { id: defined.values[1]?.id, value: 'linux' },
+        ],
+        ownerShipId: pluginId,
+      },
+    ]);
   });
 
-  it('writes LabelDefined, caused by its owner and naming it, with the key and its values', async () => {
-    unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+  it('answers the label id and the id of each value, prefixed lbl_ and lbv_', async () => {
+    const defined = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+
+    expect(defined.labelId).toMatch(/^lbl_/);
+    expect(defined.values.map((value) => value.value)).toEqual(['macos', 'linux']);
+    expect(defined.values.every((value) => value.id.startsWith('lbv_'))).toBe(true);
+    expect(new Set(defined.values.map((value) => value.id)).size).toBe(2);
+  });
+
+  it('writes LabelDefined, caused by its owner and naming it, with the label and its values, ids and text', async () => {
+    const defined = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({
@@ -41,7 +61,7 @@ describe('defining a label', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: pluginId },
         shipId: pluginId,
-        details: { key: 'os', values: 'macos,linux' },
+        details: { labelId: defined.labelId, key: 'os', values: 'macos,linux', valueIds: defined.values.map((value) => value.id).join(',') },
       }),
     ]);
   });
@@ -53,7 +73,7 @@ describe('defining a label', () => {
     const refused = await registry.defineLabel(argo, { key: 'os', values: ['linux'] });
 
     expect(refusalOf(refused)).toMatchObject({ kind: 'LABEL_KEY_TAKEN', message: 'The fleet has the label os already, owned by trierarch-plugin' });
-    expect(core.state.labels).toEqual([{ fleetId, key: 'os', values: ['macos'], ownerShipId: pluginId }]);
+    expect(core.state.labels.map((label) => [label.key, label.values.map((value) => value.value), label.ownerShipId])).toEqual([['os', ['macos'], pluginId]]);
     expect(core.state.events).toEqual([]);
   });
 
@@ -62,13 +82,13 @@ describe('defining a label', () => {
     const other = await hostedFleet(core);
     const otherArgo: Caller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
 
-    await expect(registry.defineLabel(otherArgo, { key: 'os', values: ['linux'] })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.defineLabel(otherArgo, { key: 'os', values: ['linux'] })).resolves.toMatchObject({ isOk: true });
   });
 
   it('takes a key and a value of exactly 63 characters', async () => {
     const longest = 'a'.repeat(63);
 
-    await expect(registry.defineLabel(plugin, { key: longest, values: [longest] })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.defineLabel(plugin, { key: longest, values: [longest] })).resolves.toMatchObject({ isOk: true });
   });
 
   it.each([

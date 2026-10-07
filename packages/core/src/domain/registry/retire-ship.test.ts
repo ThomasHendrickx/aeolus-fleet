@@ -11,6 +11,7 @@ import {
   secretOf,
 } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { carriedText, labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
@@ -177,45 +178,49 @@ describe('the labels of a retired ship', () => {
     ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
     unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
     unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
-    unwrap(await registry.assignLabel(plugin, { shipId: builderId, key: 'os', value: 'macos' }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, key: 'os', value: 'linux' }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, key: 'project', value: 'hemma' }));
+    unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, 'os', 'macos') }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'os', 'linux') }));
+    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, 'project', 'hemma') }));
     core.clock.advance(60_000);
     core.state.events.length = 0;
   });
 
-  function carried() {
-    return core.state.shipLabels.map(({ shipId, key, value }) => ({ shipId, label: `${key}=${value}` }));
+  function labelEvents() {
+    return core.state.events.filter((event) => event.type.startsWith('Label')).map((event) => [event.type, event.shipId, event.details.key, event.details.value ?? null]);
   }
 
   it('go with it: the ship carries none, with one LabelUnassigned each, caused by the retirer', async () => {
     unwrap(await registry.retireShip(argo, { shipId: scoutId }));
 
-    expect(carried()).toEqual([{ shipId: builderId, label: 'os=macos' }]);
-    expect(eventsOfType('LabelUnassigned')).toEqual([
-      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, occurredAt: core.clock.now(), details: { key: 'os', value: 'linux' } }),
-      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, occurredAt: core.clock.now(), details: { key: 'project', value: 'hemma' } }),
+    expect(carriedText(core, scoutId)).toEqual([]);
+    expect(carriedText(core, builderId)).toEqual(['os=macos']);
+    expect(eventsOfType('LabelUnassigned').map((event) => [event.actor, event.shipId, event.occurredAt, event.details.key, event.details.value])).toEqual([
+      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'os', 'linux'],
+      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'project', 'hemma'],
     ]);
   });
 
-  it('it owns retire with it: their definitions and every assignment of them go, with LabelUnassigned and LabelRetired', async () => {
+  it('it owns retire with it: every assignment of them goes, then each label, with LabelUnassigned and LabelRetired', async () => {
+    const osId = labelIdOf(core, 'os');
+
     unwrap(await registry.retireShip(argo, { shipId: pluginId }));
 
     expect(core.state.labels).toEqual([]);
-    expect(carried()).toEqual([]);
-    expect(core.state.events.filter((event) => event.type.startsWith('Label')).map((event) => [event.type, event.shipId, event.details])).toEqual([
-      ['LabelUnassigned', scoutId, { key: 'os', value: 'linux' }],
-      ['LabelUnassigned', builderId, { key: 'os', value: 'macos' }],
-      ['LabelRetired', pluginId, { key: 'os' }],
-      ['LabelUnassigned', scoutId, { key: 'project', value: 'hemma' }],
-      ['LabelRetired', pluginId, { key: 'project' }],
+    expect(core.state.shipLabels).toEqual([]);
+    expect(labelEvents()).toEqual([
+      ['LabelUnassigned', scoutId, 'os', 'linux'],
+      ['LabelUnassigned', builderId, 'os', 'macos'],
+      ['LabelRetired', pluginId, 'os', null],
+      ['LabelUnassigned', scoutId, 'project', 'hemma'],
+      ['LabelRetired', pluginId, 'project', null],
     ]);
+    expect(eventsOfType('LabelRetired')[0]?.details).toEqual({ labelId: osId, key: 'os' });
   });
 
   it('it owned can be defined again once it retired, by another ship', async () => {
     unwrap(await registry.retireShip(argo, { shipId: pluginId }));
 
-    await expect(registry.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toEqual({ isOk: true, value: undefined });
+    await expect(registry.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toMatchObject({ isOk: true });
   });
 
   it('it owns stay while it is only released: its meaning retires with its owner, not its crew', async () => {
@@ -223,7 +228,7 @@ describe('the labels of a retired ship', () => {
     unwrap(await registry.releaseShip(argo, { shipId: crew.shipId }));
 
     expect(core.state.labels.map((label) => label.key)).toEqual(['os', 'project']);
-    expect(carried()).toHaveLength(3);
-    expect(core.state.events.filter((event) => event.type.startsWith('Label'))).toEqual([]);
+    expect(core.state.shipLabels).toHaveLength(3);
+    expect(labelEvents()).toEqual([]);
   });
 });

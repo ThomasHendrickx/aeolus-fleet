@@ -210,7 +210,7 @@ describe('fleetListOutputSchema', () => {
     scopes: ['messages:send', 'messages:receive'],
     report: null,
     crewRequest: null,
-    labels: {},
+    labels: [],
     model: null,
     harness: null,
     awaitingCrewSince: '2026-09-29T12:00:00.000Z',

@@ -23,13 +23,13 @@ beforeEach(async () => {
 });
 
 describe("listing the fleet's labels", () => {
-  it('lists every label by key, with its values and its owner by id and name', async () => {
-    unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma', 'aeolus'] }));
-    unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
+  it('lists every label by key, with its id, its values with theirs, and its owner by id and name', async () => {
+    const project = unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma', 'aeolus'] }));
+    const os = unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
 
     await expect(registry.listLabels(argo)).resolves.toEqual([
-      { key: 'os', values: ['macos', 'linux'], owner: { id: argo.shipId, name: 'argo' } },
-      { key: 'project', values: ['hemma', 'aeolus'], owner: { id: pluginId, name: 'trierarch-plugin' } },
+      { id: os.labelId, key: 'os', values: os.values, owner: { id: argo.shipId, name: 'argo' } },
+      { id: project.labelId, key: 'project', values: project.values, owner: { id: pluginId, name: 'trierarch-plugin' } },
     ]);
   });
 
