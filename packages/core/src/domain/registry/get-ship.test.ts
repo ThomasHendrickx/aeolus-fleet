@@ -33,6 +33,14 @@ beforeEach(async () => {
 });
 
 describe('getting one ship', () => {
+  it('gives the labels the ship carries', async () => {
+    unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
+    const { shipId: builderId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' }));
+    unwrap(await useCases.assignLabel(argo, { shipId: builderId, key: 'os', value: 'macos' }));
+
+    await expect(useCases.getShip(argo, { shipId: builderId })).resolves.toMatchObject({ isOk: true, value: { labels: { os: 'macos' } } });
+  });
+
   it('gives the ship as the fleet lists it, with when it was commissioned, not crewed and not retired', async () => {
     const ship = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
 

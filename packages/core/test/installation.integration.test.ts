@@ -152,6 +152,8 @@ describe('the installation procedures on a hosting server', () => {
     const argo = argoOf(created);
     const scout = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     unwrap(await core.requestCrew(argo, { shipId: scout.shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.defineLabel(argo, { key: 'os', values: ['macos'] }));
+    unwrap(await core.assignLabel(argo, { shipId: scout.shipId, key: 'os', value: 'macos' }));
     const { crewToken } = unwrap(await core.claimShip({ shipId: scout.shipId, secret: scout.secret ?? '', location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     const crew = unwrap(await core.authenticate.byCrewToken(crewToken));
     const asked = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', idempotencyKey: newKey() }));

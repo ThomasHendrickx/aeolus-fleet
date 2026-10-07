@@ -98,6 +98,27 @@ describe('labels on Postgres', () => {
     await expect(core.useCases.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toEqual({ isOk: true, value: undefined });
   });
 
+  it('are read with the fleet: the labels by key with their owners, each ship with what it carries, and selected by them', async () => {
+    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
+    unwrap(await core.useCases.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, key: 'os', value: 'macos' }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, key: 'project', value: 'hemma' }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: testerId, key: 'os', value: 'macos' }));
+
+    await expect(core.useCases.listLabels(argo)).resolves.toEqual([
+      { key: 'os', values: ['macos', 'linux'], owner: { id: plugin.shipId, name: 'trierarch-plugin' } },
+      { key: 'project', values: ['hemma'], owner: { id: plugin.shipId, name: 'trierarch-plugin' } },
+    ]);
+    expect((await core.useCases.listFleet(argo)).map((ship) => [ship.name, ship.labels])).toEqual([
+      ['argo', {}],
+      ['trierarch-plugin', {}],
+      ['builder', { os: 'macos', project: 'hemma' }],
+      ['tester', { os: 'macos' }],
+    ]);
+    expect((await core.useCases.listFleet(argo, { labels: { os: 'macos', project: 'hemma' } })).map((ship) => ship.name)).toEqual(['builder']);
+    await expect(core.useCases.getShip(argo, { shipId: testerId })).resolves.toMatchObject({ value: { labels: { os: 'macos' } } });
+  });
+
   it('keep a key once in the fleet when two ships define it at once: one is refused, naming the owner', async () => {
     const defined = await Promise.all([
       core.useCases.defineLabel(plugin, { key: 'project', values: ['hemma'] }),
