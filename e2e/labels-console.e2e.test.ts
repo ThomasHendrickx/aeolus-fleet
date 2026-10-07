@@ -103,6 +103,8 @@ async function signedIn(): Promise<Page> {
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  // Live shows once the page is hydrated and subscribed: a click before that does nothing.
+  await page.getByRole('banner').getByText('Live', { exact: true }).waitFor(WITHIN);
   return page;
 }
 
@@ -113,11 +115,13 @@ async function listed(page: Page): Promise<string[]> {
   return names.filter((name) => name !== 'argo');
 }
 
+/** Picks a value in the open label picker; the URL then carries it. */
 async function pick(page: Page, label: { key: string; value: string }): Promise<void> {
   const popover = page.getByTestId('label-filter-popover');
   await popover.waitFor();
   await popover.getByTestId('label-picker-key').filter({ hasText: label.key }).click();
   await popover.getByTestId('label-picker-value').filter({ hasText: label.value }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('label'), WITHIN).toContain(idOf(`${label.key}=${label.value}`));
 }
 
 describe('Labels in the console', () => {
