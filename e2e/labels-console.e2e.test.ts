@@ -72,6 +72,7 @@ beforeAll(async () => {
   await commission('hemma-api', ['project=hemma', 'area=backend']);
   await commission('hemma-web', ['project=hemma']);
   await commission('aeolus-core', ['project=aeolus', 'area=backend']);
+  await commission('scout-2', []);
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
@@ -195,5 +196,32 @@ describe('Labels in the console', () => {
     await page.getByTestId('labels-delete').click();
     await page.getByTestId('delete-label-confirm').click();
     await expect.poll(() => page.getByTestId('labels-row-site').count(), WITHIN).toBe(0);
+  });
+
+  it('puts one of argo’s labels on a ship from its page, changes its value, names it in the retire confirm and takes it off', async () => {
+    const page = await signedIn();
+    await page.goto(`/ships/${shipIdOf('scout-2')}`);
+    const labels = page.getByTestId('ship-labels');
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('No labels');
+
+    await labels.getByTestId('ship-labels-add').click();
+    const add = page.getByTestId('ship-labels-add-popover');
+    await add.getByTestId('label-picker-key').filter({ hasText: 'project' }).click();
+    await add.getByTestId('label-picker-value').filter({ hasText: 'hemma' }).click();
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('project=hemma');
+
+    await labels.getByTestId('ship-label-yours').click();
+    await page.getByTestId('ship-label-menu').getByTestId('ship-label-value').filter({ hasText: 'aeolus' }).click();
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('project=aeolus');
+    await expect(labels.textContent()).resolves.not.toContain('project=hemma');
+
+    await page.getByTestId('fleet-ship-retire').click();
+    const retire = page.getByTestId('retire-dialog');
+    await expect.poll(() => retire.textContent(), WITHIN).toContain('Its label is removed with it: project=aeolus.');
+    await retire.getByRole('button', { name: 'Cancel' }).click();
+
+    await labels.getByTestId('ship-label-yours').click();
+    await page.getByTestId('ship-label-remove').click();
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('No labels');
   });
 });
