@@ -3,6 +3,7 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
 import { useFleetSnapshot, useLabelContext } from '../../lib/fleet';
+import { usePluginShipIds } from '../../lib/plugin-ships';
 import type { FleetView } from '../../lib/fleet-filter';
 import { useNow } from '../../lib/now';
 import { useSquadrons } from '../../lib/squadrons-api';
@@ -30,6 +31,7 @@ export function FleetOverview({
   const now = useNow();
   const squadrons = useSquadrons();
   const labels = useLabelContext();
+  const pluginShipIds = usePluginShipIds();
 
   return (
     <section aria-label="Fleet" className="flex flex-col gap-3">
@@ -49,6 +51,7 @@ export function FleetOverview({
         renderRowActions={(ship, layout) => <ShipActions ship={ship} layout={layout === 'table' ? 'menu' : layout === 'phone' ? 'sheet' : 'next'} />}
         squadronsOf={squadrons.data ? shipsInSquadrons(squadrons.data) : undefined}
         labels={labels}
+        pluginShipIds={pluginShipIds}
       />
     </section>
   );

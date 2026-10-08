@@ -24,6 +24,7 @@ import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useAttentionCount } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
+import { usePluginShipIds } from '../../../lib/plugin-ships';
 import { useAccountMenu } from '../../../lib/account';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../lib/ship';
@@ -58,6 +59,7 @@ function pathOf(shipId: ShipId, view: { tab: Tab; messageId?: MessageId }): stri
 function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: SearchParams }) {
   const router = useRouter();
   const now = useNow();
+  const pluginShipIds = usePluginShipIds();
   const tab: Tab = first(searchParams.tab) === TABS.messages ? TABS.messages : TABS.timeline;
   const openMessage = idSchema('message').safeParse(first(searchParams.message));
   const messageId = openMessage.success ? openMessage.data : undefined;
@@ -129,6 +131,7 @@ function ShipPageFor({ shipId, searchParams }: { shipId: ShipId; searchParams: S
           actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
+          isPluginShip={pluginShipIds.has(shipId)}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
         </>

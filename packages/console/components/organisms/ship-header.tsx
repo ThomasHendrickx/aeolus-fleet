@@ -1,5 +1,5 @@
 import { FLEET_SCOPES, type ShipDetail, type ShipId } from '@aeolus-fleet/common';
-import { Archive, CircleAlert, Info, KeyRound, UserRound } from 'lucide-react';
+import { Archive, CircleAlert, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -36,6 +36,8 @@ interface ShipHeaderProps {
   backHref?: string;
   /** The ship's labels, read-only or with yours to change, once the fleet's labels are read (#102); no Labels row until then. */
   labels?: ReactNode;
+  /** The ship one of the console's plugins runs as: it shows a plugin chip (#368). */
+  isPluginShip?: boolean;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -121,7 +123,7 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * id, with its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -184,6 +186,12 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
               </Badge>
             ) : (
               <>
+                {isPluginShip ? (
+                  <Badge variant="kind" data-testid="ship-plugin">
+                    <Plug aria-hidden />
+                    plugin
+                  </Badge>
+                ) : null}
                 <Badge variant="type">{ship.type}</Badge>
                 {ship.scopes
                   .filter((scope) => FLEET_SCOPES.some((fleetScope) => fleetScope === scope))

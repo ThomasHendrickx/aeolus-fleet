@@ -75,3 +75,8 @@ export const WithLabels: Story = { args: { labels: <ShipLabels chips={LABEL_CHIP
 export const WithoutLabels: Story = { args: { labels: <ShipLabels chips={[]} /> } };
 /** On phone, the labels row stacks under its title. */
 export const WithLabelsPhone: Story = { args: { labels: <ShipLabels chips={LABEL_CHIPS} /> }, globals: { viewport: { value: 'mobile1' } } };
+
+/** A plugin's own ship, squadrons' here: a plugin chip beside its type (#368). */
+export const PluginShip: Story = {
+  args: { ship: { ...CREWED_SHIP, name: 'squadrons', type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] }, isPluginShip: true },
+};
