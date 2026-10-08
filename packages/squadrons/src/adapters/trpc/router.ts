@@ -14,6 +14,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import type { AddRepository } from '../../core/catalogue/add-repository.js';
+import type { BlueprintCrew } from '../../core/catalogue/blueprint-crew.js';
 import type { Catalogue } from '../../core/catalogue/catalogue.js';
 import type { ListRepositories } from '../../core/catalogue/list-repositories.js';
 import type { RemoveRepository } from '../../core/catalogue/remove-repository.js';
@@ -57,6 +58,7 @@ export interface Context {
   connect: Connect;
   /** The catalogue squadrons serves a fleet. */
   catalogue: (fleetId: FleetId) => Catalogue;
+  blueprintCrew: BlueprintCrew;
   refreshCatalogue: (fleetId: FleetId) => Promise<void>;
   listRepositories: ListRepositories;
   addRepository: AddRepository;
@@ -558,6 +560,37 @@ export const squadronsRouter = t.router({
         problems,
       };
     }),
+    /**
+     * Each member a blueprint version forms, by its slot, with its crew
+     * settings merged from template and role and the parameters left to
+     * fill: what the forming form starts from (#343).
+     */
+    blueprintCrew: managing(connectedProcedure)
+      .input(z.object({ blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }) }))
+      .output(
+        z.array(
+          z.object({
+            slot: z.string(),
+            role: z.string(),
+            template: z.object({ repository: z.string(), name: z.string(), version: z.number() }),
+            crew: z.object({
+              harness: z.string().optional(),
+              workspace: trierarchWorkspaceSchema.optional(),
+              firstPrompt: z.string().optional(),
+              options: z.record(z.string(), z.json()),
+              machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
+            }),
+            parameters: z.array(z.object({ name: z.string(), description: z.string(), value: z.string().nullable() })),
+          }),
+        ),
+      )
+      .query(({ ctx, input }) => {
+        const answered = ctx.blueprintCrew(ctx.fleetId, input.blueprint);
+        if (!answered.isOk) {
+          throw new TRPCError({ code: FORM_CODES[answered.error.kind], message: answered.error.message });
+        }
+        return answered.value;
+      }),
     /** Fetches every template repository now and rebuilds the catalogue: nothing fetches by itself. */
     refresh: managing(connectedProcedure).output(z.strictObject({})).mutation(async ({ ctx }) => {
       await ctx.refreshCatalogue(ctx.fleetId);

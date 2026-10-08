@@ -22,6 +22,7 @@ import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { createAddRepository } from './core/catalogue/add-repository.js';
+import { createBlueprintCrew } from './core/catalogue/blueprint-crew.js';
 import { createListRepositories } from './core/catalogue/list-repositories.js';
 import { createRefreshCatalogue, type RefreshScope } from './core/catalogue/refresh-catalogue.js';
 import { createRemoveRepository } from './core/catalogue/remove-repository.js';
@@ -241,6 +242,7 @@ export function createSquadronsApp(options: {
         readConnection,
         connect,
         catalogue: catalogueOf,
+        blueprintCrew: createBlueprintCrew({ catalogue: catalogueOf }),
         refreshCatalogue: (fleetId) => refresh(fleetId, 'all'),
         listRepositories,
         addRepository,
