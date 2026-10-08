@@ -50,7 +50,7 @@ describe('a crew request on Postgres', () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
 
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
-    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null });
+    expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now() } },
     });
@@ -127,5 +127,38 @@ describe('a crew request on Postgres', () => {
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
     expect(listed?.crewRequest).toMatchObject({ reason: 'no trierarch offers codex', crewedBy: { id: argo.shipId, name: 'argo' } });
     await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewRequestExplained' } })).resolves.toBe(1);
+  });
+
+  it('is given back by its trierarch before its crew is final: unassigned, its lease ended, the trierarch kept until the next settings version (#382)', async () => {
+    const { shipId: pluginId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+    );
+    const { shipId: trierarchId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code', options: { model: 'claude-opus-5-5' } } }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: scoutId }));
+    unwrap(await core.useCases.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    core.clock.advance(60_000);
+    const reason = 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5';
+
+    unwrap(await core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason }));
+
+    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    expect(listed).toMatchObject({ status: 'awaitingCrew' });
+    expect(listed?.crewRequest).toMatchObject({
+      assignedTo: null,
+      status: null,
+      givenBack: [{ trierarch: { id: trierarchId, name: 'mac-mini' }, settingsVersion: 1, reason, givenBackAt: core.clock.now() }],
+    });
+    await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewRequestGivenBack' } })).resolves.toBe(1);
+    await expect(core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason })).resolves.toEqual({ isOk: true, value: undefined });
+
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    await expect(core.useCases.listFleet(argo).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest?.givenBack)).resolves.toEqual([]);
   });
 });

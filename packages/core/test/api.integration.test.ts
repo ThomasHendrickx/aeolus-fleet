@@ -310,7 +310,7 @@ describe('the fleet procedures at the API', () => {
 
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
-    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared'].includes(name));
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared'].includes(name));
     // argo's inbox takes the message scopes every agent ship holds, and refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
