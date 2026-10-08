@@ -23,10 +23,10 @@ function catalogueOf(files: SourceFile[], tags: UnreadTag[] = []) {
 const tester = {
   description: 'Runs the end-to-end suite on a branch and reports the result.',
   checkIn: '30m',
-  model: 'claude-opus-5-5',
   launchNote: 'Start in the repository root.',
   charter: 'You test the branch you are given.',
   handoffs: { 'on-fail': 'The failing tests and their output', 'on-pass': 'The branch and the run that passed' },
+  crew: { model: 'claude-opus-5-5' },
 };
 const implementer = { description: 'Builds the feature.', checkIn: '1h', charter: 'You build.', handoffs: { done: 'The branch to test' } };
 const planner = { description: 'Plans the feature.', checkIn: '2h', charter: 'You plan.' };
@@ -53,7 +53,7 @@ describe('a version in the catalogue', () => {
 });
 
 describe('a ship template', () => {
-  it('reads its description, check-in interval in minutes, pinned model, launch note, charter and hand-offs', () => {
+  it('reads its description, check-in interval in minutes, pinned model from crew.model, launch note, charter and hand-offs', () => {
     const { templates: read } = catalogueOf([template({ name: 'tester', version: 4 }, tester)]);
 
     expect(read).toEqual([
@@ -135,10 +135,11 @@ describe('a ship template', () => {
     { label: 'a check-in that is no duration', content: { ...tester, checkIn: 'often' }, field: 'checkIn' },
     { label: 'a hand-off name that is no handle', content: { ...tester, handoffs: { 'On Fail': 'x' } }, field: 'handoffs' },
     { label: 'content that is no mapping', content: 'just text', field: 'template' },
-    { label: 'a model alias, not an exact model id', content: { ...tester, model: 'opus' }, field: 'model' },
-    { label: 'a model that follows the latest release', content: { ...tester, model: 'claude-opus-latest' }, field: 'model' },
-    { label: 'a model id with capitals', content: { ...tester, model: 'Claude-Opus-5-5' }, field: 'model' },
-    { label: 'a model in crew.options, where model is the one place for it', content: { ...tester, crew: { options: { model: 'claude-opus-5-5' } } }, field: 'crew.options.model' },
+    { label: 'a model alias, not an exact model id', content: { ...tester, crew: { model: 'opus' } }, field: 'crew.model' },
+    { label: 'a model that follows the latest release', content: { ...tester, crew: { model: 'claude-opus-latest' } }, field: 'crew.model' },
+    { label: 'a model id with capitals', content: { ...tester, crew: { model: 'Claude-Opus-5-5' } }, field: 'crew.model' },
+    { label: 'a model in crew.options, where crew.model is the one place for it', content: { ...tester, crew: { options: { model: 'claude-opus-5-5' } } }, field: 'crew.options.model must not be set: give the model in crew.model' },
+    { label: 'a top-level model, where crew.model is the one place for it', content: { ...tester, model: 'claude-opus-5-5' }, field: 'model must not be set: give the model in crew.model' },
     { label: 'a machine label that is no key=value', content: { ...tester, crew: { machineLabels: ['linux'] } }, field: 'crew.machineLabels' },
     { label: 'a machine label in capitals', content: { ...tester, crew: { machineLabels: ['OS=linux'] } }, field: 'crew.machineLabels' },
     { label: 'more than 20 machine labels', content: { ...tester, crew: { machineLabels: Array.from({ length: 21 }, (_, index) => `key${String(index)}=value`) } }, field: 'crew.machineLabels' },
@@ -197,13 +198,13 @@ describe('a squadron blueprint', () => {
     expect(blueprints.map(({ name, version }) => `${name} v${String(version)}`)).toEqual(['hemma-feature v1', 'hemma-build v2']);
   });
 
-  it("reads a role's model, crew block and the parameters it fills (#343)", () => {
+  it("reads a role's crew block with its crew.model, and the parameters it fills (#343)", () => {
     const withParameter = template({ name: 'tester', version: 4 }, { ...tester, charter: 'Report to {{reports-to}}.', parameters: { 'reports-to': 'Whom the tester reports to' } });
     const content = {
       ...hemmaFeature,
       roles: {
         ...hemmaFeature.roles,
-        tester: { template: `${REPO}#tester@4`, model: 'gpt-6-sol', crew: { harness: 'codex', machineLabels: ['os=linux'] }, parameters: { 'reports-to': 'implementer' } },
+        tester: { template: `${REPO}#tester@4`, crew: { harness: 'codex', model: 'gpt-6-sol', machineLabels: ['os=linux'] }, parameters: { 'reports-to': 'implementer' } },
       },
     };
 
@@ -242,8 +243,9 @@ describe('a squadron blueprint', () => {
     { label: 'a count over 20', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, implementer: { template: `${REPO}#implementer@1`, count: 21 } } }, message: /count/ },
     { label: 'no roles', content: { ...hemmaFeature, roles: {} }, message: /roles/ },
     { label: 'a parameter its role\'s template does not declare', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, parameters: { lead: 'x' } } } }, message: /roles\.tester\.parameters.*lead/ },
-    { label: 'a role model that is an alias', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, model: 'opus' } } }, message: /roles\.tester\.model/ },
-    { label: 'a role model in crew.options', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, crew: { options: { model: 'gpt-6' } } } } }, message: /roles\.tester\.crew\.options\.model.*model/ },
+    { label: 'a role model that is an alias', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, crew: { model: 'opus' } } } }, message: /roles\.tester\.crew\.model/ },
+    { label: 'a role model in crew.options', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, crew: { options: { model: 'gpt-6' } } } } }, message: /roles\.tester\.crew\.options\.model.*crew\.model/ },
+    { label: "a role model outside its crew block", content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, model: 'gpt-6-sol' } } }, message: /roles\.tester\.model must not be set: give the model in crew\.model/ },
   ])('is left out with a problem when it has $label', ({ content, message }) => {
     const messages = problemsOf(content);
 
