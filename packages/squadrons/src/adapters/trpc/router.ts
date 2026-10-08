@@ -27,7 +27,7 @@ import type { Connect } from '../../core/management/connect.js';
 import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
-import type { MemberForm } from '../../core/squadron/member-crew-request.js';
+import { PARAMETER_VALUE_MAX_BYTES, type MemberForm } from '../../core/squadron/member-crew-request.js';
 import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
 import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
@@ -169,7 +169,12 @@ const memberFormSchema: z.ZodType<MemberForm> = z.object({
     })
     .partial()
     .optional(),
-  parameters: z.record(z.string(), z.string()).optional(),
+  parameters: z
+    .record(
+      z.string(),
+      z.string().refine((value) => new TextEncoder().encode(value).byteLength <= PARAMETER_VALUE_MAX_BYTES, `A parameter value is at most ${String(PARAMETER_VALUE_MAX_BYTES)} bytes`),
+    )
+    .optional(),
 });
 
 /** The refusals of forming, as the API states them. */

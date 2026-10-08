@@ -5,9 +5,9 @@
  * fleet's value ids. A member whose settings name no workspace gets no
  * request: it keeps its crew lines.
  */
-import type { CrewSettings, LabelValueId } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
 
-import type { BlueprintVersion, CrewDraft, TemplateVersion } from '../catalogue/catalogue.js';
+import { CHARTER_MAX_BYTES, type BlueprintVersion, type CrewDraft, type TemplateVersion } from '../catalogue/catalogue.js';
 import { fillParameters, memberCrewOf, type MemberCrew } from '../catalogue/member-crew.js';
 import type { FleetDoor, FleetRefusal } from '../management/ports.js';
 import { err, ok, type Result } from '../shared/result.js';
@@ -16,6 +16,35 @@ import { err, ok, type Result } from '../shared/result.js';
 export interface MemberForm {
   crew?: CrewDraft;
   parameters?: Readonly<Record<string, string>>;
+}
+
+/** The longest parameter value the form may give, in UTF-8 bytes (#371): plenty for a name or an area. */
+export const PARAMETER_VALUE_MAX_BYTES = 1024;
+
+const BYTES_PER_KB = 1024;
+const utf8 = new TextEncoder();
+
+/**
+ * The text of a member that is over its limit once its parameters are
+ * filled (#371), as the refusal names it: its charter over the template
+ * limit, which keeps the role message within 64 KB, or its first prompt over
+ * the crew request's. Undefined when both fit.
+ */
+export function overLimitOf(member: { template: TemplateVersion; crew: MemberCrew; parameters: Readonly<Record<string, string>> }): OverLimit | undefined {
+  const isOver = (text: string, maxBytes: number): boolean => utf8.encode(text).byteLength > maxBytes;
+  if (isOver(fillParameters(member.template.charter, member.parameters), CHARTER_MAX_BYTES)) {
+    return { text: 'charter', maxKb: CHARTER_MAX_BYTES / BYTES_PER_KB };
+  }
+  if (member.crew.firstPrompt !== undefined && isOver(member.crew.firstPrompt, FIRST_PROMPT_MAX_BYTES)) {
+    return { text: 'first prompt', maxKb: FIRST_PROMPT_MAX_BYTES / BYTES_PER_KB };
+  }
+  return undefined;
+}
+
+/** A member's text over its limit, and that limit in KB. */
+export interface OverLimit {
+  text: 'charter' | 'first prompt';
+  maxKb: number;
 }
 
 /** The fleet's value id of each machine label, by its `key=value` name. */

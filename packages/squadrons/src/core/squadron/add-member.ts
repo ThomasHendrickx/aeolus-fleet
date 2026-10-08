@@ -6,7 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
-import { crewSettingsOf, formedCrewOf, memberParametersOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
+import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 
 const MEMBER_SUFFIX_LENGTH = 4;
@@ -79,6 +79,11 @@ export function createAddMember(deps: {
         : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
     const type = `${squadronId}:${role.name}`;
     const memberCrew = template && formedCrewOf({ template, role, form });
+    const parameters = memberParametersOf({ role, form });
+    const over = template && memberCrew && overLimitOf({ template, crew: memberCrew, parameters });
+    if (over) {
+      return refuse('ADDING_FAILED', `The ${over.text} of ${role.name}-${String(number)} is over ${String(over.maxKb)} KB once filled, so no member was added`);
+    }
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: memberCrew ? [memberCrew] : [] });
     if (!labels.isOk) {
       return refuse(
@@ -108,7 +113,7 @@ export function createAddMember(deps: {
       before: squadron,
       after: {
         ...squadron,
-        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: memberParametersOf({ role, form }) }],
+        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters }],
       },
       finishesAttempt: formation.attemptId,
     });
