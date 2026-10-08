@@ -15,7 +15,7 @@ function minutesAfter(at: Date, minutes: number): Date {
 }
 
 function aTester(onStationAt: Date | null): Member {
-  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt, checkIn: onStationAt && { at: onStationAt, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null };
+  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt, checkIn: onStationAt && { at: onStationAt, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null };
 }
 
 function aCrewedShip(reportedAt: Date | null = null) {
@@ -35,6 +35,17 @@ describe('a member’s health', () => {
   it('is not on station once a new crew holds its ship, until the member comes on station again', () => {
     const ship = { status: 'crewed', crewedSince: minutesAfter(ON_STATION, 10), reportedAt: null } as const;
     expect(memberHealth(aTester(ON_STATION), { ship, checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 11) })).toBe('not-on-station');
+  });
+
+  it('is standing down while its crew is released, crewed or not (#343)', () => {
+    const releasing = { ...aTester(ON_STATION), releasingSince: minutesAfter(ON_STATION, 1) };
+    expect(memberHealth(releasing, { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 2) })).toBe('standing-down');
+    expect(memberHealth(releasing, { ship: { status: 'awaitingCrew', crewedSince: null, reportedAt: null }, checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 2) })).toBe('standing-down');
+  });
+
+  it('is not on station once the ship of a member that was releasing is retired', () => {
+    const releasing = { ...aTester(ON_STATION), releasingSince: minutesAfter(ON_STATION, 1) };
+    expect(memberHealth(releasing, { ship: { status: 'retired', crewedSince: null, reportedAt: null }, checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 2) })).toBe('not-on-station');
   });
 
   it('is not on station once its ship is retired', () => {

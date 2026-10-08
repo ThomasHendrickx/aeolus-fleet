@@ -43,8 +43,8 @@ const formed: Squadron = {
   templates: [],
   flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
   members: [
-    { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
-    { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+    { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null },
+    { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null },
   ],
   formedAt: AT,
   sailedAt: null,
@@ -115,16 +115,16 @@ describe('updating a squadron', () => {
         ...snapshot,
         state: 'standing-down',
         members: snapshot.members.map((member) =>
-          member.shipId === PLANNER ? { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER } : { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101' },
+          member.shipId === PLANNER ? { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER } : { ...member, standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101', releasingSince: LATER },
         ),
       },
     });
 
     const [stored] = await squadrons.list(FLEET);
     expect(stored?.state).toBe('standing-down');
-    expect(stored?.members.map(({ standDownMessageId, stoodDownAt, retiredAt }) => ({ standDownMessageId, stoodDownAt, retiredAt }))).toEqual([
-      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER },
-      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101', stoodDownAt: null, retiredAt: null },
+    expect(stored?.members.map(({ standDownMessageId, stoodDownAt, retiredAt, releasingSince }) => ({ standDownMessageId, stoodDownAt, retiredAt, releasingSince }))).toEqual([
+      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0100', stoodDownAt: LATER, retiredAt: LATER, releasingSince: null },
+      { standDownMessageId: 'msg_01m3tbfspe96yf1rnr4ank0101', stoodDownAt: null, retiredAt: null, releasingSince: LATER },
     ]);
   });
 });
@@ -138,7 +138,7 @@ describe('adding a member', () => {
     if (!snapshot) {
       expect.fail('the squadron was not stored');
     }
-    const added = { shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null } as const;
+    const added = { shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null } as const;
 
     await squadrons.update({ before: snapshot, after: { ...snapshot, members: [...snapshot.members, added] }, finishesAttempt: 'team-a1b2c3@2' });
 
