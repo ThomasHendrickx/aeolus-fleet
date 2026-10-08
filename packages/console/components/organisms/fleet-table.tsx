@@ -1,7 +1,7 @@
 'use client';
 
 import type { ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Eye, Flag, KeyRound, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Eye, Flag, KeyRound, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -68,6 +68,8 @@ interface FleetTableProps {
   squadronsOf?: ReadonlyMap<string, ShipInSquadron>;
   /** The fleet's labels, once read (#102): chips on rows and the label filter. */
   labels?: LabelContext;
+  /** The ships the console's plugins run as: squadrons' and the trierarch plugin's, each with a plugin chip (#368). */
+  pluginShipIds?: ReadonlySet<string>;
 }
 
 /** How much of a row's labels fit beside its name column, in characters, before the rest fold into "+n" (canvas Labels, Q2). */
@@ -114,7 +116,7 @@ function isOnlyArgo(ships: readonly ListedShip[]): boolean {
  * viewer kind chip; with squadrons on, a flagship's flagship kind chip and a
  * member's SquadronTag. Other ships carry none: their type stays a filter.
  */
-function NameChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadron | undefined }) {
+function NameChip({ ship, squadron, isPluginShip }: { ship: ListedShip; squadron: ShipInSquadron | undefined; isPluginShip: boolean }) {
   if (ship.kind === 'operator') {
     return (
       <Badge variant="kind">
@@ -128,6 +130,14 @@ function NameChip({ ship, squadron }: { ship: ListedShip; squadron: ShipInSquadr
       <Badge variant="kind" data-testid="fleet-viewer">
         <Eye aria-hidden />
         viewer
+      </Badge>
+    );
+  }
+  if (isPluginShip) {
+    return (
+      <Badge variant="kind" data-testid="fleet-plugin">
+        <Plug aria-hidden />
+        plugin
       </Badge>
     );
   }
@@ -634,7 +644,8 @@ function DesktopTable({
   renderRowActions,
   squadronsOf,
   labels,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels'> & { ships: readonly ListedShip[] }) {
+  pluginShipIds,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
   return (
     <div className="max-sm:hidden">
       <Table aria-label="Ships">
@@ -664,7 +675,7 @@ function DesktopTable({
                 <span className="flex min-w-0 flex-col gap-1">
                   <span className="flex min-w-0 items-center gap-2">
                     <ShipNameCell ship={ship} />
-                    <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+                    <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
                   </span>
                   {labels === undefined ? null : <LabelChips chips={chipsOf(ship, labels)} width={ROW_LABELS_WIDTH} testId="fleet-labels" />}
                 </span>
@@ -702,7 +713,8 @@ function PhoneList({
   now,
   renderRowActions,
   squadronsOf,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
+  pluginShipIds,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
       {ships.map((ship) => (
@@ -716,7 +728,7 @@ function PhoneList({
             <div className="flex items-center justify-between gap-3 text-body-touch">
               <span className="flex min-w-0 items-center gap-2">
                 <ShipNameCell ship={ship} />
-                <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} />
+                <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
               </span>
               <StatusBadge status={ship.status} />
             </div>
@@ -759,6 +771,7 @@ export function FleetTable({
   emptyAction,
   squadronsOf,
   labels,
+  pluginShipIds,
 }: FleetTableProps) {
   if (state === 'loading') {
     return (
@@ -781,7 +794,7 @@ export function FleetTable({
     );
   }
 
-  const rows = { highlightedShipIds, now, renderRowActions, squadronsOf };
+  const rows = { highlightedShipIds, now, renderRowActions, squadronsOf, pluginShipIds };
   if (isOnlyArgo(ships)) {
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (

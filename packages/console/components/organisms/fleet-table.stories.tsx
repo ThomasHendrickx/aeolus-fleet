@@ -299,3 +299,8 @@ export const LabelsViewer: Story = { args: { ships: LABELLED_FLEET, labels: labe
 
 /** Phone with labels picked: no chips on rows (Q3), the values picked as chips under the search. */
 export const PhoneLabelsFiltered: Story = { ...LabelsFiltered, globals: { viewport: { value: 'mobile1' } } };
+
+/** The ships the console's plugins run as, squadrons' and the trierarch plugin's, each with a plugin chip (#368). */
+export const PluginShips: Story = {
+  args: { ships: [...FLEET, ...ownerShips(argo)], pluginShipIds: new Set(ownerShips(argo).map((each) => each.id)) },
+};
