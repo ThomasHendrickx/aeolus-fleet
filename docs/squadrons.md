@@ -65,6 +65,7 @@ Parameters let a template leave a value to the squadron, such as whom a member r
 
 At forming, and when a member is added, the form may set a third layer per member (`members` of `squadrons.form`, keyed `<role>-<n>`, n counting from 1 within the role; `member` of `squadrons.addMember`): crew settings over the files', nearest wins as above, and parameter values over the role's. squadrons then:
 
+- refuses, before it commissions anything, a `members` key that names no member of the blueprint, a parameter value over 1 KB, and a member whose charter is over 48 KB or whose first prompt is over 8 KB once filled, naming that member: the template limits, so the role message stays within 64 KB (#371);
 - keeps each member's parameter values; its flagship fills the charter's `{{name}}` with them in the role message, and squadrons fills the first prompt's. A placeholder without a value stays as written;
 - looks up every machine label of the members it will request crew for as the fleet's value id before it commissions anything. A label the fleet does not define forms nothing: "The fleet has no machine label os=macos, so nothing was formed";
 - writes one crew request per member whose settings name a workspace, with the squadron id as `squadron`. A member without a workspace gets none and keeps its crew lines. A request the fleet refuses fails forming as any refused step does: every ship it commissioned is retired.
