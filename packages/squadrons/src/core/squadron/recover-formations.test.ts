@@ -25,6 +25,9 @@ const door: FleetDoor = {
   ack: () => Promise.resolve(ok(undefined)),
   send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   listShips: () => Promise.resolve(ok(ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
+  requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  removeCrewRequest: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  findLabelValue: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   retire: (_crewToken, { shipId }) => {
     const ship = ships.find((held) => held.shipId === shipId);
     if (!ship || ship.isRetired) {

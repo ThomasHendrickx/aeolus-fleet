@@ -56,6 +56,9 @@ const door: FleetDoor = {
     const ship = ships.get(shipId);
     return Promise.resolve(ship ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (isFleetDown) {

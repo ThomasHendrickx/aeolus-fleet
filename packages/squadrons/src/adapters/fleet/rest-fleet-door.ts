@@ -3,7 +3,7 @@
  * not TypeScript-bound may make them: squadrons uses the public API like any
  * client (decision 0017). A refusal reads as the fleet's code and message.
  */
-import { crewLineSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
+import { crewLineSchema, findLabelValueOutputSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -129,6 +129,18 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         answers: z.array(z.object({ id: idSchema('ship'), name: z.string(), status: z.string() })),
       });
       return listed.isOk ? ok(listed.value.filter((ship) => ship.status !== 'retired').map(({ id, name }) => ({ shipId: id, name }))) : listed;
+    },
+    requestCrew: async (crewToken, request) => {
+      const requested = await call(fleetUrl, { path: '/fleet/crewRequest', method: 'POST', crewToken, body: request, answers: z.unknown() });
+      return requested.isOk ? ok(undefined) : requested;
+    },
+    removeCrewRequest: async (crewToken, ship) => {
+      const removed = await call(fleetUrl, { path: '/fleet/removeCrewRequest', method: 'POST', crewToken, body: ship, answers: z.unknown() });
+      return removed.isOk ? ok(undefined) : removed;
+    },
+    findLabelValue: async (crewToken, label) => {
+      const found = await call(fleetUrl, { path: '/fleet/findLabelValue', method: 'POST', crewToken, body: label, answers: findLabelValueOutputSchema });
+      return found.isOk ? ok({ valueId: found.value.valueId }) : found;
     },
     release: async (crewToken, ship) => {
       const released = await call(fleetUrl, { path: '/fleet/release', method: 'POST', crewToken, body: ship, answers: z.unknown() });

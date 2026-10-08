@@ -153,7 +153,7 @@ describe('formation attempts begun in the same instant', () => {
     const attempts = createPrismaFormationAttempts(prisma, clock);
     let drawn = 0;
     const deps = {
-      door: { register: unused, whoami: unused, commission: unused, getShip: unused, release: unused, deregister: unused, getStartingPrompt: unused, listShips: unused, retire: unused, receive: unused, ack: unused, send: unused },
+      door: { register: unused, whoami: unused, commission: unused, getShip: unused, release: unused, deregister: unused, getStartingPrompt: unused, listShips: unused, requestCrew: unused, removeCrewRequest: unused, findLabelValue: unused, retire: unused, receive: unused, ack: unused, send: unused },
       attempts,
       random: {
         suffix: (length: number) => {

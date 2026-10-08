@@ -1,4 +1,4 @@
-import type { CrewLine, DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { CrewLine, CrewSettings, DeliveryId, FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -47,6 +47,12 @@ export interface FleetDoor {
   listShips(crewToken: string): Promise<Result<{ shipId: ShipId; name: string }[], FleetRefusal>>;
   /** Retires a ship as the crew token's ship (fleet:manage). */
   retire(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  /** Asks that a ship be kept crewed with these settings (fleet:manage, decision 0029), replacing a request it holds. */
+  requestCrew(crewToken: string, request: { shipId: ShipId; settings: CrewSettings }): Promise<Result<undefined, FleetRefusal>>;
+  /** Removes a ship's crew request (fleet:manage): at once while no trierarch holds it, else once its crew is released. NOT_FOUND when it holds none. */
+  removeCrewRequest(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  /** The id of a machine label's value, by its key and value as a file writes them (fleet:read). NOT_FOUND when the fleet has none. */
+  findLabelValue(crewToken: string, label: { key: string; value: string }): Promise<Result<{ valueId: LabelValueId }, FleetRefusal>>;
   /** The crew token's next deliveries, waiting briefly when there are none. */
   receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<ReceivedMessage[], FleetRefusal>>;
   ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;

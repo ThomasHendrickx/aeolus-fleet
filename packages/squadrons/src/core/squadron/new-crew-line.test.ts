@@ -60,6 +60,9 @@ const door: FleetDoor = {
   receive: notUsed,
   ack: notUsed,
   send: notUsed,
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: notUsed,
   getShip: (_crewToken, { shipId }) => Promise.resolve(shipId === TESTER ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' })),
   release: (crewToken, { shipId }) => {

@@ -61,6 +61,9 @@ const door: FleetDoor = {
     const ship = ships.get(shipId);
     return Promise.resolve(crewToken === 'aeolus_ct_v1_management' && ship ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (shipId === failingShip) {

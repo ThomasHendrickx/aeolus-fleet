@@ -76,6 +76,9 @@ const door: FleetDoor = {
     commissioned.push({ shipId, name, type, isRetired: false });
     return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, `aeolus_sk_v1_${name}`) }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: (_crewToken, { shipId }) => {
     const ship = commissioned.find((each) => each.shipId === shipId);
     if (ship) {

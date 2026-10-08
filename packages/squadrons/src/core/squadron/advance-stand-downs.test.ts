@@ -83,6 +83,9 @@ const door: FleetDoor = {
     messages.set(messageId, message);
     return Promise.resolve(ok({ messageId }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (isFleetDown) {
