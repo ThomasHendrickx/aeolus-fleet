@@ -1,3 +1,23 @@
+import type { TrierarchWorkspace } from '@aeolus-fleet/common';
+import type { z } from 'zod';
+
+/** A value an option may hold: anything JSON. */
+export type OptionValue = z.infer<ReturnType<typeof z.json>>;
+
+/**
+ * Crew settings as a template or a blueprint role gives them (#343;
+ * docs/squadrons.md, "Crew settings"): the fields of common's crew settings,
+ * each optional, with machine labels as the `key=value` names a file writes,
+ * so a file works in any fleet. A member's settings merge them, nearest wins.
+ */
+export interface CrewDraft {
+  harness?: string;
+  workspace?: TrierarchWorkspace;
+  firstPrompt?: string;
+  options?: Record<string, OptionValue>;
+  machineLabels?: { key: string; value: string }[];
+}
+
 /** One version of a ship template, as its tag holds it (docs/squadrons.md, "Ship template"). */
 export interface TemplateVersion {
   repository: string;
@@ -16,6 +36,10 @@ export interface TemplateVersion {
   charter: string;
   /** The hand-offs its charter refers to, with what each carries. */
   handoffs: { name: string; carries: string }[];
+  /** The crew settings its members get unless their role sets its own. */
+  crew: CrewDraft;
+  /** What its `{{name}}` placeholders stand for: a blueprint role or the form fills them. */
+  parameters: { name: string; description: string }[];
 }
 
 /** Where a role's template comes from: a repository, a template's name and its version. */
@@ -35,7 +59,12 @@ export interface BlueprintVersion {
   commit: string;
   committedAt: Date;
   description: string;
-  roles: { name: string; template: TemplateReference; count: number }[];
+  /**
+   * Its roles: each a template version and how many ships run it, and what
+   * the role sets over its template: a model (null when it pins none), crew
+   * settings, and the template's parameters it fills, by name.
+   */
+  roles: { name: string; template: TemplateReference; count: number; model: string | null; crew: CrewDraft; parameters: Record<string, string> }[];
   /** Where each role's hand-off goes: another role, or the flagship. */
   handoffs: { role: string; handoff: string; to: string }[];
   memberNames: 'plain' | 'prefixed';

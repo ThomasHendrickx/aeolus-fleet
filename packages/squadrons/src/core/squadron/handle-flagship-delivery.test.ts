@@ -31,8 +31,8 @@ function squadron(): Squadron {
       committedAt: FORMED,
       description: 'A team.',
       roles: [
-        { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1 },
-        { name: 'tester', template: { repository: REPO, name: 'tester', version: 4 }, count: 1 },
+        { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1, model: null, crew: {}, parameters: {} },
+        { name: 'tester', template: { repository: REPO, name: 'tester', version: 4 }, count: 1, model: null, crew: {}, parameters: {} },
       ],
       handoffs: [
         { role: 'tester', handoff: 'on-fail', to: 'planner' },
@@ -41,7 +41,7 @@ function squadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [] },
+      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [] },
       {
         repository: REPO,
         name: 'tester',
@@ -56,7 +56,7 @@ function squadron(): Squadron {
         handoffs: [
           { name: 'on-fail', carries: 'failures' },
           { name: 'on-pass', carries: 'the run' },
-        ],
+        ], crew: {}, parameters: [],
       },
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },

@@ -33,8 +33,8 @@ const formed: Squadron = {
     committedAt: AT,
     description: 'A team.',
     roles: [
-      { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1 },
-      { name: 'tester', template: { repository: REPO, name: 'tester', version: 1 }, count: 1 },
+      { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1, model: null, crew: {}, parameters: {} },
+      { name: 'tester', template: { repository: REPO, name: 'tester', version: 1 }, count: 1, model: null, crew: {}, parameters: {} },
     ],
     handoffs: [],
     memberNames: 'plain',
