@@ -14,6 +14,9 @@ export { NOW };
 
 const shipId = (suffix: string) => idSchema('ship').parse(`shp_01j9k2t4qzr3a9w6m2v5n7${suffix}`);
 
+/** The ship whose worktree the alive machine kept. */
+export const KEPT_SHIP_ID = shipId('pn01');
+
 const DETAILS: NonNullable<Machine['details']> = {
   harnesses: [
     {
@@ -30,7 +33,7 @@ const DETAILS: NonNullable<Machine['details']> = {
   ],
   workspaces: { repositories: ['aeolus-fleet', 'hemma'], folders: ['website', 'notes'] },
   caps: { ships: 6, running: 4 },
-  kept: [{ shipId: shipId('pn01'), repository: 'aeolus-fleet' }],
+  kept: [{ shipId: KEPT_SHIP_ID, repository: 'aeolus-fleet' }],
   orphans: [{ repository: 'hemma', name: 'spike-auth' }],
   version: '0.19.0',
 };

@@ -1,8 +1,9 @@
-import type { LocationKind } from '@aeolus-fleet/common';
-import { CircleAlert, CircleX, FolderX, Ship, ShipWheel } from 'lucide-react';
+import type { LocationKind, ShipId } from '@aeolus-fleet/common';
+import { CircleAlert, CircleX, FolderX, LoaderCircle, Ship, ShipWheel, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { isClearing, type KeptWorktreeName } from '../../lib/clear-requests';
 import { restartWords } from '../../lib/crew-request';
 import type { LabelChip as LabelChipData } from '../../lib/labels';
 import { clockTime, fullDateTime, sinceTime } from '../../lib/relative-time';
@@ -27,6 +28,12 @@ interface MachineDetailProps {
   /** Its trierarch ship's labels as chips, the trierarch plugin's os and arch among them; undefined while they load (#102). */
   labels?: readonly LabelChipData[];
   now: Date;
+  /** The fleet's ship names by id, so a kept worktree names the ship it belonged to. */
+  shipNames?: ReadonlyMap<string, string>;
+  /** The pending clear requests (decision 0032): a kept worktree with one shows Clearing. */
+  clearRequests?: readonly KeptWorktreeName[];
+  /** Offered with fleet:manage: asks to delete a kept worktree, after a confirm. */
+  onClearKept?: (kept: { shipId: ShipId; repository: string; shipName: string }) => void;
 }
 
 /** How a spot's session stands (#332): since when it runs, and its restart attempt, as its trierarch wrote them. */
@@ -75,15 +82,50 @@ function Section({ title, count, note, children }: { title: string; count?: numb
 }
 
 /** A worktree the trierarch holds on to, read-only: clearing them from the console comes later (#325). */
-function WorktreeRow({ icon, name, meta }: { icon: ReactNode; name: string; meta: string }) {
+function WorktreeRow({ icon, name, meta, action }: { icon: ReactNode; name: string; meta: string; action?: ReactNode }) {
   return (
     <li className="flex items-start gap-2 px-3.5 py-2.5 [&_svg]:mt-0.5 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
       {icon}
-      <span className="flex min-w-0 flex-col">
+      <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-mono text-id">{name}</span>
         <span className="text-meta text-muted-foreground">{meta}</span>
       </span>
+      {action}
     </li>
+  );
+}
+
+/** A kept worktree, by its repository and the ship it belonged to: Clearing while a clear request waits, else Delete with fleet:manage. */
+function KeptRow({ kept, shipName, isBeingCleared, onClear }: { kept: { shipId: ShipId; repository: string }; shipName: string; isBeingCleared: boolean; onClear: MachineDetailProps['onClearKept'] }) {
+  const action = isBeingCleared ? (
+    <Clearing />
+  ) : onClear === undefined ? undefined : (
+    <Button
+      size="xs"
+      variant="ghost"
+      icon={<Trash2 aria-hidden />}
+      aria-label={`Delete the kept ${kept.repository} worktree of ${shipName}`}
+      data-testid="machine-worktree-delete"
+      onClick={() => {
+        onClear({ ...kept, shipName });
+      }}
+    >
+      Delete
+    </Button>
+  );
+  return <WorktreeRow icon={<FolderX aria-hidden />} name={`${kept.repository}/${shipName}`} meta="Kept after release, with uncommitted changes" action={action} />;
+}
+
+/** A kept worktree waiting for its trierarch to remove it: in the waiting tone, said in words. */
+function Clearing() {
+  return (
+    <span
+      data-testid="machine-worktree-clearing"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-tone-waiting-border bg-tone-waiting-bg px-1.5 py-0.5 text-meta text-tone-waiting-fg [&_svg]:mt-0 [&_svg]:text-tone-waiting-fg"
+    >
+      <LoaderCircle aria-hidden />
+      Clearing
+    </span>
   );
 }
 
@@ -91,11 +133,12 @@ function WorktreeRow({ icon, name, meta }: { icon: ReactNode; name: string; meta
  * One machine's page (canvas TpMachine, TpMachineDown; #245): its trierarch,
  * whether it answers and a link to its ship page; its capacity, where it
  * runs, its version, its last answer and its ship id; the ships it runs; the
- * harnesses and workspaces it offers; and the worktrees it kept or found,
- * read-only. While its trierarch does not answer, everything is its last
+ * harnesses and workspaces it offers; and the worktrees it kept or found.
+ * A kept worktree can be deleted through its trierarch (decision 0032),
+ * Clearing until it confirms; an orphan is shown only. While its trierarch does not answer, everything is its last
  * answer, and the page says so.
  */
-export function MachineDetail({ machine, state, spots, location, labels, now }: MachineDetailProps) {
+export function MachineDetail({ machine, state, spots, location, labels, now, shipNames, clearRequests = [], onClearKept }: MachineDetailProps) {
   if (state === 'loading' || (state === 'ready' && machine === undefined)) {
     return (
       <div aria-busy data-testid="machine-detail" className="flex flex-col gap-4">
@@ -231,11 +274,12 @@ export function MachineDetail({ machine, state, spots, location, labels, now }: 
         <Section title="Worktrees">
           <ul className="divide-y divide-border rounded-lg border border-border bg-card" data-testid="machine-worktrees">
             {details.kept.map((kept) => (
-              <WorktreeRow
+              <KeptRow
                 key={`${kept.shipId}/${kept.repository}`}
-                icon={<FolderX aria-hidden />}
-                name={kept.repository}
-                meta={`Kept after release, with uncommitted changes · ${kept.shipId}`}
+                kept={kept}
+                shipName={shipNames?.get(kept.shipId) ?? kept.shipId}
+                isBeingCleared={isClearing(clearRequests, { trierarchShipId: machine.shipId, ...kept })}
+                onClear={onClearKept}
               />
             ))}
             {details.orphans.map((orphan) => (

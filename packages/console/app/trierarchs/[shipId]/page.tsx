@@ -1,16 +1,19 @@
 'use client';
 
+import type { ShipId } from '@aeolus-fleet/common';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
+import { ClearWorktreeDialog, type WorktreeToClear } from '../../../components/organisms/clear-worktree-dialog';
 import { MachineDetail } from '../../../components/organisms/machine-detail';
 import { MachineList } from '../../../components/organisms/machine-list';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
+import { useClearRequests, useClearWorktree } from '../../../lib/clear-requests';
 import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { chipsOf } from '../../../lib/labels';
 import { useOpenInboxCount } from '../../../lib/inbox';
@@ -40,6 +43,9 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const pluginNav = usePluginNav();
   const [isComposing, setIsComposing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [toClear, setToClear] = useState<(WorktreeToClear & { trierarchShipId: ShipId; shipId: ShipId; repository: string }) | undefined>(undefined);
+  const clearRequests = useClearRequests();
+  const clearWorktree = useClearWorktree();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const machine = machines.data?.find((each) => each.shipId === shipId);
   const ships = fleet.data ?? [];
@@ -81,6 +87,16 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
             location={trierarchShip?.location ?? null}
             {...(labelContext === undefined || trierarchShip === undefined ? {} : { labels: chipsOf(trierarchShip, labelContext) })}
             now={now}
+            shipNames={new Map(ships.map((ship) => [ship.id, ship.name]))}
+            clearRequests={clearRequests.data ?? []}
+            {...(access.canManage && machine !== undefined
+              ? {
+                  onClearKept: (kept: { shipId: ShipId; repository: string; shipName: string }) => {
+                    clearWorktree.reset();
+                    setToClear({ ...kept, trierarchShipId: machine.shipId, machineName: machine.name });
+                  },
+                }
+              : {})}
           />
         ) : (
           <MachineList
@@ -96,6 +112,28 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
         )
       }
     >
+      <ClearWorktreeDialog
+        worktree={toClear}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setToClear(undefined);
+          }
+        }}
+        isPending={clearWorktree.isPending}
+        {...(clearWorktree.error === null ? {} : { error: clearWorktree.error.message })}
+        onClear={() => {
+          if (toClear !== undefined) {
+            clearWorktree.mutate(
+              { trierarchShipId: toClear.trierarchShipId, shipId: toClear.shipId, repository: toClear.repository },
+              {
+                onSuccess: () => {
+                  setToClear(undefined);
+                },
+              },
+            );
+          }
+        }}
+      />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands
         isOpen={isSearching}
