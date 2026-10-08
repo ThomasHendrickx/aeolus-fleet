@@ -25,9 +25,14 @@ describe('crewSettingsSchema (decision 0027)', () => {
     expect(crewSettingsSchema.parse(settings)).toEqual(settings);
   });
 
+  it('takes settings without a harness: the trierarch it goes to crews it with its default (#343)', () => {
+    const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {} };
+
+    expect(crewSettingsSchema.parse(settings)).toEqual(settings);
+  });
+
   it.each([
     ['an unknown field', { flags: ['--yolo'] }],
-    ['no harness', { harness: undefined }],
     ['a path as a repository', { workspace: { kind: 'worktree', repository: '/etc' } }],
     ['a first prompt that reads as a flag', { firstPrompt: '--dangerously-skip-permissions' }],
     ['a first prompt over 8 KB', { firstPrompt: 'x'.repeat(8 * 1024 + 1) }],
