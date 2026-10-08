@@ -135,6 +135,8 @@ describe('Trierarchs in the console', () => {
     await createReportSelf({
       fleet: createRestFleet({ fleetUrl: serverUrl, crewToken }),
       processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
+      // Its harness trusts its repository, as init makes it (#381).
+      trust: { trusted: () => Promise.resolve({ 'claude-code': { repositories: ['aeolus-fleet'], folders: [] } }) },
       state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
       setup: {
         configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
@@ -177,6 +179,8 @@ describe('Trierarchs in the console', () => {
     await createReportSelf({
       fleet: createRestFleet({ fleetUrl: serverUrl, crewToken: machine.crewToken }),
       processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
+      // Its harness trusts its repository, as init makes it (#381).
+      trust: { trusted: () => Promise.resolve({ 'claude-code': { repositories: ['aeolus-fleet'], folders: [] } }) },
       state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
       setup: {
         configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
