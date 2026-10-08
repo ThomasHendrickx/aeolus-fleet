@@ -251,6 +251,8 @@ export interface ShipFacts {
   crewRequest: CrewRequest | null;
   /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
   crewRequestAssignee: { id: ShipId; name: string } | null;
+  /** The trierarchs that gave its crew request back, by id and name, oldest first (#382); none without a request. */
+  crewRequestGivenBack: { trierarch: { id: ShipId; name: string }; settingsVersion: number; reason: string; givenBackAt: Date }[];
   /** The label values the ship carries, by key then value (decision 0031). */
   labels: readonly CarriedLabel[];
   /**

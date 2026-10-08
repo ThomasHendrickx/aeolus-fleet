@@ -36,6 +36,8 @@ import {
   confirmWorktreeClearedInputSchema,
   confirmWorktreeClearedOutputSchema,
   confirmCrewReleaseInputSchema,
+  giveBackCrewRequestInputSchema,
+  giveBackCrewRequestOutputSchema,
   explainCrewRequestInputSchema,
   explainCrewRequestOutputSchema,
   confirmCrewReleaseOutputSchema,
@@ -73,17 +75,23 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
 import type { PingStatus } from '../../domain/registry/ping-status.js';
+import type { ShipFacts } from '../../domain/registry/ports.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
-function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null }>(request: T | null) {
+function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
   if (request === null) {
     return null;
   }
-  const { sessionStartedAt, ...rest } = request;
-  return { ...rest, requestedAt: request.requestedAt.toISOString(), startedAt: sessionStartedAt?.toISOString() ?? null };
+  const { sessionStartedAt, givenBack, ...rest } = request;
+  return {
+    ...rest,
+    requestedAt: request.requestedAt.toISOString(),
+    startedAt: sessionStartedAt?.toISOString() ?? null,
+    givenBack: givenBack.map((back) => ({ ...back, givenBackAt: back.givenBackAt.toISOString() })),
+  };
 }
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
@@ -271,6 +279,21 @@ export const fleetRouter = router({
     .output(confirmCrewReleaseOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.confirmCrewRelease(ctx.caller, input));
+      return {};
+    }),
+
+  /** The assigned trierarch gives back a request it tried to fulfil and failed, before its crew is final (#382). */
+  giveBackCrewRequest: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        'Needs crew:run, for a ship whose crew request is assigned to yours. Gives the request back, with a reason, while its crew is not final (no status, or crewing),',
+        'for the settings version you tried: the request is unassigned, the ship released, and your trierarch left out when it is placed again.',
+      ].join(' '),
+    })
+    .input(giveBackCrewRequestInputSchema)
+    .output(giveBackCrewRequestOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.giveBackCrewRequest(ctx.caller, input));
       return {};
     }),
 

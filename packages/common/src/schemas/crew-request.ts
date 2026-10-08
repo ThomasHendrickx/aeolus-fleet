@@ -81,6 +81,10 @@ export const listedCrewRequestSchema = z.object({
   attempt: z.int().min(0),
   /** When the session its trierarch runs now started, with the status; null while none runs. */
   startedAt: z.iso.datetime().nullable(),
+  /** The trierarchs that gave it back before their crew was final, oldest first (#382): placement leaves them out. Cleared on every new settings version. */
+  givenBack: z.array(
+    z.object({ trierarch: z.object({ id: idSchema('ship'), name: z.string() }), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.iso.datetime() }),
+  ),
 });
 
 /** A ship's crew request whole, for its page: as the fleet list shows it, with its settings. */
@@ -141,3 +145,22 @@ export const explainCrewRequestInputSchema = z.object({
 
 /** Output of `fleet.explainCrewRequest`: nothing; the OK is the answer. */
 export const explainCrewRequestOutputSchema = z.strictObject({});
+
+/**
+ * Input of `fleet.giveBackCrewRequest` (crew:run): the assigned trierarch
+ * gives back a request it tried to fulfil and failed, while its crew is not
+ * final (#382): the ship, the settings version it tried, and why, one line.
+ */
+export const giveBackCrewRequestInputSchema = z.object({
+  shipId: idSchema('ship'),
+  settingsVersion: z.int().min(1),
+  reason: z
+    .string()
+    .trim()
+    .min(1, REASON_MESSAGE)
+    .max(CREW_REQUEST_REASON_MAX_LENGTH, REASON_MESSAGE)
+    .refine((reason) => !/[\r\n]/.test(reason), REASON_MESSAGE),
+});
+
+/** Output of `fleet.giveBackCrewRequest`: nothing; the OK is the answer. */
+export const giveBackCrewRequestOutputSchema = z.strictObject({});

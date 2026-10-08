@@ -187,6 +187,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_foreign_key_indexes$/),
       expect.stringMatching(/^\d{14}_crew_status_attempt$/),
       expect.stringMatching(/^\d{14}_worktree_clear_requests$/),
+      expect.stringMatching(/^\d{14}_crew_request_give_backs$/),
     ]);
   });
 });
@@ -1508,7 +1509,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_worktree_clear_requests$/);
+    expect(migration).toMatch(/^\d{14}_crew_request_give_backs$/);
   });
 });
 

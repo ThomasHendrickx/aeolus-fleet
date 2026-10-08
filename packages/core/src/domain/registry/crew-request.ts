@@ -43,7 +43,20 @@ export interface CrewRequest {
   attempt: number;
   /** When the session its trierarch runs now started, written with the status; null while none runs. */
   sessionStartedAt: Date | null;
+  /** The trierarchs that gave it back before their crew was final, oldest first (#382); cleared on every new settings version. */
+  givenBack: GiveBack[];
 }
+
+/** A trierarch that gave the request back, the settings version it tried, why, and when. */
+export interface GiveBack {
+  trierarchShipId: ShipId;
+  settingsVersion: number;
+  reason: string;
+  givenBackAt: Date;
+}
+
+/** The statuses of a crew that is final (#382): its trierarch saw it working, so the request is no longer given back. */
+const FINAL_STATUSES: ReadonlySet<CrewStatus> = new Set(['running', 'restarting', 'crashed']);
 
 type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
 type Releasing = DomainError<'CREW_REQUEST_RELEASING'>;
@@ -96,6 +109,8 @@ export function requestCrew(
     reason: current?.reason ?? null,
     attempt: current?.attempt ?? 0,
     sessionStartedAt: current?.sessionStartedAt ?? null,
+    // New settings may fit the trierarchs that gave the old ones back.
+    givenBack: [],
   };
   return ok({ request, events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequested', details: { settingsVersion: request.settingsVersion } })] });
 }
@@ -244,6 +259,68 @@ export function confirmCrewRelease(
     return refuse('CREW_REQUEST_NOT_RELEASING', `${ship.name}'s crew request is not releasing: nothing to confirm`);
   }
   return ok({ events: [event(ship, { ...input, type: 'CrewRequestRemoved' })] });
+}
+
+export type GiveBackCrewRequestRefusal =
+  | NotFound
+  | NotTheCallers
+  | Releasing
+  | DomainError<'CREW_REQUEST_FINAL' | 'CREW_REQUEST_SETTINGS_CHANGED' | 'INVALID_CREW_REQUEST_REASON'>;
+
+/**
+ * The assigned trierarch gives back a request it tried to fulfil and failed,
+ * with a reason (#382): only while its crew is not final, its status none or
+ * crewing, and only the settings version it tried. The request is unassigned
+ * again, its status cleared, and the trierarch recorded, with
+ * CrewRequestGivenBack, so placement leaves it out. A repeat by the same
+ * trierarch for the same version, after a lost answer, is an OK with no
+ * event. The use case ends the ship's lease with it.
+ */
+export function giveBackCrewRequest(
+  { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
+  input: { settingsVersion: number; reason: string; at: Date; actor: Actor },
+): Result<{ request: CrewRequest; events: NewEvent[] }, GiveBackCrewRequestRefusal> {
+  if (!current) {
+    return notFound(ship);
+  }
+  const isRepeat = current.givenBack.some((back) => back.trierarchShipId === trierarchShipId && back.settingsVersion === input.settingsVersion);
+  if (isRepeat && current.assignedTo !== trierarchShipId) {
+    return ok({ request: current, events: [] });
+  }
+  const assigned = checkAssignedTo({ ship, current, trierarchShipId });
+  if (!assigned.isOk) {
+    return assigned;
+  }
+  if (current.status === 'releasing') {
+    return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: stop its session, end its lease and confirm`);
+  }
+  if (current.status !== null && FINAL_STATUSES.has(current.status)) {
+    return refuse('CREW_REQUEST_FINAL', `${ship.name}'s crew is final (${current.status}): a request is given back only before its crew works`);
+  }
+  if (input.settingsVersion !== current.settingsVersion) {
+    return refuse(
+      'CREW_REQUEST_SETTINGS_CHANGED',
+      `${ship.name}'s crew request is at settings version ${String(current.settingsVersion)}, not ${String(input.settingsVersion)}: crew the new settings`,
+    );
+  }
+  const reason = input.reason.trim();
+  if (reason === '' || reason.length > CREW_REQUEST_REASON_MAX_LENGTH || !isOneLine(reason)) {
+    return refuse('INVALID_CREW_REQUEST_REASON', `A reason is one line of at most ${String(CREW_REQUEST_REASON_MAX_LENGTH)} characters`);
+  }
+  const back: GiveBack = { trierarchShipId, settingsVersion: input.settingsVersion, reason, givenBackAt: input.at };
+  return ok({
+    request: {
+      ...current,
+      assignedTo: null,
+      status: null,
+      attempt: 0,
+      sessionStartedAt: null,
+      givenBack: [...current.givenBack.filter((held) => held.trierarchShipId !== trierarchShipId), back],
+    },
+    events: [
+      event(ship, { at: input.at, actor: input.actor, type: 'CrewRequestGivenBack', details: { trierarchShipId, settingsVersion: input.settingsVersion, reason } }),
+    ],
+  });
 }
 
 /**

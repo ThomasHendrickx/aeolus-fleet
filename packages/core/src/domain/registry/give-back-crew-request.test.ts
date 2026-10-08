@@ -7,7 +7,6 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
-import { createGiveBackCrewRequest } from './give-back-crew-request.js';
 
 // A trierarch gives back a crew request it tried to fulfil and failed, while
 // its assignment is not final (#382): the request is unassigned again, its
@@ -16,7 +15,7 @@ import { createGiveBackCrewRequest } from './give-back-crew-request.js';
 const REASON = 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5';
 
 let core: InMemoryCore;
-let registry: ReturnType<typeof registryUseCases> & { giveBackCrewRequest: ReturnType<typeof createGiveBackCrewRequest> };
+let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
 let argo: Caller;
 let plugin: Caller;
@@ -28,7 +27,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  registry = { ...registryUseCases(core), giveBackCrewRequest: createGiveBackCrewRequest({ uow: core.uow, clock: core.clock, ids: core.ids }) };
+  registry = registryUseCases(core);
   plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
@@ -61,6 +60,8 @@ describe('a trierarch giving back a crew request', () => {
         shipId: scoutId,
         details: { trierarchShipId: trierarch.shipId, settingsVersion: 1, reason: REASON },
       }),
+      // As a release does: the secret its trierarch's starting prompt holds stops working.
+      expect.objectContaining({ type: 'CredentialRevoked', shipId: scoutId }),
     ]);
   });
 
