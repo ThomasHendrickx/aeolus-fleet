@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { harnessSchema } from '../schemas/ship.js';
-import { trierarchNameSchema } from './names.js';
+import { TRIERARCH_NAME_MAX_LENGTH, trierarchNameSchema } from './names.js';
 
 /** The operating systems a trierarch names its machine by, for the trierarch plugin's os label (#102); any other is left out. */
 export const MACHINE_OS = ['macos', 'linux', 'windows'] as const;
@@ -17,6 +17,13 @@ export const MACHINE_ARCH = ['arm64', 'amd64'] as const;
  * from them. No entry per ship: each crew request carries its own status.
  * Every object refuses unknown fields.
  */
+/** A folder's name under the trierarch's worktree root, as it is on disk: one name, never a path. */
+const worktreeFolderNameSchema = z
+  .string()
+  .min(1)
+  .max(TRIERARCH_NAME_MAX_LENGTH)
+  .refine((name) => !/[/\\]/.test(name) && name !== '.' && name !== '..', 'A folder name is one name, never a path');
+
 export const trierarchReportDetailsSchema = z.strictObject({
   harnesses: z.array(
     z.strictObject({
@@ -36,10 +43,10 @@ export const trierarchReportDetailsSchema = z.strictObject({
   workspaces: z.strictObject({ repositories: z.array(trierarchNameSchema), folders: z.array(trierarchNameSchema) }),
   /** How many ships the machine crews at most, and how many sessions run at once. */
   caps: z.strictObject({ ships: z.int().positive(), running: z.int().positive() }),
-  /** Worktrees kept because they had changes. */
-  kept: z.array(z.strictObject({ shipId: idSchema('ship'), path: z.string().min(1) })),
+  /** Worktrees kept because they had changes, by the ship they belonged to and their repository: paths stay on the machine (decision 0032). */
+  kept: z.array(z.strictObject({ shipId: idSchema('ship'), repository: trierarchNameSchema })),
   /** Worktrees under the trierarch's root with no assigned request: reported, never deleted. */
-  orphans: z.array(z.strictObject({ path: z.string().min(1) })),
+  orphans: z.array(z.strictObject({ repository: worktreeFolderNameSchema, name: worktreeFolderNameSchema })),
   /**
    * The machine it runs on, for the trierarch plugin to label its ship by
    * (docs/trierarch.md, "Machine labels"): an os or arch outside the known

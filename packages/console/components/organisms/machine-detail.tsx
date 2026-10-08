@@ -75,12 +75,12 @@ function Section({ title, count, note, children }: { title: string; count?: numb
 }
 
 /** A worktree the trierarch holds on to, read-only: clearing them from the console comes later (#325). */
-function WorktreeRow({ icon, path, meta }: { icon: ReactNode; path: string; meta: string }) {
+function WorktreeRow({ icon, name, meta }: { icon: ReactNode; name: string; meta: string }) {
   return (
     <li className="flex items-start gap-2 px-3.5 py-2.5 [&_svg]:mt-0.5 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
       {icon}
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-mono text-id">{path}</span>
+        <span className="truncate font-mono text-id">{name}</span>
         <span className="text-meta text-muted-foreground">{meta}</span>
       </span>
     </li>
@@ -231,10 +231,15 @@ export function MachineDetail({ machine, state, spots, location, labels, now }: 
         <Section title="Worktrees">
           <ul className="divide-y divide-border rounded-lg border border-border bg-card" data-testid="machine-worktrees">
             {details.kept.map((kept) => (
-              <WorktreeRow key={kept.path} icon={<FolderX aria-hidden />} path={kept.path} meta={`Kept after release, with uncommitted changes · ${kept.shipId}`} />
+              <WorktreeRow
+                key={`${kept.shipId}/${kept.repository}`}
+                icon={<FolderX aria-hidden />}
+                name={kept.repository}
+                meta={`Kept after release, with uncommitted changes · ${kept.shipId}`}
+              />
             ))}
             {details.orphans.map((orphan) => (
-              <WorktreeRow key={orphan.path} icon={<FolderX aria-hidden />} path={orphan.path} meta="No crew request" />
+              <WorktreeRow key={`${orphan.repository}/${orphan.name}`} icon={<FolderX aria-hidden />} name={`${orphan.repository}/${orphan.name}`} meta="No crew request" />
             ))}
           </ul>
           <p className="text-meta text-muted-foreground">The trierarch never deletes these on its own.</p>

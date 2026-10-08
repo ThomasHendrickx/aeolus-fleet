@@ -30,8 +30,8 @@ const DETAILS: NonNullable<Machine['details']> = {
   ],
   workspaces: { repositories: ['aeolus-fleet', 'hemma'], folders: ['website', 'notes'] },
   caps: { ships: 6, running: 4 },
-  kept: [{ shipId: shipId('pn01'), path: '/home/thomas/.aeolus/trierarch/worktrees/planner-1' }],
-  orphans: [{ path: '/home/thomas/.aeolus/trierarch/worktrees/spike-auth' }],
+  kept: [{ shipId: shipId('pn01'), repository: 'aeolus-fleet' }],
+  orphans: [{ repository: 'hemma', name: 'spike-auth' }],
   version: '0.19.0',
 };
 
