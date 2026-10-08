@@ -69,6 +69,8 @@ At forming, and when a member is added, the form may set a third layer per membe
 - looks up every machine label of the members it will request crew for as the fleet's value id before it commissions anything. A label the fleet does not define forms nothing: "The fleet has no machine label os=macos, so nothing was formed";
 - writes one crew request per member whose settings name a workspace, with the squadron id as `squadron`. A member without a workspace gets none and keeps its crew lines. A request the fleet refuses fails forming as any refused step does: every ship it commissioned is retired.
 
+Forming in the console, with the trierarch plugin connected, shows each member with its settings merged from its files, and the operator changes any of them: the form is the third layer, nearest wins. Each member needs a workspace, picked from the repositories and folders the machines report, and every parameter left empty; Workspace for every member fills the workspaces still missing at once, and Form squadron is on once every member has what it needs. A machine label the fleet does not have is shown as a warning: forming refuses it, and nothing is formed. Without the trierarch plugin, members are crewed by hand with their crew lines.
+
 ## Writing them
 
 ### Example set
