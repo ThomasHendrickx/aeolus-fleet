@@ -1,8 +1,8 @@
-import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN } from '@aeolus-fleet/common';
+import { crewSettingsSchema, LABEL_HANDLE_MAX_LENGTH, SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, SHIP_LABELS_MAX, trierarchWorkspaceSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
-import { CHARTER_MAX_BYTES, FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { CHARTER_MAX_BYTES, FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type CrewDraft, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import type { SourceFile, UnreadTag } from './ports.js';
 
 const MINUTES_PER_HOUR = 60;
@@ -39,6 +39,69 @@ const model = z
   .regex(/^[a-z0-9][a-z0-9.-]*$/, 'must be an exact model id: lowercase letters, digits, dots and hyphens')
   .refine((id) => /\d/.test(id) && !id.endsWith('-latest'), 'must be an exact model id, not an alias');
 
+const MACHINE_LABEL = 'key=value: a label key and one of its values, each lowercase letters, digits and hyphens';
+/** A machine label as a file writes it, `key=value`: names, not ids, so a file works in any fleet (#343, Q3). */
+const machineLabel = z
+  .string(expecting(MACHINE_LABEL))
+  .regex(/^[a-z0-9-]+=[a-z0-9-]+$/, `must be ${MACHINE_LABEL}`)
+  .refine((raw) => raw.split('=').every((part) => part.length <= LABEL_HANDLE_MAX_LENGTH), `must be ${MACHINE_LABEL}, each at most ${String(LABEL_HANDLE_MAX_LENGTH)} characters`)
+  .transform((raw) => {
+    const [key = '', value = ''] = raw.split('=');
+    return { key, value };
+  });
+
+/**
+ * A crew block (#343): common's crew settings, each optional, machine labels
+ * as names. The model is never an option here: `model` is the one place for
+ * it, written as `options.model` when a request is made.
+ */
+const crewSchema = z.object(
+  {
+    harness: crewSettingsSchema.shape.harness.optional(),
+    workspace: trierarchWorkspaceSchema.optional(),
+    firstPrompt: crewSettingsSchema.shape.firstPrompt,
+    options: z
+      .record(z.string(), z.json(), expecting('a mapping of option names, each to its value'))
+      .superRefine((options, context) => {
+        if ('model' in options) {
+          context.addIssue({ code: 'custom', path: ['model'], message: 'must not be set: give the model in model, the one place for it' });
+        }
+      })
+      .optional(),
+    machineLabels: z.array(machineLabel, expecting(`a list of ${MACHINE_LABEL}`)).max(SHIP_LABELS_MAX, `must be at most ${String(SHIP_LABELS_MAX)} labels, as many as a ship carries`).optional(),
+  },
+  expecting('a mapping of crew settings'),
+);
+
+/** A crew block as the catalogue holds it: the fields it gives, none left as undefined. */
+function crewOf(crew: z.infer<typeof crewSchema> | undefined): CrewDraft {
+  const draft: CrewDraft = {};
+  if (crew?.harness !== undefined) {
+    draft.harness = crew.harness;
+  }
+  if (crew?.workspace !== undefined) {
+    draft.workspace = crew.workspace;
+  }
+  if (crew?.firstPrompt !== undefined) {
+    draft.firstPrompt = crew.firstPrompt;
+  }
+  if (crew?.options !== undefined) {
+    draft.options = crew.options;
+  }
+  if (crew?.machineLabels !== undefined) {
+    draft.machineLabels = crew.machineLabels;
+  }
+  return draft;
+}
+
+/** A `{{name}}` placeholder, filled with a parameter's value. */
+const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
+
+/** The names a text's placeholders use that are not declared: none when every one is. */
+function undeclared(text: string | undefined, declared: ReadonlySet<string>): string[] {
+  return [...(text ?? '').matchAll(PLACEHOLDER)].map(([, name = '']) => name).filter((name) => !declared.has(name));
+}
+
 const templateSchema = z.object({
   description: text('one line of text'),
   checkIn,
@@ -46,6 +109,8 @@ const templateSchema = z.object({
   launchNote: z.string(expecting('text')).optional(),
   charter: text("the role's instructions as text").refine((charter) => new TextEncoder().encode(charter).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
   handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
+  parameters: handleRecord(text('what the parameter stands for'), 'a mapping of parameter names, each to what it stands for').optional(),
+  crew: crewSchema.optional(),
 });
 
 /** `<repository>#<name>@<n>`: a configured repository, a template's name, and its tag's version. */
@@ -65,7 +130,13 @@ const blueprintSchema = z.object({
   description: text('one line of text'),
   roles: handleRecord(
     z.object(
-      { template: templateReference, count: z.int(expecting(COUNT)).min(1, `must be ${COUNT}`).max(COUNT_MAX, `must be ${COUNT}`).optional() },
+      {
+        template: templateReference,
+        count: z.int(expecting(COUNT)).min(1, `must be ${COUNT}`).max(COUNT_MAX, `must be ${COUNT}`).optional(),
+        model: model.optional(),
+        crew: crewSchema.optional(),
+        parameters: handleRecord(text('the value for the parameter'), "a mapping of the template's parameter names, each to its value").optional(),
+      },
       expecting('a mapping holding the role\'s template'),
     ),
     'a mapping of role names, each to its template',
@@ -90,7 +161,17 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
   if (!parsed.success) {
     return err(firstIssue('template', parsed.error));
   }
-  const { description, checkIn: checkInMinutes, model: pinned, launchNote, charter, handoffs } = parsed.data;
+  const { description, checkIn: checkInMinutes, model: pinned, launchNote, charter, handoffs, parameters, crew } = parsed.data;
+  const declared = new Set(Object.keys(parameters ?? {}));
+  for (const [field, used] of [
+    ['charter', charter],
+    ['crew.firstPrompt', crew?.firstPrompt],
+  ] as const) {
+    const [unknown] = undeclared(used, declared);
+    if (unknown !== undefined) {
+      return err(`${field} uses {{${unknown}}}, a parameter the template does not declare under parameters`);
+    }
+  }
   const { repository, name, version, file: path, commit, committedAt } = file;
   return ok({
     repository,
@@ -105,6 +186,8 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
     launchNote: launchNote ?? null,
     charter,
     handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
+    crew: crewOf(crew),
+    parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
   });
 }
 
@@ -156,7 +239,14 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
     return err(firstIssue('blueprint', parsed.error));
   }
   const { name: named, description, memberNames } = parsed.data;
-  const roles = Object.entries(parsed.data.roles).map(([role, { template, count }]) => ({ name: role, template, count: count ?? 1 }));
+  const roles = Object.entries(parsed.data.roles).map(([role, { template, count, model: pinned, crew, parameters }]) => ({
+    name: role,
+    template,
+    count: count ?? 1,
+    model: pinned ?? null,
+    crew: crewOf(crew),
+    parameters: parameters ?? {},
+  }));
   const roleNames = new Set(roles.map((role) => role.name));
 
   const declared = new Set<string>();
@@ -168,6 +258,10 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
     }
     for (const handoff of template.handoffs) {
       declared.add(`${role.name}.${handoff.name}`);
+    }
+    const unknown = Object.keys(role.parameters).find((parameter) => !template.parameters.some((each) => each.name === parameter));
+    if (unknown !== undefined) {
+      return err(`roles.${role.name}.parameters: ${unknown} is a parameter its template ${keyOf(role.template)} does not declare`);
     }
   }
 

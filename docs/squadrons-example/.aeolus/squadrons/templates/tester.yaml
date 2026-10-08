@@ -8,3 +8,7 @@ charter: |
 handoffs:
   on-fail: The failing tests and their output
   on-pass: The branch and the run that passed
+crew:
+  machineLabels:
+    - os=linux
+    - arch=amd64

@@ -5,10 +5,14 @@ checkIn: 1h
 model: claude-opus-5-5
 launchNote: |
   Start in the root of the tidewater repository, on main.
+parameters:
+  area: The part of Tidewater the features touch, such as the tide tables
 charter: |
-  You plan one feature of Tidewater at a time.
+  You plan one feature of Tidewater at a time, in {{area}}.
   Read the request from the flagship, study the code it touches, and write a
   plan of small steps, each with the files it changes and how to test it.
   Send the plan to your plan-ready hand-off.
 handoffs:
   plan-ready: The plan, one step per line, with the branch to build it on
+crew:
+  firstPrompt: Wait for the flagship's feature request, then plan it.

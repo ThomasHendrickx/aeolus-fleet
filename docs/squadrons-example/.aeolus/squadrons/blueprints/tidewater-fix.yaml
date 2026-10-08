@@ -5,6 +5,13 @@ memberNames: prefixed
 roles:
   implementer:
     template: github.com/tidewater-labs/squadron-templates#implementer@1
+    # Over its template, nearest wins: another harness and model, and a lower
+    # effort; its workspace and machine labels stay the template's.
+    model: gpt-6-sol
+    crew:
+      harness: codex
+      options:
+        effort: low
   tester:
     template: github.com/tidewater-labs/squadron-templates#tester@1
 handoffs:

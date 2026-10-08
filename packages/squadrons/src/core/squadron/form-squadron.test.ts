@@ -29,6 +29,8 @@ function templateVersion(name: string, handoffs: string[] = []): TemplateVersion
     launchNote: `Start the ${name} in the repository root.`,
     charter: `You are the ${name}.`,
     handoffs: handoffs.map((handoff) => ({ name: handoff, carries: 'work' })),
+    crew: {},
+    parameters: [],
   };
 }
 
@@ -40,8 +42,8 @@ const blueprintVersion: BlueprintVersion = {
   committedAt: AT,
   description: 'One feature.',
   roles: [
-    { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1 },
-    { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 1 }, count: 2 },
+    { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1, model: null, crew: {}, parameters: {} },
+    { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 1 }, count: 2, model: null, crew: {}, parameters: {} },
   ],
   handoffs: [{ role: 'implementer', handoff: 'done', to: 'flagship' }],
   memberNames: 'plain',

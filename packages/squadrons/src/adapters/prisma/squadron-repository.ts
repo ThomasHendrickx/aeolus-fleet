@@ -1,12 +1,23 @@
-import { idSchema } from '@aeolus-fleet/common';
+import { idSchema, trierarchWorkspaceSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import type { BlueprintVersion, TemplateVersion } from '../../core/catalogue/catalogue.js';
+import type { BlueprintVersion, CrewDraft, TemplateVersion } from '../../core/catalogue/catalogue.js';
 import type { SquadronRepository } from '../../core/squadron/ports.js';
 import type { Member, Squadron } from '../../core/squadron/squadron.js';
 import type { PrismaClient } from './client.js';
 
 const reference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
+// Snapshots stored before squadron files had crew settings (#343) have none.
+const crew: z.ZodType<CrewDraft> = z
+  .object({
+    harness: z.string(),
+    workspace: trierarchWorkspaceSchema,
+    firstPrompt: z.string(),
+    options: z.record(z.string(), z.json()),
+    machineLabels: z.array(z.object({ key: z.string(), value: z.string() })),
+  })
+  .partial()
+  .default({});
 const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
   z.object({
     repository: z.string(),
@@ -22,6 +33,8 @@ const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
     launchNote: z.string().nullable(),
     charter: z.string(),
     handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
+    crew,
+    parameters: z.array(z.object({ name: z.string(), description: z.string() })).default([]),
   }),
 );
 const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
@@ -32,7 +45,16 @@ const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
   commit: z.string(),
   committedAt: z.coerce.date(),
   description: z.string(),
-  roles: z.array(z.object({ name: z.string(), template: reference, count: z.number() })),
+  roles: z.array(
+    z.object({
+      name: z.string(),
+      template: reference,
+      count: z.number(),
+      model: z.string().nullable().default(null),
+      crew,
+      parameters: z.record(z.string(), z.string()).default({}),
+    }),
+  ),
   handoffs: z.array(z.object({ role: z.string(), handoff: z.string(), to: z.string() })),
   memberNames: z.enum(['plain', 'prefixed']),
 });

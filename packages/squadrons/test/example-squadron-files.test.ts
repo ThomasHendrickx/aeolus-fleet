@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createGithubRepositoryReader } from '../src/adapters/github/github-repository-reader.js';
 import { assembleCatalogue } from '../src/core/catalogue/assemble-catalogue.js';
+import { memberCrewOf } from '../src/core/catalogue/member-crew.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
 
@@ -57,5 +58,28 @@ describe('the example squadron files', () => {
     expect(catalogue.problems).toEqual([]);
     expect(catalogue.templates.map((template) => `${template.name}@${String(template.version)}`).sort()).toEqual(['implementer@1', 'planner@1', 'reviewer@1', 'tester@1']);
     expect(catalogue.blueprints.map((blueprint) => `${blueprint.name}@${String(blueprint.version)}`).sort()).toEqual(['tidewater-feature@1', 'tidewater-fix@1']);
+  });
+
+  it("merge a member's crew settings from its template and its role: tidewater-fix's implementer runs Codex on the template's workspace and labels (#343)", async () => {
+    const files = exampleFiles();
+    const names = Object.keys(files).map((path) => path.replace(/^.*\/([^/]+)\.yaml$/, '$1'));
+    github.repositories.set(REPOSITORY.owner, { tags: tagsAt({ files }, ...names.map((name) => `${name}@1`)) });
+    const { files: read, tags } = await createGithubRepositoryReader({ apiUrl: github.apiUrl }).read(
+      [{ fleetId: FLEET, name: REPOSITORY.name, url: `https://${REPOSITORY.name}`, path: DEFAULT_PATH, token: null }],
+      { fetch: () => true },
+    );
+    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags });
+    const role = catalogue.blueprints.find((blueprint) => blueprint.name === 'tidewater-fix')?.roles.find((each) => each.name === 'implementer');
+    const template = catalogue.templates.find((each) => each.name === 'implementer');
+    if (role === undefined || template === undefined) {
+      throw new Error('the example set has no tidewater-fix implementer');
+    }
+
+    expect(memberCrewOf({ template, role }).crew).toEqual({
+      harness: 'codex',
+      workspace: { kind: 'worktree', repository: 'tidewater' },
+      options: { effort: 'low', model: 'gpt-6-sol' },
+      machineLabels: [{ key: 'os', value: 'linux' }],
+    });
   });
 });
