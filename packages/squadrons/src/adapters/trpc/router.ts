@@ -445,11 +445,12 @@ export const squadronsRouter = t.router({
       }),
     /**
      * Adds a member of a role to a sailing squadron, from the squadron's own
-     * template version. Its crew lines, launch note and pinned model are in the
+     * template version, with a crew request when its settings name a
+     * workspace. Its crew lines, launch note and pinned model are in the
      * answer, once.
      */
     addMember: managing(connectedProcedure)
-      .input(z.object({ squadronId: z.string(), role: z.string() }))
+      .input(z.object({ squadronId: z.string(), role: z.string(), /** Its crew settings, nearest of all, and its parameter values (#343). */ member: memberFormSchema.optional() }))
       .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
         const added = await ctx.addMember({ fleetId: ctx.fleetId, ...input });
