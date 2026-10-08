@@ -33,6 +33,8 @@ const clock = createTestClock('2026-10-03T12:00:00.000Z');
 const SIGN_IN_WINDOW_MS = 60_000;
 /** The squadron page asks again every few seconds; a check-in shows within that. */
 const LIVE_TIMEOUT_MS = 20_000;
+/** How late the member's ship detail arrives in the new crew line test, longer than the clicks before it take. */
+const SHIP_LATE_MS = 3_000;
 
 let github: FakeGithub;
 let database: PrismaClient;
@@ -490,6 +492,11 @@ describe('the first squadron in the console', () => {
 
   it('asks before a new crew line, saying its unclaimed one stops working, then shows the new one once', async () => {
     const page = await squadronsPage();
+    // The member's ship arrives late, as on a slow runner: Get new crew line waits for it rather than doing nothing (#362).
+    await page.route(/\/trpc\/(?:[^?]*,)?fleet\.ship(?:,|\?)/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, SHIP_LATE_MS));
+      await route.continue();
+    });
     await page.goto(`/squadrons/${grownSquadronId}`);
     const added = page.getByTestId('member-row').filter({ hasText: 'Not on station' });
 
