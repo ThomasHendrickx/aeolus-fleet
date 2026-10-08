@@ -73,6 +73,8 @@ describe('a ship template', () => {
           { name: 'on-fail', carries: 'The failing tests and their output' },
           { name: 'on-pass', carries: 'The branch and the run that passed' },
         ],
+        crew: {},
+        parameters: [],
       },
     ]);
   });
@@ -81,6 +83,43 @@ describe('a ship template', () => {
     const [read] = catalogueOf([template({ name: 'planner', version: 1 }, planner)]).templates;
 
     expect(read).toMatchObject({ model: null, launchNote: null, handoffs: [], checkInMinutes: 120 });
+  });
+
+  it('reads its crew block and its parameters, each machine label as its key and value (#343)', () => {
+    const content = {
+      ...tester,
+      charter: 'You test the branch you are given and report to {{reports-to}}.',
+      parameters: { 'reports-to': 'Whom the tester reports to' },
+      crew: {
+        harness: 'claude-code',
+        workspace: { kind: 'worktree', repository: 'hemma', ref: 'main' },
+        firstPrompt: 'Wait for a branch from {{reports-to}}.',
+        options: { effort: 'high' },
+        machineLabels: ['os=linux', 'arch=arm64'],
+      },
+    };
+
+    const [read] = catalogueOf([template({ name: 'tester', version: 4 }, content)]).templates;
+
+    expect(read).toMatchObject({
+      crew: {
+        harness: 'claude-code',
+        workspace: { kind: 'worktree', repository: 'hemma', ref: 'main' },
+        firstPrompt: 'Wait for a branch from {{reports-to}}.',
+        options: { effort: 'high' },
+        machineLabels: [
+          { key: 'os', value: 'linux' },
+          { key: 'arch', value: 'arm64' },
+        ],
+      },
+      parameters: [{ name: 'reports-to', description: 'Whom the tester reports to' }],
+    });
+  });
+
+  it('takes a crew block with only some of its fields: every one is optional', () => {
+    const [read] = catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, crew: { options: { effort: 'low' } } })]).templates;
+
+    expect(read?.crew).toEqual({ options: { effort: 'low' } });
   });
 
   it('takes a charter of exactly 48 KB', () => {
@@ -99,6 +138,15 @@ describe('a ship template', () => {
     { label: 'a model alias, not an exact model id', content: { ...tester, model: 'opus' }, field: 'model' },
     { label: 'a model that follows the latest release', content: { ...tester, model: 'claude-opus-latest' }, field: 'model' },
     { label: 'a model id with capitals', content: { ...tester, model: 'Claude-Opus-5-5' }, field: 'model' },
+    { label: 'a model in crew.options, where model is the one place for it', content: { ...tester, crew: { options: { model: 'claude-opus-5-5' } } }, field: 'crew.options.model' },
+    { label: 'a machine label that is no key=value', content: { ...tester, crew: { machineLabels: ['linux'] } }, field: 'crew.machineLabels' },
+    { label: 'a machine label in capitals', content: { ...tester, crew: { machineLabels: ['OS=linux'] } }, field: 'crew.machineLabels' },
+    { label: 'more than 20 machine labels', content: { ...tester, crew: { machineLabels: Array.from({ length: 21 }, (_, index) => `key${String(index)}=value`) } }, field: 'crew.machineLabels' },
+    { label: 'a first prompt that starts with -, which reads as a flag', content: { ...tester, crew: { firstPrompt: '--yes' } }, field: 'crew.firstPrompt' },
+    { label: 'a workspace that names a path', content: { ...tester, crew: { workspace: { kind: 'folder', name: '/home/thomas/notes' } } }, field: 'crew.workspace' },
+    { label: 'a parameter name that is no handle', content: { ...tester, parameters: { 'Reports To': 'x' } }, field: 'parameters' },
+    { label: 'a placeholder in its charter it declares no parameter for', content: { ...tester, charter: 'Report to {{reports-to}}.' }, field: 'charter' },
+    { label: 'a placeholder in its first prompt it declares no parameter for', content: { ...tester, crew: { firstPrompt: 'Ask {{lead}}.' } }, field: 'crew.firstPrompt' },
   ])('is left out with a problem when it has $label', ({ content, field }) => {
     const { templates: read, problems } = catalogueOf([template({ name: 'tester', version: 4 }, content)]);
 
@@ -123,9 +171,9 @@ describe('a squadron blueprint', () => {
         committedAt: AT,
         description: hemmaFeature.description,
         roles: [
-          { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1 },
-          { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 1 }, count: 2 },
-          { name: 'tester', template: { repository: REPO, name: 'tester', version: 4 }, count: 1 },
+          { name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 1, model: null, crew: {}, parameters: {} },
+          { name: 'implementer', template: { repository: REPO, name: 'implementer', version: 1 }, count: 2, model: null, crew: {}, parameters: {} },
+          { name: 'tester', template: { repository: REPO, name: 'tester', version: 4 }, count: 1, model: null, crew: {}, parameters: {} },
         ],
         handoffs: [
           { role: 'tester', handoff: 'on-fail', to: 'implementer' },
@@ -149,6 +197,29 @@ describe('a squadron blueprint', () => {
     expect(blueprints.map(({ name, version }) => `${name} v${String(version)}`)).toEqual(['hemma-feature v1', 'hemma-build v2']);
   });
 
+  it("reads a role's model, crew block and the parameters it fills (#343)", () => {
+    const withParameter = template({ name: 'tester', version: 4 }, { ...tester, charter: 'Report to {{reports-to}}.', parameters: { 'reports-to': 'Whom the tester reports to' } });
+    const content = {
+      ...hemmaFeature,
+      roles: {
+        ...hemmaFeature.roles,
+        tester: { template: `${REPO}#tester@4`, model: 'gpt-6-sol', crew: { harness: 'codex', machineLabels: ['os=linux'] }, parameters: { 'reports-to': 'implementer' } },
+      },
+    };
+
+    const { blueprints, problems } = catalogueOf([...templates.filter((each) => each.name !== 'tester'), withParameter, blueprint({ name: 'hemma-feature', version: 4 }, content)]);
+
+    expect(problems).toEqual([]);
+    expect(blueprints[0]?.roles.find((role) => role.name === 'tester')).toEqual({
+      name: 'tester',
+      template: { repository: REPO, name: 'tester', version: 4 },
+      count: 1,
+      model: 'gpt-6-sol',
+      crew: { harness: 'codex', machineLabels: [{ key: 'os', value: 'linux' }] },
+      parameters: { 'reports-to': 'implementer' },
+    });
+  });
+
   it('may choose prefixed member names', () => {
     const [read] = catalogueOf([...templates, blueprint({ name: 'hemma-feature', version: 4 }, { ...hemmaFeature, memberNames: 'prefixed' })]).blueprints;
 
@@ -170,6 +241,9 @@ describe('a squadron blueprint', () => {
     { label: 'a hand-off to a role it does not have', content: { ...hemmaFeature, handoffs: { ...hemmaFeature.handoffs, 'tester.on-pass': 'reviewer' } }, message: /reviewer/ },
     { label: 'a count over 20', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, implementer: { template: `${REPO}#implementer@1`, count: 21 } } }, message: /count/ },
     { label: 'no roles', content: { ...hemmaFeature, roles: {} }, message: /roles/ },
+    { label: 'a parameter its role\'s template does not declare', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, parameters: { lead: 'x' } } } }, message: /roles\.tester\.parameters.*lead/ },
+    { label: 'a role model that is an alias', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, model: 'opus' } } }, message: /roles\.tester\.model/ },
+    { label: 'a role model in crew.options', content: { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, crew: { options: { model: 'gpt-6' } } } } }, message: /roles\.tester\.crew\.options\.model.*model/ },
   ])('is left out with a problem when it has $label', ({ content, message }) => {
     const messages = problemsOf(content);
 
