@@ -1,10 +1,11 @@
 # 0027 Crew settings: an open standard with a fixed core
 
-- A crew request's settings (0029) have a fixed core: harness, workspace (a worktree of a named repository with an optional ref, or a named folder), squadron (optional, a squadron id the member checks in with, as a crew line's), firstPrompt (optional, at most 8 KB, first start only) and options.
+- A crew request's settings (0029) have a fixed core: an optional harness, workspace (a worktree of a named repository with an optional ref, or a named folder), squadron (optional, a squadron id the member checks in with, as a crew line's), firstPrompt (optional, at most 8 KB, first start only) and options.
+- Without a harness, the trierarch the request goes to crews it with its default harness: the first in its configuration and report. Its options are checked against that harness's schema. The workspace and the options (which may be empty) are required; everything else is optional.
 - Open: each trierarch reports each harness's options as a JSON Schema, read from its local configuration. The trierarch plugin checks a request's options against the schema of the machine it assigns; a trierarch checks again before it crews.
 - Settings never carry paths or command-line flags. A workspace names a repository or folder from the trierarch's configuration, and options pick named settings.
 - The schemas of the settings and of the trierarch's report details live in `common`. The full model is in [trierarch.md](../trierarch.md).
 
-Why: harnesses and machines differ (remote control, permission modes, sandboxes). A fixed option list would bend around one harness or grow without end, and a schema lets the console draw a form for any trierarch.
+Why: harnesses and machines differ (remote control, permission modes, sandboxes). A fixed option list would bend around one harness or grow without end, and a schema lets the console draw a form for any trierarch. A request that names no harness leaves the choice to the machine: no policy where it can be avoided (#343).
 
-Rejected: one fixed settings shape with every option named; free-form options with no schema; a message protocol to the trierarch's ship, replaced by the crew request and the report.
+Rejected: one fixed settings shape with every option named; a required harness (it blocks a request that has no preference); a configured default harness beside the configuration's order; free-form options with no schema; a message protocol to the trierarch's ship, replaced by the crew request and the report.

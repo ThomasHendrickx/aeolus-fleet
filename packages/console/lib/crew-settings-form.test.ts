@@ -79,6 +79,10 @@ describe('the form values', () => {
     expect(valuesOf(held, offers)).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
     expect(valuesOf({}, offers)).toEqual(defaultValues(offers));
   });
+
+  it('fill a request without a harness with the first harness offered, as a trierarch crews it with its first (#343)', () => {
+    expect(valuesOf({ workspace: { kind: 'folder', name: 'notes' }, options: {} }, offers).harness).toBe(defaultValues(offers).harness);
+  });
 });
 
 describe('settingsRows', () => {
@@ -90,6 +94,10 @@ describe('settingsRows', () => {
       { label: 'First prompt', value: '112 B' },
       { label: 'Squadron', value: null, isMono: true },
     ]);
+  });
+
+  it('shows a request without a harness as taking its trierarch’s default (#343)', () => {
+    expect(settingsRows({ workspace: { kind: 'folder', name: 'notes' }, options: {} })?.[0]).toEqual({ label: 'Harness', value: 'Trierarch default' });
   });
 
   it('is undefined for settings made without the plugin', () => {
