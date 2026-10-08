@@ -27,6 +27,8 @@ let fleetUrl: string;
 let app: SquadronsApp;
 let address: string;
 let cookie: string;
+let fleetUseCases: ReturnType<typeof createUseCases>;
+let argo: ReturnType<typeof operatorCaller>;
 
 async function signIn(): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.signIn`, {
@@ -55,7 +57,8 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
-  const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  fleetUseCases = useCases;
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
@@ -93,11 +96,11 @@ const formedSchema = z.object({
   }),
 });
 
-async function formTeam(squadronId?: string) {
+async function formTeam(squadronId?: string, more: Record<string, unknown> = {}) {
   const response = await fetch(`${address}/trpc/squadrons.form`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, ...(squadronId === undefined ? {} : { squadronId }) }),
+    body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, ...(squadronId === undefined ? {} : { squadronId }), ...more }),
   });
   expect(response.status, await response.clone().text()).toBe(200);
   return formedSchema.parse(await response.json()).result.data;
@@ -160,6 +163,21 @@ describe('forming a squadron at the squadrons API', () => {
     expect(listed.result.data[0]?.members.map(({ onStationAt, health, checkInMinutes, crew }) => ({ onStationAt, health, checkInMinutes, crew }))).toEqual([
       { onStationAt: null, health: 'not-on-station', checkInMinutes: 30, crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null } },
       { onStationAt: null, health: 'not-on-station', checkInMinutes: 30, crew: { status: 'awaitingCrew', lastSeenAt: null, crewedSince: null } },
+    ]);
+  });
+});
+
+describe('crew requests at forming (#343)', () => {
+  it("writes a crew request for each member the form gives a workspace, with the squadron and its machine labels as the fleet's value ids", async () => {
+    const os = unwrap(await fleetUseCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
+
+    const formed = await formTeam('team-crewed', {
+      members: { 'tester-1': { crew: { workspace: { kind: 'worktree', repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] } } },
+    });
+
+    const [first] = formed.members;
+    await expect(fleetDatabase.crewRequest.findMany({ select: { shipId: true, settings: true } })).resolves.toEqual([
+      { shipId: first?.shipId, settings: { workspace: { kind: 'worktree', repository: 'hemma' }, options: {}, squadron: 'team-crewed', machineLabels: [os.values[0]?.id] } },
     ]);
   });
 });

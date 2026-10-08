@@ -73,6 +73,11 @@ function fakeFleet() {
     /** Names whose first commission the fleet carries out, but whose answer never reaches squadrons. */
     answersLost: new Set<string>(),
     keys: new Map<string, ShipId>(),
+    /** Each ship's crew request, as squadrons wrote it (#343). */
+    requests: new Map<ShipId, unknown>(),
+    /** The fleet's label values, by `key=value`. */
+    labelValues: new Map<string, string>([['os=macos', 'lbv_01m3tbfspe96yf1rnr4ank9h3a']]),
+    refuseCrewRequests: false,
   };
   let next = 0;
   const door: FleetDoor = {
@@ -112,6 +117,18 @@ function fakeFleet() {
       return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, secret) }));
     },
     release: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+    requestCrew: (_crewToken, { shipId, settings }) => {
+      if (state.refuseCrewRequests) {
+        return Promise.resolve(err({ code: 'BAD_REQUEST', message: 'settings is 18211 bytes, the limit is 16384 (decision 0029)' }));
+      }
+      state.requests.set(shipId, settings);
+      return Promise.resolve(ok(undefined));
+    },
+    removeCrewRequest: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+    findLabelValue: (_crewToken, { key, value }) => {
+      const valueId = state.labelValues.get(`${key}=${value}`);
+      return Promise.resolve(valueId === undefined ? err({ code: 'NOT_FOUND', message: `The fleet has no label ${key} with the value ${value}` }) : ok({ valueId: idSchema('labelValue').parse(valueId) }));
+    },
     getStartingPrompt: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId && !held.isCrewed);
       if (!ship) {
@@ -370,6 +387,68 @@ describe('a squadron not formed', () => {
     const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), binding: () => Promise.resolve(undefined), connected: () => Promise.resolve([]), save: () => Promise.resolve(), drop: () => Promise.resolve() };
 
     await expect(formWith({ store: empty })(fromHemmaFeature)).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
+  });
+});
+
+describe('crew requests at forming (#343)', () => {
+  /** The catalogue with crew settings in the implementer template and the blueprint's planner role. */
+  function withCrew(): Catalogue {
+    const implementer = { ...templateVersion('implementer', ['done']), crew: { harness: 'claude-code', firstPrompt: 'Report to {{lead}}.', options: { effort: 'high' } }, parameters: [{ name: 'lead', description: 'Whom it reports to' }] };
+    const roles = blueprintVersion.roles.map((role) =>
+      role.name === 'planner'
+        ? { ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] } }
+        : { ...role, model: 'claude-sonnet-5-5', parameters: { lead: 'the planner' } },
+    );
+    return { ...catalogue, templates: [templateVersion('planner'), implementer], blueprints: [{ ...blueprintVersion, roles }] };
+  }
+
+  it("writes one crew request per member whose merged settings name a workspace: its files' settings, its model as options.model, its machine labels as value ids, and the squadron", async () => {
+    const formed = unwrapped(await formWith({ catalogue: withCrew() })(fromHemmaFeature));
+    const [planner] = formed.members;
+
+    expect([...fleet.state.requests]).toEqual([
+      [
+        planner?.shipId,
+        { workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'claude-opus-5-5' }, squadron: 'hemma-feature-a1b2c3', machineLabels: ['lbv_01m3tbfspe96yf1rnr4ank9h3a'] },
+      ],
+    ]);
+  });
+
+  it('takes each member\'s settings from the form, nearest wins, and fills the parameters of its first prompt', async () => {
+    const formed = unwrapped(
+      await formWith({ catalogue: withCrew() })({
+        ...fromHemmaFeature,
+        members: { 'implementer-2': { crew: { workspace: { kind: 'folder', name: 'notes' }, options: { effort: 'max' } }, parameters: { lead: 'planner-k3x9' } } },
+      }),
+    );
+
+    expect(fleet.state.requests.get(idSchema('ship').parse(formed.members[2]?.shipId))).toEqual({
+      harness: 'claude-code',
+      workspace: { kind: 'folder', name: 'notes' },
+      firstPrompt: 'Report to planner-k3x9.',
+      options: { effort: 'max', model: 'claude-sonnet-5-5' },
+      squadron: 'hemma-feature-a1b2c3',
+    });
+    expect(fleet.state.requests.has(idSchema('ship').parse(formed.members[1]?.shipId))).toBe(false);
+  });
+
+  it('refuses a machine label the fleet does not define, naming it, and commissions nothing', async () => {
+    fleet.state.labelValues.clear();
+
+    const formed = await formWith({ catalogue: withCrew() })(fromHemmaFeature);
+
+    expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The fleet has no machine label os=macos, so nothing was formed' } });
+    expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('retires every ship it commissioned and stores nothing when the fleet refuses a crew request', async () => {
+    fleet.state.refuseCrewRequests = true;
+
+    const formed = await formWith({ catalogue: withCrew() })(fromHemmaFeature);
+
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    expect(fleet.state.ships.every((ship) => ship.isRetired)).toBe(true);
+    expect(squadrons.held).toEqual([]);
   });
 });
 
