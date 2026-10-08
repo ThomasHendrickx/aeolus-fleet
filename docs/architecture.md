@@ -232,6 +232,7 @@ Everything of the trierarch lives under `~/.aeolus/trierarch/`.
 | The configuration's JSON Schema, for an editor | `~/.aeolus/trierarch/config.schema.json` | `aeolus-trierarch init` |
 | The fleet's URL, the trierarch's own ship id and its crew token, mode 600 | `~/.aeolus/trierarch/crew-token` | `aeolus-trierarch init` |
 | State: entries saved as crewing, kept worktrees, runtime state per ship. No secrets and no declared state (the fleet holds that); written atomically | `~/.aeolus/trierarch/state.json` | The trierarch |
+| What detection found per harness: its version, when it was detected and its models last confirmed, and its options (#365) | `~/.aeolus/trierarch/detected.json` | The trierarch: `init`, a start after a harness updated, `aeolus-trierarch detect` |
 | The running trierarch's pid and version, so `status` tells the running version from the installed one | `~/.aeolus/trierarch/running.json` | The trierarch, as it starts |
 | Logs | `~/.aeolus/trierarch/logs/` | The trierarch |
 | Worktrees, one folder per ship: `<root>/<repository>/<ship>` | `~/.aeolus/trierarch/worktrees/` (the configuration's worktree root overrides it) | The trierarch |
