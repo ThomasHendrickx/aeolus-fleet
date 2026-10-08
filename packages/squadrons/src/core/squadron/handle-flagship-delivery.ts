@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FLAGSHIP } from '../catalogue/catalogue.js';
+import { fillParameters } from '../catalogue/member-crew.js';
 import type { FleetDoor, FleetRefusal, OutgoingMessage, ReceivedMessage } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
@@ -53,7 +54,7 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
       squadron: squadron.id,
       role: member.role,
       template: `${template?.name ?? member.role}@${String(template?.version ?? 0)}`,
-      charter: template?.charter ?? '',
+      charter: fillParameters(template?.charter ?? '', member.parameters),
       checkIn: checkInText(template?.checkInMinutes ?? 0),
       handoffs,
       flagship: squadron.flagship.name,

@@ -6,7 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
-import { crewSettingsOf, formedCrewOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
+import { crewSettingsOf, formedCrewOf, memberParametersOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 
 const MEMBER_SUFFIX_LENGTH = 4;
@@ -108,7 +108,7 @@ export function createAddMember(deps: {
       before: squadron,
       after: {
         ...squadron,
-        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null }],
+        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: memberParametersOf({ role, form }) }],
       },
       finishesAttempt: formation.attemptId,
     });

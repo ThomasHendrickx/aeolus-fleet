@@ -8,7 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
-import { crewSettingsOf, formedCrewOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
+import { crewSettingsOf, formedCrewOf, memberParametersOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { Member } from './squadron.js';
 
 const SQUADRON_SUFFIX_LENGTH = 6;
@@ -91,7 +91,8 @@ export function createFormSquadron(deps: {
       Array.from({ length: role.count }, (_, offset) => {
         const slot = `${role.name}-${String(offset + 1)}`;
         const template = used[index];
-        return { role, index, number: offset + 1, slot, crew: template && formedCrewOf({ template, role, form: input.members?.[slot] }) };
+        const form = input.members?.[slot];
+        return { role, index, number: offset + 1, slot, crew: template && formedCrewOf({ template, role, form }), parameters: memberParametersOf({ role, form }) };
       }),
     );
     // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
@@ -122,7 +123,7 @@ export function createFormSquadron(deps: {
 
     const members: Member[] = [];
     const lines: FormedSquadron['members'] = [];
-    for (const { role, index, number, slot, crew: memberCrew } of slots) {
+    for (const { role, index, number, slot, crew: memberCrew, parameters } of slots) {
       const names =
         blueprint.memberNames === 'prefixed'
           ? () => `${squadronId}:${role.name}-${String(number)}`
@@ -139,7 +140,7 @@ export function createFormSquadron(deps: {
           return failed(requested.error);
         }
       }
-      members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null });
+      members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters });
       lines.push({ shipId, name: memberName, role: role.name, crewLines: memberCrewLines(member.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
     }
 

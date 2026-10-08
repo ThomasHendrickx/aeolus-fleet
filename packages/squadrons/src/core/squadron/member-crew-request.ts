@@ -28,13 +28,17 @@ function nameOf(label: { key: string; value: string }): string {
   return `${label.key}=${label.value}`;
 }
 
+/** A member's parameter values: its role's, with the form's over them. */
+export function memberParametersOf(member: { role: BlueprintVersion['roles'][number]; form?: MemberForm }): Record<string, string> {
+  return { ...member.role.parameters, ...member.form?.parameters };
+}
+
 /** A member's crew settings, the form's layer merged over its files' (options per key), its first prompt filled. */
 export function formedCrewOf(member: { template: TemplateVersion; role: BlueprintVersion['roles'][number]; form?: MemberForm }): MemberCrew {
-  const { crew, parameters } = memberCrewOf(member);
+  const { crew } = memberCrewOf(member);
   const form = member.form?.crew ?? {};
   const merged: MemberCrew = { ...crew, ...form, options: { ...crew.options, ...form.options } };
-  const values = { ...Object.fromEntries(parameters.flatMap(({ name, value }) => (value === null ? [] : [[name, value]]))), ...member.form?.parameters };
-  return merged.firstPrompt === undefined ? merged : { ...merged, firstPrompt: fillParameters(merged.firstPrompt, values) };
+  return merged.firstPrompt === undefined ? merged : { ...merged, firstPrompt: fillParameters(merged.firstPrompt, memberParametersOf(member)) };
 }
 
 /** The value id of every machine label the crews that get a request name, each looked up once. */
