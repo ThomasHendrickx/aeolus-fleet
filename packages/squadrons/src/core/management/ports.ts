@@ -73,6 +73,8 @@ export interface FleetShip {
   openDeliveries: number;
   /** What its crew holds in flight now, direct or claimed by its type. */
   inFlightDeliveries: number;
+  /** Whether it holds a crew request, one being released included (decision 0029). */
+  hasCrewRequest: boolean;
 }
 
 /** A delivery as a receive hands it over: what squadrons reads of it. */

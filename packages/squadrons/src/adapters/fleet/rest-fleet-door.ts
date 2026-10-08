@@ -86,8 +86,17 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
       if (!read.isOk) {
         return read;
       }
-      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries } = read.value;
-      return ok({ status, scopes, lastSeenAt: dateOf(lastSeenAt), crewedSince: dateOf(crewedSince), reportedAt: dateOf(report?.reportedAt ?? null), openDeliveries, inFlightDeliveries });
+      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries, crewRequest } = read.value;
+      return ok({
+        status,
+        scopes,
+        lastSeenAt: dateOf(lastSeenAt),
+        crewedSince: dateOf(crewedSince),
+        reportedAt: dateOf(report?.reportedAt ?? null),
+        openDeliveries,
+        inFlightDeliveries,
+        hasCrewRequest: crewRequest !== null,
+      });
     },
     deregister: async (crewToken) => {
       const ended = await call(fleetUrl, { path: '/ship/deregister', method: 'POST', crewToken, body: {}, answers: z.unknown() });

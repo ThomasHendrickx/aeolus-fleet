@@ -108,7 +108,7 @@ export function createAddMember(deps: {
       before: squadron,
       after: {
         ...squadron,
-        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null }],
+        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null }],
       },
       finishesAttempt: formation.attemptId,
     });

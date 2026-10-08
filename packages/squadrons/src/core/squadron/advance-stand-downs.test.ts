@@ -35,7 +35,7 @@ function aSquadron(state: SquadronState = 'standing-down'): Squadron {
   };
 }
 
-function aShip(open: { openDeliveries: number; inFlightDeliveries: number, hasCrewRequest: false } = { openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false }): FleetShip {
+function aShip(open: { openDeliveries: number; inFlightDeliveries: number } = { openDeliveries: 0, inFlightDeliveries: 0 }): FleetShip {
   return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, hasCrewRequest: false, ...open };
 }
 
@@ -188,8 +188,8 @@ describe('a squadron standing down', () => {
   it('does not retire a member that stood down but still holds open or in-flight deliveries', async () => {
     await advance(FLEET);
     standDown(PLANNER, TESTER);
-    ships.set(PLANNER, aShip({ openDeliveries: 1, inFlightDeliveries: 0, hasCrewRequest: false }));
-    ships.set(TESTER, aShip({ openDeliveries: 0, inFlightDeliveries: 1, hasCrewRequest: false }));
+    ships.set(PLANNER, aShip({ openDeliveries: 1, inFlightDeliveries: 0 }));
+    ships.set(TESTER, aShip({ openDeliveries: 0, inFlightDeliveries: 1 }));
 
     await advance(FLEET);
 
@@ -199,7 +199,7 @@ describe('a squadron standing down', () => {
   it('retires a member once it stood down and holds no open deliveries', async () => {
     await advance(FLEET);
     standDown(PLANNER, TESTER);
-    ships.set(TESTER, aShip({ openDeliveries: 2, inFlightDeliveries: 0, hasCrewRequest: false }));
+    ships.set(TESTER, aShip({ openDeliveries: 2, inFlightDeliveries: 0 }));
 
     await advance(FLEET);
 

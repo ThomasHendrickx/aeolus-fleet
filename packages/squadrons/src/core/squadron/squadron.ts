@@ -22,6 +22,8 @@ export interface Member {
   stoodDownAt: Date | null;
   /** When squadrons retired its ship; null while it serves. */
   retiredAt: Date | null;
+  /** When squadrons removed its crew request (#343): it stands down until its crew is released, then is retired; null before. */
+  releasingSince: Date | null;
 }
 
 /** A squadron, with the blueprint and templates it formed from as they were then. */

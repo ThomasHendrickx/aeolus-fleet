@@ -308,7 +308,7 @@ const squadronOutputSchema = z.object({
       /** The model its template pins, the model it stated at its last check-in, and whether they differ. */
       model: z.object({ pinned: z.string().nullable(), stated: z.string().nullable(), isMismatch: z.boolean() }),
       /** Not on station until it comes on station with its current crew; then on time, late or silent by its last report. */
-      health: z.enum(['not-on-station', 'on-time', 'late', 'silent']),
+      health: z.enum(['not-on-station', 'on-time', 'late', 'silent', 'standing-down']),
       /** How often it reports, in minutes, from its template. */
       checkInMinutes: z.number(),
       /** Its ship's crew as the fleet shows it now: its status, when its session last called, since when its crew holds it. */

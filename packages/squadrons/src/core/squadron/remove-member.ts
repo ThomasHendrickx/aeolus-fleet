@@ -13,7 +13,9 @@ export type RemoveMember = (input: { fleetId: FleetId; squadronId: string; shipI
 
 /**
  * Use case: the operator removes a member of a sailing or standing-down
- * squadron (#86, B4). squadrons retires its ship at once: its direct
+ * squadron (#86, B4). A member with a crew request (#343) has it removed and
+ * stands down until a trierarch released its crew; squadrons retires its
+ * ship then, at a rescan. Any other member's ship is retired at once: its direct
  * deliveries are abandoned, as on any retire, and a delivery to its type goes
  * to another member of the role. No rule keeps a role filled: once the last
  * member of a role is removed, a hand-off to it fails at send. In a squadron
@@ -36,6 +38,20 @@ export function createRemoveMember(deps: { door: FleetDoor; management: Manageme
     const member = squadron.members.find((each) => each.shipId === shipId);
     if (!member) {
       return refuse('MEMBER_NOT_FOUND', `The squadron ${squadronId} has no member ${shipId}`);
+    }
+    // A trierarch keeps a member with a crew request crewed: it releases that crew first, and the ship is retired after (advance-stand-downs).
+    const removed = await deps.door.removeCrewRequest(crew.crewToken, { shipId });
+    if (removed.isOk) {
+      if (member.releasingSince === null && member.retiredAt === null) {
+        await deps.squadrons.update({
+          before: squadron,
+          after: { ...squadron, members: squadron.members.map((each) => (each.shipId === shipId ? { ...each, releasingSince: deps.clock.now() } : each)) },
+        });
+      }
+      return ok(undefined);
+    }
+    if (removed.error.code !== 'NOT_FOUND') {
+      return refuse('FLEET_UNAVAILABLE', `The fleet did not remove the crew request of ${member.name}: ${removed.error.message}`);
     }
     const retired = await retireShip(deps.door, { crewToken: crew.crewToken, shipId });
     if (!retired.isOk) {

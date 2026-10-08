@@ -123,7 +123,7 @@ export function squadronsFromBlueprint<S extends Pick<Squadron, 'blueprint'>>(sq
 
 /** How many members have each health, in the order the summary says them; healths no member has are left out. */
 export function healthCounts(members: readonly { health: MemberHealth }[]): { health: MemberHealth; count: number }[] {
-  const order: MemberHealth[] = ['on-time', 'late', 'silent', 'not-on-station'];
+  const order: MemberHealth[] = ['on-time', 'late', 'silent', 'standing-down', 'not-on-station'];
   return order.map((health) => ({ health, count: members.filter((member) => member.health === health).length })).filter((each) => each.count > 0);
 }
 

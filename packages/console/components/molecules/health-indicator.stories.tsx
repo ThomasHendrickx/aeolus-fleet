@@ -11,6 +11,7 @@ export const OnTime: Story = { args: { health: 'on-time' } };
 export const Late: Story = { args: { health: 'late', detail: 'seen 34 min ago' } };
 export const Silent: Story = { args: { health: 'silent', detail: 'not seen for 1 h 12 min' } };
 export const NotOnStation: Story = { args: { health: 'not-on-station' } };
+export const StandingDown: Story = { args: { health: 'standing-down' } };
 export const Summary: Story = {
   args: { health: 'on-time' },
   render: () => (

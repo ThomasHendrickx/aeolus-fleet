@@ -139,7 +139,7 @@ export function createFormSquadron(deps: {
           return failed(requested.error);
         }
       }
-      members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null });
+      members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null });
       lines.push({ shipId, name: memberName, role: role.name, crewLines: memberCrewLines(member.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
     }
 
