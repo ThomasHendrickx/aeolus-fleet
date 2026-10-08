@@ -1,7 +1,7 @@
-import { idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
-import type { BlueprintVersion, Catalogue, TemplateVersion } from '../catalogue/catalogue.js';
+import { CHARTER_MAX_BYTES, type BlueprintVersion, type Catalogue, type TemplateVersion } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
@@ -459,6 +459,51 @@ describe('crew requests at forming (#343)', () => {
     expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
     expect(fleet.state.ships.every((ship) => ship.isRetired)).toBe(true);
     expect(squadrons.held).toEqual([]);
+  });
+});
+
+describe("checking the form's members before forming (#371)", () => {
+  /** The catalogue whose implementer template uses its `lead` parameter in its charter and first prompt. */
+  function withLead(): Catalogue {
+    const implementer = { ...templateVersion('implementer', ['done']), charter: 'You report to {{lead}}.', crew: { firstPrompt: 'Report to {{lead}}.' }, parameters: [{ name: 'lead', description: 'Whom it reports to' }] };
+    return { ...catalogue, templates: [templateVersion('planner'), implementer] };
+  }
+
+  it('refuses a member the blueprint does not have, naming it, and commissions nothing', async () => {
+    const formed = await formWith({ catalogue: withLead() })({ ...fromHemmaFeature, members: { 'implementer-3': { parameters: { lead: 'the planner' } } } });
+
+    expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The blueprint has no member implementer-3, so nothing was formed' } });
+    expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('refuses a member whose charter is over 48 KB once filled, naming it, and commissions nothing', async () => {
+    const lead = 'x'.repeat(CHARTER_MAX_BYTES);
+
+    const formed = await formWith({ catalogue: withLead() })({ ...fromHemmaFeature, members: { 'implementer-2': { parameters: { lead } } } });
+
+    expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The charter of implementer-2 is over 48 KB once filled, so nothing was formed' } });
+    expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('refuses a member whose first prompt is over 8 KB once filled, naming it, and commissions nothing', async () => {
+    const lead = 'x'.repeat(FIRST_PROMPT_MAX_BYTES);
+
+    const formed = await formWith({ catalogue: withLead() })({ ...fromHemmaFeature, members: { 'implementer-1': { parameters: { lead } } } });
+
+    expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The first prompt of implementer-1 is over 8 KB once filled, so nothing was formed' } });
+    expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('forms a member whose charter is exactly 48 KB once filled', async () => {
+    const lead = 'x'.repeat(CHARTER_MAX_BYTES - 'You report to .'.length);
+    const catalogueWithoutPrompt = withLead();
+
+    const formed = await formWith({ catalogue: { ...catalogueWithoutPrompt, templates: catalogueWithoutPrompt.templates.map((template) => ({ ...template, crew: {} })) } })({
+      ...fromHemmaFeature,
+      members: { 'implementer-1': { parameters: { lead } } },
+    });
+
+    expect(formed.isOk).toBe(true);
   });
 });
 

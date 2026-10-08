@@ -8,7 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
-import { crewSettingsOf, formedCrewOf, memberParametersOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
+import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { Member } from './squadron.js';
 
 const SQUADRON_SUFFIX_LENGTH = 6;
@@ -95,6 +95,18 @@ export function createFormSquadron(deps: {
         return { role, index, number: offset + 1, slot, crew: template && formedCrewOf({ template, role, form }), parameters: memberParametersOf({ role, form }) };
       }),
     );
+    // The form's members are checked before anything is commissioned, so a wrong one forms nothing (#371).
+    const unknown = Object.keys(input.members ?? {}).find((key) => !slots.some((each) => each.slot === key));
+    if (unknown !== undefined) {
+      return refuse('FORMING_FAILED', `The blueprint has no member ${unknown}, so nothing was formed`);
+    }
+    for (const { slot, index, crew: memberCrew, parameters } of slots) {
+      const template = used[index];
+      const over = template && memberCrew && overLimitOf({ template, crew: memberCrew, parameters });
+      if (over) {
+        return refuse('FORMING_FAILED', `The ${over.text} of ${slot} is over ${String(over.maxKb)} KB once filled, so nothing was formed`);
+      }
+    }
     // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: slots.flatMap((each) => each.crew ?? []) });
     if (!labels.isOk) {

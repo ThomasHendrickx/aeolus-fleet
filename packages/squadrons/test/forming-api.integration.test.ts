@@ -181,3 +181,26 @@ describe('crew requests at forming (#343)', () => {
     ]);
   });
 });
+
+describe('parameter values at the forming API (#371)', () => {
+  it('refuses a parameter value over 1 KB, and forms nothing', async () => {
+    const response = await fetch(`${address}/trpc/squadrons.form`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, members: { 'tester-1': { parameters: { area: 'x'.repeat(1025) } } } }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(fleetDatabase.ship.count({ where: { type: 'flagship' } })).resolves.toBe(0);
+  });
+
+  it('forms with a parameter value of exactly 1 KB', async () => {
+    const response = await fetch(`${address}/trpc/squadrons.form`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, members: { 'tester-1': { parameters: { area: 'x'.repeat(1024) } } } }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+  });
+});
