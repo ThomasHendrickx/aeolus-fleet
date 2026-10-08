@@ -111,7 +111,8 @@ export function valuesOf(settings: unknown, offers: readonly HarnessOffer[]): Cr
   }
   const { harness, workspace, options, firstPrompt, squadron, machineLabels } = parsed.data;
   return {
-    harness,
+    // Without a harness a trierarch crews with its first; the form picks the first offered (#343).
+    harness: harness ?? defaultValues(offers).harness,
     workspace: workspace.kind === 'worktree' ? { kind: 'worktree', repository: workspace.repository } : { kind: 'folder', name: workspace.name },
     options: Object.fromEntries(Object.entries(options).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))),
     firstPrompt: firstPrompt ?? '',
@@ -175,7 +176,7 @@ export function settingsRows(settings: unknown): SettingsRow[] | undefined {
   }
   const { harness, workspace, options, firstPrompt, squadron } = parsed.data;
   return [
-    { label: 'Harness', value: harness },
+    { label: 'Harness', value: harness ?? 'Trierarch default' },
     workspace.kind === 'worktree'
       ? { label: 'Workspace', value: workspace.repository, meta: 'New worktree' }
       : { label: 'Workspace', value: workspace.name, meta: 'Folder, as it is' },
