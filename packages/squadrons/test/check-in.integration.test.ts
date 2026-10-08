@@ -353,6 +353,30 @@ describe('adding a member', () => {
     expect(listed?.state).toBe('sailing');
     expect(listed?.members.find((each) => each.name === added.name)?.health).toBe('not-on-station');
   });
+
+  it("writes the added member's crew request with the form's workspace and the squadron (#343)", async () => {
+    const formed = await formTeam('team-crewed');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-crewed' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-crewed', role: 'tester' }),
+      idempotencyKey: 'on-station-crewed',
+    });
+    await expect.poll(() => squadronState('team-crewed'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const response = await fetch(`${address}/trpc/squadrons.addMember`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-crewed', role: 'tester', member: { crew: { workspace: { kind: 'folder', name: 'notes' } } } }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const { shipId } = z.object({ result: z.object({ data: z.object({ shipId: z.string() }) }) }).parse(await response.json()).result.data;
+    await expect(fleetDatabase.crewRequest.findMany({ select: { shipId: true, settings: true } })).resolves.toEqual([
+      { shipId, settings: { workspace: { kind: 'folder', name: 'notes' }, options: { model: 'claude-opus-5-5' }, squadron: 'team-crewed' } },
+    ]);
+  });
 });
 
 describe('removing a member', () => {

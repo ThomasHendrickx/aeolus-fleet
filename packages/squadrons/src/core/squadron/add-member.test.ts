@@ -1,5 +1,5 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
@@ -53,6 +53,11 @@ const attempts = memoryAttempts();
 /** Every ship the fleet commissioned: name, type, whether retired. */
 let commissioned: { shipId: ShipId; name: string; type: string; isRetired: boolean }[];
 let isCommissionRefused: boolean;
+/** Each ship's crew request settings, as the fleet holds them. */
+let requests: Map<ShipId, unknown>;
+let isCrewRequestRefused: boolean;
+/** The machine labels the fleet defines, by `key=value`. */
+const LABEL_VALUES = new Map([['os=macos', 'lbv_01m3tbfspe96yf1rnr4ank9h3a']]);
 /** The attempt each update finished, if any. */
 const finishedByUpdate: (string | undefined)[] = [];
 
@@ -76,9 +81,18 @@ const door: FleetDoor = {
     commissioned.push({ shipId, name, type, isRetired: false });
     return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, `aeolus_sk_v1_${name}`) }));
   },
-  requestCrew: notUsed,
+  requestCrew: (_crewToken, { shipId, settings }) => {
+    if (isCrewRequestRefused) {
+      return Promise.resolve(err({ code: 'BAD_REQUEST', message: 'Settings are at most 16 KB' }));
+    }
+    requests.set(shipId, settings);
+    return Promise.resolve(ok(undefined));
+  },
   removeCrewRequest: notUsed,
-  findLabelValue: notUsed,
+  findLabelValue: (_crewToken, { key, value }) => {
+    const valueId = LABEL_VALUES.get(`${key}=${value}`);
+    return Promise.resolve(valueId === undefined ? err({ code: 'NOT_FOUND', message: 'No such label' }) : ok({ valueId: idSchema('labelValue').parse(valueId) }));
+  },
   retire: (_crewToken, { shipId }) => {
     const ship = commissioned.find((each) => each.shipId === shipId);
     if (ship) {
@@ -113,6 +127,8 @@ beforeEach(() => {
   attempts.held.length = 0;
   commissioned = [];
   isCommissionRefused = false;
+  requests = new Map();
+  isCrewRequestRefused = false;
   finishedByUpdate.length = 0;
 });
 
@@ -191,5 +207,77 @@ describe('adding a member', () => {
     crew = undefined;
 
     await expect(addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' })).resolves.toMatchObject({ isOk: false, error: { kind: 'MANAGEMENT_SHIP_NOT_CREWED' } });
+  });
+});
+
+describe('a crew request for an added member (#343)', () => {
+  /** The squadron whose tester template gives crew settings and a parameter its role fills. */
+  function withCrew(): Squadron {
+    const squadron = aSquadron('sailing');
+    const [role] = squadron.blueprint.roles;
+    const [template] = squadron.templates;
+    if (!role || !template) {
+      return assert.fail('The squadron has a role and a template');
+    }
+    return {
+      ...squadron,
+      blueprint: { ...squadron.blueprint, roles: [{ ...role, parameters: { area: 'the API' } }] },
+      templates: [{ ...template, crew: { harness: 'claude-code', firstPrompt: 'Test {{area}}.', options: { effort: 'high' } }, parameters: [{ name: 'area', description: 'What it tests' }] }],
+    };
+  }
+
+  it("writes one from the squadron's own snapshot with the form's settings over it, its first prompt filled and its machine labels as value ids", async () => {
+    held = withCrew();
+
+    const added = await addMember({
+      fleetId: FLEET,
+      squadronId: 'team-a1b2c3',
+      role: 'tester',
+      member: { crew: { workspace: { kind: 'worktree', repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] }, parameters: { area: 'the console' } },
+    });
+
+    expect([...requests]).toEqual([
+      [
+        added.isOk && added.value.shipId,
+        {
+          harness: 'claude-code',
+          workspace: { kind: 'worktree', repository: 'hemma' },
+          firstPrompt: 'Test the console.',
+          options: { effort: 'high', model: 'claude-opus-5-5' },
+          squadron: 'team-a1b2c3',
+          machineLabels: ['lbv_01m3tbfspe96yf1rnr4ank9h3a'],
+        },
+      ],
+    ]);
+  });
+
+  it('writes none for a member whose settings name no workspace: it keeps its crew lines', async () => {
+    held = withCrew();
+
+    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
+
+    expect(requests.size).toBe(0);
+  });
+
+  it('refuses a machine label the fleet does not define, naming it, and commissions nothing', async () => {
+    const added = await addMember({
+      fleetId: FLEET,
+      squadronId: 'team-a1b2c3',
+      role: 'tester',
+      member: { crew: { workspace: { kind: 'folder', name: 'notes' }, machineLabels: [{ key: 'os', value: 'windows' }] } },
+    });
+
+    expect(added).toEqual({ isOk: false, error: { kind: 'ADDING_FAILED', message: 'The fleet has no machine label os=windows, so no member was added' } });
+    expect(commissioned).toEqual([]);
+  });
+
+  it('retires the ship and stores no member when the fleet refuses its crew request', async () => {
+    isCrewRequestRefused = true;
+
+    const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', member: { crew: { workspace: { kind: 'folder', name: 'notes' } } } });
+
+    expect(added).toMatchObject({ isOk: false, error: { kind: 'ADDING_FAILED' } });
+    expect(commissioned.map(({ isRetired }) => isRetired)).toEqual([true]);
+    expect(held.members).toHaveLength(1);
   });
 });
