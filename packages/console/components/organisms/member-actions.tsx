@@ -36,6 +36,8 @@ interface MemberAction {
   testId: string;
   href?: string;
   isDestructive?: boolean;
+  /** Not yet possible: shown, but it waits (Get new crew line until the member's ship has loaded). */
+  isDisabled?: boolean;
   onSelect?: () => void;
 }
 
@@ -64,7 +66,7 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
   const actions: MemberAction[] = [
     { key: 'open', label: 'Open ship page', icon: SquareArrowOutUpRight, testId: 'member-open-ship', href: `/ships/${member.shipId}` },
     ...(canSend && !isRetired && shipId ? [{ key: 'message', label: 'Message…', icon: SquarePen, testId: 'member-message', onSelect: () => { setIsComposing(true); } }] : []),
-    ...(canManage && !isRetired ? [{ key: 'crew-line', label: 'Get new crew line…', icon: KeyRound, testId: 'member-new-crew-line', onSelect: flow.start }] : []),
+    ...(canManage && !isRetired ? [{ key: 'crew-line', label: 'Get new crew line…', icon: KeyRound, testId: 'member-new-crew-line', isDisabled: !flow.isReady, onSelect: flow.start }] : []),
     { key: 'copy', label: 'Copy ship id', icon: Copy, testId: 'member-copy-id', onSelect: () => void copyId() },
   ];
   const removal: MemberAction | undefined =
@@ -87,7 +89,7 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
           <DropdownMenuContent align="end">
             {actions.map((action) =>
               action.href === undefined ? (
-                <DropdownMenuItem key={action.key} onClick={action.onSelect} data-testid={action.testId}>
+                <DropdownMenuItem key={action.key} disabled={action.isDisabled} onClick={action.onSelect} data-testid={action.testId}>
                   <action.icon aria-hidden />
                   {action.label}
                 </DropdownMenuItem>
@@ -121,8 +123,8 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
               {[...actions, ...(removal ? [removal] : [])].map((action) => (
                 <li key={action.key} className={action.isDestructive === true ? 'mt-1 border-t border-border pt-1' : undefined}>
                   <SheetClose
-                    render={action.href === undefined ? <button type="button" onClick={action.onSelect} /> : <Link href={action.href} />}
-                    className={`flex h-(--size-control-touch) w-full items-center gap-3 px-4 text-left text-body-touch [&_svg]:size-(--size-icon) [&_svg]:shrink-0 ${action.isDestructive === true ? 'text-destructive-text' : 'text-foreground'}`}
+                    render={action.href === undefined ? <button type="button" disabled={action.isDisabled} onClick={action.onSelect} /> : <Link href={action.href} />}
+                    className={`flex h-(--size-control-touch) w-full items-center gap-3 px-4 text-left text-body-touch disabled:opacity-45 [&_svg]:size-(--size-icon) [&_svg]:shrink-0 ${action.isDestructive === true ? 'text-destructive-text' : 'text-foreground'}`}
                   >
                     <action.icon aria-hidden />
                     {action.label.replace(/…$/, '')}
