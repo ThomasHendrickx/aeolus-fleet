@@ -31,6 +31,29 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes kept worktrees by their ship and repository, and orphans by their repository and name: never a path (#325)', () => {
+    const details = {
+      harnesses: [{ harness: 'codex', options: {}, flags: [] }],
+      workspaces: { repositories: ['aeolus-fleet'], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', repository: 'aeolus-fleet' }],
+      orphans: [{ repository: 'aeolus-fleet', name: 'lookout' }],
+      version: '0.20.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it.each([
+    ['a kept worktree with its path', { kept: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', repository: 'aeolus-fleet', path: '/Users/thomas/scout' }] }],
+    ['an orphan with its path', { orphans: [{ repository: 'aeolus-fleet', name: 'lookout', path: '/Users/thomas/lookout' }] }],
+    ['an orphan named by a path', { orphans: [{ repository: 'aeolus-fleet', name: '../lookout' }] }],
+  ])('refuses %s: paths stay on the machine (#325)', (_, change) => {
+    const details = { harnesses: [], workspaces: { repositories: [], folders: [] }, caps: { ships: 2, running: 1 }, kept: [], orphans: [], version: '0.20.0', ...change };
+
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
   it('takes the flags a harness marks as risky, per harness (#326)', () => {
     const details = {
       harnesses: [{ harness: 'claude-code', options: {}, flags: ['--remote-control', '--dangerously-skip-permissions'], riskyFlags: ['--dangerously-skip-permissions'] }],
