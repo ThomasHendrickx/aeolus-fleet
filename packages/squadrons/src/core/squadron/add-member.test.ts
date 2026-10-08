@@ -1,10 +1,11 @@
-import { idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { FleetDoor, ManagementCrew, ManagementCrewStore } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
+import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
 import { createAddMember } from './add-member.js';
 import type { SquadronRepository } from './ports.js';
 import type { Member, Squadron, SquadronState } from './squadron.js';
@@ -257,6 +258,24 @@ describe('a crew request for an added member (#343)', () => {
     await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', member: { parameters: { area: 'the console' } } });
 
     expect(held.members.map(({ parameters }) => parameters)).toEqual([{}, { area: 'the console' }]);
+  });
+
+  it('refuses a member whose charter is over 48 KB once filled, and commissions nothing (#371)', async () => {
+    held = { ...withCrew(), templates: withCrew().templates.map((template) => ({ ...template, charter: 'You test {{area}}.' })) };
+
+    const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', member: { parameters: { area: 'x'.repeat(CHARTER_MAX_BYTES) } } });
+
+    expect(added).toEqual({ isOk: false, error: { kind: 'ADDING_FAILED', message: 'The charter of tester-2 is over 48 KB once filled, so no member was added' } });
+    expect(commissioned).toEqual([]);
+  });
+
+  it('refuses a member whose first prompt is over 8 KB once filled, and commissions nothing (#371)', async () => {
+    held = withCrew();
+
+    const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', member: { parameters: { area: 'x'.repeat(FIRST_PROMPT_MAX_BYTES) } } });
+
+    expect(added).toEqual({ isOk: false, error: { kind: 'ADDING_FAILED', message: 'The first prompt of tester-2 is over 8 KB once filled, so no member was added' } });
+    expect(commissioned).toEqual([]);
   });
 
   it('writes none for a member whose settings name no workspace: it keeps its crew lines', async () => {
