@@ -142,14 +142,14 @@ export const MACHINE_CARRIED: Readonly<Record<string, ListedShip['labels']>> = {
   [SILENT_MACHINE.shipId]: [carried(OS, 'macos'), carried(ARCH, 'arm64')],
 };
 
+/** The fleet's labels, its machines carrying os and arch. */
+export const MACHINE_CONTEXT = labelContextOf([...LABELS, ARCH], {
+  ships: [...labelledFleet().slice(0, 3), ...FLEET.map((ship) => ({ ...ship, labels: MACHINE_CARRIED[ship.id] ?? ship.labels }))],
+  isOperator: true,
+});
+
 /** The fleet's labels and machines as the Request crew form reads them. */
-export const MACHINE_LABELS = machineLabelsInputOf(
-  labelContextOf([...LABELS, ARCH], {
-    ships: [...labelledFleet().slice(0, 3), ...FLEET.map((ship) => ({ ...ship, labels: MACHINE_CARRIED[ship.id] ?? ship.labels }))],
-    isOperator: true,
-  }),
-  MACHINES,
-);
+export const MACHINE_LABELS = machineLabelsInputOf(MACHINE_CONTEXT, MACHINES);
 
 /** The value ids of os=macos and arch=arm64, which two machines carry, and os=linux, which none does. */
 export const MACHINE_VALUES = { macos: carried(OS, 'macos').valueId, arm64: carried(ARCH, 'arm64').valueId, linux: carried(OS, 'linux').valueId };

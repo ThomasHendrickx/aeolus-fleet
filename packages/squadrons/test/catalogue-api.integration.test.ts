@@ -114,6 +114,25 @@ describe('the catalogue at the squadrons API', () => {
     expect(data.blueprints).toEqual([expect.objectContaining({ name: 'team', version: 1, file: '.aeolus/squadrons/blueprints/team.yaml' })]);
   });
 
+  it("gives each member a blueprint forms with its crew settings merged from template and role, for the forming form (#343)", async () => {
+    const input = encodeURIComponent(JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 } }));
+
+    const response = await fetch(`${address}/trpc/catalogue.blueprintCrew?input=${input}`, { headers: { cookie: await signIn() } });
+
+    expect(response.status).toBe(200);
+    expect(z.object({ result: z.object({ data: z.unknown() }) }).parse(await response.json()).result.data).toEqual([
+      { slot: 'tester-1', role: 'tester', template: { repository: REPO, name: 'tester', version: 1 }, crew: { options: { model: 'claude-opus-5-5' } }, parameters: [] },
+    ]);
+  });
+
+  it('answers NOT_FOUND for a blueprint version the catalogue does not hold', async () => {
+    const input = encodeURIComponent(JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 9 } }));
+
+    const response = await fetch(`${address}/trpc/catalogue.blueprintCrew?input=${input}`, { headers: { cookie: await signIn() } });
+
+    expect(response.status).toBe(404);
+  });
+
   it('refuses without a signed-in console session', async () => {
     await expect(catalogueWith(undefined).then((response) => response.status)).resolves.toBe(401);
     await expect(catalogueWith('aeolus_session=forged').then((response) => response.status)).resolves.toBe(401);

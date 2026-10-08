@@ -46,3 +46,5 @@ export const Two: Story = { args: { picked: [chip('os', 'macos'), chip('arch', '
 export const NoMatch: Story = { args: { picked: [chip('os', 'linux'), chip('arch', 'arm64')], match: { matching: [], total: 3 } } };
 /** While the request is being sent: no ×, and Add label is off. */
 export const Disabled: Story = { args: { picked: [chip('os', 'macos')], match: { matching: ['trierarch-mac', 'trierarch-macbook'], total: 3 }, isDisabled: true } };
+/** A squadron file names labels the fleet does not have: warnings, removable, and forming refuses them (#343). */
+export const UnknownFromFiles: Story = { args: { picked: [chip('os', 'linux')], match: { matching: ['trierarch-hetzner'], total: 3 }, unknown: ['site=home'], onRemoveUnknown: fn() } };

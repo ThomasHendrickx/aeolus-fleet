@@ -1,7 +1,7 @@
 'use client';
 
 import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
-import { Clock, Plus } from 'lucide-react';
+import { CircleAlert, Clock, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
 
@@ -23,6 +23,9 @@ interface MachineLabelsFieldProps {
   isDisabled?: boolean;
   onAdd: (valueId: string) => void;
   onRemove: (valueId: string) => void;
+  /** Labels a squadron file names that the fleet does not have, as `key=value`: shown as warnings, removable (#343). */
+  unknown?: readonly string[];
+  onRemoveUnknown?: (name: string) => void;
 }
 
 /** Add label: a key, then one of its values (canvas LbRequestPicking). */
@@ -60,7 +63,7 @@ function AddMachineLabel({ groups, picked, isDisabled, onAdd }: Pick<MachineLabe
  * machines carry them all; when none does, the request may still be made and
  * waits on Needs crew. At most 20, as a ship carries.
  */
-export function MachineLabelsField({ shipName, picked, groups, match, isDisabled, onAdd, onRemove }: MachineLabelsFieldProps) {
+export function MachineLabelsField({ shipName, picked, groups, match, isDisabled, onAdd, onRemove, unknown = [], onRemoveUnknown }: MachineLabelsFieldProps) {
   const words = noMatchWords(picked.length);
   return (
     <div className="flex flex-col gap-1.5" data-testid="machine-labels">
@@ -85,8 +88,36 @@ export function MachineLabelsField({ shipName, picked, groups, match, isDisabled
             />
           </Fragment>
         ))}
-        {picked.length >= SHIP_LABELS_MAX ? null : <AddMachineLabel groups={groups} picked={picked} isDisabled={isDisabled} onAdd={onAdd} />}
+        {unknown.map((name) => (
+          <span
+            key={name}
+            data-testid="machine-label-unknown"
+            title={`${name}: not in this fleet`}
+            className="inline-flex h-5.5 items-center gap-1 rounded-sm border border-tone-attention-border bg-tone-attention-bg px-1.5 font-mono text-id text-tone-attention-fg [&_svg]:size-3"
+          >
+            <CircleAlert aria-hidden />
+            {name}
+            {onRemoveUnknown === undefined || isDisabled ? null : (
+              <button
+                type="button"
+                aria-label={`Remove ${name}`}
+                onClick={() => {
+                  onRemoveUnknown(name);
+                }}
+                className="-mr-1 ml-0.5 inline-flex size-4 items-center justify-center rounded-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <X aria-hidden />
+              </button>
+            )}
+          </span>
+        ))}
+        {picked.length + unknown.length >= SHIP_LABELS_MAX ? null : <AddMachineLabel groups={groups} picked={picked} isDisabled={isDisabled} onAdd={onAdd} />}
       </div>
+      {unknown.length === 0 ? null : (
+        <p role="alert" data-testid="machine-labels-unknown-note" className="text-meta text-tone-attention-fg">
+          Not in this fleet: {unknown.join(', ')}. Forming refuses {unknown.length === 1 ? 'it' : 'them'}: define {unknown.length === 1 ? 'it' : 'them'} on the Labels page, or remove {unknown.length === 1 ? 'it' : 'them'} here.
+        </p>
+      )}
       {picked.length === 0 ? null : match.matching.length === 0 ? (
         <p
           role="status"

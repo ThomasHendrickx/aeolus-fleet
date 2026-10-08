@@ -12,7 +12,7 @@ import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
-import { FormSquadronDialog } from '../../components/organisms/form-squadron-dialog';
+import { FormSquadron } from '../../components/organisms/form-squadron';
 import { SquadronTable } from '../../components/organisms/squadron-table';
 import { ListLayout } from '../../components/templates/list-layout';
 import { SquadronsNotConnected } from '../../components/molecules/squadrons-not-connected';
@@ -24,7 +24,7 @@ import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention'
 import { useNow } from '../../lib/now';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useSquadronsConnection } from '../../lib/squadrons';
-import { useCatalogue, useFormSquadron, useSquadrons } from '../../lib/squadrons-api';
+import { useCatalogue, useSquadrons } from '../../lib/squadrons-api';
 import { readSquadronView, squadronViewParams, type SquadronView } from '../../lib/squadron-filter';
 import { blueprintChoices, templateChoices } from '../../lib/squadrons-view';
 import { usePluginNav } from '../../lib/plugin-nav';
@@ -63,7 +63,6 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   const squadrons = useSquadrons();
   const connection = useSquadronsConnection();
   const catalogue = useCatalogue();
-  const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
   const access = useAccess();
   const pluginNav = usePluginNav();
@@ -72,7 +71,6 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const blueprints = blueprintChoices(catalogue.data ?? { blueprints: [] });
   const openForm = () => {
-    form.reset();
     setIsForming(true);
   };
 
@@ -172,7 +170,7 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
       </Tabs>
       )}
       {blueprints.length > 0 && (
-        <FormSquadronDialog
+        <FormSquadron
           blueprints={blueprints}
           templates={catalogue.data?.templates ?? []}
           isOpen={isForming || isFormAsked}
@@ -182,15 +180,9 @@ export default function SquadronsPage({ searchParams }: { searchParams: Promise<
               changeView(view);
             }
           }}
-          isPending={form.isPending}
-          error={form.error?.message}
-          onSubmit={(blueprint) => {
-            form.mutate(blueprint, {
-              onSuccess: (formed) => {
-                setIsForming(false);
-                router.push(`/squadrons/${formed.squadronId}`);
-              },
-            });
+          onFormed={(squadronId) => {
+            setIsForming(false);
+            router.push(`/squadrons/${squadronId}`);
           }}
         />
       )}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crewLineSchema, type CrewLine } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import type { formMembersOf } from './forming-members';
 import { useAnalytics } from './analytics-client';
 import { useSquadronsConnection } from './squadrons';
 
@@ -200,6 +201,31 @@ export function useCatalogue() {
   });
 }
 
+/** A member a blueprint forms, with its crew settings merged from its files: what the forming form starts from (#343). */
+const memberDraftSchema = z.object({
+  slot: z.string(),
+  role: z.string(),
+  template: z.object({ repository: z.string(), name: z.string(), version: z.number() }),
+  crew: z.object({
+    harness: z.string().optional(),
+    workspace: z.discriminatedUnion('kind', [z.object({ kind: z.literal('worktree'), repository: z.string(), ref: z.string().optional() }), z.object({ kind: z.literal('folder'), name: z.string() })]).optional(),
+    firstPrompt: z.string().optional(),
+    options: z.record(z.string(), z.unknown()),
+    machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
+  }),
+  parameters: z.array(z.object({ name: z.string(), description: z.string(), value: z.string().nullable() })),
+});
+
+/** Each member a blueprint version forms, by slot, with its merged crew settings; asked once a version is picked. */
+export function useBlueprintCrew(blueprint: { repository: string; name: string; version: number } | undefined) {
+  const isConnected = useSquadronsConnection() === 'connected';
+  return useQuery({
+    queryKey: ['squadrons', 'blueprint-crew', blueprint],
+    queryFn: () => call('catalogue.blueprintCrew', { input: { blueprint }, answers: z.array(memberDraftSchema) }),
+    enabled: isConnected && blueprint !== undefined,
+  });
+}
+
 /**
  * Forms a squadron from a blueprint version. The answer holds each member's
  * crew lines and launch note: shown once, kept only in this browser's memory.
@@ -208,9 +234,9 @@ export function useFormSquadron() {
   const queryClient = useQueryClient();
   const { track } = useAnalytics();
   return useMutation({
-    mutationFn: (blueprint: { repository: string; name: string; version: number }) =>
+    mutationFn: ({ blueprint, members }: { blueprint: { repository: string; name: string; version: number }; members?: ReturnType<typeof formMembersOf> }) =>
       call('squadrons.form', {
-        input: { blueprint },
+        input: { blueprint, ...(members === undefined ? {} : { members }) },
         isMutation: true,
         answers: formedSquadronSchema,
       }),
