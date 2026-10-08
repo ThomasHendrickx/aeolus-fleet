@@ -24,6 +24,8 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `launchNote` | no | Shown once per role, above its members' crew lines: where to start the session |
 | `charter` | yes | The role's instructions, given to the member at check-in, as written. At most 48 KB (UTF-8), so the role message stays within the 64 KB payload limit |
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
+| `parameters` | no | Parameter names (handles) with what each stands for, used as `{{name}}` in `charter` and `crew.firstPrompt`; see [Crew settings](#crew-settings). A placeholder the template does not declare is refused |
+| `crew` | no | How its members are crewed; see [Crew settings](#crew-settings) |
 
 ## Squadron blueprint
 
@@ -37,14 +39,35 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 | `description` | yes | One line |
 | `roles` | yes | Role names (handles) to a template reference and a `count` (1 when left out, at most 20) |
 | `roles.<role>.template` | yes | `<repository>#<name>@<n>`: a configured repository, the template's name, and its version, the tag `<name>@<n>` in that repository. Only tags: never a branch or a commit |
+| `roles.<role>.model` | no | The model this role's members run, over its template's `model`; the same rule as a template's `model` |
+| `roles.<role>.crew` | no | Crew settings over its template's; see [Crew settings](#crew-settings) |
+| `roles.<role>.parameters` | no | Values for its template's parameters, by name. A parameter the template does not declare is refused |
 | `handoffs` | no | `<role>.<hand-off>: <role or flagship>`. Every hand-off a template declares must be bound; a binding to a hand-off no template declares is refused |
 | `memberNames` | no | `plain` (when left out) or `prefixed`; see [Names](#names) |
+
+## Crew settings
+
+A template and a blueprint role may each say how members are crewed (#343), in a `crew` block with the fields of a crew request's settings ([trierarch.md](trierarch.md#the-crew-request)). Every field is optional in both files:
+
+| Field | Rule |
+| --- | --- |
+| `harness` | The harness, such as `claude-code` |
+| `workspace` | `{ kind: worktree, repository, ref? }` or `{ kind: folder, name }`, each named in the trierarchs' configuration, never a path |
+| `firstPrompt` | Given on the first start only: at most 8 KB, never starting with `-`. It may use the template's `{{name}}` parameters |
+| `options` | Named settings, such as `effort`. Never `model`: the top-level `model` is the one place for it |
+| `machineLabels` | `key=value` names, such as `os=linux`, at most 20: names, not ids, so a file works in any fleet. The machine must carry every one |
+
+A member's crew settings are its template's with its role's over them, nearest wins: each field the role sets replaces the template's whole, except `options`, which merge per key. The model, the role's `model` or else the template's, goes into the settings as `options.model`. A squadron is never named in a file: squadrons gives each member its own.
+
+`launchNote` and `crew.firstPrompt` are separate: the launch note is shown to a person above a crew line, the first prompt is what the session gets.
+
+Parameters let a template leave a value to the squadron, such as whom a member reports to. The template declares each under `parameters` and uses it as `{{name}}` in its charter or first prompt; a role fills it under `roles.<role>.parameters`. One no role fills is left for whoever forms the squadron, as is anything else still missing, such as the workspace.
 
 ## Writing them
 
 ### Example set
 
-[docs/squadrons-example](squadrons-example) is a complete set for an invented project, Tidewater: four templates (planner, implementer, reviewer, tester) and two blueprints (`tidewater-feature`, `tidewater-fix`) in a repository named `github.com/tidewater-labs/squadron-templates`. Each file is version 1, as its tag `<name>@1` would make it. A test reads the set through squadrons' own reader and leaves nothing out, so it stays valid.
+[docs/squadrons-example](squadrons-example) is a complete set for an invented project, Tidewater: four templates (planner, implementer, reviewer, tester) and two blueprints (`tidewater-feature`, `tidewater-fix`) in a repository named `github.com/tidewater-labs/squadron-templates`. They show crew settings: `tidewater-fix` runs its implementer on Codex with another model, over the template's Claude Code, and the planner's `area` parameter is left for the form. Each file is version 1, as its tag `<name>@1` would make it. A test reads the set through squadrons' own reader and leaves nothing out, so it stays valid.
 
 ### Step by step
 
@@ -61,6 +84,8 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 - **Letter case in a reference.** A reference's repository must be the repository's name exactly, letter case too: a repository added as `https://github.com/Tidewater-Labs/squadron-templates` is named `github.com/Tidewater-Labs/squadron-templates`, and a reference to `github.com/tidewater-labs/squadron-templates` does not find it.
 - **A reference to a version that is not tagged**, or to a branch or a commit: a role's template is always `<name>@<n>`, a tag that exists.
 - **A hand-off left unbound**, or bound to a role the blueprint does not have. A blueprint binds exactly the hand-offs its templates declare, each to one of its roles or to `flagship`.
+- **A model in `crew.options`.** The model goes in `model`, of the template or the role, never in `crew.options.model`.
+- **A machine label as an id or a key alone.** A file writes `os=linux`, never `lbv_...` or `linux`.
 - **A duration or model in another form.** `checkIn` is `30m` or `2h`, not `30 min`, `90s` or `2d`. `model` is an exact id such as `claude-opus-5-5`, never `opus` or `claude-opus-latest`.
 - **Two blueprints of one name.** Two blueprint files of one repository that give one name, through `name` or their file name, are both left out: give each its own name.
 - **A template and a blueprint of one name.** One tag reads both folders, so `tester@1` would be both a template and a blueprint version, and a blueprint's `name` may take a template's name too. Such a blueprint is left out, saying which template versions have the name; the template stays, so the blueprints that use it keep working. Give the blueprint another name.

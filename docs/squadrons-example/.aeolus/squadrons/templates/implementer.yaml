@@ -10,3 +10,14 @@ charter: |
   When the tester sends you failing tests, fix them on the same branch.
 handoffs:
   done: The branch, the commit pushed, and the tests it added
+# How its members are crewed when the squadron forms; a blueprint role may
+# override any of it, and the form fills what is still missing.
+crew:
+  harness: claude-code
+  workspace:
+    kind: worktree
+    repository: tidewater
+  options:
+    effort: high
+  machineLabels:
+    - os=linux

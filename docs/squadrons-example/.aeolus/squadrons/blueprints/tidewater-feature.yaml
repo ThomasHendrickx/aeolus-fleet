@@ -5,6 +5,7 @@ description: Plans, builds, reviews and tests one feature of Tidewater.
 roles:
   planner:
     template: github.com/tidewater-labs/squadron-templates#planner@1
+    # The planner's area is left for the form: each feature names its own.
   implementer:
     template: github.com/tidewater-labs/squadron-templates#implementer@1
     count: 2
