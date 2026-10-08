@@ -8,6 +8,6 @@ export const dynamic = 'force-dynamic';
 export const { GET, POST } = pluginProxy({
   name: 'squadrons',
   url: () => squadronsUrlFrom(process.env),
-  queries: new Set(['catalogue.list', 'squadrons.list', 'squadrons.messages', 'repositories.list']),
+  queries: new Set(['catalogue.list', 'catalogue.blueprintCrew', 'squadrons.list', 'squadrons.messages', 'repositories.list']),
   mutations: new Set(['squadrons.form', 'squadrons.standDown', 'squadrons.forceStandDown', 'squadrons.addMember', 'squadrons.removeMember', 'squadrons.newCrewLine', 'catalogue.refresh', 'repositories.add', 'repositories.remove']),
 });

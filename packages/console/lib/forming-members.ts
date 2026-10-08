@@ -132,3 +132,41 @@ export function labelErrorSlot(message: string, form: { members: readonly Member
   }
   return members.find((member) => labelNamesOf(member, context).some((label) => `${label.key}=${label.value}` === named))?.slot;
 }
+
+/** A workspace as a select value: its kind and its name. */
+export function workspaceItemOf(workspace: WorkspaceChoice): string {
+  return workspace.kind === 'worktree' ? `worktree:${workspace.repository}` : `folder:${workspace.name}`;
+}
+
+/** The workspace a select value names; undefined for none. */
+export function workspaceFromItem(item: string): WorkspaceChoice | undefined {
+  const [kind, ...rest] = item.split(':');
+  const name = rest.join(':');
+  if (kind === 'worktree') {
+    return { kind: 'worktree', repository: name };
+  }
+  return kind === 'folder' ? { kind: 'folder', name } : undefined;
+}
+
+/**
+ * The workspaces a member may pick, as select items: every repository and
+ * folder an answering machine offers, for any harness, and any a file names
+ * that none offers yet, so the file's stays.
+ */
+export function workspaceItemsOf(offers: readonly { repositories: readonly string[]; folders: readonly string[] }[], members: readonly MemberValues[]): Record<string, string> {
+  const items = new Map<string, string>();
+  for (const offer of offers) {
+    for (const repository of offer.repositories) {
+      items.set(workspaceItemOf({ kind: 'worktree', repository }), `${repository} · new worktree`);
+    }
+    for (const folder of offer.folders) {
+      items.set(workspaceItemOf({ kind: 'folder', name: folder }), `${folder} · folder, as it is`);
+    }
+  }
+  for (const { workspace } of members) {
+    if (workspace !== undefined && !items.has(workspaceItemOf(workspace))) {
+      items.set(workspaceItemOf(workspace), workspace.kind === 'worktree' ? `${workspace.repository} · new worktree, no machine offers it yet` : `${workspace.name} · folder, no machine offers it yet`);
+    }
+  }
+  return Object.fromEntries(items);
+}

@@ -11,7 +11,7 @@ import { ComposeMessage } from '../../../../components/organisms/compose-message
 import { ConsoleCommands } from '../../../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../../components/organisms/console-notices';
-import { FormSquadronDialog } from '../../../../components/organisms/form-squadron-dialog';
+import { FormSquadron } from '../../../../components/organisms/form-squadron';
 import { DetailLayout } from '../../../../components/templates/detail-layout';
 import { SquadronsNotConnected } from '../../../../components/molecules/squadrons-not-connected';
 import { useAccess } from '../../../../lib/access';
@@ -22,7 +22,7 @@ import { useAttentionCount, useNeedsAttention } from '../../../../lib/needs-atte
 import { useNow } from '../../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useSquadronsConnection } from '../../../../lib/squadrons';
-import { useCatalogue, useFormSquadron, useSquadrons } from '../../../../lib/squadrons-api';
+import { useCatalogue, useSquadrons } from '../../../../lib/squadrons-api';
 import { blueprintChoices, blueprintPath, squadronsFromBlueprint } from '../../../../lib/squadrons-view';
 import { usePluginNav } from '../../../../lib/plugin-nav';
 
@@ -49,7 +49,6 @@ export default function BlueprintPage({
   const catalogue = useCatalogue();
   const connection = useSquadronsConnection();
   const squadrons = useSquadrons();
-  const form = useFormSquadron();
   const [isForming, setIsForming] = useState(false);
   const access = useAccess();
   const pluginNav = usePluginNav();
@@ -114,28 +113,21 @@ export default function BlueprintPage({
             onForm={
               access.canManage
                 ? () => {
-                    form.reset();
                     setIsForming(true);
                   }
                 : undefined
             }
           />
-          <FormSquadronDialog
+          <FormSquadron
             key={`${blueprint.key}@${String(version)}`}
             blueprints={choices}
             templates={catalogue.data.templates}
             initial={{ key: blueprint.key, version }}
             isOpen={isForming}
             onOpenChange={setIsForming}
-            isPending={form.isPending}
-            error={form.error?.message}
-            onSubmit={(picked) => {
-              form.mutate(picked, {
-                onSuccess: (formed) => {
-                  setIsForming(false);
-                  router.push(`/squadrons/${formed.squadronId}`);
-                },
-              });
+            onFormed={(squadronId) => {
+              setIsForming(false);
+              router.push(`/squadrons/${squadronId}`);
             }}
           />
         </>

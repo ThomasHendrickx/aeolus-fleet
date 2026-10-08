@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { formMembersOf, labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, type MemberDraft } from './forming-members';
+import { formMembersOf, labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, workspaceFromItem, workspaceItemsOf, type MemberDraft } from './forming-members';
 import { labelContextOf } from './labels';
 
 const newId = createIdGenerator();
@@ -122,5 +122,21 @@ describe('labelErrorSlot', () => {
 
     expect(labelErrorSlot('The fleet has no machine label os=macos, so nothing was formed', { members, context: CONTEXT })).toBe('tester-1');
     expect(labelErrorSlot('The squadron manager did not answer.', { members, context: CONTEXT })).toBeUndefined();
+  });
+});
+
+describe('workspaceItemsOf', () => {
+  it("offers every machine's repositories and folders, and a file's workspace no machine offers yet", () => {
+    const members = membersOf([aDraft({ crew: { workspace: { kind: 'worktree', repository: 'harbour' }, options: {} } })], CONTEXT);
+
+    expect(workspaceItemsOf([{ repositories: ['tidewater'], folders: ['notes'] }, { repositories: ['tidewater'], folders: [] }], members)).toEqual({
+      'worktree:tidewater': 'tidewater · new worktree',
+      'folder:notes': 'notes · folder, as it is',
+      'worktree:harbour': 'harbour · new worktree, no machine offers it yet',
+    });
+  });
+
+  it('reads a workspace back from its item', () => {
+    expect([workspaceFromItem('worktree:tidewater'), workspaceFromItem('folder:notes'), workspaceFromItem('')]).toEqual([{ kind: 'worktree', repository: 'tidewater' }, { kind: 'folder', name: 'notes' }, undefined]);
   });
 });
