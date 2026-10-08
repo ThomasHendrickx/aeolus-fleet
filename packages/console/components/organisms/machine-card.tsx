@@ -3,7 +3,7 @@ import { Bot, CircleDashed, FolderOpen, GitBranch, ShipWheel, TriangleAlert } fr
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { harnessWord } from '../../lib/harness';
+import { harnessDetection, harnessWord } from '../../lib/harness';
 import { harnessOptions, machineLiveness, type Spot } from '../../lib/machines';
 import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../lib/relative-time';
 import type { Machine } from '../../lib/trierarch-plugin';
@@ -65,16 +65,19 @@ function Column({ title, children, className }: { title: string; children: React
 }
 
 /**
- * A harness the machine offers: its options' values, its default marked, and
+ * A harness the machine offers: its version and when its models were last
+ * confirmed (#365), its options' values, its default marked, and
  * the flags every launch gets, each flag its trierarch reports as risky marked
  * in the waiting tone (#326).
  */
-export function HarnessOffer({ harness }: { harness: NonNullable<Machine['details']>['harnesses'][number] }) {
+export function HarnessOffer({ harness, now }: { harness: NonNullable<Machine['details']>['harnesses'][number]; now: Date }) {
+  const detection = harnessDetection(harness, now);
   return (
     <div className="flex flex-col gap-1.5 border-t border-border py-2.5 first-of-type:border-t-0 first-of-type:pt-0">
       <span className="inline-flex items-center gap-1.5 text-body font-medium [&_svg]:size-(--size-icon-sm) [&_svg]:text-muted-foreground">
         <Bot aria-hidden />
         {harnessWord(harness.harness)}
+        {detection === undefined ? null : <span className="font-normal text-meta text-muted-foreground">{detection}</span>}
       </span>
       {harnessOptions(harness.options).map((option) => (
         <span key={option.name} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-meta">
@@ -181,7 +184,7 @@ export function MachineCard({ machine, spots, location, now }: MachineCardProps)
         )}
       </div>
       <Column title="Harnesses, options and flags">
-        {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : details.harnesses.map((harness) => <HarnessOffer key={harness.harness} harness={harness} />)}
+        {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : details.harnesses.map((harness) => <HarnessOffer key={harness.harness} harness={harness} now={now} />)}
       </Column>
       <Column title="Workspaces">
         {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : <WorkspaceOffer workspaces={details.workspaces} />}

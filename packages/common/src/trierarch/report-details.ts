@@ -38,6 +38,10 @@ export const trierarchReportDetailsSchema = z.strictObject({
        * None from a trierarch before 0.20.0, which marked none.
        */
       riskyFlags: z.array(z.string()).optional(),
+      /** The harness's version, as the trierarch detected it (#365). None from a harness not detected, or a trierarch before 0.20.2. */
+      version: z.string().min(1).optional(),
+      /** When the trierarch last confirmed this harness's models (ISO 8601 in UTC); null while none is. None with no version. */
+      modelsConfirmedAt: z.iso.datetime().nullable().optional(),
     }),
   ),
   workspaces: z.strictObject({ repositories: z.array(trierarchNameSchema), folders: z.array(trierarchNameSchema) }),

@@ -22,5 +22,13 @@ export const RiskyFlag: Story = {
     await expect(risky.map((flag) => flag.textContent)).toEqual(['--dangerously-skip-permissions (risky)']);
   },
 };
+/** Each harness with the version its trierarch detected and when its models were last confirmed (#365). */
+export const DetectedVersions: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByText('2.1.293 · models confirmed 3 h ago')).toBeVisible();
+    await expect(card.getByText('0.160.1 · no model confirmed')).toBeVisible();
+  },
+};
 export const NotAnswering: Story = { args: { machine: SILENT_MACHINE, spots: SPOTS.slice(0, 2), location: { kind: 'DEVICE', description: 'MacBook' } } };
 export const NotStarted: Story = { args: { machine: NEW_MACHINE, spots: [], location: null } };

@@ -256,7 +256,7 @@ export function MachineDetail({ machine, state, spots, location, labels, now, sh
         ) : (
           <div className="rounded-lg border border-border bg-card px-3.5 py-3">
             {details.harnesses.map((harness) => (
-              <HarnessOffer key={harness.harness} harness={harness} />
+              <HarnessOffer key={harness.harness} harness={harness} now={now} />
             ))}
           </div>
         )}

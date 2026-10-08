@@ -18,6 +18,35 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes each harness with its version and when its models were last confirmed, or never (#365)', () => {
+    const details = {
+      harnesses: [
+        { harness: 'claude-code', options: {}, flags: [], version: '2.1.293', modelsConfirmedAt: '2026-10-08T15:00:00.000Z' },
+        { harness: 'codex', options: {}, flags: [], version: '0.160.1', modelsConfirmedAt: null },
+      ],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      version: '0.20.2',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('refuses a time its models were confirmed that is no ISO 8601 time (#365)', () => {
+    const details = {
+      harnesses: [{ harness: 'claude-code', options: {}, flags: [], version: '2.1.293', modelsConfirmedAt: 'yesterday' }],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      version: '0.20.2',
+    };
+
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
   it('takes a trierarch with nothing kept and no orphans', () => {
     const details = {
       harnesses: [{ harness: 'codex', options: {}, flags: [] }],
