@@ -432,6 +432,16 @@ describe('crew requests at forming (#343)', () => {
     expect(fleet.state.requests.has(idSchema('ship').parse(formed.members[1]?.shipId))).toBe(false);
   });
 
+  it("keeps each member's parameter values, its role's with the form's over them, for the flagship to fill its charter", async () => {
+    unwrapped(await formWith({ catalogue: withCrew() })({ ...fromHemmaFeature, members: { 'implementer-2': { parameters: { lead: 'planner-k3x9' } } } }));
+
+    expect(squadrons.held[0]?.members.map(({ role, parameters }) => ({ role, parameters }))).toEqual([
+      { role: 'planner', parameters: {} },
+      { role: 'implementer', parameters: { lead: 'the planner' } },
+      { role: 'implementer', parameters: { lead: 'planner-k3x9' } },
+    ]);
+  });
+
   it('refuses a machine label the fleet does not define, naming it, and commissions nothing', async () => {
     fleet.state.labelValues.clear();
 

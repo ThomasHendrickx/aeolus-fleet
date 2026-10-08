@@ -18,7 +18,7 @@ const NOW = new Date('2026-10-03T10:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function aTester(): Member {
-  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null };
+  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} };
 }
 
 function aSquadron(state: SquadronState, memberNames: 'plain' | 'prefixed' = 'plain'): Squadron {
@@ -249,6 +249,14 @@ describe('a crew request for an added member (#343)', () => {
         },
       ],
     ]);
+  });
+
+  it("keeps the member's parameter values, its role's with the form's over them, for the flagship to fill its charter", async () => {
+    held = withCrew();
+
+    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', member: { parameters: { area: 'the console' } } });
+
+    expect(held.members.map(({ parameters }) => parameters)).toEqual([{}, { area: 'the console' }]);
   });
 
   it('writes none for a member whose settings name no workspace: it keeps its crew lines', async () => {

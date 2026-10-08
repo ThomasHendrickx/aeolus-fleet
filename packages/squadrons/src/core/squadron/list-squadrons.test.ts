@@ -42,8 +42,8 @@ function aSquadron(): Squadron {
     ],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null },
-      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: ON_STATION, checkIn: { at: ON_STATION, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null },
+      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} },
+      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: ON_STATION, checkIn: { at: ON_STATION, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} },
     ],
     formedAt: FORMED,
     sailedAt: null,

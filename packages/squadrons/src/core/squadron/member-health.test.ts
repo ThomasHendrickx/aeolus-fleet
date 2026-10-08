@@ -15,7 +15,7 @@ function minutesAfter(at: Date, minutes: number): Date {
 }
 
 function aTester(onStationAt: Date | null): Member {
-  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt, checkIn: onStationAt && { at: onStationAt, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null };
+  return { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt, checkIn: onStationAt && { at: onStationAt, model: null }, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} };
 }
 
 function aCrewedShip(reportedAt: Date | null = null) {

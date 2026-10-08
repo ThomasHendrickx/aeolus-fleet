@@ -17,7 +17,7 @@ const FORMED = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function aTester(retiredAt: Date | null = null): Member {
-  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt, releasingSince: null };
+  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt, releasingSince: null, parameters: {} };
 }
 
 function aSquadron(member: Member = aTester()): Squadron {
