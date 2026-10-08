@@ -68,6 +68,10 @@ model Member {
   stoodDownAt        DateTime? @map("stood_down_at") @db.Timestamptz(3)
   /// When squadrons retired its ship; null while it serves.
   retiredAt          DateTime? @map("retired_at") @db.Timestamptz(3)
+  /// When squadrons removed its crew request: it stands down until its crew is released (#343); null before.
+  releasingSince     DateTime? @map("releasing_since") @db.Timestamptz(3)
+  /// The values of its template's parameters, its role's with the form's over them, that fill its charter (#343).
+  parameters         Json      @default("{}")
   squadron    Squadron  @relation(fields: [fleetId, squadronId], references: [fleetId, id])
 
   @@index([fleetId, squadronId])

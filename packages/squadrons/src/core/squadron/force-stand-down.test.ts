@@ -18,7 +18,7 @@ const NOW = new Date('2026-10-03T10:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function aMember(shipId: ShipId, role: string): Member {
-  return { shipId, name: `${role}-k3x9`, role, type: `team-a1b2c3:${role}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null };
+  return { shipId, name: `${role}-k3x9`, role, type: `team-a1b2c3:${role}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} };
 }
 
 function aSquadron(state: SquadronState): Squadron {
@@ -36,7 +36,7 @@ function aSquadron(state: SquadronState): Squadron {
 }
 
 function aShip(): FleetShip {
-  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 1, inFlightDeliveries: 1 };
+  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 1, inFlightDeliveries: 1, hasCrewRequest: false };
 }
 
 let held: Squadron;
@@ -61,6 +61,9 @@ const door: FleetDoor = {
     const ship = ships.get(shipId);
     return Promise.resolve(crewToken === 'aeolus_ct_v1_management' && ship ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (shipId === failingShip) {

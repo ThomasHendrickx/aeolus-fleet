@@ -61,8 +61,8 @@ function squadron(): Squadron {
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
-      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+      { shipId: PLANNER, name: 'planner-k3x9', role: 'planner', type: 'team-a1b2c3:planner', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} },
+      { shipId: TESTER, name: 'tester-m4p7', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} },
     ],
     formedAt: FORMED,
     sailedAt: null,
@@ -80,6 +80,9 @@ const door: FleetDoor = {
   getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  removeCrewRequest: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  findLabelValue: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   retire: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),
   listShips: () => Promise.resolve(ok([])),
@@ -195,6 +198,18 @@ describe("a member's check-in", () => {
         }),
       },
     ]);
+  });
+
+  it("fills its charter's placeholders with the member's parameter values (#343)", async () => {
+    held = {
+      ...held,
+      templates: held.templates.map((template) => (template.name === 'tester' ? { ...template, charter: 'You test {{area}} for {{lead}}.' } : template)),
+      members: held.members.map((member) => (member.shipId === TESTER ? { ...member, parameters: { area: 'the API', lead: 'planner-k3x9' } } : member)),
+    };
+
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ charter: 'You test the API for planner-k3x9.' });
   });
 
   it('stays within the 64 KB payload limit with the longest charter a template may have', async () => {

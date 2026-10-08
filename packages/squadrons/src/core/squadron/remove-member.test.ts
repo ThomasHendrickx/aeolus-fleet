@@ -18,7 +18,7 @@ const NOW = new Date('2026-10-03T10:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function aMember(shipId: ShipId, role: string): Member {
-  return { shipId, name: `${role}-k3x9`, role, type: `team-a1b2c3:${role}`, onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null };
+  return { shipId, name: `${role}-k3x9`, role, type: `team-a1b2c3:${role}`, onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} };
 }
 
 function aSquadron(state: SquadronState): Squadron {
@@ -38,6 +38,8 @@ function aSquadron(state: SquadronState): Squadron {
 let held: Squadron;
 let ships: Map<ShipId, FleetShip>;
 const retired: ShipId[] = [];
+/** Each ship whose crew request squadrons removed: the fleet keeps it while its crew is released. */
+const requestsRemoved: ShipId[] = [];
 let isFleetDown: boolean;
 
 const notUsed = () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' }));
@@ -56,6 +58,18 @@ const door: FleetDoor = {
     const ship = ships.get(shipId);
     return Promise.resolve(ship ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
   },
+  requestCrew: notUsed,
+  removeCrewRequest: (crewToken, { shipId }) => {
+    if (isFleetDown) {
+      return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
+    }
+    if (crewToken !== 'aeolus_ct_v1_management' || ships.get(shipId)?.hasCrewRequest !== true) {
+      return Promise.resolve(err({ code: 'NOT_FOUND', message: 'The ship holds no crew request' }));
+    }
+    requestsRemoved.push(shipId);
+    return Promise.resolve(ok(undefined));
+  },
+  findLabelValue: notUsed,
   retire: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (isFleetDown) {
@@ -96,12 +110,13 @@ const removeMember = createRemoveMember({ door, management, squadrons, clock: { 
 beforeEach(() => {
   held = aSquadron('sailing');
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
-  const crewed: FleetShip = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 2, inFlightDeliveries: 1 };
+  const crewed: FleetShip = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 2, inFlightDeliveries: 1, hasCrewRequest: false };
   ships = new Map([
     [PLANNER, crewed],
     [TESTER, crewed],
   ]);
   retired.length = 0;
+  requestsRemoved.length = 0;
   isFleetDown = false;
 });
 
@@ -116,6 +131,19 @@ describe('removing a member', () => {
     expect(held.state).toBe(state);
   });
 
+  it('removes the crew request of a member that has one and shows it releasing: it is retired once its crew is released (#343)', async () => {
+    ships.set(TESTER, { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: true });
+
+    await expect(removeMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toEqual({ isOk: true, value: undefined });
+
+    expect(requestsRemoved).toEqual([TESTER]);
+    expect(retired).toEqual([]);
+    expect(held.members.map(({ releasingSince, retiredAt }) => ({ releasingSince, retiredAt }))).toEqual([
+      { releasingSince: null, retiredAt: null },
+      { releasingSince: NOW, retiredAt: null },
+    ]);
+  });
+
   it('removes the last member of a role: no rule keeps one', async () => {
     held = { ...held, members: [aMember(TESTER, 'tester')] };
 
@@ -123,7 +151,7 @@ describe('removing a member', () => {
   });
 
   it('counts a member whose ship is retired already as removed', async () => {
-    ships.set(TESTER, { status: 'retired', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0 });
+    ships.set(TESTER, { status: 'retired', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false });
 
     await expect(removeMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toMatchObject({ isOk: true });
     expect(held.members.find((member) => member.shipId === TESTER)?.retiredAt).toEqual(NOW);

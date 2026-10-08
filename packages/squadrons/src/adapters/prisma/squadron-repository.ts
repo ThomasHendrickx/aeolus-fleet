@@ -7,6 +7,7 @@ import type { Member, Squadron } from '../../core/squadron/squadron.js';
 import type { PrismaClient } from './client.js';
 
 const reference = z.object({ repository: z.string(), name: z.string(), version: z.number() });
+const parametersSchema = z.record(z.string(), z.string());
 // Snapshots stored before squadron files had crew settings (#343) have none.
 const crew: z.ZodType<CrewDraft> = z
   .object({
@@ -84,6 +85,8 @@ function squadronOf(row: Row): Squadron {
         standDownMessageId: member.standDownMessageId === null ? null : idSchema('message').parse(member.standDownMessageId),
         stoodDownAt: member.stoodDownAt,
         retiredAt: member.retiredAt,
+        releasingSince: member.releasingSince,
+        parameters: parametersSchema.parse(member.parameters),
       })),
     formedAt: row.formedAt,
     sailedAt: row.sailedAt,
@@ -125,6 +128,8 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
               standDownMessageId: member.standDownMessageId,
               stoodDownAt: member.stoodDownAt,
               retiredAt: member.retiredAt,
+              releasingSince: member.releasingSince,
+              parameters: member.parameters,
             })),
           },
         },
@@ -157,6 +162,8 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
                 standDownMessageId: member.standDownMessageId,
                 stoodDownAt: member.stoodDownAt,
                 retiredAt: member.retiredAt,
+                releasingSince: member.releasingSince,
+                parameters: member.parameters,
               },
             }),
           );
@@ -168,6 +175,7 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
           ...(member.standDownMessageId === was.standDownMessageId ? {} : { standDownMessageId: member.standDownMessageId }),
           ...(member.stoodDownAt?.getTime() === was.stoodDownAt?.getTime() ? {} : { stoodDownAt: member.stoodDownAt }),
           ...(member.retiredAt?.getTime() === was.retiredAt?.getTime() ? {} : { retiredAt: member.retiredAt }),
+          ...(member.releasingSince?.getTime() === was.releasingSince?.getTime() ? {} : { releasingSince: member.releasingSince }),
         };
         if (Object.keys(data).length > 0) {
           writes.push(db.member.updateMany({ where: { fleetId, shipId: member.shipId }, data }));

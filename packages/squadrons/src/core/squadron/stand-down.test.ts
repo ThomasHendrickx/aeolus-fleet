@@ -19,7 +19,7 @@ function aSquadron(state: SquadronState): Squadron {
     templates: [],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
-      { shipId: 'shp_01m3tbfspe96yf1rnr4ank0001', name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null },
+      { shipId: 'shp_01m3tbfspe96yf1rnr4ank0001', name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {} },
     ],
     formedAt: FORMED,
     sailedAt: FORMED,

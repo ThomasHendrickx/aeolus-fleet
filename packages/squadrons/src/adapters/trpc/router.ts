@@ -27,6 +27,7 @@ import type { Connect } from '../../core/management/connect.js';
 import type { ReadConnection } from '../../core/management/read-connection.js';
 import type { AuthenticateOperator } from '../../core/operator/authenticate-operator.js';
 import type { FormSquadron } from '../../core/squadron/form-squadron.js';
+import type { MemberForm } from '../../core/squadron/member-crew-request.js';
 import type { ListedSquadron, ListSquadrons } from '../../core/squadron/list-squadrons.js';
 import type { StandDown } from '../../core/squadron/stand-down.js';
 import type { ForceStandDown } from '../../core/squadron/force-stand-down.js';
@@ -35,7 +36,7 @@ import type { RemoveMember } from '../../core/squadron/remove-member.js';
 import type { NewCrewLine } from '../../core/squadron/new-crew-line.js';
 import type { KeptMessage } from '../../core/squadron/ports.js';
 import { isModelMismatch, pinnedModel } from '../../core/squadron/squadron.js';
-import { crewLineSchema, idempotencyKeySchema, idSchema, type FleetId } from '@aeolus-fleet/common';
+import { crewLineSchema, crewSettingsSchema, idempotencyKeySchema, idSchema, trierarchWorkspaceSchema, type FleetId } from '@aeolus-fleet/common';
 
 export interface Context {
   /** The Cookie header the web app's server forwarded. */
@@ -154,6 +155,21 @@ const connectionStatusOutputSchema = z.object({
   state: z.enum(['not-connected', 'connected']),
   ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
   lastShipId: z.string().nullable(),
+});
+
+/** The form's layer of one member's crew settings (#343): each field of common's crew settings optional, machine labels as `key=value` pairs. */
+const memberFormSchema: z.ZodType<MemberForm> = z.object({
+  crew: z
+    .object({
+      harness: crewSettingsSchema.shape.harness.unwrap(),
+      workspace: trierarchWorkspaceSchema,
+      firstPrompt: crewSettingsSchema.shape.firstPrompt.unwrap(),
+      options: z.record(z.string(), z.json()),
+      machineLabels: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })),
+    })
+    .partial()
+    .optional(),
+  parameters: z.record(z.string(), z.string()).optional(),
 });
 
 /** The refusals of forming, as the API states them. */
@@ -292,7 +308,7 @@ const squadronOutputSchema = z.object({
       /** The model its template pins, the model it stated at its last check-in, and whether they differ. */
       model: z.object({ pinned: z.string().nullable(), stated: z.string().nullable(), isMismatch: z.boolean() }),
       /** Not on station until it comes on station with its current crew; then on time, late or silent by its last report. */
-      health: z.enum(['not-on-station', 'on-time', 'late', 'silent']),
+      health: z.enum(['not-on-station', 'on-time', 'late', 'silent', 'standing-down']),
       /** How often it reports, in minutes, from its template. */
       checkInMinutes: z.number(),
       /** Its ship's crew as the fleet shows it now: its status, when its session last called, since when its crew holds it. */
@@ -429,11 +445,12 @@ export const squadronsRouter = t.router({
       }),
     /**
      * Adds a member of a role to a sailing squadron, from the squadron's own
-     * template version. Its crew lines, launch note and pinned model are in the
+     * template version, with a crew request when its settings name a
+     * workspace. Its crew lines, launch note and pinned model are in the
      * answer, once.
      */
     addMember: managing(connectedProcedure)
-      .input(z.object({ squadronId: z.string(), role: z.string() }))
+      .input(z.object({ squadronId: z.string(), role: z.string(), /** Its crew settings, nearest of all, and its parameter values (#343). */ member: memberFormSchema.optional() }))
       .output(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() }))
       .mutation(async ({ ctx, input }) => {
         const added = await ctx.addMember({ fleetId: ctx.fleetId, ...input });
@@ -477,7 +494,14 @@ export const squadronsRouter = t.router({
      * note and pinned model are in the answer, once.
      */
     form: managing(connectedProcedure)
-      .input(z.object({ blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }), squadronId: z.string().optional() }))
+      .input(
+        z.object({
+          blueprint: z.object({ repository: z.string(), name: z.string(), version: z.int().min(1) }),
+          squadronId: z.string().optional(),
+          /** Per member, by its role and number (`implementer-2`): its crew settings, nearest of all, and its parameter values. */
+          members: z.record(z.string(), memberFormSchema).optional(),
+        }),
+      )
       .output(
         z.object({
           squadronId: z.string(),

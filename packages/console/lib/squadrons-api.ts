@@ -15,7 +15,7 @@ export const SQUADRON_STATES = ['forming', 'sailing', 'standing-down', 'disbande
 export type SquadronState = (typeof SQUADRON_STATES)[number];
 
 /** A member's health (docs/squadrons.md): not on station until it is, then on time, late or silent by its last report. */
-export const MEMBER_HEALTHS = ['not-on-station', 'on-time', 'late', 'silent'] as const;
+export const MEMBER_HEALTHS = ['not-on-station', 'on-time', 'late', 'silent', 'standing-down'] as const;
 export type MemberHealth = (typeof MEMBER_HEALTHS)[number];
 
 const templateReferenceSchema = z.object({

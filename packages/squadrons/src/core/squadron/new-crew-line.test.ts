@@ -17,7 +17,7 @@ const FORMED = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function aTester(retiredAt: Date | null = null): Member {
-  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt };
+  return { shipId: TESTER, name: 'tester-k3x9', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: FORMED, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt, releasingSince: null, parameters: {} };
 }
 
 function aSquadron(member: Member = aTester()): Squadron {
@@ -60,6 +60,9 @@ const door: FleetDoor = {
   receive: notUsed,
   ack: notUsed,
   send: notUsed,
+  requestCrew: notUsed,
+  removeCrewRequest: notUsed,
+  findLabelValue: notUsed,
   retire: notUsed,
   getShip: (_crewToken, { shipId }) => Promise.resolve(shipId === TESTER ? ok(ship) : err({ code: 'NOT_FOUND', message: 'No such ship' })),
   release: (crewToken, { shipId }) => {
@@ -99,7 +102,7 @@ const newCrewLine = createNewCrewLine({ door, management, squadrons, mcpUrl: MCP
 beforeEach(() => {
   held = aSquadron();
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
-  ship = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0 };
+  ship = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
   calls.length = 0;
 });
 

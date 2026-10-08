@@ -79,7 +79,7 @@ export function fakeManagementFleet() {
       if (!state.scopes.includes('fleet:read')) {
         return Promise.resolve(err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }));
       }
-      return Promise.resolve(shipId === SHIP_ID ? ok({ status: 'crewed', scopes: [...state.scopes], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0 }) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
+      return Promise.resolve(shipId === SHIP_ID ? ok({ status: 'crewed', scopes: [...state.scopes], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false }) : err({ code: 'NOT_FOUND', message: 'No such ship' }));
     },
     deregister: (crewToken) => {
       state.liveTokens.delete(crewToken);
@@ -90,6 +90,9 @@ export function fakeManagementFleet() {
     commission: notUsed,
     getStartingPrompt: notUsed,
     release: notUsed,
+    requestCrew: notUsed,
+    removeCrewRequest: notUsed,
+    findLabelValue: notUsed,
     retire: notUsed,
     receive: notUsed,
     ack: notUsed,

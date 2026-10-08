@@ -81,7 +81,7 @@ describe('a squadrons process that was never connected', () => {
     await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok', connectedFleets: 0, installation: 'open' } });
     const version = z.object({ squadrons: z.string(), migration: z.string(), connectedFleets: z.number() }).parse(await (await fetch(`${address}/api/version`)).json());
     expect(version.connectedFleets).toBe(0);
-    expect(version.migration).toMatch(/^\d{14}_installation$/);
+    expect(version.migration).toMatch(/^\d{14}_member_crew_requests$/);
     expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
   });
 

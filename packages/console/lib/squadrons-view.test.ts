@@ -170,6 +170,14 @@ describe('member health', () => {
     ]);
   });
 
+  it('counts members standing down after silent ones, before those not on station', () => {
+    expect(healthCounts([{ health: 'not-on-station' }, { health: 'standing-down' }, { health: 'silent' }])).toEqual([
+      { health: 'silent', count: 1 },
+      { health: 'standing-down', count: 1 },
+      { health: 'not-on-station', count: 1 },
+    ]);
+  });
+
   it('finds the silent members of squadrons not disbanded', () => {
     const squadron = (id: string, state: Squadron['state']) => ({ id, state, members: members.map((member, index) => ({ ...member, name: `m${String(index)}` })) });
 

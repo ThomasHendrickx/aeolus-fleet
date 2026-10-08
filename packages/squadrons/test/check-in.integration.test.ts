@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { createApp } from '../../core/src/app.js';
 import { createPrismaClient, type PrismaClient } from '../../core/src/adapters/prisma/client.js';
+import type { Caller } from '../../core/src/domain/shared/caller.js';
 import { createUseCases } from '../../core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../../core/test/support/database.js';
@@ -27,6 +29,8 @@ let fleetUrl: string;
 let app: SquadronsApp;
 let address: string;
 let cookie: string;
+let fleetUseCases: ReturnType<typeof createUseCases>;
+let argo: ReturnType<typeof operatorCaller>;
 const ROLE = 'application/vnd.aeolus.squadron.role+json';
 const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
@@ -64,7 +68,8 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
-  const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  fleetUseCases = useCases;
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
   );
@@ -103,11 +108,11 @@ const formedSchema = z.object({
   }),
 });
 
-async function formTeam(squadronId?: string) {
+async function formTeam(squadronId?: string, more: Record<string, unknown> = {}) {
   const response = await fetch(`${address}/trpc/squadrons.form`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, ...(squadronId === undefined ? {} : { squadronId }) }),
+    body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, ...(squadronId === undefined ? {} : { squadronId }), ...more }),
   });
   expect(response.status, await response.clone().text()).toBe(200);
   return formedSchema.parse(await response.json()).result.data;
@@ -353,6 +358,30 @@ describe('adding a member', () => {
     expect(listed?.state).toBe('sailing');
     expect(listed?.members.find((each) => each.name === added.name)?.health).toBe('not-on-station');
   });
+
+  it("writes the added member's crew request with the form's workspace and the squadron (#343)", async () => {
+    const formed = await formTeam('team-crewed');
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-crewed' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-crewed', role: 'tester' }),
+      idempotencyKey: 'on-station-crewed',
+    });
+    await expect.poll(() => squadronState('team-crewed'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const response = await fetch(`${address}/trpc/squadrons.addMember`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-crewed', role: 'tester', member: { crew: { workspace: { kind: 'folder', name: 'notes' } } } }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const { shipId } = z.object({ result: z.object({ data: z.object({ shipId: z.string() }) }) }).parse(await response.json()).result.data;
+    await expect(fleetDatabase.crewRequest.findMany({ select: { shipId: true, settings: true } })).resolves.toEqual([
+      { shipId, settings: { workspace: { kind: 'folder', name: 'notes' }, options: { model: 'claude-opus-5-5' }, squadron: 'team-crewed' } },
+    ]);
+  });
 });
 
 describe('removing a member', () => {
@@ -383,6 +412,50 @@ describe('removing a member', () => {
       .result.data.find((squadron) => squadron.id === 'team-seven');
     expect(listed?.state).toBe('sailing');
     expect(listed?.members.map((each) => each.crew.status)).toEqual(['retired']);
+  });
+});
+
+describe('removing a member with a crew request (#343)', () => {
+  it('removes its crew request, shows it standing down while a trierarch releases its crew, then retires its ship', async () => {
+    const formed = await formTeam('team-released', { members: { 'tester-1': { crew: { workspace: { kind: 'folder', name: 'notes' } } } } });
+    const [first] = formed.members;
+    const shipId = idSchema('ship').parse(first?.shipId);
+    // A trierarch takes the request and starts the member's session, as the plugin and a machine do.
+    const { shipId: pluginId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }));
+    const { shipId: trierarchId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }));
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['crew:assign'] };
+    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['crew:run'] };
+    unwrap(await fleetUseCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
+    const member = await crewedMember(first?.crewLines[0]?.line ?? '');
+    await member.call('send', {
+      selector: { kind: 'ship', name: 'team-released' },
+      contentType: ON_STATION,
+      payload: JSON.stringify({ squadron: 'team-released', role: 'tester' }),
+      idempotencyKey: 'on-station-released',
+    });
+    await expect.poll(() => squadronState('team-released'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+
+    const response = await fetch(`${address}/trpc/squadrons.removeMember`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ squadronId: 'team-released', shipId }),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    await expect(fleetDatabase.crewRequest.findMany({ select: { status: true } })).resolves.toEqual([{ status: 'releasing' }]);
+    await new Promise((resolve) => setTimeout(resolve, RESCANS_MS));
+    expect((await fleetDatabase.ship.findUniqueOrThrow({ where: { id: shipId } })).retiredAt).toBeNull();
+    const listed = z
+      .object({ result: z.object({ data: z.array(z.object({ id: z.string(), members: z.array(z.object({ health: z.string() })) })) }) })
+      .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json())
+      .result.data.find((squadron) => squadron.id === 'team-released');
+    expect(listed?.members.map((each) => each.health)).toEqual(['standing-down']);
+
+    unwrap(await fleetUseCases.confirmCrewRelease(trierarch, { shipId }));
+
+    await expect
+      .poll(async () => (await fleetDatabase.ship.findUniqueOrThrow({ where: { id: shipId } })).retiredAt !== null, { timeout: LIVE_TIMEOUT_MS })
+      .toBe(true);
   });
 });
 

@@ -8,6 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
+import { crewSettingsOf, formedCrewOf, memberParametersOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { Member } from './squadron.js';
 
 const SQUADRON_SUFFIX_LENGTH = 6;
@@ -29,6 +30,8 @@ export type FormSquadron = (input: {
   fleetId: FleetId;
   blueprint: TemplateReference;
   squadronId?: string;
+  /** The form's crew settings and parameter values per member, by its role and number (`implementer-2`). */
+  members?: Readonly<Record<string, MemberForm>>;
 }) => Promise<Result<FormedSquadron, FormRefusal>>;
 
 function isHandle(value: string): boolean {
@@ -84,6 +87,24 @@ export function createFormSquadron(deps: {
     const used = blueprint.roles.map((role) =>
       templates.find((held) => held.repository === role.template.repository && held.name === role.template.name && held.version === role.template.version),
     );
+    const slots = blueprint.roles.flatMap((role, index) =>
+      Array.from({ length: role.count }, (_, offset) => {
+        const slot = `${role.name}-${String(offset + 1)}`;
+        const template = used[index];
+        const form = input.members?.[slot];
+        return { role, index, number: offset + 1, slot, crew: template && formedCrewOf({ template, role, form }), parameters: memberParametersOf({ role, form }) };
+      }),
+    );
+    // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
+    const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: slots.flatMap((each) => each.crew ?? []) });
+    if (!labels.isOk) {
+      return refuse(
+        'FORMING_FAILED',
+        labels.error.kind === 'unknown-label'
+          ? `The fleet has no machine label ${labels.error.label}, so nothing was formed`
+          : `The fleet refused a step, so nothing was formed: ${labels.error.refusal.message}`,
+      );
+    }
 
     const { attemptId, commission, retireCommissioned } = await beginFormation(deps, { crew, squadronId });
     const failed = async (refusal: FleetRefusal): Promise<Result<never, FormRefusal>> => {
@@ -102,20 +123,25 @@ export function createFormSquadron(deps: {
 
     const members: Member[] = [];
     const lines: FormedSquadron['members'] = [];
-    for (const [index, role] of blueprint.roles.entries()) {
-      for (let number = 1; number <= role.count; number += 1) {
-        const names =
-          blueprint.memberNames === 'prefixed'
-            ? () => `${squadronId}:${role.name}-${String(number)}`
-            : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
-        const member = await commission(`${role.name}-${String(number)}`, { names, type: `${squadronId}:${role.name}` });
-        if (!member.isOk) {
-          return failed(member.error);
-        }
-        const { shipId, name: memberName } = member.value;
-        members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null });
-        lines.push({ shipId, name: memberName, role: role.name, crewLines: memberCrewLines(member.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
+    for (const { role, index, number, slot, crew: memberCrew, parameters } of slots) {
+      const names =
+        blueprint.memberNames === 'prefixed'
+          ? () => `${squadronId}:${role.name}-${String(number)}`
+          : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
+      const member = await commission(slot, { names, type: `${squadronId}:${role.name}` });
+      if (!member.isOk) {
+        return failed(member.error);
       }
+      const { shipId, name: memberName } = member.value;
+      const settings = memberCrew && crewSettingsOf(memberCrew, { squadronId, labels: labels.value });
+      if (settings) {
+        const requested = await deps.door.requestCrew(crew.crewToken, { shipId, settings });
+        if (!requested.isOk) {
+          return failed(requested.error);
+        }
+      }
+      members.push({ shipId, name: memberName, role: role.name, type: `${squadronId}:${role.name}`, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters });
+      lines.push({ shipId, name: memberName, role: role.name, crewLines: memberCrewLines(member.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: used[index]?.launchNote ?? null, model: used[index]?.model ?? null });
     }
 
     await deps.squadrons.create({

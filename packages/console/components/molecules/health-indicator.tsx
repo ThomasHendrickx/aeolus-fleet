@@ -5,6 +5,8 @@ const HEALTHS: Record<MemberHealth, { label: string; dot: string; text: string }
   'on-time': { label: 'On time', dot: 'bg-tone-ok-fg', text: 'text-tone-ok-fg' },
   late: { label: 'Late', dot: 'bg-tone-waiting-fg', text: 'text-tone-waiting-fg' },
   silent: { label: 'Silent', dot: 'bg-tone-attention-fg', text: 'text-tone-attention-fg' },
+  // A removed member, until its crew is released and its ship retired (#343).
+  'standing-down': { label: 'Standing down', dot: 'bg-tone-active-fg', text: 'text-tone-active-fg' },
   // Not on station is a dashed ring, no tone (docs/design/conventions.md, "Colour").
   'not-on-station': { label: 'Not on station', dot: 'border border-dashed border-muted-foreground', text: 'text-foreground' },
 };
@@ -15,8 +17,8 @@ function Dot({ health }: { health: MemberHealth }) {
 
 /**
  * Is a squadron member checking in on time (docs/design/png/HealthIndicator.png):
- * On time, Late (past its check-in interval), Silent (three intervals), or Not
- * on station. Dot plus word, never the dot alone, with an optional detail
+ * On time, Late (past its check-in interval), Silent (three intervals),
+ * Standing down (removed, its crew being released), or Not on station. Dot plus word, never the dot alone, with an optional detail
  * such as when it was last seen.
  */
 export function HealthIndicator({ health, detail, className }: { health: MemberHealth; detail?: string; className?: string }) {

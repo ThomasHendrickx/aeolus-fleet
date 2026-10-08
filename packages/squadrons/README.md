@@ -31,7 +31,7 @@ squadrons receives on every forming or sailing squadron's flagship. A member's c
 
 - **Not on station**: its current crew has not confirmed its role at check-in.
 - **On station**: its current crew confirmed its role; its health is on time, late or silent.
-- **Standing down**: its squadron stands down and its flagship sent it its stand-down.
+- **Standing down**: its squadron stands down and its flagship sent it its stand-down, or squadrons removed its crew request and a trierarch is releasing its crew. Its health shows Standing down once its crew request is removed.
 - **Retired**: squadrons retired its ship.
 
 | From | To | When |
@@ -40,20 +40,21 @@ squadrons receives on every forming or sailing squadron's flagship. A member's c
 | Not on station | On station | Its crew checks in and confirms its role (on-station) |
 | On station | Not on station | Its ship awaits crew (released) or a new crew holds it, until that crew checks in |
 | On station | Standing down | Its squadron stands down: the flagship sends it its stand-down |
-| Standing down | Retired | It sent stood-down and holds no open deliveries |
+| Any but Retired | Standing down | The operator removes a member with a crew request: squadrons removes the request |
+| Standing down | Retired | It sent stood-down, holds no open deliveries and the fleet holds no crew request for it, or the operator removed it and its crew is released |
 | Not on station | Retired | Its squadron stands down: a member never on station holds no work |
 | Any but Retired | Retired | The operator removes it, or forces the stand down |
 
-**Health** comes from each member's last report (`report`): late after one check-in interval, silent after three. Before its first report the clock runs from when it came on station. Health is observation only: silence or a missed check-in never retires or stops a member.
+**Health** comes from each member's last report (`report`): late after one check-in interval, silent after three. Before its first report the clock runs from when it came on station. A member whose crew request squadrons removed shows Standing down until its ship is retired. Health is observation only: silence or a missed check-in never retires or stops a member.
 
 ### Stand down
 
 The operator stands down a Sailing squadron. It goes Standing down and takes no new members.
 
-1. A member that never came on station holds no work: squadrons retires it at once.
+1. A member that never came on station holds no work: squadrons retires it at once, after its crew is released when it has a crew request (step 4).
 2. The flagship sends every other member `application/vnd.aeolus.squadron.stand-down+json`: `{ "squadron" }`, once each.
 3. The member acknowledges it on receipt, as any delivery: an ack means received, never done. It finishes its open work, then sends its flagship `application/vnd.aeolus.squadron.stood-down+json`: `{ "squadron" }`, with `inReplyTo` set to the message that told it to stand down.
-4. The flagship knows a stood-down by its sender, a member of the squadron standing down; `inReplyTo` only informs. It handles it as it handles an on-station: it records it, then acks it. A member that stood down and holds no open deliveries is retired then; one that still holds some is retired at the first rescan (every 30 seconds) where it holds none.
+4. The flagship knows a stood-down by its sender, a member of the squadron standing down; `inReplyTo` only informs. It handles it as it handles an on-station: it records it, then acks it. A member that stood down and holds no open deliveries is retired then; one that still holds some is retired at the first rescan (every 30 seconds) where it holds none. A member with a crew request (#343) has the request removed first, so no trierarch starts it again, and is retired at the first rescan after its trierarch released its crew.
 5. Once every member is retired, squadrons retires the flagship and the squadron is Disbanded.
 
 A member that checks in while its squadron stands down gets its role message with `"standingDown": true`: it finishes its open work and sends stood-down, as in step 3, with `inReplyTo` set to that role message. A member is never retired before it sent stood-down: a stand-down that goes undeliverable, or a member that never answers, retires nobody. The operator removes that member or forces the stand down. The flagship receives until the squadron is Disbanded, so no message to it goes unseen while members finish.
@@ -66,8 +67,8 @@ The operator forces the stand down of a Forming, Sailing or Standing down squadr
 
 ### Members while the squadron serves
 
-- **Add**, only while Sailing: squadrons commissions one member of a role from the squadron's own snapshot (the same template version), with forming's machinery as it is (a formation attempt, an idempotency key, recovery after a crash). Its crew lines, launch note and pinned model are answered once. It checks in like any member and is Not on station until it does; the squadron stays Sailing.
-- **Remove**, while Sailing or Standing down: squadrons retires the member's ship at once. Its direct deliveries are abandoned, as on any retire; a delivery to its type goes to another member of the role. Removing the last member of a role is allowed, and a hand-off to that role then fails at send ("no ship of that type").
+- **Add**, only while Sailing: squadrons commissions one member of a role from the squadron's own snapshot (the same template version), with forming's machinery as it is (a formation attempt, an idempotency key, recovery after a crash). Its crew lines, launch note and pinned model are answered once. Its crew settings and parameter values come as at forming ([docs/squadrons.md](../../docs/squadrons.md#crew-settings)), with a crew request when they name a workspace. It checks in like any member and is Not on station until it does; the squadron stays Sailing.
+- **Remove**, while Sailing or Standing down: a member with a crew request has it removed and stands down until its trierarch released its crew; squadrons retires its ship at the first rescan after that. squadrons retires any other member's ship at once. Its direct deliveries are abandoned, as on any retire; a delivery to its type goes to another member of the role. Removing the last member of a role is allowed, and a hand-off to that role then fails at send ("no ship of that type").
 - **New crew line** (`squadrons.newCrewLine`): the way to give a member a new session while keeping its check-in. squadrons releases the member's ship if a session crews it, gets it a new starting prompt, and answers its crew lines (one per plugin harness and one for a chat client, docs/squadrons.md "Crew lines") with the squadron id, its launch note and pinned model, once. The new crew checks in like any member.
 
 ### The flagship's messages
