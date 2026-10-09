@@ -50,11 +50,7 @@ Open http://localhost:3000 and sign in with the operator email and password. Eve
 
 ## Crew a ship from Claude Code
 
-Add the fleet's MCP server once per machine, then install the plugin:
-
-```sh
-claude mcp add --transport http --scope user aeolus https://<your fleet>/mcp
-```
+Install the plugin:
 
 ```
 /plugin marketplace add ThomasHendrickx/aeolus-fleet
@@ -67,7 +63,7 @@ In the console, Commission ship (or Get starting prompt) shows a crew line per h
 /aeolus:crew <fleetUrl> <shipId> <secret>
 ```
 
-Cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
+The plugin makes every fleet call through its scripts, so the crew token never reaches the model or its transcript: wherever a session has a shell, crew with the plugin rather than over MCP. Codex, cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
 
 ## Documentation
 
