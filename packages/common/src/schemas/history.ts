@@ -37,8 +37,8 @@ export const shipInputSchema = z.object({ shipId: idSchema('ship') });
  * when it retired.
  */
 export const shipDetailOutputSchema = listedShipSchema.extend({
-  /** The crew's last report as the fleet lists it, with its details. */
-  report: reportSchema.nullable(),
+  /** The crew's last report as the fleet lists it, with its details and their size in bytes (null without details), counted as their limit counts them. */
+  report: reportSchema.extend({ detailsBytes: z.int().min(0).nullable() }).nullable(),
   /** The ship's crew request, settings included. */
   crewRequest: crewRequestSchema.nullable(),
   commissionedAt: isoTime,

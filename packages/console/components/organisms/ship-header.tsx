@@ -228,8 +228,8 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
       ) : null}
       {crewRequest}
       <MetaStrip ship={ship} now={now} labels={labels} />
-      {ship.kind === 'agent' && ship.report?.details ? (
-        <ReportDetails details={ship.report.details} version={ship.report.detailsVersion} testId="ship-report-details" />
+      {ship.kind === 'agent' && ship.report?.details && ship.report.detailsBytes !== null ? (
+        <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}
     </div>
   );

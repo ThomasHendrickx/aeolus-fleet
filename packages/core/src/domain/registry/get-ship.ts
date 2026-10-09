@@ -6,14 +6,14 @@ import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, type ListedShip } from './list-fleet.js';
 import { checkReaches, type CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
-import type { ShipReport } from './ship-report.js';
+import { shownReportOf, type ShownReport } from './ship-report.js';
 
 /** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
 export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   /** The ship's crew request, settings included; null when it holds none. */
   crewRequest: (NonNullable<ListedShip['crewRequest']> & Pick<CrewRequest, 'settings'>) | null;
-  /** The crew's last report, details included; null until it reports, and while no session crews the ship. */
-  report: ShipReport | null;
+  /** The crew's last report, details and their size included; null until it reports, and while no session crews the ship. */
+  report: ShownReport | null;
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
@@ -51,7 +51,7 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
     const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
     return ok({
       ...listed,
-      report: facts.openLease?.report ?? null,
+      report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
       crewRequest: listed.crewRequest && facts.crewRequest && { ...listed.crewRequest, settings: facts.crewRequest.settings },
       inFlightDeliveries: counts.inFlight,
       openDeliveries: counts.open,
