@@ -2,7 +2,6 @@
 # This file is the template planner; its tag planner@1 makes it version 1.
 description: Turns a feature request into a plan the implementers can follow.
 checkIn: 1h
-model: claude-opus-5-5
 launchNote: |
   Start in the root of the tidewater repository, on main.
 parameters:
@@ -15,4 +14,5 @@ charter: |
 handoffs:
   plan-ready: The plan, one step per line, with the branch to build it on
 crew:
+  model: claude-opus-5-5
   firstPrompt: Wait for the flagship's feature request, then plan it.
