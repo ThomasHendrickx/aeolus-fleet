@@ -1,4 +1,5 @@
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import type { ListedLabel, ListedShip } from '@aeolus-fleet/common';
+import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rules';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
@@ -19,8 +20,8 @@ const PLUGIN_MARKS: Readonly<Record<string, OwnerMark>> = { 'trierarch-plugin': 
 
 /** One value a ship carries, as a chip shows it. */
 export interface LabelChip {
-  labelId: string;
-  valueId: string;
+  labelId: ListedLabel['id'];
+  valueId: ListedLabel['values'][number]['id'];
   key: string;
   value: string;
   mark: OwnerMark;
@@ -87,10 +88,10 @@ export function carriesEvery(ship: Pick<ListedShip, 'labels'>, valueIds: readonl
 
 /** One key of the label filter, with each value and how many ships carry it. */
 export interface FilterKey {
-  labelId: string;
+  labelId: ListedLabel['id'];
   key: string;
   mark: OwnerMark;
-  values: { valueId: string; value: string; shipCount: number }[];
+  values: { valueId: ListedLabel['values'][number]['id']; value: string; shipCount: number }[];
 }
 
 /** The label filter's keys, by owner: "Yours" first, then "By <owner>" in name order. */
@@ -137,7 +138,7 @@ export function pickedChips(valueIds: readonly string[], context: LabelContext):
       return [];
     }
     const owner = context.ownerOf.get(label.id);
-    return [{ labelId: label.id, valueId, key: label.key, value: value.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name }];
+    return [{ labelId: label.id, valueId: value.id, key: label.key, value: value.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name }];
   });
 }
 
@@ -189,7 +190,7 @@ export function matchesLabelQuery(row: Pick<LabelRow, 'key' | 'values'>, query: 
  * it is fine. The server checks the same rule (decision 0031).
  */
 export function labelTextProblem(text: string, field: 'Key' | 'Value'): string | undefined {
-  if (text === '' || (text.length <= LABEL_HANDLE_MAX_LENGTH && LABEL_HANDLE_PATTERN.test(text))) {
+  if (text === '' || isLabelHandle(text)) {
     return undefined;
   }
   return `${field}: use lowercase letters, digits and - only, at most ${String(LABEL_HANDLE_MAX_LENGTH)} characters (decision 0031).`;
@@ -203,17 +204,17 @@ const SHOWN_COUNT_FROM = 15;
  * Q12): its count against the most, from 15 on; at the most, Add label goes and
  * the limit is named.
  */
-export function labelLimitOf(ship: Pick<ListedShip, 'labels'>): { count?: string; isAtLimit: boolean } {
+export function labelLimitOf(ship: Pick<ListedShip, 'labels'>, shipLabelsMax: number): { count?: string; isAtLimit: boolean } {
   const carried = ship.labels.length;
   return {
-    ...(carried >= SHOWN_COUNT_FROM ? { count: `${String(carried)} of ${String(SHIP_LABELS_MAX)}` } : {}),
-    isAtLimit: carried >= SHIP_LABELS_MAX,
+    ...(carried >= SHOWN_COUNT_FROM ? { count: `${String(carried)} of ${String(shipLabelsMax)}` } : {}),
+    isAtLimit: carried >= shipLabelsMax,
   };
 }
 
 /** One of your keys as Add label offers it on a ship: its values with their ships, and which the ship carries. */
 export interface AssignKey extends FilterKey {
-  carriedValueIds: string[];
+  carriedValueIds: ListedLabel['values'][number]['id'][];
 }
 
 /** Your keys, for Add label and your chips' menus on a ship's page: every value, the ones it carries marked (#102, point 13: a carried key takes another value). */

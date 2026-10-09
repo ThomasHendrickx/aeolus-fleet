@@ -56,8 +56,8 @@ describe('shipDetailOutputSchema', () => {
     expect(shipDetailOutputSchema.parse(ship)).toEqual(ship);
   });
 
-  it("accepts the crew's report with its details and their version", () => {
-    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 } } };
+  it("accepts the crew's report with its details, their version and their size", () => {
+    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
 
     expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
   });
@@ -70,7 +70,8 @@ describe('shipDetailOutputSchema', () => {
 
   it.each([
     ['a crew request without its settings', { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null } }],
-    ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0 } }],
+    ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0, detailsBytes: null } }],
+    ['a report without the size of its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 } } }],
     ['a commissioned date that is not ISO 8601', { ...ship, commissionedAt: 'yesterday' }],
     ['a missing crewed since', { ...ship, crewedSince: undefined }],
     ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],
@@ -88,7 +89,7 @@ describe('shipTimelineOutputSchema', () => {
     occurredAt: AT,
     actor: scout,
     ship: planner,
-    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', model: 'claude-opus-5-5' },
+    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', isPing: false, model: 'claude-opus-5-5' },
     details: { selector: 'ship', recipientType: null },
   };
 
@@ -103,10 +104,16 @@ describe('shipTimelineOutputSchema', () => {
     expect(shipTimelineOutputSchema.parse([system, toType])).toEqual([system, toType]);
   });
 
-  it('accepts the content type of the message, a ping told by it', () => {
-    const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping' } };
+  it('accepts the content type of the message, and whether it is a ping', () => {
+    const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping', isPing: true } };
 
     expect(shipTimelineOutputSchema.parse([ping])).toEqual([ping]);
+  });
+
+  it('rejects a message that does not tell whether it is a ping', () => {
+    const message = { id: sent.message.id, sender: sent.message.sender, recipient: sent.message.recipient, contentType: sent.message.contentType, model: sent.message.model };
+
+    expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
   });
 
   it('rejects a message without its content type', () => {

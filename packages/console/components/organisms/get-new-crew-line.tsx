@@ -3,11 +3,15 @@
 import type { ShipDetail } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { newCrewLineReplaced } from '../../lib/ship-dialogs';
 import { useNewCrewLine } from '../../lib/squadrons-api';
 import { Button } from '../atoms/button';
-import { CrewLineDialog, type CrewLineDialogState } from './crew-line-dialog';
+import type { CrewLineDialogState } from './crew-line-dialog';
 import { NewCrewLineConfirm } from './new-crew-line-confirm';
+
+// Dialogs load when first opened, not with the page.
+const CrewLineDialog = lazyDialog(() => import('./crew-line-dialog').then((module) => module.CrewLineDialog), (props) => props.isOpen);
 
 interface NewCrewLineFor {
   squadronId: string;

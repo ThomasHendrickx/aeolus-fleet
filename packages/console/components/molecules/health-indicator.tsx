@@ -1,5 +1,5 @@
 import { classNames } from '../../lib/class-names';
-import type { MemberHealth } from '../../lib/squadrons-api';
+import type { MemberHealth } from '../../lib/squadron-states';
 
 const HEALTHS: Record<MemberHealth, { label: string; dot: string; text: string }> = {
   'on-time': { label: 'On time', dot: 'bg-tone-ok-fg', text: 'text-tone-ok-fg' },

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import type { BlueprintVersion } from '../../lib/squadrons-api';
+import type { BlueprintVersion } from '../../lib/squadrons-schemas';
 import { HandoffWiring } from './handoff-wiring';
 
 const REPO = 'github.com/thomashendrickx/squadron-templates';

@@ -5,7 +5,7 @@ import type { Delivery, Message } from './message.js';
 
 /**
  * Whether a send answers the sender of a message its ship received, the
- * return traffic the network rules always allow (decision 0033): it names the
+ * return traffic the network rules always allow (decision 0034): it names the
  * message (inReplyTo), it goes to that message's sender, and the message
  * reached the answering ship, by a delivery to it or one of its type it
  * claimed.

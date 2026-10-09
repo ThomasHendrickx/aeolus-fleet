@@ -1,9 +1,10 @@
 'use client';
 
-import type { ListedShip, ShipId } from '@aeolus-fleet/common';
+import type { CrewStatus, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
 import { Eye, Flag, KeyRound, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import {
   activeFilterCount,
@@ -20,7 +21,7 @@ import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../l
 import { dayMonth, fullDateTime, relativeTime } from '../../lib/relative-time';
 import type { ShipInSquadron } from '../../lib/squadrons-view';
 import { crewRequestStage } from '../../lib/crew-request';
-import { CREW_REQUEST_KEYS, crewRequestCell, crewRequestKeyWord, type CrewRequestKey } from '../../lib/needs-crew';
+import { crewRequestCell, crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../lib/needs-crew';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
@@ -76,7 +77,7 @@ interface FleetTableProps {
 const ROW_LABELS_WIDTH = 22;
 
 /** The view with one more label value picked, one taken out, or none. */
-function withLabels(view: FleetView, labelValueIds: readonly string[]): FleetView {
+function withLabels(view: FleetView, labelValueIds: readonly LabelValueId[]): FleetView {
   return { ...view, filters: { ...view.filters, labelValueIds } };
 }
 
@@ -91,10 +92,12 @@ function isStatusFilter(value: string): value is FleetFilters['status'] {
 }
 
 /** The crew request filter's choices, in the order of a request's life. */
-const CREW_REQUEST_ITEMS: Record<string, string> = { all: 'All', ...Object.fromEntries(CREW_REQUEST_KEYS.map((key) => [key, crewRequestKeyWord(key)])) };
+function crewRequestItemsOf(crewStatuses: readonly CrewStatus[]): Record<string, string> {
+  return { all: 'All', ...Object.fromEntries(crewRequestKeysOf(crewStatuses).map((key) => [key, crewRequestKeyWord(key)])) };
+}
 
-function isCrewRequestFilter(value: string): value is CrewRequestKey | 'all' {
-  return Object.hasOwn(CREW_REQUEST_ITEMS, value);
+function isCrewRequestFilter(value: string, items: Record<string, string>): value is CrewRequestKey | 'all' {
+  return Object.hasOwn(items, value);
 }
 
 /** What the no-results action clears: the search, the filters, or both. */
@@ -237,6 +240,7 @@ function FilterControls({
   squadronsOf,
   labels,
 }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
+  const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
   const { filters } = view;
   const types = fleetTypes(ships, filters.isRetiredShown);
   const typeItems: Record<string, string> = { all: 'All', ...Object.fromEntries(types.map((type) => [type, type])) };
@@ -272,10 +276,10 @@ function FilterControls({
         </SelectContent>
       </Select>
       <Select
-        items={CREW_REQUEST_ITEMS}
+        items={crewRequestItems}
         value={filters.crewRequest}
         onValueChange={(value) => {
-          if (value !== null && isCrewRequestFilter(value)) {
+          if (value !== null && isCrewRequestFilter(value, crewRequestItems)) {
             change({ crewRequest: value });
           }
         }}
@@ -287,7 +291,7 @@ function FilterControls({
           </span>
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(CREW_REQUEST_ITEMS).map(([value, label]) => (
+          {Object.entries(crewRequestItems).map(([value, label]) => (
             <SelectItem key={value} value={value}>
               {label}
             </SelectItem>
@@ -413,6 +417,7 @@ function PhoneFilters({
   squadronsOf,
   labels,
 }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
+  const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
   const { filters } = view;
   const change = (next: Partial<FleetFilters>) => {
     onViewChange({ ...view, filters: { ...filters, ...next } });
@@ -475,14 +480,14 @@ function PhoneFilters({
               Crew request
             </span>
             <div role="radiogroup" aria-labelledby="fleet-filter-crew-request-label" className="flex flex-wrap gap-1.5">
-              {Object.entries(CREW_REQUEST_ITEMS).map(([value, label]) => (
+              {Object.entries(crewRequestItems).map(([value, label]) => (
                 <FilterOption
                   key={value}
                   label={label}
                   kind="radio"
                   isOn={filters.crewRequest === value}
                   onPick={() => {
-                    if (isCrewRequestFilter(value)) {
+                    if (isCrewRequestFilter(value, crewRequestItems)) {
                       change({ crewRequest: value });
                     }
                   }}

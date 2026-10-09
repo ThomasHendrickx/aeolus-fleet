@@ -1,7 +1,8 @@
 import type { ListedShip, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Access } from './access';
-import type { Squadron, SquadronState } from './squadrons-api';
+import type { SquadronState } from './squadron-states';
+import type { Squadron } from './squadrons-schemas';
 import { blueprintPath, type BlueprintChoice } from './squadrons-view';
 
 /**

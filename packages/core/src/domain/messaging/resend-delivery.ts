@@ -64,7 +64,7 @@ function resendKey(deliveryId: DeliveryId): string {
  * fleet's network settings.
  *
  * A resend is a new message, checked by the network rules at its own send time
- * as the original sender sending (decision 0033): one no rule allows commits
+ * as the original sender sending (decision 0034): one no rule allows commits
  * only its refusal's record and is refused, and the original stays
  * undeliverable, for the operator to dismiss.
  */

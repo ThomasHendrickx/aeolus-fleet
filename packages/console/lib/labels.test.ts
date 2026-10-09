@@ -1,4 +1,4 @@
-import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { activeShipCount, assignKeysOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
@@ -207,15 +207,15 @@ describe('labelLimitOf', () => {
   const carrying = (count: number) => ({ labels: Array.from({ length: count }, () => carried(PROJECT, 0)) });
 
   it('counts nothing below 15 labels', () => {
-    expect(labelLimitOf(carrying(14))).toEqual({ isAtLimit: false });
+    expect(labelLimitOf(carrying(14), SHIP_LABELS_MAX)).toEqual({ isAtLimit: false });
   });
 
   it('counts from 15 labels', () => {
-    expect(labelLimitOf(carrying(15))).toEqual({ count: '15 of 20', isAtLimit: false });
+    expect(labelLimitOf(carrying(15), SHIP_LABELS_MAX)).toEqual({ count: '15 of 20', isAtLimit: false });
   });
 
   it('is at the limit at 20 labels', () => {
-    expect(labelLimitOf(carrying(20))).toEqual({ count: '20 of 20', isAtLimit: true });
+    expect(labelLimitOf(carrying(20), SHIP_LABELS_MAX)).toEqual({ count: '20 of 20', isAtLimit: true });
   });
 });
 

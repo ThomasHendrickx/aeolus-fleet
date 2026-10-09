@@ -1878,11 +1878,11 @@ describe('network rules at the API', () => {
     await expect(refusalOf(reader.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
   });
 
-  it('answer rules over the limits with BAD_REQUEST naming decision 0033', async () => {
+  it('answer rules over the limits with BAD_REQUEST naming decision 0034', async () => {
     const refused = await refusalOf((await networker()).fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
-    expect(refused?.message).toContain('decision 0033');
+    expect(refused?.message).toContain('decision 0034');
   });
 
   it('refuse a send no rule allows with FORBIDDEN and a message that gives no reason', async () => {

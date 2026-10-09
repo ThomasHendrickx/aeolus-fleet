@@ -7,10 +7,11 @@ import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { ClearWorktreeDialog, type WorktreeToClear } from '../../../components/organisms/clear-worktree-dialog';
+import type { WorktreeToClear } from '../../../components/organisms/clear-worktree-dialog';
 import { MachineDetail } from '../../../components/organisms/machine-detail';
 import { MachineList } from '../../../components/organisms/machine-list';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
 import { useClearRequests, useClearWorktree } from '../../../lib/clear-requests';
@@ -18,6 +19,7 @@ import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { chipsOf } from '../../../lib/labels';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
+import { useCrewSettings } from '../../../lib/crew-settings';
 import { spotsOf, withWorkspaces } from '../../../lib/machines';
 import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -25,6 +27,9 @@ import { usePluginNav } from '../../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
+
+// Dialogs load when first opened, not with the page.
+const ClearWorktreeDialog = lazyDialog(() => import('../../../components/organisms/clear-worktree-dialog').then((module) => module.ClearWorktreeDialog), (props) => props.worktree !== undefined);
 
 /** One machine of the Trierarchs section, by its trierarch's ship id; without a connected plugin, why not. */
 export default function MachinePage({ params }: { params: Promise<{ shipId: string }> }) {
@@ -53,7 +58,10 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const trierarchShip = ships.find((ship) => ship.id === shipId);
   // Each ship's workspace sits in its crew request's settings, which only its page read answers.
   const shipPages = useShips(spots.map((spot) => spot.shipId));
-  const settingsByShip = new Map([...shipPages].map(([id, ship]) => [id, ship.crewRequest?.settings]));
+  // Parsed on the web app's server: the fleet stores them without meaning.
+  const read = [...shipPages].flatMap(([id, ship]) => (ship.crewRequest === null ? [] : [{ id, settings: ship.crewRequest.settings }]));
+  const parsed = useCrewSettings(read.map((each) => each.settings));
+  const settingsByShip = new Map(read.map((each, index) => [each.id, parsed?.[index] ?? null]));
 
   return (
     <DetailLayout

@@ -2,6 +2,8 @@ import type { Decorator, Preview } from '@storybook/nextjs-vite';
 import { useLayoutEffect, type ReactNode } from 'react';
 
 import { TooltipProvider } from '../components/atoms/tooltip';
+import { ConsoleConstantsContext } from '../lib/console-constants';
+import { consoleConstantsOf } from '../lib/console-constants-of';
 import { geistMono, geistSans } from '../app/fonts';
 import '../app/globals.css';
 
@@ -16,10 +18,13 @@ function ThemedCanvas({ isDark, children }: { isDark: boolean; children: ReactNo
     root.classList.toggle('dark', isDark);
     root.classList.add(geistSans.variable, geistMono.variable);
   }, [isDark]);
+  // The values the root layout hands down in the console.
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background p-6 text-foreground">{children}</div>
-    </TooltipProvider>
+    <ConsoleConstantsContext value={consoleConstantsOf()}>
+      <TooltipProvider>
+        <div className="min-h-screen bg-background p-6 text-foreground">{children}</div>
+      </TooltipProvider>
+    </ConsoleConstantsContext>
   );
 }
 

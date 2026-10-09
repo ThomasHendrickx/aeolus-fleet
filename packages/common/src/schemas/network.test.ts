@@ -5,7 +5,7 @@ import { NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX, reachRefusalsOutputSchema, 
 
 const newId = createIdGenerator();
 
-describe('the network limits (decision 0033)', () => {
+describe('the network limits (decision 0034)', () => {
   it('are 200 rules a fleet, and the latest 100 refusals a read', () => {
     expect([NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX]).toEqual([200, 100]);
   });

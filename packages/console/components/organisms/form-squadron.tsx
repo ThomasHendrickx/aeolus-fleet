@@ -2,14 +2,19 @@
 
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
+import { useConsoleConstants } from '../../lib/console-constants';
 import { offersOf } from '../../lib/crew-settings-form';
 import { useLabelContext } from '../../lib/fleet';
 import { formMembersOf } from '../../lib/forming-members';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
-import { useBlueprintCrew, useFormSquadron, type TemplateVersion } from '../../lib/squadrons-api';
+import { useBlueprintCrew, useFormSquadron } from '../../lib/squadrons-api';
+import type { TemplateVersion } from '../../lib/squadrons-schemas';
 import type { BlueprintChoice } from '../../lib/squadrons-view';
 import { useHasTrierarchPlugin, useMachines } from '../../lib/trierarch-plugin';
-import { FormSquadronDialog } from './form-squadron-dialog';
+
+// Dialogs load when first opened, not with the page.
+const FormSquadronDialog = lazyDialog(() => import('./form-squadron-dialog').then((module) => module.FormSquadronDialog), (props) => props.isOpen);
 
 interface FormSquadronProps {
   blueprints: readonly BlueprintChoice[];
@@ -35,7 +40,8 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
   const crew = useBlueprintCrew(hasTrierarchs ? picked : undefined);
   const machines = useMachines();
   const context = useLabelContext();
-  const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, machines.data);
+  const { shipLabelsMax } = useConsoleConstants();
+  const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, { machines: machines.data, shipLabelsMax });
 
   return (
     <FormSquadronDialog

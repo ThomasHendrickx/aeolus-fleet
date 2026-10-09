@@ -29,9 +29,9 @@ function onScoutsPage(entry: TimelineEntry) {
   return { sentence: plainText(parts), tone, icon };
 }
 
-const fromPlanner = { id: newId('message'), sender: planner, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'text/plain', model: null };
-const pingFromArgo = { id: newId('message'), sender: argo, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'application/vnd.aeolus.ping', model: null };
-const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner }, contentType: 'text/plain', model: null };
+const fromPlanner = { id: newId('message'), sender: planner, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'text/plain', isPing: false, model: null };
+const pingFromArgo = { id: newId('message'), sender: argo, recipient: { kind: 'ship' as const, ship: scout }, contentType: 'application/vnd.aeolus.ping', isPing: true, model: null };
+const fromScout = { id: newId('message'), sender: scout, recipient: { kind: 'ship' as const, ship: planner }, contentType: 'text/plain', isPing: false, model: null };
 
 describe('timelineSentence', () => {
   it('says the fleet was initialised', () => {

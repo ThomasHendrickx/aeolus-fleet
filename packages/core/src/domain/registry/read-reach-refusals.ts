@@ -10,7 +10,7 @@ export type ReadReachRefusals = (caller: Caller) => Promise<Result<ReachRefusal[
 
 /**
  * Use case: argo reads the sends the fleet's network rules refused, the
- * latest first (decision 0033). Only argo: a ship that sets the rules does
+ * latest first (decision 0034). Only argo: a ship that sets the rules does
  * not read who tried to reach whom.
  */
 export function createReadReachRefusals(deps: { reachRefusals: Pick<ReachRefusalRepository, 'latest'> }): ReadReachRefusals {

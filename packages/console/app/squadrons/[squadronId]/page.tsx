@@ -1,6 +1,5 @@
 'use client';
 
-import { idSchema } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
@@ -10,18 +9,15 @@ import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
 import { HandoffWiring } from '../../../components/organisms/handoff-wiring';
 import { KeptMessages } from '../../../components/organisms/kept-messages';
-import { StandDownDialog } from '../../../components/organisms/stand-down-dialog';
-import { AddMemberDialog } from '../../../components/organisms/add-member-dialog';
-import { CrewLineDialog } from '../../../components/organisms/crew-line-dialog';
 import { MemberActions } from '../../../components/organisms/member-actions';
 import { SquadronActions } from '../../../components/organisms/squadron-actions';
-import { RemoveMemberDialog } from '../../../components/organisms/remove-member-dialog';
 import { MemberList } from '../../../components/organisms/member-list';
 import { SquadronHeader } from '../../../components/organisms/squadron-header';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { SquadronSummary } from '../../../components/molecules/squadron-summary';
 import { SquadronsNotConnected } from '../../../components/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
 import { useOpenInboxCount } from '../../../lib/inbox';
@@ -32,19 +28,24 @@ import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import {
-  type AddedMember,
   useAddMember,
   useCatalogue,
   useIssuedCrewLines,
   useForceStandDown,
   useKeptMessages,
   useRemoveMember,
-  type Squadron,
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
+import type { AddedMember, Squadron } from '../../../lib/squadrons-schemas';
 import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../lib/squadrons-view';
 import { usePluginNav } from '../../../lib/plugin-nav';
+
+// Dialogs load when first opened, not with the page.
+const AddMemberDialog = lazyDialog(() => import('../../../components/organisms/add-member-dialog').then((module) => module.AddMemberDialog), (props) => props.isOpen);
+const CrewLineDialog = lazyDialog(() => import('../../../components/organisms/crew-line-dialog').then((module) => module.CrewLineDialog), (props) => props.isOpen);
+const RemoveMemberDialog = lazyDialog(() => import('../../../components/organisms/remove-member-dialog').then((module) => module.RemoveMemberDialog), (props) => props.isOpen);
+const StandDownDialog = lazyDialog(() => import('../../../components/organisms/stand-down-dialog').then((module) => module.StandDownDialog), (props) => props.isOpen);
 
 /**
  * A squadron's page: its header, its members by role, each on station or
@@ -99,8 +100,8 @@ export default function SquadronPage({
   const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
   const removingShip = removing ? ships.get(removing.shipId) : undefined;
   const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
-  // The squadron manager's answer names the flagship by a plain string: parsed, as outside data is.
-  const flagshipId = squadron ? idSchema('ship').safeParse(squadron.flagship.shipId).data : undefined;
+  // squadrons' answer was parsed on the web app's server, the flagship's ship id with it.
+  const flagshipId = squadron?.flagship.shipId;
   const offered = squadron
     ? squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })
     : undefined;

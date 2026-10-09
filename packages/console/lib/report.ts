@@ -1,4 +1,4 @@
-import { reportDetailsBytes, type ListedShip, type ReportDetails, type ReportState } from '@aeolus-fleet/common';
+import type { ListedShip, ReportDetails, ReportState } from '@aeolus-fleet/common';
 
 import { relativeTime } from './relative-time';
 
@@ -48,7 +48,7 @@ export function reportDetailsJson(details: ReportDetails): string {
   return JSON.stringify(details, null, 2);
 }
 
-/** What the raw details are, for the code block's label: "JSON · 50 bytes", counted as the server counts them. */
-export function reportDetailsLabel(details: ReportDetails): string {
-  return `JSON · ${String(reportDetailsBytes(details))} bytes`;
+/** What the raw details are, for the code block's label: "JSON · 50 bytes", their size as the server counts it. */
+export function reportDetailsLabel(bytes: number): string {
+  return `JSON · ${String(bytes)} bytes`;
 }

@@ -17,7 +17,7 @@ export type SetNetworkRules = (caller: Caller, input: { rules: readonly NetworkR
 
 /**
  * Use case: the caller sets the fleet's network rules, the whole list, or
- * none for all-to-all (decision 0033). Its scope (fleet:network, which argo
+ * none for all-to-all (decision 0034). Its scope (fleet:network, which argo
  * holds) is checked before this runs. In one unit of work, holding the
  * settings exclusively so no send is checked halfway: the settings at their
  * next version, and NetworkRulesSet.

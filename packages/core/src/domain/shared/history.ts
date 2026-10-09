@@ -1,5 +1,6 @@
 import {
   DELIVERY_HISTORY_TYPES,
+  isPingContentType,
   type InboxFilter,
   type DeliveryId,
   type DeliveryState,
@@ -42,6 +43,19 @@ export interface TimelineEntry {
   message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string; model: string | null } | null;
   details: EventDetails;
 }
+
+/** A message as a read shows it: whether it is a ping, told by its content type, so no reader repeats that rule. */
+export type WithPing<T extends { contentType: string }> = T & { isPing: boolean };
+
+export function withPing<T extends { contentType: string }>(message: T): WithPing<T> {
+  return { ...message, isPing: isPingContentType(message.contentType) };
+}
+
+/** A timeline entry as the read answers it, its message telling whether it is a ping. */
+export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
+
+/** An undeliverable delivery as Needs attention answers it, its message telling whether it is a ping. */
+export type ShownUndeliverableEntry = Omit<UndeliverableEntry, 'message'> & { message: WithPing<UndeliverableEntry['message']> };
 
 /** One message with its delivery as it stands. */
 export interface HistoryMessage {

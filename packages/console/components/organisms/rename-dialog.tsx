@@ -1,9 +1,9 @@
 'use client';
 
-import { SHIP_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common';
 import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import { asHandle, checkShipName } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
@@ -35,6 +35,7 @@ interface RenameDialogProps {
 
 /** The open dialog's fields: they start empty each time it opens. */
 function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }: Omit<RenameDialogProps, 'isOpen' | 'onOpenChange'>) {
+  const { shipHandleMaxLength } = useConsoleConstants();
   const nameId = useId();
   const statusId = useId();
   const [name, setName] = useState('');
@@ -61,7 +62,7 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
         <div className="flex items-baseline justify-between">
           <Label htmlFor={nameId}>New name</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {name.length} / {SHIP_HANDLE_MAX_LENGTH}
+            {name.length} / {shipHandleMaxLength}
           </span>
         </div>
         <div className="relative">

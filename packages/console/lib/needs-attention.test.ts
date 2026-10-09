@@ -19,6 +19,7 @@ function anUndeliverable(recipient: UndeliverableDelivery['message']['recipient'
       inReplyTo: null,
       sentAt: '2026-10-01T13:10:00.000Z',
       contentType: 'application/json',
+      isPing: false,
       payload: '{"run":"e2e","ref":"pr-320"}',
     },
   };
@@ -71,6 +72,6 @@ describe('canResend', () => {
   it('offers no Resend for an undeliverable ping: only Dismiss', () => {
     const ping = anUndeliverable({ kind: 'ship', ship: tester });
 
-    expect(canResend({ ...ping, message: { ...ping.message, contentType: 'application/vnd.aeolus.ping' } })).toBe(false);
+    expect(canResend({ ...ping, message: { ...ping.message, contentType: 'application/vnd.aeolus.ping', isPing: true } })).toBe(false);
   });
 });

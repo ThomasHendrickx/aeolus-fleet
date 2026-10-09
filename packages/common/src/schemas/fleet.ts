@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
 import { listedCrewRequestSchema } from './crew-request.js';
 import { carriedLabelSchema } from './label.js';
@@ -12,19 +13,13 @@ import { listedReportSchema } from './report.js';
  * starting prompt, release it, list the fleet, follow its events live.
  */
 
-/**
- * A ship's name and its type are handles (docs/blueprint.md, "Ship"). A colon
- * is an ordinary character, so a prefix can group ships (`hemma:planner`); it
- * carries no meaning for the fleet.
- */
-export const SHIP_HANDLE_MAX_LENGTH = 48;
-export const SHIP_HANDLE_PATTERN = /^[a-z0-9:-]+$/;
-const HANDLE_MESSAGE = `Use 1 to ${SHIP_HANDLE_MAX_LENGTH} lowercase letters, digits, hyphens or colons`;
+export { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 
+/** A ship's name or type, by the rule in rules/ship-handle.ts. */
 export const shipHandleSchema = z
   .string()
-  .max(SHIP_HANDLE_MAX_LENGTH, HANDLE_MESSAGE)
-  .regex(SHIP_HANDLE_PATTERN, HANDLE_MESSAGE);
+  .max(SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE)
+  .regex(SHIP_HANDLE_PATTERN, SHIP_HANDLE_MESSAGE);
 
 export const SHIP_NOTE_MAX_LENGTH = 500;
 

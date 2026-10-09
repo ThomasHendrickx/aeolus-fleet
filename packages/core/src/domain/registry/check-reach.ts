@@ -17,7 +17,7 @@ export interface CheckReachTx {
   reachRefusals: ReachRefusalRepository;
 }
 
-/** One fixed message, so a refused sender learns nothing about the rules (decision 0033). */
+/** One fixed message, so a refused sender learns nothing about the rules (decision 0034). */
 export type NotReachable = DomainError<'NOT_REACHABLE'>;
 
 /** What a send may go on with: for a type, the ships of it the sender may reach, or none for any ship of it. */
@@ -28,7 +28,7 @@ export interface Reach {
 /**
  * Whether the fleet's network rules let the sender reach the recipient a
  * selector resolved to, at send time: Messaging's question to Registry before
- * it stores a message (decision 0033). The settings stay held shared until
+ * it stores a message (decision 0034). The settings stay held shared until
  * the unit of work ends, so a change of rules waits for the send, and a send
  * that comes after it is checked against the new version.
  *

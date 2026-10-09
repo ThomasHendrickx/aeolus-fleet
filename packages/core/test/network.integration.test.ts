@@ -11,7 +11,7 @@ import { newKey } from './support/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from './support/result.js';
 
-// The fleet's network rules on a real Postgres (decision 0033): the settings
+// The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version; a refused send stores nothing but its record, in
 // the transaction that refuses it; an answer found by its message's delivery;
 // and a send and a change of rules taking turns on the settings, so every

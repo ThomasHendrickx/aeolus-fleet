@@ -1,4 +1,4 @@
-import { CREW_STATUSES, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
+import type { CrewStatus, ListedShip } from '@aeolus-fleet/common';
 
 import { crewRequestStage, type CrewRequestStage } from './crew-request';
 
@@ -64,7 +64,10 @@ export function crewRequestCell(stage: CrewRequestStage): CrewRequestCell {
 /** A crew request's stage as one key, for the overview's Crew request filter: none, needs crew, crewed by hand, or its status. */
 export type CrewRequestKey = 'none' | 'needsCrew' | 'crewedByHand' | CrewStatus;
 
-export const CREW_REQUEST_KEYS: readonly CrewRequestKey[] = ['none', 'needsCrew', 'crewedByHand', ...CREW_STATUSES];
+/** The keys in the order of a request's life, the crew statuses as common lists them. */
+export function crewRequestKeysOf(crewStatuses: readonly CrewStatus[]): CrewRequestKey[] {
+  return ['none', 'needsCrew', 'crewedByHand', ...crewStatuses];
+}
 
 export function crewRequestKey(stage: CrewRequestStage): CrewRequestKey {
   return stage.kind === 'assigned' ? stage.status : stage.kind;

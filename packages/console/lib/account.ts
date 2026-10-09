@@ -6,6 +6,7 @@ import { showToast } from '../components/atoms/toast';
 import type { AccountMenuProps } from '../components/organisms/account-menu';
 import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
+import { useConsoleConstants } from './console-constants';
 import { useConsoleGuide } from './guide';
 import { useTRPC } from './trpc';
 import { usePluginNav } from './plugin-nav';
@@ -23,6 +24,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   const queryClient = useQueryClient();
   const account = useQuery(trpc.console.account.queryOptions());
   const accountUrl = useHostedAccountUrl();
+  const { themes } = useConsoleConstants();
   const guide = useConsoleGuide();
   // With the trierarch plugin on, the phone's tab bar has no room for Settings: the account sheet offers it (#245, decision 6).
   const pluginNav = usePluginNav();
@@ -66,6 +68,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   return {
     ...(pluginNav.hasTrierarchs && pluginNav.hasSettings ? { settingsHref: '/settings' } : {}),
     account: account.data,
+    themes,
     onThemeChange: (theme: Theme) => {
       setTheme.mutate({ theme });
     },

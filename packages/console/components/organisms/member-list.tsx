@@ -3,7 +3,7 @@ import { Info, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-api';
+import type { BlueprintVersion, Squadron, TemplateVersion } from '../../lib/squadrons-schemas';
 import { lastSeen } from '../../lib/relative-time';
 import { checkInText, membersByRole } from '../../lib/squadrons-view';
 import { CompactCrewLine } from '../molecules/compact-crew-line';

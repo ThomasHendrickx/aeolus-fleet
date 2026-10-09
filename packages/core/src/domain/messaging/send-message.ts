@@ -75,7 +75,7 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * held against a retire; then the fleet's network settings, held shared
  * against a change of rules.
  *
- * With network rules set, a send no rule allows is refused (decision 0033):
+ * With network rules set, a send no rule allows is refused (decision 0034):
  * its unit of work commits only the refusal's record, and the sender gets a
  * refusal without reasons. argo, and an answer to the sender of a message the
  * ship received, always go through.

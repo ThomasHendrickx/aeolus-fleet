@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { harnessDetection, harnessWord } from '../../lib/harness';
 import { harnessOptions, machineLiveness, type Spot } from '../../lib/machines';
 import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../lib/relative-time';
-import type { Machine } from '../../lib/trierarch-plugin';
+import type { Machine } from '../../lib/trierarch-plugin-schemas';
 import { Badge } from '../atoms/badge';
 import { CapacityBar } from '../molecules/capacity-bar';
 import { LocationTag } from '../molecules/location-tag';

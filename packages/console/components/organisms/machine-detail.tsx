@@ -8,7 +8,7 @@ import { restartWords } from '../../lib/crew-request';
 import type { LabelChip as LabelChipData } from '../../lib/labels';
 import { clockTime, fullDateTime, sinceTime } from '../../lib/relative-time';
 import type { Spot } from '../../lib/machines';
-import type { Machine } from '../../lib/trierarch-plugin';
+import type { Machine } from '../../lib/trierarch-plugin-schemas';
 import { Button } from '../atoms/button';
 import { CopyButton } from '../atoms/copy-button';
 import { Skeleton } from '../atoms/skeleton';

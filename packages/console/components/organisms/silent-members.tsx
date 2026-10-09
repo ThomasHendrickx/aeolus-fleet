@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { duration } from '../../lib/relative-time';
-import type { Squadron } from '../../lib/squadrons-api';
+import type { Squadron } from '../../lib/squadrons-schemas';
 import { checkInText } from '../../lib/squadrons-view';
 import { HealthIndicator } from '../molecules/health-indicator';
 import { ReportLine } from '../molecules/report-line';

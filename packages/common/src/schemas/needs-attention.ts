@@ -27,6 +27,8 @@ export const undeliverableDeliverySchema = z.object({
     inReplyTo: idSchema('message').nullable(),
     sentAt: isoTime,
     contentType: z.string(),
+    /** Whether it is a ping, told by its content type: a ping is never resent. */
+    isPing: z.boolean(),
     payload: z.string(),
   }),
 });

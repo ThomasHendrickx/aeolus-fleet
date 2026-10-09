@@ -59,6 +59,18 @@ describe("a crew's report", () => {
     });
   });
 
+  it('is read with the one ship with the size of its details, counted as the limit counts them', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', details: { running: 4 } }));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { report: { detailsBytes: '{"running":4}'.length } } });
+  });
+
+  it('is read with the one ship with no size while it has no details', async () => {
+    unwrap(await useCases.report(scout, { state: 'idle' }));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { report: { details: null, detailsBytes: null } } });
+  });
+
   it('holds no note when none is given, and trims one that is', async () => {
     unwrap(await useCases.report(scout, { state: 'idle' }));
     await expect(listedReport()).resolves.toMatchObject({ note: null });

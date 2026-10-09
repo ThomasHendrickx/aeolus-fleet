@@ -10,7 +10,7 @@ export interface RefusedShip {
 }
 
 /**
- * The record of a send the network rules refused (decision 0033): who tried
+ * The record of a send the network rules refused (decision 0034): who tried
  * to reach whom, both ships as they were at that moment, so a later rename or
  * relabelling keeps it true, and the version of the settings that refused it.
  * Not an event: only argo reads it.

@@ -9,7 +9,7 @@ import {
   squadronViewParams,
   type SquadronView,
 } from './squadron-filter';
-import type { SquadronState } from './squadrons-api';
+import type { SquadronState } from './squadron-states';
 
 function aSquadron(id: string, formed: { state: SquadronState; blueprint: string }) {
   return { id, state: formed.state, blueprint: { repository: 'example.com/templates', name: formed.blueprint, version: 1, commit: 'c' } };

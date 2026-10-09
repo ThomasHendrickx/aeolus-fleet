@@ -1,13 +1,15 @@
 'use client';
 
-import { FLEET_SCOPES, SHIP_HANDLE_MAX_LENGTH, shipHandleSchema, type CrewSettings, type FleetScope, type ListedShip } from '@aeolus-fleet/common';
+import type { CrewSettings, FleetScope, ListedShip } from '@aeolus-fleet/common';
+import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
-import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
+import { useConsoleConstants } from '../../lib/console-constants';
+import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
-import type { SettingsCheck } from '../../lib/trierarch-plugin';
+import type { SettingsCheck } from '../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import { Combobox } from '../atoms/combobox';
@@ -73,6 +75,8 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
 
 /** The open dialog's fields: they start empty each time it opens. */
 function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, crewRequest, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+  const constants = useConsoleConstants();
+  const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
   const nameStatusId = useId();
   const typeId = useId();
@@ -90,11 +94,11 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   const crewSettings = settingsOf(crewValues);
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
   const isCrewReady =
-    !isCrewRequested || crewRequest === undefined || (crewSettings !== undefined && refusal === undefined && promptBytes(crewValues.firstPrompt) <= FIRST_PROMPT_MAX_BYTES);
+    !isCrewRequested || crewRequest === undefined || (crewSettings !== undefined && refusal === undefined && promptBytes(crewValues.firstPrompt) <= firstPromptMaxBytes);
   const check = checkShipName(name, { activeNames: activeShips.map((ship) => ship.name) });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
-  const isTypeValid = shipHandleSchema.safeParse(trimmedType).success;
+  const isTypeValid = isShipHandle(trimmedType);
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const types = [...new Set(activeShips.map((ship) => ship.type))].sort();
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady;
@@ -132,7 +136,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
         <div className="flex items-baseline justify-between">
           <Label htmlFor={nameId}>Name</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {name.length} / {SHIP_HANDLE_MAX_LENGTH}
+            {name.length} / {shipHandleMaxLength}
           </span>
         </div>
         <div className="relative">
@@ -185,7 +189,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
         />
         <p id={typeHintId} className={classNames('text-meta', isTypeProblem ? 'text-destructive-text' : 'text-muted-foreground')}>
           {isTypeProblem
-            ? `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits, hyphens or colons.`
+            ? `Use 1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.`
             : typeHint(type, activeShips.filter((ship) => ship.type === trimmedType).length)}
         </p>
       </div>
@@ -203,7 +207,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1.5 text-body font-medium text-foreground">Fleet access</legend>
-        {FLEET_SCOPES.map((scope) => (
+        {constants.fleetScopes.map((scope) => (
           <label key={scope} className="flex items-center justify-between gap-3 text-body text-foreground">
             <span>
               {FLEET_SCOPE_WORDS[scope]} <span className="font-mono text-id text-muted-foreground">{scope}</span>
@@ -233,6 +237,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
           <CrewSettingsFields
             offers={crewRequest.offers}
             values={crewValues}
+            firstPromptMaxBytes={firstPromptMaxBytes}
             onChange={(next) => {
               setCrewValues(next);
               crewRequest.onSettingsChange(settingsOf(next));

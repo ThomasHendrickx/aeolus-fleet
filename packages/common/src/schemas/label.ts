@@ -10,11 +10,7 @@ import { idSchema } from '../ids/index.js';
  * it.
  */
 
-/** The most characters a label's key or one of its values may have. */
-export const LABEL_HANDLE_MAX_LENGTH = 63;
-
-/** A label's key or value: lowercase letters, digits and hyphens, at least one. */
-export const LABEL_HANDLE_PATTERN = /^[a-z0-9-]+$/;
+export { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN } from '../rules/label-handle.js';
 
 /** The most values one label may define. */
 export const LABEL_VALUES_MAX = 50;

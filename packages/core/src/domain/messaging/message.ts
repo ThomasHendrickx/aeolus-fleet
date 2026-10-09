@@ -54,7 +54,7 @@ export interface Delivery {
   attempts: number;
   /**
    * For a type, under network rules: the ships of the type its sender may
-   * reach, fixed at send time; only they may claim it (decision 0033).
+   * reach, fixed at send time; only they may claim it (decision 0034).
    * Absent, any ship of the type may. Written at send; a claim's query reads
    * it, so a delivery read back for a change may leave it out.
    */

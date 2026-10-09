@@ -4,7 +4,7 @@ import { idSchema } from '../ids/index.js';
 import { carriedLabelSchema } from './label.js';
 
 /**
- * Network rules (decision 0033): which ships may send to which. A rule says
+ * Network rules (decision 0034): which ships may send to which. A rule says
  * that the ships matching one label selector may send to the ships matching
  * another; a selector is a set of label value ids, matched as label selection
  * is (every one of them, an empty one every ship). Allow-only. The limits are

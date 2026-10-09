@@ -1,4 +1,4 @@
-import { createIdGenerator, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator, type CrewSettings, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { capacityLine, harnessOptions, machineLiveness, silentCount, spotsOf, withWorkspaces } from './machines';
@@ -67,7 +67,7 @@ describe('withWorkspaces', () => {
   it('names each spot’s workspace from its crew request’s settings: a repository or a folder', () => {
     const builder = spot('builder');
     const writer = spot('docs-writer');
-    const settings = new Map<string, unknown>([
+    const settings = new Map<string, CrewSettings | null>([
       [builder.shipId, { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: {} }],
       [writer.shipId, { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} }],
     ]);
@@ -82,7 +82,7 @@ describe('withWorkspaces', () => {
     const unread = spot('scout-1');
     const plain = spot('plain');
 
-    expect(withWorkspaces([unread, plain], new Map([[plain.shipId, {}]])).map((each) => each.workspace)).toEqual([undefined, undefined]);
+    expect(withWorkspaces([unread, plain], new Map([[plain.shipId, null]])).map((each) => each.workspace)).toEqual([undefined, undefined]);
   });
 });
 

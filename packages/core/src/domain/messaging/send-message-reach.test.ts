@@ -13,7 +13,7 @@ import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
 import type { MessageToSend } from './send-message.js';
 
 /**
- * The fleet's network rules on every send (decision 0033): planner (trust
+ * The fleet's network rules on every send (decision 0034): planner (trust
  * shared, team a), scout (trust shared, team b) and vault (trust sensitive),
  * labelled by the labeller, which owns both labels.
  */

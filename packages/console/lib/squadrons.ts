@@ -1,51 +1,21 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext } from 'react';
-import { z } from 'zod';
 
-/** Squadrons' connection as the Settings page shows it: none when the console has no squadrons. */
-const settingsSchema = z.union([
-  z.object({ configured: z.literal(false) }),
-  z.object({
-    configured: z.literal(true),
-    connection: z.object({
-      isEnabled: z.boolean(),
-      state: z.enum(['not-connected', 'connected']),
-      ship: z.object({ shipId: z.string(), name: z.string() }).nullable(),
-      lastShipId: z.string().nullable(),
-    }),
-  }),
-]);
-
-export type SquadronsSettings = z.infer<typeof settingsSchema>;
+import { dataOf } from './plugin-answer';
+import type { ShownConnection } from './shown-connection';
+import { connectSquadrons, readSquadronsConnection } from './squadrons-actions';
 
 const QUERY_KEY = ['squadrons', 'connection'];
-const PATH = '/squadrons/connection';
-
-async function answered(response: Response): Promise<SquadronsSettings> {
-  const body: unknown = await response.json();
-  if (!response.ok) {
-    throw new Error(z.object({ message: z.string() }).safeParse(body).data?.message ?? 'Try again in a moment');
-  }
-  return settingsSchema.parse(body);
-}
 
 /**
- * Whether this console has squadrons (AEOLUS_SQUADRONS_URL set), as the web
- * app's server read it for this page: known before any call, so a console
- * without squadrons never makes one.
+ * squadrons' connection as the browser may know it, read by the web app's
+ * server: `none` without squadrons or while it is off for this fleet.
  */
-export const SquadronsConfiguredContext = createContext(false);
-
-/** Whether squadrons is set up for this console and connected. Without squadrons it asks nothing: the answer is known. */
 export function useSquadronsSettings() {
-  const isConfigured = useContext(SquadronsConfiguredContext);
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: async () => answered(await fetch(PATH, { cache: 'no-store' })),
-    enabled: isConfigured,
-    initialData: isConfigured ? undefined : { configured: false },
+    queryFn: async () => dataOf(await readSquadronsConnection()),
   });
 }
 
@@ -53,36 +23,36 @@ export function useSquadronsSettings() {
 export function useConnectSquadrons() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => answered(await fetch(PATH, { method: 'POST' })),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(QUERY_KEY, settings);
+    mutationFn: async () => dataOf(await connectSquadrons()),
+    onSuccess: (connection) => {
+      queryClient.setQueryData(QUERY_KEY, connection);
     },
   });
 }
 
 /**
- * Whether this console shows squadrons: AEOLUS_SQUADRONS_URL is set and
- * squadrons is on for this fleet. Until squadrons answers, it shows nothing of
- * it, so an operator whose fleet has it off never sees it come and go.
+ * Whether this console shows squadrons: it has squadrons and squadrons is on
+ * for this fleet. Until the web app's server answers, it shows nothing of it,
+ * so an operator whose fleet has it off never sees it come and go.
  */
 export function useHasSquadrons(): boolean {
   const settings = useSquadronsSettings();
-  return settings.data?.configured === true && settings.data.connection.isEnabled;
+  return settings.data !== undefined && settings.data.state !== 'none';
 }
 
 /**
- * Where squadrons stands for this console: none without AEOLUS_SQUADRONS_URL
- * or while it is off for this fleet; unknown until its connection is read; not connected; connected. Not
- * configured and not connected are normal states: the console is then a
- * console without squadrons, and only a connected squadrons is asked for
- * squadron data. A connection that cannot be read counts as not connected.
+ * Where squadrons stands for this console: none without squadrons or while
+ * it is off for this fleet; unknown until its connection is read; not
+ * connected; connected. Not connected is a normal state: only a connected
+ * squadrons is asked for squadron data. A connection that cannot be read
+ * counts as not connected.
  */
-export type SquadronsConnection = 'none' | 'unknown' | 'not-connected' | 'connected';
+export type SquadronsConnection = 'unknown' | ShownConnection['state'];
 
 export function useSquadronsConnection(): SquadronsConnection {
   const settings = useSquadronsSettings();
   if (settings.data === undefined) {
     return settings.isError ? 'not-connected' : 'unknown';
   }
-  return settings.data.configured && settings.data.connection.isEnabled ? settings.data.connection.state : 'none';
+  return settings.data.state;
 }

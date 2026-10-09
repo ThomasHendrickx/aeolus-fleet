@@ -1,4 +1,4 @@
-# 0033 Network rules: who may send to whom
+# 0034 Network rules: who may send to whom
 
 - Core defines the rule format: a network rule says that the ships matching one label selector may send to the ships matching another. A label selector is a set of label value ids (0031); a ship matches when it carries every one of them, an empty selector matches every ship, an unknown id matches none. Rules select by labels only, never by a ship's type. Allow-only: no deny rules, no precedence. A fleet holds at most 200 rules (`NETWORK_RULES_MAX`), and a selector at most 20 value ids (`SHIP_LABELS_MAX`, as a ship carries no more), each once.
 - A fleet's network settings are its rules, or none, with a version. A fleet that never set rules has none at version 0. Setting replaces the whole list and moves the version, writing NetworkRulesSet with the version and the number of rules (null for none). An empty list allows only the fixed exceptions; none is all-to-all, today's default.

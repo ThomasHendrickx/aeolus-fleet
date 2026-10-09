@@ -107,7 +107,7 @@ export interface InMemoryState {
   labels: Label[];
   /** The label values each ship carries: a set of value ids per ship. */
   shipLabels: ShipLabel[];
-  /** Each fleet's network settings, once it set rules (decision 0033). */
+  /** Each fleet's network settings, once it set rules (decision 0034). */
   networkSettings: NetworkSettings[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];

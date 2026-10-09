@@ -176,7 +176,7 @@ export interface ClearRequestRepository {
 }
 
 /**
- * Outbound port: the fleet's network settings, one per fleet (decision 0033).
+ * Outbound port: the fleet's network settings, one per fleet (decision 0034).
  * A send holds them shared and a set holds them exclusively, so every send is
  * checked against exactly one version.
  */
@@ -188,7 +188,7 @@ export interface NetworkSettingsRepository {
   save(settings: NetworkSettings): Promise<void>;
 }
 
-/** Outbound port: the records of the sends the fleet's network rules refused (decision 0033). */
+/** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
 export interface ReachRefusalRepository {
   record(refusal: ReachRefusal): Promise<void>;
   /** The fleet's latest refusals, newest first, at most `limit`. Read outside a unit of work. */

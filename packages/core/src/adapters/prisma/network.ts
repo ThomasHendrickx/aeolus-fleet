@@ -1,6 +1,6 @@
 /**
  * The fleet's network settings and the records of the sends they refused, on
- * Postgres (decision 0033). A send and a change of rules take turns on a
+ * Postgres (decision 0034). A send and a change of rules take turns on a
  * transaction-level advisory lock on the fleet's settings: a send holds it
  * shared, a set exclusively. An advisory lock, not a row lock: Postgres
  * queues a shared request behind an exclusive one that waits, so a stream of

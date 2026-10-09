@@ -49,8 +49,17 @@ describe("reading a ship's timeline", () => {
         sender: { id: scene.scout.shipId, name: 'scout' },
         recipient: { kind: 'ship', ship: { id: scene.planner.shipId, name: 'planner' } },
         contentType: 'text/plain',
+        isPing: false,
       },
     });
+  });
+
+  it('tells a ping by its message', async () => {
+    const { messageId } = unwrap(await scene.messaging.pingShip(scene.argo, { shipId: scene.scout.shipId }));
+
+    const [pinged] = await timelineOf(scene.scout.shipId);
+
+    expect(pinged?.message).toMatchObject({ id: messageId, isPing: true });
   });
 
   it('shows a message to a type on the page of the ship that sent it', async () => {

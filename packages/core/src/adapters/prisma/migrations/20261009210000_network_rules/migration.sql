@@ -1,5 +1,5 @@
 -- The fleet's network settings and the records of the sends they refused
--- (decision 0033).
+-- (decision 0034).
 -- CreateTable
 CREATE TABLE "network_settings" (
     "fleet_id" TEXT NOT NULL,

@@ -1,4 +1,5 @@
-import { SQUADRON_STATES, type Squadron, type SquadronState } from './squadrons-api';
+import { SQUADRON_STATES, type SquadronState } from './squadron-states';
+import type { Squadron } from './squadrons-schemas';
 
 /**
  * The Squadrons list's search and filters (docs/design/png/SquadronTable.png):

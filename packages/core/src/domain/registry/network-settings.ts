@@ -1,5 +1,5 @@
 /**
- * The fleet's network settings (decision 0033): which ships may send to
+ * The fleet's network settings (decision 0034): which ships may send to
  * which. A rule says that the ships matching one label selector may send to
  * the ships matching another; allow-only, no deny rules, no precedence. A
  * fleet holds its rules, or none (all-to-all), with a version that moves on
@@ -47,7 +47,7 @@ export function setNetworkRules(
   if (rules !== null) {
     const invalid = invalidRules(rules);
     if (invalid !== undefined) {
-      return refuse('INVALID_NETWORK_RULES', `${invalid} (decision 0033)`);
+      return refuse('INVALID_NETWORK_RULES', `${invalid} (decision 0034)`);
     }
   }
   const settings: NetworkSettings = { fleetId: current.fleetId, rules: rules?.map(copyOfRule) ?? null, version: current.version + 1 };

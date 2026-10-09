@@ -86,7 +86,7 @@ describe('setting the network rules', () => {
 
     const refused = await setNetworkRules(setter, { rules });
 
-    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A fleet holds at most 200 network rules (decision 0033)' });
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A fleet holds at most 200 network rules (decision 0034)' });
     expect(core.state.networkSettings).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
@@ -98,7 +98,7 @@ describe('setting the network rules', () => {
   it('refuses a selector of one label value more, naming the limit and its decision', async () => {
     const refused = await setNetworkRules(setter, { rules: [aRule(1, SHIP_LABELS_MAX + 1)] });
 
-    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A selector holds at most 20 label values, as a ship carries no more (decision 0033)' });
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A selector holds at most 20 label values, as a ship carries no more (decision 0034)' });
     expect(core.state.networkSettings).toEqual([]);
   });
 
@@ -107,7 +107,7 @@ describe('setting the network rules', () => {
 
     const refused = await setNetworkRules(setter, { rules: [{ from: [valueId, valueId], to: [] }] });
 
-    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A selector names each label value once: ${valueId} twice (decision 0033)` });
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A selector names each label value once: ${valueId} twice (decision 0034)` });
     expect(core.state.networkSettings).toEqual([]);
   });
 

@@ -1,10 +1,10 @@
 'use client';
 
-import { LABEL_VALUES_MAX } from '@aeolus-fleet/common';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, useId, useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import { labelTextProblem, type LabelRow } from '../../lib/labels';
 import { Button } from '../atoms/button';
@@ -38,12 +38,13 @@ function Refused({ error, title }: { error: NonNullable<LabelValuesDialogProps['
 
 /** The values with their ships and ×, then Add a value. */
 function Values({ row, busy, error, onAdd, onRemove }: Omit<LabelValuesDialogProps, 'row' | 'onOpenChange'> & { row: LabelRow }) {
+  const { labelValuesMax } = useConsoleConstants();
   const inputId = useId();
   const helpId = useId();
   const [draft, setDraft] = useState('');
   const value = draft.trim();
   const problem = labelTextProblem(value, 'Value') ?? (row.values.some((each) => each.value === value) ? `${value} is a value already.` : undefined);
-  const isFull = row.values.length >= LABEL_VALUES_MAX;
+  const isFull = row.values.length >= labelValuesMax;
   const isBusy = busy !== undefined;
   const canAdd = value !== '' && problem === undefined && !isFull && !isBusy;
 
@@ -102,7 +103,7 @@ function Values({ row, busy, error, onAdd, onRemove }: Omit<LabelValuesDialogPro
         <div className="flex items-baseline justify-between">
           <Label htmlFor={inputId}>Add a value</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {row.values.length} of {LABEL_VALUES_MAX}
+            {row.values.length} of {labelValuesMax}
           </span>
         </div>
         <div className="flex gap-2">
@@ -128,7 +129,7 @@ function Values({ row, busy, error, onAdd, onRemove }: Omit<LabelValuesDialogPro
           </Button>
         </div>
         <p id={helpId} aria-live="polite" className={classNames('text-meta', problem === undefined && !isFull ? 'sr-only' : 'text-destructive-text')}>
-          {problem ?? (isFull ? `A label has at most ${String(LABEL_VALUES_MAX)} values (decision 0031).` : '')}
+          {problem ?? (isFull ? `A label has at most ${String(labelValuesMax)} values (decision 0031).` : '')}
         </p>
         {error !== undefined && error.valueId === undefined ? <Refused error={error} title={`Couldn’t add ${error.value}`} /> : null}
       </form>
