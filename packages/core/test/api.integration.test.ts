@@ -188,6 +188,9 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_crew_status_attempt$/),
       expect.stringMatching(/^\d{14}_worktree_clear_requests$/),
       expect.stringMatching(/^\d{14}_crew_request_give_backs$/),
+      expect.stringMatching(/^\d{14}_network_scope$/),
+      expect.stringMatching(/^\d{14}_network_rules$/),
+      expect.stringMatching(/^\d{14}_type_delivery_reachable_ships$/),
     ]);
   });
 });
@@ -1509,7 +1512,7 @@ describe('/api/version', () => {
       .object({ server: z.string(), migration: z.string() })
       .parse(await response.json());
     expect(serverVersion).toMatch(/^\d+\.\d+\.\d+/);
-    expect(migration).toMatch(/^\d{14}_crew_request_give_backs$/);
+    expect(migration).toMatch(/^\d{14}_type_delivery_reachable_ships$/);
   });
 });
 
@@ -1899,13 +1902,14 @@ describe('network rules at the API', () => {
     const { version } = await asNetworker.fleet.setNetworkRules.mutate({ rules: [] });
     const senderToken = await crewedShip();
     const { shipId } = await agentShip();
+    const refusedAt = clock.now().toISOString();
     await refusalOf(
       client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
     );
 
     const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
 
-    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: clock.now().toISOString() });
+    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
     await expect(codeOf(asNetworker.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
   });

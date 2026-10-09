@@ -63,6 +63,9 @@ import {
   defineLabelOutputSchema,
   deleteLabelInputSchema,
   findLabelValueInputSchema,
+  reachRefusalsOutputSchema,
+  setNetworkRulesInputSchema,
+  setNetworkRulesOutputSchema,
   findLabelValueOutputSchema,
   fleetListInputSchema,
   labelWriteOutputSchema,
@@ -519,6 +522,35 @@ export const fleetRouter = router({
     .input(findLabelValueInputSchema)
     .output(findLabelValueOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.findLabelValue(ctx.caller, input))),
+
+  /** Sets the fleet's network rules, the whole list, or none for all-to-all (decision 0033). */
+  setNetworkRules: scopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule lets the ships carrying every label value id in from send to the ships carrying every one in to; an empty selector matches every ship.",
+        'Allow-only: with rules set, a send no rule allows is refused. argo reaches every ship and every ship reaches argo, and a ship always answers the sender of a message it received.',
+        'An empty list allows only those; rules null clears them, back to all-to-all. At most 200 rules, each selector at most 20 values, each once (decision 0033). Answers the new version.',
+      ].join(' '),
+    })
+    .input(setNetworkRulesInputSchema)
+    .output(setNetworkRulesOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setNetworkRules(ctx.caller, input))),
+
+  /** The sends the network rules refused, newest first: argo's only (decision 0033). */
+  reachRefusals: scopedProcedure('fleet:read')
+    .output(reachRefusalsOutputSchema)
+    .query(async ({ ctx }) =>
+      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, recipient, settingsVersion }) => ({
+        id,
+        at: at.toISOString(),
+        sender: { ...sender, labels: [...sender.labels] },
+        recipient:
+          recipient.kind === 'ship'
+            ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }
+            : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
+        settingsVersion,
+      })),
+    ),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: anyScopeProcedure('fleet:read', 'crew:run')

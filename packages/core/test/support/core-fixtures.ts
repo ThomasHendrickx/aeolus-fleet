@@ -36,6 +36,7 @@ import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delive
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
+import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
 import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/domain/registry/commission-ship.js';
@@ -167,6 +168,7 @@ export function registryUseCases(core: InMemoryCore) {
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     setNetworkRules: createSetNetworkRules(deps),
+    readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals }),
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),
     unassignLabel: createUnassignLabel(deps),
