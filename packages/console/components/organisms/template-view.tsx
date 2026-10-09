@@ -4,7 +4,7 @@ import { DraftingCompass, FileText, GitCommitHorizontal, Lock } from 'lucide-rea
 import Link from 'next/link';
 
 import { dayDate, dayMonth } from '../../lib/relative-time';
-import type { BlueprintVersion } from '../../lib/squadrons-api';
+import type { BlueprintVersion } from '../../lib/squadrons-schemas';
 import { blueprintPath, blueprintsUsing, checkInText, thresholdsText, type TemplateChoice } from '../../lib/squadrons-view';
 import { Badge } from '../atoms/badge';
 import { CodeBlock } from '../atoms/code-block';

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import type { Catalogue } from '../../lib/squadrons-api';
+import type { Catalogue } from '../../lib/squadrons-schemas';
 import { TemplateRepositories } from './template-repositories';
 
 const NOW = new Date('2026-10-04T12:00:00.000Z');

@@ -1,6 +1,7 @@
 import type { ReportState } from '@aeolus-fleet/common';
 
-import type { BlueprintVersion, Catalogue, MemberHealth, Squadron, TemplateVersion } from './squadrons-api';
+import type { MemberHealth } from './squadron-states';
+import type { BlueprintVersion, Catalogue, Squadron, TemplateVersion } from './squadrons-schemas';
 
 /** A ship's place in a squadron: a member with its role, or the flagship (role null). */
 export interface ShipInSquadron {

@@ -1,7 +1,7 @@
 import { crewSettingsSchema, FIRST_PROMPT_MAX_BYTES, idSchema, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
 
 import { harnessOptions, type HarnessOption } from './machines';
-import type { Machine } from './trierarch-plugin';
+import type { Machine } from './trierarch-plugin-schemas';
 
 /**
  * The Request crew form, built from what the machines offer (#245, S3): per

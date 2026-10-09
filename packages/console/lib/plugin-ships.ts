@@ -1,23 +1,21 @@
 'use client';
 
-import { useSquadronsSettings, type SquadronsSettings } from './squadrons';
-import { useTrierarchPluginSettings, type TrierarchPluginSettings } from './trierarch-plugin';
-
-/** A plugin's connection as the console reads it: the ship it is connected as, or was last. */
-type PluginSettings = SquadronsSettings | TrierarchPluginSettings;
+import type { ShownConnection } from './shown-connection';
+import { useSquadronsSettings } from './squadrons';
+import { useTrierarchPluginSettings } from './trierarch-plugin';
 
 /**
  * The ships the console's plugins run as (#368): squadrons' management ship
  * and the trierarch plugin's ship, the one each is connected as or was last.
  * A trierarch's ship, a machine, is no plugin ship.
  */
-export function pluginShipIdsOf(plugins: readonly (PluginSettings | undefined)[]): ReadonlySet<string> {
+export function pluginShipIdsOf(plugins: readonly (ShownConnection | undefined)[]): ReadonlySet<string> {
   return new Set(
     plugins.flatMap((plugin) => {
-      if (plugin?.configured !== true) {
+      if (plugin === undefined || plugin.state === 'none') {
         return [];
       }
-      const shipId = plugin.connection.ship?.shipId ?? plugin.connection.lastShipId;
+      const shipId = plugin.ship?.shipId ?? plugin.lastShipId;
       return shipId === null ? [] : [shipId];
     }),
   );

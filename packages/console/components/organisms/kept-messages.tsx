@@ -2,7 +2,7 @@ import { ChevronRight, Inbox } from 'lucide-react';
 import Link from 'next/link';
 
 import { relativeTime } from '../../lib/relative-time';
-import type { KeptMessage } from '../../lib/squadrons-api';
+import type { KeptMessage } from '../../lib/squadrons-schemas';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';

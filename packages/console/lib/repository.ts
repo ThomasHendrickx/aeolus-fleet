@@ -1,4 +1,4 @@
-import type { Catalogue, CatalogueProblem } from './squadrons-api';
+import type { Catalogue, CatalogueProblem } from './squadrons-schemas';
 
 /**
  * How the console names a template repository (#161): one on github.com as

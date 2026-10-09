@@ -9,8 +9,6 @@ import { Toaster } from '../components/atoms/toast';
 import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
-import { SquadronsConfiguredContext } from '../lib/squadrons';
-import { TrierarchPluginConfiguredContext } from '../lib/trierarch-plugin';
 import { TRPCProvider } from '../lib/trpc';
 
 /** Retrying cannot fix a missing session or a missing scope. */
@@ -58,22 +56,16 @@ function Pageviews(): null {
 }
 
 /**
- * isSquadronsConfigured: whether AEOLUS_SQUADRONS_URL is set, read on the server per request; without it the console makes no squadrons call.
- * isTrierarchPluginConfigured: whether AEOLUS_TRIERARCH_PLUGIN_URL is set, likewise; without it the console makes no trierarch plugin call.
  * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
  * isAnalyticsOn: whether AEOLUS_HOSTED_ANALYTICS_* configure an adapter (decision 0025); off, the console sends no analytics.
  */
 export function Providers({
   serverUrl,
-  isSquadronsConfigured,
-  isTrierarchPluginConfigured,
   hostedAccountUrl,
   isAnalyticsOn,
   children,
 }: {
   serverUrl: string;
-  isSquadronsConfigured: boolean;
-  isTrierarchPluginConfigured: boolean;
   hostedAccountUrl?: string;
   isAnalyticsOn: boolean;
   children: ReactNode;
@@ -84,17 +76,13 @@ export function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        <SquadronsConfiguredContext value={isSquadronsConfigured}>
-          <TrierarchPluginConfiguredContext value={isTrierarchPluginConfigured}>
-            <HostedAccountUrlContext value={hostedAccountUrl}>
-              <AnalyticsContext value={isAnalyticsOn}>
-                <Pageviews />
-                {children}
-                <Toaster />
-              </AnalyticsContext>
-            </HostedAccountUrlContext>
-          </TrierarchPluginConfiguredContext>
-        </SquadronsConfiguredContext>
+        <HostedAccountUrlContext value={hostedAccountUrl}>
+          <AnalyticsContext value={isAnalyticsOn}>
+            <Pageviews />
+            {children}
+            <Toaster />
+          </AnalyticsContext>
+        </HostedAccountUrlContext>
       </TRPCProvider>
     </QueryClientProvider>
   );

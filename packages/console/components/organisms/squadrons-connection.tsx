@@ -1,13 +1,13 @@
 import { Link2 } from 'lucide-react';
 
-import type { SquadronsSettings } from '../../lib/squadrons';
+import type { ShownConnection } from '../../lib/shown-connection';
 import { Button } from '../atoms/button';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 
 interface SquadronsConnectionProps {
   /** Squadrons as the web app's server reads it; undefined while it loads. */
-  settings: SquadronsSettings | undefined;
+  settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
   onRetry: () => void;
@@ -30,7 +30,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading squadrons" />;
   }
-  if (!settings.configured || !settings.connection.isEnabled) {
+  if (settings.state === 'none') {
     return null;
   }
   return (
@@ -38,10 +38,10 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
       <h2 id="settings-squadrons" className="text-body font-semibold">
         Squadrons
       </h2>
-      {settings.connection.state === 'connected' ? (
+      {settings.state === 'connected' ? (
         <p className="text-body" data-testid="settings-squadrons-state">
-          Connected as <span className="font-mono">{settings.connection.ship?.name}</span>{' '}
-          <span className="font-mono text-muted-foreground">({settings.connection.ship?.shipId})</span>
+          Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
+          <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
         </p>
       ) : (
         <>

@@ -2,7 +2,7 @@ import { idSchema } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { byteSize, defaultValues, offersOf, settingsOf, settingsRows, valuesOf, withHarness } from './crew-settings-form';
-import type { Machine } from './trierarch-plugin';
+import type { Machine } from './trierarch-plugin-schemas';
 
 const CLAUDE = {
   harness: 'claude-code',

@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { dayMonth } from '../../lib/relative-time';
 import { versionFileUrl } from '../../lib/repository';
-import type { Squadron } from '../../lib/squadrons-api';
+import type { Squadron } from '../../lib/squadrons-schemas';
 import { blueprintPath, rolesText, squadronsFromBlueprint, squadronsText, type BlueprintChoice } from '../../lib/squadrons-view';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';

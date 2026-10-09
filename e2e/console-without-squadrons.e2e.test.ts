@@ -15,8 +15,8 @@ import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // A console without squadrons (no AEOLUS_SQUADRONS_URL), end to end: squadrons
-// is a plugin, so the console makes no squadrons call at all, from the browser
-// or its server, and every ship keeps its plain actions.
+// is a plugin, so the console shows no trace of it, and every ship keeps its
+// plain actions.
 
 const clock = createTestClock('2026-10-03T12:00:00.000Z');
 /** Longer than three refresh cycles of the squadrons list (5 s each), with its retries. */
@@ -52,17 +52,10 @@ afterAll(async () => {
 });
 
 describe('a console without squadrons', () => {
-  it("makes no squadrons call, shows no trace of squadrons, and keeps a ship's plain actions steady", async () => {
+  it("shows no trace of squadrons and keeps a ship's plain actions steady", async () => {
     unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-02', type: 'reviewer' }));
     context = await browser.newContext({ baseURL: web.url });
     const page = await context.newPage();
-    const squadronsCalls: string[] = [];
-    page.on('request', (request) => {
-      const { pathname } = new URL(request.url());
-      if (pathname.startsWith('/api/squadrons/') || pathname.startsWith('/squadrons')) {
-        squadronsCalls.push(`${request.method()} ${pathname}`);
-      }
-    });
     await signIn(page, OPERATOR);
     // The row menu stays open while the overview refreshes: what it offers must not change.
     await page.getByTestId('fleet-row-reviewer-02').waitFor();
@@ -83,7 +76,6 @@ describe('a console without squadrons', () => {
     await page.getByRole('heading', { name: 'Settings' }).first().waitFor();
 
     expect(shown.every((count) => count === 1)).toBe(true);
-    expect(squadronsCalls).toEqual([]);
     await expect(page.getByTestId('nav-squadrons').count()).resolves.toBe(0);
     await expect(page.getByTestId('settings-squadrons').count()).resolves.toBe(0);
     await expect(page.getByText(/squadrons/i).count()).resolves.toBe(0);

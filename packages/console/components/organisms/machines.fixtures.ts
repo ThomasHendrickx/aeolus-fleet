@@ -4,7 +4,7 @@ import { offersOf } from '../../lib/crew-settings-form';
 import { labelContextOf } from '../../lib/labels';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
 import type { Spot } from '../../lib/machines';
-import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin';
+import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin-schemas';
 import { ARCH, carried, LABELS, labelledFleet, OS } from './labels.fixtures';
 import { minutesAgo, NOW } from './ship-page.fixtures';
 

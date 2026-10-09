@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { spotsOf } from '../../lib/machines';
 import { SOURCE_URL } from '../../lib/source';
-import type { Machine } from '../../lib/trierarch-plugin';
+import type { Machine } from '../../lib/trierarch-plugin-schemas';
 import { Button } from '../atoms/button';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';

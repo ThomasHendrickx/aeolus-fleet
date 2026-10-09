@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { secondsTime } from '../../lib/relative-time';
-import type { SettingsCheck } from '../../lib/trierarch-plugin';
+import type { SettingsCheck } from '../../lib/trierarch-plugin-schemas';
 import { Button } from '../atoms/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
 import { dialogSurface } from '../atoms/dialog-surface';

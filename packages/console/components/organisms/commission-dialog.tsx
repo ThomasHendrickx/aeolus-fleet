@@ -7,7 +7,7 @@ import { useId, useState } from 'react';
 import { classNames } from '../../lib/class-names';
 import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
-import type { SettingsCheck } from '../../lib/trierarch-plugin';
+import type { SettingsCheck } from '../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../lib/ship-name';
 import { Button } from '../atoms/button';
 import { Combobox } from '../atoms/combobox';

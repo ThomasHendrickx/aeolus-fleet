@@ -1,6 +1,6 @@
 import { crewSettingsSchema, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 
-import type { Machine } from './trierarch-plugin';
+import type { Machine } from './trierarch-plugin-schemas';
 
 /**
  * What the Trierarchs section shows of a machine (canvas TrierarchPlugin):

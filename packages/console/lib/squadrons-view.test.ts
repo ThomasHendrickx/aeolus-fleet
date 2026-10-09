@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-api';
+import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-schemas';
 import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, handoffsOf, handoffsText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount, workCounts } from './squadrons-view';
 
 const REPO = 'example.com/templates';

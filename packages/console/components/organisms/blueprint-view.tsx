@@ -3,7 +3,7 @@
 import { Lock, Plus } from 'lucide-react';
 
 import { dayDate } from '../../lib/relative-time';
-import type { Squadron, TemplateVersion } from '../../lib/squadrons-api';
+import type { Squadron, TemplateVersion } from '../../lib/squadrons-schemas';
 import { checkInText, type BlueprintChoice } from '../../lib/squadrons-view';
 import { Badge } from '../atoms/badge';
 import { Button } from '../atoms/button';

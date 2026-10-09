@@ -96,7 +96,7 @@ describe('Trierarchs in the console', () => {
     await expect(page.getByTestId('settings-trierarchs-state').textContent()).resolves.toContain('Not connected');
 
     const [answer] = await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith('/trierarch-plugin/connection') && response.request().method() === 'POST'),
+      page.waitForResponse((response) => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined),
       page.getByTestId('settings-trierarchs-connect').click(),
     ]);
 

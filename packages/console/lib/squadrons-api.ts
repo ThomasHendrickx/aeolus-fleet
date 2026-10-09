@@ -1,169 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { crewLineSchema, type CrewLine } from '@aeolus-fleet/common';
-import { z } from 'zod';
+import type { CrewLine } from '@aeolus-fleet/common';
 
 import type { formMembersOf } from './forming-members';
 import { useAnalytics } from './analytics-client';
+import { dataOf } from './plugin-answer';
 import { useSquadronsConnection } from './squadrons';
+import {
+  addMember,
+  addRepository,
+  forceStandDown,
+  formSquadron,
+  listRepositories,
+  listSquadrons,
+  newCrewLine,
+  readBlueprintCrew,
+  readCatalogue,
+  readKeptMessages,
+  refreshCatalogue,
+  removeMember,
+  removeRepository,
+  standDown,
+} from './squadrons-actions';
+import type { FormedSquadron } from './squadrons-schemas';
 
 /**
- * The squadrons API as the console reads it, through the web app's server
- * (`/api/squadrons/<procedure>`): the catalogue, the squadrons, and forming.
- * squadrons' answers are outside data, so each is parsed here.
+ * The squadrons API as the browser reads it: the catalogue, the squadrons,
+ * and forming, each through a server function (lib/squadrons-actions.ts) that
+ * calls squadrons and parses its answer on the web app's server.
  */
-
-export const SQUADRON_STATES = ['forming', 'sailing', 'standing-down', 'disbanded'] as const;
-export type SquadronState = (typeof SQUADRON_STATES)[number];
-
-/** A member's health (docs/squadrons.md): not on station until it is, then on time, late or silent by its last report. */
-export const MEMBER_HEALTHS = ['not-on-station', 'on-time', 'late', 'silent', 'standing-down'] as const;
-export type MemberHealth = (typeof MEMBER_HEALTHS)[number];
-
-const templateReferenceSchema = z.object({
-  repository: z.string(),
-  name: z.string(),
-  version: z.number(),
-});
-
-export const catalogueSchema = z.object({
-  templates: z.array(
-    z.object({
-      repository: z.string(),
-      name: z.string(),
-      version: z.number(),
-      commit: z.string(),
-      committedAt: z.string(),
-      description: z.string(),
-      checkInMinutes: z.number(),
-      model: z.string().nullable(),
-      launchNote: z.string().nullable(),
-      charter: z.string(),
-      handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
-      /** Its path within its repository at its commit. */
-      file: z.string(),
-    }),
-  ),
-  blueprints: z.array(
-    z.object({
-      repository: z.string(),
-      name: z.string(),
-      version: z.number(),
-      commit: z.string(),
-      committedAt: z.string(),
-      description: z.string(),
-      roles: z.array(
-        z.object({
-          name: z.string(),
-          template: templateReferenceSchema,
-          count: z.number(),
-        }),
-      ),
-      handoffs: z.array(z.object({ role: z.string(), handoff: z.string(), to: z.string() })),
-      memberNames: z.enum(['plain', 'prefixed']),
-      /** Its path within its repository at its commit. */
-      file: z.string(),
-    }),
-  ),
-  /** Every version left out, and every version tag nothing was read at, with why (docs/squadrons.md, "Common mistakes"). */
-  problems: z.array(
-    z.object({
-      repository: z.string(),
-      kind: z.enum(['template', 'blueprint', 'tag']),
-      name: z.string(),
-      version: z.number(),
-      message: z.string(),
-    }),
-  ),
-});
-
-export type Catalogue = z.infer<typeof catalogueSchema>;
-export type BlueprintVersion = Catalogue['blueprints'][number];
-export type TemplateVersion = Catalogue['templates'][number];
-export type CatalogueProblem = Catalogue['problems'][number];
-
-export const squadronSchema = z.object({
-  id: z.string(),
-  state: z.enum(SQUADRON_STATES),
-  blueprint: z.object({
-    repository: z.string(),
-    name: z.string(),
-    version: z.number(),
-    commit: z.string(),
-  }),
-  flagship: z.object({ shipId: z.string(), name: z.string() }),
-  members: z.array(
-    z.object({
-      shipId: z.string(),
-      name: z.string(),
-      role: z.string(),
-      type: z.string(),
-      onStationAt: z.string().nullable(),
-      model: z.object({
-        pinned: z.string().nullable(),
-        stated: z.string().nullable(),
-        isMismatch: z.boolean(),
-      }),
-      health: z.enum(MEMBER_HEALTHS),
-      checkInMinutes: z.number(),
-      crew: z.object({ status: z.enum(['awaitingCrew', 'crewed', 'retired']), lastSeenAt: z.string().nullable(), crewedSince: z.string().nullable() }),
-    }),
-  ),
-  formedAt: z.string(),
-  sailedAt: z.string().nullable(),
-});
-
-export type Squadron = z.infer<typeof squadronSchema>;
-
-export const formedSquadronSchema = z.object({
-  squadronId: z.string(),
-  flagship: z.object({ shipId: z.string(), name: z.string() }),
-  members: z.array(
-    z.object({
-      shipId: z.string(),
-      name: z.string(),
-      role: z.string(),
-      crewLines: z.array(crewLineSchema),
-      launchNote: z.string().nullable(),
-      model: z.string().nullable(),
-    }),
-  ),
-});
-
-export type FormedSquadron = z.infer<typeof formedSquadronSchema>;
-
-export const keptMessageSchema = z.object({
-  deliveryId: z.string(),
-  messageId: z.string(),
-  senderShipId: z.string(),
-  senderName: z.string(),
-  contentType: z.string(),
-  payload: z.string(),
-  inReplyTo: z.string().nullable(),
-  receivedAt: z.string(),
-});
-
-export type KeptMessage = z.infer<typeof keptMessageSchema>;
-
-const answerSchema = z.union([z.object({ result: z.object({ data: z.unknown() }) }), z.object({ error: z.object({ message: z.string() }) })]);
-
-async function call<T>(procedure: string, request: { input?: unknown; isMutation?: boolean; answers: z.ZodType<T> }): Promise<T> {
-  const path = `/api/squadrons/${procedure}`;
-  const response = request.isMutation
-    ? await fetch(path, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(request.input ?? {}),
-      })
-    : await fetch(request.input === undefined ? path : `${path}?input=${encodeURIComponent(JSON.stringify(request.input))}`, { cache: 'no-store' });
-  const answer = answerSchema.safeParse(await response.json());
-  if (!answer.success) {
-    throw new Error('squadrons answered something the console does not understand');
-  }
-  if ('error' in answer.data) {
-    throw new Error(answer.data.error.message);
-  }
-  return request.answers.parse(answer.data.result.data);
-}
 
 const SQUADRONS_KEY = ['squadrons', 'list'];
 /** How often the lists ask again: forming members check in on their own time. */
@@ -174,7 +38,7 @@ export function useSquadrons() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: SQUADRONS_KEY,
-    queryFn: () => call('squadrons.list', { answers: z.array(squadronSchema) }),
+    queryFn: async () => dataOf(await listSquadrons()),
     refetchInterval: REFRESH_MS,
     enabled: isConnected,
   });
@@ -185,7 +49,7 @@ export function useKeptMessages(squadronId: string) {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'messages', squadronId],
-    queryFn: () => call('squadrons.messages', { input: { squadronId }, answers: z.array(keptMessageSchema) }),
+    queryFn: async () => dataOf(await readKeptMessages(squadronId)),
     refetchInterval: REFRESH_MS,
     enabled: isConnected,
   });
@@ -196,32 +60,17 @@ export function useCatalogue() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'catalogue'],
-    queryFn: () => call('catalogue.list', { answers: catalogueSchema }),
+    queryFn: async () => dataOf(await readCatalogue()),
     enabled: isConnected,
   });
 }
-
-/** A member a blueprint forms, with its crew settings merged from its files: what the forming form starts from (#343). */
-const memberDraftSchema = z.object({
-  slot: z.string(),
-  role: z.string(),
-  template: z.object({ repository: z.string(), name: z.string(), version: z.number() }),
-  crew: z.object({
-    harness: z.string().optional(),
-    workspace: z.discriminatedUnion('kind', [z.object({ kind: z.literal('worktree'), repository: z.string(), ref: z.string().optional() }), z.object({ kind: z.literal('folder'), name: z.string() })]).optional(),
-    firstPrompt: z.string().optional(),
-    options: z.record(z.string(), z.unknown()),
-    machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
-  }),
-  parameters: z.array(z.object({ name: z.string(), description: z.string(), value: z.string().nullable() })),
-});
 
 /** Each member a blueprint version forms, by slot, with its merged crew settings; asked once a version is picked. */
 export function useBlueprintCrew(blueprint: { repository: string; name: string; version: number } | undefined) {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'blueprint-crew', blueprint],
-    queryFn: () => call('catalogue.blueprintCrew', { input: { blueprint }, answers: z.array(memberDraftSchema) }),
+    queryFn: async () => (blueprint === undefined ? [] : dataOf(await readBlueprintCrew(blueprint))),
     enabled: isConnected && blueprint !== undefined,
   });
 }
@@ -234,12 +83,8 @@ export function useFormSquadron() {
   const queryClient = useQueryClient();
   const { track } = useAnalytics();
   return useMutation({
-    mutationFn: ({ blueprint, members }: { blueprint: { repository: string; name: string; version: number }; members?: ReturnType<typeof formMembersOf> }) =>
-      call('squadrons.form', {
-        input: { blueprint, ...(members === undefined ? {} : { members }) },
-        isMutation: true,
-        answers: formedSquadronSchema,
-      }),
+    mutationFn: async ({ blueprint, members }: { blueprint: { repository: string; name: string; version: number }; members?: ReturnType<typeof formMembersOf> }) =>
+      dataOf(await formSquadron({ blueprint, ...(members === undefined ? {} : { members }) })),
     onSuccess: async (formed) => {
       track({ name: 'squadron_formed', roleCount: new Set(formed.members.map((member) => member.role)).size });
       // In this browser's memory only, for the squadron page to show once; never in storage.
@@ -253,7 +98,7 @@ export function useFormSquadron() {
 export function useStandDown() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (squadronId: string) => call('squadrons.standDown', { input: { squadronId }, isMutation: true, answers: z.object({}) }),
+    mutationFn: async (squadronId: string) => dataOf(await standDown(squadronId)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
     },
@@ -264,29 +109,18 @@ export function useStandDown() {
 export function useForceStandDown() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (squadronId: string) => call('squadrons.forceStandDown', { input: { squadronId }, isMutation: true, answers: z.object({}) }),
+    mutationFn: async (squadronId: string) => dataOf(await forceStandDown(squadronId)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
     },
   });
 }
 
-export const addedMemberSchema = z.object({
-  shipId: z.string(),
-  name: z.string(),
-  role: z.string(),
-  crewLines: z.array(crewLineSchema),
-  launchNote: z.string().nullable(),
-  model: z.string().nullable(),
-});
-
-export type AddedMember = z.infer<typeof addedMemberSchema>;
-
 /** Adds one member of a role to a sailing squadron; the answer holds its crew lines and launch note, shown once. */
 export function useAddMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (member: { squadronId: string; role: string }) => call('squadrons.addMember', { input: member, isMutation: true, answers: addedMemberSchema }),
+    mutationFn: async (member: { squadronId: string; role: string }) => dataOf(await addMember(member)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
     },
@@ -297,20 +131,18 @@ export function useAddMember() {
 export function useRemoveMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (member: { squadronId: string; shipId: string }) => call('squadrons.removeMember', { input: member, isMutation: true, answers: z.strictObject({}) }),
+    mutationFn: async (member: { squadronId: string; shipId: string }) => dataOf(await removeMember(member)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
     },
   });
 }
 
-export const newCrewLineSchema = z.object({ crewLines: z.array(crewLineSchema), launchNote: z.string().nullable(), model: z.string().nullable() });
-
 /** A member's new crew lines: releases its ship if crewed; the answer, with its launch note, is shown once. */
 export function useNewCrewLine() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (member: { squadronId: string; shipId: string }) => call('squadrons.newCrewLine', { input: member, isMutation: true, answers: newCrewLineSchema }),
+    mutationFn: async (member: { squadronId: string; shipId: string }) => dataOf(await newCrewLine(member)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SQUADRONS_KEY });
     },
@@ -327,17 +159,6 @@ export function useIssuedCrewLines(squadronId: string): ReadonlyMap<string, { cr
   return new Map(members.map((member) => [member.shipId, { crewLines: member.crewLines, launchNote: member.launchNote, model: member.model }]));
 }
 
-export const repositorySchema = z.object({
-  name: z.string(),
-  url: z.string(),
-  path: z.string(),
-  hasToken: z.boolean(),
-  addedAt: z.string(),
-  lastFetch: z.object({ at: z.string(), error: z.string().nullable() }).nullable(),
-});
-
-export type TemplateRepository = z.infer<typeof repositorySchema>;
-
 const REPOSITORIES_KEY = ['squadrons', 'repositories'];
 
 /** The repositories squadrons reads templates and blueprints from, with their last fetch; asked only while squadrons is connected. */
@@ -345,7 +166,7 @@ export function useRepositories() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: REPOSITORIES_KEY,
-    queryFn: () => call('repositories.list', { answers: z.array(repositorySchema) }),
+    queryFn: async () => dataOf(await listRepositories()),
     enabled: isConnected,
   });
 }
@@ -362,8 +183,7 @@ function useRefreshRepositories() {
 export function useAddRepository() {
   const refresh = useRefreshRepositories();
   return useMutation({
-    mutationFn: (repository: { url: string; path?: string; token?: string }) =>
-      call('repositories.add', { input: repository, isMutation: true, answers: repositorySchema }),
+    mutationFn: async (repository: { url: string; path?: string; token?: string }) => dataOf(await addRepository(repository)),
     // Also after a failure: a timeout may come after squadrons stored it.
     onSettled: refresh,
   });
@@ -373,7 +193,7 @@ export function useAddRepository() {
 export function useRemoveRepository() {
   const refresh = useRefreshRepositories();
   return useMutation({
-    mutationFn: (name: string) => call('repositories.remove', { input: { name }, isMutation: true, answers: z.strictObject({}) }),
+    mutationFn: async (name: string) => dataOf(await removeRepository(name)),
     // Also after a failure: a timeout may come after squadrons removed it.
     onSettled: refresh,
   });
@@ -383,7 +203,7 @@ export function useRemoveRepository() {
 export function useRefreshCatalogue() {
   const refresh = useRefreshRepositories();
   return useMutation({
-    mutationFn: () => call('catalogue.refresh', { isMutation: true, answers: z.strictObject({}) }),
+    mutationFn: async () => dataOf(await refreshCatalogue()),
     onSuccess: refresh,
   });
 }

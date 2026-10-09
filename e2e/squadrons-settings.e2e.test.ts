@@ -43,6 +43,8 @@ let server: FastifyInstance;
 let squadrons: SquadronsApp;
 let github: FakeGithub;
 let squadronsUrl: string;
+/** Every call squadrons received, as method and path: the web app's server makes them, never the browser. */
+const squadronsReceived: string[] = [];
 let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
@@ -59,6 +61,10 @@ beforeAll(async () => {
   github = await startFakeGithub();
   squadrons = createSquadronsApp({ databaseUrl: await createSquadronsDatabase(), fleetUrl: serverUrl, githubApiUrl: github.apiUrl, logger: false });
   await squadrons.restoreConnections();
+  squadrons.server.addHook('onRequest', (request) => {
+    squadronsReceived.push(`${request.method} ${new URL(request.url, 'http://squadrons').pathname}`);
+    return Promise.resolve();
+  });
   squadronsUrl = await squadrons.server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl, squadronsUrl });
   browser = await launchChromium();
@@ -98,13 +104,7 @@ describe('Settings, Squadrons', () => {
     const context = await browser.newContext({ baseURL: web.url });
     contexts.push(context);
     const page = await context.newPage();
-    const squadronsCalls: string[] = [];
-    page.on('request', (request) => {
-      const { pathname } = new URL(request.url());
-      if (pathname.startsWith('/api/squadrons/') || pathname.startsWith('/squadrons/')) {
-        squadronsCalls.push(`${request.method()} ${pathname}`);
-      }
-    });
+    squadronsReceived.length = 0;
     await signIn(page, OPERATOR);
     // The row menu stays open while the overview refreshes: what it offers must not change.
     await page.getByTestId('fleet-row-reviewer-02').waitFor();
@@ -118,7 +118,7 @@ describe('Settings, Squadrons', () => {
     }
 
     expect(shown.every((count) => count === 1)).toBe(true);
-    expect(new Set(squadronsCalls)).toEqual(new Set(['GET /squadrons/connection']));
+    expect(new Set(squadronsReceived)).toEqual(new Set(['GET /trpc/connection.status']));
   });
 
   it('connects squadrons as a new management ship with fleet read and manage, and the browser never gets the secret', async () => {
@@ -126,7 +126,7 @@ describe('Settings, Squadrons', () => {
     await expect(page.getByTestId('settings-squadrons-state').textContent()).resolves.toContain('Not connected');
 
     const [answer] = await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith('/squadrons/connection') && response.request().method() === 'POST'),
+      page.waitForResponse((response) => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined),
       page.getByTestId('settings-squadrons-connect').click(),
     ]);
 

@@ -6,7 +6,7 @@ import { useId, useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import { asHandle, checkShipName } from '../../lib/ship-name';
-import type { JoinedMachine } from '../../lib/trierarch-plugin';
+import type { JoinedMachine } from '../../lib/trierarch-plugin-schemas';
 import { Button } from '../atoms/button';
 import { CodeBlock } from '../atoms/code-block';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';

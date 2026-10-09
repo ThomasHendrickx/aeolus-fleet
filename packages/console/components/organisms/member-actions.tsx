@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import type { Squadron } from '../../lib/squadrons-api';
+import type { Squadron } from '../../lib/squadrons-schemas';
 import { Button } from '../atoms/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../atoms/sheet';

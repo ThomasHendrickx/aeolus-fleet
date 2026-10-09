@@ -32,17 +32,16 @@ import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import {
-  type AddedMember,
   useAddMember,
   useCatalogue,
   useIssuedCrewLines,
   useForceStandDown,
   useKeptMessages,
   useRemoveMember,
-  type Squadron,
   useSquadrons,
   useStandDown,
 } from '../../../lib/squadrons-api';
+import type { AddedMember, Squadron } from '../../../lib/squadrons-schemas';
 import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../lib/squadrons-view';
 import { usePluginNav } from '../../../lib/plugin-nav';
 
