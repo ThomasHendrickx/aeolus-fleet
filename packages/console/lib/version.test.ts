@@ -1,86 +1,87 @@
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { trierarchPluginVersionOf, webVersion } from './version';
 
-const serverSays = (status: number, body: unknown) => () => Promise.resolve(Response.json(body, { status }));
 const SERVER = { server: '0.7.0', common: '0.7.0', migration: '20261001040000_lease_last_seen' };
+const SQUADRONS = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connectedFleets: 2, installation: 'enabled' };
+const TRIERARCH_PLUGIN = { trierarchPlugin: '0.19.0', migration: '20261005090000_machines', connectedFleets: 1, installation: 'open' };
+
+/** An address nothing listens on, so a call there fails. */
+const NOWHERE = 'http://127.0.0.1:9';
+
+const stopAll: (() => void)[] = [];
+afterEach(() => {
+  for (const stop of stopAll.splice(0)) {
+    stop();
+  }
+});
+
+/** A process answering its /api/version with the given status and body; it counts the calls it gets. */
+async function aProcessAnswering(status: number, body: unknown): Promise<{ url: string; calls: () => number }> {
+  let calls = 0;
+  const server = createServer((_request, response) => {
+    calls += 1;
+    response.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  stopAll.push(() => server.close());
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('the stub process listens on no port');
+  }
+  return { url: `http://127.0.0.1:${String(address.port)}`, calls: () => calls };
+}
 
 describe('webVersion', () => {
   it("answers the web app's own version, from its package", async () => {
     const own = z.object({ version: z.string() }).parse(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')));
+    const server = await aProcessAnswering(200, SERVER);
 
-    await expect(webVersion({ fetchServerVersion: serverSays(200, SERVER) })).resolves.toMatchObject({ web: own.version });
+    await expect(webVersion({ AEOLUS_SERVER_INTERNAL_URL: server.url })).resolves.toMatchObject({ web: own.version });
   });
 
-  it("passes on the server's own answer, so versions out of step show", async () => {
-    const halfway = { server: '0.6.0', common: '0.6.0', migration: '20261001020000_console_session_end_reason' };
+  it('answers only the versions the server runs, nothing else it says', async () => {
+    const server = await aProcessAnswering(200, SERVER);
 
-    await expect(webVersion({ fetchServerVersion: serverSays(200, halfway), web: '0.7.0' })).resolves.toEqual({ web: '0.7.0', server: halfway });
+    await expect(webVersion({ AEOLUS_SERVER_INTERNAL_URL: server.url }, '0.7.0')).resolves.toEqual({ web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } });
+  });
+
+  it("passes on the server's own versions, so versions out of step show", async () => {
+    const server = await aProcessAnswering(200, { server: '0.6.0', common: '0.6.0', migration: null });
+
+    await expect(webVersion({ AEOLUS_SERVER_INTERNAL_URL: server.url }, '0.7.0')).resolves.toEqual({ web: '0.7.0', server: { server: '0.6.0', common: '0.6.0' } });
   });
 
   it('answers no server when it does not answer, or answers something else', async () => {
-    await expect(webVersion({ fetchServerVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' })).resolves.toEqual({
-      web: '0.7.0',
-      server: null,
-    });
-    await expect(webVersion({ fetchServerVersion: serverSays(200, { fleets: 3 }), web: '0.7.0' })).resolves.toEqual({ web: '0.7.0', server: null });
-    await expect(webVersion({ fetchServerVersion: serverSays(502, SERVER), web: '0.7.0' })).resolves.toEqual({ web: '0.7.0', server: null });
-  });
+    const other = await aProcessAnswering(200, { fleets: 3 });
+    const failing = await aProcessAnswering(502, SERVER);
 
-  it('has no squadrons part when the console has no squadrons', async () => {
-    const answer = await webVersion({ fetchServerVersion: serverSays(200, SERVER), web: '0.7.0' });
-
-    expect(Object.keys(answer)).toEqual(['web', 'server']);
-  });
-
-  it("passes on squadrons' own answer when the console has squadrons", async () => {
-    const squadrons = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connectedFleets: 2, installation: 'enabled' };
-
-    await expect(webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchSquadronsVersion: serverSays(200, squadrons), web: '0.7.0' })).resolves.toEqual({
-      web: '0.7.0',
-      server: SERVER,
-      squadrons,
-    });
-  });
-
-  it('answers squadrons null when squadrons does not answer, and the server part still', async () => {
     await expect(
-      webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchSquadronsVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' }),
-    ).resolves.toEqual({ web: '0.7.0', server: SERVER, squadrons: null });
+      Promise.all([NOWHERE, other.url, failing.url].map((url) => webVersion({ AEOLUS_SERVER_INTERNAL_URL: url }, '0.7.0'))),
+    ).resolves.toEqual([0, 1, 2].map(() => ({ web: '0.7.0', server: null })));
   });
 
-  it("passes on the trierarch plugin's own answer when the console has it, null when it does not answer", async () => {
-    const trierarchPlugin = { trierarchPlugin: '0.19.0', migration: '20261005090000_machines', connectedFleets: 1, installation: 'open' };
+  it('says nothing about the plugins the console has, and never asks them', async () => {
+    const server = await aProcessAnswering(200, SERVER);
+    const squadrons = await aProcessAnswering(200, SQUADRONS);
+    const trierarchPlugin = await aProcessAnswering(200, TRIERARCH_PLUGIN);
 
-    await expect(webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchTrierarchPluginVersion: serverSays(200, trierarchPlugin), web: '0.7.0' })).resolves.toEqual({
-      web: '0.7.0',
-      server: SERVER,
-      trierarchPlugin,
-    });
-    await expect(
-      webVersion({ fetchServerVersion: serverSays(200, SERVER), fetchTrierarchPluginVersion: () => Promise.reject(new TypeError('fetch failed')), web: '0.7.0' }),
-    ).resolves.toEqual({ web: '0.7.0', server: SERVER, trierarchPlugin: null });
+    const answer = await webVersion({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: squadrons.url, AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url }, '0.7.0');
+
+    expect({ answer, pluginCalls: squadrons.calls() + trierarchPlugin.calls() }).toEqual({ answer: { web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } }, pluginCalls: 0 });
   });
 });
 
 describe('trierarchPluginVersionOf', () => {
-  const PLUGIN = { trierarchPlugin: '0.20.0', migration: null, connectedFleets: 1, installation: 'enabled' };
-
-  it('reads the version the trierarch plugin answers', () => {
-    expect(trierarchPluginVersionOf({ web: '0.20.0', server: SERVER, trierarchPlugin: PLUGIN })).toBe('0.20.0');
-  });
-
-  it('is undefined when the plugin does not answer or the console has none', () => {
-    expect([trierarchPluginVersionOf({ web: '0.20.0', server: SERVER, trierarchPlugin: null }), trierarchPluginVersionOf({ web: '0.20.0', server: SERVER })]).toEqual([
-      undefined,
-      undefined,
-    ]);
+  it("reads the version from the trierarch plugin's own answer", () => {
+    expect(trierarchPluginVersionOf(TRIERARCH_PLUGIN)).toBe('0.19.0');
   });
 
   it('is undefined for an answer that is something else', () => {
-    expect(trierarchPluginVersionOf('Bad gateway')).toBeUndefined();
+    expect([trierarchPluginVersionOf('Bad gateway'), trierarchPluginVersionOf(null)]).toEqual([undefined, undefined]);
   });
 });
