@@ -44,9 +44,11 @@ import type {
   ClearRequestRepository,
   CrewRequestRepository,
   LabelRepository,
+  NetworkSettingsRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
+import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
@@ -103,6 +105,8 @@ export interface InMemoryState {
   labels: Label[];
   /** The label values each ship carries: a set of value ids per ship. */
   shipLabels: ShipLabel[];
+  /** Each fleet's network settings, once it set rules (decision 0033). */
+  networkSettings: NetworkSettings[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
@@ -123,6 +127,7 @@ export interface InMemoryTx {
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
+  networkSettings: NetworkSettingsRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -220,6 +225,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     clearRequests: [],
     labels: [],
     shipLabels: [],
+    networkSettings: [],
     events: [],
     installationRequests: [],
     installationSettings: [],
@@ -252,6 +258,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     hash: (password) => Promise.resolve(`argon2id(${password})`),
     verify: (password, passwordHash) => Promise.resolve(passwordHash === `argon2id(${password})`),
   };
+
+  const networkSettingsOf = (fleetId: FleetId): NetworkSettings =>
+    structuredClone(state.networkSettings.find((held) => held.fleetId === fleetId) ?? noNetworkSettings(fleetId));
 
   const copyOfLabel = (label: Label): Label => ({ ...label, values: label.values.map((value) => ({ ...value })) });
   const labelWhere = (matches: (label: Label) => boolean): Label | undefined => {
@@ -432,6 +441,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .sort((first, second) => first.requestedAt.getTime() - second.requestedAt.getTime())
             .map((held) => ({ ...held })),
         ),
+    },
+    networkSettings: {
+      // One unit of work runs at a time: nothing to hold.
+      findForShare: (fleetId) => Promise.resolve(networkSettingsOf(fleetId)),
+      findForUpdate: (fleetId) => Promise.resolve(networkSettingsOf(fleetId)),
+      save: (settings) => {
+        const copy = structuredClone(settings);
+        const index = state.networkSettings.findIndex((held) => held.fleetId === settings.fleetId);
+        state.networkSettings.splice(index === -1 ? state.networkSettings.length : index, index === -1 ? 0 : 1, copy);
+        return Promise.resolve();
+      },
     },
     labels: {
       // One test runs one unit of work at a time: nothing to wait for.
@@ -1373,6 +1393,7 @@ const FLEET_TABLES = [
   'clearRequests',
   'labels',
   'shipLabels',
+  'networkSettings',
   'events',
   'notices',
   'noticeDismissals',
@@ -1397,6 +1418,7 @@ const TABLES = [
   'clearRequests',
   'labels',
   'shipLabels',
+  'networkSettings',
   'events',
   'installationRequests',
   'installationSettings',

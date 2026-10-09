@@ -93,6 +93,7 @@ export const EVENT_TYPES = [
   'WorktreeClearRequested',
   'WorktreeCleared',
   'WorktreeClearRemoved',
+  'NetworkRulesSet',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

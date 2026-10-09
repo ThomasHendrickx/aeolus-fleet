@@ -185,6 +185,7 @@ describe('initialise fleet', () => {
       clearRequests: [],
       labels: [],
       shipLabels: [],
+      networkSettings: [],
       events: [],
       installationRequests: [],
       installationSettings: [],

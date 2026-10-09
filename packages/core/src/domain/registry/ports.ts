@@ -8,6 +8,7 @@ import type { InstallationRequest } from './installation-request.js';
 import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
+import type { NetworkSettings } from './network-settings.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 
@@ -169,6 +170,19 @@ export interface ClearRequestRepository {
   list(fleetId: FleetId): Promise<ClearRequest[]>;
   /** One trierarch's, oldest first. */
   listFor(fleetId: FleetId, trierarchShipId: ShipId): Promise<ClearRequest[]>;
+}
+
+/**
+ * Outbound port: the fleet's network settings, one per fleet (decision 0033).
+ * A send holds them shared and a set holds them exclusively, so every send is
+ * checked against exactly one version.
+ */
+export interface NetworkSettingsRepository {
+  /** The fleet's settings, held shared until the unit of work ends; none at version 0 when it never set rules. */
+  findForShare(fleetId: FleetId): Promise<NetworkSettings>;
+  /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
+  findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
+  save(settings: NetworkSettings): Promise<void>;
 }
 
 /**

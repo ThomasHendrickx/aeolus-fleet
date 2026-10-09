@@ -103,10 +103,7 @@ describe('setting the network rules', () => {
   });
 
   it('refuses a selector that names a label value twice', async () => {
-    const [valueId] = valueIds(1);
-    if (!valueId) {
-      throw new Error('no value id');
-    }
+    const valueId = core.ids('labelValue');
 
     const refused = await setNetworkRules(setter, { rules: [{ from: [valueId, valueId], to: [] }] });
 
