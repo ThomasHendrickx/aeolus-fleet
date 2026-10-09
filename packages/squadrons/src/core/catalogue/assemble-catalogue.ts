@@ -38,6 +38,10 @@ const model = z
   .string(expecting('an exact model id such as claude-opus-5-5'))
   .regex(/^[a-z0-9][a-z0-9.-]*$/, 'must be an exact model id: lowercase letters, digits, dots and hyphens')
   .refine((id) => /\d/.test(id) && !id.endsWith('-latest'), 'must be an exact model id, not an alias');
+/** Why a model anywhere but `crew.model` is refused: that is the one place for it. */
+const MODEL_ELSEWHERE = 'must not be set: give the model in crew.model, the one place for it';
+/** A field a file must not set, as a model outside `crew.model`. */
+const modelElsewhere = z.never({ error: () => MODEL_ELSEWHERE }).optional();
 
 const MACHINE_LABEL = 'key=value: a label key and one of its values, each lowercase letters, digits and hyphens';
 /** A machine label as a file writes it, `key=value`: names, not ids, so a file works in any fleet (#343, Q3). */
@@ -51,20 +55,22 @@ const machineLabel = z
   });
 
 /**
- * A crew block (#343): common's crew settings, each optional, machine labels
- * as names. The model is never an option here: `model` is the one place for
- * it, written as `options.model` when a request is made.
+ * A crew block (#343, #387): common's crew settings, each optional, machine
+ * labels as names, and the model beside them. The model is never an option
+ * here: `crew.model` is the one place for it, written as `options.model` when
+ * a request is made.
  */
 const crewSchema = z.object(
   {
     harness: crewSettingsSchema.shape.harness.optional(),
+    model: model.optional(),
     workspace: trierarchWorkspaceSchema.optional(),
     firstPrompt: crewSettingsSchema.shape.firstPrompt,
     options: z
       .record(z.string(), z.json(), expecting('a mapping of option names, each to its value'))
       .superRefine((options, context) => {
         if ('model' in options) {
-          context.addIssue({ code: 'custom', path: ['model'], message: 'must not be set: give the model in model, the one place for it' });
+          context.addIssue({ code: 'custom', path: ['model'], message: MODEL_ELSEWHERE });
         }
       })
       .optional(),
@@ -73,7 +79,7 @@ const crewSchema = z.object(
   expecting('a mapping of crew settings'),
 );
 
-/** A crew block as the catalogue holds it: the fields it gives, none left as undefined. */
+/** A crew block as the catalogue holds it: the fields it gives, none left as undefined; its model is held apart, as the pinned model. */
 function crewOf(crew: z.infer<typeof crewSchema> | undefined): CrewDraft {
   const draft: CrewDraft = {};
   if (crew?.harness !== undefined) {
@@ -105,7 +111,7 @@ function undeclared(text: string | undefined, declared: ReadonlySet<string>): st
 const templateSchema = z.object({
   description: text('one line of text'),
   checkIn,
-  model: model.optional(),
+  model: modelElsewhere,
   launchNote: z.string(expecting('text')).optional(),
   charter: text("the role's instructions as text").refine((charter) => new TextEncoder().encode(charter).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
   handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
@@ -133,7 +139,7 @@ const blueprintSchema = z.object({
       {
         template: templateReference,
         count: z.int(expecting(COUNT)).min(1, `must be ${COUNT}`).max(COUNT_MAX, `must be ${COUNT}`).optional(),
-        model: model.optional(),
+        model: modelElsewhere,
         crew: crewSchema.optional(),
         parameters: handleRecord(text('the value for the parameter'), "a mapping of the template's parameter names, each to its value").optional(),
       },
@@ -161,7 +167,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
   if (!parsed.success) {
     return err(firstIssue('template', parsed.error));
   }
-  const { description, checkIn: checkInMinutes, model: pinned, launchNote, charter, handoffs, parameters, crew } = parsed.data;
+  const { description, checkIn: checkInMinutes, launchNote, charter, handoffs, parameters, crew } = parsed.data;
   const declared = new Set(Object.keys(parameters ?? {}));
   for (const [field, used] of [
     ['charter', charter],
@@ -182,7 +188,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
     committedAt,
     description,
     checkInMinutes,
-    model: pinned ?? null,
+    model: crew?.model ?? null,
     launchNote: launchNote ?? null,
     charter,
     handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
@@ -239,11 +245,11 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
     return err(firstIssue('blueprint', parsed.error));
   }
   const { name: named, description, memberNames } = parsed.data;
-  const roles = Object.entries(parsed.data.roles).map(([role, { template, count, model: pinned, crew, parameters }]) => ({
+  const roles = Object.entries(parsed.data.roles).map(([role, { template, count, crew, parameters }]) => ({
     name: role,
     template,
     count: count ?? 1,
-    model: pinned ?? null,
+    model: crew?.model ?? null,
     crew: crewOf(crew),
     parameters: parameters ?? {},
   }));
