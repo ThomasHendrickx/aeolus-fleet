@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../lib/console-constants';
 import { offersOf } from '../../lib/crew-settings-form';
 import { useLabelContext } from '../../lib/fleet';
@@ -11,7 +12,9 @@ import { useBlueprintCrew, useFormSquadron } from '../../lib/squadrons-api';
 import type { TemplateVersion } from '../../lib/squadrons-schemas';
 import type { BlueprintChoice } from '../../lib/squadrons-view';
 import { useHasTrierarchPlugin, useMachines } from '../../lib/trierarch-plugin';
-import { FormSquadronDialog } from './form-squadron-dialog';
+
+// Dialogs load when first opened, not with the page.
+const FormSquadronDialog = lazyDialog(() => import('./form-squadron-dialog').then((module) => module.FormSquadronDialog), (props) => props.isOpen);
 
 interface FormSquadronProps {
   blueprints: readonly BlueprintChoice[];

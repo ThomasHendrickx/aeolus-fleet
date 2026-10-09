@@ -4,12 +4,15 @@ import type { LabelValueId } from '@aeolus-fleet/common';
 import { ChevronDown, Plus, Tag, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
+import dynamic from 'next/dynamic';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
 import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from '../molecules/label-chip';
-import { LabelPicker } from '../molecules/label-picker';
+
+// Loads when its popover first opens, not with the page.
+const LabelPicker = dynamic(() => import('../molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface LabelFilterProps {
   groups: readonly FilterGroup[];

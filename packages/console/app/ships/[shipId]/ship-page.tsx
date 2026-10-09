@@ -9,7 +9,6 @@ import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { MessageSheet } from '../../../components/organisms/message-sheet';
 import { MessageThreads } from '../../../components/organisms/message-threads';
 import { ShipCrewRequest } from '../../../components/organisms/ship-crew-request';
 import { ShipSquadron } from '../../../components/organisms/ship-squadron';
@@ -18,6 +17,7 @@ import { ShipHeader } from '../../../components/organisms/ship-header';
 import { ShipPageLabels } from '../../../components/organisms/ship-page-labels';
 import { ShipTimeline } from '../../../components/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { trpcErrorCode } from '../../../lib/errors';
 import { useOpenInboxCount } from '../../../lib/inbox';
@@ -32,6 +32,9 @@ import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
 import { usePluginNav } from '../../../lib/plugin-nav';
 import { SHIP_TABS, type ShipTab } from '../../../lib/ship-tab';
+
+// Dialogs load when first opened, not with the page.
+const MessageSheet = lazyDialog(() => import('../../../components/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
 
 
 /** The ship page's view in the URL: its tab and the open message. */

@@ -3,13 +3,16 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { allowedPaletteItems, paletteItemsOf } from '../../lib/command-palette';
 import { useFleetSnapshot } from '../../lib/fleet';
 import { useHasSquadrons } from '../../lib/squadrons';
 import { useCatalogue, useSquadrons } from '../../lib/squadrons-api';
 import { blueprintChoices } from '../../lib/squadrons-view';
-import { CommandPalette } from './command-palette';
+
+// Loads when first opened, not with the page.
+const CommandPalette = lazyDialog(() => import('./command-palette').then((module) => module.CommandPalette), (props) => props.isOpen);
 
 interface ConsoleCommandsProps {
   isOpen: boolean;

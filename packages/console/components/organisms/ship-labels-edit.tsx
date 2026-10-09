@@ -4,6 +4,7 @@ import type { LabelValueId } from '@aeolus-fleet/common';
 import { Check, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 
 import { classNames } from '../../lib/class-names';
 import type { AssignKey, LabelChip as LabelChipData } from '../../lib/labels';
@@ -11,7 +12,9 @@ import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { InlineError } from '../molecules/inline-error';
 import { LabelChip } from '../molecules/label-chip';
-import { LabelPicker } from '../molecules/label-picker';
+
+// Loads when its popover first opens, not with the page.
+const LabelPicker = dynamic(() => import('../molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface ShipLabelsEditProps {
   /** The ship's labels as chips, yours first. */

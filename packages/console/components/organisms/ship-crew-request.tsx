@@ -3,6 +3,7 @@
 import type { ShipDetail, TimelineEntry } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../lib/crew-request';
 import { settingsRows } from '../../lib/crew-settings-form';
@@ -13,10 +14,12 @@ import { machineLabelIdsOf } from '../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { useHasTrierarchPlugin } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
-import { CrewReleaseDialog } from './crew-release-dialog';
 import { CrewRequestCard, type CrewRequestBusy } from './crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
-import { StartingPromptDialog } from './starting-prompt-dialog';
+
+// Dialogs load when first opened, not with the page.
+const CrewReleaseDialog = lazyDialog(() => import('./crew-release-dialog').then((module) => module.CrewReleaseDialog), (props) => props.isOpen);
+const StartingPromptDialog = lazyDialog(() => import('./starting-prompt-dialog').then((module) => module.StartingPromptDialog), (props) => props.isOpen);
 
 /** Where a ship's session runs, as the release confirm names it. */
 function sessionLocationOf(ship: ShipDetail): string | null {

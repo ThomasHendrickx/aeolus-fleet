@@ -7,10 +7,11 @@ import { ComposeMessage } from '../../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { ClearWorktreeDialog, type WorktreeToClear } from '../../../components/organisms/clear-worktree-dialog';
+import type { WorktreeToClear } from '../../../components/organisms/clear-worktree-dialog';
 import { MachineDetail } from '../../../components/organisms/machine-detail';
 import { MachineList } from '../../../components/organisms/machine-list';
 import { DetailLayout } from '../../../components/templates/detail-layout';
+import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { useAccountMenu } from '../../../lib/account';
 import { useClearRequests, useClearWorktree } from '../../../lib/clear-requests';
@@ -26,6 +27,9 @@ import { usePluginNav } from '../../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
+
+// Dialogs load when first opened, not with the page.
+const ClearWorktreeDialog = lazyDialog(() => import('../../../components/organisms/clear-worktree-dialog').then((module) => module.ClearWorktreeDialog), (props) => props.worktree !== undefined);
 
 /** One machine of the Trierarchs section, by its trierarch's ship id; without a connected plugin, why not. */
 export default function MachinePage({ params }: { params: Promise<{ shipId: string }> }) {

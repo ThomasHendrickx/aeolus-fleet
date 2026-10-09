@@ -3,6 +3,7 @@
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../lib/crew-settings-form';
 import { useCrewSettings } from '../../lib/crew-settings';
@@ -12,7 +13,9 @@ import { useSquadronsConnection } from '../../lib/squadrons';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
-import { RequestCrewDialog } from './request-crew-dialog';
+
+// Dialogs load when first opened, not with the page.
+const RequestCrewDialog = lazyDialog(() => import('./request-crew-dialog').then((module) => module.RequestCrewDialog), (props) => props.isOpen);
 
 /** The ship asked for, and the settings its request holds, for Edit. */
 interface RequestCrewFor {

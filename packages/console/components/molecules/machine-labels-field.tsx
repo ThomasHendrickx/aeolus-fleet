@@ -4,13 +4,16 @@ import type { LabelValueId } from '@aeolus-fleet/common';
 import { CircleAlert, Clock, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
+import dynamic from 'next/dynamic';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
 import { noMatchWords, type MachineMatch } from '../../lib/machine-labels';
 import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from './label-chip';
-import { LabelPicker } from './label-picker';
+
+// Loads when its popover first opens, not with the page.
+const LabelPicker = dynamic(() => import('./label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface MachineLabelsFieldProps {
   shipName: string;

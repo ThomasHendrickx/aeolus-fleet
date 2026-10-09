@@ -8,11 +8,10 @@ import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
-import { DefineLabelDialog } from '../../components/organisms/define-label-dialog';
-import { DeleteLabelDialog } from '../../components/organisms/delete-label-dialog';
-import { LabelValuesDialog, type ValuesBusy } from '../../components/organisms/label-values-dialog';
+import type { ValuesBusy } from '../../components/organisms/label-values-dialog';
 import { LabelsTable } from '../../components/organisms/labels-table';
 import { DetailLayout } from '../../components/templates/detail-layout';
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useChangeLabelValues, useDefineLabel, useDeleteLabel, useFleetLabels, useLabelContext } from '../../lib/fleet';
@@ -23,6 +22,11 @@ import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention'
 import { useNow } from '../../lib/now';
 import { usePluginNav } from '../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../lib/session';
+
+// Dialogs load when first opened, not with the page.
+const DefineLabelDialog = lazyDialog(() => import('../../components/organisms/define-label-dialog').then((module) => module.DefineLabelDialog), (props) => props.isOpen);
+const DeleteLabelDialog = lazyDialog(() => import('../../components/organisms/delete-label-dialog').then((module) => module.DeleteLabelDialog), (props) => props.row !== undefined);
+const LabelValuesDialog = lazyDialog(() => import('../../components/organisms/label-values-dialog').then((module) => module.LabelValuesDialog), (props) => props.row !== undefined);
 
 const DESCRIPTION = 'An owned vocabulary for selecting ships: filter the fleet with them, and crew requests use them to pick a machine. Only a label’s owner assigns it.';
 

@@ -4,13 +4,16 @@ import type { ListedShip } from '@aeolus-fleet/common';
 import { Power } from 'lucide-react';
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { crewRequestStage } from '../../lib/crew-request';
 import { useRemoveCrewRequest } from '../../lib/fleet';
 import { useShip } from '../../lib/ship';
 import { Button } from '../atoms/button';
-import { CrewReleaseDialog } from './crew-release-dialog';
 import { ShipActions } from './ship-actions';
+
+// Dialogs load when first opened, not with the page.
+const CrewReleaseDialog = lazyDialog(() => import('./crew-release-dialog').then((module) => module.CrewReleaseDialog), (props) => props.isOpen);
 
 /**
  * A Needs crew row's next step (canvas CrNeedsOff, CrNeedsOn): without the

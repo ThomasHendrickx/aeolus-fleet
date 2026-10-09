@@ -15,6 +15,7 @@ import {
   useRenameShip,
   useRetireShip,
 } from '../../lib/fleet';
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess, type Access } from '../../lib/access';
 import { retiredLabelsOf, retireLabelLines } from '../../lib/labels';
 import { canPing } from '../../lib/ping';
@@ -28,12 +29,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../atoms/sheet';
 import { showToast } from '../atoms/toast';
 import { ComposeMessage } from './compose-message';
-import { ReleaseDialog } from './release-dialog';
 import { useNewCrewLineFlow } from './get-new-crew-line';
-import { RemoveMemberDialog } from './remove-member-dialog';
-import { RenameDialog } from './rename-dialog';
-import { RetireDialog } from './retire-dialog';
-import { StartingPromptDialog, type StartingPromptDialogState } from './starting-prompt-dialog';
+import type { StartingPromptDialogState } from './starting-prompt-dialog';
+
+// Dialogs load when first opened, not with the page.
+const ReleaseDialog = lazyDialog(() => import('./release-dialog').then((module) => module.ReleaseDialog), (props) => props.isOpen);
+const RemoveMemberDialog = lazyDialog(() => import('./remove-member-dialog').then((module) => module.RemoveMemberDialog), (props) => props.isOpen);
+const RenameDialog = lazyDialog(() => import('./rename-dialog').then((module) => module.RenameDialog), (props) => props.isOpen);
+const RetireDialog = lazyDialog(() => import('./retire-dialog').then((module) => module.RetireDialog), (props) => props.isOpen);
+const StartingPromptDialog = lazyDialog(() => import('./starting-prompt-dialog').then((module) => module.StartingPromptDialog), (props) => props.isOpen);
 
 type OpenDialog = 'release' | 'recrew' | 'retire' | 'rename' | 'prompt' | 'remove' | undefined;
 
