@@ -16,14 +16,14 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 
 ## Running from npm
 
-The package holds the console already built. It knows no server address until it runs:
+The package holds the console already built, as Next.js's standalone output (`.next/standalone`): the server, the browser's files and only the modules the server runs, Next.js and React among them. Installing it installs nothing else, about 35 MB instead of 300 MB and more with Next.js and its build tooling. It knows no server address until it runs:
 
 ```sh
 npm install @aeolus-fleet/console
 AEOLUS_SERVER_URL=https://fleet.example.com PORT=3000 npx aeolus-console start
 ```
 
-`aeolus-console start` serves it with `next start`, without Next.js telemetry, until `SIGINT` or `SIGTERM`.
+`aeolus-console start` runs the standalone server (`.next/standalone/packages/console/server.js`), without Next.js telemetry, until `SIGINT` or `SIGTERM`. An image can copy `.next/standalone` alone and run that `server.js` with `node`, setting `PORT` and `HOSTNAME`.
 
 ## Configuration
 

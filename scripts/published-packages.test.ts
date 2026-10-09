@@ -33,7 +33,7 @@ describe('the published package console', () => {
   /** Writes stand-ins for files next build writes into .next/standalone, so the test needs no build. */
   function withStandIns(paths: readonly string[], check: () => void): void {
     const standalone = join(repositoryRoot, 'packages', 'console', '.next', 'standalone');
-    const existed = existsSync(standalone);
+    const wasBuilt = existsSync(standalone);
     for (const path of paths) {
       mkdirSync(dirname(join(standalone, path)), { recursive: true });
       writeFileSync(join(standalone, path), '{}');
@@ -41,7 +41,7 @@ describe('the published package console', () => {
     try {
       check();
     } finally {
-      if (existed) {
+      if (wasBuilt) {
         for (const path of paths) {
           rmSync(join(standalone, path), { force: true });
         }
