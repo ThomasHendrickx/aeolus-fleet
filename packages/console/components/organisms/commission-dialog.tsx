@@ -68,6 +68,7 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
   'crew:run': 'Run crews',
   'labels:define': 'Define labels',
   'labels:assign': 'Assign labels',
+  'fleet:network': 'Set network rules',
 };
 
 /** The open dialog's fields: they start empty each time it opens. */

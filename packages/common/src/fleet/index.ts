@@ -7,7 +7,7 @@ import { z } from 'zod';
  */
 
 /** A permission of a ship, stored on the server with the ship and checked before every call. */
-export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] as const;
+export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
 
@@ -17,9 +17,10 @@ export type Scope = z.infer<typeof scopeSchema>;
  * request assignments; `crew:run` crews the ships whose requests are assigned
  * to its ship (decision 0029). `labels:define` defines labels and changes
  * their values; `labels:assign` assigns and unassigns the labels its ship owns
- * (decision 0031).
+ * (decision 0031). `fleet:network` sets the fleet's network rules (decision
+ * 0033).
  */
-export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] as const;
+export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 

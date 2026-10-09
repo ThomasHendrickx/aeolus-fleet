@@ -22,6 +22,7 @@ export const ID_PREFIXES = {
   consoleSession: 'ses',
   label: 'lbl',
   labelValue: 'lbv',
+  reachRefusal: 'rfs',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -46,6 +47,7 @@ export type OperatorId = Id<'operator'>;
 export type ConsoleSessionId = Id<'consoleSession'>;
 export type LabelId = Id<'label'>;
 export type LabelValueId = Id<'labelValue'>;
+export type ReachRefusalId = Id<'reachRefusal'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

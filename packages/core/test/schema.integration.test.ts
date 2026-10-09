@@ -250,48 +250,33 @@ describe('the event sequence migration', () => {
 
 describe('the network scope migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
-
-  const names = readdirSync(MIGRATIONS)
-    .filter((name) => /^\d{14}_/.test(name))
-    .sort();
-  const networkScope = names.findIndex((name) => name.endsWith('_network_scope'));
-
-  async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
-    for (const name of migrations) {
-      await prisma(databaseUrl, 'db', 'execute', '--file', `${MIGRATIONS}/${name}/migration.sql`);
-    }
-  }
+  const networkScope = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_scope'));
 
   it("gives every fleet's argo fleet:network, as argo holds every scope, and no agent ship", async () => {
-    expect(networkScope).toBeGreaterThan(0);
-    const url = await createEmptyDatabase();
-    await apply(url, names.slice(0, networkScope));
-    const before = createPrismaClient(url);
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
     const fleetId = newId('fleet');
     const argoId = newId('ship');
     const scoutId = newId('ship');
     const everyScopeBefore = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'];
     try {
-      // Raw: the generated client knows columns that later migrations add.
-      await before.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'old fleet', ${now})`;
-      await before.$executeRaw`
-        INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at) VALUES
-          (${argoId}, ${fleetId}, 'argo', 'operator', 'operator', ${everyScopeBefore}, ${now}),
-          (${scoutId}, ${fleetId}, 'scout', 'reviewer', 'agent', ${['messages:send', 'messages:receive', 'fleet:read']}, ${now})`;
-    } finally {
-      await before.$disconnect();
-    }
+      // An argo from before the migration: every scope but fleet:network.
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read'], createdAt: now },
+        ],
+      });
 
-    await apply(url, [names[networkScope] ?? '']);
+      await prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${networkScope ?? ''}/migration.sql`);
 
-    const after = createPrismaClient(url);
-    try {
-      await expect(after.ship.findMany({ select: { id: true, scopes: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+      await expect(client.ship.findMany({ select: { id: true, scopes: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
         { id: argoId, scopes: [...everyScopeBefore, 'fleet:network'] },
         { id: scoutId, scopes: ['messages:send', 'messages:receive', 'fleet:read'] },
       ]);
     } finally {
-      await after.$disconnect();
+      await client.$disconnect();
     }
   });
 });
