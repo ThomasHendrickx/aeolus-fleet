@@ -1,4 +1,4 @@
-import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator, type CrewSettings, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { labelContextOf } from './labels';
@@ -108,11 +108,11 @@ describe('machineLabelsInputOf', () => {
 
 describe('machineLabelIdsOf', () => {
   it('reads the machine labels a request asks for, and none from settings without them or no crew settings', () => {
-    const settings = { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} };
+    const settings: CrewSettings = { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: {} };
 
     expect(machineLabelIdsOf({ ...settings, machineLabels: [value(OS, 'linux').id] })).toEqual([value(OS, 'linux').id]);
     expect(machineLabelIdsOf(settings)).toEqual([]);
-    expect(machineLabelIdsOf({})).toEqual([]);
+    expect(machineLabelIdsOf(null)).toEqual([]);
   });
 });
 

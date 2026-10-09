@@ -18,6 +18,7 @@ import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { chipsOf } from '../../../lib/labels';
 import { useOpenInboxCount } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
+import { useCrewSettings } from '../../../lib/crew-settings';
 import { spotsOf, withWorkspaces } from '../../../lib/machines';
 import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -53,7 +54,10 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const trierarchShip = ships.find((ship) => ship.id === shipId);
   // Each ship's workspace sits in its crew request's settings, which only its page read answers.
   const shipPages = useShips(spots.map((spot) => spot.shipId));
-  const settingsByShip = new Map([...shipPages].map(([id, ship]) => [id, ship.crewRequest?.settings]));
+  // Parsed on the web app's server: the fleet stores them without meaning.
+  const read = [...shipPages].flatMap(([id, ship]) => (ship.crewRequest === null ? [] : [{ id, settings: ship.crewRequest.settings }]));
+  const parsed = useCrewSettings(read.map((each) => each.settings));
+  const settingsByShip = new Map(read.map((each, index) => [each.id, parsed?.[index] ?? null]));
 
   return (
     <DetailLayout

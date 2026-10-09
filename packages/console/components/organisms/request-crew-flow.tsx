@@ -4,6 +4,7 @@ import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../lib/crew-settings-form';
+import { useCrewSettings } from '../../lib/crew-settings';
 import { useLabelContext, useRequestCrew } from '../../lib/fleet';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
 import { useSquadronsConnection } from '../../lib/squadrons';
@@ -39,8 +40,11 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const [refusedAt, setRefusedAt] = useState<Date>();
   const offers = offersOf(machines.data ?? []);
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
-  const initial = settingsOf(mode === 'edit' ? valuesOf(of?.heldSettings, offers) : defaultValues(offers));
-  const isOpen = mode !== undefined && of !== undefined;
+  // The held settings, parsed on the web app's server: Edit opens once they are read.
+  const parsedHeld = useCrewSettings(of?.heldSettings === undefined ? [] : [of.heldSettings]);
+  const held = parsedHeld?.[0] ?? null;
+  const initial = settingsOf(mode === 'edit' ? valuesOf(held, offers) : defaultValues(offers));
+  const isOpen = mode !== undefined && of !== undefined && (mode !== 'edit' || parsedHeld !== undefined);
   const settings = edited === null ? initial : edited;
   const check = useCrewSettingsCheck(isOpen && machines.data !== undefined ? settings : undefined);
 
@@ -88,7 +92,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           mode={mode ?? 'request'}
           state={machines.isError ? 'unreachable' : machines.data === undefined ? 'loading' : 'ready'}
           offers={offers}
-          heldSettings={of.heldSettings}
+          heldSettings={held}
           squadrons={squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined}
           {...(machineLabels === undefined ? {} : { machineLabels })}
           check={check.data}

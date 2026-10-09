@@ -1,4 +1,4 @@
-import { idSchema } from '@aeolus-fleet/common';
+import { idSchema, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { byteSize, defaultValues, offersOf, settingsOf, settingsRows, valuesOf, withHarness } from './crew-settings-form';
@@ -44,7 +44,7 @@ describe('offersOf', () => {
 });
 
 /** A label value id, as machine labels hold them. */
-const LINUX = 'lbv_01m3tbfspe96yf1rnr4ank9h1a';
+const LINUX: LabelValueId = 'lbv_01m3tbfspe96yf1rnr4ank9h1a';
 
 describe('the form values', () => {
   const offers = offersOf([aMachine('mc01', { details: { harnesses: [CLAUDE, { harness: 'codex', options: {}, flags: [] }], workspaces: { repositories: [], folders: ['notes'] } } })]);
@@ -73,11 +73,11 @@ describe('the form values', () => {
     expect(settingsOf({ ...defaultValues(offers), workspace: undefined })).toBeUndefined();
   });
 
-  it('fill from the settings a request holds, for Edit; anything else starts as a new form', () => {
-    const held = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX] };
+  it('fill from the settings a request holds, for Edit; settings that are none start a new form', () => {
+    const held: CrewSettings = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX] };
 
     expect(valuesOf(held, offers)).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
-    expect(valuesOf({}, offers)).toEqual(defaultValues(offers));
+    expect(valuesOf(null, offers)).toEqual(defaultValues(offers));
   });
 
   it('fill a request without a harness with the first harness offered, as a trierarch crews it with its first (#343)', () => {
@@ -101,7 +101,7 @@ describe('settingsRows', () => {
   });
 
   it('is undefined for settings made without the plugin', () => {
-    expect(settingsRows({})).toBeUndefined();
+    expect(settingsRows(null)).toBeUndefined();
   });
 
   it('words sizes in bytes, then KB', () => {

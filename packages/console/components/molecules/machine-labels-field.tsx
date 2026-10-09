@@ -1,6 +1,6 @@
 'use client';
 
-import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
+import { SHIP_LABELS_MAX, type LabelValueId } from '@aeolus-fleet/common';
 import { CircleAlert, Clock, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
@@ -21,8 +21,8 @@ interface MachineLabelsFieldProps {
   /** Which machines carry every value picked. */
   match: MachineMatch;
   isDisabled?: boolean;
-  onAdd: (valueId: string) => void;
-  onRemove: (valueId: string) => void;
+  onAdd: (valueId: LabelValueId) => void;
+  onRemove: (valueId: LabelValueId) => void;
   /** Labels a squadron file names that the fleet does not have, as `key=value`: shown as warnings, removable (#343). */
   unknown?: readonly string[];
   onRemoveUnknown?: (name: string) => void;

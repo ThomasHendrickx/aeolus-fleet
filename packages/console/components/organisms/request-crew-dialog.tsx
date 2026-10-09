@@ -24,7 +24,7 @@ interface RequestCrewDialogProps {
   state: RequestCrewDialogState;
   offers: readonly HarnessOffer[];
   /** The settings the request holds, for Edit. */
-  heldSettings?: unknown;
+  heldSettings?: CrewSettings | null;
   /** The fleet's squadrons, when squadrons is on. */
   squadrons?: readonly string[];
   /** The fleet's labels and machines, for the request's machine labels; the field waits for them. */
