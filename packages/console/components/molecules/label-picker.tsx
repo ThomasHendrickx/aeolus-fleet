@@ -12,7 +12,7 @@ interface LabelPickerProps {
   groups: readonly FilterGroup[];
   /** The values already picked: shown as picked, not offered again. */
   pickedValueIds: readonly string[];
-  onPick: (valueId: string) => void;
+  onPick: (valueId: FilterKey['values'][number]['valueId']) => void;
   size?: 'sm' | 'touch';
   /** What a value already picked says: Picked in a filter, Carried on a ship. */
   pickedWord?: string;

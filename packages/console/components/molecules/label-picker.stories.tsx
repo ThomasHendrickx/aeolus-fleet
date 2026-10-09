@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import type { FilterGroup } from '../../lib/labels';
+import type { FilterGroup, FilterKey } from '../../lib/labels';
 import { LabelPicker } from './label-picker';
 
-const values = (key: string, counts: Record<string, number>) => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));
+const values = (key: string, counts: Record<string, number>): FilterKey['values'] => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));
 
 const GROUPS: FilterGroup[] = [
   {

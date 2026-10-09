@@ -1,6 +1,6 @@
 'use client';
 
-import { idSchema, type ShipDetail } from '@aeolus-fleet/common';
+import type { ShipDetail } from '@aeolus-fleet/common';
 import { Copy, Ellipsis, KeyRound, SquarePen, SquareArrowOutUpRight, UserMinus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -53,7 +53,6 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
   const [isComposing, setIsComposing] = useState(false);
   const isRetired = member.crew.status === 'retired' || ship?.status === 'retired';
   const flow = useNewCrewLineFlow(canManage && !isRetired ? { squadronId, member, ship, template } : undefined);
-  const shipId = idSchema('ship').safeParse(member.shipId).data;
   const copyId = async () => {
     // The clipboard is missing outside a secure context, and may refuse: either way the id is shown to copy by hand.
     try {
@@ -65,7 +64,7 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
   };
   const actions: MemberAction[] = [
     { key: 'open', label: 'Open ship page', icon: SquareArrowOutUpRight, testId: 'member-open-ship', href: `/ships/${member.shipId}` },
-    ...(canSend && !isRetired && shipId ? [{ key: 'message', label: 'Message…', icon: SquarePen, testId: 'member-message', onSelect: () => { setIsComposing(true); } }] : []),
+    ...(canSend && !isRetired ? [{ key: 'message', label: 'Message…', icon: SquarePen, testId: 'member-message', onSelect: () => { setIsComposing(true); } }] : []),
     ...(canManage && !isRetired ? [{ key: 'crew-line', label: 'Get new crew line…', icon: KeyRound, testId: 'member-new-crew-line', isDisabled: !flow.isReady, onSelect: flow.start }] : []),
     { key: 'copy', label: 'Copy ship id', icon: Copy, testId: 'member-copy-id', onSelect: () => void copyId() },
   ];
@@ -139,7 +138,7 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
         </Sheet>
       </span>
       {flow.dialog}
-      {shipId && <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} toShipId={shipId} />}
+      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} toShipId={member.shipId} />
     </span>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import type { LabelValueId } from '@aeolus-fleet/common';
 import { Check, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -23,10 +24,10 @@ interface ShipLabelsEditProps {
   isBusy?: boolean;
   /** The last change refused, with what it was and the server's words; nothing changed. */
   error?: { title: string; message: string };
-  onAssign: (valueId: string) => void;
-  onUnassign: (valueId: string) => void;
+  onAssign: (valueId: LabelValueId) => void;
+  onUnassign: (valueId: LabelValueId) => void;
   /** Gives the chip's label another value in its place. */
-  onChange: (change: { from: string; to: string }) => void;
+  onChange: (change: { from: LabelValueId; to: LabelValueId }) => void;
 }
 
 /** How many chips show before the rest fold into "+n" (canvas Labels, LbShipFew). */

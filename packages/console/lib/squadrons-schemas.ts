@@ -1,4 +1,4 @@
-import { crewLineSchema } from '@aeolus-fleet/common';
+import { crewLineSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { MEMBER_HEALTHS, SQUADRON_STATES } from './squadron-states';
@@ -80,10 +80,10 @@ export const squadronSchema = z.object({
     version: z.number(),
     commit: z.string(),
   }),
-  flagship: z.object({ shipId: z.string(), name: z.string() }),
+  flagship: z.object({ shipId: idSchema('ship'), name: z.string() }),
   members: z.array(
     z.object({
-      shipId: z.string(),
+      shipId: idSchema('ship'),
       name: z.string(),
       role: z.string(),
       type: z.string(),
@@ -150,7 +150,7 @@ export const memberDraftSchema = z.object({
 });
 
 export const addedMemberSchema = z.object({
-  shipId: z.string(),
+  shipId: idSchema('ship'),
   name: z.string(),
   role: z.string(),
   crewLines: z.array(crewLineSchema),

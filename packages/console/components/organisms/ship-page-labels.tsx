@@ -1,6 +1,6 @@
 'use client';
 
-import { idSchema, type ShipDetail } from '@aeolus-fleet/common';
+import type { ShipDetail } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { useAccess } from '../../lib/access';
@@ -56,22 +56,22 @@ export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
       error={error}
       onAssign={(valueId) => {
         setError(undefined);
-        assign.mutate({ shipId: ship.id, valueId: idSchema('labelValue').parse(valueId) }, { onError: refused(`Couldn’t add ${textOf(keys, valueId)}`) });
+        assign.mutate({ shipId: ship.id, valueId }, { onError: refused(`Couldn’t add ${textOf(keys, valueId)}`) });
       }}
       onUnassign={(valueId) => {
         setError(undefined);
-        unassign.mutate({ shipId: ship.id, valueId: idSchema('labelValue').parse(valueId) }, { onError: refused(`Couldn’t remove ${textOf(keys, valueId)}`) });
+        unassign.mutate({ shipId: ship.id, valueId }, { onError: refused(`Couldn’t remove ${textOf(keys, valueId)}`) });
       }}
       onChange={({ from, to }) => {
         setError(undefined);
-        const was = idSchema('labelValue').parse(from);
+        const was = from;
         // Off first, so a ship at the limit can change a value; if the new one is refused, the old one goes back.
         unassign.mutate(
           { shipId: ship.id, valueId: was },
           {
             onSuccess: () => {
               assign.mutate(
-                { shipId: ship.id, valueId: idSchema('labelValue').parse(to) },
+                { shipId: ship.id, valueId: to },
                 {
                   onError: (failure) => {
                     assign.mutate({ shipId: ship.id, valueId: was });

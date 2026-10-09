@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ShipId } from '@aeolus-fleet/common';
+
 import type { BlueprintVersion, Squadron, TemplateVersion } from './squadrons-schemas';
 import { blueprintChoices, blueprintPath, blueprintsUsing, rolesText, squadronsText, templateChoices, thresholdsText, templatePath, checkInText, handoffsOf, handoffsText, healthCounts, memberCount, membersByRole, otherMembersOfRole, roleOptions, rolePreviews, shipsInSquadrons, silentMembers, squadronActionsOffered, squadronsFromBlueprint, stationCount, workCounts } from './squadrons-view';
 
@@ -124,11 +126,12 @@ describe('a squadron', () => {
 });
 
 describe('the ships in squadrons', () => {
+  const shipIdOf = (name: string): ShipId => `shp_${name}`;
   const squadron = (id: string, state: 'forming' | 'disbanded') => ({
     id,
     state,
-    flagship: { shipId: `shp_${id}-flagship`, name: id },
-    members: [{ shipId: `shp_${id}-tester`, name: 'tester-k3x9', role: 'tester', type: `${id}:tester`, onStationAt: null, model: { pinned: null, stated: null, isMismatch: false }, ...awaitingFacts }],
+    flagship: { shipId: shipIdOf(`${id}-flagship`), name: id },
+    members: [{ shipId: shipIdOf(`${id}-tester`), name: 'tester-k3x9', role: 'tester', type: `${id}:tester`, onStationAt: null, model: { pinned: null, stated: null, isMismatch: false }, ...awaitingFacts }],
   });
 
   it('names the squadron of each flagship and member, and each member\'s role', () => {

@@ -1,6 +1,5 @@
 'use client';
 
-import { idSchema } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
@@ -98,8 +97,8 @@ export default function SquadronPage({
   const roles = squadron && blueprint ? roleOptions(squadron, { blueprint, templates: catalogue.data?.templates ?? [] }) : [];
   const removingShip = removing ? ships.get(removing.shipId) : undefined;
   const removingRole = removing ? roles.find((each) => each.role === removing.role) : undefined;
-  // The squadron manager's answer names the flagship by a plain string: parsed, as outside data is.
-  const flagshipId = squadron ? idSchema('ship').safeParse(squadron.flagship.shipId).data : undefined;
+  // squadrons' answer was parsed on the web app's server, the flagship's ship id with it.
+  const flagshipId = squadron?.flagship.shipId;
   const offered = squadron
     ? squadronActionsOffered(squadron, { canManage: access.canManage, canSend: access.canSend, hasRoles: roles.length > 0 })
     : undefined;
