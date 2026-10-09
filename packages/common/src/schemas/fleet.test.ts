@@ -259,7 +259,7 @@ describe('fleetListOutputSchema', () => {
   it('accepts a ship with its crew request: its settings version and when it was requested', () => {
     const requested = {
       ...ship,
-      crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: { id: newId('ship'), name: 'mac-mini' }, status: 'running', reason: null, crewedBy: null, attempt: 0, startedAt: '2026-09-29T12:06:00.000Z' },
+      crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: { id: newId('ship'), name: 'mac-mini' }, status: 'running', reason: null, crewedBy: null, attempt: 0, startedAt: '2026-09-29T12:06:00.000Z', givenBack: [] },
     };
 
     expect(fleetListOutputSchema.parse([requested])).toEqual([requested]);

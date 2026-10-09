@@ -152,6 +152,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/explainCrewRequest',
       '/fleet/reportCrewStatus',
       '/fleet/confirmCrewRelease',
+      '/fleet/giveBackCrewRequest',
       '/fleet/assignedCrewRequests',
       '/fleet/clearWorktree',
       '/fleet/clearRequests',
@@ -381,7 +382,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   it('refuse every fleet route but its own with 403 to a ship with only crew:run', async () => {
     const trierarch = await crewedWithFleetScopes(['crew:run']);
     const others = SHIP_CALLS.filter(
-      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/assignedCrewRequests', '/fleet/clearRequests', '/fleet/confirmWorktreeCleared'].includes(each.route),
+      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/giveBackCrewRequest', '/fleet/assignedCrewRequests', '/fleet/clearRequests', '/fleet/confirmWorktreeCleared'].includes(each.route),
     );
 
     const answers = await Promise.all(

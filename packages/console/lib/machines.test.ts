@@ -14,7 +14,7 @@ function aShip(name: string, crewRequest: ListedShip['crewRequest']): ListedShip
 }
 
 function assigned(status: CrewStatus | null, to = TRIERARCH): NonNullable<ListedShip['crewRequest']> {
-  return { settingsVersion: 1, requestedAt: '2026-10-07T09:00:00.000Z', assignedTo: to, status, reason: null, crewedBy: null, attempt: 0, startedAt: null };
+  return { settingsVersion: 1, requestedAt: '2026-10-07T09:00:00.000Z', assignedTo: to, status, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] };
 }
 
 describe('silentCount', () => {

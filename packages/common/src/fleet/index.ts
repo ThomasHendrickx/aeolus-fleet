@@ -82,6 +82,7 @@ export const EVENT_TYPES = [
   'CrewAssigned',
   'CrewStatusChanged',
   'CrewRequestExplained',
+  'CrewRequestGivenBack',
   'LabelDefined',
   'LabelValuesChanged',
   'LabelRetired',

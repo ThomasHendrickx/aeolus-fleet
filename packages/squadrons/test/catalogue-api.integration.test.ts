@@ -43,7 +43,7 @@ beforeEach(async () => {
     tags: tagsAt(
       {
         files: {
-          '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\nmodel: claude-opus-5-5\ncharter: You test.\n',
+          '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\ncharter: You test.\ncrew:\n  model: claude-opus-5-5\n',
           '.aeolus/squadrons/blueprints/team.yaml': `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n`,
         },
       },

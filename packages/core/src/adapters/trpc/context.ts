@@ -53,6 +53,7 @@ import type { RemoveCrewRequest } from '../../domain/registry/remove-crew-reques
 import type { AssignCrew } from '../../domain/registry/assign-crew.js';
 import type { ReportCrewStatus } from '../../domain/registry/report-crew-status.js';
 import type { ConfirmCrewRelease } from '../../domain/registry/confirm-crew-release.js';
+import type { GiveBack } from '../../domain/registry/give-back-crew-request.js';
 import type { ReadAssignedCrewRequests } from '../../domain/registry/read-assigned-crew-requests.js';
 import type { ConfirmWorktreeCleared } from '../../domain/registry/confirm-worktree-cleared.js';
 import type { ReadClearRequests } from '../../domain/registry/read-clear-requests.js';
@@ -107,6 +108,7 @@ export interface UseCases {
   assignCrew: AssignCrew;
   reportCrewStatus: ReportCrewStatus;
   confirmCrewRelease: ConfirmCrewRelease;
+  giveBackCrewRequest: GiveBack;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
   requestWorktreeClear: RequestWorktreeClear;
   readClearRequests: ReadClearRequests;

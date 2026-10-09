@@ -30,7 +30,7 @@ export interface TemplateVersion {
   description: string;
   /** How often a member reports; late after one interval, silent after three. */
   checkInMinutes: number;
-  /** The exact model id a member of this role runs, shown with the launch note; null when it pins none. */
+  /** The exact model id a member of this role runs, its `crew.model`, shown with the launch note; null when it pins none. */
   model: string | null;
   launchNote: string | null;
   charter: string;
@@ -61,7 +61,7 @@ export interface BlueprintVersion {
   description: string;
   /**
    * Its roles: each a template version and how many ships run it, and what
-   * the role sets over its template: a model (null when it pins none), crew
+   * the role sets over its template: a model from its `crew.model` (null when it pins none), crew
    * settings, and the template's parameters it fills, by name.
    */
   roles: { name: string; template: TemplateReference; count: number; model: string | null; crew: CrewDraft; parameters: Record<string, string> }[];

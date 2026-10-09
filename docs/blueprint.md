@@ -192,6 +192,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
 | `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |
+| `CrewRequestGivenBack` | Registry | The assigned trierarch gave the ship's crew request back before its crew was final: the request is unassigned and its lease ended. Details hold the trierarch ship, the settings version and the reason |
 | `CrewStatusChanged` | Registry | How the ship's crew stands changed: written by its trierarch, or `releasing` when the requester removed an assigned request. Details hold the status |
 | `CrewRequestRemoved` | Registry | The ship's crew request is gone: its requester removed it while unassigned, its trierarch confirmed the release, or the ship was retired |
 | `WorktreeClearRequested` | Registry | A ship asked the trierarch to clear a worktree it kept: on the trierarch's ship, details hold the worktree's ship id and repository |

@@ -187,6 +187,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'reported',
       };
     }
+    case 'CrewRequestGivenBack': {
+      const reason = stringDetail(entry, 'reason');
+      return { parts: [text(reason === undefined ? 'Crew request given back' : `Crew request given back: ${reason}`), ...by(entry.actor)], tone: 'waiting', icon: 'released' };
+    }
     case 'WorktreeClearRequested':
       return { parts: [text(`Clearing of the kept ${stringDetail(entry, 'repository') ?? ''} worktree requested`), ...by(entry.actor)], tone: 'waiting', icon: 'reported' };
     case 'WorktreeCleared':
