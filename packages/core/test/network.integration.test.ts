@@ -5,7 +5,8 @@ import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import { createSetNetworkRules } from '../src/domain/registry/set-network-rules.js';
 import type { Caller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller, SESSION_MODEL } from './support/core-fixtures.js';
+import type { Crew } from '../src/domain/shared/caller.js';
+import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
 import { newKey } from './support/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from './support/result.js';
@@ -22,6 +23,7 @@ let core: PostgresCore;
 let argo: Caller;
 let planner: Caller;
 let vault: Caller;
+let labeller: Caller;
 let trustId: LabelId;
 let shared: LabelValueId;
 let sensitive: LabelValueId;
@@ -41,7 +43,7 @@ beforeEach(async () => {
   const { shipId: labellerId } = unwrap(
     await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', fleetScopes: ['labels:define', 'labels:assign'] }),
   );
-  const labeller: Caller = { fleetId: argo.fleetId, shipId: labellerId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
+  labeller = { fleetId: argo.fleetId, shipId: labellerId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
   planner = await aShip('planner');
   vault = await aShip('vault');
   const trust = unwrap(await core.useCases.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
@@ -203,5 +205,53 @@ describe('a send and a change of rules', () => {
     expect(refusals.every((refusal) => refusal.settingsVersion === 2)).toBe(true);
     expect(results.filter((result) => result.isOk).length + refusals.length).toBe(sends.length);
     expect(results.filter((result) => !result.isOk).length).toBe(refusals.length);
+  });
+});
+
+describe('a send to a type under network rules', () => {
+  /** A crewed ship of type keeper, carrying the given trust value. */
+  async function crewedKeeper(name: string, trust: LabelValueId): Promise<Crew> {
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'keeper' }));
+    unwrap(await core.useCases.assignLabel(labeller, { shipId, valueId: trust }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+    return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+  }
+
+  const toKeepers = { kind: 'type' as const, type: 'keeper' };
+
+  beforeEach(async () => {
+    unwrap(await core.useCases.setNetworkRules(argo, { rules: [{ from: [shared], to: [shared] }] }));
+  });
+
+  it('is claimed and counted only by a ship of the type the sender may reach, fixed at send time', async () => {
+    const reachable = await crewedKeeper('keeper-a', shared);
+    const unreachable = await crewedKeeper('keeper-b', sensitive);
+    const { messageId } = unwrap(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: toKeepers }));
+
+    await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: [reachable.shipId] }]);
+    expect(unwrap(await core.useCases.checkInbox(unreachable, { waitSeconds: 0 }))).toEqual({ waiting: 0 });
+    expect(unwrap(await core.useCases.checkInbox(reachable, { waitSeconds: 0 }))).toEqual({ waiting: 1 });
+    expect(unwrap(await core.useCases.receiveDeliveries(reachable, { max: 10 })).deliveries.map((delivery) => delivery.messageId)).toEqual([messageId]);
+  });
+
+  it('is refused when the sender may reach no ship of the type, recording the type and each ship of it', async () => {
+    const unreachable = await crewedKeeper('keeper-b', sensitive);
+
+    refusalOf(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: toKeepers }));
+
+    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
+    expect(refusal?.recipient).toEqual({
+      kind: 'type',
+      type: 'keeper',
+      ships: [{ id: unreachable.shipId, name: 'keeper-b', labels: [{ labelId: trustId, key: 'trust', valueId: sensitive, value: 'sensitive' }] }],
+    });
+  });
+
+  it("stays open to every ship of the type for argo's send", async () => {
+    await crewedKeeper('keeper-b', sensitive);
+
+    unwrap(await core.useCases.sendMessage(argo, { ...aMessage(vault), selector: toKeepers, model: undefined }));
+
+    await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: null }]);
   });
 });

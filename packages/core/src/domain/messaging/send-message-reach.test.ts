@@ -24,6 +24,7 @@ let argo: Caller;
 let planner: Caller;
 let scout: Caller;
 let vault: Caller;
+let labeller: Caller;
 
 const NOT_REACHABLE = { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this send' };
 
@@ -54,7 +55,7 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   messaging = messagingUseCases(core);
-  const labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'networking', scopes: ['labels:define', 'labels:assign'] });
+  labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'networking', scopes: ['labels:define', 'labels:assign'] });
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });
@@ -262,5 +263,76 @@ describe('the record of a refused send', () => {
     refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))));
 
     expect(core.state.reachRefusals.map((refusal) => refusal.sender.name)).toEqual(['scout', 'planner']);
+  });
+});
+
+describe('a send to a type while the fleet has network rules', () => {
+  let keeper: Caller;
+  const toKeepers: Selector = { kind: 'type', type: 'keeper' };
+
+  beforeEach(async () => {
+    // A second ship of vault's type, keeper, that shared ships may reach.
+    keeper = await shipWithScopes({ registry, argo }, { name: 'keeper', type: 'keeper', scopes: [] });
+    unwrap(await registry.assignLabel(labeller, { shipId: keeper.shipId, valueId: value('trust', 'shared') }));
+    await setRules([{ from: [value('trust', 'shared')], to: [value('trust', 'shared')] }]);
+  });
+
+  async function received(ship: Caller): Promise<MessageId[]> {
+    const crew = crewAboard(core, ship);
+    return unwrap(await messaging.receiveDeliveries(crew, { max: 10 })).deliveries.map((delivery) => delivery.messageId);
+  }
+
+  it('stores with its delivery the ships of the type the sender may reach, and only those', async () => {
+    const messageId = await sent(planner, aMessage(toKeepers));
+
+    expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toEqual([keeper.shipId]);
+  });
+
+  it('lets only a ship the sender may reach claim it', async () => {
+    const messageId = await sent(planner, aMessage(toKeepers));
+
+    await expect(received(vault)).resolves.toEqual([]);
+    await expect(received(keeper)).resolves.toEqual([messageId]);
+  });
+
+  it("counts it only in the inbox of a ship that may claim it", async () => {
+    await sent(planner, aMessage(toKeepers));
+
+    await expect(messaging.checkInbox(crewAboard(core, vault), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 0 } });
+    await expect(messaging.checkInbox(crewAboard(core, keeper), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 1 } });
+  });
+
+  it('keeps the ships fixed at send time: a ship of the type commissioned after it cannot claim it', async () => {
+    await sent(planner, aMessage(toKeepers));
+    const later = await shipWithScopes({ registry, argo }, { name: 'keeper-2', type: 'keeper', scopes: [] });
+
+    await expect(received(later)).resolves.toEqual([]);
+  });
+
+  it('is refused when the sender may reach no ship of the type, recording the type and each ship of it with its labels', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: keeper.shipId }));
+    core.state.reachRefusals.length = 0;
+
+    const refused = await messaging.sendMessage(planner, aMessage(toKeepers));
+
+    expect(refusalOf(refused)).toEqual(NOT_REACHABLE);
+    expect(core.state.deliveries).toEqual([]);
+    expect(core.state.reachRefusals.map((refusal) => refusal.recipient)).toEqual([
+      { kind: 'type', type: 'keeper', ships: [{ id: vault.shipId, name: 'vault', labels: [{ labelId: core.state.labels.find((held) => held.key === 'trust')?.id, key: 'trust', valueId: value('trust', 'sensitive'), value: 'sensitive' }] }] },
+    ]);
+  });
+
+  it("leaves argo's send to a type open to every ship of the type", async () => {
+    const messageId = await sent(argo, aMessage(toKeepers, { model: undefined }));
+
+    expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toBeUndefined();
+  });
+});
+
+describe('a send to a type while the fleet has no network rules', () => {
+  it('stays open to every ship of the type, as today', async () => {
+    const messageId = await sent(planner, aMessage({ kind: 'type', type: 'keeper' }));
+
+    expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toBeUndefined();
   });
 });

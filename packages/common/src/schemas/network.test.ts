@@ -53,4 +53,16 @@ describe('reachRefusalsOutputSchema', () => {
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
   });
+
+  it('answers a refused send to a type with the type and each ship of it, with the labels it carried then', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-09T19:00:00.000Z',
+      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [] }] },
+      settingsVersion: 2,
+    };
+
+    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+  });
 });
