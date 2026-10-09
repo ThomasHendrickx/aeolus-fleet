@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import { NETWORK_RULES_MAX, reachRefusalsOutputSchema, setNetworkRulesInputSchema, setNetworkRulesOutputSchema } from './network.js';
+import { NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX, reachRefusalsOutputSchema, setNetworkRulesInputSchema, setNetworkRulesOutputSchema } from './network.js';
 
 const newId = createIdGenerator();
 
-describe('the network rule limit (decision 0033)', () => {
-  it('is 200 rules a fleet', () => {
-    expect(NETWORK_RULES_MAX).toBe(200);
+describe('the network limits (decision 0033)', () => {
+  it('are 200 rules a fleet, and the latest 100 refusals a read', () => {
+    expect([NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX]).toEqual([200, 100]);
   });
 });
 
@@ -47,7 +47,7 @@ describe('reachRefusalsOutputSchema', () => {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [carried] },
-      recipient: { id: newId('ship'), name: 'vault', labels: [] },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
       settingsVersion: 2,
     };
 
