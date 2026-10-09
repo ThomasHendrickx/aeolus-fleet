@@ -16,7 +16,7 @@ Pre-v1: the console arrives after the v1 acceptance test passes. Until then it h
 
 ## Running from npm
 
-The package holds the console already built, as Next.js's standalone output (`.next/standalone`): the server, the browser's files and only the modules the server runs, Next.js and React among them. Installing it installs nothing else, about 35 MB instead of 300 MB and more with Next.js and its build tooling. It knows no server address until it runs:
+The package holds the console already built, as Next.js's standalone output (`.next/standalone`): the server, the browser's files and only the modules the server runs, Next.js and React among them. Installing it installs nothing else: about 30 MB, where Next.js and its build tooling took 300 MB and more. It knows no server address until it runs:
 
 ```sh
 npm install @aeolus-fleet/console
@@ -43,7 +43,7 @@ Environment variables, read when the app runs, never when it is built:
 | `PORT` | `3000` | Port to listen on |
 | `HOST` | `127.0.0.1` | Interface to listen on |
 
-`npm run dev` builds `@aeolus-fleet/common` first: the console checks its forms with common's schemas and bundles the built package.
+`npm run dev` builds `@aeolus-fleet/common` first: the console bundles the built package, its schemas on the web app's server and only `@aeolus-fleet/common/rules` (no zod) in the browser, for live form hints (decision 0033).
 
 ## Design system
 
