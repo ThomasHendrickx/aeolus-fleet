@@ -1,6 +1,8 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { TestProject } from 'vitest/node';
 
+import { POSTGRES_IMAGE, REAPER_IMAGE } from './container-images.js';
+
 declare module 'vitest' {
   export interface ProvidedContext {
     /** Admin URL of the Postgres container shared by the integration tests. */
@@ -11,10 +13,12 @@ declare module 'vitest' {
 /**
  * Starts one Postgres for the integration project. Each test file creates its
  * own database in it (see support/database.ts), so files stay isolated.
- * Postgres 16 is the oldest version the architecture supports.
+ * Testcontainers reads the reaper image from the environment when it starts
+ * the first container; a reaper image set from outside wins.
  */
 export async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const container = await new PostgreSqlContainer('postgres:16-alpine').start();
+  process.env.RYUK_CONTAINER_IMAGE ??= REAPER_IMAGE;
+  const container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
   project.provide('postgresUrl', container.getConnectionUri());
 
   return async () => {
