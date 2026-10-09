@@ -83,6 +83,7 @@ describe('eventTypeSchema', () => {
       'WorktreeClearRequested',
       'WorktreeCleared',
       'WorktreeClearRemoved',
+      'NetworkRulesSet',
     ]);
   });
 });
