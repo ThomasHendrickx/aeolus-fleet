@@ -14,13 +14,13 @@ import {
 
 describe('the scopes', () => {
   it('are the message scopes, then the fleet scopes, and nothing else', () => {
-    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']);
-    expect(FLEET_SCOPES).toEqual(['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']);
+    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network']);
+    expect(FLEET_SCOPES).toEqual(['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network']);
   });
 });
 
 describe('scopeSchema', () => {
-  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'])('accepts %s', (scope) => {
+  it.each(['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'])('accepts %s', (scope) => {
     expect(scopeSchema.parse(scope)).toBe(scope);
   });
 
