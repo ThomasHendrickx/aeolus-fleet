@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import { SOURCE_URL } from '../../lib/source';
-import { sessionSince, THEME_LABELS, THEMES, type Theme } from '../../lib/theme';
+import { sessionSince, THEME_LABELS, type Theme } from '../../lib/theme';
 import { Avatar } from '../atoms/avatar';
 import { Button } from '../atoms/button';
 import {
@@ -39,6 +39,8 @@ export type AccountMenuAccount = { kind: 'operator'; email: string; session: Acc
 export interface AccountMenuProps {
   /** Undefined until known: the trigger shows, the session line and theme check wait. */
   account: AccountMenuAccount | undefined;
+  /** The themes to offer, in order, as common lists them (handed down by the root layout). */
+  themes: readonly Theme[];
   onThemeChange: (theme: Theme) => void;
   onSignOut: () => void;
   isSigningOut: boolean;
@@ -79,8 +81,8 @@ function hasTheme(account: AccountMenuAccount | undefined): boolean {
   return account?.kind !== 'viewer';
 }
 
-function isTheme(value: unknown): value is Theme {
-  return THEMES.some((theme) => theme === value);
+function themeOf(value: unknown, themes: readonly Theme[]): Theme | undefined {
+  return themes.find((theme) => theme === value);
 }
 
 /** Who is signed in, and this session: the menu's header on desktop and on phone. */
@@ -133,7 +135,7 @@ function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
  * installation, Theme and Sign out without a confirm. On the 64 px rail the
  * button collapses to its avatar.
  */
-export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
+export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
   return (
@@ -179,12 +181,13 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
           <DropdownMenuRadioGroup
             value={theme}
             onValueChange={(value: unknown) => {
-              if (isTheme(value)) {
-                onThemeChange(value);
+              const picked = themeOf(value, themes);
+              if (picked !== undefined) {
+                onThemeChange(picked);
               }
             }}
           >
-            {THEMES.map((theme) => {
+            {themes.map((theme) => {
               const Icon = THEME_ICONS[theme];
               return (
                 <DropdownMenuRadioItem
@@ -222,7 +225,7 @@ export function AccountMenu({ account, onThemeChange, onSignOut, isSigningOut, n
  * same content as a bottom Sheet, with Theme as a segmented control and
  * Cancel at the bottom.
  */
-export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref }: AccountMenuProps) {
+export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
@@ -282,13 +285,14 @@ export function AccountMenuSheet({ account, onThemeChange, onSignOut, isSigningO
           <Tabs
             value={theme}
             onValueChange={(value: unknown) => {
-              if (isTheme(value)) {
-                onThemeChange(value);
+              const picked = themeOf(value, themes);
+              if (picked !== undefined) {
+                onThemeChange(picked);
               }
             }}
           >
             <TabsList aria-label="Theme" className="w-full">
-              {THEMES.map((theme) => {
+              {themes.map((theme) => {
                 const Icon = THEME_ICONS[theme];
                 return (
                   <TabsTrigger

@@ -1,3 +1,4 @@
+import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
 import { fn } from 'storybook/test';
@@ -33,7 +34,7 @@ const meta = {
         session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
         theme: 'system',
       },
-      onThemeChange: fn(),
+      themes: THEMES, onThemeChange: fn(),
       onSignOut: fn(),
       isSigningOut: false,
       now: new Date('2026-10-01T12:30:00.000Z'),

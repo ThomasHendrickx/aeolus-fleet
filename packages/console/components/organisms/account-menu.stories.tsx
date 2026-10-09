@@ -1,3 +1,4 @@
+import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn, userEvent, within } from 'storybook/test';
 
@@ -15,7 +16,7 @@ const ACCOUNT: Extract<AccountMenuAccount, { kind: 'operator' }> = {
 const meta = {
   title: 'Organisms/AccountMenu',
   component: AccountMenu,
-  args: { account: ACCOUNT, onThemeChange: fn(), onSignOut: fn(), isSigningOut: false, now: NOW },
+  args: { account: ACCOUNT, themes: THEMES, onThemeChange: fn(), onSignOut: fn(), isSigningOut: false, now: NOW },
   decorators: [
     (Story) => (
       <div className="flex min-h-120 w-64 flex-col justify-end border-r border-border bg-sidebar p-2.5">

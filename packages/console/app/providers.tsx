@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 
 import { Toaster } from '../components/atoms/toast';
 import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client';
+import { ConsoleConstantsContext, type ConsoleConstants } from '../lib/console-constants';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
 import { TRPCProvider } from '../lib/trpc';
@@ -56,16 +57,19 @@ function Pageviews(): null {
 }
 
 /**
+ * constants: the values from common the browser shows, read by the root layout on the server (decision 0033).
  * hostedAccountUrl: AEOLUS_HOSTED_ACCOUNT_URL, where a hosted operator's account lists the fleet's limits.
  * isAnalyticsOn: whether AEOLUS_HOSTED_ANALYTICS_* configure an adapter (decision 0025); off, the console sends no analytics.
  */
 export function Providers({
   serverUrl,
+  constants,
   hostedAccountUrl,
   isAnalyticsOn,
   children,
 }: {
   serverUrl: string;
+  constants: ConsoleConstants;
   hostedAccountUrl?: string;
   isAnalyticsOn: boolean;
   children: ReactNode;
@@ -76,13 +80,15 @@ export function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        <HostedAccountUrlContext value={hostedAccountUrl}>
-          <AnalyticsContext value={isAnalyticsOn}>
-            <Pageviews />
-            {children}
-            <Toaster />
-          </AnalyticsContext>
-        </HostedAccountUrlContext>
+        <ConsoleConstantsContext value={constants}>
+          <HostedAccountUrlContext value={hostedAccountUrl}>
+            <AnalyticsContext value={isAnalyticsOn}>
+              <Pageviews />
+              {children}
+              <Toaster />
+            </AnalyticsContext>
+          </HostedAccountUrlContext>
+        </ConsoleConstantsContext>
       </TRPCProvider>
     </QueryClientProvider>
   );

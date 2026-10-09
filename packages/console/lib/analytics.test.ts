@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyticsEventSchema, routePatternOf } from './analytics';
+import { routePatternOf } from './analytics';
+import { analyticsEventSchema } from './analytics-event';
 
 describe('the analytics events', () => {
   it.each([
