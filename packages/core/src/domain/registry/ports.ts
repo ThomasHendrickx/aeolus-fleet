@@ -108,6 +108,8 @@ export interface ShipRepository {
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /** Whether at least one ship of the fleet with this type is not retired and receives: the viewer ship receives nothing (decision 0022). */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
+  /** The fleet's ships of the type that may take a type delivery: not retired, never the viewer ship. By id. */
+  listActiveOfType(fleetId: FleetId, type: string): Promise<Ship[]>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */

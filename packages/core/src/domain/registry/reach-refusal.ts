@@ -20,6 +20,7 @@ export interface ReachRefusal {
   id: ReachRefusalId;
   at: Date;
   sender: RefusedShip;
-  recipient: { kind: 'ship'; ship: RefusedShip };
+  /** The ship it was for, or the type and each ship of it, none of which the sender may reach. */
+  recipient: { kind: 'ship'; ship: RefusedShip } | { kind: 'type'; type: string; ships: readonly RefusedShip[] };
   settingsVersion: number;
 }

@@ -65,6 +65,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           claimedByShipId: delivery.claimedByShipId,
           claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
+          reachableShipIds: delivery.reachableShipIds ? [...delivery.reachableShipIds] : [],
           createdAt: delivery.createdAt,
         },
       });
@@ -75,7 +76,10 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           fleetId,
           OR: [
             { state: 'delivered', claimedByLeaseId: leaseId },
-            { state: 'pending', OR: [{ recipientShipId: shipId }, { recipientType: type }] },
+            {
+              state: 'pending',
+              OR: [{ recipientShipId: shipId }, { recipientType: type, OR: [{ reachableShipIds: { isEmpty: true } }, { reachableShipIds: { has: shipId } }] }],
+            },
           ],
         },
       }),
@@ -102,7 +106,8 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
                      claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
               FROM deliveries
               WHERE fleet_id = ${fleetId} AND state = 'pending'
-                AND (recipient_ship_id = ${shipId} OR recipient_type = ${type})
+                AND (recipient_ship_id = ${shipId}
+                     OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))
               ORDER BY created_at, id
               LIMIT ${room}
               FOR UPDATE SKIP LOCKED`

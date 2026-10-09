@@ -392,6 +392,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.ships.find((held) => held.fleetId === fleetId && held.name === name && held.retiredAt === null);
         return Promise.resolve(found && { ...found });
       },
+      listActiveOfType: (fleetId, type) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer')
+            .sort((first, second) => first.id.localeCompare(second.id))
+            .map((held) => structuredClone(held)),
+        ),
       hasActiveShipOfType: (fleetId, type) =>
         Promise.resolve(
           state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
@@ -793,10 +800,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .sort(byAge);
         const pending = ofFleet
           .filter(
-            ({ state: deliveryState, recipient }) =>
+            ({ state: deliveryState, recipient, reachableShipIds }) =>
               deliveryState === 'pending' &&
               ((recipient.kind === 'ship' && recipient.shipId === shipId) ||
-                (recipient.kind === 'type' && recipient.type === type)),
+                (recipient.kind === 'type' && recipient.type === type && (reachableShipIds?.includes(shipId) ?? true))),
           )
           .sort(byAge);
         const claimable = [...inFlight, ...pending].slice(0, limit).flatMap((delivery) => {
@@ -813,7 +820,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               ((delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId) ||
                 (delivery.state === 'pending' &&
                   ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
-                    (delivery.recipient.kind === 'type' && delivery.recipient.type === type)))),
+                    (delivery.recipient.kind === 'type' && delivery.recipient.type === type && (delivery.reachableShipIds?.includes(shipId) ?? true))))),
           ).length,
         ),
       findForUpdate: (fleetId, deliveryId) => {

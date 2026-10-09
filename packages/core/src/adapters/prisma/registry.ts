@@ -309,6 +309,8 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR SHARE`;
       return row ? toShipFromSql(row) : undefined;
     },
+    listActiveOfType: async (fleetId, type) =>
+      (await db.ship.findMany({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, orderBy: { id: 'asc' } })).map(toShip),
     hasActiveShipOfType: async (fleetId, type) => {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, select: { id: true } });
       return row !== null;

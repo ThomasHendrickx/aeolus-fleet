@@ -26,7 +26,10 @@ const refusalRowSchema = z.object({
   fleetId: idSchema('fleet'),
   at: z.date(),
   sender: refusedShipSchema,
-  recipient: z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
+  recipient: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
+    z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
+  ]),
   settingsVersion: z.number().int().min(1),
 });
 
@@ -58,7 +61,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
     record: async ({ id, fleetId, at, sender, recipient, settingsVersion }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: { kind: recipient.kind, ship: shipJson(recipient.ship) }, settingsVersion } });
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), settingsVersion } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });
@@ -69,4 +72,8 @@ export function createPrismaReachRefusalRepository(db: Db): ReachRefusalReposito
 
 function shipJson(ship: RefusedShip) {
   return { id: ship.id, name: ship.name, labels: ship.labels.map((label) => ({ ...label })) };
+}
+
+function recipientJson(recipient: ReachRefusal['recipient']) {
+  return recipient.kind === 'ship' ? { kind: recipient.kind, ship: shipJson(recipient.ship) } : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map(shipJson) };
 }

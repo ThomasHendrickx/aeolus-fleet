@@ -183,7 +183,7 @@ export async function sendWithin(
     return withinLimit;
   }
   const accepted = acceptMessage(
-    { recipient: recipient.value, repliedTo },
+    { recipient: recipient.value, repliedTo, ...reach.value },
     {
       messageId: ids('message'),
       deliveryId: ids('delivery'),

@@ -247,11 +247,11 @@ describe('a send to a type under network rules', () => {
     });
   });
 
-  it("stays open to every ship of the type for argo's send", async () => {
+  it("stays open to every ship of the type for argo's send: no ships kept", async () => {
     await crewedKeeper('keeper-b', sensitive);
 
     unwrap(await core.useCases.sendMessage(argo, { ...aMessage(vault), selector: toKeepers, model: undefined }));
 
-    await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: null }]);
+    await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: [] }]);
   });
 });

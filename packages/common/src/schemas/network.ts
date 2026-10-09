@@ -39,7 +39,11 @@ export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),
   sender: refusedShipSchema,
-  recipient: z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
+  recipient: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
+    /** A send to a type: the type and each ship of it, none of which the sender may reach. */
+    z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
+  ]),
   settingsVersion: z.int().min(1),
 });
 

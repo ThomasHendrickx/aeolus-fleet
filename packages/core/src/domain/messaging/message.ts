@@ -52,6 +52,13 @@ export interface Delivery {
   claimedByLeaseId: LeaseId | null;
   /** How many times a receive claimed it. */
   attempts: number;
+  /**
+   * For a type, under network rules: the ships of the type its sender may
+   * reach, fixed at send time; only they may claim it (decision 0033).
+   * Absent, any ship of the type may. Written at send; a claim's query reads
+   * it, so a delivery read back for a change may leave it out.
+   */
+  reachableShipIds?: readonly ShipId[];
   createdAt: Date;
 }
 
@@ -104,13 +111,14 @@ export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRE
  * holds it, if it does. Every ship but argo states the model its session
  * runs (docs/blueprint.md, "Model"); argo states none. A resend carries the
  * original message's model as it was, so it is not asked again; a ping is the
- * fleet's question, not a session's message, so it carries none.
+ * fleet's question, not a session's message, so it carries none. A type
+ * delivery the network rules limit to some ships of the type keeps them.
  */
 export function acceptMessage(
-  fleet: { recipient: Recipient; repliedTo: Message | undefined },
+  fleet: { recipient: Recipient; repliedTo: Message | undefined; reachableShipIds?: readonly ShipId[] },
   send: MessageToAccept,
 ): Result<{ message: Message; delivery: Delivery; events: NewEvent[] }, AcceptRefusal> {
-  const { recipient, repliedTo } = fleet;
+  const { recipient, repliedTo, reachableShipIds } = fleet;
   const { messageId, deliveryId, fleetId, senderShipId, inReplyTo, resendOf, at } = send;
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
     return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
@@ -146,6 +154,7 @@ export function acceptMessage(
     claimedByShipId: null,
     claimedByLeaseId: null,
     attempts: 0,
+    ...(reachableShipIds && { reachableShipIds: [...reachableShipIds] }),
     createdAt: at,
   };
   return ok({

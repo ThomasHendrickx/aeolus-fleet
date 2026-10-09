@@ -448,6 +448,9 @@ enum DeliveryState {
 /// is in flight, kept once acknowledged, none while it is pending. Attempts count the
 /// claims; the fifth makes it undeliverable.
 /// The read date is set when the operator opens a message to argo.
+/// For a type under network rules, the ships of the type its sender may reach,
+/// fixed at send time: only they claim it (decision 0033). Empty: any ship of
+/// the type, as a send no ship of the type may take is refused.
 model Delivery {
   id               String        @id
   fleetId          String        @map("fleet_id")
@@ -458,6 +461,7 @@ model Delivery {
   claimedByShipId  String?       @map("claimed_by_ship_id")
   claimedByLeaseId String?       @map("claimed_by_lease_id")
   attempts         Int           @default(0)
+  reachableShipIds String[]      @default([]) @map("reachable_ship_ids")
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)
 
