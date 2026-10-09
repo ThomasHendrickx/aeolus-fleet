@@ -147,6 +147,7 @@ describe('sending a message on Postgres', () => {
       claimedByShipId: null,
       claimedByLeaseId: null,
       attempts: 0,
+      reachableShipIds: [],
       readAt: null,
       createdAt: core.clock.now(),
     });
