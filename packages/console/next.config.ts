@@ -5,6 +5,11 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // next dev would write AGENTS.md and CLAUDE.md here; the advice lives in the web-frontend skill instead.
   agentRules: false,
+  experimental: {
+    // CI and release build from a clean checkout and never read .next/cache
+    // again, so writing Turbopack's build cache there only costs time and disk.
+    turbopackFileSystemCacheForBuild: process.env.CI === undefined,
+  },
 };
 
 export default nextConfig;
