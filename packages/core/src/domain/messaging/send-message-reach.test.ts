@@ -1,7 +1,7 @@
 import type { FleetId, LabelValueId, MessageId, NetworkRule, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
@@ -9,6 +9,7 @@ import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
+import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
 import type { MessageToSend } from './send-message.js';
 
 /**
@@ -334,5 +335,46 @@ describe('a send to a type while the fleet has no network rules', () => {
     const messageId = await sent(planner, aMessage({ kind: 'type', type: 'keeper' }));
 
     expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toBeUndefined();
+  });
+});
+
+describe("the operator's resend of an undeliverable delivery", () => {
+  let undeliverable: { messageId: MessageId; deliveryId: string };
+
+  beforeEach(async () => {
+    await setRules([{ from: [value('team', 'a')], to: [value('trust', 'sensitive')] }]);
+    const messageId = await sent(planner, aMessage(toShip(vault)));
+    const crew = crewAboard(core, vault);
+    for (let claim = 0; claim < UNDELIVERABLE_AT_CLAIM; claim += 1) {
+      unwrap(await messaging.receiveDeliveries(crew, { max: 10 }));
+    }
+    const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
+    expect(delivery?.state).toBe('undeliverable');
+    undeliverable = { messageId, deliveryId: delivery?.id ?? '' };
+  });
+
+  it('goes through when the rules let the original sender reach its recipient', async () => {
+    await expect(messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('is refused when the rules no longer let the original sender reach it, leaving the delivery undeliverable for Dismiss', async () => {
+    await setRules([]);
+    const before = core.state.messages.length;
+
+    const refused = await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) });
+
+    expect(refusalOf(refused)).toEqual(NOT_REACHABLE);
+    expect(core.state.messages).toHaveLength(before);
+    expect(core.state.deliveries.find((held) => held.id === undeliverable.deliveryId)?.state).toBe('undeliverable');
+  });
+
+  it('is recorded as the original sender trying to reach its recipient', async () => {
+    await setRules([]);
+
+    refusalOf(await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) }));
+
+    expect(core.state.reachRefusals.map((refusal) => [refusal.sender.name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
+      ['planner', 'vault', 2],
+    ]);
   });
 });
