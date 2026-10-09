@@ -46,7 +46,8 @@ describe('needsAttentionOutputSchema', () => {
   });
 
   it('refuses a message that does not tell whether it is a ping', () => {
-    const { isPing: _isPing, ...message } = undeliverable.message;
+    const { id, sender, recipient, inReplyTo, sentAt, contentType, payload } = undeliverable.message;
+    const message = { id, sender, recipient, inReplyTo, sentAt, contentType, payload };
 
     expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, message }]).success).toBe(false);
   });

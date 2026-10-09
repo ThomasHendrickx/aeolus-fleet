@@ -110,7 +110,7 @@ describe('shipTimelineOutputSchema', () => {
   });
 
   it('rejects a message that does not tell whether it is a ping', () => {
-    const { isPing: _isPing, ...message } = sent.message;
+    const message = { id: sent.message.id, sender: sent.message.sender, recipient: sent.message.recipient, contentType: sent.message.contentType, model: sent.message.model };
 
     expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
   });

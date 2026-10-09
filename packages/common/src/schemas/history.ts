@@ -69,6 +69,8 @@ export const timelineEntrySchema = z.object({
       recipient: messageRecipientSchema,
       /** As the sender gave it; a ping has the reserved ping content type. */
       contentType: z.string(),
+      /** Whether it is a ping, told by its content type. */
+      isPing: z.boolean(),
       /** The model the sender's session stated. */
       model: z.string().nullable(),
     })

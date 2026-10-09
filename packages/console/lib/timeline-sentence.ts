@@ -1,4 +1,4 @@
-import { isPingContentType, REPORT_STATES, type Party, type ReportState, type TimelineEntry } from '@aeolus-fleet/common';
+import { REPORT_STATES, type Party, type ReportState, type TimelineEntry } from '@aeolus-fleet/common';
 
 import { locationKindWord } from './location';
 import { REPORT_TONES } from './report';
@@ -95,9 +95,9 @@ function returnedDeliveries(entry: TimelineEntry): SentencePart[] {
     : [];
 }
 
-/** Whether the event concerns a ping: a message with the reserved ping content type. */
+/** Whether the event concerns a ping, as the server tells it. */
 function isPing(entry: TimelineEntry): boolean {
-  return entry.message !== null && isPingContentType(entry.message.contentType);
+  return entry.message?.isPing === true;
 }
 
 /** "a message from planner", "a ping from argo", or "a message" when the event names none. */
