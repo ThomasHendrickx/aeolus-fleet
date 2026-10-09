@@ -35,7 +35,6 @@
     "@aeolus-fleet/common": "0.0.0",
     "@aeolus-fleet/core": "0.0.0",
     "@base-ui/react": "^1.8.0",
-    "@hookform/resolvers": "^5.9.1",
     "@storybook/addon-vitest": "^10.6.1",
     "@storybook/nextjs-vite": "^10.6.1",
     "@tailwindcss/postcss": "^4.3.3",

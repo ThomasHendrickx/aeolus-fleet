@@ -2,16 +2,11 @@ import { z } from 'zod';
 
 import { scopeSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { EMAIL_REQUIRED, EMAIL_TOO_LONG, OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_REQUIRED, PASSWORD_TOO_LONG } from '../rules/sign-in.js';
 
-/** The operator's email: at most 254 characters, the longest address mail carries. */
-export const OPERATOR_EMAIL_MAX_LENGTH = 254;
 /** One @ with something on each side, and no whitespace. */
 export const OPERATOR_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
-/**
- * Any operator password up to this length: no strength rules (ADR 0016). The
- * bound only keeps an absurd input from reaching the password hash.
- */
-export const OPERATOR_PASSWORD_MAX_LENGTH = 1024;
+export { OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH } from '../rules/sign-in.js';
 
 /**
  * Input of `console.signIn`: the operator's email and password. Whitespace
@@ -20,8 +15,8 @@ export const OPERATOR_PASSWORD_MAX_LENGTH = 1024;
  * simply wrong, like a wrong password.
  */
 export const signInInputSchema = z.object({
-  email: z.string().trim().min(1, 'Enter your email').max(OPERATOR_EMAIL_MAX_LENGTH),
-  password: z.string().min(1, 'Enter your password').max(OPERATOR_PASSWORD_MAX_LENGTH),
+  email: z.string().trim().min(1, EMAIL_REQUIRED).max(OPERATOR_EMAIL_MAX_LENGTH, EMAIL_TOO_LONG),
+  password: z.string().min(1, PASSWORD_REQUIRED).max(OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_TOO_LONG),
 });
 
 export type SignInInput = z.infer<typeof signInInputSchema>;

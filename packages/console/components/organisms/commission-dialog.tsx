@@ -1,6 +1,7 @@
 'use client';
 
-import { shipHandleSchema, type CrewSettings, type FleetScope, type ListedShip } from '@aeolus-fleet/common';
+import type { CrewSettings, FleetScope, ListedShip } from '@aeolus-fleet/common';
+import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
@@ -96,7 +97,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   const check = checkShipName(name, { activeNames: activeShips.map((ship) => ship.name) });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
-  const isTypeValid = shipHandleSchema.safeParse(trimmedType).success;
+  const isTypeValid = isShipHandle(trimmedType);
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
   const types = [...new Set(activeShips.map((ship) => ship.type))].sort();
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady;

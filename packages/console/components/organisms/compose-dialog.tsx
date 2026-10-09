@@ -1,6 +1,7 @@
 'use client';
 
-import { PAYLOAD_MAX_BYTES, payloadBytes, type ListedShip } from '@aeolus-fleet/common';
+import type { ListedShip } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, payloadBytes } from '@aeolus-fleet/common/rules';
 import { Send } from 'lucide-react';
 import { useId, useState } from 'react';
 

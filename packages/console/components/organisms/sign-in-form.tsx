@@ -1,7 +1,6 @@
 'use client';
 
-import { signInInputSchema } from '@aeolus-fleet/common';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { signInEmailProblem, signInPasswordProblem } from '@aeolus-fleet/common/rules';
 import { CircleAlert, Info, Timer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
@@ -48,7 +47,6 @@ export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewher
     handleSubmit,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(signInInputSchema),
     defaultValues: { email: '', password: '' },
   });
 
@@ -125,7 +123,7 @@ export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewher
             className="max-sm:h-(--size-control-touch) max-sm:text-input-touch"
             aria-invalid={errors.email ? true : undefined}
             aria-describedby={errors.email ? 'sign-in-email-error' : undefined}
-            {...register('email')}
+            {...register('email', { validate: (email) => signInEmailProblem(email) ?? true })}
           />
           {errors.email ? (
             <span id="sign-in-email-error" className={FIELD_ERROR}>
@@ -142,7 +140,7 @@ export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewher
             className="max-sm:h-(--size-control-touch) max-sm:text-input-touch"
             aria-invalid={errors.password ? true : undefined}
             aria-describedby={errors.password ? 'sign-in-password-error' : undefined}
-            {...register('password')}
+            {...register('password', { validate: (password) => signInPasswordProblem(password) ?? true })}
           />
           {errors.password ? (
             <span id="sign-in-password-error" className={FIELD_ERROR}>

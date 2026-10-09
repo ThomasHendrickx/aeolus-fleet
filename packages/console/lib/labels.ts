@@ -1,4 +1,5 @@
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import type { ListedLabel, ListedShip } from '@aeolus-fleet/common';
+import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rules';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
@@ -189,7 +190,7 @@ export function matchesLabelQuery(row: Pick<LabelRow, 'key' | 'values'>, query: 
  * it is fine. The server checks the same rule (decision 0031).
  */
 export function labelTextProblem(text: string, field: 'Key' | 'Value'): string | undefined {
-  if (text === '' || (text.length <= LABEL_HANDLE_MAX_LENGTH && LABEL_HANDLE_PATTERN.test(text))) {
+  if (text === '' || isLabelHandle(text)) {
     return undefined;
   }
   return `${field}: use lowercase letters, digits and - only, at most ${String(LABEL_HANDLE_MAX_LENGTH)} characters (decision 0031).`;

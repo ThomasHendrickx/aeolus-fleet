@@ -18,6 +18,11 @@
       "@aeolus-fleet/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./rules": {
+      "@aeolus-fleet/source": "./src/rules/index.ts",
+      "types": "./dist/rules/index.d.ts",
+      "default": "./dist/rules/index.js"
     }
   },
   "files": [
