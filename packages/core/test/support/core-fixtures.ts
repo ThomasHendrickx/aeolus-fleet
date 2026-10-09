@@ -38,6 +38,7 @@ import { createResendDelivery } from '../../src/domain/messaging/resend-delivery
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/domain/registry/commission-ship.js';
+import { createGiveBackCrewRequest } from '../../src/domain/registry/give-back-crew-request.js';
 import { createCreateFleet } from '../../src/domain/registry/create-fleet.js';
 import { createDeleteFleet } from '../../src/domain/registry/delete-fleet.js';
 import { createGetInstallationFleet } from '../../src/domain/registry/get-installation-fleet.js';
@@ -157,6 +158,7 @@ export function registryUseCases(core: InMemoryCore) {
     assignCrew: createAssignCrew(deps),
     reportCrewStatus: createReportCrewStatus(deps),
     confirmCrewRelease: createConfirmCrewRelease(deps),
+    giveBackCrewRequest: createGiveBackCrewRequest(deps),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests }),
     explainCrewRequest: createExplainCrewRequest(deps),
     requestWorktreeClear: createRequestWorktreeClear(deps),

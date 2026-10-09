@@ -40,6 +40,8 @@ export interface ListedShip {
         assignedTo: { id: ShipId; name: string } | null;
         /** The ship that got the starting prompt its crew claimed with: argo for a hand crew, or its trierarch; null while not crewed. */
         crewedBy: { id: ShipId; name: string } | null;
+        /** The trierarchs that gave it back before their crew was final, by id and name, oldest first (#382). */
+        givenBack: ShipFacts['crewRequestGivenBack'];
       })
     | null;
   /** The label values the ship carries, with their labels, by key then value (decision 0031); none for a ship without. */
@@ -74,6 +76,7 @@ export function listedShipOf({
   validSecret,
   crewRequest,
   crewRequestAssignee,
+  crewRequestGivenBack,
   labels,
   crewedBy,
   lastPing,
@@ -104,6 +107,7 @@ export function listedShipOf({
       crewedBy,
       attempt: crewRequest.attempt,
       sessionStartedAt: crewRequest.sessionStartedAt,
+      givenBack: crewRequestGivenBack,
     },
     labels,
     harness: openLease?.harness ?? null,

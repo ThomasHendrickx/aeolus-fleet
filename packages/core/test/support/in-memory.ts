@@ -383,11 +383,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     crewRequests: {
       find: (fleetId, shipId) => {
         const request = state.crewRequests.find((held) => held.fleetId === fleetId && held.shipId === shipId);
-        return Promise.resolve(request && { ...request });
+        return Promise.resolve(request && { ...request, givenBack: [...request.givenBack] });
       },
       save: (request) => {
         const index = state.crewRequests.findIndex((held) => held.fleetId === request.fleetId && held.shipId === request.shipId);
-        state.crewRequests.splice(index === -1 ? state.crewRequests.length : index, index === -1 ? 0 : 1, { ...request });
+        state.crewRequests.splice(index === -1 ? state.crewRequests.length : index, index === -1 ? 0 : 1, { ...request, givenBack: [...request.givenBack] });
         return Promise.resolve();
       },
       listAssignedTo: (fleetId, trierarchShipId) =>
@@ -989,6 +989,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
       crewRequest: state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id) ?? null,
       crewRequestAssignee: assigneeOf(held),
+      crewRequestGivenBack: (state.crewRequests.find((request) => request.fleetId === held.fleetId && request.shipId === held.id)?.givenBack ?? []).map(
+        ({ trierarchShipId, ...back }) => ({ trierarch: { id: trierarchShipId, name: state.ships.find((each) => each.fleetId === held.fleetId && each.id === trierarchShipId)?.name ?? '' }, ...back }),
+      ),
       labels: state.shipLabels
         .filter((carried) => carried.fleetId === held.fleetId && carried.shipId === held.id)
         .flatMap((carried) => {

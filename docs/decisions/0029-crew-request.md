@@ -8,6 +8,7 @@
   - the request (settings), by a requester with `fleet:manage`;
   - the assignment (which trierarch ship), by a ship with `crew:assign`, only if still unassigned (optimistic claim);
   - the status (crewing, running, restarting, crashed, releasing), with the restart attempt (0 on the first start) and when the session started, by the assigned trierarch with `crew:run`.
+- A crew is final once its trierarch saw the session working: from its first `running`, `restarting` or `crashed`. Until then the assigned trierarch may give the request back with a reason, one line of at most 200 characters, for the settings version it tried (#382): the request is unassigned, its status cleared, the ship's lease ended and its secret invalidated, and the trierarch recorded with the version, the reason and when. The records are listed with the request and cleared on every new settings version. A give-back of a final request, a releasing one or an older settings version is refused.
 - Two scopes, not one that crews any ship:
   - `crew:assign` writes assignments;
   - `crew:run` reads the requests assigned to its ship, and only for those ships gets the starting prompt, releases and writes status.
@@ -16,7 +17,7 @@
 - Unassigned, the request is the operator's to-do ("needs crew", get starting prompt). Crewing it by hand fulfils it; a ship already crewed is never assigned.
 - While unassigned, the assigner (`crew:assign`) may write a reason why no trierarch can take it: one line of at most 200 characters, cleared on assignment, shown in the operator's needs-crew to-do.
 - Who crewed the ship is derived, never stored: the ship that got the starting prompt its open lease claimed with (argo for a hand crew, or its trierarch).
-- Events: requested, explained (the reason), assigned, status changed, removed.
+- Events: requested, explained (the reason), assigned, status changed, given back, removed.
 - A trierarch's ships are a query (requests assigned to it), not a list on its ship.
 
 Why: assigning crews was the operator's manual work, never state the server held. Declared state in the fleet lets any requester ask for a crew without knowing who provides it, and lets a plugin take the manual work away.

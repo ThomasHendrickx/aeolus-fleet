@@ -7,6 +7,8 @@ import {
   assignCrewInputSchema,
   explainCrewRequestInputSchema,
   assignedCrewRequestsOutputSchema,
+  giveBackCrewRequestInputSchema,
+  giveBackCrewRequestOutputSchema,
   listedCrewRequestSchema,
   reportCrewStatusInputSchema,
   crewRequestInputSchema,
@@ -123,10 +125,39 @@ describe('reportCrewStatusInputSchema', () => {
 
 describe('listedCrewRequestSchema', () => {
   it('carries the restart attempt and when the session started (#332)', () => {
-    const listed = { settingsVersion: 1, requestedAt: '2026-10-07T13:00:00.000Z', assignedTo: null, status: 'restarting', reason: null, crewedBy: null, attempt: 2, startedAt: '2026-10-07T13:24:00.000Z' };
+    const listed = { settingsVersion: 1, requestedAt: '2026-10-07T13:00:00.000Z', assignedTo: null, status: 'restarting', reason: null, crewedBy: null, attempt: 2, startedAt: '2026-10-07T13:24:00.000Z', givenBack: [] };
 
     expect(listedCrewRequestSchema.parse(listed)).toEqual(listed);
     expect(listedCrewRequestSchema.safeParse({ ...listed, attempt: undefined }).success).toBe(false);
+  });
+
+  it('carries each trierarch that gave it back, with the settings version, the reason and when (#382)', () => {
+    const givenBack = [{ trierarch: { id: newId('ship'), name: 'mac-mini' }, settingsVersion: 1, reason: 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5', givenBackAt: '2026-10-09T08:01:00.000Z' }];
+    const listed = { settingsVersion: 1, requestedAt: '2026-10-09T08:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack };
+
+    expect(listedCrewRequestSchema.parse(listed)).toEqual(listed);
+    expect(listedCrewRequestSchema.safeParse({ ...listed, givenBack: undefined }).success).toBe(false);
+  });
+});
+
+describe('giveBackCrewRequestInputSchema', () => {
+  it('takes the ship, the settings version given back and the reason', () => {
+    const input = { shipId: newId('ship'), settingsVersion: 2, reason: 'mac-mini: nothing on screen within a minute' };
+
+    expect(giveBackCrewRequestInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses no reason, and a settings version below one', () => {
+    const shipId = newId('ship');
+
+    expect(giveBackCrewRequestInputSchema.safeParse({ shipId, settingsVersion: 1, reason: '' }).success).toBe(false);
+    expect(giveBackCrewRequestInputSchema.safeParse({ shipId, settingsVersion: 0, reason: 'refused' }).success).toBe(false);
+  });
+});
+
+describe('giveBackCrewRequestOutputSchema', () => {
+  it('answers nothing: the OK is the answer', () => {
+    expect(giveBackCrewRequestOutputSchema.parse({})).toEqual({});
   });
 });
 

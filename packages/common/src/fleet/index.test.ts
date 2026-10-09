@@ -73,6 +73,7 @@ describe('eventTypeSchema', () => {
       'CrewAssigned',
       'CrewStatusChanged',
       'CrewRequestExplained',
+      'CrewRequestGivenBack',
       'LabelDefined',
       'LabelValuesChanged',
       'LabelRetired',

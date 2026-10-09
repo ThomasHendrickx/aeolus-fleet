@@ -119,6 +119,7 @@ const crewRequestRow = z.object({
   reason: z.string().nullable(),
   attempt: z.int().min(0),
   sessionStartedAt: z.date().nullable(),
+  givenBack: z.array(z.object({ trierarchShipId: idSchema('ship'), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.date() })),
 });
 
 const clearRequestRow = z.object({
@@ -214,6 +215,9 @@ const shipFactsSqlRow = z.object({
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
   labels: z.array(carriedLabelSchema),
+  crew_request_given_back: z.array(
+    z.object({ trierarchShipId: idSchema('ship'), trierarchName: z.string(), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.coerce.date() }),
+  ),
 });
 
 /** A ship with its open lease's location and its valid secret's dates, as the fleet listing reads it. */
@@ -245,6 +249,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crewed_by_id,
     crewed_by_name,
     labels,
+    crew_request_given_back,
   } = shipFactsSqlRow.parse(row);
   const ship = toShipFromSql(row);
   return {
@@ -274,8 +279,15 @@ export function toShipFacts(row: unknown): ShipFacts {
             reason: crew_request_reason,
             attempt: crew_request_attempt ?? 0,
             sessionStartedAt: crew_request_session_started_at,
+            givenBack: crew_request_given_back.map(({ trierarchShipId, settingsVersion, reason, givenBackAt }) => ({ trierarchShipId, settingsVersion, reason, givenBackAt })),
           }
         : null,
+    crewRequestGivenBack: crew_request_given_back.map(({ trierarchShipId, trierarchName, settingsVersion, reason, givenBackAt }) => ({
+      trierarch: { id: trierarchShipId, name: trierarchName },
+      settingsVersion,
+      reason,
+      givenBackAt,
+    })),
     crewRequestAssignee:
       crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
     labels,

@@ -299,6 +299,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the crew request was given back, why, and by which trierarch (#382)', () => {
+    expect(onScoutsPage(anEntry('CrewRequestGivenBack', { actor: argo, details: { reason: 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5' } }))).toEqual({
+      sentence: 'Crew request given back: mac-mini: claude-code 2.1.293 refused claude-opus-5-5 by argo',
+      tone: 'waiting',
+      icon: 'released',
+    });
+  });
+
   it('says a kept worktree was asked to be cleared, how its trierarch confirmed it, or that the request went with the trierarch (decision 0032)', () => {
     expect(onScoutsPage(anEntry('WorktreeClearRequested', { actor: argo, details: { worktreeShipId: argo.id, repository: 'aeolus-fleet' } }))).toEqual({
       sentence: 'Clearing of the kept aeolus-fleet worktree requested by argo',

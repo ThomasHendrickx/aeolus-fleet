@@ -15,7 +15,7 @@ function aShip(overrides: Partial<ListedShip> = {}): ListedShip {
 }
 
 function aRequest(overrides: Partial<NonNullable<ListedShip['crewRequest']>> = {}): ListedShip['crewRequest'] {
-  return { settingsVersion: 1, requestedAt: '2026-10-07T10:20:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, ...overrides };
+  return { settingsVersion: 1, requestedAt: '2026-10-07T10:20:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [], ...overrides };
 }
 
 const assigned = (status: CrewStatus) => aShip({ status: 'crewed', crewRequest: aRequest({ assignedTo: TRIERARCH, status, crewedBy: TRIERARCH, attempt: 0, startedAt: null }) });

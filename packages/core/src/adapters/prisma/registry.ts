@@ -81,6 +81,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
@@ -97,23 +98,28 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
 }
 
 export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository {
+  const withGivenBack = { givenBack: { orderBy: { givenBackAt: 'asc' } } } as const;
   return {
     find: async (fleetId, shipId) => {
-      const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
+      const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } }, include: withGivenBack });
       return row === null ? undefined : toCrewRequest(row);
     },
-    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt }) => {
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt, givenBack }) => {
       await db.crewRequest.upsert({
         where: { fleetId_shipId: { fleetId, shipId } },
         create: { fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt },
         update: { settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt },
       });
+      // The request holds its give-backs whole: what it saves replaces what it held.
+      await db.crewRequestGiveBack.deleteMany({ where: { fleetId, shipId } });
+      await db.crewRequestGiveBack.createMany({ data: givenBack.map((back) => ({ fleetId, shipId, ...back })) });
     },
     listAssignedTo: async (fleetId, trierarchShipId) => {
-      const rows = await db.crewRequest.findMany({ where: { fleetId, assignedTo: trierarchShipId }, orderBy: { shipId: 'asc' } });
+      const rows = await db.crewRequest.findMany({ where: { fleetId, assignedTo: trierarchShipId }, orderBy: { shipId: 'asc' }, include: withGivenBack });
       return rows.map(toCrewRequest);
     },
     remove: async (fleetId, shipId) => {
+      await db.crewRequestGiveBack.deleteMany({ where: { fleetId, shipId } });
       await db.crewRequest.deleteMany({ where: { fleetId, shipId } });
     },
   };
@@ -493,6 +499,13 @@ const labelsOfShip = Prisma.sql`
             JOIN label_values v ON v.fleet_id = sl.fleet_id AND v.id = sl.value_id
             WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id), '[]'::json)`;
 
+const givenBackOfShip = Prisma.sql`
+  COALESCE((SELECT json_agg(json_build_object('trierarchShipId', g.trierarch_ship_id, 'trierarchName', t.name, 'settingsVersion', g.settings_version,
+                                              'reason', g.reason, 'givenBackAt', g.given_back_at) ORDER BY g.given_back_at, g.trierarch_ship_id)
+            FROM crew_request_give_backs g
+            JOIN ships t ON t.fleet_id = g.fleet_id AND t.id = g.trierarch_ship_id
+            WHERE g.fleet_id = s.fleet_id AND g.ship_id = s.id), '[]'::json)`;
+
 const crewedByOfShip = Prisma.sql`
   SELECT a.id, a.name
   FROM events e
@@ -524,7 +537,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                  WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
                (SELECT max(el.ended_at) FROM leases el
                  WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
-               ${labelsOfShip} AS labels
+               ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
@@ -571,7 +584,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                  WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
                (SELECT max(el.ended_at) FROM leases el
                  WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
-               ${labelsOfShip} AS labels
+               ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
