@@ -1,7 +1,7 @@
 import { createIdGenerator, idSchema, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -10,7 +10,7 @@ import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { appRouter } from '../src/adapters/trpc/router.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn } from './support/core-fixtures.js';
+import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn, SESSION_MODEL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -1851,5 +1851,75 @@ describe('labels at the API', () => {
     await expect(codeOf(asLabeller.fleet.deleteLabel.mutate({ labelId: carried.labelId }))).resolves.toBe('CONFLICT');
     await expect(codeOf(asLabeller.fleet.deleteLabel.mutate({ labelId: unused.labelId }))).resolves.toBe('NOT_FOUND');
     expect((await asLabeller.fleet.labels.query()).map((label) => label.key)).not.toContain('api-unused');
+  });
+});
+
+describe('network rules at the API', () => {
+  async function networker(): Promise<TRPCClient<AppRouter>> {
+    return client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+  }
+
+  afterEach(async () => {
+    // One fleet serves the whole file: back to all-to-all for the next test.
+    await (await signedInArgo()).fleet.setNetworkRules.mutate({ rules: null });
+  });
+
+  it('let a ship with fleet:network set the rules, answering the version, and refuse a ship without', async () => {
+    const asNetworker = await networker();
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    const first = await asNetworker.fleet.setNetworkRules.mutate({ rules: [{ from: [], to: [newId('labelValue')] }] });
+    const second = await asNetworker.fleet.setNetworkRules.mutate({ rules: [] });
+
+    expect(second.version).toBe(first.version + 1);
+    await expect(refusalOf(reader.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+  });
+
+  it('answer rules over the limits with BAD_REQUEST naming decision 0033', async () => {
+    const refused = await refusalOf((await networker()).fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) }));
+
+    expect(refused?.code).toBe('BAD_REQUEST');
+    expect(refused?.message).toContain('decision 0033');
+  });
+
+  it('refuse a send no rule allows with FORBIDDEN and a message that gives no reason', async () => {
+    await (await networker()).fleet.setNetworkRules.mutate({ rules: [] });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId } = await agentShip();
+
+    const refused = await refusalOf(
+      sender.ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
+    );
+
+    expect(refused).toEqual({ code: 'FORBIDDEN', message: 'The network rules do not allow this send' });
+  });
+
+  it('let argo read the refusals, newest first, and refuse every other ship, the rule setter too', async () => {
+    const asNetworker = await networker();
+    const { version } = await asNetworker.fleet.setNetworkRules.mutate({ rules: [] });
+    const senderToken = await crewedShip();
+    const { shipId } = await agentShip();
+    await refusalOf(
+      client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
+    );
+
+    const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
+
+    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: clock.now().toISOString() });
+    expect(latest?.id).toMatch(/^rfs_/);
+    await expect(codeOf(asNetworker.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
+  });
+
+  it('set the rules through REST, for a ship with fleet:network', async () => {
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
+
+    const response = await fetch(`${address}/api/v1/fleet/setNetworkRules`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ rules: [] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
   });
 });

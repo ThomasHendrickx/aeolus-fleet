@@ -189,6 +189,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/unassignLabel', ['post']],
       ['/fleet/deleteLabel', ['post']],
       ['/fleet/findLabelValue', ['post']],
+      ['/fleet/setNetworkRules', ['post']],
     ]);
   });
 

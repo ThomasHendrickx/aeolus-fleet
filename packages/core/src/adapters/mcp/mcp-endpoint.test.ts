@@ -64,6 +64,7 @@ const SHIP_TOOLS = [
   'fleet_unassignLabel',
   'fleet_deleteLabel',
   'fleet_findLabelValue',
+  'fleet_setNetworkRules',
 ];
 
 let core: InMemoryCore;
@@ -257,6 +258,7 @@ describe('the ship tools at /mcp', () => {
     ['fleet_unassignLabel', [/labels:assign/, /owner/]],
     ['fleet_deleteLabel', [/labels:define/, /owner/, /carr/]],
     ['fleet_findLabelValue', [/fleet:read/, /lowercas/i]],
+    ['fleet_setNetworkRules', [/fleet:network/, /decision 0033/, /all-to-all/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 
