@@ -535,7 +535,7 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('squadron-header').getByText('Sailing').waitFor();
   });
 
-  it("adds squadrons' own part to the web app's /health and /version", async () => {
+  it("adds squadrons' own part to the web app's /health, and says nothing of it on /version", async () => {
     await expect(fetch(`${web.url}/health`).then((response) => response.json())).resolves.toEqual({
       web: 'up',
       server: 'up',
@@ -543,10 +543,7 @@ describe('the first squadron in the console', () => {
       // Self-hosted: squadrons runs without an installation token, connected to this one fleet.
       squadrons: { status: 'up', connectedFleets: 1, installation: 'open' },
     });
-    const version = z
-      .object({ squadrons: z.object({ squadrons: z.string(), migration: z.string().nullable(), connectedFleets: z.number(), installation: z.string() }) })
-      .parse(await fetch(`${web.url}/version`).then((response) => response.json()));
-    expect(version.squadrons).toMatchObject({ connectedFleets: 1, installation: 'open' });
-    expect(version.squadrons.migration).toMatch(/^\d{14}_/);
+    const version: unknown = await fetch(`${web.url}/version`).then((response) => response.json());
+    expect(Object.keys(z.record(z.string(), z.unknown()).parse(version))).toEqual(['web', 'server']);
   });
 });

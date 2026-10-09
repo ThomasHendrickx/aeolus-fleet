@@ -105,13 +105,12 @@ describe('renaming a ship', () => {
 });
 
 describe('/version', () => {
-  it("answers the web app's version and the server's own answer, with the latest migration", async () => {
+  it("answers only the versions of the web app and the server, without a session", async () => {
     const response = await fetch(`${web.url}/version`);
 
     expect(response.status).toBe(200);
-    const body = z
-      .object({ web: z.string(), server: z.object({ server: z.string(), common: z.string(), migration: z.string() }) })
-      .parse(await response.json());
-    expect(body.server.migration).toMatch(/_crew_request_give_backs$/);
+    const body: unknown = await response.json();
+    // The schema drops what it does not name, so an answer saying more than these versions differs from it.
+    expect(z.object({ web: z.string(), server: z.object({ server: z.string(), common: z.string() }) }).parse(body)).toEqual(body);
   });
 });
