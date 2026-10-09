@@ -88,7 +88,7 @@ describe('shipTimelineOutputSchema', () => {
     occurredAt: AT,
     actor: scout,
     ship: planner,
-    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', model: 'claude-opus-5-5' },
+    message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', isPing: false, model: 'claude-opus-5-5' },
     details: { selector: 'ship', recipientType: null },
   };
 
@@ -103,10 +103,16 @@ describe('shipTimelineOutputSchema', () => {
     expect(shipTimelineOutputSchema.parse([system, toType])).toEqual([system, toType]);
   });
 
-  it('accepts the content type of the message, a ping told by it', () => {
-    const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping' } };
+  it('accepts the content type of the message, and whether it is a ping', () => {
+    const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping', isPing: true } };
 
     expect(shipTimelineOutputSchema.parse([ping])).toEqual([ping]);
+  });
+
+  it('rejects a message that does not tell whether it is a ping', () => {
+    const { isPing: _isPing, ...message } = sent.message;
+
+    expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
   });
 
   it('rejects a message without its content type', () => {

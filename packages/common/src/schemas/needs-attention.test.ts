@@ -26,6 +26,7 @@ describe('needsAttentionOutputSchema', () => {
       inReplyTo: null,
       sentAt: AT,
       contentType: 'application/json',
+      isPing: false,
       payload: '{"run":"e2e","ref":"pr-320"}',
     },
   };
@@ -42,6 +43,12 @@ describe('needsAttentionOutputSchema', () => {
 
   it('refuses a time that is not ISO 8601', () => {
     expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, since: '1 Oct 2026' }]).success).toBe(false);
+  });
+
+  it('refuses a message that does not tell whether it is a ping', () => {
+    const { isPing: _isPing, ...message } = undeliverable.message;
+
+    expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, message }]).success).toBe(false);
   });
 });
 
