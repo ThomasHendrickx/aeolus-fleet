@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -30,16 +30,43 @@ describe.each(PUBLISHED_PACKAGES)('the published package %s', (name) => {
 });
 
 describe('the published package console', () => {
-  it('ships no source maps of the server build', { timeout: 30_000 }, () => {
-    // A stand-in for the maps next build writes, so the test needs no build.
-    const serverFolder = join(repositoryRoot, 'packages', 'console', '.next', 'server');
-    const createdFolder = mkdirSync(serverFolder, { recursive: true });
-    const sourceMap = join(serverFolder, 'aeolus-published-packages-test.js.map');
-    writeFileSync(sourceMap, '{}');
-    try {
-      expect(tarballFiles('console').filter((path) => path.endsWith('.map'))).toEqual([]);
-    } finally {
-      rmSync(createdFolder ?? sourceMap, { recursive: true, force: true });
+  /** Writes stand-ins for files next build writes into .next/standalone, so the test needs no build. */
+  function withStandIns(paths: readonly string[], check: () => void): void {
+    const standalone = join(repositoryRoot, 'packages', 'console', '.next', 'standalone');
+    const existed = existsSync(standalone);
+    for (const path of paths) {
+      mkdirSync(dirname(join(standalone, path)), { recursive: true });
+      writeFileSync(join(standalone, path), '{}');
     }
+    try {
+      check();
+    } finally {
+      if (existed) {
+        for (const path of paths) {
+          rmSync(join(standalone, path), { force: true });
+        }
+      } else {
+        rmSync(standalone, { recursive: true, force: true });
+      }
+    }
+  }
+
+  it('ships the standalone server with the modules it traced', { timeout: 30_000 }, () => {
+    withStandIns(['packages/console/server.js', 'node_modules/aeolus-published-packages-test/index.js'], () => {
+      expect(tarballFiles('console')).toEqual(
+        expect.arrayContaining(['.next/standalone/packages/console/server.js', '.next/standalone/node_modules/aeolus-published-packages-test/index.js']),
+      );
+    });
+  });
+
+  it('ships no source maps of the server build', { timeout: 30_000 }, () => {
+    withStandIns(['packages/console/.next/server/aeolus-published-packages-test.js.map'], () => {
+      expect(tarballFiles('console').filter((path) => path.endsWith('.map'))).toEqual([]);
+    });
+  });
+
+  it('installs no dependency: the standalone output holds what it runs', () => {
+    const manifest = z.object({ dependencies: z.record(z.string(), z.string()).optional() }).parse(JSON.parse(readFileSync(join(repositoryRoot, 'packages', 'console', 'package.json'), 'utf8')));
+    expect(manifest.dependencies).toBeUndefined();
   });
 });
