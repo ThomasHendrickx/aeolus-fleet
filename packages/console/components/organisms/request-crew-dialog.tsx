@@ -4,7 +4,8 @@ import type { CrewSettings } from '@aeolus-fleet/common';
 import { CircleX, Clock, LoaderCircle, RotateCw, ShipWheel } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { defaultValues, FIRST_PROMPT_MAX_BYTES, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
+import { useConsoleConstants } from '../../lib/console-constants';
+import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { secondsTime } from '../../lib/relative-time';
 import type { SettingsCheck } from '../../lib/trierarch-plugin-schemas';
@@ -80,12 +81,13 @@ function Banner({ tone, icon, children }: { tone: keyof typeof TONES; icon: Reac
 
 /** The open dialog's form: it starts from the held settings, or the defaults, each time it opens. */
 function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenChange'>) {
+  const { firstPromptMaxBytes } = useConsoleConstants();
   const { shipName, mode, offers, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
   const words = WORDS[mode];
   const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, offers) : defaultValues(offers)));
   const settings = settingsOf(values);
   const refusal = check?.kind === 'refused' ? check : undefined;
-  const isPromptTooLong = promptBytes(values.firstPrompt) > FIRST_PROMPT_MAX_BYTES;
+  const isPromptTooLong = promptBytes(values.firstPrompt) > firstPromptMaxBytes;
   const isWaitingForMachine = values.machineLabels.length > 0 && machineLabels?.matchOf(values.machineLabels).matching.length === 0;
   const canSubmit = settings !== undefined && refusal === undefined && !isPromptTooLong && !isPending;
   const change = (next: CrewSettingsValues) => {
@@ -125,6 +127,7 @@ function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenC
       {offers.length === 0 ? null : <CrewSettingsFields
           offers={offers}
           values={values}
+          firstPromptMaxBytes={firstPromptMaxBytes}
           onChange={change}
           squadrons={squadrons}
           refusal={refusal}

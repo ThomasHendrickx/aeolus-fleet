@@ -1,5 +1,6 @@
 'use client';
 
+import type { LabelValueId } from '@aeolus-fleet/common';
 import { ChevronDown, Plus, Tag, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
@@ -14,8 +15,8 @@ interface LabelFilterProps {
   groups: readonly FilterGroup[];
   /** The values picked, as chips, in the order picked. */
   picked: readonly LabelChipData[];
-  onPick: (valueId: string) => void;
-  onRemove: (valueId: string) => void;
+  onPick: (valueId: LabelValueId) => void;
+  onRemove: (valueId: LabelValueId) => void;
   onClear: () => void;
 }
 

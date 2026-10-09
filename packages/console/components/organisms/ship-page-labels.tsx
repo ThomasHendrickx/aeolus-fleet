@@ -3,6 +3,7 @@
 import type { ShipDetail } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { useAccess } from '../../lib/access';
 import { useAssignLabel, useLabelContext, useUnassignLabel } from '../../lib/fleet';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../lib/labels';
@@ -28,6 +29,7 @@ function textOf(keys: ReturnType<typeof assignKeysOf>, valueId: string): string 
  * once; a refusal says why and nothing changes.
  */
 export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
+  const { shipLabelsMax } = useConsoleConstants();
   const context = useLabelContext();
   const access = useAccess();
   const assign = useAssignLabel();
@@ -51,7 +53,7 @@ export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
     <ShipLabelsEdit
       chips={chips}
       keys={keys}
-      limit={labelLimitOf(ship)}
+      limit={labelLimitOf(ship, shipLabelsMax)}
       isBusy={assign.isPending || unassign.isPending}
       error={error}
       onAssign={(valueId) => {

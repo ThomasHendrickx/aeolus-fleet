@@ -1,9 +1,9 @@
 'use client';
 
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_VALUES_MAX } from '@aeolus-fleet/common';
 import { UserRound, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import { labelTextProblem } from '../../lib/labels';
 import { Button } from '../atoms/button';
@@ -23,6 +23,7 @@ interface DefineLabelDialogProps {
 
 /** The form: a key, then the values typed one by one, each added with Enter. */
 function DefineForm({ isPending, error, onSubmit }: Pick<DefineLabelDialogProps, 'isPending' | 'error' | 'onSubmit'>) {
+  const { labelHandleMaxLength, labelValuesMax } = useConsoleConstants();
   const keyId = useId();
   const keyHelpId = useId();
   const valueId = useId();
@@ -32,7 +33,7 @@ function DefineForm({ isPending, error, onSubmit }: Pick<DefineLabelDialogProps,
   const [draft, setDraft] = useState('');
   const keyProblem = labelTextProblem(key, 'Key');
   const draftProblem = labelTextProblem(draft.trim(), 'Value') ?? (values.includes(draft.trim()) ? `${draft.trim()} is a value already.` : undefined);
-  const isFull = values.length >= LABEL_VALUES_MAX;
+  const isFull = values.length >= labelValuesMax;
   const canDefine = key !== '' && keyProblem === undefined && values.length > 0 && !isPending;
 
   const addDraft = () => {
@@ -63,7 +64,7 @@ function DefineForm({ isPending, error, onSubmit }: Pick<DefineLabelDialogProps,
         <div className="flex items-baseline justify-between">
           <Label htmlFor={keyId}>Key</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {key.length} / {LABEL_HANDLE_MAX_LENGTH}
+            {key.length} / {labelHandleMaxLength}
           </span>
         </div>
         <Input
@@ -83,14 +84,14 @@ function DefineForm({ isPending, error, onSubmit }: Pick<DefineLabelDialogProps,
           }}
         />
         <p id={keyHelpId} aria-live="polite" className={classNames('text-meta', keyProblem === undefined ? 'text-muted-foreground' : 'text-destructive-text')}>
-          {keyProblem ?? `Lowercase letters, digits and -, up to ${String(LABEL_HANDLE_MAX_LENGTH)} characters. Unique in the fleet.`}
+          {keyProblem ?? `Lowercase letters, digits and -, up to ${String(labelHandleMaxLength)} characters. Unique in the fleet.`}
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between">
           <Label htmlFor={valueId}>Values</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {values.length} of {LABEL_VALUES_MAX}
+            {values.length} of {labelValuesMax}
           </span>
         </div>
         <div
@@ -139,7 +140,7 @@ function DefineForm({ isPending, error, onSubmit }: Pick<DefineLabelDialogProps,
           />
         </div>
         <p id={valueHelpId} aria-live="polite" className={classNames('text-meta', draftProblem === undefined && !isFull ? 'text-muted-foreground' : 'text-destructive-text')}>
-          {draftProblem ?? (isFull ? `Values: a label has at most ${String(LABEL_VALUES_MAX)} values (decision 0031).` : 'Each value a ship can carry. You can add values later.')}
+          {draftProblem ?? (isFull ? `Values: a label has at most ${String(labelValuesMax)} values (decision 0031).` : 'Each value a ship can carry. You can add values later.')}
         </p>
       </div>
       <p className="flex items-center gap-2 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm)">

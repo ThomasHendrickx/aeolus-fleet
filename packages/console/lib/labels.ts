@@ -1,4 +1,4 @@
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { LABEL_HANDLE_MAX_LENGTH, LABEL_HANDLE_PATTERN, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
@@ -203,11 +203,11 @@ const SHOWN_COUNT_FROM = 15;
  * Q12): its count against the most, from 15 on; at the most, Add label goes and
  * the limit is named.
  */
-export function labelLimitOf(ship: Pick<ListedShip, 'labels'>): { count?: string; isAtLimit: boolean } {
+export function labelLimitOf(ship: Pick<ListedShip, 'labels'>, shipLabelsMax: number): { count?: string; isAtLimit: boolean } {
   const carried = ship.labels.length;
   return {
-    ...(carried >= SHOWN_COUNT_FROM ? { count: `${String(carried)} of ${String(SHIP_LABELS_MAX)}` } : {}),
-    isAtLimit: carried >= SHIP_LABELS_MAX,
+    ...(carried >= SHOWN_COUNT_FROM ? { count: `${String(carried)} of ${String(shipLabelsMax)}` } : {}),
+    isAtLimit: carried >= shipLabelsMax,
   };
 }
 

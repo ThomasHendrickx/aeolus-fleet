@@ -1,4 +1,4 @@
-import { createIdGenerator, type CrewSettings, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator, SHIP_LABELS_MAX, type CrewSettings, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { labelContextOf } from './labels';
@@ -98,7 +98,7 @@ describe('noMatchWords', () => {
 
 describe('machineLabelsInputOf', () => {
   it('gives the form the values picked as chips, in the order picked, and which machines carry them', () => {
-    const input = machineLabelsInputOf(CONTEXT, MACHINES);
+    const input = machineLabelsInputOf(CONTEXT, { machines: MACHINES, shipLabelsMax: SHIP_LABELS_MAX });
     const picked = [value(ARCH, 'amd64').id, value(OS, 'linux').id];
 
     expect(input.chipsOf(picked).map((chip) => `${chip.key}=${chip.value}`)).toEqual(['arch=amd64', 'os=linux']);

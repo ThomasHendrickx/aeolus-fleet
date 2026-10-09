@@ -1,8 +1,9 @@
-import { FLEET_SCOPES, type ShipDetail, type ShipId } from '@aeolus-fleet/common';
+import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { Archive, CircleAlert, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, shortDateTime } from '../../lib/relative-time';
 import { Badge } from '../atoms/badge';
@@ -124,6 +125,7 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
 export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false }: ShipHeaderProps) {
+  const { fleetScopes } = useConsoleConstants();
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -194,7 +196,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
                 {ship.scopes
-                  .filter((scope) => FLEET_SCOPES.some((fleetScope) => fleetScope === scope))
+                  .filter((scope) => fleetScopes.some((fleetScope) => fleetScope === scope))
                   .map((scope) => (
                     <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
                       {scope}

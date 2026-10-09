@@ -9,11 +9,11 @@ import {
   fleetSquadrons,
   fleetTypes,
   fleetViewParams,
-  readFleetView,
   retiredCount,
   urlParamsOf,
   type FleetView,
 } from './fleet-filter';
+import { readFleetView } from './read-fleet-view';
 
 let nextId = 0;
 const ID_CHARACTERS = '0123456789abcdefghjkmnpqrstvwxyz';

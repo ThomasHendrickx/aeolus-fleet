@@ -1,4 +1,4 @@
-import { FIRST_PROMPT_MAX_BYTES, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
+import type { CrewSettings, LabelValueId } from '@aeolus-fleet/common';
 
 import { harnessOptions, type HarnessOption } from './machines';
 import type { Machine } from './trierarch-plugin-schemas';
@@ -147,8 +147,6 @@ export function byteSize(bytes: number): string {
   const KB = 1024;
   return bytes < KB ? `${String(bytes)} B` : `${(bytes / KB).toFixed(1).replace(/\.0$/, '')} KB`;
 }
-
-export { FIRST_PROMPT_MAX_BYTES };
 
 /** One fact of a request's settings, as its card shows it: a label, the value, and what kind it is. */
 export interface SettingsRow {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { offersOf } from '../../lib/crew-settings-form';
 import { useLabelContext } from '../../lib/fleet';
 import { formMembersOf } from '../../lib/forming-members';
@@ -36,7 +37,8 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
   const crew = useBlueprintCrew(hasTrierarchs ? picked : undefined);
   const machines = useMachines();
   const context = useLabelContext();
-  const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, machines.data);
+  const { shipLabelsMax } = useConsoleConstants();
+  const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, { machines: machines.data, shipLabelsMax });
 
   return (
     <FormSquadronDialog

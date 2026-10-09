@@ -1,4 +1,4 @@
-import { idSchema, type ListedShip } from '@aeolus-fleet/common';
+import { idSchema, SHIP_LABELS_MAX, type ListedShip } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
@@ -11,7 +11,7 @@ const CONTEXT = labelContext(FLEET);
 
 function argsFor(labels: ListedShip['labels']) {
   const ship = { labels };
-  return { chips: chipsOf(ship, CONTEXT), keys: assignKeysOf(ship, CONTEXT), limit: labelLimitOf(ship) };
+  return { chips: chipsOf(ship, CONTEXT), keys: assignKeysOf(ship, CONTEXT), limit: labelLimitOf(ship, SHIP_LABELS_MAX) };
 }
 
 const DIGITS = '0123456789abcdefghjkmnpqrstvwxyz';

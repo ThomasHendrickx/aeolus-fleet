@@ -1,11 +1,11 @@
 'use client';
 
-import { LABEL_HANDLE_MAX_LENGTH, LABEL_VALUES_MAX, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import { Boxes, Ellipsis, Pencil, Plus, Search, Ship, ShipWheel, Tags, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
+import { useConsoleConstants } from '../../lib/console-constants';
 import { matchesLabelQuery, type LabelRow, type OwnerMark } from '../../lib/labels';
 import { Button } from '../atoms/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu';
@@ -33,7 +33,9 @@ interface LabelsTableProps {
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
 
 /** The rule every label keeps, under the list (decision 0031). */
-const RULES = `A value opens the fleet overview filtered by it. Keys and values use lowercase letters, digits and -, up to ${String(LABEL_HANDLE_MAX_LENGTH)} characters; a label has at most ${String(LABEL_VALUES_MAX)} values and a ship at most ${String(SHIP_LABELS_MAX)} labels (decision 0031).`;
+function rulesOf(limits: { labelHandleMaxLength: number; labelValuesMax: number; shipLabelsMax: number }): string {
+  return `A value opens the fleet overview filtered by it. Keys and values use lowercase letters, digits and -, up to ${String(limits.labelHandleMaxLength)} characters; a label has at most ${String(limits.labelValuesMax)} values and a ship at most ${String(limits.shipLabelsMax)} labels (decision 0031).`;
+}
 
 function plural(count: number, one: string): string {
   return `${String(count)} ${count === 1 ? one : `${one}s`}`;
@@ -128,6 +130,7 @@ function RowMenu({ row, onChangeValues, onDelete }: { row: LabelRow } & Pick<Lab
  * others' are read-only. A table on desktop, a card per label on phone.
  */
 export function LabelsTable({ rows, shipTotal, error, onRetry, onDefine, onChangeValues, onDelete }: LabelsTableProps) {
+  const limits = useConsoleConstants();
   const [query, setQuery] = useState('');
   const [owner, setOwner] = useState('all');
 
@@ -281,7 +284,7 @@ export function LabelsTable({ rows, shipTotal, error, onRetry, onDefine, onChang
           </ul>
         </>
       )}
-      <p className="text-meta text-muted-foreground">{RULES}</p>
+      <p className="text-meta text-muted-foreground">{rulesOf(limits)}</p>
     </div>
   );
 }

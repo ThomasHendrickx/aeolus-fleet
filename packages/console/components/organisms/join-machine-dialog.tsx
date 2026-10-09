@@ -1,9 +1,9 @@
 'use client';
 
-import { SHIP_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common';
 import { CircleAlert, CircleCheck, CircleX, Info } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { classNames } from '../../lib/class-names';
 import { asHandle, checkShipName } from '../../lib/ship-name';
 import type { JoinedMachine } from '../../lib/trierarch-plugin-schemas';
@@ -31,6 +31,7 @@ interface JoinMachineDialogProps {
 
 /** The name the operator gives the machine: no prefill; the trierarch's ship goes by it (#245, h). */
 function NameStep({ activeNames, isPending, error, onSubmit }: Pick<JoinMachineDialogProps, 'activeNames' | 'isPending' | 'error' | 'onSubmit'>) {
+  const { shipHandleMaxLength } = useConsoleConstants();
   const nameId = useId();
   const statusId = useId();
   const [name, setName] = useState('');
@@ -60,7 +61,7 @@ function NameStep({ activeNames, isPending, error, onSubmit }: Pick<JoinMachineD
         <div className="flex items-baseline justify-between">
           <Label htmlFor={nameId}>Name</Label>
           <span className="text-caption text-muted-foreground tabular-nums">
-            {name.length} / {SHIP_HANDLE_MAX_LENGTH}
+            {name.length} / {shipHandleMaxLength}
           </span>
         </div>
         <div className="relative">

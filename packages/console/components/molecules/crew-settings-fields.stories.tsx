@@ -1,3 +1,4 @@
+import { FIRST_PROMPT_MAX_BYTES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
 
@@ -12,7 +13,7 @@ const OFFERS: HarnessOffer[] = [
 /** The fields, holding their own values, as a form does. */
 function Fields(props: { squadrons?: readonly string[]; refusal?: { field: string; reason: string } }) {
   const [values, setValues] = useState(() => defaultValues(OFFERS));
-  return <CrewSettingsFields offers={OFFERS} values={values} onChange={setValues} {...props} />;
+  return <CrewSettingsFields offers={OFFERS} values={values} onChange={setValues} firstPromptMaxBytes={FIRST_PROMPT_MAX_BYTES} {...props} />;
 }
 
 const meta = {

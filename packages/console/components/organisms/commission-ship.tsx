@@ -4,6 +4,7 @@ import type { CrewSettings } from '@aeolus-fleet/common';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../lib/crew-settings-form';
 import { useCommissionShip, useFleetSnapshot, useLabelContext, useRequestCrew } from '../../lib/fleet';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
@@ -42,7 +43,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
   const offers = offersOf(machines.data ?? []);
   const labelContext = useLabelContext();
-  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
+  const { shipLabelsMax } = useConsoleConstants();
+  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
 

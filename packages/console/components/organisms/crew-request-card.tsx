@@ -1,8 +1,9 @@
-import { NO_MACHINE_MATCHES_REASON, type Party } from '@aeolus-fleet/common';
+import type { Party } from '@aeolus-fleet/common';
 import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateCcw, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../lib/crew-request';
 import type { SettingsRow } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
@@ -223,6 +224,7 @@ function Heading() {
  * to crew by hand. A viewer reads it without actions.
  */
 export function CrewRequestCard(props: CrewRequestCardProps) {
+  const { noMachineMatchesReason } = useConsoleConstants();
   const { stage, requestedBy, now, canManage, isAwaitingCrew, busy, error } = props;
   const failed = error === undefined ? null : <InlineError title={FAILED[error.action]} description={`${error.message} Nothing changed.`} />;
 
@@ -325,7 +327,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
           <Note tone="note" icon={<LoaderCircle aria-hidden />}>
             Waiting for the trierarch plugin to assign a trierarch.
           </Note>
-        ) : stage.reason === NO_MACHINE_MATCHES_REASON && props.machineLabels !== undefined && props.machineLabels.length > 0 ? (
+        ) : stage.reason === noMachineMatchesReason && props.machineLabels !== undefined && props.machineLabels.length > 0 ? (
           <Note tone="waiting" icon={<Clock aria-hidden />}>
             <strong className="font-medium">No machine matches these labels.</strong> The plugin places this ship only on a machine with {machineLabelsText(props.machineLabels)}, and none{' '}
             {noMatchWords(props.machineLabels.length).carries}. It assigns a trierarch as soon as one does; until then this ship is on Needs crew.

@@ -187,6 +187,7 @@ export function MemberCrewSection({ member, offers, workspaces, machineLabels, i
               picked={machineLabels.chipsOf(member.machineLabels)}
               groups={machineLabels.groups}
               match={machineLabels.matchOf(member.machineLabels)}
+              max={machineLabels.max}
               isDisabled={isDisabled}
               unknown={member.unknownLabels}
               onAdd={(valueId) => {

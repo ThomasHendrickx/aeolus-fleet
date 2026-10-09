@@ -3,6 +3,7 @@
 import type { CrewSettings, ShipId } from '@aeolus-fleet/common';
 import { useState, type ReactNode } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf, valuesOf } from '../../lib/crew-settings-form';
 import { useCrewSettings } from '../../lib/crew-settings';
 import { useLabelContext, useRequestCrew } from '../../lib/fleet';
@@ -39,7 +40,8 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
   const [refusedAt, setRefusedAt] = useState<Date>();
   const offers = offersOf(machines.data ?? []);
-  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
+  const { shipLabelsMax } = useConsoleConstants();
+  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   // The held settings, parsed on the web app's server: Edit opens once they are read.
   const parsedHeld = useCrewSettings(of?.heldSettings === undefined ? [] : [of.heldSettings]);
   const held = parsedHeld?.[0] ?? null;

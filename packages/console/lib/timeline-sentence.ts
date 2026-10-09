@@ -1,4 +1,4 @@
-import { REPORT_STATES, type Party, type ReportState, type TimelineEntry } from '@aeolus-fleet/common';
+import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
 
 import { locationKindWord } from './location';
 import { REPORT_TONES } from './report';
@@ -50,7 +50,8 @@ function valuesOf(entry: TimelineEntry): string {
 
 /** Whether a detail names a report state. */
 function isReportState(value: string): value is ReportState {
-  return REPORT_STATES.some((state) => state === value);
+  // REPORT_TONES has a tone for every report state, as its type requires.
+  return Object.hasOwn(REPORT_TONES, value);
 }
 
 /** Who caused the event: " by argo"; nothing for the system. */
