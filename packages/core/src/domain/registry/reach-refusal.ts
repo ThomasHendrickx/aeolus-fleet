@@ -1,0 +1,25 @@
+import type { FleetId, ReachRefusalId, ShipId } from '@aeolus-fleet/common';
+
+import type { CarriedLabel } from './label.js';
+
+/** A ship as a refusal saw it: its id, its name and the label values it carried then, by key. */
+export interface RefusedShip {
+  id: ShipId;
+  name: string;
+  labels: readonly CarriedLabel[];
+}
+
+/**
+ * The record of a send the network rules refused (decision 0033): who tried
+ * to reach whom, both ships as they were at that moment, so a later rename or
+ * relabelling keeps it true, and the version of the settings that refused it.
+ * Not an event: only argo reads it.
+ */
+export interface ReachRefusal {
+  fleetId: FleetId;
+  id: ReachRefusalId;
+  at: Date;
+  sender: RefusedShip;
+  recipient: { kind: 'ship'; ship: RefusedShip };
+  settingsVersion: number;
+}

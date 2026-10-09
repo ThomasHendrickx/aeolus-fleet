@@ -14,6 +14,9 @@ import { carriedLabelSchema } from './label.js';
 /** The most rules one fleet may hold. */
 export const NETWORK_RULES_MAX = 200;
 
+/** The most refusals one read of them answers: the latest. */
+export const REACH_REFUSALS_READ_MAX = 100;
+
 /** Ships carrying every one of these label values: exact matches, combined with AND. */
 export const labelSelectorSchema = z.array(idSchema('labelValue'));
 
@@ -36,11 +39,11 @@ export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),
   sender: refusedShipSchema,
-  recipient: refusedShipSchema,
+  recipient: z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
   settingsVersion: z.int().min(1),
 });
 
 export type ReachRefusal = z.infer<typeof reachRefusalSchema>;
 
-/** Output of `fleet.reachRefusals` (argo only): the fleet's latest refusals, newest first. */
+/** Output of `fleet.reachRefusals` (argo only): the fleet's latest refusals, newest first, at most REACH_REFUSALS_READ_MAX. */
 export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);

@@ -84,6 +84,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;

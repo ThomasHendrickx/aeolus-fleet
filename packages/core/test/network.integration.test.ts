@@ -1,4 +1,4 @@
-import { createIdGenerator, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
+import { createIdGenerator, type LabelId, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -22,6 +22,7 @@ let core: PostgresCore;
 let argo: Caller;
 let planner: Caller;
 let vault: Caller;
+let trustId: LabelId;
 let shared: LabelValueId;
 let sensitive: LabelValueId;
 
@@ -44,6 +45,7 @@ beforeEach(async () => {
   planner = await aShip('planner');
   vault = await aShip('vault');
   const trust = unwrap(await core.useCases.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
+  trustId = trust.labelId;
   shared = trust.values[0]?.id ?? newId('labelValue');
   sensitive = trust.values[1]?.id ?? newId('labelValue');
   unwrap(await core.useCases.assignLabel(labeller, { shipId: planner.shipId, valueId: shared }));
@@ -109,21 +111,21 @@ describe('a send under network rules', () => {
 
   it('records who tried to reach whom, both ships with the labels they carried, the settings version and when', async () => {
     refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
-    const label = (valueId: LabelValueId, value: string) => ({ labelId: expect.stringMatching(/^lbl_/), key: 'trust', valueId, value });
+    const label = (valueId: LabelValueId, value: string) => ({ labelId: trustId, key: 'trust', valueId, value });
 
-    await expect(core.useCases.readReachRefusals(argo)).resolves.toEqual({
-      isOk: true,
-      value: [
+    const read = unwrap(await core.useCases.readReachRefusals(argo));
+
+    expect(read[0]?.id).toMatch(/^rfs_/);
+    expect(read).toEqual([
         {
           fleetId: argo.fleetId,
-          id: expect.stringMatching(/^rfs_/),
+          id: read[0]?.id,
           at: core.clock.now(),
           sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')] },
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')] } },
           settingsVersion: 1,
         },
-      ],
-    });
+    ]);
   });
 
   it('lets a ship answer the sender of a message it received', async () => {
@@ -184,8 +186,10 @@ describe('a send and a change of rules', () => {
   });
 
   it('racing, check every send against exactly one version: each one stored before the change, each one refused after it', async () => {
-    const sends = Array.from({ length: 12 }, () => core.useCases.sendMessage(planner, aMessage(vault)));
+    const send = () => core.useCases.sendMessage(planner, aMessage(vault));
+    const before = Array.from({ length: 6 }, send);
     const change = core.useCases.setNetworkRules(argo, { rules: [] });
+    const sends = [...before, ...Array.from({ length: 6 }, send)];
 
     const results = await Promise.all(sends);
     unwrap(await change);
@@ -194,6 +198,8 @@ describe('a send and a change of rules', () => {
     const changedAt = events.findIndex((event) => event.type === 'NetworkRulesSet' && JSON.stringify(event.details).includes('"version":2'));
     expect(events.slice(changedAt + 1).map((event) => event.type)).not.toContain('MessageAccepted');
     const refusals = await core.prisma.reachRefusal.findMany({ select: { settingsVersion: true } });
+    // The sends started after the change queue behind it: the race has both sides.
+    expect(refusals.length).toBeGreaterThan(0);
     expect(refusals.every((refusal) => refusal.settingsVersion === 2)).toBe(true);
     expect(results.filter((result) => result.isOk).length + refusals.length).toBe(sends.length);
     expect(results.filter((result) => !result.isOk).length).toBe(refusals.length);

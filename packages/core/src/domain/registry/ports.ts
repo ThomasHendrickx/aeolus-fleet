@@ -9,6 +9,7 @@ import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { NetworkSettings } from './network-settings.js';
+import type { ReachRefusal } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 
@@ -183,6 +184,13 @@ export interface NetworkSettingsRepository {
   /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
   findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
   save(settings: NetworkSettings): Promise<void>;
+}
+
+/** Outbound port: the records of the sends the fleet's network rules refused (decision 0033). */
+export interface ReachRefusalRepository {
+  record(refusal: ReachRefusal): Promise<void>;
+  /** The fleet's latest refusals, newest first, at most `limit`. Read outside a unit of work. */
+  latest(fleetId: FleetId, limit: number): Promise<ReachRefusal[]>;
 }
 
 /**

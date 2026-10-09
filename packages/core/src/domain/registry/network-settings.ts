@@ -5,7 +5,7 @@
  * fleet holds its rules, or none (all-to-all), with a version that moves on
  * every set, so a refusal names the settings that refused it.
  */
-import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId } from '@aeolus-fleet/common';
+import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
@@ -84,4 +84,30 @@ function invalidRules(rules: readonly NetworkRule[]): string | undefined {
 
 function copyOfRule(rule: NetworkRule): NetworkRule {
   return { from: [...rule.from], to: [...rule.to] };
+}
+
+/** A ship as a send's check sees it: its kind, for the argo exception, and the label values it carries. */
+export interface ReachingShip {
+  kind: ShipKind;
+  labels: readonly LabelValueId[];
+}
+
+/**
+ * Whether the settings let the sender reach the recipient. With no rules,
+ * every ship reaches every ship. The fixed exceptions hold whatever the
+ * rules: argo reaches every ship and every ship reaches argo, and a ship
+ * answers the sender of a message it received. Otherwise a rule must match
+ * the sender with its `from` and the recipient with its `to`.
+ */
+export function allowsReach(settings: NetworkSettings, send: { sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean }): boolean {
+  const { sender, recipient, isAnswerToSender } = send;
+  if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || isAnswerToSender) {
+    return true;
+  }
+  return settings.rules.some((rule) => matches(rule.from, sender) && matches(rule.to, recipient));
+}
+
+/** A ship matches a selector when it carries every value in it: exact matches, combined with AND. */
+function matches(selector: readonly LabelValueId[], ship: ReachingShip): boolean {
+  return selector.every((valueId) => ship.labels.includes(valueId));
 }

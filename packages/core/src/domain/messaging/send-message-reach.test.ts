@@ -1,4 +1,4 @@
-import type { FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, LabelValueId, MessageId, NetworkRule, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -7,7 +7,6 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../../test/support/keys.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
-import type { NetworkRule } from '../registry/network-settings.js';
 import type { Caller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import type { MessageToSend } from './send-message.js';
@@ -233,11 +232,13 @@ describe('the record of a refused send', () => {
   it('says who tried to reach whom, both ships with the labels they carried by key, the settings version that refused it and when', async () => {
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
+    const [refusal] = core.state.reachRefusals;
+    expect(refusal?.id).toMatch(/^rfs_/);
     const label = (key: string, text: string) => ({ labelId: core.state.labels.find((held) => held.key === key)?.id, key, valueId: value(key, text), value: text });
     expect(core.state.reachRefusals).toEqual([
       {
         fleetId,
-        id: expect.stringMatching(/^rfs_/),
+        id: refusal?.id,
         at: core.clock.now(),
         sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')] },
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')] } },
