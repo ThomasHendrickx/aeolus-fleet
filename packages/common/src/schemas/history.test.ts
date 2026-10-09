@@ -56,8 +56,8 @@ describe('shipDetailOutputSchema', () => {
     expect(shipDetailOutputSchema.parse(ship)).toEqual(ship);
   });
 
-  it("accepts the crew's report with its details and their version", () => {
-    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 } } };
+  it("accepts the crew's report with its details, their version and their size", () => {
+    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
 
     expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
   });
@@ -70,7 +70,8 @@ describe('shipDetailOutputSchema', () => {
 
   it.each([
     ['a crew request without its settings', { ...ship, crewRequest: { settingsVersion: 1, requestedAt: AT, assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null } }],
-    ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0 } }],
+    ['a report without its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 0, detailsBytes: null } }],
+    ['a report without the size of its details', { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 } } }],
     ['a commissioned date that is not ISO 8601', { ...ship, commissionedAt: 'yesterday' }],
     ['a missing crewed since', { ...ship, crewedSince: undefined }],
     ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],
