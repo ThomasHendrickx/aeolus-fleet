@@ -1,10 +1,11 @@
+import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import type { FilterGroup, LabelChip } from '../../lib/labels';
+import type { FilterGroup, FilterKey, LabelChip } from '../../lib/labels';
 import { MachineLabelsField } from './machine-labels-field';
 
-const values = (key: string, counts: Record<string, number>) => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));
+const values = (key: string, counts: Record<string, number>): FilterKey['values'] => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));
 
 const GROUPS: FilterGroup[] = [
   {
@@ -23,7 +24,7 @@ const chip = (key: string, value: string): LabelChip => ({ labelId: `lbl_${key}`
 const meta = {
   title: 'Molecules/MachineLabelsField',
   component: MachineLabelsField,
-  args: { shipName: 'triage-bot', groups: GROUPS, picked: [], match: { matching: ['trierarch-mac', 'trierarch-macbook', 'trierarch-hetzner'], total: 3 }, onAdd: fn(), onRemove: fn() },
+  args: { shipName: 'triage-bot', groups: GROUPS, picked: [], match: { matching: ['trierarch-mac', 'trierarch-macbook', 'trierarch-hetzner'], total: 3 }, max: SHIP_LABELS_MAX, onAdd: fn(), onRemove: fn() },
   decorators: [
     (Story) => (
       <div className="w-120">

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { sessionSince, THEME_LABELS, THEMES, themeOfSession, themeScript } from './theme';
+import { THEMES } from '@aeolus-fleet/common';
+
+import { sessionSince, THEME_LABELS, themeScript } from './theme';
+import { themeOfSession } from './theme-of-session';
 
 describe('THEMES', () => {
   it('knows Light, Dark and System, in that order', () => {

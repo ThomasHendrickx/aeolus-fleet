@@ -26,6 +26,7 @@ const fromArgo: UndeliverableDelivery = {
     inReplyTo: null,
     sentAt: ago(170),
     contentType: 'text/plain',
+    isPing: false,
     payload: 'Pause all reviews until 15:00.',
   },
 };
@@ -41,6 +42,7 @@ const fromBuilder: UndeliverableDelivery = {
     inReplyTo: null,
     sentAt: ago(95),
     contentType: 'application/json',
+    isPing: false,
     payload: '{"run":"e2e","ref":"pr-320"}',
   },
 };
@@ -72,7 +74,7 @@ export const UndeliverablePing: Story = {
     deliveries: [
       {
         ...fromBuilder,
-        message: { ...fromBuilder.message, sender: argo, contentType: 'application/vnd.aeolus.ping', payload: 'Ping from argo: answer with pong(deliveryId).' },
+        message: { ...fromBuilder.message, sender: argo, contentType: 'application/vnd.aeolus.ping', isPing: true, payload: 'Ping from argo: answer with pong(deliveryId).' },
       },
     ],
   },

@@ -1,7 +1,7 @@
-import { crewSettingsSchema, FIRST_PROMPT_MAX_BYTES, idSchema, type CrewSettings, type LabelValueId } from '@aeolus-fleet/common';
+import type { CrewSettings, LabelValueId } from '@aeolus-fleet/common';
 
 import { harnessOptions, type HarnessOption } from './machines';
-import type { Machine } from './trierarch-plugin';
+import type { Machine } from './trierarch-plugin-schemas';
 
 /**
  * The Request crew form, built from what the machines offer (#245, S3): per
@@ -67,7 +67,7 @@ export interface CrewSettingsValues {
   firstPrompt: string;
   squadron: string;
   /** The label value ids a machine must carry, every one; none for any machine. */
-  machineLabels: string[];
+  machineLabels: LabelValueId[];
 }
 
 /** Each option at its default, or its first value when it has none. */
@@ -104,12 +104,11 @@ export function withHarness(values: CrewSettingsValues, pick: { harness: string;
 }
 
 /** The form filled from settings a request holds, for Edit; anything that is no crew setting starts as a new form. */
-export function valuesOf(settings: unknown, offers: readonly HarnessOffer[]): CrewSettingsValues {
-  const parsed = crewSettingsSchema.safeParse(settings);
-  if (!parsed.success) {
+export function valuesOf(settings: CrewSettings | null | undefined, offers: readonly HarnessOffer[]): CrewSettingsValues {
+  if (settings === undefined || settings === null) {
     return defaultValues(offers);
   }
-  const { harness, workspace, options, firstPrompt, squadron, machineLabels } = parsed.data;
+  const { harness, workspace, options, firstPrompt, squadron, machineLabels } = settings;
   return {
     // Without a harness a trierarch crews with its first; the form picks the first offered (#343).
     harness: harness ?? defaultValues(offers).harness,
@@ -119,14 +118,6 @@ export function valuesOf(settings: unknown, offers: readonly HarnessOffer[]): Cr
     squadron: squadron ?? '',
     machineLabels: [...(machineLabels ?? [])],
   };
-}
-
-/** The machine labels picked, as ids; one that is no label value id is left out. */
-function labelValueIds(valueIds: readonly string[]): LabelValueId[] {
-  return valueIds.flatMap((valueId) => {
-    const parsed = idSchema('labelValue').safeParse(valueId);
-    return parsed.success ? [parsed.data] : [];
-  });
 }
 
 /** The settings the form makes, as a crew request holds them; undefined until a harness and a workspace are picked. */
@@ -140,7 +131,7 @@ export function settingsOf(values: CrewSettingsValues): CrewSettings | undefined
     options: values.options,
     ...(values.firstPrompt === '' ? {} : { firstPrompt: values.firstPrompt }),
     ...(values.squadron === '' ? {} : { squadron: values.squadron }),
-    ...(values.machineLabels.length === 0 ? {} : { machineLabels: labelValueIds(values.machineLabels) }),
+    ...(values.machineLabels.length === 0 ? {} : { machineLabels: values.machineLabels }),
   };
 }
 
@@ -157,8 +148,6 @@ export function byteSize(bytes: number): string {
   return bytes < KB ? `${String(bytes)} B` : `${(bytes / KB).toFixed(1).replace(/\.0$/, '')} KB`;
 }
 
-export { FIRST_PROMPT_MAX_BYTES };
-
 /** One fact of a request's settings, as its card shows it: a label, the value, and what kind it is. */
 export interface SettingsRow {
   label: string;
@@ -169,12 +158,11 @@ export interface SettingsRow {
 }
 
 /** A request's settings as rows for its card; undefined when they are no crew settings (a request made without the plugin). */
-export function settingsRows(settings: unknown): SettingsRow[] | undefined {
-  const parsed = crewSettingsSchema.safeParse(settings);
-  if (!parsed.success) {
+export function settingsRows(settings: CrewSettings | null | undefined): SettingsRow[] | undefined {
+  if (settings === undefined || settings === null) {
     return undefined;
   }
-  const { harness, workspace, options, firstPrompt, squadron } = parsed.data;
+  const { harness, workspace, options, firstPrompt, squadron } = settings;
   return [
     { label: 'Harness', value: harness ?? 'Trierarch default' },
     workspace.kind === 'worktree'

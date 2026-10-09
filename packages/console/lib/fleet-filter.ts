@@ -1,8 +1,8 @@
-import { idSchema, shipStatusSchema, type ListedShip, type ShipStatus } from '@aeolus-fleet/common';
+import type { LabelValueId, ListedShip, ShipStatus } from '@aeolus-fleet/common';
 
 import { crewRequestStage } from './crew-request';
 import { carriesEvery } from './labels';
-import { CREW_REQUEST_KEYS, crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from './needs-crew';
+import { crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from './needs-crew';
 import type { ShipInSquadron } from './squadrons-view';
 
 /** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), type, squadron (with squadrons on), labels (#102) and Show retired. */
@@ -16,7 +16,7 @@ export interface FleetFilters {
   squadron: string;
   isRetiredShown: boolean;
   /** The label values a shown ship carries, every one (decision 0031), in the order picked; none for all ships. */
-  labelValueIds: readonly string[];
+  labelValueIds: readonly LabelValueId[];
 }
 
 /** What the overview shows: the search text and the filters. Kept in the URL. */
@@ -34,8 +34,8 @@ export const DEFAULT_FLEET_VIEW: FleetView = {
 export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron> };
 
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
-const RETIRED_SHOWN = '1';
+export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
+export const RETIRED_SHOWN = '1';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -91,15 +91,6 @@ export function retiredCount(ships: readonly ListedShip[]): number {
   return ships.filter((ship) => ship.status === 'retired').length;
 }
 
-function readStatus(value: string | null): FleetFilters['status'] {
-  const parsed = shipStatusSchema.safeParse(value);
-  return parsed.success && parsed.data !== 'retired' ? parsed.data : 'all';
-}
-
-function readCrewRequest(value: string | null): FleetFilters['crewRequest'] {
-  return CREW_REQUEST_KEYS.find((key) => key === value) ?? 'all';
-}
-
 /** A page's search params as URL parameters, every value of a repeated one kept (the label filter repeats `label`). */
 export function urlParamsOf(searchParams: Readonly<Record<string, string | string[] | undefined>>): URLSearchParams {
   const params = new URLSearchParams();
@@ -109,21 +100,6 @@ export function urlParamsOf(searchParams: Readonly<Record<string, string | strin
     }
   }
   return params;
-}
-
-/** Reads the overview's view from the URL; anything unknown falls back to the default. */
-export function readFleetView(params: URLSearchParams): FleetView {
-  return {
-    query: params.get(PARAMS.query) ?? '',
-    filters: {
-      status: readStatus(params.get(PARAMS.status)),
-      crewRequest: readCrewRequest(params.get(PARAMS.crewRequest)),
-      type: params.get(PARAMS.type) ?? 'all',
-      squadron: params.get(PARAMS.squadron) ?? 'all',
-      isRetiredShown: params.get(PARAMS.isRetiredShown) === RETIRED_SHOWN,
-      labelValueIds: params.getAll(PARAMS.labelValueIds).filter((value) => idSchema('labelValue').safeParse(value).success),
-    },
-  };
 }
 
 /** Writes the view as URL parameters, leaving out every default. */

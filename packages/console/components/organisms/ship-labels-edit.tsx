@@ -1,8 +1,10 @@
 'use client';
 
+import type { LabelValueId } from '@aeolus-fleet/common';
 import { Check, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 
 import { classNames } from '../../lib/class-names';
 import type { AssignKey, LabelChip as LabelChipData } from '../../lib/labels';
@@ -10,7 +12,9 @@ import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { InlineError } from '../molecules/inline-error';
 import { LabelChip } from '../molecules/label-chip';
-import { LabelPicker } from '../molecules/label-picker';
+
+// Loads when its popover first opens, not with the page.
+const LabelPicker = dynamic(() => import('../molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface ShipLabelsEditProps {
   /** The ship's labels as chips, yours first. */
@@ -23,10 +27,10 @@ interface ShipLabelsEditProps {
   isBusy?: boolean;
   /** The last change refused, with what it was and the server's words; nothing changed. */
   error?: { title: string; message: string };
-  onAssign: (valueId: string) => void;
-  onUnassign: (valueId: string) => void;
+  onAssign: (valueId: LabelValueId) => void;
+  onUnassign: (valueId: LabelValueId) => void;
   /** Gives the chip's label another value in its place. */
-  onChange: (change: { from: string; to: string }) => void;
+  onChange: (change: { from: LabelValueId; to: LabelValueId }) => void;
 }
 
 /** How many chips show before the rest fold into "+n" (canvas Labels, LbShipFew). */

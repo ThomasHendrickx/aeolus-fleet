@@ -1,6 +1,6 @@
-import { crewSettingsSchema, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
+import type { CrewSettings, CrewStatus, ListedShip } from '@aeolus-fleet/common';
 
-import type { Machine } from './trierarch-plugin';
+import type { Machine } from './trierarch-plugin-schemas';
 
 /**
  * What the Trierarchs section shows of a machine (canvas TrierarchPlugin):
@@ -50,16 +50,16 @@ export function spotsOf(machine: Pick<Machine, 'shipId'>, ships: readonly Listed
 /**
  * Spots with the workspace each one's crew request names (#332): a
  * repository, for a new worktree of it, or a folder. Settings come from each
- * ship's page read, by ship id; a spot whose settings are not read yet, or
- * are no crew settings, has none.
+ * ship's page read, parsed on the web app's server, by ship id; a spot whose
+ * settings are not read yet, or are no crew settings, has none.
  */
-export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyMap<string, unknown>): Spot[] {
+export function withWorkspaces(spots: readonly Spot[], settingsByShip: ReadonlyMap<string, CrewSettings | null>): Spot[] {
   return spots.map((spot) => {
-    const parsed = crewSettingsSchema.safeParse(settingsByShip.get(spot.shipId));
-    if (!parsed.success) {
+    const settings = settingsByShip.get(spot.shipId);
+    if (settings === undefined || settings === null) {
       return spot;
     }
-    const { workspace } = parsed.data;
+    const { workspace } = settings;
     return {
       ...spot,
       workspace: workspace.kind === 'worktree' ? { name: workspace.repository, kind: 'worktree' } : { name: workspace.name, kind: 'folder' },

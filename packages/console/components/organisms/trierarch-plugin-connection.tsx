@@ -1,14 +1,14 @@
 import { Link2, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 
-import type { TrierarchPluginSettings } from '../../lib/trierarch-plugin';
+import type { ShownConnection } from '../../lib/shown-connection';
 import { Button } from '../atoms/button';
 import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 
 interface TrierarchPluginConnectionProps {
   /** The trierarch plugin as the web app's server reads it; undefined while it loads. */
-  settings: TrierarchPluginSettings | undefined;
+  settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
   onRetry: () => void;
@@ -35,14 +35,13 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the trierarch plugin" />;
   }
-  const isSetUp = settings.configured && settings.connection.isEnabled;
   return (
     <section aria-labelledby="settings-trierarchs" data-testid="settings-trierarchs" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <h2 id="settings-trierarchs" className="flex items-center gap-2 text-body font-semibold [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground">
         <ShipWheel aria-hidden />
         Trierarchs
       </h2>
-      {!isSetUp ? (
+      {settings.state === 'none' ? (
         <>
           <p className="text-body" data-testid="settings-trierarchs-state">
             Not set up. {WHAT_IT_DOES}
@@ -53,10 +52,10 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
             </Button>
           </div>
         </>
-      ) : settings.connection.state === 'connected' ? (
+      ) : settings.state === 'connected' ? (
         <p className="text-body" data-testid="settings-trierarchs-state">
-          Connected as <span className="font-mono">{settings.connection.ship?.name}</span>{' '}
-          <span className="font-mono text-muted-foreground">({settings.connection.ship?.shipId})</span>
+          Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
+          <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
         </p>
       ) : (
         <>

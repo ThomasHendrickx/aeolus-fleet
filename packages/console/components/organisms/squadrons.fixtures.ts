@@ -1,6 +1,6 @@
 import { idSchema, type ShipDetail } from '@aeolus-fleet/common';
 
-import type { Catalogue, Squadron } from '../../lib/squadrons-api';
+import type { Catalogue, Squadron } from '../../lib/squadrons-schemas';
 import { AWAITING_SHIP, CREWED_SHIP } from './ship-page.fixtures';
 
 /** Squadrons, blueprints and templates for the stories. */

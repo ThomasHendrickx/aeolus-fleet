@@ -46,11 +46,21 @@ describe('reading Needs attention', () => {
           inReplyTo: null,
           sentAt,
           contentType: 'text/plain',
+          isPing: false,
           model: 'claude-opus-5-5',
           payload,
         },
       },
     ]);
+  });
+
+  it('tells an undeliverable ping by its message', async () => {
+    const { messageId } = unwrap(await scene.messaging.pingShip(scene.argo, { shipId: scene.scout.shipId }));
+    await receiveUntilUndeliverable(scene.scout);
+
+    const [undeliverable] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(undeliverable?.message).toMatchObject({ id: messageId, isPing: true });
   });
 
   it('lists the oldest first, by when each became undeliverable', async () => {

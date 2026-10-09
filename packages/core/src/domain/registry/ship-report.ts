@@ -29,6 +29,13 @@ export interface ShipReport {
   detailsVersion: number;
 }
 
+/** A report as one ship's page reads it: with the size of its details, counted as their limit counts them; null without details. */
+export type ShownReport = ShipReport & { detailsBytes: number | null };
+
+export function shownReportOf(report: ShipReport): ShownReport {
+  return { ...report, detailsBytes: report.details === null ? null : reportDetailsBytes(report.details) };
+}
+
 export type ReportRefusal = DomainError<'INVALID_REPORT_STATE' | 'INVALID_REPORT_NOTE' | 'INVALID_REPORT_DETAILS' | 'REPORT_DETAILS_TOO_LARGE'>;
 
 /** What a report does to the details: sets them whole (null clears them), or applies a JSON Merge Patch to them. Left out, they stay. */

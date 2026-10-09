@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react';
 
-import { byteSize, FIRST_PROMPT_MAX_BYTES, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
+import { byteSize, promptBytes, withHarness, type CrewSettingsValues, type HarnessOffer, type WorkspaceChoice } from '../../lib/crew-settings-form';
 import { harnessWord } from '../../lib/harness';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
 import { Label } from '../atoms/label';
@@ -13,6 +13,8 @@ interface CrewSettingsFieldsProps {
   offers: readonly HarnessOffer[];
   values: CrewSettingsValues;
   onChange: (values: CrewSettingsValues) => void;
+  /** The largest first prompt, in UTF-8 bytes (common's limit, handed down). */
+  firstPromptMaxBytes: number;
   /** The fleet's squadrons a ship may join; none without squadrons, and the field is then left out. */
   squadrons?: readonly string[];
   /** The field the trierarch plugin refused, with why: its error shows under it. */
@@ -89,12 +91,12 @@ function Pick({ id, items, value, onPick, isDisabled, testId }: { id: string; it
  * squadron with its hint (decision 12). Built from what the
  * answering machines offer; a field the trierarch plugin refused shows why.
  */
-export function CrewSettingsFields({ offers, values, onChange, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
+export function CrewSettingsFields({ offers, values, onChange, firstPromptMaxBytes, squadrons, refusal, isDisabled = false, machineLabels }: CrewSettingsFieldsProps) {
   const ids = { harness: useId(), workspace: useId(), options: useId(), firstPrompt: useId(), squadron: useId() };
   const offer = offers.find((each) => each.harness === values.harness);
   const errorOf = (field: string) => (refusal?.field === field ? refusal.reason : undefined);
   const bytes = promptBytes(values.firstPrompt);
-  const isPromptTooLong = bytes > FIRST_PROMPT_MAX_BYTES;
+  const isPromptTooLong = bytes > firstPromptMaxBytes;
   const workspaces: Record<string, string> = Object.fromEntries([
     ...(offer?.repositories ?? []).map((repository): [string, string] => [`worktree:${repository}`, `${repository} · new worktree`]),
     ...(offer?.folders ?? []).map((folder): [string, string] => [`folder:${folder}`, `${folder} · folder, as it is`]),
@@ -132,6 +134,7 @@ export function CrewSettingsFields({ offers, values, onChange, squadrons, refusa
           picked={machineLabels.chipsOf(values.machineLabels)}
           groups={machineLabels.groups}
           match={machineLabels.matchOf(values.machineLabels)}
+          max={machineLabels.max}
           isDisabled={isDisabled}
           onAdd={(valueId) => {
             onChange({ ...values, machineLabels: [...values.machineLabels, valueId] });
@@ -163,11 +166,11 @@ export function CrewSettingsFields({ offers, values, onChange, squadrons, refusa
           <span className="flex justify-between gap-3">
             <span>The session starts with it, on its first start only.</span>
             <span className="tabular-nums">
-              {byteSize(bytes)} of {byteSize(FIRST_PROMPT_MAX_BYTES)}
+              {byteSize(bytes)} of {byteSize(firstPromptMaxBytes)}
             </span>
           </span>
         }
-        error={isPromptTooLong ? `A first prompt is at most ${byteSize(FIRST_PROMPT_MAX_BYTES)}.` : errorOf('firstPrompt')}
+        error={isPromptTooLong ? `A first prompt is at most ${byteSize(firstPromptMaxBytes)}.` : errorOf('firstPrompt')}
       >
         <Textarea
           id={ids.firstPrompt}

@@ -7,10 +7,10 @@ import { CodeBlock } from '../atoms/code-block';
 /**
  * A report's details as the console shows a ship type it does not know
  * (decision 0028): folded, with their version in the summary; unfolded, their
- * JSON raw in a CodeBlock with its size. Keyboard reachable as a native
+ * JSON raw in a CodeBlock with its size, as the server counted it. Keyboard reachable as a native
  * disclosure.
  */
-export function ReportDetails({ details, version, testId }: { details: Details; version: number; testId: string }) {
+export function ReportDetails({ details, bytes, version, testId }: { details: Details; bytes: number; version: number; testId: string }) {
   return (
     <details data-testid={testId} className="group rounded-lg border border-border bg-card">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3.5 py-2.5 text-meta text-muted-foreground [&::-webkit-details-marker]:hidden">
@@ -19,7 +19,7 @@ export function ReportDetails({ details, version, testId }: { details: Details; 
         <span className="tabular-nums">· version {version}</span>
       </summary>
       <div className="px-3.5 pb-3.5">
-        <CodeBlock label={reportDetailsLabel(details)} code={reportDetailsJson(details)} copyLabel="Copy report details" codeTestId={`${testId}-code`} />
+        <CodeBlock label={reportDetailsLabel(bytes)} code={reportDetailsJson(details)} copyLabel="Copy report details" codeTestId={`${testId}-code`} />
       </div>
     </details>
   );

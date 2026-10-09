@@ -4,6 +4,8 @@ import type { CrewSettings } from '@aeolus-fleet/common';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
+import { useConsoleConstants } from '../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../lib/crew-settings-form';
 import { useCommissionShip, useFleetSnapshot, useLabelContext, useRequestCrew } from '../../lib/fleet';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
@@ -15,8 +17,10 @@ import { shipLimitReached } from '../../lib/limits';
 import { useSquadronsConnection } from '../../lib/squadrons';
 import { useSquadrons } from '../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../lib/trierarch-plugin';
-import { CommissionDialog } from './commission-dialog';
-import { StartingPromptDialog } from './starting-prompt-dialog';
+
+// Dialogs load when first opened, not with the page.
+const CommissionDialog = lazyDialog(() => import('./commission-dialog').then((module) => module.CommissionDialog), (props) => props.isOpen);
+const StartingPromptDialog = lazyDialog(() => import('./starting-prompt-dialog').then((module) => module.StartingPromptDialog), (props) => props.isOpen);
 
 /**
  * Commission ship, the fleet overview's one primary action: the
@@ -42,7 +46,8 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
   const offers = offersOf(machines.data ?? []);
   const labelContext = useLabelContext();
-  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, machines.data);
+  const { shipLabelsMax } = useConsoleConstants();
+  const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
   const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
 

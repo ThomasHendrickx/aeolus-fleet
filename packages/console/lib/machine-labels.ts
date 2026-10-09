@@ -1,4 +1,4 @@
-import { crewSettingsSchema } from '@aeolus-fleet/common';
+import type { CrewSettings, LabelValueId } from '@aeolus-fleet/common';
 
 import { pickedChips, type FilterGroup, type FilterKey, type LabelChip, type LabelContext } from './labels';
 
@@ -69,23 +69,26 @@ export function noMatchWords(count: number): { these: string; carries: string } 
 /** What the Request crew form needs for machine labels: the picker's keys, the chips of the values picked and which machines carry them. */
 export interface MachineLabelsInput {
   groups: FilterGroup[];
+  /** The most labels a ship carries (decision 0031): Add label goes once a ship asks for as many. */
+  max: number;
   chipsOf: (valueIds: readonly string[]) => LabelChip[];
   matchOf: (valueIds: readonly string[]) => MachineMatch;
 }
 
 /** The form's machine labels from the fleet's labels and the machines the plugin lists. */
-export function machineLabelsInputOf(context: LabelContext, machines: readonly MachineRef[]): MachineLabelsInput {
+export function machineLabelsInputOf(context: LabelContext, of: { machines: readonly MachineRef[]; shipLabelsMax: number }): MachineLabelsInput {
+  const { machines, shipLabelsMax } = of;
   return {
     groups: machineLabelGroupsOf(context, machines),
+    max: shipLabelsMax,
     chipsOf: (valueIds) => pickedChips(valueIds, context),
     matchOf: (valueIds) => machineMatchOf(context, { machines, valueIds }),
   };
 }
 
 /** The machine labels a request's settings ask for, as value ids; none for settings without them or no crew settings. */
-export function machineLabelIdsOf(settings: unknown): string[] {
-  const parsed = crewSettingsSchema.safeParse(settings);
-  return parsed.success ? [...(parsed.data.machineLabels ?? [])] : [];
+export function machineLabelIdsOf(settings: CrewSettings | null | undefined): LabelValueId[] {
+  return [...(settings?.machineLabels ?? [])];
 }
 
 /** "os=linux and arch=arm64": the machine labels as one phrase. */

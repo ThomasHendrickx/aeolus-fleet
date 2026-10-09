@@ -3,7 +3,7 @@
 import { ArrowRight, Flag } from 'lucide-react';
 import { useState } from 'react';
 
-import type { BlueprintVersion } from '../../lib/squadrons-api';
+import type { BlueprintVersion } from '../../lib/squadrons-schemas';
 import { classNames } from '../../lib/class-names';
 import { Badge } from '../atoms/badge';
 

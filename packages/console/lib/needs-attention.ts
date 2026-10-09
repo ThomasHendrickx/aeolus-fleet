@@ -1,4 +1,4 @@
-import { isPingContentType, type DeliveryId, type UndeliverableDelivery } from '@aeolus-fleet/common';
+import type { DeliveryId, UndeliverableDelivery } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSquadrons } from './squadrons-api';
@@ -10,7 +10,7 @@ import { useTRPC } from './trpc';
  * stack. It offers only Dismiss, and a fresh ping goes through Ping.
  */
 export function canResend(delivery: UndeliverableDelivery): boolean {
-  return !isPingContentType(delivery.message.contentType);
+  return !delivery.message.isPing;
 }
 
 /** Needs attention: every undeliverable delivery of the fleet, oldest first. */

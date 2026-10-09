@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { leftOutLabel, repositoryContents, repositoryLabel, versionFileUrl } from './repository';
-import type { Catalogue } from './squadrons-api';
+import type { Catalogue } from './squadrons-schemas';
 
 describe('repositoryLabel', () => {
   it('reads a github.com repository as owner/repo, with the GitHub mark', () => {

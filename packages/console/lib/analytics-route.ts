@@ -2,7 +2,8 @@ import { createHmac, randomBytes } from 'node:crypto';
 
 import { z } from 'zod';
 
-import { analyticsEventSchema, type SessionKind } from './analytics';
+import type { SessionKind } from './analytics';
+import { analyticsEventSchema } from './analytics-event';
 import type { AnalyticsAdapter } from './analytics-adapter';
 import { SESSION_COOKIE } from './console-gate';
 

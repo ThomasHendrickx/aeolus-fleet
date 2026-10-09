@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
-import type { Squadron } from '../../lib/squadrons-api';
+import type { Squadron } from '../../lib/squadrons-schemas';
 import { blueprintPath, stationCount } from '../../lib/squadrons-view';
 import { Button } from '../atoms/button';
 import { EmptyState } from '../molecules/empty-state';

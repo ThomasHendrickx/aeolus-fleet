@@ -1,7 +1,7 @@
 import type { ReportState } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
-import type { MemberHealth } from '../../lib/squadrons-api';
+import type { MemberHealth } from '../../lib/squadron-states';
 import { HealthSummary } from './health-indicator';
 
 const WORK_WORDS: Record<ReportState, string> = { working: 'working', idle: 'idle', blocked: 'blocked' };

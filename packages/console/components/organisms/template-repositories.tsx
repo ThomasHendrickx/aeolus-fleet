@@ -5,7 +5,7 @@ import { useId, useState } from 'react';
 
 import { relativeTime } from '../../lib/relative-time';
 import { leftOutLabel, repositoryContents, type NamedVersions, type RepositoryContents } from '../../lib/repository';
-import type { Catalogue, TemplateRepository } from '../../lib/squadrons-api';
+import type { Catalogue, TemplateRepository } from '../../lib/squadrons-schemas';
 import {
   AlertDialog,
   AlertDialogClose,

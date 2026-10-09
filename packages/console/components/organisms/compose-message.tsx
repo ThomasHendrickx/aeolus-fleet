@@ -3,13 +3,16 @@
 import type { MessageId, Party, ShipId } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { composeTargets, sendInputOf, useSendMessage } from '../../lib/compose';
 import { useFleetSnapshot } from '../../lib/fleet';
 import { showToast } from '../atoms/toast';
 import { useFleetLimits } from '../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../lib/hosted-account';
 import { messageLimitReached } from '../../lib/limits';
-import { ComposeDialog } from './compose-dialog';
+
+// Loads when first opened, not with the page.
+const ComposeDialog = lazyDialog(() => import('./compose-dialog').then((module) => module.ComposeDialog), (props) => props.isOpen);
 
 interface ComposeMessageProps {
   isOpen: boolean;

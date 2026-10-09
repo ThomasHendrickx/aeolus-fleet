@@ -6,9 +6,9 @@ import type { ReactNode } from 'react';
 import { analyticsAdapterFrom } from '../lib/analytics-adapter';
 import { serverInternalUrlFrom, serverUrlFrom } from '../lib/server-url';
 import { hostedAccountUrlFrom } from '../lib/hosted-account-url';
-import { squadronsUrlFrom } from '../lib/squadrons-url';
-import { trierarchPluginUrlFrom } from '../lib/trierarch-plugin-url';
-import { themeOfSession, themeScript } from '../lib/theme';
+import { consoleConstantsOf } from '../lib/console-constants-of';
+import { themeScript } from '../lib/theme';
+import { themeOfSession } from '../lib/theme-of-session';
 import { geistMono, geistSans } from './fonts';
 import { Providers } from './providers';
 import './globals.css';
@@ -33,11 +33,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript(theme) }} />
       </head>
       <body>
-        <Providers serverUrl={serverUrl} isSquadronsConfigured={squadronsUrlFrom(process.env) !== undefined}
-          isTrierarchPluginConfigured={trierarchPluginUrlFrom(process.env) !== undefined}
-          hostedAccountUrl={hostedAccountUrlFrom(process.env)}
-          isAnalyticsOn={analyticsAdapterFrom(process.env) !== undefined}
-        >
+        <Providers serverUrl={serverUrl} constants={consoleConstantsOf()} hostedAccountUrl={hostedAccountUrlFrom(process.env)} isAnalyticsOn={analyticsAdapterFrom(process.env) !== undefined}>
           {children}
         </Providers>
       </body>

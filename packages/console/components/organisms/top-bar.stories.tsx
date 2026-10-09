@@ -1,3 +1,4 @@
+import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 import { Plus } from 'lucide-react';
@@ -48,7 +49,7 @@ export const WithAccount: Story = {
         session: { device: 'iPhone · Safari', since: '2026-10-01T11:10:00.000Z' },
         theme: 'system',
       },
-      onThemeChange: fn(),
+      themes: THEMES, onThemeChange: fn(),
       onSignOut: fn(),
       isSigningOut: false,
       now: new Date('2026-10-01T12:30:00.000Z'),

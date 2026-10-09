@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { shortDateTime } from '../../lib/relative-time';
 import { disbandedCount, filterSquadrons, squadronBlueprints, type SquadronView } from '../../lib/squadron-filter';
-import type { Squadron } from '../../lib/squadrons-api';
+import type { Squadron } from '../../lib/squadrons-schemas';
 import { blueprintPath, healthCounts, stationCount } from '../../lib/squadrons-view';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';

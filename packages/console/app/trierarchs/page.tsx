@@ -9,9 +9,9 @@ import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
-import { JoinMachineDialog } from '../../components/organisms/join-machine-dialog';
 import { MachineList } from '../../components/organisms/machine-list';
 import { ListLayout } from '../../components/templates/list-layout';
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useFleetSnapshot } from '../../lib/fleet';
@@ -22,6 +22,9 @@ import { useNow } from '../../lib/now';
 import { usePluginNav } from '../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useJoinMachine, useMachines, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../lib/trierarch-plugin';
+
+// Dialogs load when first opened, not with the page.
+const JoinMachineDialog = lazyDialog(() => import('../../components/organisms/join-machine-dialog').then((module) => module.JoinMachineDialog), (props) => props.isOpen);
 
 /**
  * Trierarchs (#245): the machines that run sessions for crew requests, each

@@ -50,7 +50,7 @@ describe('reportDetailsJson', () => {
 });
 
 describe('reportDetailsLabel', () => {
-  it('names JSON and its size as the server counts it: compact, in UTF-8 bytes', () => {
-    expect(reportDetailsLabel({ note: 'é' })).toBe('JSON · 13 bytes');
+  it('names JSON and its size as the server counted it', () => {
+    expect(reportDetailsLabel(13)).toBe('JSON · 13 bytes');
   });
 });

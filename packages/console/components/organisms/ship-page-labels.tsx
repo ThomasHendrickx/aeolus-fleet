@@ -1,8 +1,9 @@
 'use client';
 
-import { idSchema, type ShipDetail } from '@aeolus-fleet/common';
+import type { ShipDetail } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { useConsoleConstants } from '../../lib/console-constants';
 import { useAccess } from '../../lib/access';
 import { useAssignLabel, useLabelContext, useUnassignLabel } from '../../lib/fleet';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../lib/labels';
@@ -28,6 +29,7 @@ function textOf(keys: ReturnType<typeof assignKeysOf>, valueId: string): string 
  * once; a refusal says why and nothing changes.
  */
 export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
+  const { shipLabelsMax } = useConsoleConstants();
   const context = useLabelContext();
   const access = useAccess();
   const assign = useAssignLabel();
@@ -51,27 +53,27 @@ export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
     <ShipLabelsEdit
       chips={chips}
       keys={keys}
-      limit={labelLimitOf(ship)}
+      limit={labelLimitOf(ship, shipLabelsMax)}
       isBusy={assign.isPending || unassign.isPending}
       error={error}
       onAssign={(valueId) => {
         setError(undefined);
-        assign.mutate({ shipId: ship.id, valueId: idSchema('labelValue').parse(valueId) }, { onError: refused(`Couldn’t add ${textOf(keys, valueId)}`) });
+        assign.mutate({ shipId: ship.id, valueId }, { onError: refused(`Couldn’t add ${textOf(keys, valueId)}`) });
       }}
       onUnassign={(valueId) => {
         setError(undefined);
-        unassign.mutate({ shipId: ship.id, valueId: idSchema('labelValue').parse(valueId) }, { onError: refused(`Couldn’t remove ${textOf(keys, valueId)}`) });
+        unassign.mutate({ shipId: ship.id, valueId }, { onError: refused(`Couldn’t remove ${textOf(keys, valueId)}`) });
       }}
       onChange={({ from, to }) => {
         setError(undefined);
-        const was = idSchema('labelValue').parse(from);
+        const was = from;
         // Off first, so a ship at the limit can change a value; if the new one is refused, the old one goes back.
         unassign.mutate(
           { shipId: ship.id, valueId: was },
           {
             onSuccess: () => {
               assign.mutate(
-                { shipId: ship.id, valueId: idSchema('labelValue').parse(to) },
+                { shipId: ship.id, valueId: to },
                 {
                   onError: (failure) => {
                     assign.mutate({ shipId: ship.id, valueId: was });

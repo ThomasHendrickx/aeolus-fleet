@@ -1,10 +1,10 @@
-import { idSchema, type ListedShip } from '@aeolus-fleet/common';
+import { idSchema, SHIP_LABELS_MAX, type ListedShip } from '@aeolus-fleet/common';
 
 import { offersOf } from '../../lib/crew-settings-form';
 import { labelContextOf } from '../../lib/labels';
 import { machineLabelsInputOf } from '../../lib/machine-labels';
 import type { Spot } from '../../lib/machines';
-import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin';
+import type { JoinedMachine, Machine } from '../../lib/trierarch-plugin-schemas';
 import { ARCH, carried, LABELS, labelledFleet, OS } from './labels.fixtures';
 import { minutesAgo, NOW } from './ship-page.fixtures';
 
@@ -151,7 +151,7 @@ export const MACHINE_CONTEXT = labelContextOf([...LABELS, ARCH], {
 });
 
 /** The fleet's labels and machines as the Request crew form reads them. */
-export const MACHINE_LABELS = machineLabelsInputOf(MACHINE_CONTEXT, MACHINES);
+export const MACHINE_LABELS = machineLabelsInputOf(MACHINE_CONTEXT, { machines: MACHINES, shipLabelsMax: SHIP_LABELS_MAX });
 
 /** The value ids of os=macos and arch=arm64, which two machines carry, and os=linux, which none does. */
 export const MACHINE_VALUES = { macos: carried(OS, 'macos').valueId, arm64: carried(ARCH, 'arm64').valueId, linux: carried(OS, 'linux').valueId };

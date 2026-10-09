@@ -4,6 +4,7 @@
   "description": "Aeolus shared schemas, prefixed ids and types.",
   "license": "Apache-2.0",
   "type": "module",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ThomasHendrickx/aeolus-fleet.git",
@@ -17,6 +18,11 @@
       "@aeolus-fleet/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./rules": {
+      "@aeolus-fleet/source": "./src/rules/index.ts",
+      "types": "./dist/rules/index.d.ts",
+      "default": "./dist/rules/index.js"
     }
   },
   "files": [

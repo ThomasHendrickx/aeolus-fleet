@@ -3,19 +3,23 @@
 import type { ShipDetail, TimelineEntry } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../lib/crew-request';
 import { settingsRows } from '../../lib/crew-settings-form';
 import { useGetStartingPrompt, useLabelContext, useReleaseShip, useRemoveCrewRequest, useRequestCrew } from '../../lib/fleet';
 import { pickedChips } from '../../lib/labels';
+import { useCrewSettings } from '../../lib/crew-settings';
 import { machineLabelIdsOf } from '../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../lib/starting-prompt';
 import { useHasTrierarchPlugin } from '../../lib/trierarch-plugin';
 import { showToast } from '../atoms/toast';
-import { CrewReleaseDialog } from './crew-release-dialog';
 import { CrewRequestCard, type CrewRequestBusy } from './crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
-import { StartingPromptDialog } from './starting-prompt-dialog';
+
+// Dialogs load when first opened, not with the page.
+const CrewReleaseDialog = lazyDialog(() => import('./crew-release-dialog').then((module) => module.CrewReleaseDialog), (props) => props.isOpen);
+const StartingPromptDialog = lazyDialog(() => import('./starting-prompt-dialog').then((module) => module.StartingPromptDialog), (props) => props.isOpen);
 
 /** Where a ship's session runs, as the release confirm names it. */
 function sessionLocationOf(ship: ShipDetail): string | null {
@@ -44,6 +48,8 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
   const [releaseError, setReleaseError] = useState<string>();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [replacedPrompt, setReplacedPrompt] = useState<{ issuedAt: string }>();
+  // The request's settings, parsed on the web app's server: the fleet stores them without meaning.
+  const [settings] = useCrewSettings(ship.crewRequest === null ? [] : [ship.crewRequest.settings]) ?? [];
   const requestFlow = useRequestCrewFlow(ship.kind === 'agent' && ship.status !== 'retired' ? { shipId: ship.id, shipName: ship.name, heldSettings: ship.crewRequest?.settings } : undefined);
 
   if (ship.kind !== 'agent' || ship.status === 'retired') {
@@ -127,8 +133,8 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         hasTrierarchs={hasTrierarchs}
         busy={busy}
         error={error}
-        settingsRows={request === null ? undefined : settingsRows(request.settings)}
-        {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(request.settings), labelContext) })}
+        settingsRows={request === null ? undefined : settingsRows(settings)}
+        {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(settings), labelContext) })}
         onRequest={() => {
           if (hasTrierarchs) {
             requestFlow.open('request');

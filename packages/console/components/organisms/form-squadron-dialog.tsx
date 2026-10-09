@@ -7,7 +7,7 @@ import type { HarnessOffer } from '../../lib/crew-settings-form';
 import { labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, workspaceFromItem, workspaceItemsOf, type MemberDraft, type MemberValues } from '../../lib/forming-members';
 import type { LabelContext } from '../../lib/labels';
 import type { MachineLabelsInput } from '../../lib/machine-labels';
-import type { TemplateVersion } from '../../lib/squadrons-api';
+import type { TemplateVersion } from '../../lib/squadrons-schemas';
 import { checkInText, memberCount, rolePreviews, type BlueprintChoice } from '../../lib/squadrons-view';
 import { Button } from '../atoms/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';

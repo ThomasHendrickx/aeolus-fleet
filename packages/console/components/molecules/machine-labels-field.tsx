@@ -1,16 +1,19 @@
 'use client';
 
-import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
+import type { LabelValueId } from '@aeolus-fleet/common';
 import { CircleAlert, Clock, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
+import dynamic from 'next/dynamic';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
 import { noMatchWords, type MachineMatch } from '../../lib/machine-labels';
 import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from './label-chip';
-import { LabelPicker } from './label-picker';
+
+// Loads when its popover first opens, not with the page.
+const LabelPicker = dynamic(() => import('./label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface MachineLabelsFieldProps {
   shipName: string;
@@ -20,9 +23,11 @@ interface MachineLabelsFieldProps {
   groups: readonly FilterGroup[];
   /** Which machines carry every value picked. */
   match: MachineMatch;
+  /** The most labels a ship carries: Add label goes once as many are picked. */
+  max: number;
   isDisabled?: boolean;
-  onAdd: (valueId: string) => void;
-  onRemove: (valueId: string) => void;
+  onAdd: (valueId: LabelValueId) => void;
+  onRemove: (valueId: LabelValueId) => void;
   /** Labels a squadron file names that the fleet does not have, as `key=value`: shown as warnings, removable (#343). */
   unknown?: readonly string[];
   onRemoveUnknown?: (name: string) => void;
@@ -63,7 +68,7 @@ function AddMachineLabel({ groups, picked, isDisabled, onAdd }: Pick<MachineLabe
  * machines carry them all; when none does, the request may still be made and
  * waits on Needs crew. At most 20, as a ship carries.
  */
-export function MachineLabelsField({ shipName, picked, groups, match, isDisabled, onAdd, onRemove, unknown = [], onRemoveUnknown }: MachineLabelsFieldProps) {
+export function MachineLabelsField({ shipName, picked, groups, match, max, isDisabled, onAdd, onRemove, unknown = [], onRemoveUnknown }: MachineLabelsFieldProps) {
   const words = noMatchWords(picked.length);
   return (
     <div className="flex flex-col gap-1.5" data-testid="machine-labels">
@@ -111,7 +116,7 @@ export function MachineLabelsField({ shipName, picked, groups, match, isDisabled
             )}
           </span>
         ))}
-        {picked.length + unknown.length >= SHIP_LABELS_MAX ? null : <AddMachineLabel groups={groups} picked={picked} isDisabled={isDisabled} onAdd={onAdd} />}
+        {picked.length + unknown.length >= max ? null : <AddMachineLabel groups={groups} picked={picked} isDisabled={isDisabled} onAdd={onAdd} />}
       </div>
       {unknown.length === 0 ? null : (
         <p role="alert" data-testid="machine-labels-unknown-note" className="text-meta text-tone-attention-fg">

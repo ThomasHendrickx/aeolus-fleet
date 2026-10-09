@@ -1,4 +1,4 @@
-import { isPingContentType, REPORT_STATES, type Party, type ReportState, type TimelineEntry } from '@aeolus-fleet/common';
+import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
 
 import { locationKindWord } from './location';
 import { REPORT_TONES } from './report';
@@ -50,7 +50,8 @@ function valuesOf(entry: TimelineEntry): string {
 
 /** Whether a detail names a report state. */
 function isReportState(value: string): value is ReportState {
-  return REPORT_STATES.some((state) => state === value);
+  // REPORT_TONES has a tone for every report state, as its type requires.
+  return Object.hasOwn(REPORT_TONES, value);
 }
 
 /** Who caused the event: " by argo"; nothing for the system. */
@@ -95,9 +96,9 @@ function returnedDeliveries(entry: TimelineEntry): SentencePart[] {
     : [];
 }
 
-/** Whether the event concerns a ping: a message with the reserved ping content type. */
+/** Whether the event concerns a ping, as the server tells it. */
 function isPing(entry: TimelineEntry): boolean {
-  return entry.message !== null && isPingContentType(entry.message.contentType);
+  return entry.message?.isPing === true;
 }
 
 /** "a message from planner", "a ping from argo", or "a message" when the event names none. */

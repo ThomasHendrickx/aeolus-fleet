@@ -1,4 +1,4 @@
-import { SHIP_HANDLE_MAX_LENGTH, shipHandleSchema } from '@aeolus-fleet/common';
+import { isShipHandle, SHIP_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rules';
 
 import { OPERATOR_NAME } from './sentence';
 
@@ -29,7 +29,7 @@ export function checkShipName(name: string, fleet: { activeNames: readonly strin
   if (name === '') {
     return { kind: 'empty', message: NAME_RULE };
   }
-  if (!shipHandleSchema.safeParse(name).success) {
+  if (!isShipHandle(name)) {
     return { kind: 'invalid', message: `Use 1 to ${String(SHIP_HANDLE_MAX_LENGTH)} lowercase letters, digits, hyphens or colons.` };
   }
   if (name === OPERATOR_NAME) {
