@@ -1,7 +1,5 @@
 'use server';
 
-import { randomUUID } from 'node:crypto';
-
 import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 
@@ -92,7 +90,7 @@ export async function connectSquadrons(): Promise<PluginAnswer<ShownConnection>>
   }
   const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), origin });
   try {
-    const connection: PluginConnection = await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey: randomUUID });
+    const connection: PluginConnection = await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey: () => crypto.randomUUID() });
     return { kind: 'answered', data: shownConnectionOf(connection) };
   } catch (error) {
     return refusalOf(error);

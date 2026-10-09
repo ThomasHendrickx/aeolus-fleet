@@ -1,7 +1,5 @@
 'use server';
 
-import { randomUUID } from 'node:crypto';
-
 import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 
@@ -79,7 +77,7 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
   }
   const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), origin });
   try {
-    return { kind: 'answered', data: shownConnectionOf(await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey: randomUUID })) };
+    return { kind: 'answered', data: shownConnectionOf(await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey: () => crypto.randomUUID() })) };
   } catch (error) {
     return refusalOf(error);
   }
