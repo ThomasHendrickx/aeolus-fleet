@@ -1,13 +1,50 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import { NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX, reachRefusalsOutputSchema, setNetworkRulesInputSchema, setNetworkRulesOutputSchema } from './network.js';
+import {
+  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
+  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
+  NETWORK_RULES_MAX,
+  REACH_REFUSALS_READ_MAX,
+  reachRefusalsOutputSchema,
+  registerNetworkPluginInputSchema,
+  setNetworkRulesInputSchema,
+  setNetworkRulesOutputSchema,
+} from './network.js';
 
 const newId = createIdGenerator();
 
 describe('the network limits (decision 0034)', () => {
   it('are 200 rules a fleet, and the latest 100 refusals a read', () => {
     expect([NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX]).toEqual([200, 100]);
+  });
+});
+
+describe('the networking plugin limits (decision 0035)', () => {
+  it('judge a plugin not responding after a minute at the least and a day at the most', () => {
+    expect([NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]).toEqual([60, 86_400]);
+  });
+});
+
+describe('registerNetworkPluginInputSchema', () => {
+  it.each(['block-all', 'open-all', 'keep-latest'])('takes what happens while the plugin is unavailable: %s', (whileUnavailable) => {
+    expect(registerNetworkPluginInputSchema.parse({ whileUnavailable, notRespondingAfterSeconds: 120 })).toEqual({ whileUnavailable, notRespondingAfterSeconds: 120 });
+  });
+
+  it('refuses anything else while the plugin is unavailable', () => {
+    expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'deny', notRespondingAfterSeconds: 120 }).success).toBe(false);
+  });
+
+  it('takes the limits of not responding, a minute and a day', () => {
+    for (const notRespondingAfterSeconds of [NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]) {
+      expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'block-all', notRespondingAfterSeconds }).success).toBe(true);
+    }
+  });
+
+  it('refuses a second under a minute, a second over a day and part of a second', () => {
+    for (const notRespondingAfterSeconds of [NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS - 1, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS + 1, 90.5]) {
+      expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'block-all', notRespondingAfterSeconds }).success).toBe(false);
+    }
   });
 });
 
