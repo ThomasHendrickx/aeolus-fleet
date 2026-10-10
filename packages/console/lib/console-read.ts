@@ -25,6 +25,8 @@ export type ConsoleReads = Readonly<Record<string, ConsoleRead<unknown, unknown>
 
 const NO_SUCH_READ: PluginAnswer<never> = { kind: 'refused', message: 'The console has no such read' };
 const SESSION_ENDED: PluginAnswer<never> = { kind: 'refused', message: 'Your console session ended: sign in again' };
+/** The server's own words and refusal, so the page says why it went to sign in, as it does for a tRPC call (lib/session.ts). */
+const SIGNED_IN_ELSEWHERE = { kind: 'refused', message: 'You signed in somewhere else, which ended this console session', refusal: 'SIGNED_IN_ELSEWHERE' } as const;
 const UNREADABLE: PluginAnswer<never> = { kind: 'refused', message: 'The console cannot read that' };
 const UNAUTHORIZED = 401;
 const NOT_FOUND = 404;
@@ -46,7 +48,8 @@ function inputOf(request: Request): { isReadable: boolean; value: unknown } {
 /**
  * Answers the named read, for its input: the read's answer, a refusal
  * included, as JSON. Only a live session is read for: every name answers an
- * ended session with the same 401, so the page goes to sign in, and answers
+ * ended session with the same 401, so the page goes to sign in (saying so
+ * when the operator signed in somewhere else), and answers
  * as one it does not have while the session check does not answer; either
  * way nothing tells which reads or plugins this console has.
  */
@@ -54,6 +57,9 @@ export async function answerConsoleRead(request: Request, { name, reads, session
   const session = await sessionOf(request);
   if (session === 'ended') {
     return Response.json(SESSION_ENDED, { status: UNAUTHORIZED });
+  }
+  if (session === 'signedInElsewhere') {
+    return Response.json(SIGNED_IN_ELSEWHERE, { status: UNAUTHORIZED });
   }
   if (session === 'unknown') {
     return Response.json(NO_SUCH_READ, { status: NOT_FOUND });

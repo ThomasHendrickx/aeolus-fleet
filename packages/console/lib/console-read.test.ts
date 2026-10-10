@@ -12,9 +12,10 @@ const reads = {
 const signedIn = { sessionOf: () => Promise.resolve('live' as const) };
 const sessionEnded = { sessionOf: () => Promise.resolve('ended' as const) };
 const sessionUnknown = { sessionOf: () => Promise.resolve('unknown' as const) };
+const signedInElsewhere = { sessionOf: () => Promise.resolve('signedInElsewhere' as const) };
 
 /** Every read's status and answer, the console's and one it does not have, asked with the given session. */
-async function everyReadAnswered(session: typeof signedIn | typeof sessionEnded | typeof sessionUnknown): Promise<{ names: string[]; answers: { status: number; body: unknown }[] }> {
+async function everyReadAnswered(session: typeof signedIn | typeof sessionEnded | typeof sessionUnknown | typeof signedInElsewhere): Promise<{ names: string[]; answers: { status: number; body: unknown }[] }> {
   const names = [...Object.keys(CONSOLE_READS), 'no-such-read'];
   const answers = await Promise.all(
     names.map(async (name) => {
@@ -71,6 +72,12 @@ describe("a console read, answered by the web app's server", () => {
     const { names, answers } = await everyReadAnswered(sessionEnded);
 
     expect(answers).toEqual(names.map(() => ({ status: 401, body: { kind: 'refused', message: 'Your console session ended: sign in again' } })));
+  });
+
+  it('answers every read with a session ended by a sign-in elsewhere as 401, the same for each name, saying so, so the page shows why it went to sign in', async () => {
+    const { names, answers } = await everyReadAnswered(signedInElsewhere);
+
+    expect(answers).toEqual(names.map(() => ({ status: 401, body: { kind: 'refused', message: 'You signed in somewhere else, which ended this console session', refusal: 'SIGNED_IN_ELSEWHERE' } })));
   });
 
   it('answers every read as one it does not have while the session check does not answer, so nothing is read for it', async () => {

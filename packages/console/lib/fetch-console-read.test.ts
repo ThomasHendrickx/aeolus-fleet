@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { trpcErrorCode } from './errors';
+import { isSignedInElsewhere, trpcErrorCode } from './errors';
 import { fetchConsoleRead } from './fetch-console-read';
 
 function aWebApp(answer: () => Response) {
@@ -48,5 +48,13 @@ describe("a console read, fetched from the web app's server", () => {
     const refusal: unknown = await fetchConsoleRead({ read: 'squadrons' }, webApp).catch((error: unknown) => error);
 
     expect(trpcErrorCode(refusal)).toBe('UNAUTHORIZED');
+  });
+
+  it('rejects a read refused because the operator signed in elsewhere as that refusal, so the page says why it went to sign in', async () => {
+    const webApp = aWebApp(() => Response.json({ kind: 'refused', message: 'You signed in somewhere else, which ended this console session', refusal: 'SIGNED_IN_ELSEWHERE' }, { status: 401 }));
+
+    const refusal: unknown = await fetchConsoleRead({ read: 'squadrons' }, webApp).catch((error: unknown) => error);
+
+    expect([trpcErrorCode(refusal), isSignedInElsewhere(refusal)]).toEqual(['UNAUTHORIZED', true]);
   });
 });

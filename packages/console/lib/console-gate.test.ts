@@ -54,6 +54,12 @@ describe('sessionOf', () => {
     await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 401 })) })).resolves.toBe('ended');
   });
 
+  it('is signed in elsewhere when the server refuses the session because the operator signed in somewhere else', async () => {
+    const takenOver = Response.json({ error: { message: 'You signed in somewhere else, which ended this console session', data: { code: 'UNAUTHORIZED', refusal: 'SIGNED_IN_ELSEWHERE' } } }, { status: 401 });
+
+    await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(takenOver) })).resolves.toBe('signedInElsewhere');
+  });
+
   it('is unknown when the server fails or does not answer', async () => {
     await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 500 })) })).resolves.toBe('unknown');
     await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockRejectedValue(new Error('offline')) })).resolves.toBe('unknown');
