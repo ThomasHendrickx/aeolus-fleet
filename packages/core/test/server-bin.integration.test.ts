@@ -10,6 +10,7 @@ import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL } from './support/core-fixtures.js';
 import { createEmptyDatabase } from './support/database.js';
+import { migrateWhileAnotherHoldsTheLock } from './support/migrate-lock.js';
 
 // `aeolus-core`, the one command an operator runs on the server: start,
 // migrate, fleet:init and operator:reset-password. Run here as `npm run
@@ -95,6 +96,18 @@ describe('aeolus-core migrate', () => {
     expect(results.map((result) => result.code)).toEqual([0, 0]);
     await expect(appliedMigrations(databaseUrl)).resolves.toEqual(MIGRATIONS);
   });
+
+  it('waits for a migrate in progress however long it takes, then finds the database to migrate', async () => {
+    const databaseUrl = await createEmptyDatabase();
+
+    const { outcome, releasedAt, finishedAt } = await migrateWhileAnotherHoldsTheLock(databaseUrl, () =>
+      aeolusServer(['migrate'], { DATABASE_URL: databaseUrl }),
+    );
+
+    expect(outcome.code, outcome.stderr).toBe(0);
+    expect(finishedAt).toBeGreaterThan(releasedAt);
+    await expect(appliedMigrations(databaseUrl)).resolves.toEqual(MIGRATIONS);
+  }, 90_000);
 
   it('needs only the database URL, and names it when it is missing', async () => {
     // Set, though empty: a developer's .env, which the npm script loads, never fills in a variable already set.

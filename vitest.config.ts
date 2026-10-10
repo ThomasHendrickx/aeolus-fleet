@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { playwright } from '@vitest/browser-playwright';
-import { configDefaults, defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig, type TestProjectInlineConfiguration } from 'vitest/config';
 
 // Workspace packages resolve to their TypeScript source in tests, like in the
 // editor and in typecheck (see customConditions in tsconfig.base.json).
@@ -11,11 +11,40 @@ const conditions = ['@aeolus-fleet/source', 'module', 'node', 'development|produ
 /** The console's Storybook, whose every story runs as a test (#303). */
 const storybookConfigDir = fileURLToPath(new URL('packages/console/.storybook', import.meta.url));
 
+/**
+ * The layers in the order a full run takes them, as each project's name ends
+ * (`core:integration`). CI runs each layer as its own job; a full local run
+ * takes them one after another too, so no layer's time limits compete with
+ * another layer's servers, browsers and databases on the same machine (#499).
+ */
+const LAYERS = ['unit', 'stories', 'integration', 'e2e'];
+
+function inLayerOrder(projects: TestProjectInlineConfiguration[]): TestProjectInlineConfiguration[] {
+  return projects.map(withGroupOrder);
+}
+
+function withGroupOrder(project: TestProjectInlineConfiguration): TestProjectInlineConfiguration {
+  const name = project.test?.name;
+  const label = typeof name === 'object' ? name.label : (name ?? '');
+  const groupOrder = LAYERS.indexOf(label.split(':').at(-1) ?? '');
+  if (groupOrder === -1) {
+    throw new Error(`the Vitest project ${label} is in no layer: name it <package>:<${LAYERS.join('|')}>`);
+  }
+  return { ...project, test: { ...project.test, sequence: { ...project.test?.sequence, groupOrder } } };
+}
+
 export default defineConfig({
   resolve: { conditions },
   ssr: { resolve: { conditions } },
   test: {
-    projects: [
+    // Half the machine per run, not all of it but one core: the tests start
+    // servers, browsers and databases beside their workers, and full runs of
+    // other worktrees share the machine (#499).
+    maxWorkers: '50%',
+    // A poll's own default (1 second) holds only on an idle machine; a full
+    // run shares its machine with servers, browsers and other runs (#499).
+    expect: { poll: { timeout: 10_000 } },
+    projects: inLayerOrder([
       {
         extends: true,
         test: {
@@ -193,6 +222,6 @@ export default defineConfig({
           hookTimeout: 240_000,
         },
       },
-    ],
+    ]),
   },
 });

@@ -1,8 +1,15 @@
 import { fileURLToPath } from 'node:url';
 
 import { ESLint, type Linter } from 'eslint';
+import { beforeAll } from 'vitest';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+
+/**
+ * The first lint types the whole project of the tsconfig, seconds on an idle
+ * machine and many more on a loaded one; every lint after it takes a moment.
+ */
+const PROJECT_TYPING_MS = 180_000;
 
 /** Lints source text as if it were a file at a path in the repository. */
 export type Lint = (code: string, path: string) => Promise<Linter.LintMessage[]>;
@@ -15,6 +22,8 @@ export type Lint = (code: string, path: string) => Promise<Linter.LintMessage[]>
  *
  * Create one per test file: typescript-eslint keeps a single project service
  * per process, set up by the first lint, so a second one's probes are unknown.
+ * That first lint runs before the file's tests, so each test's time is its
+ * rule's alone (#499).
  */
 export function createLint(options: { tsconfig: string; probes: readonly string[] }): Lint {
   const eslint = new ESLint({
@@ -32,6 +41,13 @@ export function createLint(options: { tsconfig: string; probes: readonly string[
       },
     },
   });
+
+  const [firstProbe] = options.probes;
+  if (firstProbe !== undefined) {
+    beforeAll(async () => {
+      await eslint.lintText('', { filePath: `${repositoryRoot}${firstProbe}` });
+    }, PROJECT_TYPING_MS);
+  }
 
   return async (code, path) => {
     const [result] = await eslint.lintText(code, { filePath: `${repositoryRoot}${path}` });
