@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { createServer, type Server } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -15,11 +15,12 @@ import { unwrap } from '../packages/core/test/support/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// A console page left open after its session ends, end to end (#544): the
-// squadrons list is a console read asked again every few seconds, so once the
-// session has expired the next read is refused for it and the page goes to
-// sign in, without a navigation of its own. The server runs on a test clock,
-// so the session expires without waiting 30 days.
+// A console page left open after its session ends, end to end (#544, #555):
+// the squadrons list is a console read asked again every few seconds, so once
+// the session has expired, or the operator signed in somewhere else, the next
+// read is refused for it and the page goes to sign in, without a navigation
+// of its own. The server runs on a test clock, so the session expires without
+// waiting 30 days.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SESSION_LIFETIME_MS = 30 * DAY_MS;
@@ -46,7 +47,7 @@ let server: FastifyInstance;
 const squadrons = aConnectedSquadrons();
 let web: RunningWeb;
 let browser: Browser;
-let context: BrowserContext | undefined;
+const contexts: BrowserContext[] = [];
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
@@ -66,7 +67,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await context?.close();
+  await Promise.all(contexts.map((context) => context.close()));
   await browser.close();
   await web.stop();
   squadrons.close();
@@ -74,17 +75,38 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
+async function aSignedInPage(): Promise<Page> {
+  const context = await browser.newContext({ baseURL: web.url });
+  contexts.push(context);
+  const page = await context.newPage();
+  await signIn(page, OPERATOR);
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  return page;
+}
+
+/** A signed-in page on the squadrons list, whose reads ask again every few seconds. */
+async function aSquadronsPage(): Promise<Page> {
+  const page = await aSignedInPage();
+  await page.goto('/squadrons');
+  await page.getByText('No blueprints found').waitFor();
+  return page;
+}
+
 describe('a console page whose session ended', () => {
   it('goes to sign in once a read it asks again is refused for the ended session', async () => {
-    context = await browser.newContext({ baseURL: web.url });
-    const page = await context.newPage();
-    await signIn(page, OPERATOR);
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-    await page.goto('/squadrons');
-    await page.getByText('No blueprints found').waitFor();
+    const page = await aSquadronsPage();
 
     clock.advance(SESSION_LIFETIME_MS);
 
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
+  });
+
+  it('says the operator signed in somewhere else when a read it asks again is the first to hear it', async () => {
+    const page = await aSquadronsPage();
+
+    await aSignedInPage();
+
+    await page.waitForURL(`${web.url}/sign-in?notice=signed-in-elsewhere`, { timeout: WITHIN_MS });
+    await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
   });
 });
