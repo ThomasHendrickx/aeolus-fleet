@@ -23,7 +23,7 @@ describe("following a fleet's declared rules (decision 0037)", () => {
     parts.fleet.state.events.push('NetworkRulesDeclared');
     parts.fleet.state.declared.push({ shipId: SQUADRONS, rules: DECLARED });
 
-    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { supplied: true } });
+    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { didSupply: true } });
     expect(parts.fleet.state.followedFrom).toEqual([undefined]);
     expect(parts.fleet.state.rules).toEqual(DECLARED);
   });
@@ -33,7 +33,7 @@ describe("following a fleet's declared rules (decision 0037)", () => {
     parts.fleet.state.events.push('LabelAssigned', 'NetworkRulesDeclared');
     parts.fleet.state.declared.push({ shipId: SQUADRONS, rules: DECLARED });
 
-    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { supplied: true } });
+    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { didSupply: true } });
     expect(parts.fleet.state.followedFrom).toEqual([undefined, 0]);
     expect(parts.fleet.state.rules).toEqual(DECLARED);
   });
@@ -45,7 +45,7 @@ describe("following a fleet's declared rules (decision 0037)", () => {
     const version = parts.fleet.state.version;
     parts.fleet.state.events.push('MessageAccepted');
 
-    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { supplied: false } });
+    await expect(followDeclarations(FLEET_ID)).resolves.toEqual({ isOk: true, value: { didSupply: false } });
     expect(parts.fleet.state.followedFrom).toEqual([undefined, 0, 1]);
     expect(parts.fleet.state.version).toBe(version);
   });

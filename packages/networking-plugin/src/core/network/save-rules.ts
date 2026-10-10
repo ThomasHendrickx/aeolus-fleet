@@ -15,14 +15,14 @@ export type SaveRules = (input: { fleetId: FleetId; rules: readonly NetworkRule[
  * Use case: argo saves the fleet's rules in the networking plugin's editor:
  * the whole list, or none for all-to-all. The plugin keeps them with argo's
  * declaration and supplies them to the fleet at once (Thomas on #260); while
- * the fleet does not answer they wait, kept, for a retry. Rules over decision
- * 0034's limits are refused and nothing is kept.
+ * the fleet does not answer they wait, kept, for a retry. Rules over the
+ * limits of decisions 0034 and 0037 are refused and nothing is kept.
  */
 export function createSaveRules(deps: { networks: FleetNetworks; supplies: Supplies }): SaveRules {
   return async ({ fleetId, rules }) => {
     const broken = rules === null ? undefined : brokenRuleLimit(rules);
     if (broken !== undefined) {
-      return refuse('INVALID_NETWORK_RULES', `${broken} (decision 0034)`);
+      return refuse('INVALID_NETWORK_RULES', broken);
     }
     const { declaration } = networkOf(await deps.networks.find(fleetId));
     await deps.networks.save(fleetId, { rules, declaration });

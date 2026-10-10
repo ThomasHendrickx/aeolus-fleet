@@ -33,6 +33,7 @@ async function start(): Promise<void> {
 
   app.startSupplying(config.supplyRetryMs);
   app.startReceiving();
+  app.startFollowing();
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

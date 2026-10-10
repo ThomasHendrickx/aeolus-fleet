@@ -21,7 +21,8 @@ const NOT_THE_PLUGIN = 'FORBIDDEN';
 /**
  * Use case: brings a fleet in line with what the networking plugin holds of
  * it (decision 0035, Thomas on #260). Served (switched on), it registers with
- * what argo declared, then supplies the whole list argo saved, none for
+ * what argo declared, then supplies the whole list argo saved with every
+ * rule the fleet's ships declared added (decision 0037), or none for
  * all-to-all. Not served (switched off), it unregisters, taking the rules from
  * the fleet and keeping its own for when it is on again; a fleet that says its
  * ship is not the plugin is unregistered already. A refusal leaves the fleet
@@ -51,7 +52,13 @@ export function createSupplyFleet(deps: { door: FleetDoor; connections: Connecti
     if (!registered.isOk) {
       return failed(registered.error);
     }
-    const supplied = await deps.door.setNetworkRules(crew.crewToken, network.rules);
+    const declared = await deps.door.declaredNetworkRules(crew.crewToken);
+    if (!declared.isOk) {
+      return failed(declared.error);
+    }
+    // Rules only allow: argo's none is all-to-all, and declared rules add nothing to it.
+    const rules = network.rules === null ? null : [...network.rules, ...declared.value.flatMap((ship) => ship.rules)];
+    const supplied = await deps.door.setNetworkRules(crew.crewToken, rules);
     return supplied.isOk ? ok('supplied') : failed(supplied.error);
   };
 }
