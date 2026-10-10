@@ -80,8 +80,9 @@ describe('a squadrons process that was never connected', () => {
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: null });
     await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok' } });
-    const version: unknown = await (await fetch(`${address}/api/version`)).json();
-    expect(version).toEqual({ squadrons: expect.stringMatching(/^\d+\.\d+\.\d+/) });
+    const version = z.record(z.string(), z.string()).parse(await (await fetch(`${address}/api/version`)).json());
+    expect(Object.keys(version)).toEqual(['squadrons']);
+    expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it('refuses the catalogue and the squadrons until it is connected', async () => {

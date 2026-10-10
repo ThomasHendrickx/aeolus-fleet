@@ -190,6 +190,6 @@ describe('an enabled installation, with an installation token', () => {
     await dataOf(await asOperator('connection.connect', { shipId: management.shipId, secret: management.secret }));
 
     await expect(fetch(`${address}/api/health`).then((response) => response.json())).resolves.toEqual({ status: 'ok' });
-    await expect(fetch(`${address}/api/version`).then((response) => response.json())).resolves.toEqual({ squadrons: expect.any(String) });
+    await expect(fetch(`${address}/api/version`).then(async (response) => Object.keys(z.record(z.string(), z.string()).parse(await response.json())))).resolves.toEqual(['squadrons']);
   });
 });
