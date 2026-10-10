@@ -96,11 +96,15 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
         answers: z.object({ deliveries: z.array(receivedDeliverySchema) }),
         signal: until?.signal,
       });
-      return received.isOk ? ok(received.value.deliveries.map(({ deliveryId }) => ({ deliveryId }))) : received;
+      return received.isOk ? ok(received.value.deliveries.map(({ deliveryId, contentType }) => ({ deliveryId, contentType }))) : received;
     },
     ack: async (crewToken, deliveryId) => {
       const acked = await call(fleetUrl, { path: '/ship/ack', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
       return acked.isOk ? ok(undefined) : acked;
+    },
+    pong: async (crewToken, deliveryId) => {
+      const ponged = await call(fleetUrl, { path: '/ship/pong', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
+      return ponged.isOk ? ok(undefined) : ponged;
     },
   };
 }

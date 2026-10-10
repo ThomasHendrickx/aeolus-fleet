@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { isPingContentType, type FleetId } from '@aeolus-fleet/common';
 
 import type { ConnectionStore, FleetDoor } from '../connection/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -12,7 +12,8 @@ const GONE = new Set(['LEASE_ENDED', 'UNAUTHORIZED']);
 /**
  * Use case: the networking plugin's ship receives once, waiting a while for a
  * delivery, and acknowledges each one on receipt, acting on none: nothing is
- * addressed to it (orchestrator on #260). Its receiving keeps its last seen
+ * addressed to it (orchestrator on #260). A ping from argo gets pong instead
+ * of ack, as on any ship (blueprint, "Ping"). Its receiving keeps its last seen
  * fresh, so the fleet judges it responding while its process runs (decision
  * 0035). A crew token the fleet no longer takes is dropped.
  */
@@ -30,8 +31,8 @@ export function createReceiveOnce(deps: { door: FleetDoor; connections: Connecti
       }
       return refuse('FLEET_UNAVAILABLE', `The fleet did not let the networking plugin receive: ${received.error.message}`);
     }
-    for (const { deliveryId } of received.value) {
-      const acked = await deps.door.ack(crew.crewToken, deliveryId);
+    for (const { deliveryId, contentType } of received.value) {
+      const acked = isPingContentType(contentType) ? await deps.door.pong(crew.crewToken, deliveryId) : await deps.door.ack(crew.crewToken, deliveryId);
       if (!acked.isOk) {
         return refuse('FLEET_UNAVAILABLE', `The fleet did not take the acknowledgement: ${acked.error.message}`);
       }

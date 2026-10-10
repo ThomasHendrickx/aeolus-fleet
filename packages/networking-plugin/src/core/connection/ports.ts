@@ -37,9 +37,11 @@ export interface FleetDoor {
   /** Sets the fleet's rules, the whole list, or none for all-to-all; only the fleet's plugin may (decision 0034). */
   setNetworkRules(crewToken: string, rules: readonly NetworkRule[] | null): Promise<Result<undefined, FleetRefusal>>;
   /** The deliveries waiting for the crew token's ship, waiting a while for one (a long poll), until the signal aborts. */
-  receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<{ deliveryId: DeliveryId }[], FleetRefusal>>;
+  receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<{ deliveryId: DeliveryId; contentType: string }[], FleetRefusal>>;
   /** Acknowledges a delivery: received. */
   ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
+  /** Answers a ping delivery: acknowledged, and the lease seen. */
+  pong(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
 }
 
 /** The crew token the networking plugin holds for its ship in a fleet, and when it got it. */
