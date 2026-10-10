@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCrewSettings } from './crew-settings-actions';
+import { parseCrewSettings } from './crew-settings-read';
 
 describe("a crew request's settings, parsed on the web app's server", () => {
   it('are crew settings, in the order given', async () => {
