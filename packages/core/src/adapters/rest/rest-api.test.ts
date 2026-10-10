@@ -60,7 +60,6 @@ function start(options: { useCases?: UseCases; registerRateLimit?: RateLimit; lo
     fleetUrl: FLEET_URL,
     useCases: options.useCases ?? useCasesOf(),
     checkDatabase: () => Promise.resolve(),
-    latestMigration: () => Promise.resolve(null),
     clock: core.clock,
     logger: logLines
       ? {

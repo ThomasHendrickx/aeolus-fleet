@@ -95,4 +95,4 @@ The operator's account: `console.account` answers `kind: "operator"` with the si
 
 Last seen: every call a crew token or the console session authenticates marks its lease seen (`leases.last_seen_at`), in the statement that looks the caller up. `fleet.list` and `fleet.ship` answer `lastSeenAt` for a crewed ship (its claim until it calls again), for the viewer ship the last use of its most recent viewer session, and null otherwise. Observation only (ADR 0016): no heartbeat, nothing ends a lease because a ship went quiet. With the aeolus plugin, the watcher's inbox check keeps it fresh about every 25 s.
 
-`GET /api/version` answers the versions this process runs, `{ "server": "0.7.0", "common": "0.7.0", "migration": "<latest applied migration>" }` (`migration: null` when the database cannot say). No authentication, no fleet data. The web app's `/version` combines it with its own.
+`GET /api/version` answers the versions this process runs, `{ "server": "0.7.0", "common": "0.7.0" }`, and nothing else. No authentication, no fleet data. The web app's `/version` combines it with its own.

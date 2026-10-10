@@ -1,4 +1,3 @@
-import { readdirSync } from 'node:fs';
 
 import type { ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
@@ -72,24 +71,17 @@ async function status(address: string) {
 
 async function healthOf(address: string) {
   const response = await fetch(`${address}/api/health`);
-  return { status: response.status, body: z.object({ status: z.string(), connectedFleets: z.number(), installation: z.string() }).parse(await response.json()) };
+  return { status: response.status, body: z.unknown().parse(await response.json()) };
 }
 
-/** The newest migration on disk: the one a migrated database reports, whatever its name. */
-const NEWEST_MIGRATION = readdirSync(new URL('../src/adapters/prisma/migrations', import.meta.url))
-  .filter((entry) => /^\d{14}_/.test(entry))
-  .sort()
-  .at(-1);
-
 describe('a squadrons process that was never connected', () => {
-  it('starts not connected, and its health and version say so', async () => {
+  it('starts not connected, its health saying only up and its version only the version it runs', async () => {
     const { address } = await started();
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: null });
-    await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok', connectedFleets: 0, installation: 'open' } });
-    const version = z.object({ squadrons: z.string(), migration: z.string(), connectedFleets: z.number() }).parse(await (await fetch(`${address}/api/version`)).json());
-    expect(version.connectedFleets).toBe(0);
-    expect(version.migration).toBe(NEWEST_MIGRATION);
+    await expect(healthOf(address)).resolves.toEqual({ status: 200, body: { status: 'ok' } });
+    const version = z.record(z.string(), z.string()).parse(await (await fetch(`${address}/api/version`)).json());
+    expect(Object.keys(version)).toEqual(['squadrons']);
     expect(version.squadrons).toMatch(/^\d+\.\d+\.\d+/);
   });
 
@@ -112,7 +104,6 @@ describe('connecting squadrons', () => {
     // It answers as connection.status does: squadrons serves the fleet it connected to.
     await expect(connected.json()).resolves.toEqual({ result: { data: { enabled: true, state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId } } });
     await expect(status(address)).resolves.toEqual({ state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 1 } });
     await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER', harness: 'aeolus-squadrons' });
   });
 
@@ -150,6 +141,5 @@ describe('connecting squadrons', () => {
     unwrap(await useCases.releaseShip(argo, { shipId }));
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 0 } });
   });
 });

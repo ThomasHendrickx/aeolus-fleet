@@ -103,9 +103,9 @@ flowchart LR
 | `/api/v1/docs` | server | Operator, ship builders | The ship REST API as a readable page (Scalar), rendered from the OpenAPI spec at `/api/v1/openapi.json`. Its assets are served by the server, not a CDN, and the page talks only to the fleet's own server |
 | `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP), with the ship protocol as its instructions. The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
-| `/health` (web) | web | Monitoring | Web up and the server's health, and with `AEOLUS_SQUADRONS_URL` or `AEOLUS_TRIERARCH_PLUGIN_URL` set, that plugin's own part (`squadrons`, `trierarchPlugin`) from its `/api/health` (`up` with its connection, or `down`). A plugin down shows in its part and does not fail the whole. Nothing about fleets |
+| `/health` (web) | web | Monitoring | Web up and the server's health (`web`, `server`, `database`). No authentication: nothing about plugins (not which the console has, nor how they are configured) and nothing about fleets. Each plugin answers its own `/api/health` |
 | `/version` | web | Operator, monitoring | The live versions of the components running: the web process's own, plus the server process's own and common's from `/api/version` (`server: null` when it does not answer), so a deploy that failed halfway shows. Only versions, never metadata on plugins or components: no plugins, migrations, URLs or configuration. No authentication, no fleet data. Caddy routes `/version` to web |
-| `/api/version` | server | The web app's `/version` | The server process's own version, the version of the common package it loaded, and the latest migration applied to the database |
+| `/api/version` | server | The web app's `/version` | The server process's own version and the version of the common package it loaded. Nothing else: no migrations, configuration or fleet data |
 
 Only ports 80 (redirect) and 443 are open, and the fleet is reachable over public HTTPS: ship secrets carry the security. Postgres listens on the Compose network only. Estimated cost stays as in the blueprint: about €12.50 a month including VAT.
 

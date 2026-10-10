@@ -39,8 +39,6 @@ export interface HttpServerOptions {
   fleetEvents?: FleetEventWatches;
   /** Throws when the database is unreachable. */
   checkDatabase: () => Promise<void>;
-  /** The latest migration applied to the database; null before the first. Throws when unreachable. */
-  latestMigration: () => Promise<string | null>;
   clock: Clock;
   logger: FastifyServerOptions['logger'];
   /** Trust X-Forwarded-For from a reverse proxy in front of the server, for the client address. */
@@ -158,18 +156,11 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
     }
   });
 
-  // The versions this process runs and the database's latest migration, for
-  // whoever operates the installation. No authentication, no fleet data.
+  // Only the versions this process runs, for whoever operates the
+  // installation (#432): no authentication, so nothing about the database,
+  // its migrations, configuration or fleets.
   const versions = runningVersions();
-  server.get('/api/version', async () => {
-    let migration: string | null = null;
-    try {
-      migration = await options.latestMigration();
-    } catch (error) {
-      server.log.error(failureForLog(error), 'latest migration unknown');
-    }
-    return { ...versions, migration };
-  });
+  server.get('/api/version', () => versions);
 
   // Server up and database reachable. Nothing about fleets.
   server.get('/health', async (_request, reply) => {

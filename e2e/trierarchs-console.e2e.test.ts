@@ -84,9 +84,10 @@ async function signedIn(): Promise<Page> {
   return page;
 }
 
-/** How many fleets the trierarch plugin's health says it is connected to. */
-async function pluginConnectedFleets(): Promise<number> {
-  return z.object({ connectedFleets: z.number() }).parse(await (await fetch(`${pluginUrl}/api/health`)).json()).connectedFleets;
+/** Whether the fleet holds a lease for the ship of this name: the plugin is connected as it. */
+async function isCrewed(name: string): Promise<boolean> {
+  const ship = await database.ship.findFirstOrThrow({ where: { name, retiredAt: null } });
+  return (await database.lease.count({ where: { shipId: ship.id, endedAt: null } })) === 1;
 }
 
 describe('Trierarchs in the console', () => {
@@ -104,7 +105,7 @@ describe('Trierarchs in the console', () => {
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'trierarch-plugin', retiredAt: null } });
     expect(ship).toMatchObject({ type: 'trierarch-plugin', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] });
-    await expect(pluginConnectedFleets()).resolves.toBe(1);
+    await expect(isCrewed('trierarch-plugin')).resolves.toBe(true);
   });
 
   it('lists no machine, then joins one: its setup line shows once, and it is listed as not started', async () => {

@@ -12,7 +12,7 @@ import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
 import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
-import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
+import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
 import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-message-log.js';
@@ -93,26 +93,16 @@ export function createSquadronsApp(options: {
   const installation: InstallationMode = options.installationToken === undefined ? 'open' : 'enabled';
   const switches = createPrismaFleetSwitches(prisma);
   const isServed = createIsServed({ installation, switches });
-  // From what squadrons holds, without asking any fleet: health and version stay quick.
-  const connectedFleets = async (): Promise<number> => (await store.connected()).length;
-
-  // The version this process runs and its database's latest migration. No authentication, no fleet data.
+  // Only the version this process runs (#432, #454): no authentication, so
+  // nothing about its database, its migrations, its installation or fleets.
   const version = runningVersion();
-  server.get('/api/version', async () => {
-    let migration: string | null = null;
-    try {
-      migration = await latestMigration(prisma);
-    } catch (error) {
-      server.log.error({ err: error }, 'latest migration unknown');
-    }
-    return { squadrons: version, migration, connectedFleets: await connectedFleets(), installation };
-  });
+  server.get('/api/version', () => ({ squadrons: version }));
 
-  // Up and its database reachable.
+  // Up and its database reachable; nothing about its installation or fleets.
   server.get('/api/health', async (_request, reply) => {
     try {
       await checkDatabase(prisma);
-      return { status: 'ok', connectedFleets: await connectedFleets(), installation };
+      return { status: 'ok' };
     } catch (error) {
       server.log.error({ err: error }, 'database unreachable');
       return reply.code(503).send({ status: 'unavailable' });

@@ -92,15 +92,15 @@ const joinedSchema = z.object({
 });
 
 describe('a trierarch plugin process that was never connected', () => {
-  it('starts not connected, and its health and version say so', async () => {
+  it('starts not connected, its health saying only up and its version only the version it runs', async () => {
     const { address } = await started();
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: null });
     const health = await fetch(`${address}/api/health`);
     expect(health.status).toBe(200);
-    await expect(health.json()).resolves.toEqual({ status: 'ok', connectedFleets: 0, installation: 'open' });
-    const version = z.object({ trierarchPlugin: z.string(), migration: z.string(), connectedFleets: z.number() }).parse(await (await fetch(`${address}/api/version`)).json());
-    expect(version.migration).toMatch(/^\d{14}_init$/);
+    await expect(health.json()).resolves.toEqual({ status: 'ok' });
+    const version = z.record(z.string(), z.string()).parse(await (await fetch(`${address}/api/version`)).json());
+    expect(Object.keys(version)).toEqual(['trierarchPlugin']);
     expect(version.trierarchPlugin).toMatch(/^\d+\.\d+\.\d+/);
   });
 

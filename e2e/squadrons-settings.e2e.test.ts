@@ -2,7 +2,6 @@ import { idSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -92,9 +91,10 @@ async function settingsPage(): Promise<Page> {
   return page;
 }
 
-/** How many fleets squadrons' health says it is connected to. */
-async function squadronsConnectedFleets(): Promise<number> {
-  return z.object({ connectedFleets: z.number() }).parse(await (await fetch(`${squadronsUrl}/api/health`)).json()).connectedFleets;
+/** Whether the fleet holds a lease for the ship of this name: the plugin is connected as it. */
+async function isCrewed(name: string): Promise<boolean> {
+  const ship = await database.ship.findFirstOrThrow({ where: { name, retiredAt: null } });
+  return (await database.lease.count({ where: { shipId: ship.id, endedAt: null } })) === 1;
 }
 
 describe('Settings, Squadrons', () => {
@@ -134,7 +134,7 @@ describe('Settings, Squadrons', () => {
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1|Ship secret/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'squadrons', retiredAt: null } });
     expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] });
-    await expect(squadronsConnectedFleets()).resolves.toBe(1);
+    await expect(isCrewed('squadrons')).resolves.toBe(true);
   });
 
   it('connects the same ship again once the operator released it', async () => {
@@ -147,7 +147,7 @@ describe('Settings, Squadrons', () => {
 
     await page.getByText('Connected as').waitFor();
     await expect(database.ship.count({ where: { name: 'squadrons' } })).resolves.toBe(1);
-    await expect(squadronsConnectedFleets()).resolves.toBe(1);
+    await expect(isCrewed('squadrons')).resolves.toBe(true);
   });
 
   it('adds a repository that cannot be fetched: it is kept with why, and removing it after a confirm takes it out', async () => {
