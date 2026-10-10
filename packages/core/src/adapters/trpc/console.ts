@@ -14,7 +14,7 @@ import { TRPCError } from '@trpc/server';
 
 import { deviceLabelOf } from '../http/device-label.js';
 import { guideStepsOutputOf, noticeOutputOf } from './installation.js';
-import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, router } from './trpc.js';
+import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, refuseIfSignedInElsewhere, router } from './trpc.js';
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -66,13 +66,17 @@ export const consoleRouter = router({
    * without a login of its own. Only the cookie counts, never a crew token:
    * a ship is no operator. Says whose session it is, the operator's or a
    * viewer's, and its ship's scopes, so that service serves a viewer reads
-   * only. Counts as console use, so the session's expiry moves as on any
+   * only; refuses a session a sign-in elsewhere ended saying so, as any call
+   * does, so that service can say so too. Counts as console use, so the session's expiry moves as on any
    * console call. A query: it comes from any origin.
    */
   session: publicProcedure.output(consoleSessionOutputSchema).query(async ({ ctx }) => {
     const { sessionToken } = ctx.credentials;
     const use = sessionToken === undefined ? undefined : await ctx.useCases.authenticate.byConsoleSession(sessionToken);
     if (!use) {
+      if (sessionToken !== undefined) {
+        await refuseIfSignedInElsewhere(ctx, sessionToken);
+      }
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
     }
     const { fleetId, kind, scopes } = use.caller;

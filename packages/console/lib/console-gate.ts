@@ -8,9 +8,18 @@ export const SESSION_COOKIE = 'aeolus_session';
 const SESSION_CHECK_TIMEOUT_MS = 3000;
 const UNAUTHORIZED = 401;
 
-/** Where a request without a session goes: the hosting service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set, the console's own otherwise. */
-export function signInUrlFor(environment: Readonly<Record<string, string | undefined>>, requestUrl: string): URL {
-  return new URL(hostedSignInUrlFrom(environment) ?? '/sign-in', requestUrl);
+/**
+ * Where a request without a session goes: the hosting service's sign-in when
+ * AEOLUS_HOSTED_SIGN_IN_URL is set, the console's own otherwise, saying so
+ * when the operator signed in somewhere else, as a read or call that hears it
+ * does (lib/session.ts).
+ */
+export function signInUrlFor(environment: Readonly<Record<string, string | undefined>>, { requestUrl, ended = 'ended' }: { requestUrl: string; ended?: 'ended' | 'signedInElsewhere' }): URL {
+  const hosted = hostedSignInUrlFrom(environment);
+  if (hosted !== undefined) {
+    return new URL(hosted, requestUrl);
+  }
+  return new URL(ended === 'signedInElsewhere' ? '/sign-in?notice=signed-in-elsewhere' : '/sign-in', requestUrl);
 }
 
 /** Where the request's console session stands: live, ended (no session cookie, or the server refuses it), ended because the operator signed in somewhere else, or unknown when the server does not answer. */
@@ -42,17 +51,6 @@ async function askedSessionOf(request: { serverUrl: string; cookie: string }, fe
   } catch {
     return 'unknown';
   }
-}
-
-/**
- * Whether the request's session cookie names a live console session, asked of
- * the server's `console.session` (decision 0012): true or false, or undefined
- * when the server did not answer, so the console decides in the browser as it
- * would without this check.
- */
-export async function hasLiveSession(request: { serverUrl: string; cookie: string }, fetchImplementation: typeof fetch = fetch): Promise<boolean | undefined> {
-  const session = await askedSessionOf(request, fetchImplementation);
-  return session === 'unknown' ? undefined : session === 'live';
 }
 
 /** The request's session as the server knows it; without a session cookie it is ended, and the server is asked nothing. */
