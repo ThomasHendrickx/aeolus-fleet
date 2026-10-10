@@ -4,19 +4,19 @@ import { hasLiveSession, sessionOf, signInUrlFor } from './console-gate';
 
 describe('signInUrlFor', () => {
   it("is the hosting service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set", () => {
-    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, 'https://fleet.example.com/ships').href).toBe('https://pagasae.example.com/sign-in');
+    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships' }).href).toBe('https://pagasae.example.com/sign-in');
   });
 
   it("is the console's own sign-in otherwise", () => {
-    expect(signInUrlFor({}, 'https://fleet.example.com/ships?tab=messages').href).toBe('https://fleet.example.com/sign-in');
+    expect(signInUrlFor({}, { requestUrl: 'https://fleet.example.com/ships?tab=messages' }).href).toBe('https://fleet.example.com/sign-in');
   });
 
   it("says the operator signed in somewhere else on the console's own sign-in, as a read or call that hears it does", () => {
-    expect(signInUrlFor({}, 'https://fleet.example.com/ships', 'signedInElsewhere').href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
+    expect(signInUrlFor({}, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
   });
 
   it("is the hosting service's sign-in, as for a read or call, when the operator signed in somewhere else on a hosted console", () => {
-    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, 'https://fleet.example.com/ships', 'signedInElsewhere').href).toBe('https://pagasae.example.com/sign-in');
+    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://pagasae.example.com/sign-in');
   });
 });
 
