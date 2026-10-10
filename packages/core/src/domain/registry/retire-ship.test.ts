@@ -17,6 +17,8 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { newKey } from '../../../test/support/keys.js';
+import { createRegisterNetworkPlugin } from './register-network-plugin.js';
+import { createSetNetworkRules } from './set-network-rules.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -246,5 +248,33 @@ describe('the clear requests of a retired trierarch (decision 0032)', () => {
     expect(eventsOfType('WorktreeClearRemoved')).toEqual([
       expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: macMini.shipId, details: { worktreeShipId: scoutId, repository: 'aeolus-fleet' } }),
     ]);
+  });
+});
+
+describe('the networking plugin retired (decision 0035)', () => {
+  let plugin: Caller;
+
+  beforeEach(async () => {
+    plugin = await shipWithScopes({ registry, argo }, { name: 'reach', type: 'networking', scopes: ['fleet:network'] });
+    const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
+    unwrap(await createRegisterNetworkPlugin(deps)(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+    unwrap(await createSetNetworkRules(deps)(plugin, { rules: [] }));
+    core.state.events.length = 0;
+  });
+
+  it('unregisters: no plugin and no rules, all-to-all, at the next version, with NetworkPluginUnregistered caused by the retirer', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: plugin.shipId }));
+
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 3, plugin: null }]);
+    expect(eventsOfType('NetworkPluginUnregistered')).toEqual([
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: plugin.shipId, details: { version: 3 } }),
+    ]);
+  });
+
+  it('leaves the settings as they are when another ship retires', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 2, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
+    expect(eventsOfType('NetworkPluginUnregistered')).toEqual([]);
   });
 });

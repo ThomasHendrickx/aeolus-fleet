@@ -231,6 +231,18 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       const set = typeof rules === 'number' ? `Network rules set: ${String(rules)} rules` : 'Network rules cleared: every ship reaches every ship';
       return { parts: [text(`${set}, version ${version}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     }
+    case 'NetworkPluginRegistered':
+      return {
+        parts: [text(`Networking plugin registered: while unavailable ${stringDetail(entry, 'whileUnavailable') ?? ''}, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'fleet',
+      };
+    case 'NetworkPluginUnregistered':
+      return {
+        parts: [text(`Networking plugin unregistered: every ship reaches every ship, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'fleet',
+      };
     case 'LabelDeleted':
       return { parts: [text(`Label ${labelOf(entry)} deleted`)], tone: 'ended', icon: 'retired' };
     case 'LabelAssigned':

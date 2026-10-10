@@ -8,7 +8,7 @@
  * rules. The settings are read after the lock, so they are the latest
  * committed.
  */
-import { carriedLabelSchema, idSchema, networkRuleSchema, type FleetId } from '@aeolus-fleet/common';
+import { carriedLabelSchema, idSchema, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/network-settings.js';
@@ -17,7 +17,13 @@ import type { ReachRefusal, RefusedShip } from '../../domain/registry/reach-refu
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 
-const settingsRowSchema = z.object({ rules: z.array(networkRuleSchema).nullable(), version: z.number().int().min(0) });
+const settingsRowSchema = z.object({
+  rules: z.array(networkRuleSchema).nullable(),
+  version: z.number().int().min(0),
+  pluginShipId: idSchema('ship').nullable(),
+  pluginWhileUnavailable: z.enum(WHILE_UNAVAILABLE).nullable(),
+  pluginNotRespondingAfterSeconds: z.number().int().nullable(),
+});
 
 const refusedShipSchema = z.object({ id: idSchema('ship'), name: z.string(), labels: z.array(carriedLabelSchema) });
 
@@ -31,16 +37,25 @@ const refusalRowSchema = z.object({
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
   ]),
   settingsVersion: z.number().int().min(1),
+  whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
 });
 
 export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRepository {
   const read = async (fleetId: FleetId): Promise<NetworkSettings> => {
-    const row = await db.networkSettings.findUnique({ where: { fleetId }, select: { rules: true, version: true } });
+    const row = await db.networkSettings.findUnique({
+      where: { fleetId },
+      select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true },
+    });
     if (!row) {
       return noNetworkSettings(fleetId);
     }
-    const { rules, version } = settingsRowSchema.parse(row);
-    return { fleetId, rules, version };
+    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds } = settingsRowSchema.parse(row);
+    // The table's check keeps the three set together or none.
+    const plugin =
+      pluginShipId !== null && pluginWhileUnavailable !== null && pluginNotRespondingAfterSeconds !== null
+        ? { shipId: pluginShipId, whileUnavailable: pluginWhileUnavailable, notRespondingAfterSeconds: pluginNotRespondingAfterSeconds }
+        : null;
+    return { fleetId, rules, version, plugin };
   };
   return {
     findForShare: async (fleetId) => {
@@ -51,17 +66,23 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext('network-settings'))`;
       return read(fleetId);
     },
-    save: async ({ fleetId, rules, version }) => {
-      const kept = rules === null ? Prisma.DbNull : rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] }));
-      await db.networkSettings.upsert({ where: { fleetId }, create: { fleetId, rules: kept, version }, update: { rules: kept, version } });
+    save: async ({ fleetId, rules, version, plugin }) => {
+      const kept = {
+        rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })),
+        version,
+        pluginShipId: plugin?.shipId ?? null,
+        pluginWhileUnavailable: plugin?.whileUnavailable ?? null,
+        pluginNotRespondingAfterSeconds: plugin?.notRespondingAfterSeconds ?? null,
+      };
+      await db.networkSettings.upsert({ where: { fleetId }, create: { fleetId, ...kept }, update: kept });
     },
   };
 }
 
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
-    record: async ({ id, fleetId, at, sender, recipient, settingsVersion }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), settingsVersion } });
+    record: async ({ id, fleetId, at, sender, recipient, settingsVersion, whilePluginUnavailable }) => {
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), settingsVersion, whilePluginUnavailable } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });

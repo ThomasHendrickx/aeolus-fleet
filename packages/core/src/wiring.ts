@@ -79,7 +79,9 @@ import { createRequestWorktreeClear, type RequestWorktreeClear } from './domain/
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createReadReachRefusals, type ReadReachRefusals } from './domain/registry/read-reach-refusals.js';
+import { createRegisterNetworkPlugin, type RegisterNetworkPlugin } from './domain/registry/register-network-plugin.js';
 import { createSetNetworkRules, type SetNetworkRules } from './domain/registry/set-network-rules.js';
+import { createUnregisterNetworkPlugin, type UnregisterNetworkPlugin } from './domain/registry/unregister-network-plugin.js';
 import { createChangeLabelValues, type ChangeLabelValues } from './domain/registry/change-label-values.js';
 import { createAssignLabel, type AssignLabel } from './domain/registry/assign-label.js';
 import { createUnassignLabel, type UnassignLabel } from './domain/registry/unassign-label.js';
@@ -137,6 +139,8 @@ export interface UseCases {
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   setNetworkRules: SetNetworkRules;
+  registerNetworkPlugin: RegisterNetworkPlugin;
+  unregisterNetworkPlugin: UnregisterNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
   changeLabelValues: ChangeLabelValues;
   assignLabel: AssignLabel;
@@ -269,6 +273,8 @@ export function createUseCases(options: {
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     setNetworkRules: createSetNetworkRules({ uow, clock, ids }),
+    registerNetworkPlugin: createRegisterNetworkPlugin({ uow, clock, ids }),
+    unregisterNetworkPlugin: createUnregisterNetworkPlugin({ uow, clock, ids }),
     readReachRefusals: createReadReachRefusals({ reachRefusals: createPrismaReachRefusalRepository(prisma) }),
     changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
     assignLabel: createAssignLabel({ uow, clock, ids }),

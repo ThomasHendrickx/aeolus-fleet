@@ -135,6 +135,12 @@ export interface LeaseRepository {
    * later mark: two overlapping writes never move it back.
    */
   markSeen(seen: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<void>;
+  /**
+   * When the crew of the ship's open lease last called the fleet (when it
+   * claimed the ship, before any call), read without a lock; undefined when
+   * the ship holds no lease.
+   */
+  findLastSeen(fleetId: FleetId, shipId: ShipId): Promise<Date | undefined>;
   /** The lease's report, the lease locked until the unit of work ends; undefined once it has ended. */
   findReportForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null } | undefined>;
   saveReport(change: { fleetId: FleetId; leaseId: LeaseId; report: ShipReport }): Promise<void>;

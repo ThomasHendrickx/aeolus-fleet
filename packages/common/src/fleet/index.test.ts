@@ -84,6 +84,8 @@ describe('eventTypeSchema', () => {
       'WorktreeCleared',
       'WorktreeClearRemoved',
       'NetworkRulesSet',
+      'NetworkPluginRegistered',
+      'NetworkPluginUnregistered',
     ]);
   });
 });

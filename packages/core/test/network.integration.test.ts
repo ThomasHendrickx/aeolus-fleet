@@ -92,6 +92,68 @@ describe('the network settings', () => {
   });
 });
 
+describe('the networking plugin (decision 0035)', () => {
+  let plugin: Caller;
+  let pluginSecret: string;
+
+  beforeEach(async () => {
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reach', type: 'networking', fleetScopes: ['fleet:network'] }));
+    plugin = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['fleet:network'] };
+    pluginSecret = secretOf(secret);
+  });
+
+  it('is kept with what it declared, at the next version, with NetworkPluginRegistered in the same transaction', async () => {
+    expect(unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }))).toEqual({ version: 1 });
+
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true } })).resolves.toEqual([
+      { rules: null, version: 1, pluginShipId: plugin.shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+    ]);
+    await expect(core.prisma.event.count({ where: { type: 'NetworkPluginRegistered' } })).resolves.toBe(1);
+  });
+
+  it('alone sets the rules while registered', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+
+    expect(refusalOf(await core.useCases.setNetworkRules(argo, { rules: [] }))).toMatchObject({ kind: 'NOT_THE_NETWORK_PLUGIN' });
+    expect(unwrap(await core.useCases.setNetworkRules(plugin, { rules: [] }))).toEqual({ version: 2 });
+  });
+
+  it('unregistered, leaves no plugin and no rules, with NetworkPluginUnregistered in the same transaction', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+    unwrap(await core.useCases.setNetworkRules(plugin, { rules: [] }));
+
+    expect(unwrap(await core.useCases.unregisterNetworkPlugin(plugin))).toEqual({ version: 3 });
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true } })).resolves.toEqual([
+      { rules: null, version: 3, pluginShipId: null, pluginWhileUnavailable: null, pluginNotRespondingAfterSeconds: null },
+    ]);
+    await expect(core.prisma.event.count({ where: { type: 'NetworkPluginUnregistered' } })).resolves.toBe(1);
+  });
+
+  it('not responding, its declaration applies, judged by its lease\'s last seen, and the refusal says so', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
+    unwrap(await core.useCases.setNetworkRules(plugin, { rules: [{ from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.claimShip({ shipId: plugin.shipId, secret: pluginSecret, location: { kind: 'SERVER' }, harness: 'aeolus-networking' }));
+    core.clock.advance(120_000);
+    refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
+    core.clock.advance(1000);
+
+    refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
+
+    await expect(core.prisma.reachRefusal.findMany({ select: { whilePluginUnavailable: true }, orderBy: { at: 'asc' } })).resolves.toEqual([
+      { whilePluginUnavailable: null },
+      { whilePluginUnavailable: 'keep-latest' },
+    ]);
+  });
+
+  it('retired, unregisters in the retirement\'s transaction', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+
+    unwrap(await core.useCases.retireShip(argo, { shipId: plugin.shipId }));
+
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true } })).resolves.toEqual([{ rules: null, version: 2, pluginShipId: null }]);
+  });
+});
+
 describe('a send under network rules', () => {
   beforeEach(async () => {
     unwrap(await core.useCases.setNetworkRules(argo, { rules: [{ from: [shared], to: [sensitive] }] }));
@@ -126,6 +188,7 @@ describe('a send under network rules', () => {
           sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')] },
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')] } },
           settingsVersion: 1,
+          whilePluginUnavailable: null,
         },
     ]);
   });

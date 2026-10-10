@@ -358,6 +358,22 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a networking plugin registered, what happens while it is unavailable, at which version', () => {
+    expect(onScoutsPage(anEntry('NetworkPluginRegistered', { actor: argo, details: { version: 4, whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 } }))).toEqual({
+      sentence: 'Networking plugin registered: while unavailable keep-latest, version 4 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says the networking plugin unregistered, back to all-to-all', () => {
+    expect(onScoutsPage(anEntry('NetworkPluginUnregistered', { actor: argo, details: { version: 5 } }))).toEqual({
+      sentence: 'Networking plugin unregistered: every ship reaches every ship, version 5 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
   it('names the label its owner deleted', () => {
     expect(onScoutsPage(anEntry('LabelDeleted', { actor: argo, details: { key: 'os' } }))).toEqual({
       sentence: 'Label os deleted',

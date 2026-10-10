@@ -330,9 +330,14 @@ model ShipLabel {
 /// rules as JSON, none (null) for all-to-all, and their version. A send and a
 /// set take turns on an advisory lock on them (network.ts).
 model NetworkSettings {
-  fleetId String @id @map("fleet_id")
-  rules   Json?
-  version Int
+  fleetId                         String  @id @map("fleet_id")
+  rules                           Json?
+  version                         Int
+  /// The fleet's networking plugin (decision 0035): its ship and what it
+  /// declared, all three set or none.
+  pluginShipId                    String? @map("plugin_ship_id")
+  pluginWhileUnavailable          String? @map("plugin_while_unavailable")
+  pluginNotRespondingAfterSeconds Int?    @map("plugin_not_responding_after_seconds")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
@@ -350,6 +355,9 @@ model ReachRefusal {
   sender          Json
   recipient       Json
   settingsVersion Int      @map("settings_version")
+  /// What the networking plugin declared, when it refused while the plugin
+  /// was not responding (decision 0035): block-all or keep-latest.
+  whilePluginUnavailable String? @map("while_plugin_unavailable")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 

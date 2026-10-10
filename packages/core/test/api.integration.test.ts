@@ -192,6 +192,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_rules$/),
       expect.stringMatching(/^\d{14}_type_delivery_reachable_ships$/),
       expect.stringMatching(/^\d{14}_crew_request_is_final$/),
+      expect.stringMatching(/^\d{14}_network_plugin$/),
     ]);
   });
 });
@@ -1926,3 +1927,80 @@ describe('network rules at the API', () => {
     expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
   });
 });
+
+describe('the networking plugin at the API', () => {
+  let asPlugin: TRPCClient<AppRouter> | undefined;
+
+  async function aPlugin(): Promise<TRPCClient<AppRouter>> {
+    asPlugin = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+    return asPlugin;
+  }
+
+  afterEach(async () => {
+    // One fleet serves the whole file: the plugin unregisters, back to all-to-all for the next test.
+    await asPlugin?.fleet.unregisterNetworkPlugin.mutate().catch(() => undefined);
+    asPlugin = undefined;
+  });
+
+  it('let a ship with fleet:network register, answering the version, and refuse a ship without', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    const registered = await (await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
+
+    expect(registered.version).toBeGreaterThan(0);
+    await expect(refusalOf(reader.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:network scope',
+    });
+  });
+
+  it('answer a second plugin with CONFLICT, and argo setting the rules with FORBIDDEN, while one is registered', async () => {
+    await (await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 });
+    const second = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+
+    await expect(codeOf(second.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 }))).resolves.toBe('CONFLICT');
+    await expect(codeOf((await signedInArgo()).fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('answer a declaration under a minute with BAD_REQUEST', async () => {
+    await expect(codeOf((await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 59 }))).resolves.toBe('BAD_REQUEST');
+  });
+
+  it('let the plugin unregister, answering the version, and refuse every other ship', async () => {
+    const plugin = await aPlugin();
+    const { version } = await plugin.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
+
+    await expect(codeOf((await signedInArgo()).fleet.unregisterNetworkPlugin.mutate())).resolves.toBe('FORBIDDEN');
+    await expect(plugin.fleet.unregisterNetworkPlugin.mutate()).resolves.toEqual({ version: version + 1 });
+  });
+
+  it('give argo the refusals with what the plugin declared when it was not responding', async () => {
+    const plugin = await aPlugin();
+    await plugin.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 60 });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId } = await agentShip();
+    clock.advance(61_000);
+
+    await refusalOf(sender.ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }));
+
+    const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
+    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId } }, whilePluginUnavailable: 'block-all' });
+  });
+
+  it('register and unregister through REST, for a ship with fleet:network', async () => {
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
+    const post = (path: string, body?: unknown) =>
+      fetch(`${address}/api/v1/fleet/${path}`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body ?? {}),
+      });
+
+    const registered = await post('registerNetworkPlugin', { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
+    const unregistered = await post('unregisterNetworkPlugin');
+
+    expect([registered.status, unregistered.status]).toEqual([200, 200]);
+    expect(z.object({ version: z.number() }).parse(await unregistered.json()).version).toBeGreaterThan(1);
+  });
+});
+

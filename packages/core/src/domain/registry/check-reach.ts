@@ -4,8 +4,8 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
-import { allowsReach, type ReachingShip } from './network-settings.js';
-import type { LabelRepository, NetworkSettingsRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
+import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingShip, type RulesInForce } from './network-settings.js';
+import type { LabelRepository, LeaseRepository, NetworkSettingsRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
 import type { RefusedShip } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 
@@ -15,6 +15,7 @@ export interface CheckReachTx {
   ships: Pick<ShipRepository, 'find' | 'listActiveOfType'>;
   labels: Pick<LabelRepository, 'carriedBy' | 'find'>;
   reachRefusals: ReachRefusalRepository;
+  leases: Pick<LeaseRepository, 'findLastSeen'>;
 }
 
 /** One fixed message, so a refused sender learns nothing about the rules (decision 0034). */
@@ -40,6 +41,9 @@ export interface Reach {
  * the label values they carry now and the settings version: the send stores
  * nothing else, so its caller commits only the record. `isAnswerToSender` says
  * the send answers the sender of a message the sending ship received.
+ *
+ * While the fleet's networking plugin is not responding, what it declared
+ * applies instead of its rules (decision 0035), and a refusal says so.
  */
 export async function checkReach(
   deps: { tx: CheckReachTx; ids: IdGenerator },
@@ -48,13 +52,14 @@ export async function checkReach(
   const { tx, ids } = deps;
   const { fleetId, recipient } = send;
   const settings = await tx.networkSettings.findForShare(fleetId);
+  const inForce = await rulesInForceAt(tx, { settings, now: send.at });
   const senderShip = await tx.ships.find(fleetId, send.senderShipId);
-  if (settings.rules === null || !senderShip || senderShip.kind === 'operator') {
+  if (inForce.rules === null || !senderShip || senderShip.kind === 'operator') {
     return ok({});
   }
   const sender = await shipAsItIs(tx, senderShip);
-  const allows = (to: ShipAsItIs) => allowsReach(settings, { sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
-  const refusal = { fleetId, at: send.at, sender: refused(sender), settingsVersion: settings.version };
+  const allows = (to: ShipAsItIs) => allowsReach(inForce, { sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
+  const refusal = { fleetId, at: send.at, sender: refused(sender), settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
 
   if (recipient.kind === 'type') {
     const ships: ShipAsItIs[] = [];
@@ -83,6 +88,17 @@ export async function checkReach(
 }
 
 const NOT_REACHABLE_MESSAGE = 'The network rules do not allow this send';
+
+/** The rules in force at the send: the plugin's crew last seen, read without a lock, says whether it responds. */
+async function rulesInForceAt(tx: CheckReachTx, at: { settings: NetworkSettings; now: Date }): Promise<RulesInForce> {
+  const { settings, now } = at;
+  const { plugin } = settings;
+  if (plugin === null) {
+    return rulesInForce(settings, false);
+  }
+  const lastSeenAt = await tx.leases.findLastSeen(settings.fleetId, plugin.shipId);
+  return rulesInForce(settings, isNetworkPluginResponding(plugin, { lastSeenAt, now }));
+}
 
 interface ShipAsItIs {
   ship: Ship;

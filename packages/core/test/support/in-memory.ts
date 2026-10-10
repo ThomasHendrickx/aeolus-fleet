@@ -563,6 +563,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         );
         return Promise.resolve(lease && { ...lease });
       },
+      findLastSeen: (fleetId, shipId) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+        const seen = lease && state.leaseSeen.find((held) => held.fleetId === fleetId && held.leaseId === lease.id);
+        return Promise.resolve(seen?.at ?? lease?.startedAt);
+      },
       markSeen: ({ fleetId, leaseId, at }) => {
         const seen = state.leaseSeen.find((held) => held.fleetId === fleetId && held.leaseId === leaseId);
         if (!seen) {

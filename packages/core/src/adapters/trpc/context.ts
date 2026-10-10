@@ -65,7 +65,9 @@ import type { AssignLabel } from '../../domain/registry/assign-label.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
 import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusals.js';
+import type { RegisterNetworkPlugin } from '../../domain/registry/register-network-plugin.js';
 import type { SetNetworkRules } from '../../domain/registry/set-network-rules.js';
+import type { UnregisterNetworkPlugin } from '../../domain/registry/unregister-network-plugin.js';
 import type { DeleteLabel } from '../../domain/registry/delete-label.js';
 import type { FindLabelValue } from '../../domain/registry/find-label-value.js';
 import type { ListLabels } from '../../domain/registry/list-labels.js';
@@ -118,6 +120,8 @@ export interface UseCases {
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   setNetworkRules: SetNetworkRules;
+  registerNetworkPlugin: RegisterNetworkPlugin;
+  unregisterNetworkPlugin: UnregisterNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
   changeLabelValues: ChangeLabelValues;
   assignLabel: AssignLabel;
