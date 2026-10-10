@@ -43,7 +43,7 @@ export interface CrewRequest {
   attempt: number;
   /** When the session its trierarch runs now started, written with the status; null while none runs. */
   sessionStartedAt: Date | null;
-  /** Whether its crew is final: set by its trierarch's first running, restarting or crashed, and kept whatever status follows (#382, #472). */
+  /** Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows, cleared on every new settings version (#382, #472). */
   isFinal: boolean;
   /** The trierarchs that gave it back before their crew was final, oldest first (#382); cleared on every new settings version. */
   givenBack: GiveBack[];
@@ -78,7 +78,8 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
 /**
  * A requester asks that the ship be kept crewed, with these settings: the
  * request it holds now, replacing the settings of any it held and keeping its
- * assignment and status, and CrewRequested with the settings version, never
+ * assignment and status, its crew not final until the new settings run, and
+ * CrewRequested with the settings version, never
  * the settings. Never argo, the viewer ship or a retired ship; settings of at
  * most 16 KB; never while the request is releasing.
  */
@@ -111,7 +112,8 @@ export function requestCrew(
     reason: current?.reason ?? null,
     attempt: current?.attempt ?? 0,
     sessionStartedAt: current?.sessionStartedAt ?? null,
-    isFinal: current?.isFinal ?? false,
+    // New settings are a new request: not final until they run.
+    isFinal: false,
     // New settings may fit the trierarchs that gave the old ones back.
     givenBack: [],
   };

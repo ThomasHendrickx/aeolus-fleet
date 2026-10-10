@@ -212,7 +212,7 @@ model CrewRequest {
   attempt          Int       @default(0)
   /// When the session its trierarch runs now started, with the status; null while none runs.
   sessionStartedAt DateTime? @map("session_started_at") @db.Timestamptz(3)
-  /// Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows.
+  /// Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows, cleared on every new settings version.
   isFinal          Boolean   @default(false) @map("is_final")
 
   fleet    Fleet @relation(fields: [fleetId], references: [id])
