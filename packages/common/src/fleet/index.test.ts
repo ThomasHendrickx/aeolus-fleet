@@ -84,6 +84,7 @@ describe('eventTypeSchema', () => {
       'WorktreeCleared',
       'WorktreeClearRemoved',
       'NetworkRulesSet',
+      'NetworkRulesDeclared',
       'NetworkPluginRegistered',
       'NetworkPluginUnregistered',
     ]);
