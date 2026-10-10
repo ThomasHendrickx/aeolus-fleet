@@ -32,6 +32,25 @@ jobs:
       - run: npm run lint
       - run: npm run test:unit
 
+  trierarch-macos:
+    # The trierarch runs on macOS too, where Linux CI misses its regressions
+    # (#559). On pushes to main only: a macOS runner costs about 10 times the
+    # minutes (#566). The unit layer only: the runner has no Docker for the
+    # integration layer's Testcontainers.
+    name: Trierarch unit tests on macOS
+    if: github.event_name == 'push'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      # The trierarch's tmux adapter is tested against the real tmux.
+      - run: command -v tmux || brew install tmux
+      - run: npx vitest run --project trierarch:unit
+
   storybook:
     # The console's parts must keep building in Storybook.
     name: Storybook build
