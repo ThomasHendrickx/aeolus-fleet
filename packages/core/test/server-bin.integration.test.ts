@@ -6,10 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createPrismaClient, type Db } from '../src/adapters/prisma/client.js';
+import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL } from './support/core-fixtures.js';
 import { createEmptyDatabase } from './support/database.js';
+import { migrateWhileAnotherHoldsTheLock } from './support/migrate-lock.js';
 
 // `aeolus-core`, the one command an operator runs on the server: start,
 // migrate, fleet:init and operator:reset-password. Run here as `npm run
@@ -23,12 +24,6 @@ const MIGRATIONS = readdirSync(migrationsFolder, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort();
-
-/** The advisory lock Prisma Migrate holds on a database while it migrates. */
-const PRISMA_MIGRATE_LOCK = 72_707_369;
-
-/** Longer than Prisma Migrate itself waits for its lock (10 seconds). */
-const LONG_MIGRATION_MS = 12_000;
 
 /** Long enough for a start that migrates first; a start that hangs fails well within the test's time. */
 const START_TIMEOUT_MS = 20_000;
@@ -46,22 +41,6 @@ async function appliedMigrations(databaseUrl: string): Promise<string[]> {
     return rows.map((row) => row.migration_name);
   } finally {
     await database.$disconnect();
-  }
-}
-
-/** Resolves once another session waits for Prisma Migrate's lock, which this one holds. */
-async function waitForLockWaiter(holder: Db): Promise<void> {
-  for (;;) {
-    const [row] = await holder.$queryRaw<{ isWaiting: boolean }[]>`
-      SELECT EXISTS (
-        SELECT 1 FROM pg_locks
-        WHERE locktype = 'advisory' AND objid = ${PRISMA_MIGRATE_LOCK} AND NOT granted
-          AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
-      ) AS "isWaiting"`;
-    if (row?.isWaiting === true) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
@@ -120,26 +99,12 @@ describe('aeolus-core migrate', () => {
 
   it('waits for a migrate in progress however long it takes, then finds the database to migrate', async () => {
     const databaseUrl = await createEmptyDatabase();
-    const database = createPrismaClient(databaseUrl);
-    let migrating: Promise<{ code: number; stderr: string }> | undefined;
-    try {
-      await database.$transaction(
-        async (inProgress) => {
-          await inProgress.$executeRaw`SELECT pg_advisory_xact_lock(${PRISMA_MIGRATE_LOCK})`;
-          migrating = aeolusServer(['migrate'], { DATABASE_URL: databaseUrl });
-          await waitForLockWaiter(inProgress);
-          await new Promise((resolve) => setTimeout(resolve, LONG_MIGRATION_MS));
-        },
-        { timeout: 60_000 },
-      );
-    } finally {
-      await database.$disconnect();
-    }
-    const releasedAt = Date.now();
-    const result = await migrating;
-    const finishedAt = Date.now();
 
-    expect(result?.code, result?.stderr).toBe(0);
+    const { outcome, releasedAt, finishedAt } = await migrateWhileAnotherHoldsTheLock(databaseUrl, () =>
+      aeolusServer(['migrate'], { DATABASE_URL: databaseUrl }),
+    );
+
+    expect(outcome.code, outcome.stderr).toBe(0);
     expect(finishedAt).toBeGreaterThan(releasedAt);
     await expect(appliedMigrations(databaseUrl)).resolves.toEqual(MIGRATIONS);
   }, 90_000);
