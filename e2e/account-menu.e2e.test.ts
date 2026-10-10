@@ -200,4 +200,22 @@ describe.each([
     const mostAsked = Math.max(0, ...readsAsked.map((read) => readsAsked.filter((asked) => asked === read).length));
     expect(mostAsked).toBeLessThanOrEqual(MOST_ASKS_AFTER_SIGN_OUT);
   });
+
+  it('signs out without sending any write but Sign out', async () => {
+    const page = await signedInPage({ isPhone });
+    await visible(page, 'account-menu').click();
+    const writesSent: string[] = [];
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (request.method() === 'POST' && pathname.startsWith('/trpc/')) {
+        writesSent.push(...pathname.slice('/trpc/'.length).split(','));
+      }
+    });
+
+    await visible(page, 'account-sign-out').click();
+    await page.waitForURL(`${web.url}/sign-in`);
+    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+
+    expect(writesSent).toEqual(['console.signOut']);
+  });
 });
