@@ -73,7 +73,7 @@ describe('deleting a fleet the networking plugin is connected to (decision 0035)
   });
 
   it.each([
-    ['its crew token no longer crews its ship', () => parts.fleet.state.liveTokens.clear()],
+    ['its crew token no longer crews its ship', () => { parts.fleet.state.liveTokens.clear(); }],
     ['its ship is not the plugin', () => (parts.fleet.state.plugin = null)],
   ])('goes on when the fleet says %s: nothing is left to unregister', async (_label, change) => {
     change();

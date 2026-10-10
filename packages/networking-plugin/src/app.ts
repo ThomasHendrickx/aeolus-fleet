@@ -9,6 +9,7 @@ import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { createPrismaConnectionStore } from './adapters/prisma/connection-store.js';
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
+import { createPrismaFleetNetworks } from './adapters/prisma/fleet-networks.js';
 import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
 import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
 import { networkingPluginRouter, type NetworkingPluginRouter } from './adapters/trpc/router.js';
@@ -19,6 +20,8 @@ import type { InstallationMode } from './core/installation/ports.js';
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
+import { createSupplies } from './core/network/supplies.js';
+import { createSupplyFleet } from './core/network/supply-fleet.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import type { Clock } from './core/shared/clock.js';
 
@@ -83,11 +86,13 @@ export function createNetworkingPluginApp(options: {
     }
     return { state: 'not-connected', ship: null, lastShipId: (await connections.binding(fleetId))?.shipId ?? null };
   };
+  const networks = createPrismaFleetNetworks(prisma);
+  const supplies = createSupplies({ supplyFleet: createSupplyFleet({ door, connections, networks, isServed }) });
   const requests = createPrismaInstallationRequests(prisma);
-  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock });
+  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, supplies });
   const readFleet = createReadFleet({ isServed, connections });
-  const deleteFleet = createDeleteFleet({ forgetter: createPrismaFleetForgetter(prisma), requests, hasher: sha256RequestHasher, clock });
-  const connect = createConnect({ door, store: connections, clock });
+  const deleteFleet = createDeleteFleet({ forgetter: createPrismaFleetForgetter(prisma), requests, hasher: sha256RequestHasher, clock, door, connections });
+  const connect = createConnect({ door, store: connections, clock, supplies });
 
   const trpc: FastifyTRPCPluginOptions<NetworkingPluginRouter> = {
     prefix: '/trpc',

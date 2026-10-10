@@ -1,5 +1,6 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
+import type { Supplies } from '../network/supplies.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -21,8 +22,10 @@ const PLUGIN_SCOPES = ['fleet:read', 'fleet:network'];
  * it go again and keeps nothing. Each fleet has its own connection: connect
  * works only while the networking plugin is not connected to the operator's
  * fleet, whatever other fleets it serves. The secret is never kept or logged.
+ * Connected, it supplies the fleet at once: it registers as its networking
+ * plugin and supplies the rules it holds (decision 0035).
  */
-export function createConnect(deps: { door: FleetDoor; store: ConnectionStore; clock: Clock }): Connect {
+export function createConnect(deps: { door: FleetDoor; store: ConnectionStore; clock: Clock; supplies: Supplies }): Connect {
   return async ({ operatorFleetId, shipId, secret }) => {
     if (await deps.store.find(operatorFleetId)) {
       return refuse('ALREADY_CONNECTED', 'The networking plugin is connected to this fleet already');
@@ -50,6 +53,7 @@ export function createConnect(deps: { door: FleetDoor; store: ConnectionStore; c
     }
 
     await deps.store.save({ fleetId: who.value.fleetId, shipId, name: who.value.name, crewToken, crewedAt: deps.clock.now() });
+    await deps.supplies.supply(who.value.fleetId);
     return ok({ state: 'connected', ship: { shipId, name: who.value.name }, lastShipId: shipId });
   };
 }

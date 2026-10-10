@@ -1,9 +1,8 @@
 import type { LabelValueId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { FLEET_ID, SHIP_ID, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
+import { FLEET_ID, connectedCrew, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
 import { memoryFleetSwitches } from '../../../test/support/memory-installation.js';
-import { createConnect } from '../connection/connect.js';
 import { createIsServed } from '../installation/served.js';
 import { createSupplyFleet } from './supply-fleet.js';
 
@@ -27,8 +26,7 @@ beforeEach(async () => {
 });
 
 async function connected(): Promise<void> {
-  const connect = createConnect({ door: fleet.door, store: connections, clock: { now: () => AT } });
-  expect((await connect({ operatorFleetId: FLEET_ID, shipId: SHIP_ID, secret: 'aeolus_sk_v1_good' })).isOk).toBe(true);
+  await connectedCrew(fleet, connections);
 }
 
 describe('supplying a fleet the networking plugin serves', () => {

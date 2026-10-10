@@ -145,6 +145,17 @@ export function fakePluginFleet() {
   return { state, door, holdNextSet };
 }
 
+/** Connects the plugin to the fake fleet as connect does, but supplying nothing: its crew token, kept in the store. */
+export async function connectedCrew(fleet: ReturnType<typeof fakePluginFleet>, store: ConnectionStore): Promise<PluginCrew> {
+  const registered = await fleet.door.register({ shipId: SHIP_ID, secret: fleet.state.secret });
+  if (!registered.isOk) {
+    throw new Error(`The fake fleet refused the plugin's secret: ${registered.error.message}`);
+  }
+  const crew = { fleetId: fleet.state.fleetId, shipId: SHIP_ID, name: 'networking-plugin', crewToken: registered.value.crewToken, crewedAt: new Date('2026-10-10T10:00:00.000Z') };
+  await store.save(crew);
+  return crew;
+}
+
 /** A connection the store holds for one fleet: the binding stays when the crew token is dropped. */
 interface HeldConnection {
   binding: PluginBinding;

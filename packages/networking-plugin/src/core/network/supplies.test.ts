@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { FLEET_ID, SHIP_ID, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
+import { FLEET_ID, connectedCrew, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
 import { memoryFleetSwitches } from '../../../test/support/memory-installation.js';
-import { createConnect } from '../connection/connect.js';
 import { createIsServed } from '../installation/served.js';
 import { DEFAULT_DECLARATION } from './declaration.js';
 import { createSupplies } from './supplies.js';
 import { createSupplyFleet } from './supply-fleet.js';
-
-const AT = new Date('2026-10-10T10:00:00.000Z');
 
 let fleet: ReturnType<typeof fakePluginFleet>;
 let networks: ReturnType<typeof memoryFleetNetworks>;
@@ -20,7 +17,7 @@ beforeEach(async () => {
   networks = memoryFleetNetworks();
   const isServed = createIsServed({ installation: 'open', switches: memoryFleetSwitches() });
   supplies = createSupplies({ supplyFleet: createSupplyFleet({ door: fleet.door, connections, networks, isServed }) });
-  await createConnect({ door: fleet.door, store: connections, clock: { now: () => AT } })({ operatorFleetId: FLEET_ID, shipId: SHIP_ID, secret: 'aeolus_sk_v1_good' });
+  await connectedCrew(fleet, connections);
 });
 
 describe('the supplies', () => {

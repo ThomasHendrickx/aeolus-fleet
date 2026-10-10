@@ -1,5 +1,5 @@
 // The networking plugin's tables, in its own small database (decision 0035): per
-// fleet its connection and its switch, and the installation's requests. It
+// fleet its connection, its switch and its network, and the installation's requests. It
 // reaches the fleet only through its public API, as the ship it crews.
 //
 // Timestamps have no database default: the application's Clock port sets every
@@ -54,4 +54,16 @@ model InstallationRequest {
 
   @@index([fleetId])
   @@map("installation_requests")
+}
+
+/// Each fleet's network as argo last saved it in the console (decision 0035):
+/// the rules the plugin supplies, the whole list or none for all-to-all, and
+/// what it declares for while it is unavailable. None before argo's first save.
+model FleetNetwork {
+  fleetId                   String @id @map("fleet_id")
+  rules                     Json?
+  whileUnavailable          String @map("while_unavailable")
+  notRespondingAfterSeconds Int    @map("not_responding_after_seconds")
+
+  @@map("fleet_networks")
 }
