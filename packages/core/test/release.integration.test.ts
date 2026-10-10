@@ -34,10 +34,10 @@ const newId = createIdGenerator();
 const WAIT_MS = 2_000;
 /** Time for a receive to start waiting before the test releases its ship. */
 const SETTLE_MS = 300;
-/** A release that finishes within this while a receive waits was not held up by it. */
-const PROMPTLY_MS = 1_000;
 /** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
 const LONG_WAIT_MS = 15_000;
+/** A test that waits out a long receive, with room for a loaded machine. */
+const LONG_WAIT_TEST_MS = 4 * LONG_WAIT_MS;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -282,16 +282,17 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
   });
 
   it('completes promptly while a receive of the crew waits, and the receive answers without deliveries', async () => {
-    const receiving = useCases.receiveDeliveries(scout.crew, {});
+    const receiving = receiveWaiting(scout, LONG_WAIT_MS);
     await pause(SETTLE_MS);
 
     const startedAt = performance.now();
     unwrap(await end(scout));
     const tookMs = performance.now() - startedAt;
 
-    expect(tookMs).toBeLessThan(PROMPTLY_MS);
+    // Held up, the release would end only with the receive's wait.
+    expect(tookMs).toBeLessThan(LONG_WAIT_MS / 2);
     await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-  });
+  }, LONG_WAIT_TEST_MS);
 });
 
 describe('a release that fails', () => {
