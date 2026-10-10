@@ -434,6 +434,17 @@ describe('a procedure that needs a scope', () => {
     expect(errorData(refused)).toMatchObject({ code: 'UNAUTHORIZED', refusal: 'SIGNED_IN_ELSEWHERE' });
   });
 
+  it('tells another service asking console.session for a session a sign-in elsewhere ended that the operator signed in somewhere else', async () => {
+    start();
+    const first = cookieOf(await signIn(OPERATOR));
+    cookieOf(await signIn(OPERATOR));
+
+    const refused = await server.inject({ method: 'GET', url: '/trpc/console.session', headers: { cookie: first } });
+
+    expect(refused.statusCode).toBe(401);
+    expect(errorData(refused)).toMatchObject({ code: 'UNAUTHORIZED', refusal: 'SIGNED_IN_ELSEWHERE' });
+  });
+
   it('tells a signed-out session only to sign in', async () => {
     start();
     const cookie = cookieOf(await signIn(OPERATOR));
