@@ -1,6 +1,6 @@
 import { idSchema, NETWORK_RULES_MAX, SHIP_LABELS_MAX, type LabelValueId, type ListedLabel } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, screen, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { AREA, labelContext, labelledFleet, PROJECT } from './labels.fixtures';
 import { NetworkRulesEditor } from './network-rules-editor';
@@ -54,6 +54,9 @@ export const SaveFailed: Story = { args: { saveError: 'A fleet holds at most 200
 export const ConfirmingOff: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('network-rules-off'));
-    await expect(await screen.findByTestId('network-rules-off-dialog')).toBeVisible();
+    // The dialog fades in: wait until it shows, as the other dialog stories do.
+    await waitFor(async () => {
+      await expect(await screen.findByTestId('network-rules-off-dialog')).toBeVisible();
+    });
   },
 };
