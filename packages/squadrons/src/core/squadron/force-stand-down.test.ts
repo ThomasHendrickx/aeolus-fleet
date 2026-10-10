@@ -56,6 +56,7 @@ const door: FleetDoor = {
   listShips: notUsed,
   receive: notUsed,
   ack: notUsed,
+  pong: notUsed,
   send: notUsed,
   getShip: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);

@@ -1,3 +1,4 @@
+import { isPingContentType } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { FLAGSHIP } from '../catalogue/catalogue.js';
@@ -12,8 +13,8 @@ import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, or kept a message it does not handle. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'kept';
+/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, kept a message it does not handle, or answered argo's ping with pong. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'kept' | 'ponged';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
@@ -77,7 +78,8 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
  * down. A flagship supports only the squadron's messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
  * page, never forwarded, and argo is told, so no message disappears or goes
- * unseen. A delivery is acked only after it is handled; the delivery id keys
+ * unseen. A ping from argo gets pong instead of ack, as on any ship
+ * (blueprint, "Ping"). A delivery is acked only after it is handled; the delivery id keys
  * every step, so one that comes again gets the same answer and no second change.
  */
 export function createHandleFlagshipDelivery(deps: {
@@ -118,6 +120,11 @@ export function createHandleFlagshipDelivery(deps: {
       });
       return acked('kept');
     };
+
+    if (isPingContentType(delivery.contentType)) {
+      const ponged = await deps.door.pong(crewToken, delivery.deliveryId);
+      return ponged.isOk ? ok('ponged') : err(ponged.error);
+    }
 
     if (delivery.contentType === CHECK_IN) {
       const checkIn = parsedPayload(checkInPayload, delivery.payload);

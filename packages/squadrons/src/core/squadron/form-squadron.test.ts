@@ -140,6 +140,7 @@ function fakeFleet() {
     },
     receive: () => Promise.resolve(ok([])),
     ack: () => Promise.resolve(ok(undefined)),
+    pong: () => Promise.resolve(ok(undefined)),
     send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
     listShips: () => Promise.resolve(ok(state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
     retire: (_crewToken, { shipId }) => {

@@ -243,6 +243,21 @@ describe('a message the flagship does not handle', () => {
   });
 });
 
+describe("argo's ping of a flagship", () => {
+  it('is answered with pong, and not kept for the squadron page', async () => {
+    const flagshipId = idSchema('ship').parse((await formTeam('team-pinged')).flagship.shipId);
+
+    unwrap(await fleetUseCases.pingShip(argo, { shipId: flagshipId }));
+
+    await expect
+      .poll(async () => fleetUseCases.getShip(argo, { shipId: flagshipId }), { timeout: LIVE_TIMEOUT_MS })
+      .toMatchObject({ isOk: true, value: { ping: { state: 'answered' } } });
+    const keptSchema = z.object({ result: z.object({ data: z.array(z.unknown()) }) });
+    const kept = keptSchema.parse(await (await fetch(`${address}/trpc/squadrons.messages?input=${encodeURIComponent(JSON.stringify({ squadronId: 'team-pinged' }))}`, { headers: { cookie } })).json());
+    expect(kept.result.data).toEqual([]);
+  });
+});
+
 describe('standing a squadron down', () => {
   it('sends the member its stand-down, retires it once it stood down, then retires the flagship: the squadron is disbanded', async () => {
     const formed = await formTeam('team-three');

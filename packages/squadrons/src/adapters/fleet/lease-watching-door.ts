@@ -34,6 +34,7 @@ export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore
     findLabelValue: (crewToken, label) => watched(crewToken, door.findLabelValue(crewToken, label)),
     receive: (crewToken, until) => watched(crewToken, door.receive(crewToken, until)),
     ack: (crewToken, deliveryId) => watched(crewToken, door.ack(crewToken, deliveryId)),
+    pong: (crewToken, deliveryId) => watched(crewToken, door.pong(crewToken, deliveryId)),
     send: (crewToken, message) => watched(crewToken, door.send(crewToken, message)),
   };
 }

@@ -73,6 +73,7 @@ const door: FleetDoor = {
   listShips: notUsed,
   receive: notUsed,
   ack: notUsed,
+  pong: notUsed,
   send: notUsed,
   commission: (crewToken, { name, type }) => {
     if (crewToken !== 'aeolus_ct_v1_management' || isCommissionRefused) {

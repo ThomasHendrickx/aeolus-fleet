@@ -59,6 +59,7 @@ const door: FleetDoor = {
   listShips: notUsed,
   receive: notUsed,
   ack: notUsed,
+  pong: notUsed,
   send: notUsed,
   requestCrew: notUsed,
   removeCrewRequest: notUsed,

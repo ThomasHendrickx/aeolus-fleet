@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type NetworkPluginDeclaration, type NetworkRule, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConnectionStore, FleetDoor, FleetRefusal, PluginBinding, PluginCrew } from '../../src/core/connection/ports.js';
 import type { FleetNetwork, FleetNetworks } from '../../src/core/network/ports.js';
@@ -13,7 +13,8 @@ export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
  * its crew tokens work while their lease holds, and it has the scopes it was
  * given. It keeps its network settings as the server does (decisions 0034,
  * 0035): only the registered plugin sets the rules, and unregistering takes
- * them with it. Deliveries wait for the plugin's ship until acknowledged.
+ * them with it. Deliveries wait for the plugin's ship until acknowledged, a
+ * ping until answered with pong, which only a ping takes.
  */
 export function fakePluginFleet() {
   /** The fleet's networking plugin, what it declared, or none; and its rules, none for all-to-all. */
@@ -33,6 +34,10 @@ export function fakePluginFleet() {
     /** The deliveries waiting for the plugin's ship, until acknowledged. */
     waiting: new Array<DeliveryId>(),
     acked: new Array<DeliveryId>(),
+    /** The waiting deliveries that are pings from argo. */
+    pings: new Set<DeliveryId>(),
+    ponged: new Array<DeliveryId>(),
+    isTakingPongs: true,
   };
   const unavailable = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
   let holding: { reached: () => void; released: Promise<undefined> } | undefined;
@@ -131,7 +136,7 @@ export function fakePluginFleet() {
       if (!state.isAnswering) {
         return unavailable();
       }
-      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.waiting.map((deliveryId) => ({ deliveryId })))) : released();
+      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.waiting.map((deliveryId) => ({ deliveryId, contentType: state.pings.has(deliveryId) ? PING_CONTENT_TYPE : 'text/plain' })))) : released();
     },
     ack: (crewToken, deliveryId) => {
       if (!state.liveTokens.has(crewToken)) {
@@ -139,6 +144,20 @@ export function fakePluginFleet() {
       }
       state.waiting = state.waiting.filter((waiting) => waiting !== deliveryId);
       state.acked.push(deliveryId);
+      return Promise.resolve(ok(undefined));
+    },
+    pong: (crewToken, deliveryId) => {
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      if (!state.isTakingPongs) {
+        return unavailable();
+      }
+      if (!state.pings.has(deliveryId) || !state.waiting.includes(deliveryId)) {
+        return Promise.resolve(err({ code: 'NOT_FOUND', message: 'No ping waits under this delivery' }));
+      }
+      state.waiting = state.waiting.filter((waiting) => waiting !== deliveryId);
+      state.ponged.push(deliveryId);
       return Promise.resolve(ok(undefined));
     },
   };

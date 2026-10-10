@@ -56,6 +56,8 @@ export interface FleetDoor {
   /** The crew token's next deliveries, waiting briefly when there are none. */
   receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<ReceivedMessage[], FleetRefusal>>;
   ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
+  /** Answers a ping delivery: acknowledged, and the lease seen. */
+  pong(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
   send(crewToken: string, message: OutgoingMessage): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
 }
 

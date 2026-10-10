@@ -4,7 +4,7 @@ Forms squadrons of ships from blueprints and leads them (decision 0017). Optiona
 
 So far: its own process and database, the connection the operator makes in the console as its management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), forming squadrons, the check-in at each flagship (docs/squadrons.md, "Check-in"), `/api/health` and `/api/version`.
 
-squadrons receives on every forming or sailing squadron's flagship. A member's check-in is kept with the model it states and answered with its role (template, charter, check-in interval, hand-offs as selectors); its on-station marks it, and the squadron sails once every member is on station. A flagship supports only the squadron's messages: any other message, from outside or from a member, is acknowledged and kept (`squadrons.messages`), never forwarded, and argo is told in its inbox, so no message disappears or goes unseen. The flagship acks each delivery only after handling it, and handling one that comes again (after a crash or a failed ack) gives the same answer and changes nothing twice. When a flagship is released, squadrons stops receiving on it and tells argo.
+squadrons receives on every forming or sailing squadron's flagship. A member's check-in is kept with the model it states and answered with its role (template, charter, check-in interval, hand-offs as selectors); its on-station marks it, and the squadron sails once every member is on station. A flagship supports only the squadron's messages: any other message, from outside or from a member, is acknowledged and kept (`squadrons.messages`), never forwarded, and argo is told in its inbox, so no message disappears or goes unseen. A ping from argo gets pong. The flagship acks each delivery only after handling it, and handling one that comes again (after a crash or a failed ack) gives the same answer and changes nothing twice. When a flagship is released, squadrons stops receiving on it and tells argo.
 
 ## Lifecycle
 
@@ -73,7 +73,7 @@ The operator forces the stand down of a Forming, Sailing or Standing down squadr
 
 ### The flagship's messages
 
-The flagship handles check-in, on-station and stood-down from its own members. Any other message, from outside or from a member, is acknowledged and kept for the squadron page (`squadrons.messages`), never forwarded, and argo is told, so none disappears or goes unseen. Each delivery is acked only after it is handled, and handling one that comes again changes nothing twice. When the flagship is released or retired other than by its squadron disbanding, squadrons stops receiving on it and tells argo once.
+The flagship handles check-in, on-station and stood-down from its own members. Any other message, from outside or from a member, is acknowledged and kept for the squadron page (`squadrons.messages`), never forwarded, and argo is told, so none disappears or goes unseen. A ping from argo gets pong. Each delivery is acked only after it is handled, and handling one that comes again changes nothing twice. When the flagship is released or retired other than by its squadron disbanding, squadrons stops receiving on it and tells argo once.
 
 ### Not handled
 
