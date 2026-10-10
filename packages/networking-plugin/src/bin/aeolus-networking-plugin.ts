@@ -3,7 +3,9 @@
  * `aeolus-networking-plugin start`: migrates the networking plugin's
  * database, connects again to every fleet with its kept crew token (a fleet
  * without one is not connected until its operator connects the networking
- * plugin in the console), then serves until SIGINT or SIGTERM.
+ * plugin in the console) and supplies each of them anew, then serves,
+ * receives as its ship in every fleet it serves and supplies again what the
+ * fleet refused, until SIGINT or SIGTERM.
  * `aeolus-networking-plugin migrate`: migrates the database alone.
  */
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
@@ -22,12 +24,15 @@ async function start(): Promise<void> {
     ...(config.installationToken === undefined ? {} : { installationToken: config.installationToken }),
   });
   const restored = await app.restoreConnections();
-  for (const { fleetId, ship } of restored) {
-    app.server.log.info({ fleet: fleetId, ship }, "connected as the networking plugin's ship");
+  for (const { fleetId, ship, supply } of restored) {
+    app.server.log.info({ fleet: fleetId, ship, supply }, "connected as the networking plugin's ship");
   }
   if (restored.length === 0) {
     app.server.log.warn('connected to no fleet: an operator connects the networking plugin in the console');
   }
+
+  app.startSupplying(config.supplyRetryMs);
+  app.startReceiving();
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

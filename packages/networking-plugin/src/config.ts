@@ -3,12 +3,18 @@ import { z } from 'zod';
 /** The shortest installation token the networking plugin takes, as the fleet core does (decision 0020). */
 const INSTALLATION_TOKEN_MIN_LENGTH = 32;
 
+/** How often a supply the fleet refused is tried again, by default. */
+const DEFAULT_SUPPLY_RETRY_SECONDS = 10;
+
+const MS_PER_SECOND = 1000;
+
 const environmentSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgres:// or postgresql:// URL' }),
   FLEET_URL: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }),
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(0).max(65_535).default(4300),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  SUPPLY_RETRY_SECONDS: z.coerce.number().int().positive().default(DEFAULT_SUPPLY_RETRY_SECONDS),
   INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, { error: `must hold at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters` }).optional(),
 });
 
@@ -34,6 +40,8 @@ export interface Config {
    * a self-hosted networking plugin needs; set, a fleet is served once switched on.
    */
   installationToken: string | undefined;
+  /** How often each fleet whose last supply the fleet refused is supplied again. */
+  supplyRetryMs: number;
 }
 
 export class ConfigError extends Error {
@@ -58,6 +66,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,
     installationToken: variables.INSTALLATION_TOKEN,
+    supplyRetryMs: variables.SUPPLY_RETRY_SECONDS * MS_PER_SECOND,
   };
 }
 
