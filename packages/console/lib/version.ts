@@ -1,66 +1,39 @@
 import { z } from 'zod';
 
 import webPackage from '../package.json';
+import { serverInternalUrlFrom } from './server-url';
 
-/** What the server's /api/version answers: the versions its process runs and the latest applied migration. */
+const TIMEOUT_MS = 3_000;
+
+/** The versions the server's /api/version answers for its process; anything else it says is dropped. */
 const serverVersionSchema = z.object({
   server: z.string(),
   common: z.string(),
-  migration: z.string().nullable(),
 });
 
-/**
- * What squadrons' /api/version answers: the version its process runs, its
- * latest migration, how many fleets it holds a crew token for, and whether its
- * installation token is set.
- */
-const squadronsVersionSchema = z.object({
-  squadrons: z.string(),
-  migration: z.string().nullable(),
-  connectedFleets: z.int().min(0),
-  installation: z.enum(['enabled', 'open']),
-});
+/** The version the trierarch plugin's own /api/version answers for its process. */
+const trierarchPluginVersionSchema = z.object({ trierarchPlugin: z.string() });
 
 /**
- * What the trierarch plugin's /api/version answers: the version its process
- * runs, its latest migration, how many fleets it holds a crew token for, and
- * whether its installation token is set.
- */
-const trierarchPluginVersionSchema = z.object({
-  trierarchPlugin: z.string(),
-  migration: z.string().nullable(),
-  connectedFleets: z.int().min(0),
-  installation: z.enum(['enabled', 'open']),
-});
-
-/** What the console's /version answers of the trierarch plugin, as a page reads it. */
-const consoleVersionSchema = z.object({ trierarchPlugin: trierarchPluginVersionSchema.nullable().optional() });
-
-/**
- * The trierarch plugin's version from the console's own /version, for the
- * Trierarchs header (#332); undefined when the plugin does not answer, the
- * console has none, or the answer is something else.
+ * The trierarch plugin's version from its own /api/version, for the
+ * Trierarchs header (#332); undefined when the answer is something else.
  */
 export function trierarchPluginVersionOf(body: unknown): string | undefined {
-  const parsed = consoleVersionSchema.safeParse(body);
-  return parsed.success ? parsed.data.trierarchPlugin?.trierarchPlugin : undefined;
+  const parsed = trierarchPluginVersionSchema.safeParse(body);
+  return parsed.success ? parsed.data.trierarchPlugin : undefined;
 }
 
 export interface WebVersion {
   /** The version of the web app this process runs. */
   web: string;
-  /** What the server process answers for itself; null when it does not answer. */
+  /** The versions the server process runs; null when it does not answer. */
   server: z.infer<typeof serverVersionSchema> | null;
-  /** What squadrons answers for itself, only when the console has squadrons; null when it does not answer. */
-  squadrons?: z.infer<typeof squadronsVersionSchema> | null;
-  /** What the trierarch plugin answers for itself, only when the console has it; null when it does not answer. */
-  trierarchPlugin?: z.infer<typeof trierarchPluginVersionSchema> | null;
 }
 
-async function answerOf<T>(fetchVersion: () => Promise<Response>, schema: z.ZodType<T>): Promise<T | null> {
+async function serverVersionAt(url: string): Promise<WebVersion['server']> {
   try {
-    const response = await fetchVersion();
-    const parsed = schema.safeParse(await response.json());
+    const response = await fetch(`${url}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const parsed = serverVersionSchema.safeParse(await response.json());
     return response.ok && parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -68,29 +41,12 @@ async function answerOf<T>(fetchVersion: () => Promise<Response>, schema: z.ZodT
 }
 
 /**
- * The live versions, for whoever operates the installation (issue #49): this
- * web process's own, plus the server process's own answer and, for each
- * plugin the console has (squadrons, the trierarch plugin), the plugin's own. Each process reports what it runs,
- * so a deploy that failed halfway shows. No authentication and no fleet data.
+ * The live versions, for whoever operates the installation (issue #49), asked
+ * without a session: this web process's own and the server process's own
+ * answer, so a deploy that failed halfway shows. Only the versions of the
+ * components running (#432): nothing about plugins, migrations, configuration
+ * or fleets.
  */
-export async function webVersion(sources: {
-  fetchServerVersion: () => Promise<Response>;
-  /** Squadrons' /api/version; none when the console has no squadrons. */
-  fetchSquadronsVersion?: () => Promise<Response>;
-  /** The trierarch plugin's /api/version; none when the console has no trierarch plugin. */
-  fetchTrierarchPluginVersion?: () => Promise<Response>;
-  web?: string;
-}): Promise<WebVersion> {
-  const { fetchServerVersion, fetchSquadronsVersion, fetchTrierarchPluginVersion, web = webPackage.version } = sources;
-  const [server, squadrons, trierarchPlugin] = await Promise.all([
-    answerOf(fetchServerVersion, serverVersionSchema),
-    fetchSquadronsVersion === undefined ? undefined : answerOf(fetchSquadronsVersion, squadronsVersionSchema),
-    fetchTrierarchPluginVersion === undefined ? undefined : answerOf(fetchTrierarchPluginVersion, trierarchPluginVersionSchema),
-  ]);
-  return {
-    web,
-    server,
-    ...(squadrons === undefined ? {} : { squadrons }),
-    ...(trierarchPlugin === undefined ? {} : { trierarchPlugin }),
-  };
+export async function webVersion(environment: Readonly<Record<string, string | undefined>>, web: string = webPackage.version): Promise<WebVersion> {
+  return { web, server: await serverVersionAt(serverInternalUrlFrom(environment)) };
 }

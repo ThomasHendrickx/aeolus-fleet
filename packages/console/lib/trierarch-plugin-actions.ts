@@ -92,7 +92,7 @@ export async function readTrierarchPluginVersion(): Promise<string | undefined> 
   try {
     const response = await fetch(`${url}/api/version`, { cache: 'no-store', signal: AbortSignal.timeout(VERSION_TIMEOUT_MS) });
     const body: unknown = await response.json();
-    return response.ok ? trierarchPluginVersionOf({ trierarchPlugin: body }) : undefined;
+    return response.ok ? trierarchPluginVersionOf(body) : undefined;
   } catch {
     return undefined;
   }
