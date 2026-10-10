@@ -46,6 +46,8 @@ const CONTEXT = labelContextOf([TEAM, TIER], { ships: [ARGO], isOperator: true }
 const OPS = valueOf(TEAM, 0);
 const RESEARCH = valueOf(TEAM, 1);
 const SENSITIVE = valueOf(TIER, 0);
+const ANY_TEAM = { labelId: TEAM.id, value: '*' } as const;
+const SAME_TEAM = { labelId: TEAM.id, value: '#' } as const;
 const LIMITS = { rulesMax: 3, selectorMax: 2 };
 
 function onlyRule(draft: NetworkDraft) {
@@ -118,6 +120,23 @@ describe('the network draft argo edits (decision 0034)', () => {
     const draft = draftOf([{ from: [OPS, SENSITIVE], to: [] }], newKey);
 
     expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: RESEARCH, limits: LIMITS }))).toEqual([{ from: [OPS, SENSITIVE], to: [] }]);
+  });
+
+  it('adds a term of any value and one of the same value of a label to a side, each once', () => {
+    const draft = draftOf([{ from: [], to: [] }], newKey);
+    const key = onlyRule(draft).key;
+    let changed = draft;
+    for (const term of [ANY_TEAM, SAME_TEAM, { ...ANY_TEAM }, { ...SAME_TEAM }]) {
+      changed = addTerm(changed, { rule: key, side: 'from', term, limits: { ...LIMITS, selectorMax: 4 } });
+    }
+
+    expect(rulesOf(changed)).toEqual([{ from: [ANY_TEAM, SAME_TEAM], to: [] }]);
+  });
+
+  it('removes a term of any value of a label, keeping the one of the same value', () => {
+    const draft = draftOf([{ from: [ANY_TEAM, SAME_TEAM], to: [] }], newKey);
+
+    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: { ...ANY_TEAM } }))).toEqual([{ from: [SAME_TEAM], to: [] }]);
   });
 
   it('removes a value from one side of a rule', () => {
