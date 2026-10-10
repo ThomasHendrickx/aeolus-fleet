@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { NetworkRule } from './network-settings.js';
+import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 
 let core: InMemoryCore;
@@ -41,7 +42,7 @@ describe('setting the network rules', () => {
     const set = unwrap(await setNetworkRules(setter, { rules }));
 
     expect(set).toEqual({ version: 1 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 1 }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 1, plugin: null }]);
   });
 
   it('replaces the rules and moves the version on every set', async () => {
@@ -49,20 +50,20 @@ describe('setting the network rules', () => {
     const rules = [aRule()];
 
     expect(unwrap(await setNetworkRules(argo, { rules }))).toEqual({ version: 2 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2 }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2, plugin: null }]);
   });
 
   it('keeps an empty list as rules that allow only the fixed exceptions', async () => {
     unwrap(await setNetworkRules(setter, { rules: [] }));
 
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], version: 1 }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], version: 1, plugin: null }]);
   });
 
   it('clears the rules with none, back to all-to-all, moving the version', async () => {
     unwrap(await setNetworkRules(setter, { rules: [aRule()] }));
 
     expect(unwrap(await setNetworkRules(setter, { rules: null }))).toEqual({ version: 2 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 2 }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 2, plugin: null }]);
   });
 
   it('writes NetworkRulesSet, caused by the setting ship, with the version and how many rules', async () => {
@@ -121,5 +122,33 @@ describe('setting the network rules', () => {
       [fleetId, 1, 1],
       [other.fleetId, 1, null],
     ]);
+  });
+});
+
+describe('setting the network rules while a networking plugin is registered (decision 0035)', () => {
+  let plugin: Caller;
+
+  beforeEach(async () => {
+    plugin = await shipWithScopes({ registry: registryUseCases(core), argo }, { name: 'reach', type: 'networking', scopes: ['fleet:network'] });
+    unwrap(await createRegisterNetworkPlugin({ uow: core.uow, clock: core.clock, ids: core.ids })(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
+    core.state.events.length = 0;
+  });
+
+  it('takes the rules the plugin supplies', async () => {
+    const rules = [aRule()];
+
+    expect(unwrap(await setNetworkRules(plugin, { rules }))).toEqual({ version: 2 });
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules, version: 2 })]);
+  });
+
+  it.each([
+    ['argo', () => argo],
+    ['another ship with fleet:network', () => setter],
+  ])('refuses %s, and stores nothing: the plugin is the one owner of the rules', async (_who, caller) => {
+    const refused = await setNetworkRules(caller(), { rules: [aRule()] });
+
+    expect(refusalOf(refused)).toEqual({ kind: 'NOT_THE_NETWORK_PLUGIN', message: "Only the fleet's networking plugin does this (decision 0035)" });
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.events).toEqual([]);
   });
 });
