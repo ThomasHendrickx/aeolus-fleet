@@ -119,6 +119,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | `core` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
 | `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision 0021), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
 | `trierarch-plugin` (optional) | A long-running Node process beside squadrons, with a small Postgres database of its own holding only each fleet's connection and switch (it may share squadrons' Postgres server, in its own schema), serving every fleet of the server with one connection each, switched per fleet as squadrons is (decisions 0021, 0030). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
+| `networking-plugin` (optional) | A long-running Node process beside squadrons, with a small Postgres database of its own holding each fleet's connection, switch and network (it may share squadrons' Postgres server, in its own schema), serving every fleet of the server with one connection each, switched per fleet as squadrons is (decisions 0021, 0036). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
 | `trierarch` (optional) | A long-running Node process on the machine where the sessions it crews run, kept alive by launchd or a systemd user unit, with its files under the operator's home folder. It needs no public address: it calls the fleet's API | The operator's own machine (a Mac, a Linux host) |
 | Database | Postgres 16 or newer, with a direct connection for `LISTEN/NOTIFY` (a transaction pooler breaks it) | Supabase or Neon via their direct or session connection, any managed Postgres |
 
@@ -373,9 +374,19 @@ Every arrow is code or an API call: no fleet message carries crew state. The tri
 
 The identity file of a folder a trierarch crews says `wakeBy=trierarch`. The plugin then asks for no watcher of its own: the SessionStart and Stop hooks and the watcher guard leave waking to the trierarch. A turn marker (busy or idle, with when), written by the plugin's UserPromptSubmit and Stop hooks, tells the trierarch when a session may be woken, in Claude Code and Codex alike. `/aeolus:wake` (Codex: `$aeolus-wake`) is both the first prompt and the wake. In Codex the plugin arms no wake bridge of its own for such a folder.
 
+## The networking plugin
+
+`@aeolus-fleet/networking-plugin`: a long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0036). It reaches each fleet only through the public API, as that fleet's networking plugin ship (`fleet:read`, `fleet:network`), and is the fleet's one networking plugin (decision 0035). Its own small database holds per fleet the connection (its ship and kept crew token), the switch and the network argo edits: the rules, the whole list or none, and what it declares for while it is unavailable. The fleet keeps only the list it last supplied. It depends on `common` only.
+
+| Layer | Pieces |
+| --- | --- |
+| Core (pure) | **Supply**: per fleet, register with argo's declaration (or `keep-latest` after 300 seconds) and set the whole list where it is on; unregister where it is off. **Supplies**: one supply of a fleet at a time, a refused one kept for the next retry, in memory (a start supplies every fleet anew). **Network**: read it, save the rules within decision 0034's limits, save the declaration, each supplied at once. **Receive**: acknowledge every delivery to its ship. **Connection**, **installation** and **operator**, as the trierarch plugin's, a delete unregistering first |
+| Ports | **FleetDoor**: the ship calls it makes as its ship (register, whoami, fleet.ship, the networking plugin calls, receive, ack). **ConnectionStore**, **FleetSwitches**, **FleetNetworks**, **InstallationRequests**, **ConsoleSessions**, **Clock** |
+| Adapters | REST to the fleet; tRPC for the web app's server (`connection`, `network`, `installation`); Prisma on its own database (`connections`, `fleet_switches`, `fleet_networks`, `installation_requests`); a receive loop per fleet it serves and is connected to; a timer that retries refused supplies |
+
 ## Code structure
 
-Seven parts. The first six are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons`, `trierarch-plugin` and `trierarch` are optional). The seventh is your private setup and consumes the packages like any other installer would.
+Eight parts. The first seven are npm packages under the `aeolus-fleet` organisation, in one public Apache-2.0 repository (`squadrons`, `trierarch-plugin`, `networking-plugin` and `trierarch` are optional). The eighth is your private setup and consumes the packages like any other installer would.
 
 | Part | Where | Contains | Depends on |
 | --- | --- | --- | --- |
@@ -384,6 +395,7 @@ Seven parts. The first six are npm packages under the `aeolus-fleet` organisatio
 | `@aeolus-fleet/console` | Public repo, `packages/console` | The Next.js operator console, built with atomic design: shadcn/ui on Base UI as atoms, composed into molecules (StatusBadge, SelectorPicker, StartingPromptBlock), organisms and page templates. The Claude Design canvas is the visual reference; behaviour comes from the blueprint. Published as Next.js's standalone output, so it installs no dependency | `common`, bundled at build time: its schemas on the server, only types and the zod-free `@aeolus-fleet/common/rules` in the browser (decision 0033), and the server's router type (type-only) |
 | `@aeolus-fleet/squadrons` | Public repo, `packages/squadrons` | Forms squadrons of ships from blueprints and leads them (decision 0017): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:manage`), and GitHub's REST API for the template repositories, with no clone and no files on disk. Optional | `common` |
 | `@aeolus-fleet/trierarch-plugin` | Public repo, `packages/trierarch-plugin` | The trierarchs' plugin on the server side (decision 0030): its own core and ports, the fleet's public REST API as its ship (`fleet:read`, `fleet:manage`, `crew:assign`, `labels:define`, `labels:assign`), tRPC for the web app's server, and a Prisma adapter with its own small database and migrations (each fleet's connection and switch). Optional | `common` |
+| `@aeolus-fleet/networking-plugin` | Public repo, `packages/networking-plugin` | The first networking plugin (decision 0036): its own core and ports, the fleet's public REST API as its ship (`fleet:read`, `fleet:network`), tRPC for the web app's server, and a Prisma adapter with its own small database and migrations (each fleet's connection, switch and network). Optional | `common` |
 | `@aeolus-fleet/trierarch` | Public repo, `packages/trierarch` | Crews ships on its machine from the crew requests assigned to it (decision 0026): its own core and ports, adapters for the fleet's REST API (as its own ship, with `crew:run`), tmux, git and the harnesses, and its command `aeolus-trierarch`. Optional | `common` |
 | Infra | Private repo `aeolus-fleet-infra` | Docker Compose, Caddyfile, environment, backup scripts, deploy workflow for Hetzner | The published packages |
 
@@ -394,7 +406,7 @@ Layers, not folders (the code shows the folders):
 - Composition: the server's entry points build the adapters and inject them into the use cases.
 - `console`: reaches the server only through the tRPC router and imports only its type. Components follow atomic design.
 - `squadrons/src/core` and `squadrons/src/adapters` follow the same split; squadrons reaches the fleet only through the fleet's public API, never its tables.
-- `trierarch-plugin/src/core` and `trierarch-plugin/src/adapters`, and `trierarch/src/core` and `trierarch/src/adapters`, follow the same split; each reaches the fleet only through its public API.
+- `trierarch-plugin/src/core` and `trierarch-plugin/src/adapters`, `networking-plugin/src/core` and `networking-plugin/src/adapters`, and `trierarch/src/core` and `trierarch/src/adapters`, follow the same split; each reaches the fleet only through its public API.
 - Every repository call takes a fleet scope (exception: decision 0007).
 
 Lint and CI enforce these rules (slice 1b).

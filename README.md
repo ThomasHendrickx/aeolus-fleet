@@ -88,6 +88,7 @@ The plugin makes every fleet call through its scripts, so the crew token never r
 | `@aeolus-fleet/console` | The operator console (Next.js) |
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them |
 | `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs |
+| `@aeolus-fleet/networking-plugin` | Optional: supplies the network rules argo edits, who may message whom, to the fleet |
 | `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 | `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) | The Claude Code plugin |
