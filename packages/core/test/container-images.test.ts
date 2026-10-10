@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { POSTGRES_IMAGE, REAPER_IMAGE } from './container-images.js';
+import { POSTGRES_IMAGE, REAPER_IMAGE, TEST_IMAGES } from './container-images.js';
 
 /** The registry an image name pulls from: its first part when that names a host, else Docker Hub. */
 function registryOf(image: string): string {
@@ -19,5 +19,10 @@ describe('Testcontainers images', () => {
   it('pulls the Ryuk reaper from a mirror outside Docker Hub', () => {
     expect(registryOf(REAPER_IMAGE)).not.toBe('docker.io');
     expect(REAPER_IMAGE).toMatch(/\/testcontainers\/ryuk:\d+\.\d+\.\d+$/);
+  });
+
+  // ECR Public throttles anonymous pulls per IP too (#464), so CI caches every image the tests start.
+  it('lists every image the tests start, for CI to cache', () => {
+    expect(TEST_IMAGES).toEqual([POSTGRES_IMAGE, REAPER_IMAGE]);
   });
 });
