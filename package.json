@@ -13,12 +13,13 @@
     "packages/core",
     "packages/squadrons",
     "packages/trierarch-plugin",
+    "packages/networking-plugin",
     "packages/trierarch",
     "packages/console"
   ],
   "scripts": {
-    "postinstall": "npm run generate --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin",
-    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/console",
+    "postinstall": "npm run generate --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin --workspace @aeolus-fleet/networking-plugin",
+    "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/squadrons --workspace @aeolus-fleet/trierarch-plugin --workspace @aeolus-fleet/networking-plugin --workspace @aeolus-fleet/trierarch --workspace @aeolus-fleet/console",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
