@@ -8,9 +8,13 @@ on:
 permissions:
   contents: read
 
+# A later push to a pull request cancels its earlier run. A push to main never
+# cancels another: every commit on main needs its own CI result for the release
+# gate (#574). Each main run gets a group of its own, since a shared group
+# would still cancel a pending run when a third push arrives.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   NEXT_TELEMETRY_DISABLED: '1'
