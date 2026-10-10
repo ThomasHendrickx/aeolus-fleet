@@ -34,13 +34,11 @@ const commonPackage = z.object({ version: z.string() }).parse(
 );
 
 const reachable = () => Promise.resolve();
-const LATEST_MIGRATION = '20261001040000_lease_last_seen';
 const unreachable = () => Promise.reject(new Error('connect ECONNREFUSED'));
 
 function start(
   options: {
     checkDatabase?: () => Promise<void>;
-    latestMigration?: () => Promise<string | null>;
     signInRateLimit?: RateLimit;
     registerRateLimit?: RateLimit;
     cookieDomain?: string;
@@ -57,7 +55,6 @@ function start(
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
-    latestMigration: options.latestMigration ?? (() => Promise.resolve(LATEST_MIGRATION)),
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
@@ -459,7 +456,6 @@ describe('a procedure that needs a scope', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
-      latestMigration: () => Promise.resolve(LATEST_MIGRATION),
       clock: core.clock,
       logger: false,
       consoleOrigin: FLEET_ORIGIN,
@@ -493,7 +489,6 @@ describe('error responses', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
-      latestMigration: () => Promise.resolve(null),
       clock: core.clock,
       logger: {
         level: 'error',

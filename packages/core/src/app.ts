@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 
 import type { RateLimit } from './adapters/http/rate-limiter.js';
 import { buildHttpServer } from './adapters/http/server.js';
-import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
+import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
@@ -56,7 +56,6 @@ export function createApp(options: AppOptions): FastifyInstance {
     installationToken: options.installationToken,
     fleetEvents,
     checkDatabase: () => checkDatabase(prisma),
-    latestMigration: () => latestMigration(prisma),
     clock,
     logger: options.logger,
     shouldTrustProxy: options.shouldTrustProxy,
