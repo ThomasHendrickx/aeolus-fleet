@@ -1,4 +1,4 @@
-import type { LabelValueId, NetworkRule, SelectorTerm } from '@aeolus-fleet/common';
+import type { NetworkRule, SelectorTerm } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
@@ -101,15 +101,42 @@ export function isChanged(draft: NetworkDraft, saved: readonly NetworkRule[] | n
   return JSON.stringify(rulesOf(draft)) !== JSON.stringify(saved);
 }
 
+/** One term of a rule's side as a chip: `key=value`, `key=*` or `key=#`, with its label's owner, and the term it shows. */
+export interface TermChip extends Pick<LabelChip, 'labelId' | 'key' | 'value' | 'mark' | 'ownerName'> {
+  term: SelectorTerm;
+}
+
 /**
- * One side of a rule as the editor shows it: a chip per exact value, and the
- * values the fleet no longer has, which match no ship (decision 0034). The
- * editor picks exact values only, so it shows no term of any or the same value.
+ * One side of a rule as the editor shows it: a chip per term, an exact value
+ * as `key=value`, any value as `key=*` and the same value as the other side's
+ * as `key=#`; and the terms whose value or label the fleet no longer has,
+ * which match no ship (decision 0034).
  */
-export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: LabelChip[]; unknown: LabelValueId[] } {
-  const valueIds = terms.filter((term) => typeof term === 'string');
-  const chips = pickedChips(valueIds, context);
-  return { chips, unknown: valueIds.filter((valueId) => !chips.some((chip) => chip.valueId === valueId)) };
+export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: TermChip[]; unknown: SelectorTerm[] } {
+  const chips: TermChip[] = [];
+  const unknown: SelectorTerm[] = [];
+  for (const term of terms) {
+    const chip = chipOf(term, context);
+    if (chip === undefined) {
+      unknown.push(term);
+    } else {
+      chips.push(chip);
+    }
+  }
+  return { chips, unknown };
+}
+
+function chipOf(term: SelectorTerm, context: LabelContext): TermChip | undefined {
+  if (typeof term === 'string') {
+    const [chip] = pickedChips([term], context);
+    return chip === undefined ? undefined : { labelId: chip.labelId, key: chip.key, value: chip.value, mark: chip.mark, ownerName: chip.ownerName, term };
+  }
+  const label = context.labels.find((each) => each.id === term.labelId);
+  if (label === undefined) {
+    return undefined;
+  }
+  const owner = context.ownerOf.get(label.id);
+  return { labelId: label.id, key: label.key, value: term.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name, term };
 }
 
 /** What a save says of its supply. A race with a disconnect or a switch says only Saved: the page shows that state itself. */

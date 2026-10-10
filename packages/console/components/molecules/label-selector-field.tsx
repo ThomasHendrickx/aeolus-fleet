@@ -1,12 +1,13 @@
 'use client';
 
-import type { LabelValueId } from '@aeolus-fleet/common';
+import type { SelectorTerm } from '@aeolus-fleet/common';
 import { CircleAlert, Plus, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
 
-import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
+import type { FilterGroup } from '../../lib/labels';
+import { termKeyOf, type TermChip } from '../../lib/network-rules';
 import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from './label-chip';
@@ -17,17 +18,17 @@ const LabelPicker = dynamic(() => import('./label-picker').then((module) => modu
 interface LabelSelectorFieldProps {
   /** What the side is, as a sentence starts it: "From ships with", "To ships with". */
   label: string;
-  /** The values picked, as chips, in the order picked. */
-  picked: readonly LabelChipData[];
-  /** Values the fleet no longer has: they match no ship, so the side matches none (decision 0034). */
-  unknown: readonly LabelValueId[];
+  /** The terms picked, as chips, in the order picked. */
+  picked: readonly TermChip[];
+  /** Terms whose value or label the fleet no longer has: they match no ship, so the side matches none (decision 0034). */
+  unknown: readonly SelectorTerm[];
   /** Every key, by owner, each value with how many ships carry it. */
   groups: readonly FilterGroup[];
   /** The most values a selector holds: Add label goes once as many are picked. */
   max: number;
   isDisabled?: boolean;
-  onAdd: (valueId: LabelValueId) => void;
-  onRemove: (valueId: LabelValueId) => void;
+  onAdd: (term: SelectorTerm) => void;
+  onRemove: (term: SelectorTerm) => void;
   /** The testid stem: `<stem>-add`, `<stem>-popover`, `<stem>-value`. */
   testId: string;
   /** The popover's testid, shared by every side of a list. */
@@ -49,7 +50,7 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
       <div className="flex min-h-(--size-control-sm) flex-wrap items-center gap-1.5">
         {picked.length + unknown.length === 0 ? <span className="text-body">Every ship</span> : null}
         {picked.map((chip, index) => (
-          <Fragment key={chip.valueId}>
+          <Fragment key={termKeyOf(chip.term)}>
             {index === 0 ? null : <span className="text-meta text-muted-foreground">and</span>}
             <LabelChip
               chip={chip}
@@ -58,17 +59,17 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
                 ? {}
                 : {
                     onRemove: () => {
-                      onRemove(chip.valueId);
+                      onRemove(chip.term);
                     },
                   })}
             />
           </Fragment>
         ))}
-        {unknown.map((valueId) => (
+        {unknown.map((term) => (
           <span
-            key={valueId}
+            key={termKeyOf(term)}
             data-testid={`${testId}-unknown`}
-            title={`${valueId}: no longer in this fleet`}
+            title={`${termKeyOf(term)}: no longer in this fleet`}
             className="inline-flex h-5.5 items-center gap-1 rounded-sm border border-tone-attention-border bg-tone-attention-bg px-1.5 text-id text-tone-attention-fg [&_svg]:size-3"
           >
             <CircleAlert aria-hidden />
@@ -78,7 +79,7 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
                 type="button"
                 aria-label="Remove the removed label"
                 onClick={() => {
-                  onRemove(valueId);
+                  onRemove(term);
                 }}
                 className="-mr-1 ml-0.5 inline-flex size-4 items-center justify-center rounded-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
               >
@@ -94,7 +95,7 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
               <span className="block px-2 pt-1 pb-2 text-body font-medium">{label}</span>
               <LabelPicker
                 groups={groups}
-                pickedValueIds={picked.map((chip) => chip.valueId)}
+                pickedValueIds={picked.flatMap((chip) => (typeof chip.term === 'string' ? [chip.term] : []))}
                 onPick={(valueId) => {
                   setIsOpen(false);
                   onAdd(valueId);

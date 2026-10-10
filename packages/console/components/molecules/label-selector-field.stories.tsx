@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import type { FilterGroup, FilterKey, LabelChip } from '../../lib/labels';
+import type { FilterGroup, FilterKey } from '../../lib/labels';
+import type { TermChip } from '../../lib/network-rules';
 import { LabelSelectorField } from './label-selector-field';
 
 const values = (key: string, counts: Record<string, number>): FilterKey['values'] => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));
@@ -16,7 +17,7 @@ const GROUPS: FilterGroup[] = [
   },
 ];
 
-const chip = (key: string, value: string): LabelChip => ({ labelId: `lbl_${key}`, valueId: `lbv_${key}_${value}`, key, value, mark: 'none', ownerName: 'argo' });
+const chip = (key: string, value: string): TermChip => ({ labelId: `lbl_${key}`, key, value, mark: 'none', ownerName: 'argo', term: `lbv_${key}_${value}` });
 
 const meta = {
   title: 'Molecules/LabelSelectorField',

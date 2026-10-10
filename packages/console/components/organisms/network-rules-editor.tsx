@@ -109,11 +109,11 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                           isDisabled={isSaving}
                           testId={`network-rule-${side}`}
                           popoverTestId="network-rule-popover"
-                          onAdd={(valueId) => {
-                            setDraft(addTerm(draft, { rule: rule.key, side, term: valueId, limits }));
+                          onAdd={(term) => {
+                            setDraft(addTerm(draft, { rule: rule.key, side, term, limits }));
                           }}
-                          onRemove={(valueId) => {
-                            setDraft(removeTerm(draft, { rule: rule.key, side, term: valueId }));
+                          onRemove={(term) => {
+                            setDraft(removeTerm(draft, { rule: rule.key, side, term }));
                           }}
                         />
                       </div>
