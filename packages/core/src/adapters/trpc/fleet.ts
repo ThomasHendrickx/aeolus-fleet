@@ -64,6 +64,7 @@ import {
   deleteLabelInputSchema,
   findLabelValueInputSchema,
   reachRefusalsOutputSchema,
+  registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
   setNetworkRulesOutputSchema,
   findLabelValueOutputSchema,
@@ -530,11 +531,36 @@ export const fleetRouter = router({
         "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule lets the ships carrying every label value id in from send to the ships carrying every one in to; an empty selector matches every ship.",
         'Allow-only: with rules set, a send no rule allows is refused. argo reaches every ship and every ship reaches argo, and a ship always answers the sender of a message it received.',
         'An empty list allows only those; rules null clears them, back to all-to-all. At most 200 rules, each selector at most 20 values, each once (decision 0034). Answers the new version.',
+        "While the fleet has a networking plugin, only the plugin's ship sets them (decision 0035).",
       ].join(' '),
     })
     .input(setNetworkRulesInputSchema)
     .output(setNetworkRulesOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setNetworkRules(ctx.caller, input))),
+
+  /** The caller's ship becomes the fleet's networking plugin, with what it declared (decision 0035). */
+  registerNetworkPlugin: scopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. Makes your ship the fleet's networking plugin: from then on only it sets the network rules, until it unregisters or is retired. One plugin a fleet: another ship's registration is refused until it unregisters; yours again replaces what you declared.",
+        'whileUnavailable says what happens to every send while the plugin is unavailable: block-all (only argo and answers go through), open-all (every send, as with no rules) or keep-latest (the rules it set last).',
+        'It is unavailable while its ship holds no lease, or is not responding: no call from its crew for longer than notRespondingAfterSeconds (60 to 86400), judged at each send (decision 0035). Answers the new version.',
+      ].join(' '),
+    })
+    .input(registerNetworkPluginInputSchema)
+    .output(setNetworkRulesOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.registerNetworkPlugin(ctx.caller, input))),
+
+  /** The fleet's networking plugin unregisters, its rules going with it (decision 0035). */
+  unregisterNetworkPlugin: scopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network, and only the fleet's networking plugin calls it: the plugin unregisters, as when it is switched off or deleted for the fleet.",
+        'Its rules go with it: no plugin is all-to-all (decision 0035). Answers the new version.',
+      ].join(' '),
+    })
+    .output(setNetworkRulesOutputSchema)
+    .mutation(async ({ ctx }) => okOrThrow(await ctx.useCases.unregisterNetworkPlugin(ctx.caller))),
 
   /** The sends the network rules refused, newest first: argo's only (decision 0034). */
   reachRefusals: scopedProcedure('fleet:read')
