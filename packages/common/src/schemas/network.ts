@@ -76,3 +76,9 @@ export type ReachRefusal = z.infer<typeof reachRefusalSchema>;
 
 /** Output of `fleet.reachRefusals` (argo only): the fleet's latest refusals, newest first, at most REACH_REFUSALS_READ_MAX. */
 export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);
+
+/** Input of `fleet.explainReach` (argo only): the ship to explain from, and the one ship asked about, or none for every ship. */
+export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional() });
+
+/** Output of `fleet.explainReach`: the ships it reaches now, by id; never the rules or why (design on #260). */
+export const explainReachOutputSchema = z.object({ reachableShipIds: z.array(idSchema('ship')) });
