@@ -18,7 +18,12 @@ const UNAUTHORIZED = 401;
 
 /** A read refused because the console session ended, coded as tRPC codes it, so the page sends the operator to sign in as for any call (lib/session.ts) and does not retry. */
 class SessionEndedError extends Error {
-  readonly data = { code: 'UNAUTHORIZED' };
+  readonly data: { code: 'UNAUTHORIZED'; refusal?: 'SIGNED_IN_ELSEWHERE' };
+
+  constructor(message: string, isSignedInElsewhere: boolean) {
+    super(message);
+    this.data = isSignedInElsewhere ? { code: 'UNAUTHORIZED', refusal: 'SIGNED_IN_ELSEWHERE' } : { code: 'UNAUTHORIZED' };
+  }
 }
 
 /**
@@ -46,7 +51,7 @@ export async function fetchConsoleRead<K extends ReadName>(request: ConsoleReadR
     throw new Error(NO_ANSWER);
   }
   if (status === UNAUTHORIZED && answer.kind === 'refused') {
-    throw new SessionEndedError(answer.message);
+    throw new SessionEndedError(answer.message, 'refusal' in answer && answer.refusal === 'SIGNED_IN_ELSEWHERE');
   }
   return dataOf(answer);
 }
