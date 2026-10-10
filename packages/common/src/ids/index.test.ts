@@ -168,7 +168,12 @@ describe('ID_KINDS', () => {
       'consoleSession',
       'label',
       'labelValue',
+      'reachRefusal',
     ]);
+  });
+
+  it('gives a reach refusal the rfs_ prefix', () => {
+    expect(ID_PREFIXES.reachRefusal).toBe('rfs');
   });
 
   it('gives a label the lbl_ prefix and each of its values the lbv_ prefix', () => {

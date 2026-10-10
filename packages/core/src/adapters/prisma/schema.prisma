@@ -51,6 +51,8 @@ model Fleet {
   labels           Label[]
   labelValues      LabelValue[]
   shipLabels       ShipLabel[]
+  networkSettings  NetworkSettings?
+  reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
   deliveries       Delivery[]
@@ -322,6 +324,38 @@ model ShipLabel {
   @@map("ship_labels")
 }
 
+/// A fleet's network settings (decision 0034), once it first set rules: its
+/// rules as JSON, none (null) for all-to-all, and their version. A send and a
+/// set take turns on an advisory lock on them (network.ts).
+model NetworkSettings {
+  fleetId String @id @map("fleet_id")
+  rules   Json?
+  version Int
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("network_settings")
+}
+
+/// A send the network rules refused (decision 0034), recorded in the
+/// transaction that refused it. Ids start with rfs_. Sender and recipient are
+/// as they were then: ids, names and the label values they carried, as JSON,
+/// so a later rename or relabelling keeps the record true. Only argo reads it.
+model ReachRefusal {
+  id              String   @id
+  fleetId         String   @map("fleet_id")
+  at              DateTime @db.Timestamptz(3)
+  sender          Json
+  recipient       Json
+  settingsVersion Int      @map("settings_version")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  /// argo reads the latest first.
+  @@index([fleetId, at])
+  @@map("reach_refusals")
+}
+
 /// A ship secret, stored only as its hash. Ids start with crd_.
 /// The hash is unique across all fleets: finding a ship by its secret is one of the
 /// lookups not scoped by fleet (ADR 0007).
@@ -414,6 +448,9 @@ enum DeliveryState {
 /// is in flight, kept once acknowledged, none while it is pending. Attempts count the
 /// claims; the fifth makes it undeliverable.
 /// The read date is set when the operator opens a message to argo.
+/// For a type under network rules, the ships of the type its sender may reach,
+/// fixed at send time: only they claim it (decision 0034). Empty: any ship of
+/// the type, as a send no ship of the type may take is refused.
 model Delivery {
   id               String        @id
   fleetId          String        @map("fleet_id")
@@ -424,6 +461,7 @@ model Delivery {
   claimedByShipId  String?       @map("claimed_by_ship_id")
   claimedByLeaseId String?       @map("claimed_by_lease_id")
   attempts         Int           @default(0)
+  reachableShipIds String[]      @default([]) @map("reachable_ship_ids")
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)
 

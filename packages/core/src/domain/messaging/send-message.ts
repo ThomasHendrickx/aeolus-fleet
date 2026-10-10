@@ -1,12 +1,13 @@
 import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
-import { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
+import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
-import { ok, type Result } from '../shared/result.js';
+import { err, ok, type Result } from '../shared/result.js';
+import { isAnswerToSender } from './answer.js';
 import type { Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
@@ -17,7 +18,8 @@ import { payload } from './payload.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
-export interface SendMessageTx extends ResolveSelectorTx, DailyMessageLimitTx {
+export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
+  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: EventLog;
@@ -46,6 +48,7 @@ export type SendMessageRefusal =
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal
+  | NotReachable
   | DomainError<'MESSAGE_LIMIT_REACHED'>;
 
 export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
@@ -69,7 +72,13 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * a retry still gets its OK after the recipient was retired. Locks, in this
  * order: the sender's key, so two sends with one key take turns and the second
  * finds the first one's message; then the ship the message is addressed to,
- * held against a retire.
+ * held against a retire; then the fleet's network settings, held shared
+ * against a change of rules.
+ *
+ * With network rules set, a send no rule allows is refused (decision 0034):
+ * its unit of work commits only the refusal's record, and the sender gets a
+ * refusal without reasons. argo, and an answer to the sender of a message the
+ * ship received, always go through.
  */
 export function createSendMessage(deps: {
   uow: UnitOfWork<SendMessageTx>;
@@ -85,7 +94,15 @@ export function createSendMessage(deps: {
     if (!request.isOk) {
       return request;
     }
-    return deps.uow.run((tx) => sendWithin({ tx, clock: deps.clock, ids: deps.ids }, { caller, request: request.value }));
+    const outcome = await deps.uow.run(async (tx): Promise<Result<MessageSent | { prevented: NotReachable }, SendMessageRefusal>> => {
+      const sent = await sendWithin({ tx, clock: deps.clock, ids: deps.ids }, { caller, request: request.value });
+      // A send the network rules refused stored only its refusal's record: committed, then refused.
+      return !sent.isOk && sent.error.kind === 'NOT_REACHABLE' ? ok({ prevented: sent.error }) : sent;
+    });
+    if (!outcome.isOk) {
+      return outcome;
+    }
+    return 'prevented' in outcome.value ? err(outcome.value.prevented) : ok(outcome.value);
   };
 }
 
@@ -146,13 +163,27 @@ export async function sendWithin(
     return recipient;
   }
   const at = clock.now();
+  const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
+  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+  const reach = await checkReach(
+    { tx, ids },
+    {
+      fleetId,
+      senderShipId,
+      recipient: recipient.value,
+      isAnswerToSender: isAnswerToSender({ senderShipId, recipient: recipient.value }, repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }),
+      at,
+    },
+  );
+  if (!reach.isOk) {
+    return reach;
+  }
   const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
   if (!withinLimit.isOk) {
     return withinLimit;
   }
-  const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
   const accepted = acceptMessage(
-    { recipient: recipient.value, repliedTo },
+    { recipient: recipient.value, repliedTo, ...reach.value },
     {
       messageId: ids('message'),
       deliveryId: ids('delivery'),

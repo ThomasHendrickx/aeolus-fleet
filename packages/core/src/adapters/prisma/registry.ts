@@ -84,6 +84,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM crew_request_give_backs WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM crew_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM worktree_clear_requests WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
@@ -307,6 +309,8 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR SHARE`;
       return row ? toShipFromSql(row) : undefined;
     },
+    listActiveOfType: async (fleetId, type) =>
+      (await db.ship.findMany({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, orderBy: { id: 'asc' } })).map(toShip),
     hasActiveShipOfType: async (fleetId, type) => {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, select: { id: true } });
       return row !== null;

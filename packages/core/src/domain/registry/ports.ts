@@ -8,6 +8,8 @@ import type { InstallationRequest } from './installation-request.js';
 import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
+import type { NetworkSettings } from './network-settings.js';
+import type { ReachRefusal } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 
@@ -106,6 +108,8 @@ export interface ShipRepository {
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /** Whether at least one ship of the fleet with this type is not retired and receives: the viewer ship receives nothing (decision 0022). */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
+  /** The fleet's ships of the type that may take a type delivery: not retired, never the viewer ship. By id. */
+  listActiveOfType(fleetId: FleetId, type: string): Promise<Ship[]>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
@@ -169,6 +173,26 @@ export interface ClearRequestRepository {
   list(fleetId: FleetId): Promise<ClearRequest[]>;
   /** One trierarch's, oldest first. */
   listFor(fleetId: FleetId, trierarchShipId: ShipId): Promise<ClearRequest[]>;
+}
+
+/**
+ * Outbound port: the fleet's network settings, one per fleet (decision 0034).
+ * A send holds them shared and a set holds them exclusively, so every send is
+ * checked against exactly one version.
+ */
+export interface NetworkSettingsRepository {
+  /** The fleet's settings, held shared until the unit of work ends; none at version 0 when it never set rules. */
+  findForShare(fleetId: FleetId): Promise<NetworkSettings>;
+  /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
+  findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
+  save(settings: NetworkSettings): Promise<void>;
+}
+
+/** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
+export interface ReachRefusalRepository {
+  record(refusal: ReachRefusal): Promise<void>;
+  /** The fleet's latest refusals, newest first, at most `limit`. Read outside a unit of work. */
+  latest(fleetId: FleetId, limit: number): Promise<ReachRefusal[]>;
 }
 
 /**
