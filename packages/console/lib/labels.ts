@@ -15,6 +15,13 @@ import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rul
  */
 export type OwnerMark = 'none' | 'trierarch-plugin' | 'squadrons' | 'ship';
 
+/**
+ * How a chip marks its label: by its owner, or gone, with no mark, for a
+ * label the fleet no longer has: a reach refusal keeps the values a ship
+ * carried then, not who owned them (#523).
+ */
+export type ChipMark = OwnerMark | 'gone';
+
 /** The ship types whose labels carry their own mark. */
 const PLUGIN_MARKS: Readonly<Record<string, OwnerMark>> = { 'trierarch-plugin': 'trierarch-plugin', squadrons: 'squadrons' };
 
@@ -24,8 +31,8 @@ export interface LabelChip {
   valueId: ListedLabel['values'][number]['id'];
   key: string;
   value: string;
-  mark: OwnerMark;
-  /** The owner's name, for a chip's accessible name and the ship page's "by squadrons". */
+  mark: ChipMark;
+  /** The owner's name, for a chip's accessible name and the ship page's "by squadrons"; empty for a label that is gone. */
   ownerName: string;
 }
 
@@ -59,11 +66,26 @@ export function labelContextOf(labels: readonly ListedLabel[], fleet: { ships: r
 export function chipsOf(ship: Pick<ListedShip, 'labels'>, context: LabelContext): LabelChip[] {
   const isYours = (chip: LabelChip) => context.ownerOf.get(chip.labelId)?.isYours ?? false;
   return ship.labels
-    .map((carried) => {
+    .map((carried): LabelChip => {
       const owner = context.ownerOf.get(carried.labelId);
-      return { labelId: carried.labelId, valueId: carried.valueId, key: carried.key, value: carried.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? '' };
+      return { labelId: carried.labelId, valueId: carried.valueId, key: carried.key, value: carried.value, mark: owner?.mark ?? 'gone', ownerName: owner?.name ?? '' };
     })
     .toSorted((one, other) => Number(isYours(other)) - Number(isYours(one)) || one.key.localeCompare(other.key) || one.value.localeCompare(other.value));
+}
+
+/** A chip's title: `key=value` and whose label it is, or that the label no longer exists. */
+export function chipTitleOf(chip: Pick<LabelChip, 'key' | 'value' | 'mark' | 'ownerName'>): string {
+  const text = `${chip.key}=${chip.value}`;
+  switch (chip.mark) {
+    case 'none':
+      return `${text}, by you`;
+    case 'gone':
+      return `${text}, a label that no longer exists`;
+    case 'trierarch-plugin':
+    case 'squadrons':
+    case 'ship':
+      return `${text}, by ${chip.ownerName}`;
+  }
 }
 
 /**
