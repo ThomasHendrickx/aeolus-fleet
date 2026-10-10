@@ -108,6 +108,14 @@ describe('a trierarch giving back a crew request', () => {
     expect(core.state.events).toEqual([]);
   });
 
+  it('gives back a request whose crew was final before a new settings version: the new settings are a new request, not final until they run (#472)', async () => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    await expect(giveBack(trierarch, { settingsVersion: 2 })).resolves.toEqual({ isOk: true, value: undefined });
+  });
+
   it('clears what was given back on a new settings version, so every trierarch may take it again', async () => {
     unwrap(await giveBack(trierarch));
 
