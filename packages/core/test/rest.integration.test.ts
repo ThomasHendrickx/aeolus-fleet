@@ -409,7 +409,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     await ok(request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId: scout.shipId, trierarchShipId: trierarchId } }), z.strictObject({}));
     const assigned = await ok(
       request('fleet/assignedCrewRequests', { crewToken: trierarch.crewToken, method: 'GET' }),
-      z.array(z.object({ shipId: z.string(), settings: z.unknown(), settingsVersion: z.number(), requestedAt: z.iso.datetime(), status: z.unknown() })),
+      z.array(z.object({ shipId: z.string(), settings: z.unknown(), settingsVersion: z.number(), requestedAt: z.iso.datetime(), status: z.unknown(), isFinal: z.unknown() })),
     );
     const read = await ok(request('fleet/ship', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.object({ id: z.string() }));
     await ok(request('fleet/getStartingPrompt', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.object({ secret: z.string() }));
@@ -417,7 +417,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     unwrap(await createUseCases({ prisma: database }).removeCrewRequest(argo, { shipId: scout.shipId }));
     await ok(request('fleet/confirmCrewRelease', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.strictObject({}));
 
-    expect(assigned).toMatchObject([{ shipId: scout.shipId, settings: { harness: 'codex' }, settingsVersion: 1, status: null }]);
+    expect(assigned).toMatchObject([{ shipId: scout.shipId, settings: { harness: 'codex' }, settingsVersion: 1, status: null, isFinal: false }]);
     expect(assigned).toHaveLength(1);
     expect(read.id).toBe(scout.shipId);
     await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);

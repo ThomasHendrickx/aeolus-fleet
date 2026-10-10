@@ -30,7 +30,7 @@ async function requested(name: string): Promise<ShipId> {
 }
 
 describe("a trierarch's assigned crew requests", () => {
-  it('are the requests assigned to its ship, oldest ship first, with settings and status', async () => {
+  it('are the requests assigned to its ship, oldest ship first, with settings, status and whether their crew is final', async () => {
     const scoutId = await requested('scout');
     const lookoutId = await requested('lookout');
     await requested('unassigned');
@@ -39,9 +39,29 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running' },
-      { shipId: lookoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: null },
+      { shipId: scoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
+      { shipId: lookoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false },
     ]);
+  });
+
+  it('say a crew is final once its trierarch saw it working, whatever status it reported since (#477)', async () => {
+    const scoutId = await requested('scout');
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, status: 'crewing', isFinal: true }]);
+  });
+
+  it('say a crew is not final once a new settings version is requested, until it runs again (#477)', async () => {
+    const scoutId = await requested('scout');
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+
+    await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
   });
 
   it('are none for a ship nothing is assigned to', async () => {

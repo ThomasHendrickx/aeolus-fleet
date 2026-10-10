@@ -162,10 +162,16 @@ describe('giveBackCrewRequestOutputSchema', () => {
 });
 
 describe('assignedCrewRequestsOutputSchema', () => {
-  it('lists each assigned request with its settings and status', () => {
-    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null }];
+  it('lists each assigned request with its settings, its status and whether its crew is final', () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null, isFinal: false }];
 
     expect(assignedCrewRequestsOutputSchema.parse(assigned)).toEqual(assigned);
+  });
+
+  it('rejects an assigned request that does not say whether its crew is final (#477)', () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: 'running' }];
+
+    expect(assignedCrewRequestsOutputSchema.safeParse(assigned).success).toBe(false);
   });
 });
 
