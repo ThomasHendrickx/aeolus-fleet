@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import { serverInternalUrlFrom } from './server-url';
+import { squadronsUrlFrom } from './squadrons-url';
+import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
+
+const TIMEOUT_MS = 3_000;
+
 export type Status = 'up' | 'down';
 
 /**
@@ -22,15 +28,9 @@ export interface WebHealth {
   trierarchPlugin?: PluginHealth;
 }
 
-/** Where the console's plugins answer their health; a plugin the console does not have is left out. */
-export interface PluginHealthSources {
-  fetchSquadronsHealth?: () => Promise<Response>;
-  fetchTrierarchPluginHealth?: () => Promise<Response>;
-}
-
-async function serverPart(fetchServerHealth: () => Promise<Response>): Promise<Pick<WebHealth, 'server' | 'database'>> {
+async function serverPart(url: string): Promise<Pick<WebHealth, 'server' | 'database'>> {
   try {
-    const response = await fetchServerHealth();
+    const response = await fetch(`${url}/health`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
     const reported: unknown = await response.json();
     const isObject = typeof reported === 'object' && reported !== null;
     const server = isObject && 'server' in reported ? reported.server : undefined;
@@ -41,9 +41,9 @@ async function serverPart(fetchServerHealth: () => Promise<Response>): Promise<P
   }
 }
 
-async function pluginPart(fetchPluginHealth: () => Promise<Response>): Promise<PluginHealth> {
+async function pluginPart(url: string): Promise<PluginHealth> {
   try {
-    const response = await fetchPluginHealth();
+    const response = await fetch(`${url}/api/health`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
     const reported = pluginHealthSchema.safeParse(await response.json());
     return response.ok && reported.success ? { status: 'up', ...reported.data } : { status: 'down' };
   } catch {
@@ -57,12 +57,13 @@ async function pluginPart(fetchPluginHealth: () => Promise<Response>): Promise<P
  * about fleets. `isHealthy` is false when the server or its database is down;
  * a plugin down shows as its own part and leaves the fleet healthy.
  */
-export async function webHealth(fetchServerHealth: () => Promise<Response>, plugins: PluginHealthSources = {}): Promise<{ isHealthy: boolean; body: WebHealth }> {
-  const { fetchSquadronsHealth, fetchTrierarchPluginHealth } = plugins;
+export async function webHealth(environment: Readonly<Record<string, string | undefined>>): Promise<{ isHealthy: boolean; body: WebHealth }> {
+  const squadronsUrl = squadronsUrlFrom(environment);
+  const trierarchPluginUrl = trierarchPluginUrlFrom(environment);
   const [fleet, squadrons, trierarchPlugin] = await Promise.all([
-    serverPart(fetchServerHealth),
-    fetchSquadronsHealth ? pluginPart(fetchSquadronsHealth) : undefined,
-    fetchTrierarchPluginHealth ? pluginPart(fetchTrierarchPluginHealth) : undefined,
+    serverPart(serverInternalUrlFrom(environment)),
+    squadronsUrl === undefined ? undefined : pluginPart(squadronsUrl),
+    trierarchPluginUrl === undefined ? undefined : pluginPart(trierarchPluginUrl),
   ]);
   const body: WebHealth = {
     web: 'up',
