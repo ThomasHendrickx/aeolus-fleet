@@ -20,6 +20,8 @@ export const ByTrierarchPlugin: Story = { args: { chip: { key: 'os', value: 'mac
 export const BySquadrons: Story = { args: { chip: { key: 'blueprint', value: 'hemma-feature', mark: 'squadrons', ownerName: 'squadrons' } } };
 /** Any other owner's: the ship icon. */
 export const ByAnotherShip: Story = { args: { chip: { key: 'cost', value: 'low', mark: 'ship', ownerName: 'orchestrator' } } };
+/** A label the fleet no longer has, as a reach refusal kept it: no mark, and its title says so. */
+export const Gone: Story = { args: { chip: { key: 'tier', value: 'gold', mark: 'gone', ownerName: '' } } };
 /** In a filter: it ends in ×. */
 export const Removable: Story = { args: { onRemove: fn() } };
 /** A long value truncates within its space. */

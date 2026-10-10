@@ -80,6 +80,23 @@ export const WhilePluginUnavailable: Story = {
     );
   },
 };
+/** A label deleted since the refusal: its chip has no mark and says the label no longer exists. */
+export const WithALabelDeletedSince: Story = {
+  args: {
+    refusals: [
+      aRefusal('07', {
+        minutesAgo: 3,
+        sender: aShip('scout-2', {
+          suffix: '07',
+          labels: [{ labelId: idSchema('label').parse('lbl_01m4k0000000000000000000zz'), key: 'tier', valueId: idSchema('labelValue').parse('lbv_01m4k0000000000000000000zz'), value: 'gold' }],
+        }),
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByTestId('network-refusal-label')[0]).toHaveAttribute('title', 'tier=gold, a label that no longer exists');
+  },
+};
 /** Neither ship carried a label then. */
 export const WithoutLabels: Story = { args: { refusals: [aRefusal('06', { minutesAgo: 1, sender: SCOUT, recipient: { kind: 'ship', ship: aShip('vault', { suffix: '06' }) } })] } };
 /** No send refused yet: one quiet line. */
