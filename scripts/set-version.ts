@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-export const PUBLISHED_PACKAGES = ['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch'] as const;
+export const PUBLISHED_PACKAGES = ['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'networking-plugin', 'trierarch'] as const;
 
 /** The aeolus plugin's Claude Code and Codex manifests, released together. */
 export const PLUGIN_MANIFESTS = [

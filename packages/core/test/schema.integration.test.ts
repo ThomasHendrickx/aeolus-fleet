@@ -283,6 +283,40 @@ describe('the network scope migration', () => {
   });
 });
 
+describe('the rules only through a plugin migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
+
+  it("clears the rules of every fleet without a networking plugin, as rules exist only through one, and keeps a plugin's rules and every version", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const withoutPlugin = newId('fleet');
+    const withPlugin = newId('fleet');
+    const pluginId = newId('ship');
+    const rules = [{ from: [], to: [] }];
+    try {
+      await client.fleet.createMany({ data: [withoutPlugin, withPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
+      await client.ship.create({ data: { id: pluginId, fleetId: withPlugin, name: 'networking', type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now } });
+      // Rules argo set before only a plugin could, and a plugin's own.
+      await client.networkSettings.createMany({
+        data: [
+          { fleetId: withoutPlugin, rules, version: 3 },
+          { fleetId: withPlugin, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+        ],
+      });
+
+      await prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${rulesThroughPlugin ?? 'missing'}/migration.sql`);
+
+      await expect(client.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true }, orderBy: { version: 'asc' } })).resolves.toEqual([
+        { fleetId: withoutPlugin, rules: null, version: 3 },
+        { fleetId: withPlugin, rules, version: 5 },
+      ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('ships', () => {
   it('keeps a name unique among ships that are not retired', async () => {
     const fleetId = await createFleet();

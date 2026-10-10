@@ -224,6 +224,7 @@ export default defineConfig(
     'packages/core/src/adapters/prisma/generated/',
     'packages/squadrons/src/adapters/prisma/generated/',
     'packages/trierarch-plugin/src/adapters/prisma/generated/',
+    'packages/networking-plugin/src/adapters/prisma/generated/',
   ]),
 
   js.configs.recommended,
@@ -306,7 +307,7 @@ export default defineConfig(
 
   {
     name: 'aeolus/prisma-in-its-adapter',
-    ignores: ['packages/core/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**', 'packages/trierarch-plugin/src/adapters/prisma/**'],
+    ignores: ['packages/core/src/adapters/prisma/**', 'packages/squadrons/src/adapters/prisma/**', 'packages/trierarch-plugin/src/adapters/prisma/**', 'packages/networking-plugin/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
 
@@ -327,6 +328,12 @@ export default defineConfig(
     // The trierarch plugin keeps it as squadrons does: its core holds no framework, Prisma or adapter.
     name: 'aeolus/trierarch-plugin-core',
     files: ['packages/trierarch-plugin/src/core/**/*.ts'],
+    rules: coreRules(),
+  },
+  {
+    // The networking plugin keeps it as the trierarch plugin does: its core holds no framework, Prisma or adapter.
+    name: 'aeolus/networking-plugin-core',
+    files: ['packages/networking-plugin/src/core/**/*.ts'],
     rules: coreRules(),
   },
   {

@@ -31,7 +31,7 @@ export interface NetworkSettings {
   rules: readonly NetworkRule[] | null;
   /** 0 until the fleet first changes its settings; one more on every change. */
   version: number;
-  /** The fleet's networking plugin, or none: then anyone with fleet:network sets the rules. */
+  /** The fleet's networking plugin, or none: then the fleet has no rules, and nobody sets them. */
   plugin: NetworkPlugin | null;
 }
 
@@ -52,8 +52,8 @@ function refuseNotThePlugin() {
 
 /**
  * The ship becomes the fleet's networking plugin, with what it declared, at
- * the next version, with NetworkPluginRegistered. The rules stay until it
- * supplies its own. The plugin may register again, replacing what it
+ * the next version, with NetworkPluginRegistered. A fleet without a plugin
+ * has no rules, so the plugin starts from none until it supplies its own. The plugin may register again, replacing what it
  * declared; another ship is refused until it unregisters: one owner of the
  * rules, as a label has one.
  */
@@ -118,15 +118,15 @@ export function unregisterNetworkPlugin(
  * version, with NetworkRulesSet. The rules are within the decision's limits:
  * at most 200, each selector at most 20 label values, as a ship carries no
  * more, each once. A value id need not exist: an unknown one matches no ship,
- * as in label selection. While a networking plugin is registered, only its
- * ship sets them (decision 0035).
+ * as in label selection. Only the fleet's registered networking plugin sets
+ * them, argo included: rules exist only through a plugin (decision 0035).
  */
 export function setNetworkRules(
   current: NetworkSettings,
   change: { rules: readonly NetworkRule[] | null; shipId: ShipId; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetNetworkRulesRefusal> {
   const { rules } = change;
-  if (current.plugin !== null && current.plugin.shipId !== change.shipId) {
+  if (current.plugin?.shipId !== change.shipId) {
     return refuseNotThePlugin();
   }
   if (rules !== null) {

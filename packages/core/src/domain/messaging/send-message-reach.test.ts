@@ -1,4 +1,4 @@
-import type { FleetId, LabelValueId, MessageId, NetworkRule, ShipId } from '@aeolus-fleet/common';
+import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type FleetId, type LabelValueId, type MessageId, type NetworkRule, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -15,7 +15,8 @@ import type { MessageToSend } from './send-message.js';
 /**
  * The fleet's network rules on every send (decision 0034): planner (trust
  * shared, team a), scout (trust shared, team b) and vault (trust sensitive),
- * labelled by the labeller, which owns both labels.
+ * labelled by the labeller, which owns both labels. The rules come from the
+ * fleet's networking plugin, which keeps them while unavailable (decision 0035).
  */
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -26,6 +27,7 @@ let planner: Caller;
 let scout: Caller;
 let vault: Caller;
 let labeller: Caller;
+let networking: Caller;
 
 const NOT_REACHABLE = { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this send' };
 
@@ -34,7 +36,7 @@ function value(key: string, text: string): LabelValueId {
 }
 
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
-  unwrap(await registry.setNetworkRules(argo, { rules }));
+  unwrap(await registry.setNetworkRules(networking, { rules }));
 }
 
 function toShip(ship: Caller): Selector {
@@ -60,6 +62,9 @@ beforeEach(async () => {
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });
+  networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+  crewAboard(core, networking);
+  unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
   unwrap(await registry.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
   unwrap(await registry.defineLabel(labeller, { key: 'team', values: ['a', 'b'] }));
   const carries: [Caller, string, string][] = [
@@ -244,7 +249,7 @@ describe('the record of a refused send', () => {
         at: core.clock.now(),
         sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')] },
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')] } },
-        settingsVersion: 1,
+        settingsVersion: 2,
         whilePluginUnavailable: null,
       },
     ]);
@@ -255,7 +260,7 @@ describe('the record of a refused send', () => {
 
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
-    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([2]);
+    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([3]);
   });
 
   it('is kept for every refusal, and for nothing that went through', async () => {
@@ -375,7 +380,7 @@ describe("the operator's resend of an undeliverable delivery", () => {
     refusalOf(await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) }));
 
     expect(core.state.reachRefusals.map((refusal) => [refusal.sender.name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
-      ['planner', 'vault', 2],
+      ['planner', 'vault', 3],
     ]);
   });
 });

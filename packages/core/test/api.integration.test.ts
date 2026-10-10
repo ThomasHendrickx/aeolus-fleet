@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -193,6 +193,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_type_delivery_reachable_ships$/),
       expect.stringMatching(/^\d{14}_crew_request_is_final$/),
       expect.stringMatching(/^\d{14}_network_plugin$/),
+      expect.stringMatching(/^\d{14}_network_rules_through_plugin$/),
     ]);
   });
 });
@@ -1858,24 +1859,37 @@ describe('labels at the API', () => {
 });
 
 describe('network rules at the API', () => {
+  let asNetworker: TRPCClient<AppRouter> | undefined;
+
+  /** A crewed ship with fleet:network, registered as the fleet's networking plugin: the one ship that sets the rules (decision 0035). */
   async function networker(): Promise<TRPCClient<AppRouter>> {
-    return client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+    asNetworker = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+    await asNetworker.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS });
+    return asNetworker;
   }
 
   afterEach(async () => {
-    // One fleet serves the whole file: back to all-to-all for the next test.
-    await (await signedInArgo()).fleet.setNetworkRules.mutate({ rules: null });
+    // One fleet serves the whole file: the plugin unregisters, its rules with it, back to all-to-all for the next test.
+    await asNetworker?.fleet.unregisterNetworkPlugin.mutate().catch(() => undefined);
+    asNetworker = undefined;
   });
 
-  it('let a ship with fleet:network set the rules, answering the version, and refuse a ship without', async () => {
-    const asNetworker = await networker();
+  it('let the networking plugin set the rules, answering the version, and refuse a ship without fleet:network', async () => {
+    const plugin = await networker();
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
 
-    const first = await asNetworker.fleet.setNetworkRules.mutate({ rules: [{ from: [], to: [newId('labelValue')] }] });
-    const second = await asNetworker.fleet.setNetworkRules.mutate({ rules: [] });
+    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [], to: [newId('labelValue')] }] });
+    const second = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
 
     expect(second.version).toBe(first.version + 1);
     await expect(refusalOf(reader.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+  });
+
+  it('refuse argo and a ship with fleet:network with FORBIDDEN while the fleet has no networking plugin: rules exist only through one', async () => {
+    const unregistered = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+
+    await expect(codeOf((await signedInArgo()).fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(unregistered.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
   });
 
   it('answer rules over the limits with BAD_REQUEST naming decision 0034', async () => {
@@ -1898,8 +1912,8 @@ describe('network rules at the API', () => {
   });
 
   it('let argo read the refusals, newest first, and refuse every other ship, the rule setter too', async () => {
-    const asNetworker = await networker();
-    const { version } = await asNetworker.fleet.setNetworkRules.mutate({ rules: [] });
+    const plugin = await networker();
+    const { version } = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
     const senderToken = await crewedShip();
     const { shipId } = await agentShip();
     const refusedAt = clock.now().toISOString();
@@ -1911,20 +1925,24 @@ describe('network rules at the API', () => {
 
     expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
-    await expect(codeOf(asNetworker.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(plugin.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
   });
 
-  it('set the rules through REST, for a ship with fleet:network', async () => {
+  it('set the rules through REST, for the networking plugin', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
+    const post = (path: string, body: unknown) =>
+      fetch(`${address}/api/v1/fleet/${path}`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    expect((await post('registerNetworkPlugin', { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 })).status).toBe(200);
 
-    const response = await fetch(`${address}/api/v1/fleet/setNetworkRules`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ rules: [] }),
-    });
+    const response = await post('setNetworkRules', { rules: [] });
 
     expect(response.status).toBe(200);
     expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
+    expect((await post('unregisterNetworkPlugin', {})).status).toBe(200);
   });
 });
 

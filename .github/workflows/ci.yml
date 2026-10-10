@@ -151,4 +151,5 @@ jobs:
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/console
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/squadrons
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch-plugin
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/networking-plugin
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch
