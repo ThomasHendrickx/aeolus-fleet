@@ -49,11 +49,14 @@ describe('the supplies', () => {
   });
 
   it('supply one fleet one change after another, so the list argo saved last is the one in force', async () => {
-    const letGo = fleet.holdNextSet();
+    const { reached, letGo } = fleet.holdNextSet();
     const first = supplies.supply(FLEET_ID);
+    await reached;
     const latest = [{ from: [], to: [] }];
     await networks.save(FLEET_ID, { rules: latest, declaration: DEFAULT_DECLARATION });
     const second = supplies.supply(FLEET_ID);
+    // Time for the second supply to run, were it not waiting for the first.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     letGo();
     await Promise.all([first, second]);

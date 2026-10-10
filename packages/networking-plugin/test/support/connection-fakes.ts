@@ -35,14 +35,16 @@ export function fakePluginFleet() {
     acked: new Array<DeliveryId>(),
   };
   const unavailable = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
-  let holding: Promise<void> | undefined;
-  /** Holds the next set of rules until the returned function lets it go, as a slow answer does. */
-  const holdNextSet = (): (() => void) => {
-    const { promise, resolve } = Promise.withResolvers<undefined>();
-    holding = promise;
-    return () => {
-      resolve(undefined);
-    };
+  let holding: { reached: () => void; released: Promise<undefined> } | undefined;
+  /**
+   * Holds the next set of rules, as a slow answer does: `reached` resolves
+   * once the set is under way, and `letGo` lets it finish.
+   */
+  const holdNextSet = (): { reached: Promise<undefined>; letGo: () => void } => {
+    const reached = Promise.withResolvers<undefined>();
+    const released = Promise.withResolvers<undefined>();
+    holding = { reached: () => { reached.resolve(undefined); }, released: released.promise };
+    return { reached: reached.promise, letGo: () => { released.resolve(undefined); } };
   };
   const notThePlugin = () => Promise.resolve(err({ code: 'FORBIDDEN', message: "Only the fleet's networking plugin does this (decision 0035)" }));
   const released = () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }));
@@ -116,9 +118,10 @@ export function fakePluginFleet() {
         return notThePlugin();
       }
       if (holding !== undefined) {
-        const waited = holding;
+        const held = holding;
         holding = undefined;
-        await waited;
+        held.reached();
+        await held.released;
       }
       state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
       state.version += 1;
