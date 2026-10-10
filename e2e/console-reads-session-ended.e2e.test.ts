@@ -27,11 +27,12 @@ const SESSION_LIFETIME_MS = 30 * DAY_MS;
 const WITHIN_MS = 15_000;
 const clock = createTestClock(new Date().toISOString());
 
-/** A squadrons that is connected and has no squadron. */
+/** A squadrons that is connected and has no squadron and no blueprint. */
 function aConnectedSquadrons(): Server {
   const answers: Record<string, unknown> = {
     'connection.status': { enabled: true, state: 'connected', ship: { shipId: 'shp_01m4k000000000000000000000', name: 'squadrons' }, lastShipId: null },
     'squadrons.list': [],
+    'catalogue.list': { templates: [], blueprints: [], problems: [] },
   };
   return createServer((request, response) => {
     const procedure = new URL(request.url ?? '/', 'http://squadrons').pathname.replace('/trpc/', '');
@@ -80,7 +81,7 @@ describe('a console page whose session ended', () => {
     await signIn(page, OPERATOR);
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.goto('/squadrons');
-    await page.getByText('No squadrons yet').waitFor();
+    await page.getByText('No blueprints found').waitFor();
 
     clock.advance(SESSION_LIFETIME_MS);
 
