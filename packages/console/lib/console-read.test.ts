@@ -59,7 +59,8 @@ describe("a console read, answered by the web app's server", () => {
     const answers = await Promise.all(
       names.map(async (name) => {
         const response = await answerConsoleRead(aRequest(name), { name, reads: CONSOLE_READS, ...notSignedIn });
-        return { status: response.status, body: await response.json() };
+        const body: unknown = await response.json();
+        return { status: response.status, body };
       }),
     );
 

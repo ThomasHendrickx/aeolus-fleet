@@ -40,8 +40,15 @@ function inputOf(request: Request): { isReadable: boolean; value: unknown } {
   }
 }
 
-/** Answers the named read, for its input: the read's answer, a refusal included, as JSON. */
-export async function answerConsoleRead(request: Request, { name, reads }: { name: string; reads: ConsoleReads }): Promise<Response> {
+/**
+ * Answers the named read, for its input: the read's answer, a refusal
+ * included, as JSON. Without a signed-in session every name answers as one it
+ * does not have, so nothing tells which reads or plugins this console has.
+ */
+export async function answerConsoleRead(request: Request, { name, reads, isSignedIn }: { name: string; reads: ConsoleReads; isSignedIn: (request: Request) => Promise<boolean> }): Promise<Response> {
+  if (!(await isSignedIn(request))) {
+    return Response.json(NO_SUCH_READ, { status: NOT_FOUND });
+  }
   // Only the reads' own names: an inherited one, such as toString, is no read.
   const named = Object.hasOwn(reads, name) ? reads[name] : undefined;
   if (named === undefined) {
