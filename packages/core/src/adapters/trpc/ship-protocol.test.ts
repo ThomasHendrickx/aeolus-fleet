@@ -12,7 +12,7 @@ describe('the ship protocol', () => {
         '1. Call register once at the start, with your location and harness. Keep the crew token; every other call needs it.',
         '2. Loop: receive, then ack each delivery. Act only if the ack succeeded.',
         '3. To answer, send to its senderName with inReplyTo set to its messageId.',
-        "4. No human reads this terminal. Never ask here; ask over the fleet. A question only the operator can answer goes to argo. Ask your questions over the fleet, to the sender of your task, never through your harness's interactive question tools: nobody watches your session, and a question waiting there blocks it.",
+        "4. No human reads this terminal. Never ask here; ask over the fleet. A question only the operator can answer goes to argo. Every other question goes to the sender of your task, never through your harness's interactive question tools: a question waiting there blocks your session.",
         '5. Every send states the model you are running now.',
         '6. If the content is over 64 KB, send where it lives (a path, a URL, a PR link), not the content itself.',
         "7. A ping (application/vnd.aeolus.ping): call pong with its deliveryId instead of ack. Don't act on it and don't reply.",
@@ -27,5 +27,9 @@ describe('the ship protocol', () => {
 
   it('tells every ship the line the trierarch gives its sessions: no human reads its terminal, ask over the fleet, and argo for what only the operator can answer (#588)', () => {
     expect(SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('4. '))).toContain(NO_TERMINAL_QUESTIONS);
+  });
+
+  it('says ask over the fleet once, in the trierarch line, not again after it (#592)', () => {
+    expect(SHIP_PROTOCOL.match(/over the fleet/g)).toHaveLength(1);
   });
 });
