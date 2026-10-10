@@ -58,7 +58,6 @@ export type DomainErrorKind =
   | 'LABEL_CARRIED'
   | 'LABEL_KEY_TAKEN'
   | 'LABEL_NOT_FOUND'
-  | 'LABEL_ON_OWN_SHIP'
   | 'LABEL_VALUE_CARRIED'
   | 'LABEL_VALUE_NOT_FOUND'
   | 'LEASE_ENDED'

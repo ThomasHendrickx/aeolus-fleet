@@ -480,7 +480,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs labels:assign, and only the label's owner assigns it. Gives a ship one of its values, by the value's id, beside the values the ship carries.",
-        'Never your own ship or a retired one. A ship carries at most 20 label values (decision 0031).',
+        'Any ship, your own ship included, but never a retired one. A ship carries at most 20 label values (decision 0031).',
       ].join(' '),
     })
     .input(assignLabelInputSchema)

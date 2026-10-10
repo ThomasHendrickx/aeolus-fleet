@@ -40,7 +40,7 @@ export function createUnassignLabel(deps: { uow: UnitOfWork<UnassignLabelTx>; cl
       }
       const owner = await tx.ships.find(fleetId, label.ownerShipId);
       const unassigned = unassignLabel(
-        { label, ownerName: owner?.name ?? label.ownerShipId, ship, carried: await tx.labels.carriedBy(fleetId, ship.id) },
+        { label, ownerName: owner?.name ?? label.ownerShipId, carried: await tx.labels.carriedBy(fleetId, ship.id) },
         { callerShipId: caller.shipId, valueId: input.valueId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
       );
       if (!unassigned.isOk) {
