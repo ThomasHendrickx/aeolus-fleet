@@ -154,6 +154,26 @@ describe('the console sign-in', () => {
     await second.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   });
 
+  it('says the operator signed in somewhere else when a page load is the first to hear it', async () => {
+    const first = await newPage();
+    await signIn(first, OPERATOR);
+    await expectSignedIn(first);
+    const endedSession = await first.context().cookies();
+    await first.close();
+    const second = await newPage();
+    await signIn(second, OPERATOR);
+    await expectSignedIn(second);
+    const context = await browser.newContext({ baseURL: web.url });
+    contexts.push(context);
+    await context.addCookies(endedSession);
+    const page = await context.newPage();
+
+    await page.goto('/ships');
+
+    await page.waitForURL(`${web.url}/sign-in?notice=signed-in-elsewhere`);
+    await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
+  });
+
   it('sends the operator back to sign in once the session has expired', async () => {
     const page = await newPage();
     await signIn(page, OPERATOR);
