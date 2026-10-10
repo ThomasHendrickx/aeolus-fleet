@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { labelContextOf } from './labels';
 import {
   addRule,
-  addValue,
+  addTerm,
   draftOf,
   isChanged,
   removeRule,
-  removeValue,
+  removeTerm,
   rulesOf,
   selectorOf,
   setRulesOn,
@@ -105,40 +105,40 @@ describe('the network draft argo edits (decision 0034)', () => {
   it('adds a label value to one side of a rule', () => {
     const draft = draftOf([{ from: [], to: [] }], newKey);
 
-    expect(rulesOf(addValue(draft, { rule: onlyRule(draft).key, side: 'to', valueId: SENSITIVE, limits: LIMITS }))).toEqual([{ from: [], to: [SENSITIVE] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS }))).toEqual([{ from: [], to: [SENSITIVE] }]);
   });
 
   it('adds a value once to a side', () => {
     const draft = draftOf([{ from: [OPS], to: [] }], newKey);
 
-    expect(rulesOf(addValue(draft, { rule: onlyRule(draft).key, side: 'from', valueId: OPS, limits: LIMITS }))).toEqual([{ from: [OPS], to: [] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS, limits: LIMITS }))).toEqual([{ from: [OPS], to: [] }]);
   });
 
   it('adds values to a side up to the most a ship carries, and no more', () => {
     const draft = draftOf([{ from: [OPS, SENSITIVE], to: [] }], newKey);
 
-    expect(rulesOf(addValue(draft, { rule: onlyRule(draft).key, side: 'from', valueId: RESEARCH, limits: LIMITS }))).toEqual([{ from: [OPS, SENSITIVE], to: [] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: RESEARCH, limits: LIMITS }))).toEqual([{ from: [OPS, SENSITIVE], to: [] }]);
   });
 
   it('removes a value from one side of a rule', () => {
     const draft = draftOf([{ from: [OPS, SENSITIVE], to: [OPS] }], newKey);
 
-    expect(rulesOf(removeValue(draft, { rule: onlyRule(draft).key, side: 'from', valueId: OPS }))).toEqual([{ from: [SENSITIVE], to: [OPS] }]);
+    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS }))).toEqual([{ from: [SENSITIVE], to: [OPS] }]);
   });
 
   it('keeps each rule its key across changes, for the list to keep its rows', () => {
     const draft = draftOf([{ from: [], to: [] }], newKey);
     const key = onlyRule(draft).key;
 
-    expect(onlyRule(addValue(draft, { rule: key, side: 'from', valueId: OPS, limits: LIMITS })).key).toBe(key);
+    expect(onlyRule(addTerm(draft, { rule: key, side: 'from', term: OPS, limits: LIMITS })).key).toBe(key);
   });
 
   it('is changed once it differs from the rules the plugin holds, and not when it is the same again', () => {
     const saved = [{ from: [OPS], to: [] }];
     const draft = draftOf(saved, newKey);
-    const changed = addValue(draft, { rule: onlyRule(draft).key, side: 'to', valueId: SENSITIVE, limits: LIMITS });
+    const changed = addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS });
 
-    expect([isChanged(draft, saved), isChanged(changed, saved), isChanged(removeValue(changed, { rule: onlyRule(draft).key, side: 'to', valueId: SENSITIVE }), saved)]).toEqual([false, true, false]);
+    expect([isChanged(draft, saved), isChanged(changed, saved), isChanged(removeTerm(changed, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE }), saved)]).toEqual([false, true, false]);
   });
 
   it('tells all-to-all from an empty list when comparing', () => {

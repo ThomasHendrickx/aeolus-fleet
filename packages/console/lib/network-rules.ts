@@ -68,22 +68,22 @@ function changeRule(draft: NetworkDraft, at: { key: string; change: (rule: Draft
   return draft.kind === 'all-to-all' ? draft : { kind: 'rules', rules: draft.rules.map((rule) => (rule.key === at.key ? at.change(rule) : rule)) };
 }
 
-/** Adds a value to one side of a rule: once, and none past the most a selector holds. */
-export function addValue(draft: NetworkDraft, at: { rule: string; side: RuleSide; valueId: LabelValueId; limits: NetworkLimits }): NetworkDraft {
+/** Adds a term to one side of a rule: once, and none past the most a selector holds. */
+export function addTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: LabelValueId; limits: NetworkLimits }): NetworkDraft {
   return changeRule(draft, {
     key: at.rule,
     change: (rule) => {
-      const values = rule[at.side];
-      if (values.includes(at.valueId) || values.length >= at.limits.selectorMax) {
+      const terms = rule[at.side];
+      if (terms.includes(at.term) || terms.length >= at.limits.selectorMax) {
         return rule;
       }
-      return { ...rule, [at.side]: [...values, at.valueId] };
+      return { ...rule, [at.side]: [...terms, at.term] };
     },
   });
 }
 
-export function removeValue(draft: NetworkDraft, at: { rule: string; side: RuleSide; valueId: LabelValueId }): NetworkDraft {
-  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, [at.side]: rule[at.side].filter((valueId) => valueId !== at.valueId) }) });
+export function removeTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: LabelValueId }): NetworkDraft {
+  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, [at.side]: rule[at.side].filter((term) => term !== at.term) }) });
 }
 
 /** Whether the draft differs from the rules the plugin holds; all-to-all is never an empty list. */

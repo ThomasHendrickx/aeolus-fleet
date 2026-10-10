@@ -5,7 +5,7 @@ import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { filterGroupsOf, type LabelContext } from '../../lib/labels';
-import { addRule, addValue, draftOf, isChanged, removeRule, removeValue, rulesOf, selectorOf, setRulesOn, type NetworkLimits, type RuleSide } from '../../lib/network-rules';
+import { addRule, addTerm, draftOf, isChanged, removeRule, removeTerm, rulesOf, selectorOf, setRulesOn, type NetworkLimits, type RuleSide } from '../../lib/network-rules';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -110,10 +110,10 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                           testId={`network-rule-${side}`}
                           popoverTestId="network-rule-popover"
                           onAdd={(valueId) => {
-                            setDraft(addValue(draft, { rule: rule.key, side, valueId, limits }));
+                            setDraft(addTerm(draft, { rule: rule.key, side, term: valueId, limits }));
                           }}
                           onRemove={(valueId) => {
-                            setDraft(removeValue(draft, { rule: rule.key, side, valueId }));
+                            setDraft(removeTerm(draft, { rule: rule.key, side, term: valueId }));
                           }}
                         />
                       </div>
