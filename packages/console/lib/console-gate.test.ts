@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { hasLiveSession, isSignedIn, signInUrlFor } from './console-gate';
+import { hasLiveSession, sessionOf, signInUrlFor } from './console-gate';
 
 describe('signInUrlFor', () => {
   it("is the hosting service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set", () => {
@@ -32,30 +32,30 @@ describe('hasLiveSession', () => {
   });
 });
 
-describe('isSignedIn', () => {
+describe('sessionOf', () => {
   const serverUrl = 'http://server:4000';
 
   function aRequest(cookie?: string): Request {
     return new Request('http://console/api/reads/machines', cookie === undefined ? {} : { headers: { cookie } });
   }
 
-  it('is false without a session cookie, and asks the server nothing', async () => {
+  it('is ended without a session cookie, and asks the server nothing', async () => {
     const fetchImplementation = vi.fn<typeof fetch>();
 
-    await expect(isSignedIn(aRequest('theme=dark'), { serverUrl, fetchImplementation })).resolves.toBe(false);
+    await expect(sessionOf(aRequest('theme=dark'), { serverUrl, fetchImplementation })).resolves.toBe('ended');
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
 
-  it('is true when the server answers for the session', async () => {
-    await expect(isSignedIn(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 200 })) })).resolves.toBe(true);
+  it('is live when the server answers for the session', async () => {
+    await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 200 })) })).resolves.toBe('live');
   });
 
-  it('is false when the server refuses the session', async () => {
-    await expect(isSignedIn(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 401 })) })).resolves.toBe(false);
+  it('is ended when the server refuses the session', async () => {
+    await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 401 })) })).resolves.toBe('ended');
   });
 
-  it('is false when the server fails or does not answer', async () => {
-    await expect(isSignedIn(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 500 })) })).resolves.toBe(false);
-    await expect(isSignedIn(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockRejectedValue(new Error('offline')) })).resolves.toBe(false);
+  it('is unknown when the server fails or does not answer', async () => {
+    await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 500 })) })).resolves.toBe('unknown');
+    await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation: vi.fn<typeof fetch>().mockRejectedValue(new Error('offline')) })).resolves.toBe('unknown');
   });
 });

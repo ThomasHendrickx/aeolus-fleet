@@ -9,8 +9,22 @@ const reads = {
   squadrons: consoleRead(z.undefined(), () => Promise.resolve({ kind: 'refused', message: 'squadrons did not answer: try again in a moment' })),
 };
 
-const signedIn = { isSignedIn: () => Promise.resolve(true) };
-const notSignedIn = { isSignedIn: () => Promise.resolve(false) };
+const signedIn = { sessionOf: () => Promise.resolve('live' as const) };
+const sessionEnded = { sessionOf: () => Promise.resolve('ended' as const) };
+const sessionUnknown = { sessionOf: () => Promise.resolve('unknown' as const) };
+
+/** Every read's status and answer, the console's and one it does not have, asked with the given session. */
+async function everyReadAnswered(session: typeof signedIn | typeof sessionEnded | typeof sessionUnknown): Promise<{ names: string[]; answers: { status: number; body: unknown }[] }> {
+  const names = [...Object.keys(CONSOLE_READS), 'no-such-read'];
+  const answers = await Promise.all(
+    names.map(async (name) => {
+      const response = await answerConsoleRead(aRequest(name), { name, reads: CONSOLE_READS, ...session });
+      const body: unknown = await response.json();
+      return { status: response.status, body };
+    }),
+  );
+  return { names, answers };
+}
 
 function aRequest(name: string, input?: string): Request {
   const search = input === undefined ? '' : `?input=${encodeURIComponent(input)}`;
@@ -53,16 +67,14 @@ describe("a console read, answered by the web app's server", () => {
     await expect(unknown.json()).resolves.toEqual({ kind: 'refused', message: 'The console has no such read' });
   });
 
-  it('answers every read without a signed-in session as one it does not have, so nothing shows which plugins are configured', async () => {
-    const names = [...Object.keys(CONSOLE_READS), 'no-such-read'];
+  it('answers every read with an ended session as 401, the same for each name, so the page goes to sign in and nothing shows which plugins are configured', async () => {
+    const { names, answers } = await everyReadAnswered(sessionEnded);
 
-    const answers = await Promise.all(
-      names.map(async (name) => {
-        const response = await answerConsoleRead(aRequest(name), { name, reads: CONSOLE_READS, ...notSignedIn });
-        const body: unknown = await response.json();
-        return { status: response.status, body };
-      }),
-    );
+    expect(answers).toEqual(names.map(() => ({ status: 401, body: { kind: 'refused', message: 'Your console session ended: sign in again' } })));
+  });
+
+  it('answers every read as one it does not have while the session check does not answer, so nothing is read for it', async () => {
+    const { names, answers } = await everyReadAnswered(sessionUnknown);
 
     expect(answers).toEqual(names.map(() => ({ status: 404, body: { kind: 'refused', message: 'The console has no such read' } })));
   });
