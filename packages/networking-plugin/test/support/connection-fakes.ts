@@ -1,6 +1,7 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, ShipId } from '@aeolus-fleet/common';
 
 import type { ConnectionStore, FleetDoor, FleetRefusal, PluginBinding, PluginCrew } from '../../src/core/connection/ports.js';
+import type { FleetNetwork, FleetNetworks } from '../../src/core/network/ports.js';
 import { err, ok, type Result } from '../../src/core/shared/result.js';
 
 export const SHIP_ID: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -10,7 +11,9 @@ export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 /**
  * A fleet that knows the networking plugin's ship: its secret claims it once,
  * its crew tokens work while their lease holds, and it has the scopes it was
- * given.
+ * given. It keeps its network settings as the server does (decisions 0034,
+ * 0035): only the registered plugin sets the rules, and unregistering takes
+ * them with it. Deliveries wait for the plugin's ship until acknowledged.
  */
 export function fakePluginFleet() {
   const state = {
@@ -22,8 +25,18 @@ export function fakePluginFleet() {
     liveTokens: new Set<string>(),
     registers: 0,
     deregistered: new Array<string>(),
+    /** The fleet's networking plugin: what it declared, or none. */
+    plugin: null as NetworkPluginDeclaration | null,
+    /** The fleet's rules: none is all-to-all. */
+    rules: null as readonly NetworkRule[] | null,
+    /** Every change of the network settings, as the server moves its version. */
+    version: 0,
+    /** The deliveries waiting for the plugin's ship, until acknowledged. */
+    waiting: new Array<DeliveryId>(),
+    acked: new Array<DeliveryId>(),
   };
   const unavailable = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
+  const notThePlugin = () => Promise.resolve(err({ code: 'FORBIDDEN', message: "Only the fleet's networking plugin does this (decision 0035)" }));
   const released = () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }));
   const door: FleetDoor = {
     register: ({ shipId, secret }): Promise<Result<{ crewToken: string }, FleetRefusal>> => {
@@ -56,6 +69,60 @@ export function fakePluginFleet() {
       state.liveTokens.delete(crewToken);
       state.isCrewed = false;
       state.deregistered.push(crewToken);
+      return Promise.resolve(ok(undefined));
+    },
+    registerNetworkPlugin: (crewToken, declaration) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      state.plugin = { ...declaration };
+      state.version += 1;
+      return Promise.resolve(ok(undefined));
+    },
+    unregisterNetworkPlugin: (crewToken) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      if (state.plugin === null) {
+        return notThePlugin();
+      }
+      state.plugin = null;
+      state.rules = null;
+      state.version += 1;
+      return Promise.resolve(ok(undefined));
+    },
+    setNetworkRules: (crewToken, rules) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      if (state.plugin === null) {
+        return notThePlugin();
+      }
+      state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
+      state.version += 1;
+      return Promise.resolve(ok(undefined));
+    },
+    receive: (crewToken) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.waiting.map((deliveryId) => ({ deliveryId })))) : released();
+    },
+    ack: (crewToken, deliveryId) => {
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      state.waiting = state.waiting.filter((waiting) => waiting !== deliveryId);
+      state.acked.push(deliveryId);
       return Promise.resolve(ok(undefined));
     },
   };
@@ -95,6 +162,19 @@ export function memoryConnectionStore(): ConnectionStore & { held: Map<FleetId, 
       if (connection) {
         held.set(fleetId, { ...connection, crewToken: null });
       }
+      return Promise.resolve();
+    },
+  };
+}
+
+/** Each fleet's network in memory, as argo last saved it. */
+export function memoryFleetNetworks(): FleetNetworks & { held: Map<FleetId, FleetNetwork> } {
+  const held = new Map<FleetId, FleetNetwork>();
+  return {
+    held,
+    find: (fleetId) => Promise.resolve(held.get(fleetId)),
+    save: (fleetId, network) => {
+      held.set(fleetId, network);
       return Promise.resolve();
     },
   };
