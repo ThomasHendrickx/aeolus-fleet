@@ -189,6 +189,8 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/deleteLabel', ['post']],
       ['/fleet/findLabelValue', ['post']],
       ['/fleet/setNetworkRules', ['post']],
+      ['/fleet/registerNetworkPlugin', ['post']],
+      ['/fleet/unregisterNetworkPlugin', ['post']],
     ]);
   });
 

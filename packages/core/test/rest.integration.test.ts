@@ -165,6 +165,8 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/deleteLabel',
       '/fleet/findLabelValue',
       '/fleet/setNetworkRules',
+      '/fleet/registerNetworkPlugin',
+      '/fleet/unregisterNetworkPlugin',
     ]);
   });
 
