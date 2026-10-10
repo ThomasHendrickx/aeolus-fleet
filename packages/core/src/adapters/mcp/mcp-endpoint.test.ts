@@ -67,6 +67,8 @@ const SHIP_TOOLS = [
   'fleet_setNetworkRules',
   'fleet_registerNetworkPlugin',
   'fleet_unregisterNetworkPlugin',
+  'fleet_declareNetworkRules',
+  'fleet_declaredNetworkRules',
 ];
 
 let core: InMemoryCore;
@@ -262,6 +264,8 @@ describe('the ship tools at /mcp', () => {
     ['fleet_setNetworkRules', [/fleet:network/, /decision 0034/, /all-to-all/, /networking plugin/, /"\*"/, /"#"/, /one side only/]],
     ['fleet_registerNetworkPlugin', [/fleet:network/, /decision 0035/, /block-all/, /open-all/, /keep-latest/, /not responding/]],
     ['fleet_unregisterNetworkPlugin', [/fleet:network/, /decision 0035/, /all-to-all/]],
+    ['fleet_declareNetworkRules', [/labels:define/, /decision 0037/, /owns/, /at most 20/, /withdraw/, /networking plugin/]],
+    ['fleet_declaredNetworkRules', [/fleet:network/, /decision 0037/, /each ship/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 
