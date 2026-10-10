@@ -221,7 +221,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 | `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
-| `NetworkRulesSet` | Registry | The networking plugin gave the fleet its network rules, or none: details hold the version and the number of rules (null for none), never the rules |
+| `NetworkRulesSet` | Registry | The networking plugin gave the fleet its network rules, or none, or the upgrade to rules only through a plugin (decision 0035) took the rules argo had set, as the system: details hold the version and the number of rules (null for none), never the rules |
 | `NetworkPluginRegistered` | Registry | A ship registered as the fleet's networking plugin, or registered again: details hold the version and what it declared (`whileUnavailable`, `notRespondingAfterSeconds`) |
 | `NetworkPluginUnregistered` | Registry | The networking plugin unregistered or its ship was retired, its rules with it: details hold the version |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship and daily message limits are set: each following the default, or the fleet's own limit or none |
