@@ -202,7 +202,7 @@ describe('a term of the same value on one side only (decision 0034)', () => {
   it('says which term of the same value a side holds that the other side does not', () => {
     const rule = onlyRule(draftOf([{ from: [SAME_TEAM, SAME_TIER], to: [SAME_TEAM] }], newKey));
 
-    expect([sameValueProblemOf(rule, 'from', CONTEXT), sameValueProblemOf(rule, 'to', CONTEXT)]).toEqual([
+    expect([sameValueProblemOf(rule, { side: 'from', context: CONTEXT }), sameValueProblemOf(rule, { side: 'to', context: CONTEXT })]).toEqual([
       'tier=# needs tier=# on the other side: # matches the same value there.',
       undefined,
     ]);

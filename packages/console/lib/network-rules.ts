@@ -139,6 +139,31 @@ function chipOf(term: SelectorTerm, context: LabelContext): TermChip | undefined
   return { labelId: label.id, key: label.key, value: term.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name, term };
 }
 
+/**
+ * The labels a side holds a term of the same value of that the other side
+ * does not: the fleet refuses such a rule, as `#` matches the value the ship
+ * on the other side carries (decision 0034).
+ */
+function sameValueAlone(rule: DraftRule, side: RuleSide): SelectorTerm[] {
+  const other = rule[side === 'from' ? 'to' : 'from'];
+  return rule[side].filter((term) => typeof term !== 'string' && term.value === '#' && !other.some((each) => isSameTerm(each, term)));
+}
+
+/** What the editor says under a side that holds a term of the same value the other side does not; undefined when none. */
+export function sameValueProblemOf(rule: DraftRule, at: { side: RuleSide; context: LabelContext }): string | undefined {
+  const [term] = sameValueAlone(rule, at.side);
+  if (term === undefined || typeof term === 'string') {
+    return undefined;
+  }
+  const key = at.context.labels.find((label) => label.id === term.labelId)?.key ?? term.labelId;
+  return `${key}=# needs ${key}=# on the other side: # matches the same value there.`;
+}
+
+/** Whether a rule of the draft holds a term of the same value on one side only: the fleet refuses it, so the draft does not save. */
+export function hasSameValueOnOneSide(draft: NetworkDraft): boolean {
+  return draft.kind === 'rules' && draft.rules.some((rule) => sameValueAlone(rule, 'from').length + sameValueAlone(rule, 'to').length > 0);
+}
+
 /** What a save says of its supply. A race with a disconnect or a switch says only Saved: the page shows that state itself. */
 export function supplyNote(supply: Supply): string {
   switch (supply) {
