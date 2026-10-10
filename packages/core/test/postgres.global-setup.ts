@@ -1,7 +1,7 @@
-import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { TestProject } from 'vitest/node';
 
 import { POSTGRES_IMAGE, REAPER_IMAGE } from './container-images.js';
+import { TestPostgres } from './postgres-container.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -18,7 +18,7 @@ declare module 'vitest' {
  */
 export async function setup(project: TestProject): Promise<() => Promise<void>> {
   process.env.RYUK_CONTAINER_IMAGE ??= REAPER_IMAGE;
-  const container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
+  const container = await new TestPostgres(POSTGRES_IMAGE).start();
   project.provide('postgresUrl', container.getConnectionUri());
 
   return async () => {
