@@ -53,7 +53,7 @@ describe('signing in to the console', () => {
       shipId: argoId,
       fleetId,
       kind: 'operator',
-      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
+      scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'],
       consoleSessionId: signedIn.consoleSessionId,
     });
   });

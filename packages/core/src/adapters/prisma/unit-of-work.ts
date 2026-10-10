@@ -15,6 +15,8 @@ import type {
   InstallationSettingsRepository,
   LabelRepository,
   LeaseRepository,
+  NetworkSettingsRepository,
+  ReachRefusalRepository,
   ShipRepository,
 } from '../../domain/registry/ports.js';
 import type { Notifier } from '../../domain/shared/notifier.js';
@@ -32,6 +34,7 @@ import {
 } from './identity.js';
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
+import { createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import {
   createPrismaClearRequestRepository,
   createPrismaCrewRequestRepository,
@@ -50,6 +53,8 @@ export interface PrismaTx {
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
+  networkSettings: NetworkSettingsRepository;
+  reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
   operatorAccounts: OperatorAccountRepository;
@@ -71,6 +76,8 @@ export function createPrismaTx(db: Db): PrismaTx {
     crewRequests: createPrismaCrewRequestRepository(db),
     clearRequests: createPrismaClearRequestRepository(db),
     labels: createPrismaLabelRepository(db),
+    networkSettings: createPrismaNetworkSettingsRepository(db),
+    reachRefusals: createPrismaReachRefusalRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),
     operatorAccounts: createPrismaOperatorAccountRepository(db),

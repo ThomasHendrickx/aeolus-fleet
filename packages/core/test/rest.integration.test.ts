@@ -164,6 +164,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/unassignLabel',
       '/fleet/deleteLabel',
       '/fleet/findLabelValue',
+      '/fleet/setNetworkRules',
     ]);
   });
 

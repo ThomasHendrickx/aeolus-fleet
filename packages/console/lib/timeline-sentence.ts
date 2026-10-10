@@ -225,6 +225,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text(`Label ${labelOf(entry)} values changed: ${valuesOf(entry)}`)], tone: 'ended', icon: 'reported' };
     case 'LabelRetired':
       return { parts: [text(`Label ${labelOf(entry)} retired`)], tone: 'ended', icon: 'retired' };
+    case 'NetworkRulesSet': {
+      const rules = entry.details.rules;
+      const version = String(entry.details.version ?? '');
+      const set = typeof rules === 'number' ? `Network rules set: ${String(rules)} rules` : 'Network rules cleared: every ship reaches every ship';
+      return { parts: [text(`${set}, version ${version}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    }
     case 'LabelDeleted':
       return { parts: [text(`Label ${labelOf(entry)} deleted`)], tone: 'ended', icon: 'retired' };
     case 'LabelAssigned':

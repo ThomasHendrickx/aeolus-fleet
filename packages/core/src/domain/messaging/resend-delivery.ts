@@ -1,12 +1,13 @@
 import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
-import { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
+import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
-import { ok, type Result } from '../shared/result.js';
+import { err, ok, type Result } from '../shared/result.js';
+import { isAnswerToSender } from './answer.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { dismissForResend, type DismissRefusal } from './delivery.js';
@@ -14,7 +15,8 @@ import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from 
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
-export interface ResendDeliveryTx extends ResolveSelectorTx, DailyMessageLimitTx {
+export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
+  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   events: EventLog;
@@ -27,6 +29,7 @@ export type ResendDeliveryRefusal =
   | DomainError<'MESSAGE_LIMIT_REACHED'>
   | RepeatRefusal
   | UnresolvableSelector
+  | NotReachable
   | AcceptRefusal;
 
 export type ResendDelivery = (
@@ -57,7 +60,13 @@ function resendKey(deliveryId: DeliveryId): string {
  * the type left, the resend is refused and the original stays undeliverable,
  * for the operator to dismiss. A ping is never resent: it is dismissed, and
  * the ship pinged again through ping, so pings never stack. Locks, in this order: the original delivery,
- * then the resend's key, then the ship the message is addressed to.
+ * then the resend's key, then the ship the message is addressed to, then the
+ * fleet's network settings.
+ *
+ * A resend is a new message, checked by the network rules at its own send time
+ * as the original sender sending (decision 0034): one no rule allows commits
+ * only its refusal's record and is refused, and the original stays
+ * undeliverable, for the operator to dismiss.
  */
 export function createResendDelivery(deps: {
   uow: UnitOfWork<ResendDeliveryTx>;
@@ -65,8 +74,8 @@ export function createResendDelivery(deps: {
   ids: IdGenerator;
   hasher: RequestHasher;
 }): ResendDelivery {
-  return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId }, ResendDeliveryRefusal>> => {
+  return async (caller, input) => {
+    const outcome = await deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId } | { prevented: NotReachable }, ResendDeliveryRefusal>> => {
       const { fleetId } = caller;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const original = delivery && (await tx.messages.find(fleetId, delivery.messageId));
@@ -99,13 +108,31 @@ export function createResendDelivery(deps: {
       if (!recipient.isOk) {
         return recipient;
       }
+      const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
+      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+      const reach = await checkReach(
+        { tx, ids: deps.ids },
+        {
+          fleetId,
+          senderShipId: original.senderShipId,
+          recipient: recipient.value,
+          isAnswerToSender: isAnswerToSender(
+            { senderShipId: original.senderShipId, recipient: recipient.value },
+            repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery },
+          ),
+          at,
+        },
+      );
+      if (!reach.isOk) {
+        // Nothing of the resend is stored yet: commit only the refusal's record.
+        return ok({ prevented: reach.error });
+      }
       const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
       if (!withinLimit.isOk) {
         return withinLimit;
       }
-      const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
       const accepted = acceptMessage(
-        { recipient: recipient.value, repliedTo },
+        { recipient: recipient.value, repliedTo, ...reach.value },
         {
           messageId: deps.ids('message'),
           deliveryId: deps.ids('delivery'),
@@ -135,4 +162,9 @@ export function createResendDelivery(deps: {
       await tx.notifier.deliveryPending({ fleetId, deliveryId: resent.id, recipient: resent.recipient });
       return ok({ messageId: message.id });
     });
+    if (!outcome.isOk) {
+      return outcome;
+    }
+    return 'prevented' in outcome.value ? err(outcome.value.prevented) : ok(outcome.value);
+  };
 }

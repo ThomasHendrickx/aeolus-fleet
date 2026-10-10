@@ -342,6 +342,22 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('CrewStatusChanged', { actor: argo, details: { status: 'crashed' } }))).toMatchObject({ tone: 'attention' });
   });
 
+  it('says the network rules were set, how many and at which version, and by whom', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesSet', { actor: argo, details: { version: 2, rules: 3 } }))).toEqual({
+      sentence: 'Network rules set: 3 rules, version 2 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says the network rules were cleared, back to all-to-all', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesSet', { actor: argo, details: { version: 3, rules: null } }))).toEqual({
+      sentence: 'Network rules cleared: every ship reaches every ship, version 3 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
   it('names the label its owner deleted', () => {
     expect(onScoutsPage(anEntry('LabelDeleted', { actor: argo, details: { key: 'os' } }))).toEqual({
       sentence: 'Label os deleted',

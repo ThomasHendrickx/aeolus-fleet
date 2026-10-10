@@ -9,7 +9,7 @@ Before writing Next.js code, read the matching guide in `node_modules/next/dist/
 
 The console is `argo`. Logic runs on the server, by default and always (decision 0033): plugin calls, parsing answers and checks run on the web app's server or behind tRPC; the browser holds only UI interaction and animations, and imports from `common` only types and `@aeolus-fleet/common/rules`; never zod. Look from `docs/design/` (read `conventions.md` first, then only the parts you build), behaviour from the blueprint. Theme from `packages/console/app/tokens.css`, the single copy of the tokens.
 
-- `app/`: routes only (page, layout, `loading.tsx` skeleton, `error.tsx`). `components/{atoms,molecules,organisms,templates}`, `lib/`.
+- `app/`: routes only (page, layout, `loading.tsx` skeleton, `error.tsx`, and a route's client part beside its server `page.tsx`, such as `inbox/inbox-page.tsx`). `components/{atoms,molecules,organisms,templates}`, `lib/`.
 - Atoms and molecules: props only. Organisms: data through a hook (`useFleetSnapshot`) wrapping tRPC. shadcn/ui first; a custom atom needs a PR note why.
 - Server components by default; `'use client'` as low as possible.
 - State: server data via tRPC plus TanStack Query, never copied into `useState`; view state in URL params; forms with React Hook Form, live hints from `@aeolus-fleet/common/rules`, the server deciding on submit; local UI state in the owning component. No global store.
