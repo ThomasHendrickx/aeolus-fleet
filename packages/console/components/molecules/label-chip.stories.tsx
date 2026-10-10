@@ -82,3 +82,10 @@ export const Removable: Story = {
 export const Long: Story = {
   args: { chip: { key: 'workspace', value: 'aeolus-fleet-infra-terraform-modules', mark: 'none', ownerName: 'argo' }, className: 'max-w-48' },
 };
+/** A term of a rule that is not a value, as `*` and `#` (decision 0034): its accessible name says what it means. */
+export const RuleTerm: Story = {
+  args: { chip: { key: 'project', value: '#', mark: 'none', ownerName: 'argo' }, meaning: 'The same value as the other side' },
+  play: async ({ canvasElement }) => {
+    await expect(untitledChipIn(canvasElement)).toHaveAccessibleName('project=#, by you. The same value as the other side');
+  },
+};

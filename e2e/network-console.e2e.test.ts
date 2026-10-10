@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { LabelValueId } from '../packages/common/src/index.js';
+import type { LabelId, LabelValueId } from '../packages/common/src/index.js';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
 import type { Caller } from '../packages/core/src/domain/shared/caller.js';
@@ -21,7 +21,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // connects it from Settings, the web app's server commissions
 // networking-plugin and hands its secret over, and no secret reaches the
 // browser. Network then shows the fleet all-to-all; argo sets a rule from
-// label values, the plugin supplies it, and the fleet holds it. Argo changes
+// label values, the plugin supplies it, and the fleet holds it; then one of
+// the same team on both sides to any tier (#573). Argo changes
 // what the plugin declares for while it is unavailable, and turning rules
 // off, once confirmed, leaves the fleet all-to-all again. On the fleet graph,
 // picking a ship shows which ships the rules let it message (S3), and a send
@@ -43,6 +44,8 @@ let browser: Browser;
 const contexts: BrowserContext[] = [];
 /** The value ids of argo's labels, by `key=value`. */
 const valueIds = new Map<string, LabelValueId>();
+/** The ids of argo's labels, by key. */
+const labelIds = new Map<string, LabelId>();
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
@@ -54,6 +57,7 @@ beforeAll(async () => {
     ['tier', ['sensitive']],
   ] as const) {
     const defined = unwrap(await useCases.defineLabel(argo, { key, values: [...values] }));
+    labelIds.set(key, defined.labelId);
     for (const value of defined.values) {
       valueIds.set(`${key}=${value.value}`, value.id);
     }
@@ -96,13 +100,14 @@ function settings() {
   return database.networkSettings.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
 }
 
-/** Picks one label value for a side of the rule shown, in its Add label popover. */
+/** Picks one label value, or any value (*) or the same value (#), for a side of the last rule, in its Add label popover. */
 async function pick(page: Page, at: { side: 'from' | 'to'; key: string; value: string }): Promise<void> {
   const { side, key, value } = at;
-  await page.getByTestId('network-rule').getByTestId(`network-rule-${side}-add`).click();
+  await page.getByTestId('network-rule').last().getByTestId(`network-rule-${side}-add`).click();
   const picker = page.locator('[data-testid="network-rule-popover"][data-open]');
   await picker.getByTestId('label-picker-key').filter({ hasText: key }).click();
-  await picker.getByTestId('label-picker-value').filter({ hasText: value }).click();
+  const terms = { '*': 'label-picker-any', '#': 'label-picker-same' } as const;
+  await (value === '*' || value === '#' ? picker.getByTestId(terms[value]) : picker.getByTestId('label-picker-value').filter({ hasText: value })).click();
 }
 
 describe('the networking plugin in the console', () => {
@@ -196,6 +201,25 @@ describe('the networking plugin in the console', () => {
       const { pluginWhileUnavailable, pluginNotRespondingAfterSeconds } = await settings();
       return { pluginWhileUnavailable, pluginNotRespondingAfterSeconds };
     }, WITHIN).toEqual({ pluginWhileUnavailable: 'block-all', pluginNotRespondingAfterSeconds: 120 });
+  });
+
+  it('adds a rule from a team to the same team of any tier, which the plugin supplies to the fleet, and saves no # on one side only', async () => {
+    const page = await signedIn();
+    await page.getByTestId('nav-network').click();
+    await page.getByTestId('network-rule').getByText('team=ops').waitFor(WITHIN);
+
+    await page.getByTestId('network-rules-add').click();
+    await pick(page, { side: 'from', key: 'team', value: '#' });
+    await expect(page.getByTestId('network-rules-save').isDisabled()).resolves.toBe(true);
+    await pick(page, { side: 'to', key: 'team', value: '#' });
+    await pick(page, { side: 'to', key: 'tier', value: '*' });
+    await page.getByTestId('network-rules-save').click();
+
+    await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
+    await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([
+      { from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] },
+      { from: [{ labelId: labelIds.get('team'), value: '#' }], to: [{ labelId: labelIds.get('team'), value: '#' }, { labelId: labelIds.get('tier'), value: '*' }] },
+    ]);
   });
 
   it('turns rules off once confirmed, and the fleet is all-to-all again', async () => {

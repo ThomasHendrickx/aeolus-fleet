@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import type { FilterGroup, FilterKey } from '../../lib/labels';
 import { LabelPicker } from './label-picker';
@@ -43,3 +43,32 @@ export const WithPicked: Story = { args: { pickedValueIds: ['lbv_project_hemma']
 export const NoLabels: Story = { args: { groups: [] } };
 /** On phone, in the filters Sheet: touch-sized rows. */
 export const Touch: Story = { args: { size: 'touch' }, globals: { viewport: { value: 'mobile1' } } };
+/** For a rule's side: a key offers any value (*) and the same value as the other side (#) before its values (decision 0034). */
+export const RuleTerms: Story = {
+  args: { terms: { picked: [], onPick: fn() } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /^project/ }));
+    await expect(canvas.getByTestId('label-picker-any')).toHaveTextContent('*Any value');
+    await expect(canvas.getByTestId('label-picker-same')).toHaveTextContent('#The same value as the other side');
+  },
+};
+/** A term the side holds already shows as picked. */
+export const RuleTermPicked: Story = {
+  args: { terms: { picked: [{ labelId: 'lbl_project', value: '#' }], onPick: fn() } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /^project/ }));
+    await expect(canvas.getByTestId('label-picker-same')).toBeDisabled();
+  },
+};
+/** Picking a term hands it over with the key's label. */
+export const RuleTermPicks: Story = {
+  args: { terms: { picked: [], onPick: fn() } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: /^project/ }));
+    await userEvent.click(canvas.getByTestId('label-picker-any'));
+    await expect(args.terms?.onPick).toHaveBeenCalledWith({ labelId: 'lbl_project', value: '*' });
+  },
+};
