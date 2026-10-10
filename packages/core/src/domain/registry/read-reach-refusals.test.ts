@@ -22,6 +22,7 @@ function aRefusal(onFleet: FleetId = fleetId): ReachRefusal {
     sender: { id: core.ids('ship'), name: 'planner', labels: [] },
     recipient: { kind: 'ship', ship: { id: core.ids('ship'), name: 'vault', labels: [] } },
     settingsVersion: 1,
+    whilePluginUnavailable: null,
   };
   core.state.reachRefusals.push(refusal);
   return refusal;

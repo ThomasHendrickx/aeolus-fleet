@@ -86,6 +86,7 @@ describe('reachRefusalsOutputSchema', () => {
       sender: { id: newId('ship'), name: 'planner', labels: [carried] },
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
       settingsVersion: 2,
+      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
@@ -98,8 +99,35 @@ describe('reachRefusalsOutputSchema', () => {
       sender: { id: newId('ship'), name: 'planner', labels: [] },
       recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [] }] },
       settingsVersion: 2,
+      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+  });
+
+  it('answers what the plugin declared for while it is unavailable, when it refused because the plugin was not responding', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-10T08:00:00.000Z',
+      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      settingsVersion: 2,
+      whilePluginUnavailable: 'block-all',
+    };
+
+    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+  });
+
+  it('refuses open-all as what refused it: open-all refuses nothing', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-10T08:00:00.000Z',
+      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      settingsVersion: 2,
+      whilePluginUnavailable: 'open-all',
+    };
+
+    expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
   });
 });

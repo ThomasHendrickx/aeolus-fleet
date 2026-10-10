@@ -94,10 +94,12 @@ describe('the network settings', () => {
 
 describe('the networking plugin (decision 0035)', () => {
   let plugin: Caller;
+  let pluginSecret: string;
 
   beforeEach(async () => {
-    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reach', type: 'networking', fleetScopes: ['fleet:network'] }));
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reach', type: 'networking', fleetScopes: ['fleet:network'] }));
     plugin = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['fleet:network'] };
+    pluginSecret = secretOf(secret);
   });
 
   it('is kept with what it declared, at the next version, with NetworkPluginRegistered in the same transaction', async () => {
@@ -125,6 +127,22 @@ describe('the networking plugin (decision 0035)', () => {
       { rules: null, version: 3, pluginShipId: null, pluginWhileUnavailable: null, pluginNotRespondingAfterSeconds: null },
     ]);
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginUnregistered' } })).resolves.toBe(1);
+  });
+
+  it('not responding, its declaration applies, judged by its lease\'s last seen, and the refusal says so', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
+    unwrap(await core.useCases.setNetworkRules(plugin, { rules: [{ from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.claimShip({ shipId: plugin.shipId, secret: pluginSecret, location: { kind: 'SERVER' }, harness: 'aeolus-networking' }));
+    core.clock.advance(120_000);
+    refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
+    core.clock.advance(1000);
+
+    refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
+
+    await expect(core.prisma.reachRefusal.findMany({ select: { whilePluginUnavailable: true }, orderBy: { at: 'asc' } })).resolves.toEqual([
+      { whilePluginUnavailable: null },
+      { whilePluginUnavailable: 'keep-latest' },
+    ]);
   });
 
   it('retired, unregisters in the retirement\'s transaction', async () => {
@@ -170,6 +188,7 @@ describe('a send under network rules', () => {
           sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')] },
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')] } },
           settingsVersion: 1,
+          whilePluginUnavailable: null,
         },
     ]);
   });

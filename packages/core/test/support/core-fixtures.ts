@@ -37,7 +37,9 @@ import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deli
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
+import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
 import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
+import { createUnregisterNetworkPlugin } from '../../src/domain/registry/unregister-network-plugin.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/domain/registry/commission-ship.js';
 import { createGiveBackCrewRequest } from '../../src/domain/registry/give-back-crew-request.js';
@@ -168,6 +170,8 @@ export function registryUseCases(core: InMemoryCore) {
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     setNetworkRules: createSetNetworkRules(deps),
+    registerNetworkPlugin: createRegisterNetworkPlugin(deps),
+    unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),
     readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals }),
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),

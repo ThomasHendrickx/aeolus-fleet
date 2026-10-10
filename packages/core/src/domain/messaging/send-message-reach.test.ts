@@ -245,6 +245,7 @@ describe('the record of a refused send', () => {
         sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')] },
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')] } },
         settingsVersion: 1,
+        whilePluginUnavailable: null,
       },
     ]);
   });
