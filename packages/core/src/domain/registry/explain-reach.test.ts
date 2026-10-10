@@ -214,16 +214,16 @@ describe('the ships an explain names', () => {
 
   it("leaves the fleet's viewer ship out, as it receives nothing", async () => {
     const hosted = await hostedFleetWithViewer(core);
-    const hostedArgo = operatorCaller(hosted);
+    const hostedArgo: Caller = { ...argo, fleetId: hosted.fleetId, shipId: hosted.operatorShipId };
 
     const explained = unwrap(await explainReach(hostedArgo, { fromShipId: hosted.operatorShipId }));
 
     expect(explained.reachableShipIds).toEqual([]);
   });
 
-  /** A ship of another fleet. */
+  /** argo of another fleet. */
   async function createFleetShip(): Promise<ShipId> {
-    const other = await initialiseFleet(core, 'other fleet');
+    const other = await hostedFleetWithViewer(core);
     return other.operatorShipId;
   }
 });
