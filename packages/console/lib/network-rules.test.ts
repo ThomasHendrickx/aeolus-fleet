@@ -11,6 +11,8 @@ import {
   removeTerm,
   rulesOf,
   selectorOf,
+  hasSameValueOnOneSide,
+  sameValueProblemOf,
   setRulesOn,
   supplyNote,
   type NetworkDraft,
@@ -191,6 +193,27 @@ describe('a selector as the editor shows it', () => {
     const gone = newId('labelValue');
 
     expect(selectorOf([OPS, gone], CONTEXT)).toMatchObject({ unknown: [gone] });
+  });
+});
+
+describe('a term of the same value on one side only (decision 0034)', () => {
+  const SAME_TIER = { labelId: TIER.id, value: '#' } as const;
+
+  it('says which term of the same value a side holds that the other side does not', () => {
+    const rule = onlyRule(draftOf([{ from: [SAME_TEAM, SAME_TIER], to: [SAME_TEAM] }], newKey));
+
+    expect([sameValueProblemOf(rule, 'from', CONTEXT), sameValueProblemOf(rule, 'to', CONTEXT)]).toEqual([
+      'tier=# needs tier=# on the other side: # matches the same value there.',
+      undefined,
+    ]);
+  });
+
+  it('keeps a draft from being saved while a rule holds one', () => {
+    expect([
+      hasSameValueOnOneSide(draftOf([{ from: [SAME_TEAM], to: [OPS] }], newKey)),
+      hasSameValueOnOneSide(draftOf([{ from: [SAME_TEAM], to: [SAME_TEAM] }], newKey)),
+      hasSameValueOnOneSide({ kind: 'all-to-all' }),
+    ]).toEqual([true, false, false]);
   });
 });
 
