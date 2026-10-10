@@ -23,6 +23,8 @@ const SIGN_IN_WINDOW_MS = 60_000;
 const AFTER_SIGN_OUT_MS = 3_000;
 /** Each read may be asked once more as the console forgets what it loaded, and once for a page still on its way out; never in a loop. */
 const MOST_ASKS_AFTER_SIGN_OUT = 2;
+/** How long a call's answer is held on its way back, long enough for Sign out to answer first without the console waiting for it. */
+const HELD_ANSWER_MS = 2_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -69,6 +71,33 @@ async function signedInPage(options: { isPhone: boolean }): Promise<Page> {
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   return page;
+}
+
+/**
+ * Holds the server's answer to the first call that asks the given procedure
+ * for a while on its way back to the console: the server has answered,
+ * renewing the session cookie, but the console has not heard it yet.
+ */
+function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefined>; answered: Promise<undefined> } {
+  const reached = Promise.withResolvers<undefined>();
+  const answered = Promise.withResolvers<undefined>();
+  let isHolding = false;
+  void page.route(
+    (url) => url.pathname.startsWith('/trpc/') && url.pathname.includes(procedure),
+    async (route) => {
+      if (isHolding) {
+        await route.continue();
+        return;
+      }
+      isHolding = true;
+      const response = await route.fetch();
+      reached.resolve(undefined);
+      await new Promise((resolve) => setTimeout(resolve, HELD_ANSWER_MS));
+      await route.fulfill({ response });
+      answered.resolve(undefined);
+    },
+  );
+  return { reached: reached.promise, answered: answered.promise };
 }
 
 function visible(page: Page, testId: string) {
@@ -135,6 +164,22 @@ describe.each([
     await visible(page, 'account-sign-out').click();
 
     await page.waitForURL(`${web.url}/sign-in`);
+    await expect(page.context().cookies()).resolves.toEqual([]);
+  });
+
+  it('signs out with a call still answering, and that call does not set the session cookie again', async () => {
+    const page = await signedInPage({ isPhone });
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    const held = holdOneAnswer(page, 'fleet.list');
+    // Coming back to the page asks its reads again, the fleet among them.
+    await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+    await held.reached;
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-sign-out').click();
+
+    await page.waitForURL(`${web.url}/sign-in`);
+    await held.answered;
     await expect(page.context().cookies()).resolves.toEqual([]);
   });
 
