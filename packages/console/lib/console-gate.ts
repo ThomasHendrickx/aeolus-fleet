@@ -33,9 +33,19 @@ export async function hasLiveSession(request: { serverUrl: string; cookie: strin
   }
 }
 
-/** Whether the request names a live console session: false without its session cookie, and false when the server does not answer, so nothing is read for it. */
-export async function isSignedIn(request: Request, at: { serverUrl: string; fetchImplementation?: typeof fetch }): Promise<boolean> {
+/** Where the request's console session stands: live, ended (no session cookie, or the server refuses it), or unknown when the server does not answer. */
+export type SessionState = 'live' | 'ended' | 'unknown';
+
+/** The request's session as the server knows it; without a session cookie it is ended, and the server is asked nothing. */
+export async function sessionOf(request: Request, at: { serverUrl: string; fetchImplementation?: typeof fetch }): Promise<SessionState> {
   const cookie = request.headers.get('cookie') ?? '';
   const hasSessionCookie = cookie.split(';').some((part) => part.trim().startsWith(`${SESSION_COOKIE}=`));
-  return hasSessionCookie && (await hasLiveSession({ serverUrl: at.serverUrl, cookie }, at.fetchImplementation)) === true;
+  if (!hasSessionCookie) {
+    return 'ended';
+  }
+  const isLive = await hasLiveSession({ serverUrl: at.serverUrl, cookie }, at.fetchImplementation);
+  if (isLive === undefined) {
+    return 'unknown';
+  }
+  return isLive ? 'live' : 'ended';
 }

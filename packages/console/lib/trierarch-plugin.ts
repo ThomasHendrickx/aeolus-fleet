@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
@@ -20,7 +21,7 @@ const CONNECTION_KEY = ['trierarch-plugin', 'connection'];
 
 /** The trierarch plugin's connection as the browser may know it: `none` without the plugin or while it is off for this fleet. */
 export function useTrierarchPluginSettings() {
-  return useQuery({
+  return useConsoleRead({
     queryKey: CONNECTION_KEY,
     queryFn: () => fetchConsoleRead({ read: 'trierarch-plugin-connection' }),
   });
@@ -33,7 +34,7 @@ export function useTrierarchPluginSettings() {
  */
 export function useTrierarchPluginVersion(): string | undefined {
   const isShown = useHasTrierarchPlugin();
-  const query = useQuery({
+  const query = useConsoleRead({
     queryKey: ['console-version', 'trierarch-plugin'],
     queryFn: () => fetchConsoleRead({ read: 'trierarch-plugin-version' }),
     enabled: isShown,
@@ -84,7 +85,7 @@ const MACHINES_REFRESH_MS = 10_000;
 /** The fleet's machines, read again every few seconds; asked only while the trierarch plugin is connected. */
 export function useMachines() {
   const isConnected = useTrierarchPluginConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: MACHINES_KEY,
     queryFn: () => fetchConsoleRead({ read: 'machines' }),
     refetchInterval: MACHINES_REFRESH_MS,
@@ -118,7 +119,7 @@ const checkKey = (settings: unknown) => ['trierarch-plugin', 'check', JSON.strin
 export function useCrewSettingsCheck(settings: unknown) {
   const queryClient = useQueryClient();
   const check = (): Promise<SettingsCheck> => fetchConsoleRead({ read: 'crew-settings-check', input: { settings } });
-  const query = useQuery({
+  const query = useConsoleRead({
     queryKey: checkKey(settings),
     queryFn: check,
     enabled: settings !== undefined,

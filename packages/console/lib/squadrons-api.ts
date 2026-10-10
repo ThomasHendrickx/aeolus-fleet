@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CrewLine } from '@aeolus-fleet/common';
 
 import type { formMembersOf } from './forming-members';
 import { useAnalytics } from './analytics-client';
+import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import { useSquadronsConnection } from './squadrons';
@@ -23,7 +24,7 @@ const REFRESH_MS = 5_000;
 /** Every squadron of the fleet, oldest first, asked again every few seconds; asked only while squadrons is connected. */
 export function useSquadrons() {
   const isConnected = useSquadronsConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: SQUADRONS_KEY,
     queryFn: () => fetchConsoleRead({ read: 'squadrons' }),
     refetchInterval: REFRESH_MS,
@@ -34,7 +35,7 @@ export function useSquadrons() {
 /** The messages a squadron's flagship kept because it does not handle them, oldest first, asked again every few seconds. */
 export function useKeptMessages(squadronId: string) {
   const isConnected = useSquadronsConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: ['squadrons', 'messages', squadronId],
     queryFn: () => fetchConsoleRead({ read: 'kept-messages', input: { squadronId } }),
     refetchInterval: REFRESH_MS,
@@ -45,7 +46,7 @@ export function useKeptMessages(squadronId: string) {
 /** The templates and blueprints tagged in git; asked only while squadrons is connected. */
 export function useCatalogue() {
   const isConnected = useSquadronsConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: ['squadrons', 'catalogue'],
     queryFn: () => fetchConsoleRead({ read: 'catalogue' }),
     enabled: isConnected,
@@ -55,7 +56,7 @@ export function useCatalogue() {
 /** Each member a blueprint version forms, by slot, with its merged crew settings; asked once a version is picked. */
 export function useBlueprintCrew(blueprint: { repository: string; name: string; version: number } | undefined) {
   const isConnected = useSquadronsConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: ['squadrons', 'blueprint-crew', blueprint],
     queryFn: async () => (blueprint === undefined ? [] : fetchConsoleRead({ read: 'blueprint-crew', input: blueprint })),
     enabled: isConnected && blueprint !== undefined,
@@ -151,7 +152,7 @@ const REPOSITORIES_KEY = ['squadrons', 'repositories'];
 /** The repositories squadrons reads templates and blueprints from, with their last fetch; asked only while squadrons is connected. */
 export function useRepositories() {
   const isConnected = useSquadronsConnection() === 'connected';
-  return useQuery({
+  return useConsoleRead({
     queryKey: REPOSITORIES_KEY,
     queryFn: () => fetchConsoleRead({ read: 'repositories' }),
     enabled: isConnected,

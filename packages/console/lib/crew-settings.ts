@@ -1,8 +1,7 @@
 'use client';
 
 import type { CrewSettings } from '@aeolus-fleet/common';
-import { useQuery } from '@tanstack/react-query';
-
+import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 
 /**
@@ -11,7 +10,7 @@ import { fetchConsoleRead } from './fetch-console-read';
  * are none. Undefined while the server answers.
  */
 export function useCrewSettings(settings: readonly unknown[]): readonly (CrewSettings | null)[] | undefined {
-  const query = useQuery({
+  const query = useConsoleRead({
     queryKey: ['crew-settings', JSON.stringify(settings)],
     queryFn: () => fetchConsoleRead({ read: 'crew-settings', input: { settings: [...settings] } }),
     enabled: settings.length > 0,
