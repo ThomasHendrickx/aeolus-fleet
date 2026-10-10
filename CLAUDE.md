@@ -44,12 +44,14 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 
 ## Skills
 
-Load the matching skill from `.claude/skills/` before writing code. They are mandatory, not suggestions:
+Load the matching skills from `.claude/skills/` (Codex: `.agents/skills/`) before writing code. They are mandatory, not suggestions:
 
-- `test-driven-development`: every code change. Strict red, green, refactor for server and common (decision 0014).
-- `domain-modelling`: anything under `packages/core/src/domain` or `packages/core/src/adapters`.
-- `typescript`: every `.ts` or `.tsx` change.
-- `web-frontend`: anything under `packages/console`.
+- `test-driven-development` and `aeolus-fleet-testing`: every code change. Strict red, green, refactor for server and common (decision 0014).
+- `domain-modelling` and `aeolus-fleet-core`: anything under `packages/core/src/domain` or `packages/core/src/adapters`.
+- `typescript`: every `.ts` or `.tsx` change; with `aeolus-fleet-core` under `packages/core` or `packages/common`.
+- `web-frontend` and `aeolus-fleet-console`: anything under `packages/console`.
+
+The `aeolus-fleet-*` skills live here. The others come from ThomasHendrickx/skills, pinned in `skills-lock.json`: never edit them here; change them there, tag a release, then `npx skills@1.7.2 add ThomasHendrickx/skills#<tag> --agent claude-code codex -y`.
 
 ## Quality
 
