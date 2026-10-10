@@ -66,31 +66,14 @@ describe('webHealth', () => {
     expect(Object.keys(body)).toEqual(['web', 'server', 'database']);
   });
 
-  it('adds squadrons, up with its connected fleets and installation, when the console has squadrons', async () => {
+  it('says nothing about plugins, and never asks them, even when the console has squadrons and the trierarch plugin', async () => {
     const server = await serverUp();
-    const squadrons = await aProcessAnswering(200, { status: 'ok', connectedFleets: 0, installation: 'open' });
+    const squadrons = await aProcessAnswering(200, { status: 'ok', connectedFleets: 2, installation: 'enabled' });
+    const plugin = await aProcessAnswering(200, { status: 'ok', connectedFleets: 1, installation: 'open' });
 
-    await expect(webHealth({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: squadrons.url })).resolves.toEqual({
-      isHealthy: true,
-      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'up', connectedFleets: 0, installation: 'open' } },
-    });
-  });
+    const health = await webHealth({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: squadrons.url, AEOLUS_TRIERARCH_PLUGIN_URL: plugin.url });
 
-  it('shows squadrons down as its own part and stays healthy when squadrons does not answer', async () => {
-    const server = await serverUp();
-
-    await expect(webHealth({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: NOWHERE })).resolves.toEqual({
-      isHealthy: true,
-      body: { web: 'up', server: 'up', database: 'up', squadrons: { status: 'down' } },
-    });
-  });
-
-  it('adds the trierarch plugin as its own part when the console has it', async () => {
-    const server = await serverUp();
-    const plugin = await aProcessAnswering(200, { status: 'ok', connectedFleets: 1, installation: 'enabled' });
-
-    const { body } = await webHealth({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_TRIERARCH_PLUGIN_URL: plugin.url });
-
-    expect(body.trierarchPlugin).toEqual({ status: 'up', connectedFleets: 1, installation: 'enabled' });
+    expect(health).toEqual({ isHealthy: true, body: { web: 'up', server: 'up', database: 'up' } });
+    expect(squadrons.calls() + plugin.calls()).toBe(0);
   });
 });
