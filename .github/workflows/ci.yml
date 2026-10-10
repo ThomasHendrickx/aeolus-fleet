@@ -109,6 +109,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      # The images Testcontainers starts, from the Actions cache (#464).
+      - uses: ./.github/actions/test-images
       - run: npm run test:integration
 
   e2e:
@@ -121,6 +123,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      # The images Testcontainers starts, from the Actions cache (#464).
+      - uses: ./.github/actions/test-images
       # The browser only: the runner image has Chromium's system libraries, and
       # --with-deps would run apt-get, which hung 50 minutes on a mirror (#354).
       # The browser download has its own retries; the timeout bounds a stall.
