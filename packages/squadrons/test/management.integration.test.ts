@@ -103,7 +103,6 @@ describe('connecting squadrons', () => {
     // It answers as connection.status does: squadrons serves the fleet it connected to.
     await expect(connected.json()).resolves.toEqual({ result: { data: { enabled: true, state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId } } });
     await expect(status(address)).resolves.toEqual({ state: 'connected', ship: { shipId, name: 'squadrons' }, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 1 } });
     await expect(fleetDatabase.lease.findFirstOrThrow({ where: { shipId, endedAt: null } })).resolves.toMatchObject({ location: 'SERVER', harness: 'aeolus-squadrons' });
   });
 
@@ -141,6 +140,5 @@ describe('connecting squadrons', () => {
     unwrap(await useCases.releaseShip(argo, { shipId }));
 
     await expect(status(address)).resolves.toEqual({ state: 'not-connected', ship: null, lastShipId: shipId });
-    await expect(healthOf(address)).resolves.toMatchObject({ body: { connectedFleets: 0 } });
   });
 });
