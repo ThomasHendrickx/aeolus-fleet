@@ -38,11 +38,11 @@ const POOL_SIZE = 10;
 /** Makes every crew-token lookup but the given ship's hold its connection for a while. */
 async function slowLookupsExceptFor(database: PrismaClient, shipId: string): Promise<void> {
   await database.$executeRawUnsafe(
-    `CREATE FUNCTION hold_lookup() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${LOOKUP_HOLDS_SECONDS}); RETURN NEW; END $$ LANGUAGE plpgsql`,
+    `CREATE OR REPLACE FUNCTION hold_lookup() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${LOOKUP_HOLDS_SECONDS}); RETURN NEW; END $$ LANGUAGE plpgsql`,
   );
   // The id is one the fleet gave, never outside input.
   await database.$executeRawUnsafe(
-    `CREATE TRIGGER hold_lookup BEFORE UPDATE ON leases FOR EACH ROW WHEN (NEW.ship_id <> '${shipId}') EXECUTE FUNCTION hold_lookup()`,
+    `CREATE OR REPLACE TRIGGER hold_lookup BEFORE UPDATE ON leases FOR EACH ROW WHEN (NEW.ship_id <> '${shipId}') EXECUTE FUNCTION hold_lookup()`,
   );
 }
 
@@ -53,6 +53,19 @@ async function untilLookupsHeld(database: PrismaClient, count: number): Promise<
       SELECT count(*) AS held FROM pg_stat_activity
       WHERE datname = current_database() AND state = 'active' AND query LIKE '%crew_token_hash%' AND pid <> pg_backend_pid()`;
     if (row !== undefined && Number(row.held) >= count) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+/** Waits until a console call's use of its session waits on the session's row. */
+async function untilSessionUseWaits(database: PrismaClient): Promise<void> {
+  for (;;) {
+    const [row] = await database.$queryRaw<{ waiting: bigint }[]>`
+      SELECT count(*) AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%console_sessions%' AND pid <> pg_backend_pid()`;
+    if (row !== undefined && Number(row.waiting) >= 1) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -162,5 +175,107 @@ describe('a fleet whose connections are all in use', () => {
     const stored = await database.$queryRaw<{ id: string }[]>`SELECT id FROM messages WHERE idempotency_key = ${key}`;
     await Promise.all(held);
     expect({ answer, stored }).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
+  });
+});
+
+// A console call looks up its session before its transaction, in the same
+// pool: first the live session it uses, then, when there is none, why the
+// session ended. A console call that gets no connection for either in the
+// 10 s a call waits is refused as busy, as a ship's call is.
+
+describe('a fleet whose connections are all in use when a console session is looked up', () => {
+  let database: PrismaClient;
+  let argo: Caller;
+  let server: FastifyInstance;
+  let address: string;
+
+  beforeAll(async () => {
+    const databaseUrl = await createMigratedDatabase();
+    database = createPrismaClient(databaseUrl);
+    argo = operatorCaller(
+      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+    );
+    server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
+  });
+
+  afterAll(async () => {
+    await server.close();
+    await database.$disconnect();
+  });
+
+  /** Crew tokens of ships commissioned by argo and crewed through REST: they will hold the pool's connections. */
+  async function holders(prefix: string, count: number): Promise<string[]> {
+    return Promise.all(
+      Array.from({ length: count }, async (_, index) => {
+        const { shipId, secret } = unwrap(
+          await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `${prefix}-${index}`, type: 'reviewer' }),
+        );
+        const response = await fetch(`${address}/api/v1/ship/register`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
+        });
+        return z.object({ crewToken: z.string() }).parse(await response.json()).crewToken;
+      }),
+    );
+  }
+
+  /** Each holder's crew-token lookup holds a connection until its trigger lets go. */
+  function holdConnections(tokens: string[]): Promise<Response>[] {
+    return tokens.map((token) => fetch(`${address}/api/v1/ship/whoami`, { headers: { authorization: `Bearer ${token}` } }));
+  }
+
+  /** A console query as the browser makes it, with the session cookie: its answer. */
+  async function consoleCall(sessionToken: string): Promise<{ status: number; error: unknown }> {
+    const response = await fetch(`${address}/trpc/console.notices`, { headers: { cookie: `aeolus_session=${sessionToken}` } });
+    const { error } = z.object({ error: z.object({ message: z.string(), data: z.object({ code: z.string() }) }) }).parse(await response.json());
+    return { status: response.status, error: { code: error.data.code, message: error.message } };
+  }
+
+  it('refuses a console call as busy when it gets no connection to use its session', { timeout: 120_000 }, async () => {
+    const tokens = await holders('live', POOL_SIZE);
+    const { token } = unwrap(await createUseCases({ prisma: database }).signIn(OPERATOR));
+    await slowLookupsExceptFor(database, argo.shipId);
+    const held = holdConnections(tokens);
+    await untilLookupsHeld(database, POOL_SIZE);
+
+    const answer = await consoleCall(token);
+
+    await Promise.all(held);
+    expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
+  });
+
+  it('refuses a console call as busy when it gets no connection to learn why its session ended', { timeout: 120_000 }, async () => {
+    const tokens = await holders('ended', POOL_SIZE);
+    const { token } = unwrap(await createUseCases({ prisma: database }).signIn(OPERATOR));
+    await slowLookupsExceptFor(database, argo.shipId);
+    let letGo = (): void => undefined;
+    let ended = (): void => undefined;
+    const sessionEnded = new Promise<void>((resolve) => (ended = resolve));
+    // Ends the session in a transaction kept open, so the console call's use
+    // of the session waits on its row, holding a connection, until it commits.
+    const ending = database.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`
+          UPDATE console_sessions SET ended_at = now(), end_reason = 'takenOver'
+          WHERE fleet_id = ${argo.fleetId} AND ended_at IS NULL AND lease_id IS NOT NULL`;
+        ended();
+        await new Promise<void>((resolve) => (letGo = resolve));
+      },
+      { timeout: 60_000 },
+    );
+    await sessionEnded;
+    const answering = consoleCall(token);
+    await untilSessionUseWaits(database);
+    const held = holdConnections(tokens);
+    await untilLookupsHeld(database, POOL_SIZE - 1);
+    letGo();
+    await ending;
+
+    const answer = await answering;
+
+    await Promise.all(held);
+    expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
   });
 });
