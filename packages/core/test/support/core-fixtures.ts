@@ -39,6 +39,7 @@ import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
 import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
 import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
+import { createExplainReach } from '../../src/domain/registry/explain-reach.js';
 import { createUnregisterNetworkPlugin } from '../../src/domain/registry/unregister-network-plugin.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/domain/registry/commission-ship.js';
@@ -173,6 +174,7 @@ export function registryUseCases(core: InMemoryCore) {
     registerNetworkPlugin: createRegisterNetworkPlugin(deps),
     unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),
     readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals }),
+    explainReach: createExplainReach(deps),
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),
     unassignLabel: createUnassignLabel(deps),

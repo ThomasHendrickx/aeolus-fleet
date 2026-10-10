@@ -7,6 +7,7 @@ import { useAccess } from './access';
 import { connectNetworkingPlugin, readNetwork, readNetworkingPluginConnection, saveNetworkDeclaration, saveNetworkRules } from './networking-plugin-actions';
 import type { Network, NetworkDeclaration } from './networking-plugin-schemas';
 import { dataOf } from './plugin-answer';
+import { useTRPC } from './trpc';
 
 /**
  * The networking plugin as the browser reads it (decision 0036): its
@@ -62,11 +63,14 @@ export function useNetwork() {
 
 /** Save the rules whole, or none for all-to-all; the answer holds what the supply did. */
 export function useSaveNetworkRules() {
+  const trpc = useTRPC();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (rules: NetworkRule[] | null) => dataOf(await saveNetworkRules(rules)),
-    onSuccess: (saved) => {
+    onSuccess: async (saved) => {
       queryClient.setQueryData<Network>(NETWORK_KEY, (network) => (network === undefined ? undefined : { ...network, rules: saved.rules }));
+      // The fleet graph asks the fleet again: the reach it shows follows the rules just supplied.
+      await queryClient.invalidateQueries({ queryKey: trpc.fleet.explainReach.pathKey() });
     },
   });
 }

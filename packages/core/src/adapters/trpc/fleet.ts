@@ -64,6 +64,8 @@ import {
   deleteLabelInputSchema,
   findLabelValueInputSchema,
   reachRefusalsOutputSchema,
+  explainReachInputSchema,
+  explainReachOutputSchema,
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
   setNetworkRulesOutputSchema,
@@ -578,6 +580,12 @@ export const fleetRouter = router({
         whilePluginUnavailable,
       })),
     ),
+
+  /** Which ships a ship reaches now, or whether it reaches one: argo's only, and never why (design on #260). */
+  explainReach: scopedProcedure('fleet:read')
+    .input(explainReachInputSchema)
+    .output(explainReachOutputSchema)
+    .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
   ship: anyScopeProcedure('fleet:read', 'crew:run')

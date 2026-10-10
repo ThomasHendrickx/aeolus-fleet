@@ -9,6 +9,7 @@ import type { Caller } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { newKey } from '../packages/core/test/support/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/test/support/result.js';
 import { createNetworkingPluginApp, type NetworkingPluginApp } from '../packages/networking-plugin/src/app.js';
@@ -22,7 +23,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // browser. Network then shows the fleet all-to-all; argo sets a rule from
 // label values, the plugin supplies it, and the fleet holds it. Argo changes
 // what the plugin declares for while it is unavailable, and turning rules
-// off, once confirmed, leaves the fleet all-to-all again.
+// off, once confirmed, leaves the fleet all-to-all again. On the fleet graph,
+// picking a ship shows which ships the rules let it message (S3).
 
 const clock = createTestClock(new Date().toISOString());
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
@@ -136,6 +138,30 @@ describe('the networking plugin in the console', () => {
 
     await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
     await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([{ from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] }]);
+  });
+
+  it('shows on the fleet graph which ships a picked ship may message, as the fleet explains it', async () => {
+    const labelled: [string, string | undefined][] = [
+      ['ops-agent', 'team=ops'],
+      ['vault', 'tier=sensitive'],
+      ['scout', undefined],
+    ];
+    for (const [name, value] of labelled) {
+      const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'agent' }));
+      const valueId = value === undefined ? undefined : valueIds.get(value);
+      if (valueId !== undefined) {
+        unwrap(await useCases.assignLabel(argo, { shipId, valueId }));
+      }
+    }
+    const page = await signedIn();
+    await page.getByTestId('nav-network').click();
+    const reach = page.getByTestId('network-reach');
+
+    await reach.getByRole('button', { name: 'ops-agent' }).click();
+
+    await expect.poll(() => reach.getByTestId('network-reach-summary').textContent(), WITHIN).toBe('ops-agent may message 2 of 4 ships: argo, vault.');
+    await expect(reach.getByRole('button', { name: 'scout, out of reach' }).isVisible()).resolves.toBe(true);
+    expect(page.url()).toContain('/network?reach=shp_');
   });
 
   it('changes what the plugin declares for while it is unavailable, and the plugin registers again with it', async () => {

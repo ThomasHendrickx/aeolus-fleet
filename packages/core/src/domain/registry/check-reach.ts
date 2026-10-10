@@ -90,7 +90,7 @@ export async function checkReach(
 const NOT_REACHABLE_MESSAGE = 'The network rules do not allow this send';
 
 /** The rules in force at the send: the plugin's crew last seen, read without a lock, says whether it responds. */
-async function rulesInForceAt(tx: CheckReachTx, at: { settings: NetworkSettings; now: Date }): Promise<RulesInForce> {
+export async function rulesInForceAt(tx: Pick<CheckReachTx, 'leases'>, at: { settings: NetworkSettings; now: Date }): Promise<RulesInForce> {
   const { settings, now } = at;
   const { plugin } = settings;
   if (plugin === null) {
@@ -100,13 +100,13 @@ async function rulesInForceAt(tx: CheckReachTx, at: { settings: NetworkSettings;
   return rulesInForce(settings, isNetworkPluginResponding(plugin, { lastSeenAt, now }));
 }
 
-interface ShipAsItIs {
+export interface ShipAsItIs {
   ship: Ship;
   labels: CarriedLabel[];
 }
 
 /** The ship with the label values it carries now, by key then value, with their texts. */
-async function shipAsItIs(tx: CheckReachTx, ship: Ship): Promise<ShipAsItIs> {
+export async function shipAsItIs(tx: Pick<CheckReachTx, 'labels'>, ship: Ship): Promise<ShipAsItIs> {
   const labels: CarriedLabel[] = [];
   for (const carried of await tx.labels.carriedBy(ship.fleetId, ship.id)) {
     const label = await tx.labels.find(ship.fleetId, carried.labelId);
@@ -119,7 +119,7 @@ async function shipAsItIs(tx: CheckReachTx, ship: Ship): Promise<ShipAsItIs> {
   return { ship, labels };
 }
 
-function reaching({ ship, labels }: ShipAsItIs): ReachingShip {
+export function reaching({ ship, labels }: ShipAsItIs): ReachingShip {
   return { kind: ship.kind, labels: labels.map((label) => label.valueId) };
 }
 

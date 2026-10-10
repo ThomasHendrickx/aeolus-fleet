@@ -214,6 +214,12 @@ describe('a send under network rules', () => {
     ]);
   });
 
+  it('explained to argo, answers the ships the sender reaches now, read from the store', async () => {
+    const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
+
+    expect(explained.reachableShipIds).toEqual([argo.shipId, vault.shipId]);
+  });
+
   it('lets a ship answer the sender of a message it received', async () => {
     const asked = unwrap(await core.useCases.sendMessage(planner, aMessage(vault))).messageId;
 

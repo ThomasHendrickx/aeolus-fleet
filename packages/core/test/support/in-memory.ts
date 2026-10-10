@@ -392,6 +392,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.ships.find((held) => held.fleetId === fleetId && held.name === name && held.retiredAt === null);
         return Promise.resolve(found && { ...found });
       },
+      listActive: (fleetId) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.kind !== 'viewer')
+            .sort((first, second) => first.id.localeCompare(second.id))
+            .map((held) => structuredClone(held)),
+        ),
       listActiveOfType: (fleetId, type) =>
         Promise.resolve(
           state.ships
