@@ -150,6 +150,8 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 
 Every promise in the blueprint maps to one Postgres transaction. Nothing the guarantee depends on is held only in memory, so a crash of the Node process loses nothing.
 
+A transaction waits up to 10 seconds for a connection from the pool (pg's default size). A call whose transaction gets none in that time never started, so it stored nothing: it is refused as `SERVICE_UNAVAILABLE` (HTTP 503 over REST, the same code over MCP and `/trpc`), saying the fleet is busy, nothing was stored and to make the same call again (a send with the same idempotency key). It is never answered as a server failure.
+
 ### Core tables
 
 Every table except `fleets` and the installation's `installation_requests`, `installation_settings`, `notices` and `guides` carries a `fleet_id`, and every uniqueness rule is per fleet. Every foreign key has an index leading with its columns, so deleting a referenced row (deleting a fleet deletes all of its rows) checks the rows that reference it with an index, never a scan. A self-hosted server creates one fleet at first run; a hosting installation creates more through the installation procedures.

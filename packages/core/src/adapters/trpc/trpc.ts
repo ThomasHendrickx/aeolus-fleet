@@ -4,10 +4,15 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { hasScope, isCrew, type Caller, type Crew } from '../../domain/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../domain/shared/errors.js';
 import type { Result } from '../../domain/shared/result.js';
+import { isFleetBusy } from '../prisma/fleet-busy.js';
 import type { Context } from './context.js';
 
 /** All a caller learns of a server failure, with the request's id; the log keeps the rest under that id. */
 export const INTERNAL_ERROR_MESSAGE = 'Internal error';
+
+/** What a caller reads when no database connection came free in time: the call stored nothing and can be made again. */
+export const FLEET_BUSY_MESSAGE =
+  'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).';
 
 /**
  * What a procedure says about itself. A ship procedure's description is what
@@ -220,6 +225,10 @@ function fieldName(path: InputPath): string {
  * Postgres text can never store the character U+0000, so this one check at
  * the door refuses it in any text input, as a bad request naming the field,
  * before anything else reads the input.
+ *
+ * A call whose transaction got no database connection in time stored nothing,
+ * so it is refused as SERVICE_UNAVAILABLE (503), never answered as a server
+ * failure: the caller makes the same call again.
  */
 export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => {
   // Input that does not parse is left to the procedure: one without input,
@@ -231,7 +240,11 @@ export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => 
     const where = path.length === 0 ? 'The input' : `The input field ${fieldName(path)}`;
     throw new TRPCError({ code: 'BAD_REQUEST', message: `${where} cannot hold the character U+0000 (NUL)` });
   }
-  return next();
+  const result = await next();
+  if (!result.ok && isFleetBusy(result.error)) {
+    throw new TRPCError({ code: 'SERVICE_UNAVAILABLE', message: FLEET_BUSY_MESSAGE, cause: result.error });
+  }
+  return result;
 });
 
 /**
