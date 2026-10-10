@@ -297,8 +297,9 @@ export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, is
         {hasTheme(account) && (
         <div className="flex flex-col gap-1.5 border-t border-border pt-3">
           <p className="text-caption text-muted-foreground">Theme</p>
+          {/* null, never undefined: Tabs left without a value choose a tab by themselves and send it as a theme write, as when signing out clears the account (#583). */}
           <Tabs
-            value={theme}
+            value={theme ?? null}
             onValueChange={(value: unknown) => {
               const picked = themeOf(value, themes);
               if (picked !== undefined) {
