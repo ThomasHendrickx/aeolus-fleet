@@ -19,6 +19,10 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
+/** How long after Sign out the reads the page asks are counted. */
+const AFTER_SIGN_OUT_MS = 3_000;
+/** Each read may be asked once more as the console forgets what it loaded, and once for a page still on its way out; never in a loop. */
+const MOST_ASKS_AFTER_SIGN_OUT = 2;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -132,5 +136,23 @@ describe.each([
 
     await page.waitForURL(`${web.url}/sign-in`);
     await expect(page.context().cookies()).resolves.toEqual([]);
+  });
+
+  it('signs out without asking the console reads again and again', async () => {
+    const page = await signedInPage({ isPhone });
+    await visible(page, 'account-menu').click();
+    const readsAsked: string[] = [];
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (pathname.startsWith('/api/reads/')) {
+        readsAsked.push(pathname);
+      }
+    });
+
+    await visible(page, 'account-sign-out').click();
+    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+
+    const mostAsked = Math.max(0, ...readsAsked.map((read) => readsAsked.filter((asked) => asked === read).length));
+    expect(mostAsked).toBeLessThanOrEqual(MOST_ASKS_AFTER_SIGN_OUT);
   });
 });
