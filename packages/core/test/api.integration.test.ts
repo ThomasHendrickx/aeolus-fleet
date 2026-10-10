@@ -191,6 +191,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_scope$/),
       expect.stringMatching(/^\d{14}_network_rules$/),
       expect.stringMatching(/^\d{14}_type_delivery_reachable_ships$/),
+      expect.stringMatching(/^\d{14}_crew_request_is_final$/),
     ]);
   });
 });

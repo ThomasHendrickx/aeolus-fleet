@@ -161,4 +161,25 @@ describe('a crew request on Postgres', () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
     await expect(core.useCases.listFleet(argo).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest?.givenBack)).resolves.toEqual([]);
   });
+  it('keeps its crew final once its trierarch saw it working, so a give-back is refused after a crewing status (#472)', async () => {
+    const { shipId: pluginId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+    );
+    const { shipId: trierarchId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    await expect(core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason: 'mac-mini: nothing on screen within a minute' })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_FINAL' },
+    });
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ assignedTo: trierarchId, status: 'crewing' })]);
+  });
 });
