@@ -64,9 +64,13 @@ describe("saving argo's rules", () => {
   });
 
   it.each([
-    ['one rule over the limit', () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), 'A fleet holds at most 200 network rules (decision 0034)'],
-    ['a selector of one label value more than a ship carries', () => [aRule(1, SHIP_LABELS_MAX + 1)], 'A selector holds at most 20 label values, as a ship carries no more (decision 0034)'],
-  ])('refuses %s, keeping and supplying nothing', async (_label, rules, message) => {
+    { label: 'one rule over the limit', rules: () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), message: 'A fleet holds at most 200 network rules (decision 0034)' },
+    {
+      label: 'a selector of one label value more than a ship carries',
+      rules: () => [aRule(1, SHIP_LABELS_MAX + 1)],
+      message: 'A selector holds at most 20 label values, as a ship carries no more (decision 0034)',
+    },
+  ])('refuses $label, keeping and supplying nothing', async ({ rules, message }) => {
     await expect(saveRules({ fleetId: FLEET_ID, rules: rules() })).resolves.toEqual({ isOk: false, error: { kind: 'INVALID_NETWORK_RULES', message } });
     await expect(parts.networks.find(FLEET_ID)).resolves.toBeUndefined();
     expect(parts.fleet.state.version).toBe(0);
