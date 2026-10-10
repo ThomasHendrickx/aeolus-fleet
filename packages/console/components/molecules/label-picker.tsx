@@ -1,5 +1,6 @@
 'use client';
 
+import type { SelectorTerm } from '@aeolus-fleet/common';
 import { Boxes, ChevronLeft, ChevronRight, Search, Ship, ShipWheel } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,7 +19,18 @@ interface LabelPickerProps {
   pickedWord?: string;
   /** What each value's count counts: ships, or machines for a crew request's machine labels. */
   countWord?: 'ship' | 'machine';
+  /** A rule's side also picks a key with any value (`*`) or the same value as the other side (`#`), offered before its values (decision 0034). */
+  terms?: { picked: readonly LabelTerm[]; onPick: (term: LabelTerm) => void };
 }
+
+/** A term of a label with any value or the same value as the other side's. */
+type LabelTerm = Exclude<SelectorTerm, string>;
+
+/** The terms a key offers before its values, each with what it matches. */
+const TERMS: readonly { value: LabelTerm['value']; meaning: string; testId: string }[] = [
+  { value: '*', meaning: 'Any value', testId: 'label-picker-any' },
+  { value: '#', meaning: 'The same value as the other side', testId: 'label-picker-same' },
+];
 
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
 
@@ -29,10 +41,11 @@ function count(amount: number, one: string): string {
 /**
  * Picks one label value to filter by (canvas Labels, LabelFilter): first a
  * key, found by typing, grouped by owner with "Yours" first; then one of its
- * values, each with how many ships carry it. Back returns to the keys. Props
+ * values, each with how many ships carry it, after any value and the same
+ * value when it picks for a rule's side. Back returns to the keys. Props
  * only; what it shows while picking is its own.
  */
-export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', pickedWord = 'Picked', countWord = 'ship' }: LabelPickerProps) {
+export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', pickedWord = 'Picked', countWord = 'ship', terms }: LabelPickerProps) {
   const [query, setQuery] = useState('');
   const [openKey, setOpenKey] = useState<FilterKey | undefined>(undefined);
   const isTouch = size === 'touch';
@@ -59,6 +72,30 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', picke
           <span className="text-meta text-muted-foreground">{countWord === 'ship' ? 'Ships' : 'Machines'} with each</span>
         </div>
         <ul className="flex flex-col">
+          {terms === undefined
+            ? null
+            : TERMS.map(({ value, meaning, testId }) => {
+                const isPicked = terms.picked.some((term) => term.labelId === openKey.labelId && term.value === value);
+                return (
+                  <li key={value}>
+                    <button
+                      type="button"
+                      className={row}
+                      disabled={isPicked}
+                      data-testid={testId}
+                      onClick={() => {
+                        terms.onPick({ labelId: openKey.labelId, value });
+                        setOpenKey(undefined);
+                        setQuery('');
+                      }}
+                    >
+                      <span className="w-3 shrink-0 font-mono">{value}</span>
+                      <span className="min-w-0 grow truncate">{meaning}</span>
+                      {isPicked ? <span className="shrink-0 text-meta text-muted-foreground">{pickedWord}</span> : null}
+                    </button>
+                  </li>
+                );
+              })}
           {openKey.values.map((value) => {
             const isPicked = pickedValueIds.includes(value.valueId);
             return (
