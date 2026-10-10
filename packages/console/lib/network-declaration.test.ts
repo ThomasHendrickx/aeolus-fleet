@@ -11,7 +11,7 @@ describe('after how long the networking plugin is not responding, as argo types 
 
   it.each([
     ['59', 'At least 60 seconds.'],
-    ['86401', 'At most 86400 seconds, a day.'],
+    ['86401', 'At most 86400 seconds.'],
     ['', 'A whole number of seconds.'],
     ['90.5', 'A whole number of seconds.'],
     ['ten', 'A whole number of seconds.'],
