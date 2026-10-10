@@ -35,6 +35,15 @@ export function fakePluginFleet() {
     acked: new Array<DeliveryId>(),
   };
   const unavailable = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
+  let holding: Promise<void> | undefined;
+  /** Holds the next set of rules until the returned function lets it go, as a slow answer does. */
+  const holdNextSet = (): (() => void) => {
+    const { promise, resolve } = Promise.withResolvers<undefined>();
+    holding = promise;
+    return () => {
+      resolve(undefined);
+    };
+  };
   const notThePlugin = () => Promise.resolve(err({ code: 'FORBIDDEN', message: "Only the fleet's networking plugin does this (decision 0035)" }));
   const released = () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' }));
   const door: FleetDoor = {
@@ -96,7 +105,7 @@ export function fakePluginFleet() {
       state.version += 1;
       return Promise.resolve(ok(undefined));
     },
-    setNetworkRules: (crewToken, rules) => {
+    setNetworkRules: async (crewToken, rules) => {
       if (!state.isAnswering) {
         return unavailable();
       }
@@ -106,9 +115,14 @@ export function fakePluginFleet() {
       if (state.plugin === null) {
         return notThePlugin();
       }
+      if (holding !== undefined) {
+        const waited = holding;
+        holding = undefined;
+        await waited;
+      }
       state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
       state.version += 1;
-      return Promise.resolve(ok(undefined));
+      return ok(undefined);
     },
     receive: (crewToken) => {
       if (!state.isAnswering) {
@@ -125,7 +139,7 @@ export function fakePluginFleet() {
       return Promise.resolve(ok(undefined));
     },
   };
-  return { state, door };
+  return { state, door, holdNextSet };
 }
 
 /** A connection the store holds for one fleet: the binding stays when the crew token is dropped. */
