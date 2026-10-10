@@ -4,15 +4,17 @@ import type { NetworkRule } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAccess } from './access';
-import { connectNetworkingPlugin, readNetwork, readNetworkingPluginConnection, saveNetworkDeclaration, saveNetworkRules } from './networking-plugin-actions';
+import { fetchConsoleRead } from './fetch-console-read';
+import { connectNetworkingPlugin, saveNetworkDeclaration, saveNetworkRules } from './networking-plugin-actions';
 import type { Network, NetworkDeclaration } from './networking-plugin-schemas';
 import { dataOf } from './plugin-answer';
 import { useTRPC } from './trpc';
 
 /**
  * The networking plugin as the browser reads it (decision 0036): its
- * connection, and the network argo edits, each through a server function
- * (lib/networking-plugin-actions.ts) that calls the plugin and parses its
+ * connection, and the network argo edits. Reads are console reads
+ * (lib/console-reads.ts), changes server functions
+ * (lib/networking-plugin-actions.ts); either calls the plugin and parses its
  * answer on the web app's server.
  */
 
@@ -23,7 +25,7 @@ const NETWORK_KEY = ['networking-plugin', 'network'];
 export function useNetworkingPluginSettings() {
   return useQuery({
     queryKey: CONNECTION_KEY,
-    queryFn: async () => dataOf(await readNetworkingPluginConnection()),
+    queryFn: () => fetchConsoleRead({ read: 'networking-plugin-connection' }),
   });
 }
 
@@ -56,7 +58,7 @@ export function useNetwork() {
   const hasNetwork = useHasNetwork();
   return useQuery({
     queryKey: NETWORK_KEY,
-    queryFn: async () => dataOf(await readNetwork()),
+    queryFn: () => fetchConsoleRead({ read: 'network' }),
     enabled: hasNetwork,
   });
 }

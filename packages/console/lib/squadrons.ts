@@ -2,9 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
-import { connectSquadrons, readSquadronsConnection } from './squadrons-actions';
+import { connectSquadrons } from './squadrons-actions';
 
 const QUERY_KEY = ['squadrons', 'connection'];
 
@@ -15,7 +16,7 @@ const QUERY_KEY = ['squadrons', 'connection'];
 export function useSquadronsSettings() {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: async () => dataOf(await readSquadronsConnection()),
+    queryFn: () => fetchConsoleRead({ read: 'squadrons-connection' }),
   });
 }
 

@@ -2,22 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
-import {
-  checkCrewSettings,
-  connectTrierarchPlugin,
-  joinMachine,
-  listMachines,
-  readTrierarchPluginConnection,
-  readTrierarchPluginVersion,
-} from './trierarch-plugin-actions';
+import { connectTrierarchPlugin, joinMachine } from './trierarch-plugin-actions';
 import type { SettingsCheck } from './trierarch-plugin-schemas';
 
 /**
  * The trierarch plugin as the browser reads it (decision 0030): its
- * connection, its machines and Join a machine, each through a server function
- * (lib/trierarch-plugin-actions.ts) that calls the plugin and parses its
+ * connection, its machines and Join a machine. Reads are console reads
+ * (lib/console-reads.ts), changes server functions
+ * (lib/trierarch-plugin-actions.ts); either calls the plugin and parses its
  * answer on the web app's server.
  */
 
@@ -27,7 +22,7 @@ const CONNECTION_KEY = ['trierarch-plugin', 'connection'];
 export function useTrierarchPluginSettings() {
   return useQuery({
     queryKey: CONNECTION_KEY,
-    queryFn: async () => dataOf(await readTrierarchPluginConnection()),
+    queryFn: () => fetchConsoleRead({ read: 'trierarch-plugin-connection' }),
   });
 }
 
@@ -40,7 +35,7 @@ export function useTrierarchPluginVersion(): string | undefined {
   const isShown = useHasTrierarchPlugin();
   const query = useQuery({
     queryKey: ['console-version', 'trierarch-plugin'],
-    queryFn: async () => (await readTrierarchPluginVersion()) ?? null,
+    queryFn: () => fetchConsoleRead({ read: 'trierarch-plugin-version' }),
     enabled: isShown,
   });
   return query.data ?? undefined;
@@ -91,7 +86,7 @@ export function useMachines() {
   const isConnected = useTrierarchPluginConnection() === 'connected';
   return useQuery({
     queryKey: MACHINES_KEY,
-    queryFn: async () => dataOf(await listMachines()),
+    queryFn: () => fetchConsoleRead({ read: 'machines' }),
     refetchInterval: MACHINES_REFRESH_MS,
     enabled: isConnected,
   });
@@ -122,7 +117,7 @@ const checkKey = (settings: unknown) => ['trierarch-plugin', 'check', JSON.strin
  */
 export function useCrewSettingsCheck(settings: unknown) {
   const queryClient = useQueryClient();
-  const check = async (): Promise<SettingsCheck> => dataOf(await checkCrewSettings(settings));
+  const check = (): Promise<SettingsCheck> => fetchConsoleRead({ read: 'crew-settings-check', input: { settings } });
   const query = useQuery({
     queryKey: checkKey(settings),
     queryFn: check,

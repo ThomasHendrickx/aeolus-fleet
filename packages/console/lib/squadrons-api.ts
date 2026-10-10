@@ -3,30 +3,17 @@ import type { CrewLine } from '@aeolus-fleet/common';
 
 import type { formMembersOf } from './forming-members';
 import { useAnalytics } from './analytics-client';
+import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import { useSquadronsConnection } from './squadrons';
-import {
-  addMember,
-  addRepository,
-  forceStandDown,
-  formSquadron,
-  listRepositories,
-  listSquadrons,
-  newCrewLine,
-  readBlueprintCrew,
-  readCatalogue,
-  readKeptMessages,
-  refreshCatalogue,
-  removeMember,
-  removeRepository,
-  standDown,
-} from './squadrons-actions';
+import { addMember, addRepository, forceStandDown, formSquadron, newCrewLine, refreshCatalogue, removeMember, removeRepository, standDown } from './squadrons-actions';
 import type { FormedSquadron } from './squadrons-schemas';
 
 /**
  * The squadrons API as the browser reads it: the catalogue, the squadrons,
- * and forming, each through a server function (lib/squadrons-actions.ts) that
- * calls squadrons and parses its answer on the web app's server.
+ * and forming. Reads are console reads (lib/console-reads.ts), changes server
+ * functions (lib/squadrons-actions.ts); either calls squadrons and parses its
+ * answer on the web app's server.
  */
 
 const SQUADRONS_KEY = ['squadrons', 'list'];
@@ -38,7 +25,7 @@ export function useSquadrons() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: SQUADRONS_KEY,
-    queryFn: async () => dataOf(await listSquadrons()),
+    queryFn: () => fetchConsoleRead({ read: 'squadrons' }),
     refetchInterval: REFRESH_MS,
     enabled: isConnected,
   });
@@ -49,7 +36,7 @@ export function useKeptMessages(squadronId: string) {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'messages', squadronId],
-    queryFn: async () => dataOf(await readKeptMessages(squadronId)),
+    queryFn: () => fetchConsoleRead({ read: 'kept-messages', input: { squadronId } }),
     refetchInterval: REFRESH_MS,
     enabled: isConnected,
   });
@@ -60,7 +47,7 @@ export function useCatalogue() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'catalogue'],
-    queryFn: async () => dataOf(await readCatalogue()),
+    queryFn: () => fetchConsoleRead({ read: 'catalogue' }),
     enabled: isConnected,
   });
 }
@@ -70,7 +57,7 @@ export function useBlueprintCrew(blueprint: { repository: string; name: string; 
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: ['squadrons', 'blueprint-crew', blueprint],
-    queryFn: async () => (blueprint === undefined ? [] : dataOf(await readBlueprintCrew(blueprint))),
+    queryFn: async () => (blueprint === undefined ? [] : fetchConsoleRead({ read: 'blueprint-crew', input: blueprint })),
     enabled: isConnected && blueprint !== undefined,
   });
 }
@@ -166,7 +153,7 @@ export function useRepositories() {
   const isConnected = useSquadronsConnection() === 'connected';
   return useQuery({
     queryKey: REPOSITORIES_KEY,
-    queryFn: async () => dataOf(await listRepositories()),
+    queryFn: () => fetchConsoleRead({ read: 'repositories' }),
     enabled: isConnected,
   });
 }
