@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { FLEET_ID, OTHER_FLEET_ID, SHIP_ID, fakePluginFleet, memoryConnectionStore } from '../../../test/support/connection-fakes.js';
+import { FLEET_ID, OTHER_FLEET_ID, SHIP_ID, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
+import { memoryFleetSwitches } from '../../../test/support/memory-installation.js';
+import { createIsServed } from '../installation/served.js';
+import { createSupplies } from '../network/supplies.js';
+import { createSupplyFleet } from '../network/supply-fleet.js';
 import { createConnect } from './connect.js';
 
 const AT = new Date('2026-10-03T11:00:00.000Z');
@@ -14,7 +18,9 @@ beforeEach(() => {
 });
 
 function connect(input: { secret: string; operatorFleetId?: typeof FLEET_ID }) {
-  return createConnect({ door: fleet.door, store, clock: { now: () => AT } })({ operatorFleetId: input.operatorFleetId ?? FLEET_ID, shipId: SHIP_ID, secret: input.secret });
+  const isServed = createIsServed({ installation: 'open', switches: memoryFleetSwitches() });
+  const supplies = createSupplies({ supplyFleet: createSupplyFleet({ door: fleet.door, connections: store, networks: memoryFleetNetworks(), isServed }) });
+  return createConnect({ door: fleet.door, store, clock: { now: () => AT }, supplies })({ operatorFleetId: input.operatorFleetId ?? FLEET_ID, shipId: SHIP_ID, secret: input.secret });
 }
 
 describe('connecting the networking plugin', () => {
@@ -24,6 +30,13 @@ describe('connecting the networking plugin', () => {
       value: { state: 'connected', ship: { shipId: SHIP_ID, name: 'networking-plugin' }, lastShipId: SHIP_ID },
     });
     await expect(store.find(FLEET_ID)).resolves.toEqual({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'networking-plugin', crewToken: 'aeolus_ct_v1_1', crewedAt: AT });
+  });
+
+  it("registers as the fleet's networking plugin at once, supplying no rules: all-to-all until argo saves some", async () => {
+    await connect({ secret: 'aeolus_sk_v1_good' });
+
+    expect(fleet.state.plugin).toEqual({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
+    expect(fleet.state.rules).toBeNull();
   });
 
   it('is refused while the networking plugin is connected to the fleet: connect only from not connected', async () => {
