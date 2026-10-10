@@ -1892,6 +1892,18 @@ describe('network rules at the API', () => {
     await expect(codeOf(unregistered.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
   });
 
+  it('let argo explain which ships a ship reaches, answering only the ships, and refuse every other ship, the rule setter too', async () => {
+    const plugin = await networker();
+    await plugin.fleet.setNetworkRules.mutate({ rules: [] });
+    const { shipId: fromShipId } = await agentShip();
+    const { shipId: toShipId } = await agentShip();
+    const argo = await signedInArgo();
+
+    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId })).resolves.toEqual({ reachableShipIds: [] });
+    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId: argoId })).resolves.toEqual({ reachableShipIds: [argoId] });
+    await expect(codeOf(plugin.fleet.explainReach.query({ fromShipId }))).resolves.toBe('FORBIDDEN');
+  });
+
   it('answer rules over the limits with BAD_REQUEST naming decision 0034', async () => {
     const refused = await refusalOf((await networker()).fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) }));
 
