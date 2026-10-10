@@ -117,7 +117,8 @@ export const confirmCrewReleaseOutputSchema = z.strictObject({});
 
 /**
  * Output of `fleet.assignedCrewRequests` (crew:run): the crew requests
- * assigned to the caller's ship, oldest ship first (ISO 8601 in UTC).
+ * assigned to the caller's ship, oldest ship first (ISO 8601 in UTC), each
+ * saying whether its crew is final, so its trierarch never derives it (#477).
  */
 export const assignedCrewRequestsOutputSchema = z.array(
   z.object({
@@ -126,6 +127,8 @@ export const assignedCrewRequestsOutputSchema = z.array(
     settingsVersion: z.int().min(1),
     requestedAt: z.iso.datetime(),
     status: crewStatusSchema.nullable(),
+    /** Whether its crew is final (decision 0029): kept whatever status follows, cleared on every new settings version. */
+    isFinal: z.boolean(),
   }),
 );
 

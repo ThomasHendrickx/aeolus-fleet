@@ -304,7 +304,7 @@ export const fleetRouter = router({
   /** The crew requests assigned to the caller's ship: a trierarch's ships. */
   assignedCrewRequests: scopedProcedure('crew:run')
     .meta({
-      description: ['Needs crew:run. The crew requests assigned to your ship, oldest ship first: each ship, its settings and their version, and its status.'].join(
+      description: ['Needs crew:run. The crew requests assigned to your ship, oldest ship first: each ship, its settings and their version, its status, and whether its crew is final.'].join(
         ' ',
       ),
     })
