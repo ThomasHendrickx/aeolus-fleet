@@ -127,6 +127,10 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
       const acked = await call(fleetUrl, { path: '/ship/ack', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
       return acked.isOk ? ok(undefined) : acked;
     },
+    pong: async (crewToken, deliveryId) => {
+      const ponged = await call(fleetUrl, { path: '/ship/pong', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
+      return ponged.isOk ? ok(undefined) : ponged;
+    },
     send: (crewToken, message) =>
       call(fleetUrl, { path: '/ship/send', method: 'POST', crewToken, body: { ...message, model: SQUADRONS_SELF.model }, answers: z.object({ messageId: idSchema('message') }) }),
     listShips: async (crewToken) => {
