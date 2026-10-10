@@ -170,6 +170,23 @@ describe('a selector as the editor shows it', () => {
     expect(selectorOf([OPS, SENSITIVE], CONTEXT).chips.map((chip) => `${chip.key}=${chip.value}`)).toEqual(['team=ops', 'tier=sensitive']);
   });
 
+  it('shows a term of any value as key=* and one of the same value as key=#, each by its term', () => {
+    expect(selectorOf([OPS, ANY_TEAM, SAME_TEAM], CONTEXT).chips.map((chip) => [`${chip.key}=${chip.value}`, chip.term])).toEqual([
+      ['team=ops', OPS],
+      ['team=*', ANY_TEAM],
+      ['team=#', SAME_TEAM],
+    ]);
+  });
+
+  it('counts a term of any or the same value of a label the fleet no longer has', () => {
+    const gone = newId('label');
+
+    expect(selectorOf([{ labelId: gone, value: '*' }, ANY_TEAM, { labelId: gone, value: '#' }], CONTEXT).unknown).toEqual([
+      { labelId: gone, value: '*' },
+      { labelId: gone, value: '#' },
+    ]);
+  });
+
   it('counts values the fleet no longer has: that side matches no ship (decision 0034)', () => {
     const gone = newId('labelValue');
 
