@@ -37,6 +37,9 @@ export default defineConfig({
   resolve: { conditions },
   ssr: { resolve: { conditions } },
   test: {
+    // A poll's own default (1 second) holds only on an idle machine; a full
+    // run shares its machine with servers, browsers and other runs (#499).
+    expect: { poll: { timeout: 10_000 } },
     projects: inLayerOrder([
       {
         extends: true,
