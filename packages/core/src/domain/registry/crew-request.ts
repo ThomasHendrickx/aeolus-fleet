@@ -43,6 +43,8 @@ export interface CrewRequest {
   attempt: number;
   /** When the session its trierarch runs now started, written with the status; null while none runs. */
   sessionStartedAt: Date | null;
+  /** Whether its crew is final: set by its trierarch's first running, restarting or crashed, and kept whatever status follows (#382, #472). */
+  isFinal: boolean;
   /** The trierarchs that gave it back before their crew was final, oldest first (#382); cleared on every new settings version. */
   givenBack: GiveBack[];
 }
@@ -109,6 +111,7 @@ export function requestCrew(
     reason: current?.reason ?? null,
     attempt: current?.attempt ?? 0,
     sessionStartedAt: current?.sessionStartedAt ?? null,
+    isFinal: current?.isFinal ?? false,
     // New settings may fit the trierarchs that gave the old ones back.
     givenBack: [],
   };
@@ -215,6 +218,8 @@ function checkAssignedTo({ ship, current, trierarchShipId }: { ship: Ship; curre
  * The assigned trierarch writes how its crew of the ship stands, with the
  * restart attempt and when the session started (#332), and CrewStatusChanged
  * when any of them changes. Once the request is releasing, only releasing.
+ * Its first running, restarting or crashed makes the crew final, and no later
+ * status undoes it (#472).
  */
 export function reportCrewStatus(
   { ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId },
@@ -235,7 +240,13 @@ export function reportCrewStatus(
     return ok({ request: current, events: [] });
   }
   return ok({
-    request: { ...current, status: input.status, attempt: input.attempt, sessionStartedAt: input.sessionStartedAt },
+    request: {
+      ...current,
+      status: input.status,
+      attempt: input.attempt,
+      sessionStartedAt: input.sessionStartedAt,
+      isFinal: current.isFinal || FINAL_STATUSES.has(input.status),
+    },
     events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewStatusChanged', details: { status: input.status, attempt: input.attempt } })],
   });
 }
@@ -269,8 +280,9 @@ export type GiveBackCrewRequestRefusal =
 
 /**
  * The assigned trierarch gives back a request it tried to fulfil and failed,
- * with a reason (#382): only while its crew is not final, its status none or
- * crewing, and only the settings version it tried. The request is unassigned
+ * with a reason (#382): only while its crew is not final, never once its
+ * trierarch reported it running, restarting or crashed, whatever it reported
+ * since (#472), and only the settings version it tried. The request is unassigned
  * again, its status cleared, and the trierarch recorded, with
  * CrewRequestGivenBack, so placement leaves it out. A repeat by the same
  * trierarch for the same version, after a lost answer, is an OK with no
@@ -294,8 +306,8 @@ export function giveBackCrewRequest(
   if (current.status === 'releasing') {
     return refuse('CREW_REQUEST_RELEASING', `${ship.name}'s crew request is releasing: stop its session, end its lease and confirm`);
   }
-  if (current.status !== null && FINAL_STATUSES.has(current.status)) {
-    return refuse('CREW_REQUEST_FINAL', `${ship.name}'s crew is final (${current.status}): a request is given back only before its crew works`);
+  if (current.isFinal) {
+    return refuse('CREW_REQUEST_FINAL', `${ship.name}'s crew is final: a request is given back only before its crew works`);
   }
   if (input.settingsVersion !== current.settingsVersion) {
     return refuse(

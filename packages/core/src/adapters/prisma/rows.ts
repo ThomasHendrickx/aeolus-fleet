@@ -119,6 +119,7 @@ const crewRequestRow = z.object({
   reason: z.string().nullable(),
   attempt: z.int().min(0),
   sessionStartedAt: z.date().nullable(),
+  isFinal: z.boolean(),
   givenBack: z.array(z.object({ trierarchShipId: idSchema('ship'), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.date() })),
 });
 
@@ -212,6 +213,7 @@ const shipFactsSqlRow = z.object({
   crew_request_reason: z.string().nullable(),
   crew_request_attempt: z.int().min(0).nullable(),
   crew_request_session_started_at: z.date().nullable(),
+  crew_request_is_final: z.boolean().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
   labels: z.array(carriedLabelSchema),
@@ -246,6 +248,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_reason,
     crew_request_attempt,
     crew_request_session_started_at,
+    crew_request_is_final,
     crewed_by_id,
     crewed_by_name,
     labels,
@@ -279,6 +282,7 @@ export function toShipFacts(row: unknown): ShipFacts {
             reason: crew_request_reason,
             attempt: crew_request_attempt ?? 0,
             sessionStartedAt: crew_request_session_started_at,
+            isFinal: crew_request_is_final ?? false,
             givenBack: crew_request_given_back.map(({ trierarchShipId, settingsVersion, reason, givenBackAt }) => ({ trierarchShipId, settingsVersion, reason, givenBackAt })),
           }
         : null,
