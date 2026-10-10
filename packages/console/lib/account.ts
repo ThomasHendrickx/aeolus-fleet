@@ -26,7 +26,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   const accountUrl = useHostedAccountUrl();
   const { themes } = useConsoleConstants();
   const guide = useConsoleGuide();
-  // With the trierarch plugin on, the phone's tab bar has no room for Settings: the account sheet offers it (#245, decision 6).
+  // The phone's tab bar has no place for Settings or Network: the account sheet offers each while it is offered (#245, #503).
   const pluginNav = usePluginNav();
   const setTheme = useMutation(
     trpc.console.setTheme.mutationOptions({
@@ -66,7 +66,8 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   };
 
   return {
-    ...(pluginNav.hasTrierarchs && pluginNav.hasSettings ? { settingsHref: '/settings' } : {}),
+    ...(pluginNav.hasSettings ? { settingsHref: '/settings' } : {}),
+    ...(pluginNav.hasNetwork ? { networkHref: '/network' } : {}),
     account: account.data,
     themes,
     onThemeChange: (theme: Theme) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronsUpDown, CircleUserRound, CodeXml, Compass, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Settings, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CircleUserRound, CodeXml, Compass, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, Network, Settings, Sun, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -50,11 +50,13 @@ export interface AccountMenuProps {
   /** Opens the installation's guide at its first step (decision 0024); unset while no guide is for the session, so the menu offers no Take the tour. */
   onTakeTour?: () => void;
   /**
-   * Where Settings is, for the phone's sheet: with the trierarch plugin on,
-   * Trierarchs takes the tab bar's place and Settings moves here (#245,
-   * decision 6). Desktop keeps Settings in the Sidebar.
+   * Where Settings is, for the phone's sheet whenever Settings is offered: the
+   * tab bar has no place for it (#245, #503). Desktop keeps Settings in the
+   * Sidebar.
    */
   settingsHref?: string;
+  /** Where Network is, for the phone's sheet while it is offered (#503). Desktop keeps Network in the Sidebar. */
+  networkHref?: string;
 }
 
 /** The menu's label for the hosting service's account page. */
@@ -225,7 +227,7 @@ export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigni
  * same content as a bottom Sheet, with Theme as a segmented control and
  * Cancel at the bottom.
  */
-export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref }: AccountMenuProps) {
+export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref, networkHref }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
@@ -265,6 +267,19 @@ export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, is
             <Compass aria-hidden />
             {TAKE_THE_TOUR}
           </button>
+        )}
+        {networkHref === undefined ? null : (
+          <Link
+            href={networkHref}
+            data-testid="account-network"
+            onClick={() => {
+              setIsOpen(false);
+            }}
+            className="flex h-(--size-control-touch) items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground"
+          >
+            <Network aria-hidden />
+            Network
+          </Link>
         )}
         {settingsHref === undefined ? null : (
           <Link
