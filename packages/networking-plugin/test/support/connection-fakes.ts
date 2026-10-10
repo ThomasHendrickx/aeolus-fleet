@@ -16,6 +16,8 @@ export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
  * them with it. Deliveries wait for the plugin's ship until acknowledged.
  */
 export function fakePluginFleet() {
+  /** The fleet's networking plugin, what it declared, or none; and its rules, none for all-to-all. */
+  const network: { plugin: NetworkPluginDeclaration | null; rules: readonly NetworkRule[] | null } = { plugin: null, rules: null };
   const state = {
     secret: 'aeolus_sk_v1_good',
     fleetId: FLEET_ID,
@@ -25,10 +27,7 @@ export function fakePluginFleet() {
     liveTokens: new Set<string>(),
     registers: 0,
     deregistered: new Array<string>(),
-    /** The fleet's networking plugin: what it declared, or none. */
-    plugin: null as NetworkPluginDeclaration | null,
-    /** The fleet's rules: none is all-to-all. */
-    rules: null as readonly NetworkRule[] | null,
+    ...network,
     /** Every change of the network settings, as the server moves its version. */
     version: 0,
     /** The deliveries waiting for the plugin's ship, until acknowledged. */

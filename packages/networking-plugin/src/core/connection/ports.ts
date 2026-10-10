@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -30,6 +30,16 @@ export interface FleetDoor {
   getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<FleetShip, FleetRefusal>>;
   /** Ends this session's crew of its ship: the lease and the secret it claimed with. */
   deregister(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
+  /** Makes the crew token's ship the fleet's networking plugin with what it declares, or declares again (fleet:network, decision 0035). */
+  registerNetworkPlugin(crewToken: string, declaration: NetworkPluginDeclaration): Promise<Result<undefined, FleetRefusal>>;
+  /** The plugin unregisters, its rules going with it; FORBIDDEN when its ship is not the fleet's plugin. */
+  unregisterNetworkPlugin(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
+  /** Sets the fleet's rules, the whole list, or none for all-to-all; only the fleet's plugin may (decision 0034). */
+  setNetworkRules(crewToken: string, rules: readonly NetworkRule[] | null): Promise<Result<undefined, FleetRefusal>>;
+  /** The deliveries waiting for the crew token's ship, waiting a while for one (a long poll), until the signal aborts. */
+  receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<{ deliveryId: DeliveryId }[], FleetRefusal>>;
+  /** Acknowledges a delivery: received. */
+  ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
 }
 
 /** The crew token the networking plugin holds for its ship in a fleet, and when it got it. */
