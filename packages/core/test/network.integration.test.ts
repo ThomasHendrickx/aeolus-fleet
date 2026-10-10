@@ -126,6 +126,14 @@ describe('the networking plugin (decision 0035)', () => {
     ]);
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginUnregistered' } })).resolves.toBe(1);
   });
+
+  it('retired, unregisters in the retirement\'s transaction', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+
+    unwrap(await core.useCases.retireShip(argo, { shipId: plugin.shipId }));
+
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true } })).resolves.toEqual([{ rules: null, version: 2, pluginShipId: null }]);
+  });
 });
 
 describe('a send under network rules', () => {

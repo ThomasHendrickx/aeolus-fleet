@@ -11,7 +11,8 @@ import { removeClearRequestsOf } from './clear-request.js';
 import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
-import type { ClearRequestRepository, CrewRequestRepository, LabelRepository, ShipRepository } from './ports.js';
+import { unregisterNetworkPlugin } from './network-settings.js';
+import type { ClearRequestRepository, CrewRequestRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
 import { checkCanRetire, type RetireRefusal } from './ship.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
@@ -19,6 +20,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx {
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
+  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
@@ -41,13 +43,15 @@ export type RetireShip = (
  * and the labels it owns retire with it, each locked first and every
  * assignment of it gone first (decision 0031). A retired trierarch clears
  * nothing: its pending clear requests go, one WorktreeClearRemoved each
- * (decision 0032). The caller's scope
- * (fleet:manage) is checked before this runs.
+ * (decision 0032). A retired networking plugin unregisters, its rules going
+ * with it: all-to-all (decision 0035). The caller's scope (fleet:manage) is
+ * checked before this runs.
  *
  * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
  * the ship holds it FOR SHARE while it resolves the selector, so the two
  * serialise: a send that commits first has its delivery abandoned here, and a
- * send after finds the ship retired and is refused.
+ * send after finds the ship retired and is refused. Then it holds the
+ * network settings exclusively, after the ship as every send takes them.
  */
 export function createRetireShip(deps: {
   uow: UnitOfWork<RetireShipTx>;
@@ -121,6 +125,14 @@ export function createRetireShip(deps: {
       }
       for (const event of labels.events) {
         await recordEvent(recorded, event);
+      }
+      // Any ship but the fleet's networking plugin leaves the settings as they are.
+      const unregistered = unregisterNetworkPlugin(await tx.networkSettings.findForUpdate(fleetId), { shipId, at, actor });
+      if (unregistered.isOk) {
+        await tx.networkSettings.save(unregistered.value.settings);
+        for (const event of unregistered.value.events) {
+          await recordEvent(recorded, event);
+        }
       }
       return ok({ abandonedDeliveries: abandoned.length });
     });
