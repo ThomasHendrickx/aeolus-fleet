@@ -1,7 +1,7 @@
 import type { ShipStatus } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ConnectPluginError, connectPlugin, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { ConnectPluginError, connectPlugin, NETWORKING_PLUGIN_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
 
 interface FleetShip {
   id: string;
@@ -150,5 +150,16 @@ describe('connecting the trierarch plugin from the console', () => {
     const { calls } = fakes({ ships: [{ id: 'shp_5', name: 'trierarch-plugin', type: 'reviewer', status: 'awaitingCrew', secret: null }] });
 
     await expect(connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey })).rejects.toThrow('A ship named trierarch-plugin of another type exists');
+  });
+});
+
+describe('connecting the networking plugin from the console', () => {
+  it('commissions networking-plugin with fleet:read and fleet:network, the scopes it registers and supplies rules with (decision 0036)', async () => {
+    const { calls, state } = fakes();
+
+    await expect(connectPlugin(calls, { ship: NETWORKING_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'networking-plugin' } });
+
+    expect(state.done).toEqual(['commission networking-plugin']);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:network']]);
   });
 });
