@@ -1,7 +1,9 @@
 'use client';
 
+import type { ShipId } from '@aeolus-fleet/common';
 import { Network } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
@@ -12,13 +14,14 @@ import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
+import { FleetReachGraph } from '../../components/organisms/fleet-reach-graph';
 import { NetworkDeclarationForm } from '../../components/organisms/network-declaration-form';
 import { NetworkRulesEditor } from '../../components/organisms/network-rules-editor';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { useConsoleConstants } from '../../lib/console-constants';
-import { useLabelContext } from '../../lib/fleet';
+import { useFleetSnapshot, useLabelContext } from '../../lib/fleet';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useAttentionCount, useNeedsAttention } from '../../lib/needs-attention';
@@ -27,18 +30,22 @@ import { supplyNote } from '../../lib/network-rules';
 import { useHasNetwork, useNetwork, useSaveNetworkDeclaration, useSaveNetworkRules } from '../../lib/networking-plugin';
 import { useNow } from '../../lib/now';
 import { usePluginNav } from '../../lib/plugin-nav';
+import { networkPathOf, useShipReach } from '../../lib/reach';
+import { graphShipsOf } from '../../lib/reach-graph';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 
 const DESCRIPTION = 'Who may message whom. The networking plugin supplies these rules to the fleet, which checks them on every send. Only argo sees this page.';
 
 /**
- * Network (#260, S2b-2; decisions 0034 to 0036): the networking plugin's
- * page, argo's alone while the plugin is connected. The rules, all-to-all
- * until argo sets some, and what the plugin declares for while it does not
- * respond. Without the plugin connected, or for a session without
+ * Network (#260; decisions 0034 to 0036): the networking plugin's page,
+ * argo's alone while the plugin is connected. The rules, all-to-all until
+ * argo sets some, what the plugin declares for while it does not respond,
+ * and the fleet graph showing which ships a picked ship reaches, the pick in
+ * the URL (page.tsx). Without the plugin connected, or for a session without
  * fleet:network, it says where to go instead.
  */
-export default function NetworkPage() {
+export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
+  const router = useRouter();
   const now = useNow();
   const accountMenu = useAccountMenu(now);
   const inboxCount = useOpenInboxCount();
@@ -50,6 +57,8 @@ export default function NetworkPage() {
   const hasNetwork = useHasNetwork();
   const network = useNetwork();
   const context = useLabelContext();
+  const fleet = useFleetSnapshot();
+  const reach = useShipReach(hasNetwork ? pickedShipId : undefined);
   const saveRules = useSaveNetworkRules();
   const saveDeclaration = useSaveNetworkDeclaration();
   const { networkRulesMax, shipLabelsMax, whileUnavailable, notRespondingAfterMinSeconds, notRespondingAfterMaxSeconds } = useConsoleConstants();
@@ -83,7 +92,7 @@ export default function NetworkPage() {
         }}
       />
     );
-  } else if (network.data === undefined || context === undefined) {
+  } else if (network.data === undefined || context === undefined || fleet.data === undefined) {
     content = <LoadingSkeleton variant="detail" rows={4} label="Loading the network" />;
   } else {
     content = (
@@ -110,6 +119,18 @@ export default function NetworkPage() {
           savedNote={saveDeclaration.data === undefined ? undefined : declarationNote(saveDeclaration.data.supply)}
           onSave={(declaration) => {
             saveDeclaration.mutate(declaration);
+          }}
+        />
+        <FleetReachGraph
+          ships={graphShipsOf(fleet.data)}
+          pickedShipId={pickedShipId}
+          reachableShipIds={reach.data?.reachableShipIds}
+          reachError={reach.error?.message}
+          onPick={(shipId) => {
+            router.replace(networkPathOf(shipId), { scroll: false });
+          }}
+          onRetry={() => {
+            void reach.refetch();
           }}
         />
       </>
