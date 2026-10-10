@@ -26,7 +26,7 @@ export function createSetNetworkRules(deps: { uow: UnitOfWork<SetNetworkRulesTx>
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<{ version: number }, SetNetworkRulesRefusal>> => {
       const current = await tx.networkSettings.findForUpdate(caller.fleetId);
-      const set = setNetworkRules(current, { rules: input.rules, at: deps.clock.now(), actor: shipActor(caller.shipId) });
+      const set = setNetworkRules(current, { rules: input.rules, shipId: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) });
       if (!set.isOk) {
         return set;
       }

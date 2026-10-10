@@ -5,7 +5,7 @@
  * fleet holds its rules, or none (all-to-all), with a version that moves on
  * every set, so a refusal names the settings that refused it.
  */
-import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type ShipKind } from '@aeolus-fleet/common';
+import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type NetworkPluginDeclaration, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
@@ -17,40 +17,125 @@ export interface NetworkRule {
   to: readonly LabelValueId[];
 }
 
+/**
+ * The fleet's networking plugin (decision 0035): the ship that alone sets the
+ * rules while registered, with what it declared for while it is unavailable.
+ */
+export interface NetworkPlugin extends NetworkPluginDeclaration {
+  shipId: ShipId;
+}
+
 export interface NetworkSettings {
   fleetId: FleetId;
   /** The rules every send is checked against; none is all-to-all, an empty list allows only the fixed exceptions. */
   rules: readonly NetworkRule[] | null;
-  /** 0 until the fleet first sets rules; one more on every set. */
+  /** 0 until the fleet first changes its settings; one more on every change. */
   version: number;
+  /** The fleet's networking plugin, or none: then anyone with fleet:network sets the rules. */
+  plugin: NetworkPlugin | null;
 }
 
-/** A fleet that never set rules: none, at version 0. */
+/** A fleet that never set rules: none, at version 0, without a plugin. */
 export function noNetworkSettings(fleetId: FleetId): NetworkSettings {
-  return { fleetId, rules: null, version: 0 };
+  return { fleetId, rules: null, version: 0, plugin: null };
 }
 
-export type SetNetworkRulesRefusal = DomainError<'INVALID_NETWORK_RULES'>;
+export type NotTheNetworkPlugin = DomainError<'NOT_THE_NETWORK_PLUGIN'>;
+
+export type SetNetworkRulesRefusal = DomainError<'INVALID_NETWORK_RULES'> | NotTheNetworkPlugin;
+
+export type RegisterNetworkPluginRefusal = DomainError<'NETWORK_PLUGIN_REGISTERED'>;
+
+function refuseNotThePlugin() {
+  return refuse('NOT_THE_NETWORK_PLUGIN', "Only the fleet's networking plugin does this (decision 0035)");
+}
+
+/**
+ * The ship becomes the fleet's networking plugin, with what it declared, at
+ * the next version, with NetworkPluginRegistered. The rules stay until it
+ * supplies its own. The plugin may register again, replacing what it
+ * declared; another ship is refused until it unregisters: one owner of the
+ * rules, as a label has one.
+ */
+export function registerNetworkPlugin(
+  current: NetworkSettings,
+  change: { shipId: ShipId; declaration: NetworkPluginDeclaration; at: Date; actor: Actor },
+): Result<{ settings: NetworkSettings; events: NewEvent[] }, RegisterNetworkPluginRefusal> {
+  const { shipId, declaration } = change;
+  if (current.plugin !== null && current.plugin.shipId !== shipId) {
+    return refuse('NETWORK_PLUGIN_REGISTERED', 'The fleet already has a networking plugin; it unregisters first (decision 0035)');
+  }
+  const settings: NetworkSettings = {
+    ...current,
+    version: current.version + 1,
+    plugin: { shipId, whileUnavailable: declaration.whileUnavailable, notRespondingAfterSeconds: declaration.notRespondingAfterSeconds },
+  };
+  return ok({
+    settings,
+    events: [
+      {
+        type: 'NetworkPluginRegistered',
+        fleetId: current.fleetId,
+        occurredAt: change.at,
+        actor: change.actor,
+        shipId,
+        details: { version: settings.version, whileUnavailable: declaration.whileUnavailable, notRespondingAfterSeconds: declaration.notRespondingAfterSeconds },
+      },
+    ],
+  });
+}
+
+/**
+ * The fleet's plugin goes, and its rules with it: no plugin is all-to-all
+ * (decision 0035), at the next version, with NetworkPluginUnregistered. Only
+ * the plugin's own ship unregisters it; its retirement does too.
+ */
+export function unregisterNetworkPlugin(
+  current: NetworkSettings,
+  change: { shipId: ShipId; at: Date; actor: Actor },
+): Result<{ settings: NetworkSettings; events: NewEvent[] }, NotTheNetworkPlugin> {
+  if (current.plugin?.shipId !== change.shipId) {
+    return refuseNotThePlugin();
+  }
+  const settings: NetworkSettings = { fleetId: current.fleetId, rules: null, version: current.version + 1, plugin: null };
+  return ok({
+    settings,
+    events: [
+      {
+        type: 'NetworkPluginUnregistered',
+        fleetId: current.fleetId,
+        occurredAt: change.at,
+        actor: change.actor,
+        shipId: change.shipId,
+        details: { version: settings.version },
+      },
+    ],
+  });
+}
 
 /**
  * The fleet's rules from now on, replacing the ones it had, at the next
  * version, with NetworkRulesSet. The rules are within the decision's limits:
  * at most 200, each selector at most 20 label values, as a ship carries no
  * more, each once. A value id need not exist: an unknown one matches no ship,
- * as in label selection.
+ * as in label selection. While a networking plugin is registered, only its
+ * ship sets them (decision 0035).
  */
 export function setNetworkRules(
   current: NetworkSettings,
-  change: { rules: readonly NetworkRule[] | null; at: Date; actor: Actor },
+  change: { rules: readonly NetworkRule[] | null; shipId: ShipId; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetNetworkRulesRefusal> {
   const { rules } = change;
+  if (current.plugin !== null && current.plugin.shipId !== change.shipId) {
+    return refuseNotThePlugin();
+  }
   if (rules !== null) {
     const invalid = invalidRules(rules);
     if (invalid !== undefined) {
       return refuse('INVALID_NETWORK_RULES', `${invalid} (decision 0034)`);
     }
   }
-  const settings: NetworkSettings = { fleetId: current.fleetId, rules: rules?.map(copyOfRule) ?? null, version: current.version + 1 };
+  const settings: NetworkSettings = { ...current, rules: rules?.map(copyOfRule) ?? null, version: current.version + 1 };
   return ok({
     settings,
     events: [
