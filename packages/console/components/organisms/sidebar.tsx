@@ -1,6 +1,6 @@
 'use client';
 
-import { CodeXml, Inbox, ListChecks, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,7 +10,7 @@ import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'settings';
+export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'network' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
@@ -27,6 +27,8 @@ interface SidebarProps extends AccountMenuProps {
   hasTrierarchs?: boolean;
   /** Silent machines; hidden until known, and when there are none. */
   trierarchsCount?: number;
+  /** Whether Network is offered: argo's alone, while the networking plugin is connected (decision 0036). */
+  hasNetwork?: boolean;
   /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
   hasSettings?: boolean;
 }
@@ -124,9 +126,10 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
  * comes second; with the trierarch plugin on, Trierarchs follows, counting its
  * silent machines in the attention tone (#245). Settings, which holds the
- * plugins, sits with the link to the source on GitHub above the account menu.
+ * plugins, sits with the link to the source on GitHub above the account menu,
+ * after Network, the networking plugin's rules, for argo while it is connected.
  */
-export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -186,6 +189,7 @@ export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, ha
         />
       </nav>
       <div className="px-2.5 pb-2">
+        {hasNetwork && <NavItem href="/network" label="Network" icon={<Network aria-hidden />} isActive={active === 'network'} testId="nav-network" />}
         {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
         <a href={SOURCE_URL} target="_blank" rel="noreferrer" data-testid="nav-source" className={ITEM}>
           <CodeXml aria-hidden />

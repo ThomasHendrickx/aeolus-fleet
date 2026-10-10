@@ -46,3 +46,5 @@ export const NoCounts: Story = { args: { inboxCount: undefined, attentionCount: 
 
 /** With the trierarch plugin on: Trierarchs after Squadrons, counting its silent machines. */
 export const WithTrierarchs: Story = { args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' } };
+/** Argo with the networking plugin connected: Network sits above Settings (decision 0036). */
+export const WithNetwork: Story = { args: { hasNetwork: true, hasSettings: true, active: 'network' } };

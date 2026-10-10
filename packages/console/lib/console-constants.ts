@@ -1,6 +1,6 @@
 'use client';
 
-import type { CrewStatus, FleetScope, ReportState, Theme } from '@aeolus-fleet/common';
+import type { CrewStatus, FleetScope, ReportState, Theme, WhileUnavailable } from '@aeolus-fleet/common';
 import { createContext, useContext } from 'react';
 
 /**
@@ -21,6 +21,12 @@ export interface ConsoleConstants {
   labelHandleMaxLength: number;
   labelValuesMax: number;
   firstPromptMaxBytes: number;
+  /** The most network rules a fleet holds (decision 0034). */
+  networkRulesMax: number;
+  /** What a networking plugin may declare for while it is unavailable, and the bounds of after how long it is not responding (decision 0035). */
+  whileUnavailable: readonly WhileUnavailable[];
+  notRespondingAfterMinSeconds: number;
+  notRespondingAfterMaxSeconds: number;
 }
 
 export const ConsoleConstantsContext = createContext<ConsoleConstants | undefined>(undefined);

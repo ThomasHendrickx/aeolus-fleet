@@ -18,7 +18,7 @@ It keeps per fleet the rules, the whole list or none for all-to-all, and what it
 | `SUPPLY_RETRY_SECONDS` | no | How often a supply the fleet refused is tried again. `10` by default |
 
 2. `aeolus-networking-plugin start` migrates the database, supplies every fleet whose kept crew token its fleet still takes, serves, receives as its ship and retries refused supplies. Any other fleet is not connected. `aeolus-networking-plugin migrate` migrates alone.
-3. Each fleet's operator connects it: commission its ship with `fleet:read` and `fleet:network`, and hand the ship's secret to `connection.connect`, server to server. It registers as a server and keeps only the crew token; the secret is never stored or logged. It registers as the fleet's networking plugin at once, with no rules. The console's screens for it come later.
+3. Each fleet's operator connects it: commission its ship with `fleet:read` and `fleet:network`, and hand the ship's secret to `connection.connect`, server to server. It registers as a server and keeps only the crew token; the secret is never stored or logged. It registers as the fleet's networking plugin at once, with no rules. The console does this from Settings, and argo then edits the rules and the declaration on Network.
 
 ## API
 
