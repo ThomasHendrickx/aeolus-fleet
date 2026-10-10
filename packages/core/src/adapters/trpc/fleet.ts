@@ -530,9 +530,10 @@ export const fleetRouter = router({
   setNetworkRules: scopedProcedure('fleet:network')
     .meta({
       description: [
-        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule lets the ships carrying every label value id in from send to the ships carrying every one in to; an empty selector matches every ship.",
+        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule lets the ships for which every term in from holds send to the ships for which every term in to holds; an empty selector matches every ship.",
+        'A term is a label value id, the ship carries that value; or { labelId, value: "*" }, the ship carries any value of the label; or { labelId, value: "#" }, the ships on both sides carry the same value of the label. A "#" binds its label on both sides, each on its own, so a "#" on one side only is refused.',
         'Allow-only: with rules set, a send no rule allows is refused. argo reaches every ship and every ship reaches argo, and a ship always answers the sender of a message it received.',
-        'An empty list allows only those; rules null clears them, back to all-to-all. At most 200 rules, each selector at most 20 values, each once (decision 0034). Answers the new version.',
+        'An empty list allows only those; rules null clears them, back to all-to-all. At most 200 rules, each selector at most 20 terms, each once (decision 0034). Answers the new version.',
         "Only the fleet's networking plugin sets them, argo included: without a registered plugin the fleet has no rules, all-to-all, and every set is refused (decision 0035).",
       ].join(' '),
     })
