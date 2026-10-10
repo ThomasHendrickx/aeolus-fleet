@@ -96,7 +96,7 @@ describe('a crew request on Postgres', () => {
       sessionStartedAt: new Date('2026-10-06T17:00:30.000Z'),
     });
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running' },
+      { shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
     ]);
     await expect(core.useCases.getShip(trierarch, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { assignedTo: { id: trierarchId, name: 'mac-mini' }, status: 'running' } },
@@ -181,5 +181,24 @@ describe('a crew request on Postgres', () => {
       error: { kind: 'CREW_REQUEST_FINAL' },
     });
     await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ assignedTo: trierarchId, status: 'crewing' })]);
+  });
+
+  it('is read by its trierarch as final once it saw its crew working, and not final again after a new settings version (#477)', async () => {
+    const { shipId: pluginId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+    );
+    const { shipId: trierarchId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, status: 'crewing', isFinal: true }]);
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
   });
 });
