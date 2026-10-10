@@ -25,7 +25,9 @@ import { newKey } from './support/keys.js';
 // the wake-ups the server runs: the lease, the secret and the crew token end
 // together; what the lease held in flight goes back to its ship or its type,
 // attempts kept, and the next crew receives it, and a receive of another ship
-// of the type that waits gets it at once; a release racing a receive never
+// of the type that waits gets it at once; a session its trierarch stops
+// before it acks has its delivery received again by the next session the
+// trierarch crews; a release racing a receive never
 // leaves a delivery claimed by an ended lease; a waiting receive never holds a
 // release up; a failed release stores nothing and wakes nobody.
 
@@ -291,6 +293,31 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
 
     expect(tookMs).toBeLessThan(PROMPTLY_MS);
     await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+  });
+});
+
+describe('a session its trierarch stops before it acks (#536)', () => {
+  it('has its delivery received again by the next session the trierarch crews: released, a new starting prompt, registered', async () => {
+    const { shipId: pluginId } = unwrap(
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+    );
+    const { shipId: trierarchId } = unwrap(
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const plugin: Caller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: Caller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    unwrap(await useCases.requestCrew(argo, { shipId: scout.crew.shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await useCases.assignCrew(plugin, { shipId: scout.crew.shipId, trierarchShipId: trierarchId }));
+    const deliveryId = await sendTo(toShip(scout));
+    // The fleet answers the receive; the session is stopped before it acks, so it never calls again.
+    expect(await receive(scout)).toEqual([deliveryId]);
+
+    unwrap(await useCases.releaseShip(trierarch, { shipId: scout.crew.shipId }));
+    const { secret } = unwrap(await useCases.getStartingPrompt(trierarch, { shipId: scout.crew.shipId }));
+    const next = await register(scout.crew.shipId, secret);
+
+    expect(await receive(next)).toEqual([deliveryId]);
+    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'delivered', claimedByLeaseId: next.crew.leaseId, attempts: 2 });
   });
 });
 
