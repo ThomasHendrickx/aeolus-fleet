@@ -16,7 +16,12 @@ describe('loadConfig', () => {
       port: 4300,
       logLevel: 'info',
       installationToken: undefined,
+      supplyRetryMs: 10_000,
     });
+  });
+
+  it('reads how often a supply the fleet refused is tried again, in seconds', () => {
+    expect(loadConfig({ ...environment, SUPPLY_RETRY_SECONDS: '30' }).supplyRetryMs).toBe(30_000);
   });
 
   it('reads the installation token, which turns on the installation procedures', () => {
@@ -33,6 +38,7 @@ describe('loadConfig', () => {
     ['no database', { ...environment, DATABASE_URL: undefined }],
     ['a fleet URL that is not http', { ...environment, FLEET_URL: 'ftp://fleet.example.com' }],
     ['an installation token shorter than 32 characters', { ...environment, INSTALLATION_TOKEN: 'x'.repeat(31) }],
+    ['a supply retry of no seconds', { ...environment, SUPPLY_RETRY_SECONDS: '0' }],
   ])('refuses %s', (_label, invalid) => {
     expect(() => loadConfig(invalid)).toThrow(ConfigError);
   });
