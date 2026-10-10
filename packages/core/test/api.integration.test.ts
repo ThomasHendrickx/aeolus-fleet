@@ -1907,7 +1907,7 @@ describe('network rules at the API', () => {
 
   it('check a send and an explain under a term of the same value: only ships with the same value reach each other', async () => {
     const asLabeller = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
-    const zone = await asLabeller.fleet.defineLabel.mutate({ key: 'api-zone', values: ['north', 'south'] });
+    const zone = await asLabeller.fleet.defineLabel.mutate({ key: 'api-reach-zone', values: ['north', 'south'] });
     const [north, south] = zone.values.map((value) => value.id);
     const sender = client({ authorization: `Bearer ${await crewedShip()}` });
     const { shipId: senderId } = await sender.ship.whoami.query();
