@@ -101,3 +101,4 @@ export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
 export * from './mcp-url.js';
+export * from './no-terminal-questions.js';
