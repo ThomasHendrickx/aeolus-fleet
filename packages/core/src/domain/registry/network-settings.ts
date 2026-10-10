@@ -5,7 +5,7 @@
  * fleet holds its rules, or none (all-to-all), with a version that moves on
  * every set, so a refusal names the settings that refused it.
  */
-import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type NetworkPluginDeclaration, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type NetworkPluginDeclaration, type ShipId, type ShipKind, type WhileUnavailable } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
@@ -171,6 +171,46 @@ function copyOfRule(rule: NetworkRule): NetworkRule {
   return { from: [...rule.from], to: [...rule.to] };
 }
 
+const MILLISECONDS_PER_SECOND = 1000;
+
+/**
+ * Whether the plugin responds at `now` (decision 0035): its ship holds a
+ * lease whose crew called the fleet no longer ago than it declared. Its last
+ * call is the lease's last seen; nothing else acts on it, and nothing here
+ * ends the lease.
+ */
+export function isNetworkPluginResponding(plugin: NetworkPlugin, crew: { lastSeenAt: Date | undefined; now: Date }): boolean {
+  const { lastSeenAt, now } = crew;
+  return lastSeenAt !== undefined && now.getTime() - lastSeenAt.getTime() <= plugin.notRespondingAfterSeconds * MILLISECONDS_PER_SECOND;
+}
+
+/** The rules a send is checked against, and what the plugin declared when it is the reason. */
+export interface RulesInForce {
+  rules: readonly NetworkRule[] | null;
+  whilePluginUnavailable: Exclude<WhileUnavailable, 'open-all'> | null;
+}
+
+/**
+ * The rules in force: the settings' own, unless the fleet's networking plugin
+ * is not responding. Then what it declared applies: block-all leaves only
+ * the fixed exceptions, open-all none (all-to-all), keep-latest the rules it
+ * supplied last.
+ */
+export function rulesInForce(settings: NetworkSettings, isPluginResponding: boolean): RulesInForce {
+  const { plugin, rules } = settings;
+  if (plugin === null || isPluginResponding) {
+    return { rules, whilePluginUnavailable: null };
+  }
+  switch (plugin.whileUnavailable) {
+    case 'block-all':
+      return { rules: [], whilePluginUnavailable: 'block-all' };
+    case 'open-all':
+      return { rules: null, whilePluginUnavailable: null };
+    case 'keep-latest':
+      return { rules, whilePluginUnavailable: 'keep-latest' };
+  }
+}
+
 /** A ship as a send's check sees it: its kind, for the argo exception, and the label values it carries. */
 export interface ReachingShip {
   kind: ShipKind;
@@ -184,7 +224,7 @@ export interface ReachingShip {
  * answers the sender of a message it received. Otherwise a rule must match
  * the sender with its `from` and the recipient with its `to`.
  */
-export function allowsReach(settings: NetworkSettings, send: { sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean }): boolean {
+export function allowsReach(settings: Pick<NetworkSettings, 'rules'>, send: { sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean }): boolean {
   const { sender, recipient, isAnswerToSender } = send;
   if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || isAnswerToSender) {
     return true;

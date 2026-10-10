@@ -1,4 +1,4 @@
-import type { FleetId, ReachRefusalId, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ReachRefusalId, ShipId, WhileUnavailable } from '@aeolus-fleet/common';
 
 import type { CarriedLabel } from './label.js';
 
@@ -23,4 +23,6 @@ export interface ReachRefusal {
   /** The ship it was for, or the type and each ship of it, none of which the sender may reach. */
   recipient: { kind: 'ship'; ship: RefusedShip } | { kind: 'type'; type: string; ships: readonly RefusedShip[] };
   settingsVersion: number;
+  /** What the networking plugin declared, when it refused while the plugin was not responding (decision 0035); null otherwise. */
+  whilePluginUnavailable: Exclude<WhileUnavailable, 'open-all'> | null;
 }

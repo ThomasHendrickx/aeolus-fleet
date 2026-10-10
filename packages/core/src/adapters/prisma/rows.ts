@@ -188,6 +188,11 @@ export function toLeaseShipId(row: unknown): ShipId {
   return z.object({ ship_id: idSchema('ship') }).parse(row).ship_id;
 }
 
+/** When a lease's crew last called the fleet, as raw SQL reads it. */
+export function toLastSeen(row: unknown): Date {
+  return z.object({ last_seen_at: z.date() }).parse(row).last_seen_at;
+}
+
 const shipFactsSqlRow = z.object({
   lease_location: locationKindSchema.nullable(),
   lease_location_description: z.string().nullable(),

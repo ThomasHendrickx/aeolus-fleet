@@ -353,6 +353,9 @@ model ReachRefusal {
   sender          Json
   recipient       Json
   settingsVersion Int      @map("settings_version")
+  /// What the networking plugin declared, when it refused while the plugin
+  /// was not responding (decision 0035): block-all or keep-latest.
+  whilePluginUnavailable String? @map("while_plugin_unavailable")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 

@@ -68,6 +68,8 @@ export const reachRefusalSchema = z.object({
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
   ]),
   settingsVersion: z.int().min(1),
+  /** What the plugin declared for while it is unavailable, when it refused because the plugin was not responding (decision 0035); null otherwise. */
+  whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
 });
 
 export type ReachRefusal = z.infer<typeof reachRefusalSchema>;

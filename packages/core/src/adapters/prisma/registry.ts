@@ -18,6 +18,7 @@ import {
   toCrewRequest,
   toDeliveryFromSql,
   toFleet,
+  toLastSeen,
   toLabelFromSql,
   toLease,
   toListedLabel,
@@ -344,6 +345,13 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
         FOR SHARE`;
       return row ? toLease(row) : undefined;
+    },
+    findLastSeen: async (fleetId, shipId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT COALESCE(last_seen_at, started_at) AS last_seen_at
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
+      return row === undefined ? undefined : toLastSeen(row);
     },
     markSeen: async ({ fleetId, leaseId, at }) => {
       // GREATEST keeps an overlapping call that marked it later from moving it back.
