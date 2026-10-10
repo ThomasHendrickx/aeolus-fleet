@@ -116,7 +116,7 @@ describe('an open installation, with no installation token', () => {
 
     expect(statusSchema.parse(await dataOf(await asOperator('connection.status')))).toEqual({ enabled: true, state: 'not-connected' });
     await expect(installation({ procedure: 'installation.get', body: { fleetId } }).then((response) => response.status)).resolves.toBe(404);
-    await expect(fetch(`${address}/api/health`).then((response) => response.json())).resolves.toEqual({ status: 'ok', connectedFleets: 0, installation: 'open' });
+    await expect(fetch(`${address}/api/health`).then((response) => response.json())).resolves.toEqual({ status: 'ok' });
   });
 });
 
@@ -185,11 +185,11 @@ describe('an enabled installation, with an installation token', () => {
     await expect(dataOf(await installation({ procedure: 'installation.get', body: { fleetId } }))).resolves.toEqual({ enabled: false, connected: false });
   });
 
-  it('says in its health how many fleets it is connected to, and that it is an enabled installation', async () => {
+  it('says in its health and version nothing about its connected fleets or its installation', async () => {
     await dataOf(await installation({ procedure: 'installation.setEnabled', body: { requestId: 'r-on', fleetId, enabled: true } }));
     await dataOf(await asOperator('connection.connect', { shipId: management.shipId, secret: management.secret }));
 
-    await expect(fetch(`${address}/api/health`).then((response) => response.json())).resolves.toEqual({ status: 'ok', connectedFleets: 1, installation: 'enabled' });
-    await expect(fetch(`${address}/api/version`).then((response) => response.json())).resolves.toMatchObject({ connectedFleets: 1, installation: 'enabled' });
+    await expect(fetch(`${address}/api/health`).then((response) => response.json())).resolves.toEqual({ status: 'ok' });
+    await expect(fetch(`${address}/api/version`).then((response) => response.json())).resolves.toEqual({ squadrons: expect.any(String) });
   });
 });
