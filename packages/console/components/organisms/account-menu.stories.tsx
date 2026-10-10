@@ -143,8 +143,14 @@ export const PhoneHosted: Story = {
   },
 };
 
-/** On phone with the trierarch plugin on: Settings moves into the account sheet (#245). */
+/** On phone: Settings, whenever it is offered, is in the account sheet (#245, #503). */
 export const SheetWithSettings: Story = {
   args: { settingsHref: '/settings' },
+  render: (args) => <AccountMenuSheet {...args} />,
+};
+
+/** On phone with the networking plugin connected: Network sits above Settings in the account sheet (#503). */
+export const SheetWithNetwork: Story = {
+  args: { settingsHref: '/settings', networkHref: '/network' },
   render: (args) => <AccountMenuSheet {...args} />,
 };

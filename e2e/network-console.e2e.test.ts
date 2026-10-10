@@ -75,13 +75,16 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
-async function signedIn(): Promise<Page> {
+/** A phone: below the sm breakpoint, where the TopBar Avatar opens the account sheet. */
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+
+async function signedIn(options: { isPhone: boolean } = { isPhone: false }): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
-  const context = await browser.newContext({ baseURL: web.url });
+  const context = await browser.newContext({ baseURL: web.url, ...(options.isPhone ? PHONE : {}) });
   contexts.push(context);
   const page = await context.newPage();
   await signIn(page, OPERATOR);
-  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.waitForURL(`${web.url}/`);
   return page;
 }
 
@@ -163,5 +166,20 @@ describe('the networking plugin in the console', () => {
 
     await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may message every ship');
     await expect.poll(async () => (await settings()).rules, WITHIN).toBeNull();
+  });
+
+  it('on a phone without the trierarch plugin, reaches Settings and, while the plugin is connected, Network from the account sheet', async () => {
+    const page = await signedIn({ isPhone: true });
+    const sheet = page.getByTestId('account-sheet');
+
+    await page.locator('[data-testid="account-menu"]:visible').click();
+    await sheet.getByTestId('account-settings').click();
+    await page.getByRole('heading', { name: 'Settings' }).waitFor();
+    await page.getByTestId('settings-network').getByText('Connected as').waitFor(WITHIN);
+
+    await page.locator('[data-testid="account-menu"]:visible').click();
+    await sheet.getByTestId('account-network').click();
+    await page.getByRole('heading', { name: 'Network' }).waitFor();
+    await page.getByTestId('network-rules-state').waitFor(WITHIN);
   });
 });

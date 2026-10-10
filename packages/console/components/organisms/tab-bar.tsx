@@ -69,8 +69,8 @@ function Tab({
  * open messages to argo counted on its icon in --primary; and Attention with
  * the undeliverable deliveries counted in the attention tone. With squadrons
  * on, Squadrons is the second tab; with the trierarch plugin on, Trierarchs
- * follows it, and Settings moves into the account sheet. The active tab uses
- * --primary for icon and label.
+ * follows it. Settings and Network have no tab: the account sheet offers them.
+ * The active tab uses --primary for icon and label.
  */
 export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
   return (
