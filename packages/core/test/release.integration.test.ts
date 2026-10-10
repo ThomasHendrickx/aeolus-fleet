@@ -306,15 +306,16 @@ describe('a session its trierarch stops before it acks (#536)', () => {
     );
     const plugin: Caller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    unwrap(await useCases.requestCrew(argo, { shipId: scout.crew.shipId, settings: { harness: 'claude-code' } }));
-    unwrap(await useCases.assignCrew(plugin, { shipId: scout.crew.shipId, trierarchShipId: trierarchId }));
-    const deliveryId = await sendTo(toShip(scout));
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
+    unwrap(await useCases.requestCrew(argo, { shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
+    const stopped = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
+    const deliveryId = await sendTo({ kind: 'ship', shipId });
     // The fleet answers the receive; the session is stopped before it acks, so it never calls again.
-    expect(await receive(scout)).toEqual([deliveryId]);
+    expect(await receive(stopped)).toEqual([deliveryId]);
 
-    unwrap(await useCases.releaseShip(trierarch, { shipId: scout.crew.shipId }));
-    const { secret } = unwrap(await useCases.getStartingPrompt(trierarch, { shipId: scout.crew.shipId }));
-    const next = await register(scout.crew.shipId, secret);
+    unwrap(await useCases.releaseShip(trierarch, { shipId }));
+    const next = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
 
     expect(await receive(next)).toEqual([deliveryId]);
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'delivered', claimedByLeaseId: next.crew.leaseId, attempts: 2 });
