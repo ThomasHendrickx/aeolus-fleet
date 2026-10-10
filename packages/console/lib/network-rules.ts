@@ -69,12 +69,12 @@ function changeRule(draft: NetworkDraft, at: { key: string; change: (rule: Draft
 }
 
 /** Adds a term to one side of a rule: once, and none past the most a selector holds. */
-export function addTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: LabelValueId; limits: NetworkLimits }): NetworkDraft {
+export function addTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: SelectorTerm; limits: NetworkLimits }): NetworkDraft {
   return changeRule(draft, {
     key: at.rule,
     change: (rule) => {
       const terms = rule[at.side];
-      if (terms.includes(at.term) || terms.length >= at.limits.selectorMax) {
+      if (terms.some((term) => isSameTerm(term, at.term)) || terms.length >= at.limits.selectorMax) {
         return rule;
       }
       return { ...rule, [at.side]: [...terms, at.term] };
@@ -82,8 +82,18 @@ export function addTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide;
   });
 }
 
-export function removeTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: LabelValueId }): NetworkDraft {
-  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, [at.side]: rule[at.side].filter((term) => term !== at.term) }) });
+export function removeTerm(draft: NetworkDraft, at: { rule: string; side: RuleSide; term: SelectorTerm }): NetworkDraft {
+  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, [at.side]: rule[at.side].filter((term) => !isSameTerm(term, at.term)) }) });
+}
+
+/** One term is another: the same value id, or the same label with the same any or same-value mark. */
+function isSameTerm(one: SelectorTerm, other: SelectorTerm): boolean {
+  return termKeyOf(one) === termKeyOf(other);
+}
+
+/** A term as one text, unique per term: a value id, or `<label id>=*` and `<label id>=#`, for comparing and for a list's keys. */
+export function termKeyOf(term: SelectorTerm): string {
+  return typeof term === 'string' ? term : `${term.labelId}=${term.value}`;
 }
 
 /** Whether the draft differs from the rules the plugin holds; all-to-all is never an empty list. */
