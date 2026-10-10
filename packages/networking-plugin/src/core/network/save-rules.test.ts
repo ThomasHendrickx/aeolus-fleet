@@ -70,7 +70,7 @@ describe("saving argo's rules", () => {
   });
 
   it.each([
-    { label: 'one rule over the limit', rules: () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), message: 'A fleet holds at most 200 network rules (decision 0034)' },
+    { label: 'one rule over the limit', rules: () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), message: "A fleet holds at most 200 network rules of argo's (decision 0037)" },
     {
       label: 'a selector of one label value more than a ship carries',
       rules: () => [aRule(1, SHIP_LABELS_MAX + 1)],

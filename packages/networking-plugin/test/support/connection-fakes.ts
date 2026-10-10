@@ -38,6 +38,12 @@ export function fakePluginFleet() {
     pings: new Set<DeliveryId>(),
     ponged: new Array<DeliveryId>(),
     isTakingPongs: true,
+    /** The rules the fleet's ships declared, each ship with its list (decision 0037). */
+    declared: new Array<{ shipId: ShipId; rules: NetworkRule[] }>(),
+    /** The fleet's events, by type, in commit order: the first has seq 1. */
+    events: new Array<string>(),
+    /** Every position a follow asked from, none for where the fleet is now. */
+    followedFrom: new Array<number | undefined>(),
   };
   const unavailable = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
   let holding: { reached: () => void; released: Promise<undefined> } | undefined;
@@ -131,6 +137,23 @@ export function fakePluginFleet() {
       state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
       state.version += 1;
       return ok(undefined);
+    },
+    declaredNetworkRules: (crewToken) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.declared.map(({ shipId, rules }) => ({ shipId, rules: [...rules] })))) : released();
+    },
+    follow: (crewToken, from) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      state.followedFrom.push(from.afterSeq);
+      const lastSeq = state.events.length;
+      return Promise.resolve(ok({ types: from.afterSeq === undefined ? [] : state.events.slice(from.afterSeq), lastSeq }));
     },
     receive: (crewToken) => {
       if (!state.isAnswering) {

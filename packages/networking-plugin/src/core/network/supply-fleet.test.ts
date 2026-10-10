@@ -1,4 +1,4 @@
-import type { LabelValueId } from '@aeolus-fleet/common';
+import type { LabelValueId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { FLEET_ID, connectedCrew, fakePluginFleet, memoryConnectionStore, memoryFleetNetworks } from '../../../test/support/connection-fakes.js';
@@ -9,6 +9,8 @@ import { createSupplyFleet } from './supply-fleet.js';
 const AT = new Date('2026-10-10T10:00:00.000Z');
 const TEAM_A: LabelValueId = 'lbv_01m3tbfspe96yf1rnr4ank9001';
 const TEAM_B: LabelValueId = 'lbv_01m3tbfspe96yf1rnr4ank9002';
+const SQUADRONS: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9003';
+const TRIERARCH_PLUGIN: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9004';
 
 let fleet: ReturnType<typeof fakePluginFleet>;
 let connections: ReturnType<typeof memoryConnectionStore>;
@@ -55,6 +57,35 @@ describe('supplying a fleet the networking plugin serves', () => {
     await supplyFleet(FLEET_ID);
 
     expect(fleet.state.rules).toEqual([]);
+  });
+
+  it("adds every rule the fleet's ships declared to argo's list, after argo's (decision 0037)", async () => {
+    await connected();
+    const argos = [{ from: [TEAM_A], to: [TEAM_B] }];
+    await networks.save(FLEET_ID, { rules: argos, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] }, { shipId: TRIERARCH_PLUGIN, rules: [{ from: [], to: [TEAM_A] }] });
+
+    await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
+    expect(fleet.state.rules).toEqual([...argos, { from: [TEAM_B], to: [TEAM_B] }, { from: [], to: [TEAM_A] }]);
+  });
+
+  it('adds declared rules to an empty list, which allows only the fixed exceptions', async () => {
+    await connected();
+    await networks.save(FLEET_ID, { rules: [], declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] });
+
+    await supplyFleet(FLEET_ID);
+
+    expect(fleet.state.rules).toEqual([{ from: [TEAM_B], to: [TEAM_B] }]);
+  });
+
+  it("keeps argo's none as none: rules only allow, so declared rules add nothing to all-to-all", async () => {
+    await connected();
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] });
+
+    await supplyFleet(FLEET_ID);
+
+    expect(fleet.state.rules).toBeNull();
   });
 
   it('supplies nothing to a fleet it is not connected to', async () => {
