@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createApp } from '../../core/src/app.js';
@@ -11,13 +11,16 @@ import { createMigratedDatabase } from '../../core/test/support/database.js';
 import { newKey } from '../../core/test/support/keys.js';
 import { unwrap } from '../../core/test/support/result.js';
 import { createNetworkingPluginApp, type NetworkingPluginApp } from '../src/app.js';
-import { connectPlugin, query, signIn } from './support/connection.js';
+import { connectPlugin, mutate, query, signIn } from './support/connection.js';
 import { createPluginDatabase } from './support/database.js';
 
 // The networking plugin against a real fleet: it starts not connected, with no
 // secret anywhere; the operator connects it as its ship (fleet:read,
 // fleet:network), keeps the crew token in its own database and is connected
 // again after a restart.
+
+/** How long the test fleet holds a receive open: short, so the receiving process stops quickly. */
+const RECEIVE_WAIT_MS = 500;
 
 let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
@@ -45,7 +48,7 @@ beforeEach(async () => {
   );
   shipId = commissioned.shipId;
   secret = secretOf(commissioned.secret);
-  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   cookie = await signIn(fleetUrl);
   pluginDatabaseUrl = await createPluginDatabase();
@@ -124,6 +127,122 @@ describe('connecting the networking plugin', () => {
   });
 });
 
+/** Redeems a sign-in ticket at the fleet: the session cookie it starts. */
+async function redeem(ticket: string): Promise<string> {
+  const response = await fetch(`${fleetUrl}/trpc/console.redeemSignInTicket`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ticket }),
+  });
+  return z.string().parse(response.headers.getSetCookie().find((each) => each.startsWith('aeolus_session='))).split(';')[0] ?? '';
+}
+
+/** The fleet's network settings as the server holds them: what the plugin supplied. */
+async function settings() {
+  return fleetDatabase.networkSettings.findUnique({
+    where: { fleetId: argo.fleetId },
+    select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true },
+  });
+}
+
+/** The answer's data, or the status and body when it failed. */
+async function dataOf(response: Response): Promise<unknown> {
+  expect(response.status, await response.clone().text()).toBe(200);
+  return z.object({ result: z.object({ data: z.unknown() }) }).parse(await response.json()).result.data;
+}
+
+describe('supplying the fleet (decision 0035)', () => {
+  const RULES = [{ from: [], to: [] }];
+
+  it("registers as the fleet's networking plugin on connect, declaring keep-latest after 300 seconds, with no rules: all-to-all", async () => {
+    await connected();
+
+    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 });
+  });
+
+  it('supplies the rules argo saves to the fleet at once, and reads them back', async () => {
+    const address = await connected();
+
+    await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }))).resolves.toEqual({ rules: RULES, supply: 'supplied' });
+
+    await expect(settings()).resolves.toMatchObject({ rules: RULES });
+    await expect(dataOf(await query(address, { procedure: 'network.get', cookie }))).resolves.toEqual({
+      rules: RULES,
+      declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 },
+    });
+  });
+
+  it('registers again with what argo declares, keeping the rules', async () => {
+    const address = await connected();
+    await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }));
+
+    await expect(dataOf(await mutate(address, { procedure: 'network.setDeclaration', cookie, body: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } }))).resolves.toEqual({
+      declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 },
+      supply: 'supplied',
+    });
+
+    await expect(settings()).resolves.toMatchObject({ rules: RULES, pluginWhileUnavailable: 'block-all', pluginNotRespondingAfterSeconds: 120 });
+  });
+
+  it('refuses rules over the limits, naming decision 0034, and supplies nothing', async () => {
+    const address = await connected();
+    const before = await settings();
+
+    const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) } });
+
+    expect(refused.status).toBe(400);
+    expect(await refused.text()).toContain('decision 0034');
+    await expect(settings()).resolves.toEqual(before);
+  });
+
+  it('refuses the rules until it is connected', async () => {
+    const { address } = await started();
+
+    await expect(query(address, { procedure: 'network.get', cookie }).then((response) => response.status)).resolves.toBe(412);
+  });
+
+  it('registers again and supplies the kept rules after a restart: on reconnect', async () => {
+    const address = await connected();
+    await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }));
+    const before = await settings();
+    await apps.splice(0)[0]?.close();
+
+    await started();
+
+    const after = await settings();
+    expect(after).toMatchObject({ rules: RULES, pluginShipId: shipId });
+    expect(after?.version).toBeGreaterThan(before?.version ?? 0);
+  });
+});
+
+describe("the networking plugin's ship receiving", () => {
+  it('acknowledges a message sent to it on receipt, and acts on none', async () => {
+    await connected();
+    apps[0]?.startReceiving();
+
+    const { messageId } = unwrap(await useCases.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Hello, networking plugin', idempotencyKey: newKey() }));
+
+    await vi.waitFor(
+      async () => {
+        await expect(fleetDatabase.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({ state: 'acknowledged' });
+      },
+      { timeout: 10_000, interval: 100 },
+    );
+  });
+});
+
+describe('the rules at a viewer session (decision 0022)', () => {
+  it('are refused: argo alone sees and edits them', async () => {
+    const created = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'demo', operatorEmail: 'demo@example.com', hasViewer: true }));
+    const viewerCookie = await redeem(unwrap(await useCases.issueSignInTicket({ fleetId: created.fleetId, as: 'viewer' })).ticket);
+    const { address } = await started();
+
+    await expect(query(address, { procedure: 'network.get', cookie: viewerCookie }).then((response) => response.status)).resolves.toBe(403);
+    await expect(mutate(address, { procedure: 'network.setRules', cookie: viewerCookie, body: { rules: [] } }).then((response) => response.status)).resolves.toBe(403);
+    await expect(mutate(address, { procedure: 'network.setDeclaration', cookie: viewerCookie, body: { whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 } }).then((response) => response.status)).resolves.toBe(403);
+  });
+});
+
 describe('the installation (decision 0021)', () => {
   const TOKEN = 'an-installation-token-of-at-least-32-characters';
 
@@ -144,6 +263,32 @@ describe('the installation (decision 0021)', () => {
     expect((await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: false } })).status).toBe(200);
 
     await expect(installation(address, { procedure: 'installation.get', body: { fleetId } }).then((response) => response.json())).resolves.toEqual({ result: { data: { enabled: false, connected: true } } });
+  });
+
+  it('unregisters from the fleet when switched off: no plugin and no rules there; switched on again, it supplies the kept rules', async () => {
+    const { address } = await started(TOKEN);
+    const fleetId = argo.fleetId;
+    const rules = [{ from: [], to: [] }];
+    await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
+    expect((await connectPlugin(address, { cookie, shipId, secret })).status).toBe(200);
+    expect((await mutate(address, { procedure: 'network.setRules', cookie, body: { rules } })).status).toBe(200);
+
+    await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: false } });
+    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
+
+    await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
+    await expect(settings()).resolves.toMatchObject({ rules, pluginShipId: shipId });
+  });
+
+  it('unregisters from the fleet before it forgets the fleet', async () => {
+    const { address } = await started(TOKEN);
+    const fleetId = argo.fleetId;
+    await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
+    expect((await connectPlugin(address, { cookie, shipId, secret })).status).toBe(200);
+
+    expect((await installation(address, { procedure: 'installation.delete', body: { requestId: newKey(), fleetId } })).status).toBe(200);
+
+    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
   });
 
   it("forgets the fleet's connection and switch when the fleet is deleted", async () => {
