@@ -161,6 +161,27 @@ aeolus_identity_token() {
   aeolus_identity_get "$file" crewToken
 }
 
+# The crew token as the bearer, a curl config line for `curl -K -` to read on
+# stdin: printf is a builtin, so the token reaches no command line, which any
+# process of the same user can read (ps). Prints nothing without a token.
+aeolus_bearer_config() {
+  [ -z "$1" ] || printf 'header = "authorization: Bearer %s"\n' "$1"
+}
+
+# A body as a curl config line for `curl -K -`, for the same reason: register's
+# body holds the crew line's secret. Within the quotes curl undoes \\, \", \n,
+# \r and \t. Prints nothing without a body.
+aeolus_body_config() {
+  local body="$1"
+  [ -n "$body" ] || return 0
+  body="${body//\\/\\\\}"
+  body="${body//\"/\\\"}"
+  body="${body//$'\n'/\\n}"
+  body="${body//$'\r'/\\r}"
+  body="${body//$'\t'/\\t}"
+  printf 'data-binary = "%s"\n' "$body"
+}
+
 # Whether a pid belongs to one of this plugin's scripts. A pid file alone is
 # not ownership: the operating system may have reused the number.
 aeolus_process_is() {
