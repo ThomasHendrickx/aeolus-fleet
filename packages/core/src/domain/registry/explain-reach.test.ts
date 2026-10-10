@@ -1,10 +1,10 @@
-import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, type LabelValueId, type NetworkRule, type ShipId, type WhileUnavailable } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, SAME_LABEL_VALUE, type LabelValueId, type NetworkRule, type ShipId, type WhileUnavailable } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { valueIdOf } from '../../../test/support/label-fixtures.js';
+import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { createExplainReach } from './explain-reach.js';
@@ -140,6 +140,25 @@ describe('explaining reach under rules', () => {
     await explainReach(argo, { fromShipId: scout.shipId, toShipId: vault.shipId });
 
     expect(core.state.reachRefusals).toEqual([]);
+  });
+});
+
+describe('explaining reach under rules with terms of any or the same value', () => {
+  it('answers the ships carrying the label a term of any value asks, whatever its value', async () => {
+    await setRules([{ from: [value('shared')], to: [{ labelId: labelIdOf(core, 'trust'), value: ANY_LABEL_VALUE }] }]);
+
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
+
+    expect(explained.reachableShipIds).toEqual(byId(argo, planner, vault));
+  });
+
+  it('answers only the ships carrying the same value of the label a term of the same value asks', async () => {
+    const same = { labelId: labelIdOf(core, 'trust'), value: SAME_LABEL_VALUE } as const;
+    await setRules([{ from: [same], to: [same] }]);
+
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
+
+    expect(explained.reachableShipIds).toEqual(byId(argo, planner));
   });
 });
 

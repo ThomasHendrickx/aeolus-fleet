@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -1905,6 +1905,40 @@ describe('network rules at the API', () => {
     await expect(codeOf(plugin.fleet.explainReach.query({ fromShipId }))).resolves.toBe('FORBIDDEN');
   });
 
+  it('check a send and an explain under a term of the same value: only ships with the same value reach each other', async () => {
+    const asLabeller = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
+    const zone = await asLabeller.fleet.defineLabel.mutate({ key: 'api-reach-zone', values: ['north', 'south'] });
+    const [north, south] = zone.values.map((value) => value.id);
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId: senderId } = await sender.ship.whoami.query();
+    const { shipId: neighbourId } = await agentShip();
+    const { shipId: strangerId } = await agentShip();
+    for (const [shipId, valueId] of [
+      [senderId, north],
+      [neighbourId, north],
+      [strangerId, south],
+    ] as const) {
+      await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: valueId ?? newId('labelValue') });
+    }
+    const sameZone = { labelId: zone.labelId, value: SAME_LABEL_VALUE };
+    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ from: [sameZone], to: [sameZone] }] });
+    const toShip = (shipId: ShipId) => ({ selector: { kind: 'ship' as const, shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL });
+
+    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId: senderId })).resolves.toEqual({ reachableShipIds: [argoId, neighbourId] });
+    expect((await sender.ship.send.mutate(toShip(neighbourId))).messageId).toMatch(/^msg_/);
+    await expect(refusalOf(sender.ship.send.mutate(toShip(strangerId)))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The network rules do not allow this send' });
+  });
+
+  it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {
+    const plugin = await networker();
+    const labelId = newId('label');
+
+    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
+    expect(refused?.code).toBe('BAD_REQUEST');
+    expect(refused?.message).toContain('decision 0034');
+  });
+
   it('answer rules over the limits with BAD_REQUEST naming decision 0034', async () => {
     const refused = await refusalOf((await networker()).fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) }));
 
@@ -1952,8 +1986,11 @@ describe('network rules at the API', () => {
     expect((await post('registerNetworkPlugin', { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 })).status).toBe(200);
 
     const response = await post('setNetworkRules', { rules: [] });
+    const sameTeam = { labelId: newId('label'), value: SAME_LABEL_VALUE };
+    const withTerms = await post('setNetworkRules', { rules: [{ from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
 
     expect(response.status).toBe(200);
+    expect(withTerms.status).toBe(200);
     expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
     expect((await post('unregisterNetworkPlugin', {})).status).toBe(200);
   });

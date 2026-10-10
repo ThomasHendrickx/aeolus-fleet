@@ -1,11 +1,11 @@
-import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type FleetId, type LabelValueId, type MessageId, type NetworkRule, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, type FleetId, type LabelValueId, type MessageId, type NetworkRule, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
-import { valueIdOf } from '../../../test/support/label-fixtures.js';
+import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
@@ -33,6 +33,16 @@ const NOT_REACHABLE = { kind: 'NOT_REACHABLE', message: 'The network rules do no
 
 function value(key: string, text: string): LabelValueId {
   return valueIdOf(core, { key, value: text });
+}
+
+/** A term that holds for a ship carrying any value of the label with this key. */
+function anyValue(key: string): SelectorTerm {
+  return { labelId: labelIdOf(core, key), value: ANY_LABEL_VALUE };
+}
+
+/** A term that holds when the ships on both sides carry the same value of the label with this key. */
+function sameValue(key: string): SelectorTerm {
+  return { labelId: labelIdOf(core, key), value: SAME_LABEL_VALUE };
 }
 
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
@@ -180,6 +190,64 @@ describe('a network rule', () => {
   });
 });
 
+describe('a selector term of any value', () => {
+  beforeEach(async () => {
+    await setRules([{ from: [anyValue('team')], to: [] }]);
+  });
+
+  it('holds for a ship carrying the label, whatever its value', async () => {
+    await expect(sent(planner, aMessage(toShip(vault)))).resolves.toMatch(/^msg_/);
+    await expect(sent(scout, aMessage(toShip(vault)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('does not hold for a ship carrying no value of the label', async () => {
+    expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(planner))))).toEqual(NOT_REACHABLE);
+  });
+});
+
+describe('a selector term of the same value', () => {
+  it('holds when both ships carry the same value of the label', async () => {
+    await setRules([{ from: [sameValue('trust')], to: [sameValue('trust')] }]);
+
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('does not hold when the ships carry different values of the label', async () => {
+    await setRules([{ from: [sameValue('trust')], to: [sameValue('trust')] }]);
+
+    expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))))).toEqual(NOT_REACHABLE);
+  });
+
+  it('does not hold when one of the ships carries no value of the label', async () => {
+    await setRules([{ from: [sameValue('team')], to: [sameValue('team')] }]);
+
+    expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))))).toEqual(NOT_REACHABLE);
+  });
+
+  it('holds when the ships share one value of the label among the several one of them carries', async () => {
+    await setRules([{ from: [sameValue('team')], to: [sameValue('team')] }]);
+    unwrap(await registry.assignLabel(labeller, { shipId: scout.shipId, valueId: value('team', 'a') }));
+
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('binds each label on its own when a rule holds several: both values must be the same', async () => {
+    const rule = { from: [sameValue('trust'), sameValue('team')], to: [sameValue('trust'), sameValue('team')] };
+    await setRules([rule]);
+
+    expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);
+    unwrap(await registry.assignLabel(labeller, { shipId: scout.shipId, valueId: value('team', 'a') }));
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('holds beside an exact value in the same selector only when both hold', async () => {
+    await setRules([{ from: [value('team', 'a'), sameValue('trust')], to: [sameValue('trust')] }]);
+
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+    expect(refusalOf(await messaging.sendMessage(scout, aMessage(toShip(planner))))).toEqual(NOT_REACHABLE);
+  });
+});
+
 describe('the fixed exceptions', () => {
   beforeEach(async () => {
     await setRules([]);
@@ -255,6 +323,17 @@ describe('the record of a refused send', () => {
     ]);
   });
 
+  it('keeps the values of the label both ships carried when a term of the same value refused it', async () => {
+    await setRules([{ from: [sameValue('trust')], to: [sameValue('trust')] }]);
+
+    refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))));
+
+    const [refusal] = core.state.reachRefusals;
+    const valuesOf = (labels: readonly { key: string; value: string }[] | undefined) => labels?.filter((label) => label.key === 'trust').map((label) => label.value);
+    expect([valuesOf(refusal?.sender.labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
+    expect(refusal?.settingsVersion).toBe(3);
+  });
+
   it('names the version of the settings that refused it', async () => {
     await setRules([]);
 
@@ -327,6 +406,23 @@ describe('a send to a type while the fleet has network rules', () => {
     expect(core.state.reachRefusals.map((refusal) => refusal.recipient)).toEqual([
       { kind: 'type', type: 'keeper', ships: [{ id: vault.shipId, name: 'vault', labels: [{ labelId: core.state.labels.find((held) => held.key === 'trust')?.id, key: 'trust', valueId: value('trust', 'sensitive'), value: 'sensitive' }] }] },
     ]);
+  });
+
+  it('stores as claimants only the ships of the type with the same value a term of the same value asks', async () => {
+    await setRules([{ from: [sameValue('trust')], to: [sameValue('trust')] }]);
+
+    const messageId = await sent(planner, aMessage(toKeepers));
+
+    expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toEqual([keeper.shipId]);
+  });
+
+  it('stores as claimants the ships of the type carrying the label a term of any value asks', async () => {
+    unwrap(await registry.assignLabel(labeller, { shipId: keeper.shipId, valueId: value('team', 'b') }));
+    await setRules([{ from: [], to: [anyValue('team')] }]);
+
+    const messageId = await sent(planner, aMessage(toKeepers));
+
+    expect(core.state.deliveries.find((delivery) => delivery.messageId === messageId)?.reachableShipIds).toEqual([keeper.shipId]);
   });
 
   it("leaves argo's send to a type open to every ship of the type", async () => {

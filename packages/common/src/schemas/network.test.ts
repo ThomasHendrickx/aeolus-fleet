@@ -51,7 +51,7 @@ describe('registerNetworkPluginInputSchema', () => {
 });
 
 describe('setNetworkRulesInputSchema', () => {
-  it('takes the whole list of rules, each from one label selector to another, leaving the limits to the server', () => {
+  it('takes the whole list of rules, each from one selector of exact label values to another, leaving the limits to the server', () => {
     const rules = [
       { from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
       { from: [], to: [] },
@@ -64,7 +64,22 @@ describe('setNetworkRulesInputSchema', () => {
     expect(setNetworkRulesInputSchema.parse({ rules: null })).toEqual({ rules: null });
   });
 
-  it('refuses a selector that holds anything but label value ids', () => {
+  it('takes a term that holds a label with any value, and one that holds it with the same value as the other side', () => {
+    const labelId = newId('label');
+    const rules = [{ from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
+
+    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+  });
+
+  it('refuses a term of a label with a value written as text, not an id', () => {
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
+  });
+
+  it('refuses a term of any or the same value without a label id', () => {
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
+  });
+
+  it('refuses a selector that holds a label id alone, without a value', () => {
     expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [newId('label')], to: [] }] }).success).toBe(false);
   });
 

@@ -1,4 +1,4 @@
-import { createIdGenerator, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type LabelId, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, type LabelId, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -224,6 +224,66 @@ describe('a send under network rules', () => {
     const asked = unwrap(await core.useCases.sendMessage(planner, aMessage(vault))).messageId;
 
     await expect(core.useCases.sendMessage(vault, aMessage(planner, asked))).resolves.toMatchObject({ isOk: true });
+  });
+});
+
+describe('a send under rules with terms of any value and of the same value', () => {
+  let networking: Crew;
+  let scout: Caller;
+
+  beforeEach(async () => {
+    networking = await registeredPlugin();
+    scout = await aShip('scout');
+    unwrap(await core.useCases.assignLabel(labeller, { shipId: scout.shipId, valueId: shared }));
+  });
+
+  const anyTrust = () => ({ labelId: trustId, value: ANY_LABEL_VALUE });
+  const sameTrust = () => ({ labelId: trustId, value: SAME_LABEL_VALUE });
+
+  it('keeps the terms as the plugin set them', async () => {
+    const rules = [{ from: [shared, anyTrust()], to: [] }, { from: [sameTrust()], to: [sameTrust()] }];
+
+    unwrap(await core.useCases.setNetworkRules(networking, { rules }));
+
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true } })).resolves.toEqual([{ rules }]);
+  });
+
+  it('lets a ship carrying any value of the label send under a term of any value, and no ship without it', async () => {
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [anyTrust()], to: [] }] }));
+    const loner = await aShip('loner');
+
+    unwrap(await core.useCases.sendMessage(vault, aMessage(planner)));
+    expect(refusalOf(await core.useCases.sendMessage(loner, aMessage(planner)))).toMatchObject({ kind: 'NOT_REACHABLE' });
+  });
+
+  it('lets ships carrying the same value reach each other under a term of the same value, and records the refusal of different values', async () => {
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+
+    unwrap(await core.useCases.sendMessage(planner, aMessage(scout)));
+    expect(refusalOf(await core.useCases.sendMessage(planner, aMessage(vault)))).toMatchObject({ kind: 'NOT_REACHABLE' });
+    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
+    expect([refusal?.sender.labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
+      ['shared'],
+      ['sensitive'],
+    ]);
+  });
+
+  it('explained to argo, answers only the ships with the same value under a term of the same value', async () => {
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+
+    const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
+
+    expect(explained.reachableShipIds).toEqual([argo.shipId, scout.shipId]);
+  });
+
+  it('keeps as claimants of a send to a type only its ships with the same value', async () => {
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+    const { shipId: keeperId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'keeper', type: 'vault' }));
+    unwrap(await core.useCases.assignLabel(labeller, { shipId: keeperId, valueId: shared }));
+
+    const { messageId } = unwrap(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: { kind: 'type', type: 'vault' } }));
+
+    await expect(core.prisma.delivery.findMany({ where: { messageId }, select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: [keeperId] }]);
   });
 });
 

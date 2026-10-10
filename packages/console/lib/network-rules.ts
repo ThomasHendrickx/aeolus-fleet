@@ -1,4 +1,4 @@
-import type { LabelValueId, NetworkRule } from '@aeolus-fleet/common';
+import type { LabelValueId, NetworkRule, SelectorTerm } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
@@ -14,8 +14,8 @@ import type { SavedRules } from './networking-plugin-schemas';
 /** One rule in the draft, with a key of its own so its row stays put while it changes. */
 export interface DraftRule {
   key: string;
-  from: readonly LabelValueId[];
-  to: readonly LabelValueId[];
+  from: readonly SelectorTerm[];
+  to: readonly SelectorTerm[];
 }
 
 export type NetworkDraft = { kind: 'all-to-all' } | { kind: 'rules'; rules: readonly DraftRule[] };
@@ -92,10 +92,12 @@ export function isChanged(draft: NetworkDraft, saved: readonly NetworkRule[] | n
 }
 
 /**
- * One side of a rule as the editor shows it: a chip per value, and the values
- * the fleet no longer has, which match no ship (decision 0034).
+ * One side of a rule as the editor shows it: a chip per exact value, and the
+ * values the fleet no longer has, which match no ship (decision 0034). The
+ * editor picks exact values only, so it shows no term of any or the same value.
  */
-export function selectorOf(valueIds: readonly LabelValueId[], context: LabelContext): { chips: LabelChip[]; unknown: LabelValueId[] } {
+export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: LabelChip[]; unknown: LabelValueId[] } {
+  const valueIds = terms.filter((term) => typeof term === 'string');
   const chips = pickedChips(valueIds, context);
   return { chips, unknown: valueIds.filter((valueId) => !chips.some((chip) => chip.valueId === valueId)) };
 }

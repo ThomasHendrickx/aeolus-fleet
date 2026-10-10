@@ -6,9 +6,9 @@ import { carriedLabelSchema } from './label.js';
 /**
  * Network rules (decision 0034): which ships may send to which. A rule says
  * that the ships matching one label selector may send to the ships matching
- * another; a selector is a set of label value ids, matched as label selection
- * is (every one of them, an empty one every ship). Allow-only. The limits are
- * the decision's; the server checks them, so every refusal names it.
+ * another; a selector is a list of terms that must all hold (an empty one
+ * holds for every ship). Allow-only. The limits are the decision's; the server
+ * checks them, so every refusal names it.
  */
 
 /** The most rules one fleet may hold. */
@@ -17,8 +17,23 @@ export const NETWORK_RULES_MAX = 200;
 /** The most refusals one read of them answers: the latest. */
 export const REACH_REFUSALS_READ_MAX = 100;
 
-/** Ships carrying every one of these label values: exact matches, combined with AND. */
-export const labelSelectorSchema = z.array(idSchema('labelValue'));
+/** A term's value that is any value of its label: the ship carries the label. */
+export const ANY_LABEL_VALUE = '*' as const;
+
+/** A term's value that is any value of its label the ship on the other side of the rule carries too. */
+export const SAME_LABEL_VALUE = '#' as const;
+
+/**
+ * One term of a selector: an exact label value, written as its id, which
+ * names its label; or a label with any value (`*`) or with the same value as
+ * the other side's (`#`), which binds the same label there only.
+ */
+export const selectorTermSchema = z.union([idSchema('labelValue'), z.object({ labelId: idSchema('label'), value: z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE]) })]);
+
+export type SelectorTerm = z.infer<typeof selectorTermSchema>;
+
+/** The ships for which every one of these terms holds, combined with AND. */
+export const labelSelectorSchema = z.array(selectorTermSchema);
 
 /** One rule: the ships matching `from` may send to the ships matching `to`. */
 export const networkRuleSchema = z.object({ from: labelSelectorSchema, to: labelSelectorSchema });

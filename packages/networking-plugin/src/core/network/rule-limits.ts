@@ -15,7 +15,9 @@ export function brokenRuleLimit(rules: readonly NetworkRule[]): string | undefin
     if (selector.length > SHIP_LABELS_MAX) {
       return `A selector holds at most ${String(SHIP_LABELS_MAX)} label values, as a ship carries no more`;
     }
-    const twice = selector.find((valueId, index) => selector.indexOf(valueId) !== index);
+    // The editor picks exact values only; terms of any or the same value the fleet checks (decision 0034).
+    const valueIds = selector.filter((term) => typeof term === 'string');
+    const twice = valueIds.find((valueId, index) => valueIds.indexOf(valueId) !== index);
     if (twice !== undefined) {
       return `A selector names each label value once: ${twice} twice`;
     }

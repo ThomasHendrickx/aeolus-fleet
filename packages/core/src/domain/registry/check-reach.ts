@@ -120,7 +120,7 @@ export async function shipAsItIs(tx: Pick<CheckReachTx, 'labels'>, ship: Ship): 
 }
 
 export function reaching({ ship, labels }: ShipAsItIs): ReachingShip {
-  return { kind: ship.kind, labels: labels.map((label) => label.valueId) };
+  return { kind: ship.kind, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
 }
 
 function refused({ ship, labels }: ShipAsItIs): RefusedShip {

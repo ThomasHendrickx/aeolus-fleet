@@ -5,16 +5,29 @@
  * fleet holds its rules, or none (all-to-all), with a version that moves on
  * every set, so a refusal names the settings that refused it.
  */
-import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type FleetId, type LabelValueId, type NetworkPluginDeclaration, type ShipId, type ShipKind, type WhileUnavailable } from '@aeolus-fleet/common';
+import {
+  ANY_LABEL_VALUE,
+  NETWORK_RULES_MAX,
+  SAME_LABEL_VALUE,
+  SHIP_LABELS_MAX,
+  type FleetId,
+  type LabelId,
+  type LabelValueId,
+  type NetworkPluginDeclaration,
+  type SelectorTerm,
+  type ShipId,
+  type ShipKind,
+  type WhileUnavailable,
+} from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 
-/** The ships carrying every one of these label values may send to the ships carrying every one of those. */
+/** The ships for which every term of `from` holds may send to the ships for which every term of `to` holds. */
 export interface NetworkRule {
-  from: readonly LabelValueId[];
-  to: readonly LabelValueId[];
+  from: readonly SelectorTerm[];
+  to: readonly SelectorTerm[];
 }
 
 /**
@@ -116,10 +129,12 @@ export function unregisterNetworkPlugin(
 /**
  * The fleet's rules from now on, replacing the ones it had, at the next
  * version, with NetworkRulesSet. The rules are within the decision's limits:
- * at most 200, each selector at most 20 label values, as a ship carries no
- * more, each once. A value id need not exist: an unknown one matches no ship,
- * as in label selection. Only the fleet's registered networking plugin sets
- * them, argo included: rules exist only through a plugin (decision 0035).
+ * at most 200, each selector at most 20 terms, as a ship carries no more
+ * label values, each term once, and a term of the same value on a label on
+ * both sides of its rule, as it binds that label there. An id need not
+ * exist: an unknown one matches no ship, as in label selection. Only the
+ * fleet's registered networking plugin sets them, argo included: rules exist
+ * only through a plugin (decision 0035).
  */
 export function setNetworkRules(
   current: NetworkSettings,
@@ -155,20 +170,45 @@ function invalidRules(rules: readonly NetworkRule[]): string | undefined {
   if (rules.length > NETWORK_RULES_MAX) {
     return `A fleet holds at most ${String(NETWORK_RULES_MAX)} network rules`;
   }
-  for (const selector of rules.flatMap((rule) => [rule.from, rule.to])) {
-    if (selector.length > SHIP_LABELS_MAX) {
-      return `A selector holds at most ${String(SHIP_LABELS_MAX)} label values, as a ship carries no more`;
-    }
-    const twice = selector.find((valueId, index) => selector.indexOf(valueId) !== index);
-    if (twice !== undefined) {
-      return `A selector names each label value once: ${twice} twice`;
+  for (const rule of rules) {
+    const invalid = invalidSelector(rule.from) ?? invalidSelector(rule.to) ?? sameValueOnOneSide(rule);
+    if (invalid !== undefined) {
+      return invalid;
     }
   }
   return undefined;
 }
 
+function invalidSelector(selector: readonly SelectorTerm[]): string | undefined {
+  if (selector.length > SHIP_LABELS_MAX) {
+    return `A selector holds at most ${String(SHIP_LABELS_MAX)} terms, as a ship carries no more label values`;
+  }
+  const texts = selector.map(termText);
+  const twice = texts.find((text, index) => texts.indexOf(text) !== index);
+  return twice === undefined ? undefined : `A selector holds each term once: ${twice} twice`;
+}
+
+function sameValueOnOneSide(rule: NetworkRule): string | undefined {
+  const [from, to] = [sameValueLabels(rule.from), sameValueLabels(rule.to)];
+  const alone = [...from.filter((labelId) => !to.includes(labelId)), ...to.filter((labelId) => !from.includes(labelId))][0];
+  return alone === undefined ? undefined : `A term of the same value binds its label on both sides: ${termText({ labelId: alone, value: SAME_LABEL_VALUE })} is on one side only`;
+}
+
+/** A term as a refusal names it: an exact value by its id, any other by its label id and symbol. */
+function termText(term: SelectorTerm): string {
+  return typeof term === 'string' ? term : `${term.labelId}=${term.value}`;
+}
+
+function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
+  return selector.flatMap((term) => (typeof term !== 'string' && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
+}
+
 function copyOfRule(rule: NetworkRule): NetworkRule {
-  return { from: [...rule.from], to: [...rule.to] };
+  return { from: rule.from.map(copyOfTerm), to: rule.to.map(copyOfTerm) };
+}
+
+function copyOfTerm(term: SelectorTerm): SelectorTerm {
+  return typeof term === 'string' ? term : { ...term };
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
@@ -211,10 +251,16 @@ export function rulesInForce(settings: NetworkSettings, isPluginResponding: bool
   }
 }
 
+/** A label value a ship carries, with the label it is of, so a term of any or the same value finds it. */
+export interface ReachingLabel {
+  labelId: LabelId;
+  valueId: LabelValueId;
+}
+
 /** A ship as a send's check sees it: its kind, for the argo exception, and the label values it carries. */
 export interface ReachingShip {
   kind: ShipKind;
-  labels: readonly LabelValueId[];
+  labels: readonly ReachingLabel[];
 }
 
 /**
@@ -229,10 +275,30 @@ export function allowsReach(settings: Pick<NetworkSettings, 'rules'>, send: { se
   if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || isAnswerToSender) {
     return true;
   }
-  return settings.rules.some((rule) => matches(rule.from, sender) && matches(rule.to, recipient));
+  return settings.rules.some((rule) => matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }));
 }
 
-/** A ship matches a selector when it carries every value in it: exact matches, combined with AND. */
-function matches(selector: readonly LabelValueId[], ship: ReachingShip): boolean {
-  return selector.every((valueId) => ship.labels.includes(valueId));
+/** A ship matches a selector when every term of it holds, combined with AND. */
+function matches(selector: readonly SelectorTerm[], sides: { ship: ReachingShip; otherSide: ReachingShip }): boolean {
+  return selector.every((term) => holds(term, sides));
+}
+
+/**
+ * An exact value holds for a ship carrying it; any value for a ship carrying
+ * a value of the label; the same value when the ship and the other side carry
+ * one value of the label both, each such term on its own (a ship may carry
+ * several values of one label, decision 0031).
+ */
+function holds(term: SelectorTerm, sides: { ship: ReachingShip; otherSide: ReachingShip }): boolean {
+  const { ship, otherSide } = sides;
+  if (typeof term === 'string') {
+    return ship.labels.some((label) => label.valueId === term);
+  }
+  const values = ship.labels.filter((label) => label.labelId === term.labelId);
+  switch (term.value) {
+    case ANY_LABEL_VALUE:
+      return values.length > 0;
+    case SAME_LABEL_VALUE:
+      return values.some((value) => otherSide.labels.some((other) => other.labelId === term.labelId && other.valueId === value.valueId));
+  }
 }
