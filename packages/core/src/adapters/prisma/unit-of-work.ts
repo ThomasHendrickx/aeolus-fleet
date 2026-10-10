@@ -15,6 +15,7 @@ import type {
   InstallationSettingsRepository,
   LabelRepository,
   LeaseRepository,
+  DeclaredNetworkRulesRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
@@ -34,7 +35,7 @@ import {
 } from './identity.js';
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
-import { createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
+import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import {
   createPrismaClearRequestRepository,
   createPrismaCrewRequestRepository,
@@ -54,6 +55,7 @@ export interface PrismaTx {
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   networkSettings: NetworkSettingsRepository;
+  declaredNetworkRules: DeclaredNetworkRulesRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -77,6 +79,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     clearRequests: createPrismaClearRequestRepository(db),
     labels: createPrismaLabelRepository(db),
     networkSettings: createPrismaNetworkSettingsRepository(db),
+    declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(db),
     reachRefusals: createPrismaReachRefusalRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),

@@ -128,9 +128,10 @@ export function unregisterNetworkPlugin(
 
 /**
  * The fleet's rules from now on, replacing the ones it had, at the next
- * version, with NetworkRulesSet. The rules are within the decision's limits:
- * at most 200, each selector at most 20 terms, as a ship carries no more
- * label values, each term once, and a term of the same value on a label on
+ * version, with NetworkRulesSet. The rules are within the decisions' limits:
+ * at most 200 of argo's plus every rule the fleet's ships declared, which the
+ * plugin adds to argo's when it supplies them (decision 0037); each selector
+ * at most 20 terms, as a ship carries no more label values, each term once, and a term of the same value on a label on
  * both sides of its rule, as it binds that label there. An id need not
  * exist: an unknown one matches no ship, as in label selection. Only the
  * fleet's registered networking plugin sets them, argo included: rules exist
@@ -138,14 +139,20 @@ export function unregisterNetworkPlugin(
  */
 export function setNetworkRules(
   current: NetworkSettings,
-  change: { rules: readonly NetworkRule[] | null; shipId: ShipId; at: Date; actor: Actor },
+  change: { rules: readonly NetworkRule[] | null; declaredRules: number; shipId: ShipId; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetNetworkRulesRefusal> {
-  const { rules } = change;
+  const { rules, declaredRules } = change;
   if (current.plugin?.shipId !== change.shipId) {
     return refuseNotThePlugin();
   }
   if (rules !== null) {
-    const invalid = invalidRules(rules);
+    if (rules.length > NETWORK_RULES_MAX + declaredRules) {
+      return refuse(
+        'INVALID_NETWORK_RULES',
+        `A fleet holds at most ${String(NETWORK_RULES_MAX)} network rules of argo's plus the ${String(declaredRules)} its ships declared (decision 0037)`,
+      );
+    }
+    const invalid = rules.map(invalidRule).find((broken) => broken !== undefined);
     if (invalid !== undefined) {
       return refuse('INVALID_NETWORK_RULES', `${invalid} (decision 0034)`);
     }
@@ -165,18 +172,9 @@ export function setNetworkRules(
   });
 }
 
-/** What breaks the limits, said for the caller, or undefined when the rules keep them. */
-function invalidRules(rules: readonly NetworkRule[]): string | undefined {
-  if (rules.length > NETWORK_RULES_MAX) {
-    return `A fleet holds at most ${String(NETWORK_RULES_MAX)} network rules`;
-  }
-  for (const rule of rules) {
-    const invalid = invalidSelector(rule.from) ?? invalidSelector(rule.to) ?? sameValueOnOneSide(rule);
-    if (invalid !== undefined) {
-      return invalid;
-    }
-  }
-  return undefined;
+/** What breaks a rule's own limits, said for the caller, or undefined when it keeps them (decision 0034). */
+export function invalidRule(rule: NetworkRule): string | undefined {
+  return invalidSelector(rule.from) ?? invalidSelector(rule.to) ?? sameValueOnOneSide(rule);
 }
 
 function invalidSelector(selector: readonly SelectorTerm[]): string | undefined {
@@ -203,7 +201,8 @@ function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
   return selector.flatMap((term) => (typeof term !== 'string' && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
 }
 
-function copyOfRule(rule: NetworkRule): NetworkRule {
+/** A copy of the rule, so what is kept never changes with what was given. */
+export function copyOfRule(rule: NetworkRule): NetworkRule {
   return { from: rule.from.map(copyOfTerm), to: rule.to.map(copyOfTerm) };
 }
 

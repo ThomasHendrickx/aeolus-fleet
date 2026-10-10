@@ -100,6 +100,7 @@ describe('migrations', () => {
       'credentials',
       'crew_request_give_backs',
       'crew_requests',
+      'declared_network_rules',
       'deliveries',
       'events',
       'fleets',

@@ -11,8 +11,11 @@ import { carriedLabelSchema } from './label.js';
  * checks them, so every refusal names it.
  */
 
-/** The most rules one fleet may hold. */
+/** The most rules of argo's one fleet may hold, beside the rules its ships declared (decision 0037). */
 export const NETWORK_RULES_MAX = 200;
+
+/** The most rules one ship may declare (decision 0037). */
+export const DECLARED_NETWORK_RULES_MAX = 20;
 
 /** The most refusals one read of them answers: the latest. */
 export const REACH_REFUSALS_READ_MAX = 100;
@@ -45,6 +48,15 @@ export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleS
 
 /** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
 export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
+
+/** Input of `fleet.declareNetworkRules` (labels:define): every rule the ship declares from now on, on labels it owns; an empty list withdraws them (decision 0037). */
+export const declareNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema) });
+
+/** Output of `fleet.declareNetworkRules`: how many rules the ship declares now. */
+export const declareNetworkRulesOutputSchema = z.object({ rules: z.int().min(0) });
+
+/** Output of `fleet.declaredNetworkRules` (fleet:network): each ship that declared rules, with its whole list. */
+export const declaredNetworkRulesOutputSchema = z.array(z.object({ shipId: idSchema('ship'), rules: z.array(networkRuleSchema) }));
 
 /**
  * What happens to sends while a fleet's networking plugin is unavailable

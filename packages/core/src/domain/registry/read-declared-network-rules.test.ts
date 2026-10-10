@@ -1,7 +1,7 @@
 import { ANY_LABEL_VALUE, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { agentCaller, hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -51,7 +51,7 @@ describe('reading the declared network rules', () => {
     await declaring('squadrons');
     const other = await hostedFleet(core);
 
-    await expect(readDeclaredNetworkRules({ fleetId: other.fleetId, shipId: other.operatorShipId })).resolves.toEqual([]);
+    await expect(readDeclaredNetworkRules(agentCaller({ fleetId: other.fleetId, shipId: other.operatorShipId }))).resolves.toEqual([]);
     expect(fleetId).not.toBe(other.fleetId);
   });
 });
