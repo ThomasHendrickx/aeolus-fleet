@@ -6,6 +6,7 @@ import { ComposeMessage } from '../../components/organisms/compose-message';
 import { ConsoleCommands } from '../../components/organisms/console-commands';
 import { ConsoleGuide } from '../../components/organisms/console-guide';
 import { ConsoleNotices } from '../../components/organisms/console-notices';
+import { NetworkingPluginConnection } from '../../components/organisms/networking-plugin-connection';
 import { SquadronsConnection } from '../../components/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../components/organisms/template-repositories';
 import { TrierarchPluginConnection } from '../../components/organisms/trierarch-plugin-connection';
@@ -19,6 +20,7 @@ import { useSignInWhenSessionEnds } from '../../lib/session';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../lib/squadrons';
 import { useAddRepository, useCatalogue, useRefreshCatalogue, useRemoveRepository, useRepositories } from '../../lib/squadrons-api';
+import { useConnectNetworkingPlugin, useNetworkingPluginSettings } from '../../lib/networking-plugin';
 import { usePluginNav } from '../../lib/plugin-nav';
 import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../lib/trierarch-plugin';
 
@@ -26,7 +28,8 @@ import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../lib
  * Settings: the installation's own settings, argo's alone: with squadrons,
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
- * not set up, connecting it, or connected.
+ * not set up, connecting it, or connected. With the networking plugin on for
+ * the fleet, connecting it, and once connected, the way to Network.
  */
 export default function SettingsPage() {
   const now = useNow();
@@ -39,6 +42,8 @@ export default function SettingsPage() {
   const connect = useConnectSquadrons();
   const trierarchPlugin = useTrierarchPluginSettings();
   const connectTrierarchPlugin = useConnectTrierarchPlugin();
+  const networkingPlugin = useNetworkingPluginSettings();
+  const connectNetworkingPlugin = useConnectNetworkingPlugin();
   const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
@@ -101,6 +106,20 @@ export default function SettingsPage() {
           connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
           onConnect={() => {
             connectTrierarchPlugin.mutate();
+          }}
+        />
+      )}
+      {pluginNav.hasSettings && (
+        <NetworkingPluginConnection
+          settings={networkingPlugin.data}
+          loadError={networkingPlugin.isError ? networkingPlugin.error.message : undefined}
+          onRetry={() => {
+            void networkingPlugin.refetch();
+          }}
+          isConnecting={connectNetworkingPlugin.isPending}
+          connectError={connectNetworkingPlugin.isError ? connectNetworkingPlugin.error.message : undefined}
+          onConnect={() => {
+            connectNetworkingPlugin.mutate();
           }}
         />
       )}

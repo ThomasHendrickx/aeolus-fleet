@@ -1,6 +1,7 @@
 import type { LabelValueId, NetworkRule } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
+import type { SavedRules } from './networking-plugin-schemas';
 
 /**
  * The network rules as argo edits them in the networking plugin's editor
@@ -28,7 +29,7 @@ export interface NetworkLimits {
 }
 
 /** What a save did at the fleet, as the networking plugin answers it. */
-export type Supply = 'supplied' | 'waiting' | 'not-connected' | 'unregistered';
+export type Supply = SavedRules['supply'];
 
 /** The draft of the rules the plugin holds: none is all-to-all. */
 export function draftOf(rules: readonly NetworkRule[] | null, newKey: () => string): NetworkDraft {
@@ -52,34 +53,37 @@ export function setRulesOn(draft: NetworkDraft, isOn: boolean): NetworkDraft {
 }
 
 /** A new rule from every ship to every ship, for the selectors to narrow; none past the most a fleet holds. */
-export function addRule(draft: NetworkDraft, newKey: () => string, limits: NetworkLimits): NetworkDraft {
-  if (draft.kind === 'all-to-all' || draft.rules.length >= limits.rulesMax) {
+export function addRule(draft: NetworkDraft, at: { newKey: () => string; limits: NetworkLimits }): NetworkDraft {
+  if (draft.kind === 'all-to-all' || draft.rules.length >= at.limits.rulesMax) {
     return draft;
   }
-  return { kind: 'rules', rules: [...draft.rules, { key: newKey(), from: [], to: [] }] };
+  return { kind: 'rules', rules: [...draft.rules, { key: at.newKey(), from: [], to: [] }] };
 }
 
 export function removeRule(draft: NetworkDraft, key: string): NetworkDraft {
   return draft.kind === 'all-to-all' ? draft : { kind: 'rules', rules: draft.rules.filter((rule) => rule.key !== key) };
 }
 
-function changeRule(draft: NetworkDraft, key: string, change: (rule: DraftRule) => DraftRule): NetworkDraft {
-  return draft.kind === 'all-to-all' ? draft : { kind: 'rules', rules: draft.rules.map((rule) => (rule.key === key ? change(rule) : rule)) };
+function changeRule(draft: NetworkDraft, at: { key: string; change: (rule: DraftRule) => DraftRule }): NetworkDraft {
+  return draft.kind === 'all-to-all' ? draft : { kind: 'rules', rules: draft.rules.map((rule) => (rule.key === at.key ? at.change(rule) : rule)) };
 }
 
 /** Adds a value to one side of a rule: once, and none past the most a selector holds. */
-export function addValue(draft: NetworkDraft, at: { rule: string; side: RuleSide; valueId: LabelValueId }, limits: NetworkLimits): NetworkDraft {
-  return changeRule(draft, at.rule, (rule) => {
-    const values = rule[at.side];
-    if (values.includes(at.valueId) || values.length >= limits.selectorMax) {
-      return rule;
-    }
-    return { ...rule, [at.side]: [...values, at.valueId] };
+export function addValue(draft: NetworkDraft, at: { rule: string; side: RuleSide; valueId: LabelValueId; limits: NetworkLimits }): NetworkDraft {
+  return changeRule(draft, {
+    key: at.rule,
+    change: (rule) => {
+      const values = rule[at.side];
+      if (values.includes(at.valueId) || values.length >= at.limits.selectorMax) {
+        return rule;
+      }
+      return { ...rule, [at.side]: [...values, at.valueId] };
+    },
   });
 }
 
 export function removeValue(draft: NetworkDraft, at: { rule: string; side: RuleSide; valueId: LabelValueId }): NetworkDraft {
-  return changeRule(draft, at.rule, (rule) => ({ ...rule, [at.side]: rule[at.side].filter((valueId) => valueId !== at.valueId) }));
+  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, [at.side]: rule[at.side].filter((valueId) => valueId !== at.valueId) }) });
 }
 
 /** Whether the draft differs from the rules the plugin holds; all-to-all is never an empty list. */
