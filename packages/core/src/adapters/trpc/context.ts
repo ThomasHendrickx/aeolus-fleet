@@ -62,9 +62,11 @@ import type { ExplainCrewRequest } from '../../domain/registry/explain-crew-requ
 import type { Ping } from '../../domain/shared/ping.js';
 import type { ReadFleetEvents } from '../../domain/shared/read-fleet-events.js';
 import type { AssignLabel } from '../../domain/registry/assign-label.js';
+import type { DeclareNetworkRules } from '../../domain/registry/declare-network-rules.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
 import type { ExplainReach } from '../../domain/registry/explain-reach.js';
+import type { ReadDeclaredNetworkRules } from '../../domain/registry/read-declared-network-rules.js';
 import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusals.js';
 import type { RegisterNetworkPlugin } from '../../domain/registry/register-network-plugin.js';
 import type { SetNetworkRules } from '../../domain/registry/set-network-rules.js';
@@ -124,6 +126,8 @@ export interface UseCases {
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
+  declareNetworkRules: DeclareNetworkRules;
+  readDeclaredNetworkRules: ReadDeclaredNetworkRules;
   explainReach: ExplainReach;
   changeLabelValues: ChangeLabelValues;
   assignLabel: AssignLabel;

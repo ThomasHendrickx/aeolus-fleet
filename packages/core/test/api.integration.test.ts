@@ -195,6 +195,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_plugin$/),
       expect.stringMatching(/^\d{14}_network_rules_through_plugin$/),
       expect.stringMatching(/^\d{14}_cleared_network_rules_on_record$/),
+      expect.stringMatching(/^\d{14}_declared_network_rules$/),
     ]);
   });
 });

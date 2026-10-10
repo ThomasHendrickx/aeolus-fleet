@@ -36,6 +36,7 @@ import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delive
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
+import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
 import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
 import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
@@ -64,6 +65,7 @@ import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
+import { createDeclareNetworkRules } from '../../src/domain/registry/declare-network-rules.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
 import { createDeleteLabel } from '../../src/domain/registry/delete-label.js';
 import { createFindLabelValue } from '../../src/domain/registry/find-label-value.js';
@@ -174,6 +176,8 @@ export function registryUseCases(core: InMemoryCore) {
     registerNetworkPlugin: createRegisterNetworkPlugin(deps),
     unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),
     readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals }),
+    declareNetworkRules: createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: core.declaredNetworkRules }),
     explainReach: createExplainReach(deps),
     changeLabelValues: createChangeLabelValues(deps),
     assignLabel: createAssignLabel(deps),
