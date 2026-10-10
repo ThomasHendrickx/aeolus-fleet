@@ -21,17 +21,21 @@ const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugi
  * mono, the key muted, with its owner's mark before it unless the label is
  * yours (Q10). Its title names the owner, or says the label no longer
  * exists (#523); such a chip has a crossed-out tag and a dashed edge, so it
- * never looks like yours without a hover (#528). In a filter it ends in an
- * × that takes it out.
+ * never looks like yours without a hover (#528). The same words are its
+ * accessible name, a named group, since many screen readers never read a
+ * title (#577). In a filter it ends in an × that takes it out.
  */
 export function LabelChip({ chip, onRemove, testId, className, trailing }: LabelChipProps) {
   const Mark = chip.mark === 'none' ? null : MARKS[chip.mark];
   const text = `${chip.key}=${chip.value}`;
+  const title = chipTitleOf(chip);
   return (
     <span
+      role="group"
+      aria-label={title}
       data-slot="label-chip"
       data-testid={testId}
-      title={chipTitleOf(chip)}
+      title={title}
       className={classNames(
         'inline-flex h-5.5 max-w-full min-w-0 shrink-0 items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 font-mono text-id whitespace-nowrap text-foreground [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         chip.mark === 'gone' ? 'border-dashed' : null,
