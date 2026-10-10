@@ -126,6 +126,13 @@ describe('a give-back refused', () => {
     expect(core.state).toEqual(before);
   });
 
+  it.each(['running', 'restarting', 'crashed'] as const)('refuses a request whose crew was final, its status %s, though crewing was reported since', async (status) => {
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status }));
+    unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
+
+    await expect(giveBack(trierarch)).resolves.toMatchObject({ isOk: false, error: { kind: 'CREW_REQUEST_FINAL' } });
+  });
+
   it('refuses a releasing request', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
 
