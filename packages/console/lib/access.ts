@@ -23,12 +23,14 @@ export interface Access {
   canDefineLabels: boolean;
   /** labels:assign: put the session's own labels on a ship, change or take them off (decision 0031). */
   canAssignLabels: boolean;
+  /** fleet:network: the networking plugin's rules and what it declares (decision 0036), argo's alone. */
+  canEditNetwork: boolean;
   /** A viewer session: the read-only console's own copy (the sidebar foot, the account menu). */
   isViewer: boolean;
 }
 
 /** Until the session is known nothing is offered, so a viewer never sees a write flash by. */
-export const NO_ACCESS: Access = { canManage: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, isViewer: false };
+export const NO_ACCESS: Access = { canManage: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: false };
 
 export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> | undefined): Access {
   if (session === undefined) {
@@ -41,6 +43,7 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
     canReceive: holds('messages:receive'),
     canDefineLabels: holds('labels:define'),
     canAssignLabels: holds('labels:assign'),
+    canEditNetwork: holds('fleet:network'),
     isViewer: session.kind === 'viewer',
   };
 }
