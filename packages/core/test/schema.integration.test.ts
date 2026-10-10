@@ -317,6 +317,102 @@ describe('the rules only through a plugin migration', () => {
   });
 });
 
+describe('the cleared rules on record migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
+  const clearedRulesOnRecord = readdirSync(MIGRATIONS).find((name) => name.endsWith('_cleared_network_rules_on_record'));
+
+  const execute = (url: string, migration: string | undefined) => prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${migration ?? 'missing'}/migration.sql`);
+
+  /**
+   * Fleets as an upgrade from before rules only through a plugin finds them:
+   * one with rules argo set, one whose plugin set rules, and one whose plugin
+   * unregistered, taking its rules. Then the migration that clears argo's
+   * rules runs.
+   */
+  async function upgradedFleets(client: PrismaClient, url: string) {
+    const argoRules = newId('fleet');
+    const pluginRules = newId('fleet');
+    const unregistered = newId('fleet');
+    const pluginId = newId('ship');
+    const rulesSet = newId('event');
+    const rules = [{ from: [], to: [] }];
+    await client.fleet.createMany({ data: [argoRules, pluginRules, unregistered].map((id) => ({ id, name: 'old fleet', createdAt: now, lastEventSeq: 1n })) });
+    await client.ship.create({ data: { id: pluginId, fleetId: pluginRules, name: 'networking', type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now } });
+    await client.networkSettings.createMany({
+      data: [
+        { fleetId: argoRules, rules, version: 3 },
+        { fleetId: pluginRules, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+        { fleetId: unregistered, version: 2 },
+      ],
+    });
+    await client.event.createMany({
+      data: [
+        { id: rulesSet, fleetId: argoRules, type: 'NetworkRulesSet', occurredAt: now, details: { version: 3, rules: 1 }, seq: 1n },
+        { id: newId('event'), fleetId: pluginRules, type: 'NetworkRulesSet', occurredAt: now, details: { version: 5, rules: 1 }, seq: 1n },
+        { id: newId('event'), fleetId: unregistered, type: 'NetworkPluginUnregistered', occurredAt: now, details: { version: 2 }, seq: 1n },
+      ],
+    });
+    await execute(url, rulesThroughPlugin);
+    return { argoRules, pluginRules, unregistered, rulesSet };
+  }
+
+  it('records the rules it cleared as NetworkRulesSet with none, by the system, at the next version and the next number', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    try {
+      const { argoRules, rulesSet } = await upgradedFleets(client, url);
+
+      await execute(url, clearedRulesOnRecord);
+
+      await expect(client.networkSettings.findUnique({ where: { fleetId: argoRules }, select: { rules: true, version: true } })).resolves.toEqual({ rules: null, version: 4 });
+      const [recorded] = await client.event.findMany({ where: { fleetId: argoRules, id: { not: rulesSet } } });
+      expect(recorded).toMatchObject({ type: 'NetworkRulesSet', actorShipId: null, shipId: null, details: { version: 4, rules: null }, seq: 2n });
+      expect(idSchema('event').safeParse(recorded?.id).success).toBe(true);
+      expect((recorded?.id ?? '') > rulesSet).toBe(true);
+      await expect(client.fleet.findUnique({ where: { id: argoRules }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 2n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it("leaves a plugin's rules and rules a change already took, with their events, as they were", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    try {
+      const { pluginRules, unregistered } = await upgradedFleets(client, url);
+
+      await execute(url, clearedRulesOnRecord);
+
+      await expect(
+        client.networkSettings.findMany({ where: { fleetId: { in: [pluginRules, unregistered] } }, select: { fleetId: true, version: true }, orderBy: { version: 'asc' } }),
+      ).resolves.toEqual([
+        { fleetId: unregistered, version: 2 },
+        { fleetId: pluginRules, version: 5 },
+      ]);
+      await expect(client.event.count({ where: { fleetId: { in: [pluginRules, unregistered] } } })).resolves.toBe(2);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('records a cleared fleet once, however often it runs', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    try {
+      const { argoRules } = await upgradedFleets(client, url);
+
+      await execute(url, clearedRulesOnRecord);
+      await execute(url, clearedRulesOnRecord);
+
+      await expect(client.event.count({ where: { fleetId: argoRules } })).resolves.toBe(2);
+      await expect(client.networkSettings.findUnique({ where: { fleetId: argoRules }, select: { version: true } })).resolves.toEqual({ version: 4 });
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('ships', () => {
   it('keeps a name unique among ships that are not retired', async () => {
     const fleetId = await createFleet();
