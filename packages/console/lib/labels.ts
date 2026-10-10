@@ -16,7 +16,7 @@ import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rul
 export type OwnerMark = 'none' | 'trierarch-plugin' | 'squadrons' | 'ship';
 
 /**
- * How a chip marks its label: by its owner, or gone, with no mark, for a
+ * How a chip marks its label: by its owner, or gone, a crossed-out tag, for a
  * label the fleet no longer has: a reach refusal keeps the values a ship
  * carried then, not who owned them (#523).
  */

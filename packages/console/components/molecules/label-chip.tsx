@@ -1,4 +1,4 @@
-import { Boxes, Ship, ShipWheel, X } from 'lucide-react';
+import { Boxes, Ship, ShipWheel, TagX, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
@@ -14,17 +14,18 @@ interface LabelChipProps {
   trailing?: ReactNode;
 }
 
-const MARKS: Record<Exclude<ChipMark, 'none' | 'gone'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
+const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship, gone: TagX };
 
 /**
  * One label value a ship carries (canvas Labels, LabelChip): `key=value` in
  * mono, the key muted, with its owner's mark before it unless the label is
  * yours (Q10). Its title names the owner, or says the label no longer
- * exists, with no mark (#523). In a filter it ends in an × that
- * takes it out.
+ * exists (#523); such a chip has a crossed-out tag and a dashed edge, so it
+ * never looks like yours without a hover (#528). In a filter it ends in an
+ * × that takes it out.
  */
 export function LabelChip({ chip, onRemove, testId, className, trailing }: LabelChipProps) {
-  const Mark = chip.mark === 'none' || chip.mark === 'gone' ? null : MARKS[chip.mark];
+  const Mark = chip.mark === 'none' ? null : MARKS[chip.mark];
   const text = `${chip.key}=${chip.value}`;
   return (
     <span
@@ -33,6 +34,7 @@ export function LabelChip({ chip, onRemove, testId, className, trailing }: Label
       title={chipTitleOf(chip)}
       className={classNames(
         'inline-flex h-5.5 max-w-full min-w-0 shrink-0 items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 font-mono text-id whitespace-nowrap text-foreground [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        chip.mark === 'gone' ? 'border-dashed' : null,
         className,
       )}
     >

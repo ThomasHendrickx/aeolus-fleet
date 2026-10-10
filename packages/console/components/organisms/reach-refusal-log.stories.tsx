@@ -80,7 +80,7 @@ export const WhilePluginUnavailable: Story = {
     );
   },
 };
-/** A label deleted since the refusal: its chip has no mark and says the label no longer exists. */
+/** A label deleted since the refusal: its chip has a crossed-out tag and a dashed edge, and says the label no longer exists. */
 export const WithALabelDeletedSince: Story = {
   args: {
     refusals: [
