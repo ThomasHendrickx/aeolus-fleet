@@ -150,7 +150,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 
 Every promise in the blueprint maps to one Postgres transaction. Nothing the guarantee depends on is held only in memory, so a crash of the Node process loses nothing.
 
-A transaction waits up to 10 seconds for a connection from the pool (pg's default size). A call whose transaction gets none in that time never started, so it stored nothing: it is refused as `SERVICE_UNAVAILABLE` (HTTP 503 over REST, the same code over MCP and `/trpc`), saying the fleet is busy, nothing was stored and to make the same call again (a send with the same idempotency key). It is never answered as a server failure.
+A call waits up to 10 seconds for a connection from the pool (pg's default size), wherever it asks for one: its transaction, or a query outside one such as the crew-token lookup. A call that gets none in that time never started its work, so it stored nothing: it is refused as `SERVICE_UNAVAILABLE` (HTTP 503 over REST, the same code over MCP and `/trpc`), saying the fleet is busy, nothing was stored and to make the same call again (a send with the same idempotency key). It is never answered as a server failure.
 
 ### Core tables
 
