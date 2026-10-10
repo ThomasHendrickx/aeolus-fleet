@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  explainReachInputSchema,
+  explainReachOutputSchema,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
   NETWORK_RULES_MAX,
@@ -129,5 +131,26 @@ describe('reachRefusalsOutputSchema', () => {
     };
 
     expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
+  });
+});
+
+describe('explainReachInputSchema', () => {
+  it('takes the ship to explain from, and the ship asked about or none for every ship', () => {
+    const fromShipId = newId('ship');
+    const toShipId = newId('ship');
+
+    expect([explainReachInputSchema.parse({ fromShipId }), explainReachInputSchema.parse({ fromShipId, toShipId })]).toEqual([{ fromShipId }, { fromShipId, toShipId }]);
+  });
+
+  it('refuses an id that is not a ship id', () => {
+    expect(explainReachInputSchema.safeParse({ fromShipId: newId('fleet') }).success).toBe(false);
+  });
+});
+
+describe('explainReachOutputSchema', () => {
+  it('answers the ships reached, by id, and nothing about why', () => {
+    const reachableShipIds = [newId('ship')];
+
+    expect(explainReachOutputSchema.parse({ reachableShipIds, reasons: ['rule 1'] })).toEqual({ reachableShipIds });
   });
 });
