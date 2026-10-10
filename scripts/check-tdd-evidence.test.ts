@@ -173,6 +173,31 @@ describe('the TDD evidence check', () => {
     expect(violations(head)).toHaveLength(1);
   });
 
+  it.each([
+    'packages/trierarch/src/core/pass.ts',
+    'packages/squadrons/src/core/forming.ts',
+    'packages/networking-plugin/src/core/rules.ts',
+    'packages/trierarch-plugin/src/core/worktree.ts',
+  ])('refuses a feat commit in %s without a (red) commit before it', (path) => {
+    repository.write(path, 'export const rule = 1;\n');
+    const head = repository.commit('feat(server): a rule');
+
+    expect(violations(head)).toEqual([expect.stringContaining(`changes production code (${path})`)]);
+  });
+
+  it.each([
+    'packages/trierarch/src/core/pass.ts',
+    'packages/squadrons/src/core/forming.ts',
+    'packages/networking-plugin/src/core/rules.ts',
+    'packages/trierarch-plugin/src/core/worktree.ts',
+  ])('passes a feat commit in %s directly after a (red) commit', (path) => {
+    red();
+    repository.write(path, 'export const rule = 1;\n');
+    const head = repository.commit('feat(server): a rule');
+
+    expect(violations(head)).toEqual([]);
+  });
+
   it('does not judge tests, docs, scripts, web or Markdown in src', () => {
     repository.write('packages/core/src/domain/registry/fleet.test.ts', 'test only\n');
     repository.commit('test(registry): more cases');
@@ -260,6 +285,10 @@ describe('what counts as a test and as production code', () => {
     'packages/core/src/adapters/prisma/schema.prisma',
     'packages/core/src/adapters/prisma/migrations/20260929124818_init/migration.sql',
     'packages/common/src/ids/index.ts',
+    'packages/trierarch/src/cli/main.ts',
+    'packages/squadrons/src/adapters/prisma/schema.prisma',
+    'packages/networking-plugin/src/app.ts',
+    'packages/trierarch-plugin/src/core/worktree.ts',
   ])('%s is production code', (path) => {
     expect(isProductionFile(path)).toBe(true);
   });
