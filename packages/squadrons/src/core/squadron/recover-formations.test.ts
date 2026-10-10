@@ -23,6 +23,7 @@ const door: FleetDoor = {
   release: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   receive: () => Promise.resolve(ok([])),
   ack: () => Promise.resolve(ok(undefined)),
+  pong: () => Promise.resolve(ok(undefined)),
   send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   listShips: () => Promise.resolve(ok(ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
   requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),

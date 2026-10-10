@@ -74,6 +74,7 @@ const door: FleetDoor = {
   retire: notUsed,
   receive: notUsed,
   ack: notUsed,
+  pong: notUsed,
   send: notUsed,
 };
 const management: ManagementCrewStore = {

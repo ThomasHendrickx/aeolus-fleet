@@ -96,6 +96,7 @@ export function fakeManagementFleet() {
     retire: notUsed,
     receive: notUsed,
     ack: notUsed,
+    pong: notUsed,
     send: notUsed,
     listShips: notUsed,
   };

@@ -61,6 +61,7 @@ const door: FleetDoor = {
   listShips: notUsed,
   receive: notUsed,
   ack: notUsed,
+  pong: notUsed,
   getShip: (crewToken, { shipId }) => {
     const ship = ships.get(shipId);
     if (isFleetDown) {

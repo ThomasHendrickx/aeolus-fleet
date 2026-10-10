@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
@@ -14,6 +14,7 @@ const FLAGSHIP: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0000';
 const PLANNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0001';
 const TESTER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0002';
 const STRANGER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0009';
+const ARGO: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0010';
 const FORMED = new Date('2026-10-03T09:00:00.000Z');
 const NOW = new Date('2026-10-03T09:10:00.000Z');
 const REPO = 'example.com/templates';
@@ -71,6 +72,8 @@ function squadron(): Squadron {
 
 let held: Squadron;
 const acked: DeliveryId[] = [];
+const ponged: DeliveryId[] = [];
+let isPongRefused: boolean;
 const sent: OutgoingMessage[] = [];
 let isAckRefused: boolean;
 
@@ -93,6 +96,13 @@ const door: FleetDoor = {
       return Promise.resolve(err({ code: 'CONFLICT', message: 'not in flight' }));
     }
     acked.push(deliveryId);
+    return Promise.resolve(ok(undefined));
+  },
+  pong: (crewToken, deliveryId) => {
+    if (isPongRefused || crewToken !== 'aeolus_ct_v1_flagship') {
+      return Promise.resolve(err({ code: 'CONFLICT', message: 'not in flight' }));
+    }
+    ponged.push(deliveryId);
     return Promise.resolve(ok(undefined));
   },
   send: (_crewToken, message) => {
@@ -163,6 +173,8 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
 beforeEach(() => {
   held = squadron();
   acked.length = 0;
+  ponged.length = 0;
+  isPongRefused = false;
   sent.length = 0;
   kept.length = 0;
   told.length = 0;
@@ -462,5 +474,26 @@ describe('handling before the ack', () => {
     expect(told[1]).toEqual(told[0]);
     expect(told[0]?.key).toBe(`kept-${unknown.deliveryId}`);
     expect(told[0]?.fleetId).toBe(FLEET);
+  });
+});
+
+describe("argo's ping of the flagship", () => {
+  it('is answered with pong, not acked, and neither kept nor told to argo', async () => {
+    const ping = delivery(ARGO, { contentType: PING_CONTENT_TYPE, payload: 'ping' });
+
+    await expect(handle(held, ping)).resolves.toEqual({ isOk: true, value: 'ponged' });
+
+    expect(ponged).toEqual([ping.deliveryId]);
+    expect(acked).toEqual([]);
+    expect(kept).toEqual([]);
+    expect(told).toEqual([]);
+  });
+
+  it('is refused while the fleet does not take the pong', async () => {
+    isPongRefused = true;
+
+    await expect(handle(held, delivery(ARGO, { contentType: PING_CONTENT_TYPE, payload: 'ping' }))).resolves.toMatchObject({ isOk: false });
+
+    expect(acked).toEqual([]);
   });
 });
