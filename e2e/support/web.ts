@@ -23,6 +23,9 @@ export async function freePort(): Promise<number> {
   return address.port;
 }
 
+/** Runs next dev for as long as the process that starts it lives. */
+const nextDev = fileURLToPath(new URL('next-dev.ts', import.meta.url));
+
 export interface RunningWeb {
   url: string;
   stop(): Promise<void>;
@@ -56,7 +59,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
   const sameSiteServer = new URL(serverUrl);
   sameSiteServer.hostname = 'localhost';
   const nextBin = createRequire(`${webRoot}/package.json`).resolve('next/dist/bin/next');
-  const child = spawn(process.execPath, [nextBin, 'dev', '--port', port], {
+  const child = spawn(process.execPath, [nextDev, nextBin, 'dev', '--port', port], {
     cwd: webRoot,
     env: {
       ...process.env,
@@ -69,7 +72,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
       ...web.hostedAnalytics,
       NEXT_TELEMETRY_DISABLED: '1',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   let output = '';
   child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
