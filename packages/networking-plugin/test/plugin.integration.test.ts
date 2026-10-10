@@ -229,6 +229,20 @@ describe("the networking plugin's ship receiving", () => {
       { timeout: 10_000, interval: 100 },
     );
   });
+
+  it("answers argo's ping with pong: the ship's last ping is answered", async () => {
+    await connected();
+    apps[0]?.startReceiving();
+
+    unwrap(await useCases.pingShip(argo, { shipId }));
+
+    await vi.waitFor(
+      async () => {
+        await expect(useCases.getShip(argo, { shipId })).resolves.toMatchObject({ isOk: true, value: { ping: { state: 'answered' } } });
+      },
+      { timeout: 10_000, interval: 100 },
+    );
+  });
 });
 
 describe('the rules at a viewer session (decision 0022)', () => {

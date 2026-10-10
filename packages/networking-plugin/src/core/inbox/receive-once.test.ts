@@ -24,6 +24,27 @@ describe("the networking plugin's ship receiving", () => {
     expect(fleet.state.version).toBe(0);
   });
 
+  it("answers argo's ping with pong, not a plain ack, and acknowledges the rest", async () => {
+    await connectedCrew(fleet, connections);
+    fleet.state.waiting = ['dlv_01m3tbfspe96yf1rnr4ank9001', 'dlv_01m3tbfspe96yf1rnr4ank9002'];
+    fleet.state.pings.add('dlv_01m3tbfspe96yf1rnr4ank9002');
+
+    await expect(receiveOnce(FLEET_ID)).resolves.toEqual({ isOk: true, value: { acknowledged: 2 } });
+    expect(fleet.state.ponged).toEqual(['dlv_01m3tbfspe96yf1rnr4ank9002']);
+    expect(fleet.state.acked).toEqual(['dlv_01m3tbfspe96yf1rnr4ank9001']);
+    expect(fleet.state.waiting).toEqual([]);
+  });
+
+  it('is refused while the fleet does not take the pong', async () => {
+    await connectedCrew(fleet, connections);
+    fleet.state.waiting = ['dlv_01m3tbfspe96yf1rnr4ank9001'];
+    fleet.state.pings.add('dlv_01m3tbfspe96yf1rnr4ank9001');
+    fleet.state.isTakingPongs = false;
+
+    await expect(receiveOnce(FLEET_ID)).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_UNAVAILABLE' } });
+    expect(fleet.state.acked).toEqual([]);
+  });
+
   it('receives nothing for a fleet it is not connected to', async () => {
     await expect(receiveOnce(FLEET_ID)).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_CONNECTED' } });
   });
