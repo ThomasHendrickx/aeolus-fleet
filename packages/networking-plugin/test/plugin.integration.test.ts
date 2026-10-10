@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import { SAME_LABEL_VALUE, type ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -184,14 +184,14 @@ describe('supplying the fleet (decision 0035)', () => {
     await expect(settings()).resolves.toMatchObject({ rules: RULES, pluginWhileUnavailable: 'block-all', pluginNotRespondingAfterSeconds: 120 });
   });
 
-  it('refuses rules over the limits, naming decision 0034, and supplies nothing', async () => {
+  it("refuses more than argo's 200 rules, naming decision 0037, and supplies nothing", async () => {
     const address = await connected();
     const before = await settings();
 
     const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) } });
 
     expect(refused.status).toBe(400);
-    expect(await refused.text()).toContain('decision 0034');
+    expect(await refused.text()).toContain('decision 0037');
     await expect(settings()).resolves.toEqual(before);
   });
 
@@ -212,6 +212,37 @@ describe('supplying the fleet (decision 0035)', () => {
     const after = await settings();
     expect(after).toMatchObject({ rules: RULES, pluginShipId: shipId });
     expect(after?.version).toBeGreaterThan(before?.version ?? 0);
+  });
+});
+
+describe('the rules ships declared (decision 0037)', () => {
+  it("adds them to argo's rules, supplying the fleet again as soon as a ship declares or withdraws them", async () => {
+    const address = await connected();
+    apps[0]?.startFollowing();
+    const argos = [{ from: [], to: [] }];
+    await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: argos } }));
+    const { shipId: squadronsId } = unwrap(
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['labels:define', 'labels:assign'] }),
+    );
+    const squadrons = { fleetId: argo.fleetId, shipId: squadronsId, kind: 'agent' as const, scopes: ['labels:define' as const, 'labels:assign' as const] };
+    const { labelId } = unwrap(await useCases.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
+    const declared = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+
+    unwrap(await useCases.declareNetworkRules(squadrons, { rules: declared }));
+
+    await vi.waitFor(
+      async () => {
+        await expect(settings()).resolves.toMatchObject({ rules: [...argos, ...declared] });
+      },
+      { timeout: 10_000, interval: 100 },
+    );
+    unwrap(await useCases.declareNetworkRules(squadrons, { rules: [] }));
+    await vi.waitFor(
+      async () => {
+        await expect(settings()).resolves.toMatchObject({ rules: argos });
+      },
+      { timeout: 10_000, interval: 100 },
+    );
   });
 });
 

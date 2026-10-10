@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, ShipId } from '@aeolus-fleet/common';
+import { SAME_LABEL_VALUE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -17,6 +17,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { newKey } from '../../../test/support/keys.js';
+import { createDeclareNetworkRules } from './declare-network-rules.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 
@@ -276,5 +277,31 @@ describe('the networking plugin retired (decision 0035)', () => {
 
     expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 2, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
     expect(eventsOfType('NetworkPluginUnregistered')).toEqual([]);
+  });
+});
+
+describe('a ship that declared network rules retired (decision 0037)', () => {
+  let squadrons: Caller;
+
+  beforeEach(async () => {
+    squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: ['labels:define', 'labels:assign'] });
+    const { labelId } = unwrap(await registry.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
+    const sameSquadron = { from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] };
+    unwrap(await createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids })(squadrons, { rules: [sameSquadron] }));
+    core.state.events.length = 0;
+  });
+
+  it('withdraws its declared rules, with NetworkRulesDeclared of none caused by the retirer', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: squadrons.shipId }));
+
+    expect(core.state.declaredNetworkRules).toEqual([]);
+    expect(eventsOfType('NetworkRulesDeclared')).toEqual([expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: squadrons.shipId, details: { rules: 0 } })]);
+  });
+
+  it('leaves the declared rules as they are when another ship retires', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(core.state.declaredNetworkRules).toEqual([expect.objectContaining({ shipId: squadrons.shipId })]);
+    expect(eventsOfType('NetworkRulesDeclared')).toEqual([]);
   });
 });

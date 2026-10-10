@@ -11,8 +11,9 @@ import { removeClearRequestsOf } from './clear-request.js';
 import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
+import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import { unregisterNetworkPlugin } from './network-settings.js';
-import type { ClearRequestRepository, CrewRequestRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
+import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
 import { checkCanRetire, type RetireRefusal } from './ship.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
@@ -21,6 +22,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx {
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'find' | 'save'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
@@ -43,7 +45,8 @@ export type RetireShip = (
  * and the labels it owns retire with it, each locked first and every
  * assignment of it gone first (decision 0031). A retired trierarch clears
  * nothing: its pending clear requests go, one WorktreeClearRemoved each
- * (decision 0032). A retired networking plugin unregisters, its rules going
+ * (decision 0032). The network rules it declared go with its labels
+ * (decision 0037). A retired networking plugin unregisters, its rules going
  * with it: all-to-all (decision 0035). The caller's scope (fleet:manage) is
  * checked before this runs.
  *
@@ -125,6 +128,13 @@ export function createRetireShip(deps: {
       }
       for (const event of labels.events) {
         await recordEvent(recorded, event);
+      }
+      const withdrawn = withdrawWithRetiredShip(await tx.declaredNetworkRules.find(fleetId, shipId), { at, actor });
+      if (withdrawn !== undefined) {
+        await tx.declaredNetworkRules.save(withdrawn.declared);
+        for (const event of withdrawn.events) {
+          await recordEvent(recorded, event);
+        }
       }
       // Any ship but the fleet's networking plugin leaves the settings as they are.
       const unregistered = unregisterNetworkPlugin(await tx.networkSettings.findForUpdate(fleetId), { shipId, at, actor });

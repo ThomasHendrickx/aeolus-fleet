@@ -23,7 +23,7 @@ import {
   createPrismaInstallationSettings,
   createPrismaNoticeRepository,
 } from './adapters/prisma/installation.js';
-import { createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
+import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
 import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
@@ -80,6 +80,8 @@ import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/regi
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createExplainReach, type ExplainReach } from './domain/registry/explain-reach.js';
 import { createReadReachRefusals, type ReadReachRefusals } from './domain/registry/read-reach-refusals.js';
+import { createDeclareNetworkRules, type DeclareNetworkRules } from './domain/registry/declare-network-rules.js';
+import { createReadDeclaredNetworkRules, type ReadDeclaredNetworkRules } from './domain/registry/read-declared-network-rules.js';
 import { createRegisterNetworkPlugin, type RegisterNetworkPlugin } from './domain/registry/register-network-plugin.js';
 import { createSetNetworkRules, type SetNetworkRules } from './domain/registry/set-network-rules.js';
 import { createUnregisterNetworkPlugin, type UnregisterNetworkPlugin } from './domain/registry/unregister-network-plugin.js';
@@ -143,6 +145,8 @@ export interface UseCases {
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
+  declareNetworkRules: DeclareNetworkRules;
+  readDeclaredNetworkRules: ReadDeclaredNetworkRules;
   explainReach: ExplainReach;
   changeLabelValues: ChangeLabelValues;
   assignLabel: AssignLabel;
@@ -278,6 +282,8 @@ export function createUseCases(options: {
     registerNetworkPlugin: createRegisterNetworkPlugin({ uow, clock, ids }),
     unregisterNetworkPlugin: createUnregisterNetworkPlugin({ uow, clock, ids }),
     readReachRefusals: createReadReachRefusals({ reachRefusals: createPrismaReachRefusalRepository(prisma) }),
+    declareNetworkRules: createDeclareNetworkRules({ uow, clock, ids }),
+    readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(prisma) }),
     explainReach: createExplainReach({ uow, clock }),
     changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
     assignLabel: createAssignLabel({ uow, clock, ids }),

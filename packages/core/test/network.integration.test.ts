@@ -411,3 +411,35 @@ describe('a send to a type under network rules', () => {
     await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: [] }]);
   });
 });
+
+describe('declared network rules on Postgres (decision 0037)', () => {
+  const sameTrust = () => ({ from: [{ labelId: trustId, value: SAME_LABEL_VALUE }], to: [{ labelId: trustId, value: SAME_LABEL_VALUE }] });
+
+  it("keeps each ship's whole list, in ship order, replacing it and withdrawing it with none", async () => {
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust(), { from: [shared], to: [{ labelId: trustId, value: ANY_LABEL_VALUE }] }] }));
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust()] }));
+    const plugin = await registeredPlugin();
+
+    await expect(core.useCases.readDeclaredNetworkRules(plugin)).resolves.toEqual([{ shipId: labeller.shipId, rules: [sameTrust()] }]);
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [] }));
+    await expect(core.useCases.readDeclaredNetworkRules(plugin)).resolves.toEqual([]);
+    await expect(core.prisma.declaredNetworkRules.count()).resolves.toBe(0);
+  });
+
+  it('withdraws them when the declaring ship retires, in its unit of work', async () => {
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust()] }));
+
+    unwrap(await core.useCases.retireShip(argo, { shipId: labeller.shipId }));
+
+    await expect(core.prisma.declaredNetworkRules.count()).resolves.toBe(0);
+    await expect(core.prisma.event.count({ where: { type: 'NetworkRulesDeclared', shipId: labeller.shipId } })).resolves.toBe(2);
+  });
+
+  it("lets the plugin set argo's 200 rules plus the declared ones", async () => {
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust(), sameTrust()] }));
+    const plugin = await registeredPlugin();
+
+    expect(unwrap(await core.useCases.setNetworkRules(plugin, { rules: Array.from({ length: 202 }, sameTrust) }))).toEqual({ version: 2 });
+    expect(refusalOf(await core.useCases.setNetworkRules(plugin, { rules: Array.from({ length: 203 }, sameTrust) }))).toMatchObject({ kind: 'INVALID_NETWORK_RULES' });
+  });
+});

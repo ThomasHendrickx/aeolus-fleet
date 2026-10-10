@@ -1,4 +1,4 @@
-import { NETWORK_RULES_MAX, SHIP_LABELS_MAX, type LabelValueId, type NetworkRule } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, NETWORK_RULES_MAX, SAME_LABEL_VALUE, SHIP_LABELS_MAX, type LabelId, type LabelValueId, type NetworkRule } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { FLEET_ID } from '../../../test/support/connection-fakes.js';
@@ -13,6 +13,12 @@ let nextValue = 0;
 function aValue(): LabelValueId {
   nextValue += 1;
   return `lbv_01m3tbfspe96yf1rnr4ank9${String(nextValue).padStart(3, '0')}`;
+}
+
+/** A label id no other call gave. */
+function aLabel(): LabelId {
+  nextValue += 1;
+  return `lbl_01m3tbfspe96yf1rnr4ank9${String(nextValue).padStart(3, '0')}`;
 }
 
 function aRule(from = 1, to = 1): NetworkRule {
@@ -64,11 +70,11 @@ describe("saving argo's rules", () => {
   });
 
   it.each([
-    { label: 'one rule over the limit', rules: () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), message: 'A fleet holds at most 200 network rules (decision 0034)' },
+    { label: 'one rule over the limit', rules: () => Array.from({ length: NETWORK_RULES_MAX + 1 }, () => aRule()), message: "A fleet holds at most 200 network rules of argo's (decision 0037)" },
     {
       label: 'a selector of one label value more than a ship carries',
       rules: () => [aRule(1, SHIP_LABELS_MAX + 1)],
-      message: 'A selector holds at most 20 label values, as a ship carries no more (decision 0034)',
+      message: 'A selector holds at most 20 terms, as a ship carries no more label values (decision 0034)',
     },
   ])('refuses $label, keeping and supplying nothing', async ({ rules, message }) => {
     await expect(saveRules({ fleetId: FLEET_ID, rules: rules() })).resolves.toEqual({ isOk: false, error: { kind: 'INVALID_NETWORK_RULES', message } });
@@ -81,7 +87,34 @@ describe("saving argo's rules", () => {
 
     await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [twice, twice], to: [] }] })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'INVALID_NETWORK_RULES', message: `A selector names each label value once: ${twice} twice (decision 0034)` },
+      error: { kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${twice} twice (decision 0034)` },
     });
+  });
+
+  it('refuses a selector that names a label with any value twice', async () => {
+    const label = aLabel();
+
+    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [], to: [{ labelId: label, value: ANY_LABEL_VALUE }, { labelId: label, value: ANY_LABEL_VALUE }] }] })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${label}=* twice (decision 0034)` },
+    });
+  });
+
+  it('keeps a rule that binds a label to the same value on both sides', async () => {
+    const label = aLabel();
+    const rules = [{ from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [{ labelId: label, value: SAME_LABEL_VALUE }] }];
+
+    await expect(saveRules({ fleetId: FLEET_ID, rules })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('refuses a rule with the same value on one side only, keeping and supplying nothing', async () => {
+    const label = aLabel();
+
+    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [] }] })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${label}=# is on one side only (decision 0034)` },
+    });
+    await expect(parts.networks.find(FLEET_ID)).resolves.toBeUndefined();
+    expect(parts.fleet.state.version).toBe(0);
   });
 });

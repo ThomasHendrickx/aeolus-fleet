@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
-import { watchInboxes, type InboxWatch } from './adapters/fleet/inbox-watch.js';
+import { watchFleets, type FleetWatch } from './adapters/fleet/fleet-watch.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
@@ -22,6 +22,7 @@ import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
 import { createReceiveOnce } from './core/inbox/receive-once.js';
+import { createFollowDeclarations } from './core/network/follow-declarations.js';
 import { createReadNetwork } from './core/network/read-network.js';
 import { createSaveDeclaration } from './core/network/save-declaration.js';
 import { createSaveRules } from './core/network/save-rules.js';
@@ -47,6 +48,8 @@ export interface NetworkingPluginApp {
   startSupplying: (intervalMs: number) => void;
   /** Receives in every fleet it is connected to and serves, acknowledging each delivery, until the app closes; rescans every interval. */
   startReceiving: (rescanMs?: number) => void;
+  /** Follows every fleet it is connected to and serves, supplying it again when a ship declares its rules (decision 0037), until the app closes; rescans every interval. */
+  startFollowing: (rescanMs?: number) => void;
   /** Stops the server and disconnects the database. */
   close(): Promise<void>;
 }
@@ -111,8 +114,10 @@ export function createNetworkingPluginApp(options: {
   const saveRules = createSaveRules({ networks, supplies });
   const saveDeclaration = createSaveDeclaration({ networks, supplies });
   const receiveOnce = createReceiveOnce({ door, connections });
+  const followDeclarations = createFollowDeclarations({ door, connections, supplies });
   let supplying: NodeJS.Timeout | undefined;
-  let receiving: InboxWatch | undefined;
+  let receiving: FleetWatch | undefined;
+  let following: FleetWatch | undefined;
 
   const trpc: FastifyTRPCPluginOptions<NetworkingPluginRouter> = {
     prefix: '/trpc',
@@ -147,6 +152,7 @@ export function createNetworkingPluginApp(options: {
   server.addHook('onClose', async () => {
     clearInterval(supplying);
     await receiving?.stop();
+    await following?.stop();
     await prisma.$disconnect();
   });
 
@@ -187,8 +193,12 @@ export function createNetworkingPluginApp(options: {
       }, intervalMs);
     },
     startReceiving: (rescanMs = DEFAULT_RESCAN_MS) => {
-      receiving = watchInboxes({ receiveOnce, connections, isServed, log: server.log, rescanMs });
+      receiving = watchFleets({ once: receiveOnce, doing: 'receiving', connections, isServed, log: server.log, rescanMs });
       void receiving.rescan();
+    },
+    startFollowing: (rescanMs = DEFAULT_RESCAN_MS) => {
+      following = watchFleets({ once: followDeclarations, doing: 'following', connections, isServed, log: server.log, rescanMs });
+      void following.rescan();
     },
     close: () => server.close(),
   };

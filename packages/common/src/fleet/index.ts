@@ -94,6 +94,7 @@ export const EVENT_TYPES = [
   'WorktreeCleared',
   'WorktreeClearRemoved',
   'NetworkRulesSet',
+  'NetworkRulesDeclared',
   'NetworkPluginRegistered',
   'NetworkPluginUnregistered',
 ] as const;

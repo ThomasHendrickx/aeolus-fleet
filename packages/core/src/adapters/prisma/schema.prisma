@@ -52,6 +52,7 @@ model Fleet {
   labelValues      LabelValue[]
   shipLabels       ShipLabel[]
   networkSettings  NetworkSettings?
+  declaredNetworkRules DeclaredNetworkRules[]
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
@@ -110,6 +111,7 @@ model Ship {
   requestedClears   WorktreeClearRequest[] @relation("WorktreeClearRequestRequester")
   ownedLabels       Label[]          @relation("LabelOwner")
   labels            ShipLabel[]      @relation("ShipLabelShip")
+  declaredNetworkRules DeclaredNetworkRules[]
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning ship.
@@ -342,6 +344,21 @@ model NetworkSettings {
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
   @@map("network_settings")
+}
+
+/// The network rules a ship declared on the labels it owns (decision 0037),
+/// its whole list as JSON, at most 20. No row while it declares none; a retire
+/// removes its row.
+model DeclaredNetworkRules {
+  fleetId String @map("fleet_id")
+  shipId  String @map("ship_id")
+  rules   Json
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId])
+  @@map("declared_network_rules")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the

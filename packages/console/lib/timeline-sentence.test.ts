@@ -358,6 +358,22 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a ship declared network rules, how many, and by whom', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesDeclared', { actor: argo, details: { rules: 2 } }))).toEqual({
+      sentence: 'Network rules declared: 2 rules by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says declared network rules were withdrawn', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesDeclared', { actor: argo, details: { rules: 0 } }))).toEqual({
+      sentence: 'Declared network rules withdrawn by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
   it('says a networking plugin registered, what happens while it is unavailable, at which version', () => {
     expect(onScoutsPage(anEntry('NetworkPluginRegistered', { actor: argo, details: { version: 4, whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 } }))).toEqual({
       sentence: 'Networking plugin registered: while unavailable keep-latest, version 4 by argo',

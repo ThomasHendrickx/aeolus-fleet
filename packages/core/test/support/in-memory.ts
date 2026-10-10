@@ -44,11 +44,13 @@ import type {
   ClearRequestRepository,
   CrewRequestRepository,
   LabelRepository,
+  DeclaredNetworkRulesRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
+import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
@@ -109,6 +111,8 @@ export interface InMemoryState {
   shipLabels: ShipLabel[];
   /** Each fleet's network settings, once it set rules (decision 0034). */
   networkSettings: NetworkSettings[];
+  /** The network rules each ship declared on the labels it owns (decision 0037): no row for a ship that declares none. */
+  declaredNetworkRules: DeclaredNetworkRules[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -132,6 +136,7 @@ export interface InMemoryTx {
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   networkSettings: NetworkSettingsRepository;
+  declaredNetworkRules: DeclaredNetworkRulesRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -178,6 +183,8 @@ export interface InMemoryCore {
   labels: LabelRepository;
   /** The records of the sends the network rules refused, read outside a unit of work. */
   reachRefusals: ReachRefusalRepository;
+  /** The rules ships declared, read outside a unit of work. */
+  declaredNetworkRules: DeclaredNetworkRulesRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -233,6 +240,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     labels: [],
     shipLabels: [],
     networkSettings: [],
+    declaredNetworkRules: [],
     reachRefusals: [],
     events: [],
     installationRequests: [],
@@ -472,6 +480,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const copy = structuredClone(settings);
         const index = state.networkSettings.findIndex((held) => held.fleetId === settings.fleetId);
         state.networkSettings.splice(index === -1 ? state.networkSettings.length : index, index === -1 ? 0 : 1, copy);
+        return Promise.resolve();
+      },
+    },
+    declaredNetworkRules: {
+      list: (fleetId) =>
+        Promise.resolve(
+          state.declaredNetworkRules
+            .filter((held) => held.fleetId === fleetId)
+            .sort((first, second) => first.shipId.localeCompare(second.shipId))
+            .map((held) => structuredClone(held)),
+        ),
+      find: (fleetId, shipId) => Promise.resolve(structuredClone(state.declaredNetworkRules.find((held) => held.fleetId === fleetId && held.shipId === shipId))),
+      save: (declared) => {
+        const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && held.shipId === declared.shipId);
+        const kept = declared.rules.length === 0 ? [] : [structuredClone(declared)];
+        state.declaredNetworkRules.splice(index === -1 ? state.declaredNetworkRules.length : index, index === -1 ? 0 : 1, ...kept);
         return Promise.resolve();
       },
     },
@@ -1418,7 +1442,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1439,6 +1463,7 @@ const FLEET_TABLES = [
   'labels',
   'shipLabels',
   'networkSettings',
+  'declaredNetworkRules',
   'reachRefusals',
   'events',
   'notices',
@@ -1465,6 +1490,7 @@ const TABLES = [
   'labels',
   'shipLabels',
   'networkSettings',
+  'declaredNetworkRules',
   'reachRefusals',
   'events',
   'installationRequests',

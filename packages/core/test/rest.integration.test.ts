@@ -167,6 +167,8 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/setNetworkRules',
       '/fleet/registerNetworkPlugin',
       '/fleet/unregisterNetworkPlugin',
+      '/fleet/declareNetworkRules',
+      '/fleet/declaredNetworkRules',
     ]);
   });
 

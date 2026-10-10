@@ -8,6 +8,7 @@ import type { InstallationRequest } from './installation-request.js';
 import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
+import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { Ship } from './ship.js';
@@ -194,6 +195,16 @@ export interface NetworkSettingsRepository {
   /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
   findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
   save(settings: NetworkSettings): Promise<void>;
+}
+
+/** Each ship's declared network rules (decision 0037). */
+export interface DeclaredNetworkRulesRepository {
+  /** Every ship's declared rules in the fleet, by ship id: the order the ships were commissioned. */
+  list(fleetId: FleetId): Promise<DeclaredNetworkRules[]>;
+  /** The ship's declared rules; none while it declares none. */
+  find(fleetId: FleetId, shipId: ShipId): Promise<DeclaredNetworkRules | undefined>;
+  /** Keeps the ship's whole list from now on; an empty one keeps none. */
+  save(declared: DeclaredNetworkRules): Promise<void>;
 }
 
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */

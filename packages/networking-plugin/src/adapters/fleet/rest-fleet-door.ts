@@ -4,7 +4,7 @@
  * like any client (decision 0035). A refusal reads as the fleet's code and
  * message.
  */
-import { idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
+import { declaredNetworkRulesOutputSchema, followFleetOutputSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/connection/ports.js';
@@ -86,6 +86,11 @@ export function createRestFleetDoor(fleetUrl: string): FleetDoor {
     setNetworkRules: async (crewToken, rules) => {
       const set = await call(fleetUrl, { path: '/fleet/setNetworkRules', method: 'POST', crewToken, body: { rules }, answers: z.unknown() });
       return set.isOk ? ok(undefined) : set;
+    },
+    declaredNetworkRules: (crewToken) => call(fleetUrl, { path: '/fleet/declaredNetworkRules', method: 'GET', crewToken, answers: declaredNetworkRulesOutputSchema }),
+    follow: async (crewToken, { afterSeq, waitSeconds, signal }) => {
+      const followed = await call(fleetUrl, { path: '/fleet/follow', method: 'POST', crewToken, body: { afterSeq, waitSeconds }, answers: followFleetOutputSchema, signal });
+      return followed.isOk ? ok({ types: followed.value.events.map((event) => event.type), lastSeq: followed.value.lastSeq }) : followed;
     },
     receive: async (crewToken, until) => {
       const received = await call(fleetUrl, {

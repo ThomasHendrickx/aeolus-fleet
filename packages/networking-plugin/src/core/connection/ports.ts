@@ -36,6 +36,14 @@ export interface FleetDoor {
   unregisterNetworkPlugin(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
   /** Sets the fleet's rules, the whole list, or none for all-to-all; only the fleet's plugin may (decision 0034). */
   setNetworkRules(crewToken: string, rules: readonly NetworkRule[] | null): Promise<Result<undefined, FleetRefusal>>;
+  /** The rules the fleet's ships declared, each ship with its whole list (fleet:network, decision 0037). */
+  declaredNetworkRules(crewToken: string): Promise<Result<{ shipId: ShipId; rules: NetworkRule[] }[], FleetRefusal>>;
+  /**
+   * The types of the fleet's events after a position, and the position to
+   * follow from next, waiting a while for one (fleet:read), until the signal
+   * aborts. Without a position, none and where the fleet is now.
+   */
+  follow(crewToken: string, from: { afterSeq?: number; waitSeconds: number; signal?: AbortSignal }): Promise<Result<{ types: string[]; lastSeq: number }, FleetRefusal>>;
   /** The deliveries waiting for the crew token's ship, waiting a while for one (a long poll), until the signal aborts. */
   receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<{ deliveryId: DeliveryId; contentType: string }[], FleetRefusal>>;
   /** Acknowledges a delivery: received. */

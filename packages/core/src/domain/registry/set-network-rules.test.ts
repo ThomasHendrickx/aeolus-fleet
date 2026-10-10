@@ -101,9 +101,26 @@ describe('setting the network rules as the networking plugin', () => {
 
     const refused = await setNetworkRules(setter, { rules });
 
-    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A fleet holds at most 200 network rules (decision 0034)' });
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A fleet holds at most 200 network rules of argo\'s plus the 0 its ships declared (decision 0037)' });
     expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
     expect(core.state.events).toEqual([]);
+  });
+
+  it("takes argo's 200 rules plus every rule its ships declared, the limit (decision 0037)", async () => {
+    core.state.declaredNetworkRules.push({ fleetId, shipId: other.shipId, rules: [aRule(), aRule(), aRule()] });
+    const rules = Array.from({ length: NETWORK_RULES_MAX + 3 }, () => aRule());
+
+    expect(unwrap(await setNetworkRules(setter, { rules }))).toEqual({ version: 2 });
+  });
+
+  it('refuses one rule more than argo\'s 200 and the declared ones, naming both and the decision', async () => {
+    core.state.declaredNetworkRules.push({ fleetId, shipId: other.shipId, rules: [aRule(), aRule(), aRule()] });
+    const rules = Array.from({ length: NETWORK_RULES_MAX + 4 }, () => aRule());
+
+    expect(refusalOf(await setNetworkRules(setter, { rules }))).toEqual({
+      kind: 'INVALID_NETWORK_RULES',
+      message: "A fleet holds at most 200 network rules of argo's plus the 3 its ships declared (decision 0037)",
+    });
   });
 
   it(`takes a selector of ${String(SHIP_LABELS_MAX)} terms, as many label values as a ship carries`, async () => {

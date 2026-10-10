@@ -195,6 +195,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_plugin$/),
       expect.stringMatching(/^\d{14}_network_rules_through_plugin$/),
       expect.stringMatching(/^\d{14}_cleared_network_rules_on_record$/),
+      expect.stringMatching(/^\d{14}_declared_network_rules$/),
     ]);
   });
 });
@@ -1939,11 +1940,43 @@ describe('network rules at the API', () => {
     expect(refused?.message).toContain('decision 0034');
   });
 
-  it('answer rules over the limits with BAD_REQUEST naming decision 0034', async () => {
-    const refused = await refusalOf((await networker()).fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) }));
+  it("answer more rules than argo's 200 and the declared ones with BAD_REQUEST naming decision 0037", async () => {
+    const plugin = await networker();
+    const declared = (await plugin.fleet.declaredNetworkRules.query()).reduce((count, ship) => count + ship.rules.length, 0);
+
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ from: [], to: [] })) }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
-    expect(refused?.message).toContain('decision 0034');
+    expect(refused?.message).toContain('decision 0037');
+  });
+
+  it('let a ship with labels:define declare rules on the labels it owns, and the networking plugin read them, with the ship', async () => {
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
+    const { shipId } = await declarer.ship.whoami.query();
+    const { labelId } = await declarer.fleet.defineLabel.mutate({ key: 'api-declared-squadron', values: ['alpha'] });
+    const rules = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+
+    await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
+    await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
+    await declarer.fleet.declareNetworkRules.mutate({ rules: [] });
+  });
+
+  it('refuse a declaration without labels:define, and a read of declared rules without fleet:network, with FORBIDDEN', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    await expect(refusalOf(reader.fleet.declareNetworkRules.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the labels:define scope' });
+    await expect(refusalOf(reader.fleet.declaredNetworkRules.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+  });
+
+  it('answer a declared rule on a label another ship owns with FORBIDDEN, and more than 20 with BAD_REQUEST naming decision 0037', async () => {
+    const owner = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
+    const other = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
+    const { labelId } = await owner.fleet.defineLabel.mutate({ key: 'api-declared-trierarch', values: ['agent-host-1'] });
+    const rule = { from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] };
+
+    await expect(codeOf(other.fleet.declareNetworkRules.mutate({ rules: [rule] }))).resolves.toBe('FORBIDDEN');
+    const refused = await refusalOf(owner.fleet.declareNetworkRules.mutate({ rules: Array.from({ length: 21 }, () => rule) }));
+    expect(refused).toEqual({ code: 'BAD_REQUEST', message: 'A ship declares at most 20 network rules (decision 0037)' });
   });
 
   it('refuse a send no rule allows with FORBIDDEN and a message that gives no reason', async () => {
