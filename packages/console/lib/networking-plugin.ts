@@ -1,9 +1,10 @@
 'use client';
 
 import type { NetworkRule } from '@aeolus-fleet/common';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAccess } from './access';
+import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 import { connectNetworkingPlugin, saveNetworkDeclaration, saveNetworkRules } from './networking-plugin-actions';
 import type { Network, NetworkDeclaration } from './networking-plugin-schemas';
@@ -23,7 +24,7 @@ const NETWORK_KEY = ['networking-plugin', 'network'];
 
 /** The networking plugin's connection as the browser may know it: `none` without the plugin or while it is off for this fleet. */
 export function useNetworkingPluginSettings() {
-  return useQuery({
+  return useConsoleRead({
     queryKey: CONNECTION_KEY,
     queryFn: () => fetchConsoleRead({ read: 'networking-plugin-connection' }),
   });
@@ -56,7 +57,7 @@ export function useConnectNetworkingPlugin() {
 /** The network argo edits: asked only while Network shows. */
 export function useNetwork() {
   const hasNetwork = useHasNetwork();
-  return useQuery({
+  return useConsoleRead({
     queryKey: NETWORK_KEY,
     queryFn: () => fetchConsoleRead({ read: 'network' }),
     enabled: hasNetwork,

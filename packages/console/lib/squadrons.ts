@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 import { dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
@@ -14,7 +15,7 @@ const QUERY_KEY = ['squadrons', 'connection'];
  * server: `none` without squadrons or while it is off for this fleet.
  */
 export function useSquadronsSettings() {
-  return useQuery({
+  return useConsoleRead({
     queryKey: QUERY_KEY,
     queryFn: () => fetchConsoleRead({ read: 'squadrons-connection' }),
   });

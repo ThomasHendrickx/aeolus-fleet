@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 
+import type { SessionState } from './console-gate';
 import type { PluginAnswer } from './plugin-answer';
 
 /**
@@ -23,7 +24,9 @@ export function consoleRead<I, T>(input: z.ZodType<I>, read: (input: I) => Promi
 export type ConsoleReads = Readonly<Record<string, ConsoleRead<unknown, unknown>>>;
 
 const NO_SUCH_READ: PluginAnswer<never> = { kind: 'refused', message: 'The console has no such read' };
+const SESSION_ENDED: PluginAnswer<never> = { kind: 'refused', message: 'Your console session ended: sign in again' };
 const UNREADABLE: PluginAnswer<never> = { kind: 'refused', message: 'The console cannot read that' };
+const UNAUTHORIZED = 401;
 const NOT_FOUND = 404;
 const BAD_REQUEST = 400;
 
@@ -42,11 +45,17 @@ function inputOf(request: Request): { isReadable: boolean; value: unknown } {
 
 /**
  * Answers the named read, for its input: the read's answer, a refusal
- * included, as JSON. Without a signed-in session every name answers as one it
- * does not have, so nothing tells which reads or plugins this console has.
+ * included, as JSON. Only a live session is read for: every name answers an
+ * ended session with the same 401, so the page goes to sign in, and answers
+ * as one it does not have while the session check does not answer; either
+ * way nothing tells which reads or plugins this console has.
  */
-export async function answerConsoleRead(request: Request, { name, reads, isSignedIn }: { name: string; reads: ConsoleReads; isSignedIn: (request: Request) => Promise<boolean> }): Promise<Response> {
-  if (!(await isSignedIn(request))) {
+export async function answerConsoleRead(request: Request, { name, reads, sessionOf }: { name: string; reads: ConsoleReads; sessionOf: (request: Request) => Promise<SessionState> }): Promise<Response> {
+  const session = await sessionOf(request);
+  if (session === 'ended') {
+    return Response.json(SESSION_ENDED, { status: UNAUTHORIZED });
+  }
+  if (session === 'unknown') {
     return Response.json(NO_SUCH_READ, { status: NOT_FOUND });
   }
   // Only the reads' own names: an inherited one, such as toString, is no read.

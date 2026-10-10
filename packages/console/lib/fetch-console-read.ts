@@ -14,6 +14,12 @@ type DataOf<K extends ReadName> = Extract<Awaited<ReturnType<Reads[K]['read']>>,
 export type ConsoleReadRequest<K extends ReadName> = { read: K } & (undefined extends InputOf<K> ? { input?: InputOf<K> } : { input: InputOf<K> });
 
 const NO_ANSWER = 'The console did not answer: try again in a moment';
+const UNAUTHORIZED = 401;
+
+/** A read refused because the console session ended, coded as tRPC codes it, so the page sends the operator to sign in as for any call (lib/session.ts) and does not retry. */
+class SessionEndedError extends Error {
+  readonly data = { code: 'UNAUTHORIZED' };
+}
 
 /**
  * The one point where the browser trusts the web app's server: the route
@@ -28,13 +34,19 @@ function isAnswer<T>(value: unknown): value is PluginAnswer<T> {
 export async function fetchConsoleRead<K extends ReadName>(request: ConsoleReadRequest<K>, send: typeof fetch = fetch): Promise<DataOf<K>> {
   const search = request.input === undefined ? '' : `?input=${encodeURIComponent(JSON.stringify(request.input))}`;
   let answer: unknown;
+  let status: number;
   try {
-    answer = await (await send(`/api/reads/${request.read}${search}`, { cache: 'no-store' })).json();
+    const response = await send(`/api/reads/${request.read}${search}`, { cache: 'no-store' });
+    status = response.status;
+    answer = await response.json();
   } catch {
     throw new Error(NO_ANSWER);
   }
   if (!isAnswer<DataOf<K>>(answer)) {
     throw new Error(NO_ANSWER);
+  }
+  if (status === UNAUTHORIZED && answer.kind === 'refused') {
+    throw new SessionEndedError(answer.message);
   }
   return dataOf(answer);
 }

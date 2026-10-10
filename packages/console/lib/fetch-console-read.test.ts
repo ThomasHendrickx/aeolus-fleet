@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { trpcErrorCode } from './errors';
 import { fetchConsoleRead } from './fetch-console-read';
 
 function aWebApp(answer: () => Response) {
@@ -39,5 +40,13 @@ describe("a console read, fetched from the web app's server", () => {
     const webApp = aWebApp(() => new Response('<html>Internal Server Error</html>', { status: 500 }));
 
     await expect(fetchConsoleRead({ read: 'squadrons' }, webApp)).rejects.toThrow('The console did not answer: try again in a moment');
+  });
+
+  it('rejects a read refused because the session ended as UNAUTHORIZED, so the page sends the operator to sign in', async () => {
+    const webApp = aWebApp(() => Response.json({ kind: 'refused', message: 'Your console session ended: sign in again' }, { status: 401 }));
+
+    const refusal: unknown = await fetchConsoleRead({ read: 'squadrons' }, webApp).catch((error: unknown) => error);
+
+    expect(trpcErrorCode(refusal)).toBe('UNAUTHORIZED');
   });
 });

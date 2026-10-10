@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { isSignedInElsewhere, trpcErrorCode } from './errors';
 
@@ -11,17 +11,29 @@ function signInPathFor(error: unknown): string {
 
 /**
  * Sends the operator to sign in once any of the page's calls is refused for
- * want of a session, forgetting what the console had loaded.
+ * want of a session, forgetting what the console had loaded as the page goes.
+ * It forgets only then: forgetting while the page still shows would ask every
+ * call it holds again, each refused again, in a loop that keeps the page from
+ * leaving.
  */
 export function useSignInWhenSessionEnds(errors: readonly unknown[]): void {
   const router = useRouter();
   const queryClient = useQueryClient();
   const sessionError = errors.find((error) => trpcErrorCode(error) === 'UNAUTHORIZED');
   const signInPath = sessionError === undefined ? undefined : signInPathFor(sessionError);
+  const isLeaving = useRef(false);
   useEffect(() => {
     if (signInPath !== undefined) {
-      queryClient.clear();
+      isLeaving.current = true;
       router.replace(signInPath);
     }
-  }, [signInPath, queryClient, router]);
+  }, [signInPath, router]);
+  useEffect(
+    () => () => {
+      if (isLeaving.current) {
+        queryClient.clear();
+      }
+    },
+    [queryClient],
+  );
 }
