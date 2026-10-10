@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Fragment, useState } from 'react';
 
 import type { FilterGroup } from '../../lib/labels';
-import { termKeyOf, type TermChip } from '../../lib/network-rules';
+import { TERM_MEANINGS, termKeyOf, type TermChip } from '../../lib/network-rules';
 import { Button } from '../atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from './label-chip';
@@ -27,6 +27,8 @@ interface LabelSelectorFieldProps {
   /** The most values a selector holds: Add label goes once as many are picked. */
   max: number;
   isDisabled?: boolean;
+  /** What is wrong with the side as it stands, said under it: a term of the same value the other side lacks. */
+  problem?: string;
   onAdd: (term: SelectorTerm) => void;
   onRemove: (term: SelectorTerm) => void;
   /** The testid stem: `<stem>-add`, `<stem>-popover`, `<stem>-value`. */
@@ -36,13 +38,14 @@ interface LabelSelectorFieldProps {
 }
 
 /**
- * One side of a network rule (decision 0034): the label values a ship must
- * carry, every one, joined by "and"; none picked is every ship. Each value a
- * chip with ×, then Add label, a key and one of its values. A value the
+ * One side of a network rule (decision 0034): the terms a ship must meet,
+ * every one, joined by "and"; none picked is every ship. Each term a chip
+ * with ×: an exact value, any value of a key (`key=*`) or the same value as
+ * the other side (`key=#`); then Add label, a key and one of those. A value the
  * fleet no longer has shows as a warning, removable: while it is there the
  * side matches no ship. Props only.
  */
-export function LabelSelectorField({ label, picked, unknown, groups, max, isDisabled, onAdd, onRemove, testId, popoverTestId }: LabelSelectorFieldProps) {
+export function LabelSelectorField({ label, picked, unknown, groups, max, isDisabled, problem, onAdd, onRemove, testId, popoverTestId }: LabelSelectorFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="flex flex-col gap-1" data-testid={testId}>
@@ -55,6 +58,7 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
             <LabelChip
               chip={chip}
               testId={`${testId}-value`}
+              {...(typeof chip.term === 'string' ? {} : { meaning: TERM_MEANINGS[chip.term.value] })}
               {...(isDisabled
                 ? {}
                 : {
@@ -100,9 +104,16 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
                   setIsOpen(false);
                   onAdd(valueId);
                 }}
+                terms={{
+                  picked: picked.flatMap((chip) => (typeof chip.term === 'string' ? [] : [chip.term])),
+                  onPick: (term) => {
+                    setIsOpen(false);
+                    onAdd(term);
+                  },
+                }}
               />
               <p className="mt-2 flex items-center justify-between gap-2 border-t border-border px-2 pt-2 text-meta text-muted-foreground">
-                Exact matches, all must hold.
+                All must hold. * is any value, # the same as the other side.
                 <Link href="/labels" className="font-medium text-foreground hover:underline">
                   Manage labels
                 </Link>
@@ -111,6 +122,11 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
           </Popover>
         )}
       </div>
+      {problem === undefined ? null : (
+        <p role="status" className="text-meta text-tone-attention-fg" data-testid={`${testId}-problem`}>
+          {problem}
+        </p>
+      )}
       {unknown.length === 0 ? null : (
         <p role="alert" className="text-meta text-tone-attention-fg">
           A label here was removed from the fleet: this side matches no ship until you remove it.

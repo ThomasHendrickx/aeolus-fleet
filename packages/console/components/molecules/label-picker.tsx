@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { classNames } from '../../lib/class-names';
 import type { FilterGroup, FilterKey, OwnerMark } from '../../lib/labels';
+import { TERM_MEANINGS } from '../../lib/network-rules';
 import { Input } from '../atoms/input';
 
 interface LabelPickerProps {
@@ -26,10 +27,10 @@ interface LabelPickerProps {
 /** A term of a label with any value or the same value as the other side's. */
 type LabelTerm = Exclude<SelectorTerm, string>;
 
-/** The terms a key offers before its values, each with what it matches. */
-const TERMS: readonly { value: LabelTerm['value']; meaning: string; testId: string }[] = [
-  { value: '*', meaning: 'Any value', testId: 'label-picker-any' },
-  { value: '#', meaning: 'The same value as the other side', testId: 'label-picker-same' },
+/** The terms a key offers before its values. */
+const TERMS: readonly { value: LabelTerm['value']; testId: string }[] = [
+  { value: '*', testId: 'label-picker-any' },
+  { value: '#', testId: 'label-picker-same' },
 ];
 
 const MARKS: Record<Exclude<OwnerMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship };
@@ -74,7 +75,7 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', picke
         <ul className="flex flex-col">
           {terms === undefined
             ? null
-            : TERMS.map(({ value, meaning, testId }) => {
+            : TERMS.map(({ value, testId }) => {
                 const isPicked = terms.picked.some((term) => term.labelId === openKey.labelId && term.value === value);
                 return (
                   <li key={value}>
@@ -90,7 +91,7 @@ export function LabelPicker({ groups, pickedValueIds, onPick, size = 'sm', picke
                       }}
                     >
                       <span className="w-3 shrink-0 font-mono">{value}</span>
-                      <span className="min-w-0 grow truncate">{meaning}</span>
+                      <span className="min-w-0 grow truncate">{TERM_MEANINGS[value]}</span>
                       {isPicked ? <span className="shrink-0 text-meta text-muted-foreground">{pickedWord}</span> : null}
                     </button>
                   </li>

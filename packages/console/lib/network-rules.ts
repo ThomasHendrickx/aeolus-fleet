@@ -101,6 +101,9 @@ export function isChanged(draft: NetworkDraft, saved: readonly NetworkRule[] | n
   return JSON.stringify(rulesOf(draft)) !== JSON.stringify(saved);
 }
 
+/** What a term of any value and one of the same value match, as the picker offers them and their chips say. */
+export const TERM_MEANINGS: Readonly<Record<Exclude<SelectorTerm, string>['value'], string>> = { '*': 'Any value', '#': 'The same value as the other side' };
+
 /** One term of a rule's side as a chip: `key=value`, `key=*` or `key=#`, with its label's owner, and the term it shows. */
 export interface TermChip extends Pick<LabelChip, 'labelId' | 'key' | 'value' | 'mark' | 'ownerName'> {
   term: SelectorTerm;

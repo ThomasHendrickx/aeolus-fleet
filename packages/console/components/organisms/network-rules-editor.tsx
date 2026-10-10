@@ -5,7 +5,21 @@ import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { filterGroupsOf, type LabelContext } from '../../lib/labels';
-import { addRule, addTerm, draftOf, isChanged, removeRule, removeTerm, rulesOf, selectorOf, setRulesOn, type NetworkLimits, type RuleSide } from '../../lib/network-rules';
+import {
+  addRule,
+  addTerm,
+  draftOf,
+  hasSameValueOnOneSide,
+  isChanged,
+  removeRule,
+  removeTerm,
+  rulesOf,
+  sameValueProblemOf,
+  selectorOf,
+  setRulesOn,
+  type NetworkLimits,
+  type RuleSide,
+} from '../../lib/network-rules';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -42,13 +56,17 @@ const SIDES: readonly { side: RuleSide; label: string }[] = [
 
 const newKey = () => crypto.randomUUID();
 
+const withProblem = (problem: string | undefined) => (problem === undefined ? {} : { problem });
+
 /**
  * The network rules, argo's alone (#260; decisions 0034, 0036): all-to-all
- * until argo sets rules; then each rule lets the ships carrying every label
- * value on its left message those carrying every value on its right. Argo and
- * answers to a received message always get through. The draft is this
- * editor's own until Save sends it whole; a failed save keeps it. Turning
- * rules off drops every rule, so it confirms first.
+ * until argo sets rules; then each rule lets the ships meeting every term on
+ * its left message those meeting every term on its right: an exact value,
+ * any value of a key, or the same value as the other side. Argo and answers
+ * to a received message always get through. The draft is this editor's own
+ * until Save sends it whole; a failed save keeps it, and a same value on one
+ * side only, which the fleet refuses, keeps Save off. Turning rules off
+ * drops every rule, so it confirms first.
  */
 export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError, savedNote, onSave }: NetworkRulesEditorProps) {
   const [draft, setDraft] = useState(() => draftOf(rules, newKey));
@@ -107,6 +125,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                           groups={groups}
                           max={limits.selectorMax}
                           isDisabled={isSaving}
+                          {...withProblem(sameValueProblemOf(rule, { side, context }))}
                           testId={`network-rule-${side}`}
                           popoverTestId="network-rule-popover"
                           onAdd={(term) => {
@@ -156,7 +175,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
             <Button
               variant="primary"
               isLoading={isSaving}
-              disabled={!hasChanges}
+              disabled={!hasChanges || hasSameValueOnOneSide(draft)}
               data-testid="network-rules-save"
               onClick={() => {
                 onSave(rulesOf(draft));

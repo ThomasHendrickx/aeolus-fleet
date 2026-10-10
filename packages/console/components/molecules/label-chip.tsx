@@ -12,6 +12,8 @@ interface LabelChipProps {
   className?: string;
   /** What ends the chip when it opens a menu: a chevron. */
   trailing?: ReactNode;
+  /** What a value that is not a value means, as `*` and `#` in a rule (decision 0034): said after its title. */
+  meaning?: string;
 }
 
 const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship, gone: TagX };
@@ -25,10 +27,10 @@ const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugi
  * accessible name, a named group, since many screen readers never read a
  * title (#577). In a filter it ends in an × that takes it out.
  */
-export function LabelChip({ chip, onRemove, testId, className, trailing }: LabelChipProps) {
+export function LabelChip({ chip, onRemove, testId, className, trailing, meaning }: LabelChipProps) {
   const Mark = chip.mark === 'none' ? null : MARKS[chip.mark];
   const text = `${chip.key}=${chip.value}`;
-  const title = chipTitleOf(chip);
+  const title = meaning === undefined ? chipTitleOf(chip) : `${chipTitleOf(chip)}. ${meaning}`;
   return (
     <span
       role="group"

@@ -2,7 +2,7 @@ import { idSchema, NETWORK_RULES_MAX, SHIP_LABELS_MAX, type LabelValueId, type L
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
-import { AREA, labelContext, labelledFleet, PROJECT } from './labels.fixtures';
+import { AREA, labelContext, labelledFleet, OS, PROJECT } from './labels.fixtures';
 import { NetworkRulesEditor } from './network-rules-editor';
 
 function valueOf(label: ListedLabel, value: string): LabelValueId {
@@ -58,5 +58,24 @@ export const ConfirmingOff: Story = {
     await waitFor(async () => {
       await expect(await screen.findByTestId('network-rules-off-dialog')).toBeVisible();
     });
+  },
+};
+/** Terms of any and the same value (decision 0034): every macOS ship may message the ships of its own project, and review ships any project. */
+export const WithTerms: Story = {
+  args: {
+    rules: [
+      { from: [valueOf(OS, 'macos'), { labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] },
+      { from: [valueOf(AREA, 'review')], to: [{ labelId: PROJECT.id, value: '*' }] },
+    ],
+  },
+};
+/** A same value taken off one side: the other side says it needs one too, and Save stays off as the fleet refuses it. */
+export const SameValueOnOneSide: Story = {
+  args: { rules: [{ from: [{ labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] }] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(within(canvas.getByTestId('network-rule-to')).getByRole('button', { name: 'Remove project=#' }));
+    await expect(canvas.getByTestId('network-rule-from-problem')).toHaveTextContent('project=# needs project=# on the other side');
+    await expect(canvas.getByTestId('network-rules-save')).toBeDisabled();
   },
 };
