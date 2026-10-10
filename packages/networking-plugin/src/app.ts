@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
+import { watchInboxes, type InboxWatch } from './adapters/fleet/inbox-watch.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
@@ -20,7 +21,11 @@ import type { InstallationMode } from './core/installation/ports.js';
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
-import { createSupplies } from './core/network/supplies.js';
+import { createReceiveOnce } from './core/inbox/receive-once.js';
+import { createReadNetwork } from './core/network/read-network.js';
+import { createSaveDeclaration } from './core/network/save-declaration.js';
+import { createSaveRules } from './core/network/save-rules.js';
+import { createSupplies, type SupplyState } from './core/network/supplies.js';
 import { createSupplyFleet } from './core/network/supply-fleet.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import type { Clock } from './core/shared/clock.js';
@@ -32,13 +37,22 @@ export interface NetworkingPluginApp {
   server: FastifyInstance;
   /**
    * At start: reads every served fleet's kept connection, dropping a crew
-   * token its fleet no longer takes; answers each fleet still connected, as
-   * which ship.
+   * token its fleet no longer takes, then supplies every fleet it is
+   * connected to anew, on reconnect (Thomas on #260): registers and supplies
+   * its rules where it is on, unregisters where it is off. Answers each fleet
+   * still connected, as which ship, and what its supply did.
    */
-  restoreConnections: () => Promise<{ fleetId: FleetId; ship: string }[]>;
+  restoreConnections: () => Promise<{ fleetId: FleetId; ship: string; supply: SupplyState }[]>;
+  /** Supplies again, every interval, each fleet whose last supply the fleet refused, until the app closes. */
+  startSupplying: (intervalMs: number) => void;
+  /** Receives in every fleet it is connected to and serves, acknowledging each delivery, until the app closes; rescans every interval. */
+  startReceiving: (rescanMs?: number) => void;
   /** Stops the server and disconnects the database. */
   close(): Promise<void>;
 }
+
+/** How often the receiving looks for a fleet newly connected or switched on, unless given. */
+const DEFAULT_RESCAN_MS = 5_000;
 
 /**
  * The networking plugin wired to its own database and to the fleet's public
@@ -93,6 +107,12 @@ export function createNetworkingPluginApp(options: {
   const readFleet = createReadFleet({ isServed, connections });
   const deleteFleet = createDeleteFleet({ forgetter: createPrismaFleetForgetter(prisma), requests, hasher: sha256RequestHasher, clock, door, connections });
   const connect = createConnect({ door, store: connections, clock, supplies });
+  const readNetwork = createReadNetwork({ networks });
+  const saveRules = createSaveRules({ networks, supplies });
+  const saveDeclaration = createSaveDeclaration({ networks, supplies });
+  const receiveOnce = createReceiveOnce({ door, connections });
+  let supplying: NodeJS.Timeout | undefined;
+  let receiving: InboxWatch | undefined;
 
   const trpc: FastifyTRPCPluginOptions<NetworkingPluginRouter> = {
     prefix: '/trpc',
@@ -106,6 +126,7 @@ export function createNetworkingPluginApp(options: {
       createContext: ({ req }) => ({
         cookie: req.headers.cookie,
         authenticateOperator: createAuthenticateOperator({ sessions: createFleetConsoleSessions(options.fleetUrl) }),
+        isConnected: async (fleetId: FleetId) => (await connections.find(fleetId)) !== undefined,
         isServed,
         heldConnection,
         installationTokenSent: typeof req.headers['x-aeolus-installation-token'] === 'string' ? req.headers['x-aeolus-installation-token'] : undefined,
@@ -115,30 +136,59 @@ export function createNetworkingPluginApp(options: {
         deleteFleet,
         readConnection,
         connect,
+        readNetwork,
+        saveRules,
+        saveDeclaration,
       }),
     },
   };
   void server.register(fastifyTRPCPlugin, trpc);
 
   server.addHook('onClose', async () => {
+    clearInterval(supplying);
+    await receiving?.stop();
     await prisma.$disconnect();
   });
 
   return {
     server,
     restoreConnections: async () => {
-      const restored: { fleetId: FleetId; ship: string }[] = [];
+      const restored: { fleetId: FleetId; ship: string; supply: SupplyState }[] = [];
       for (const crew of await connections.connected()) {
-        // A fleet that is off rests: its connection waits, unread, for it to be on again.
-        if (!(await isServed(crew.fleetId))) {
-          continue;
-        }
-        const connection = await readConnection(crew.fleetId);
+        // A fleet that is off is not read; its supply unregisters there, as switching it off does.
+        const connection = (await isServed(crew.fleetId)) ? await readConnection(crew.fleetId) : await heldConnection(crew.fleetId);
         if (connection.state === 'connected') {
-          restored.push({ fleetId: crew.fleetId, ship: connection.ship?.name ?? crew.name });
+          restored.push({ fleetId: crew.fleetId, ship: connection.ship?.name ?? crew.name, supply: await supplies.supply(crew.fleetId) });
         }
       }
       return restored;
+    },
+    startSupplying: (intervalMs) => {
+      // One retry at a time: a retry that outlasts the interval makes the next one wait.
+      let isRetrying = false;
+      supplying = setInterval(() => {
+        if (isRetrying) {
+          return;
+        }
+        isRetrying = true;
+        supplies
+          .retry()
+          .then((tried) => {
+            for (const { fleetId, state } of tried) {
+              server.log.info({ fleet: fleetId, supply: state }, 'supplied again');
+            }
+          })
+          .catch((error: unknown) => {
+            server.log.error({ err: error }, 'supplying again failed; the next retry tries again');
+          })
+          .finally(() => {
+            isRetrying = false;
+          });
+      }, intervalMs);
+    },
+    startReceiving: (rescanMs = DEFAULT_RESCAN_MS) => {
+      receiving = watchInboxes({ receiveOnce, connections, isServed, log: server.log, rescanMs });
+      void receiving.rescan();
     },
     close: () => server.close(),
   };
