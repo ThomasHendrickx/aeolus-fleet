@@ -299,16 +299,23 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
       ctx.sessionCookie.set(sessionToken, use.expiresAt);
       return use.caller;
     }
-    // Signing in somewhere else is no failure: the console says so calmly.
-    if ((await ctx.useCases.authenticate.endOfConsoleSession(sessionToken)) === 'takenOver') {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'You signed in somewhere else, which ended this console session',
-        cause: new ConsoleRefusalDetails({ refusal: 'SIGNED_IN_ELSEWHERE' }),
-      });
-    }
+    await refuseIfSignedInElsewhere(ctx, sessionToken);
   }
   return undefined;
+}
+
+/**
+ * Refuses a console session a sign-in elsewhere ended, saying so: signing in
+ * somewhere else is no failure, and the console says so calmly.
+ */
+export async function refuseIfSignedInElsewhere(ctx: Context, sessionToken: string): Promise<void> {
+  if ((await ctx.useCases.authenticate.endOfConsoleSession(sessionToken)) === 'takenOver') {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You signed in somewhere else, which ended this console session',
+      cause: new ConsoleRefusalDetails({ refusal: 'SIGNED_IN_ELSEWHERE' }),
+    });
+  }
 }
 
 /**
