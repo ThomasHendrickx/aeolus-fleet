@@ -53,17 +53,6 @@ async function askedSessionOf(request: { serverUrl: string; cookie: string }, fe
   }
 }
 
-/**
- * Whether the request's session cookie names a live console session, asked of
- * the server's `console.session` (decision 0012): true or false, or undefined
- * when the server did not answer, so the console decides in the browser as it
- * would without this check.
- */
-export async function hasLiveSession(request: { serverUrl: string; cookie: string }, fetchImplementation: typeof fetch = fetch): Promise<boolean | undefined> {
-  const session = await askedSessionOf(request, fetchImplementation);
-  return session === 'unknown' ? undefined : session === 'live';
-}
-
 /** The request's session as the server knows it; without a session cookie it is ended, and the server is asked nothing. */
 export async function sessionOf(request: Request, at: { serverUrl: string; fetchImplementation?: typeof fetch }): Promise<SessionState> {
   const cookie = request.headers.get('cookie') ?? '';
