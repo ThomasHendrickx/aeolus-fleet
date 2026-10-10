@@ -1,4 +1,4 @@
-# Publishes @aeolus-fleet/common, core, console, squadrons, trierarch-plugin and trierarch to npm with one version, and
+# Publishes @aeolus-fleet/common, core, console, squadrons, trierarch-plugin, networking-plugin and trierarch to npm with one version, and
 # tags the released commit v<version>, so a version on npm always matches a tag
 # in git. Then creates the GitHub Release for the tag, with notes from the merged
 # pull requests carrying the label <version>, and sets the aeolus Claude Code
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for all six packages, MAJOR.MINOR.PATCH
+        description: Version for all seven packages, MAJOR.MINOR.PATCH
         required: true
         type: string
 
@@ -92,7 +92,7 @@ jobs:
           gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch main --event push --json status,conclusion,url \
             | node scripts/release-gate.ts "$GITHUB_REF" "$GITHUB_SHA"
 
-      - name: Set the version on all six packages
+      - name: Set the version on all seven packages
         env:
           VERSION: ${{ inputs.version }}
         run: npm run set-version -- "$VERSION"
@@ -102,11 +102,11 @@ jobs:
       # Catch a problem in any package before the first one is published. A dry
       # run refuses a version on npm already too, so it skips those, as the
       # publish steps below do.
-      - name: Dry run all six
+      - name: Dry run all seven
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/core @aeolus-fleet/console @aeolus-fleet/squadrons @aeolus-fleet/trierarch-plugin @aeolus-fleet/trierarch; do
+          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/core @aeolus-fleet/console @aeolus-fleet/squadrons @aeolus-fleet/trierarch-plugin @aeolus-fleet/networking-plugin @aeolus-fleet/trierarch; do
             if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
               echo "$PACKAGE@$VERSION is on npm already: skipped"
             else
@@ -172,6 +172,18 @@ jobs:
             npm publish --access public --workspace "$PACKAGE"
           fi
 
+      # Last too: the networking plugin is optional, like squadrons.
+      - name: Publish @aeolus-fleet/networking-plugin
+        env:
+          PACKAGE: '@aeolus-fleet/networking-plugin'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public --workspace "$PACKAGE"
+          fi
+
       # Last too: the trierarch is optional, like squadrons.
       - name: Publish @aeolus-fleet/trierarch
         env:
@@ -184,7 +196,7 @@ jobs:
             npm publish --access public --workspace "$PACKAGE"
           fi
 
-      # After all six are on npm. If this step fails, push the tag by hand:
+      # After all seven are on npm. If this step fails, push the tag by hand:
       # the version is already published and cannot be released again.
       - name: Tag the released commit v${{ inputs.version }}
         env:
