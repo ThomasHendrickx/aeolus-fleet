@@ -17,6 +17,7 @@ import { ConsoleNotices } from '../../components/organisms/console-notices';
 import { FleetReachGraph } from '../../components/organisms/fleet-reach-graph';
 import { NetworkDeclarationForm } from '../../components/organisms/network-declaration-form';
 import { NetworkRulesEditor } from '../../components/organisms/network-rules-editor';
+import { ReachRefusalLog } from '../../components/organisms/reach-refusal-log';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
@@ -32,6 +33,7 @@ import { useNow } from '../../lib/now';
 import { usePluginNav } from '../../lib/plugin-nav';
 import { networkPathOf, useShipReach } from '../../lib/reach';
 import { graphShipsOf } from '../../lib/reach-graph';
+import { useReachRefusals } from '../../lib/reach-refusals';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 
 const DESCRIPTION = 'Who may message whom. The networking plugin supplies these rules to the fleet, which checks them on every send. Only argo sees this page.';
@@ -41,7 +43,7 @@ const DESCRIPTION = 'Who may message whom. The networking plugin supplies these 
  * argo's alone while the plugin is connected. The rules, all-to-all until
  * argo sets some, what the plugin declares for while it does not respond,
  * and the fleet graph showing which ships a picked ship reaches, the pick in
- * the URL (page.tsx). Without the plugin connected, or for a session without
+ * the URL (page.tsx), and the log of the sends the rules refused. Without the plugin connected, or for a session without
  * fleet:network, it says where to go instead.
  */
 export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
@@ -59,6 +61,7 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const context = useLabelContext();
   const fleet = useFleetSnapshot();
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined);
+  const refusals = useReachRefusals(hasNetwork);
   const saveRules = useSaveNetworkRules();
   const saveDeclaration = useSaveNetworkDeclaration();
   const { networkRulesMax, shipLabelsMax, whileUnavailable, notRespondingAfterMinSeconds, notRespondingAfterMaxSeconds } = useConsoleConstants();
@@ -132,6 +135,15 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
           onRetry={() => {
             void reach.refetch();
           }}
+        />
+        <ReachRefusalLog
+          refusals={refusals.data}
+          error={refusals.error?.message}
+          onRetry={() => {
+            void refusals.refetch();
+          }}
+          context={context}
+          now={now}
         />
       </>
     );
