@@ -37,6 +37,10 @@ export default defineConfig({
   resolve: { conditions },
   ssr: { resolve: { conditions } },
   test: {
+    // Half the machine per run, not all of it but one core: the tests start
+    // servers, browsers and databases beside their workers, and full runs of
+    // other worktrees share the machine (#499).
+    maxWorkers: '50%',
     // A poll's own default (1 second) holds only on an idle machine; a full
     // run shares its machine with servers, browsers and other runs (#499).
     expect: { poll: { timeout: 10_000 } },
