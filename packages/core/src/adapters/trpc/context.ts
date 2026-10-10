@@ -64,6 +64,7 @@ import type { ReadFleetEvents } from '../../domain/shared/read-fleet-events.js';
 import type { AssignLabel } from '../../domain/registry/assign-label.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
+import type { ExplainReach } from '../../domain/registry/explain-reach.js';
 import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusals.js';
 import type { RegisterNetworkPlugin } from '../../domain/registry/register-network-plugin.js';
 import type { SetNetworkRules } from '../../domain/registry/set-network-rules.js';
@@ -123,6 +124,7 @@ export interface UseCases {
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
+  explainReach: ExplainReach;
   changeLabelValues: ChangeLabelValues;
   assignLabel: AssignLabel;
   unassignLabel: UnassignLabel;
