@@ -1,7 +1,7 @@
 import { createIdGenerator, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { activeShipCount, assignKeysOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
+import { activeShipCount, assignKeysOf, chipTitleOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
 
 const newId = createIdGenerator();
 
@@ -67,6 +67,27 @@ describe('chipsOf', () => {
     const context = labelContextOf(LABELS, { ships: SHIPS, isOperator: false });
 
     expect(chipsOf(aShip('one', { labels: [carried(PROJECT, 0)] }), context)).toEqual([{ labelId: PROJECT.id, valueId: valueId(PROJECT, 0), key: 'project', value: 'aeolus', mark: 'ship', ownerName: 'argo' }]);
+  });
+
+  it('marks a value of a label the fleet no longer has as gone, with no owner', () => {
+    const deleted = aLabel({ key: 'tier', values: ['gold'] }, ORCHESTRATOR);
+    const context = labelContextOf(LABELS, { ships: SHIPS, isOperator: true });
+
+    expect(chipsOf(aShip('then', { labels: [carried(deleted, 0)] }), context)).toEqual([{ labelId: deleted.id, valueId: valueId(deleted, 0), key: 'tier', value: 'gold', mark: 'gone', ownerName: '' }]);
+  });
+});
+
+describe('chipTitleOf', () => {
+  it('names you as the owner of your own label', () => {
+    expect(chipTitleOf({ key: 'project', value: 'hemma', mark: 'none', ownerName: 'argo' })).toBe('project=hemma, by you');
+  });
+
+  it('names the owner of another ship’s label', () => {
+    expect(chipTitleOf({ key: 'cost', value: 'low', mark: 'ship', ownerName: 'orchestrator' })).toBe('cost=low, by orchestrator');
+  });
+
+  it('says plainly that the label no longer exists', () => {
+    expect(chipTitleOf({ key: 'tier', value: 'gold', mark: 'gone', ownerName: '' })).toBe('tier=gold, a label that no longer exists');
   });
 });
 
