@@ -91,7 +91,8 @@ function settings() {
 }
 
 /** Picks one label value for a side of the rule shown, in its Add label popover. */
-async function pick(page: Page, side: 'from' | 'to', key: string, value: string): Promise<void> {
+async function pick(page: Page, at: { side: 'from' | 'to'; key: string; value: string }): Promise<void> {
+  const { side, key, value } = at;
   await page.getByTestId('network-rule').getByTestId(`network-rule-${side}-add`).click();
   const picker = page.locator('[data-testid="network-rule-popover"][data-open]');
   await picker.getByTestId('label-picker-key').filter({ hasText: key }).click();
@@ -126,8 +127,8 @@ describe('the networking plugin in the console', () => {
 
     await page.getByTestId('network-rules-on').click();
     await page.getByTestId('network-rules-add').click();
-    await pick(page, 'from', 'team', 'ops');
-    await pick(page, 'to', 'tier', 'sensitive');
+    await pick(page, { side: 'from', key: 'team', value: 'ops' });
+    await pick(page, { side: 'to', key: 'tier', value: 'sensitive' });
     await page.getByTestId('network-rules-save').click();
 
     await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
