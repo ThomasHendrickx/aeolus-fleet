@@ -107,11 +107,11 @@ export function createPrismaCrewRequestRepository(db: Db): CrewRequestRepository
       const row = await db.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } }, include: withGivenBack });
       return row === null ? undefined : toCrewRequest(row);
     },
-    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt, givenBack }) => {
+    save: async ({ fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt, isFinal, givenBack }) => {
       await db.crewRequest.upsert({
         where: { fleetId_shipId: { fleetId, shipId } },
-        create: { fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt },
-        update: { settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt },
+        create: { fleetId, shipId, settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt, isFinal },
+        update: { settings, settingsVersion, requestedAt, assignedTo, status, reason, attempt, sessionStartedAt, isFinal },
       });
       // The request holds its give-backs whole: what it saves replaces what it held.
       await db.crewRequestGiveBack.deleteMany({ where: { fleetId, shipId } });
@@ -541,7 +541,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
-               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at,
+               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
                cb.id AS crewed_by_id, cb.name AS crewed_by_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
@@ -588,7 +588,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
-               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at,
+               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
                cb.id AS crewed_by_id, cb.name AS crewed_by_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
