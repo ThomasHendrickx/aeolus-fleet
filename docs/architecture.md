@@ -379,7 +379,7 @@ The identity file of a folder a trierarch crews says `wakeBy=trierarch`. The plu
 
 ## The networking plugin
 
-`@aeolus-fleet/networking-plugin`: a long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0036). It reaches each fleet only through the public API, as that fleet's networking plugin ship (`fleet:read`, `fleet:network`), and is the fleet's one networking plugin (decision 0035). Its own small database holds per fleet the connection (its ship and kept crew token), the switch and the network argo edits: the rules, the whole list or none, and what it declares for while it is unavailable. The fleet keeps only the list it last supplied. It depends on `common` only.
+`@aeolus-fleet/networking-plugin`: a long-running Node process, hosted beside squadrons, serving every fleet of the server with one connection each and switched per fleet as squadrons is (decisions 0021, 0036). It reaches each fleet only through the public API, as that fleet's networking plugin ship (`fleet:read`, `fleet:network`), and is the fleet's one networking plugin (decision 0035). Its own small database holds per fleet the connection (its ship and kept crew token), the switch and the network argo edits: the rules, the whole list or none, and what it declares for while it is unavailable. The fleet keeps only the list it last supplied: argo's rules with the rules the fleet's ships declared added, which it reads from the fleet and supplies again when it follows a NetworkRulesDeclared (decision 0037). It depends on `common` only.
 
 | Layer | Pieces |
 | --- | --- |
