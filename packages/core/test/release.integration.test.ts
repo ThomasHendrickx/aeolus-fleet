@@ -5,7 +5,6 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
-import type { ReceiverWakeups } from '../src/domain/messaging/ports.js';
 import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
 import { createDeregister } from '../src/domain/registry/deregister.js';
 import { createReleaseShip } from '../src/domain/registry/release-ship.js';
@@ -21,6 +20,7 @@ import { createMigratedDatabase } from './support/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { waitingWakeups } from './support/waiting-wakeups.js';
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -139,25 +139,8 @@ function stored(deliveryId: DeliveryId) {
  * waiting receive waits for this, not for a fixed time (#499).
  */
 function receiveWaiting(crewed: Crewed, waitMs: number) {
-  let isWaiting: () => void = () => undefined;
-  const waiting = new Promise<void>((resolve) => {
-    isWaiting = resolve;
-  });
-  const watchedWakeups: ReceiverWakeups = {
-    watch: (address) => {
-      const watch = wakeups.watch(address);
-      return {
-        next: (ms) => {
-          isWaiting();
-          return watch.next(ms);
-        },
-        stop: () => {
-          watch.stop();
-        },
-      };
-    },
-  };
-  const answer = createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watchedWakeups, waitMs })(
+  const { wakeups: watched, waiting } = waitingWakeups(wakeups);
+  const answer = createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watched, waitMs })(
     crewed.crew,
     {},
   );
