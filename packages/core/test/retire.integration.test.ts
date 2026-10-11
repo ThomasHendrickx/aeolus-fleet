@@ -19,6 +19,9 @@ import { newKey } from './support/keys.js';
 
 const newId = createIdGenerator();
 
+/** How long a call's transaction may run before it is rolled back. */
+const CALL_TRANSACTION_SECONDS = 5;
+
 let core: PostgresCore;
 let argo: Caller;
 let scoutId: ShipId;
@@ -107,6 +110,23 @@ describe('retiring a ship on Postgres', () => {
     unwrap(await core.useCases.retireShip(argo, { shipId: scoutId }));
 
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'undeliverable' });
+  });
+
+  it("retires a ship whose retire runs past a call's transaction time, within the bulk transaction time", { timeout: 60_000 }, async () => {
+    const { deliveryId } = await sendTo({ kind: 'ship', shipId: scoutId });
+    // Abandoning its pending deliveries holds the transaction as thousands of them do.
+    await core.prisma.$executeRawUnsafe(
+      `CREATE FUNCTION hold_abandon() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${CALL_TRANSACTION_SECONDS + 1}); RETURN NEW; END $$ LANGUAGE plpgsql`,
+    );
+    await core.prisma.$executeRawUnsafe(
+      "CREATE TRIGGER hold_abandon BEFORE UPDATE ON deliveries FOR EACH ROW WHEN (NEW.state = 'abandoned') EXECUTE FUNCTION hold_abandon()",
+    );
+
+    const retired = await core.useCases.retireShip(argo, { shipId: scoutId });
+
+    await core.prisma.$executeRawUnsafe('DROP TRIGGER hold_abandon ON deliveries');
+    expect(retired).toEqual({ isOk: true, value: { abandonedDeliveries: 1 } });
+    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'abandoned' });
   });
 });
 

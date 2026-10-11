@@ -120,6 +120,24 @@ async function rowsOf(fleetId: FleetId): Promise<Record<string, number>> {
   return counts;
 }
 
+/** How long a call's transaction may run, and a bulk operation's, such as a fleet delete, before it is rolled back. */
+const CALL_TRANSACTION_SECONDS = 5;
+const BULK_TRANSACTION_SECONDS = 30;
+
+/** Runs the call while every fleet delete holds its transaction for the given seconds, as a large or loaded one does. */
+async function whileFleetDeleteHeld<T>(seconds: number, call: () => Promise<T>): Promise<T> {
+  await database.$executeRawUnsafe(
+    `CREATE FUNCTION hold_fleet_delete() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${seconds}); RETURN OLD; END $$ LANGUAGE plpgsql`,
+  );
+  await database.$executeRawUnsafe('CREATE TRIGGER hold_fleet_delete BEFORE DELETE ON fleets FOR EACH ROW EXECUTE FUNCTION hold_fleet_delete()');
+  try {
+    return await call();
+  } finally {
+    await database.$executeRawUnsafe('DROP TRIGGER hold_fleet_delete ON fleets');
+    await database.$executeRawUnsafe('DROP FUNCTION hold_fleet_delete()');
+  }
+}
+
 describe('the installation procedures on a server without an installation token', () => {
   it('are not there: every one answers NOT_FOUND, even with a token', async () => {
     const fleets = client(selfHostedAddress, INSTALLATION_TOKEN).installation.fleets;
@@ -219,6 +237,25 @@ describe('the installation procedures on a hosting server', () => {
     await expect(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })).resolves.toEqual({});
 
     expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
+  });
+
+  it('delete a fleet whose delete runs past a call\'s transaction time, within the bulk transaction time', { timeout: 60_000 }, async () => {
+    const created = await installation().create.mutate({ requestId: newKey(), name: 'slow-to-delete', operatorEmail: 'slow-to-delete@example.com' });
+
+    const deleted = await whileFleetDeleteHeld(CALL_TRANSACTION_SECONDS + 1, () => installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId }));
+
+    expect(deleted).toEqual({});
+    expect(Object.entries(await rowsOf(created.fleetId)).filter(([, count]) => count > 0)).toEqual([]);
+  });
+
+  it('refuse a fleet delete as busy when it runs past the bulk transaction time, and keep the fleet', { timeout: 90_000 }, async () => {
+    const created = await installation().create.mutate({ requestId: newKey(), name: 'too-slow-to-delete', operatorEmail: 'too-slow@example.com' });
+    const before = await rowsOf(created.fleetId);
+
+    const refused = await whileFleetDeleteHeld(BULK_TRANSACTION_SECONDS + 1, () => codeOf(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId })));
+
+    expect(refused).toBe('SERVICE_UNAVAILABLE');
+    await expect(rowsOf(created.fleetId)).resolves.toEqual(before);
   });
 
   it('are not served as REST', async () => {
