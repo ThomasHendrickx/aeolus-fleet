@@ -61,6 +61,7 @@ describe("reading argo's inbox", () => {
       readAt: null,
       doneAt: null,
       repliedWith: null,
+      replies: [],
       message: {
         id: newer.messageId,
         sender: { id: captain.shipId, name: 'release-captain' },
@@ -99,6 +100,43 @@ describe("reading argo's inbox", () => {
     const [entry] = await history.readInbox(argo, { filter: 'done' });
 
     expect(entry).toMatchObject({ state: 'acknowledged', readAt, doneAt: core.clock.now(), repliedWith: reply });
+  });
+
+  it("lists argo's own replies to a message, oldest first, each with its content type and payload", async () => {
+    const asked = await toArgo(captain, 'Promote?');
+    core.clock.advance(60_000);
+    const { messageId: first } = unwrap(
+      await messaging.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: 'go' }),
+    );
+    const firstAt = core.clock.now();
+    core.clock.advance(60_000);
+    const { messageId: second } = unwrap(
+      await messaging.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'and thanks', idempotencyKey: 'thanks' }),
+    );
+
+    const [entry] = await history.readInbox(argo, { filter: 'all' });
+
+    expect(entry?.replies).toEqual([
+      { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
+      { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
+    ]);
+  });
+
+  it('counts only replies argo sent, not those of other ships naming the message', async () => {
+    const asked = await toArgo(captain, 'Promote?');
+    unwrap(
+      await messaging.sendMessage(tester, {
+        ...modelOf(tester),
+        selector: { kind: 'ship', shipId: captain.shipId },
+        payload: 'not yet',
+        inReplyTo: asked.messageId,
+        idempotencyKey: 'not-yet',
+      }),
+    );
+
+    const [entry] = await history.readInbox(argo, { filter: 'all' });
+
+    expect(entry?.replies).toEqual([]);
   });
 
   it('leaves out messages argo sent, and messages to other ships', async () => {
