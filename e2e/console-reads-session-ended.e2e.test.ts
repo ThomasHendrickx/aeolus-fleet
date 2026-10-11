@@ -140,6 +140,8 @@ async function aSquadronsPage({ isLiveLate = false }: { isLiveLate?: boolean } =
   }
   await page.goto('/squadrons');
   await page.getByText('No blueprints found').waitFor();
+  // Live once the server started the subscription, with the session still valid: from then only a read can hear it ended.
+  await page.getByRole('banner').getByText('Live', { exact: true }).waitFor();
   return page;
 }
 
