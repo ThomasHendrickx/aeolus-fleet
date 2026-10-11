@@ -1,46 +1,47 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
+import { readFile } from 'node:fs/promises';
 
 import { inject } from 'vitest';
 
 import { createPrismaClient } from '../../src/adapters/prisma/client.js';
-
-const run = promisify(execFile);
-const serverRoot = fileURLToPath(new URL('../..', import.meta.url));
-const prismaCli = createRequire(import.meta.url).resolve('prisma/build/index.js');
-
-/** Runs the Prisma CLI from the server package against the given database. */
-export function prisma(databaseUrl: string, ...args: string[]): Promise<{ stdout: string; stderr: string }> {
-  return run(process.execPath, [prismaCli, ...args], {
-    cwd: serverRoot,
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
-}
+import { databaseUrlOf, MIGRATED_TEMPLATE } from './migrated-template.js';
 
 /** Creates an empty database in the shared Postgres container and returns its URL. */
-export async function createEmptyDatabase(): Promise<string> {
+export function createEmptyDatabase(): Promise<string> {
+  return createDatabase('');
+}
+
+/**
+ * Creates a database with the committed migrations applied, as `prisma
+ * migrate deploy` leaves it: a copy of the template the global setup migrated.
+ */
+export function createMigratedDatabase(): Promise<string> {
+  return createDatabase(` TEMPLATE ${MIGRATED_TEMPLATE}`);
+}
+
+/**
+ * Runs a SQL file against the given database in one round trip, as
+ * `prisma db execute --file` does, without starting a Prisma CLI per file.
+ */
+export async function executeSqlFile(databaseUrl: string, file: string): Promise<void> {
+  const client = createPrismaClient(databaseUrl);
+  try {
+    // The file is a committed migration, never outside input.
+    await client.$executeRawUnsafe(await readFile(file, 'utf8'));
+  } finally {
+    await client.$disconnect();
+  }
+}
+
+async function createDatabase(template: string): Promise<string> {
   const adminUrl = inject('postgresUrl');
   const name = `aeolus_test_${randomBytes(6).toString('hex')}`;
-
   const admin = createPrismaClient(adminUrl);
   try {
-    // The name is generated above, never outside input.
-    await admin.$executeRawUnsafe(`CREATE DATABASE ${name}`);
+    // The name is generated above and the template is a constant, never outside input.
+    await admin.$executeRawUnsafe(`CREATE DATABASE ${name}${template}`);
   } finally {
     await admin.$disconnect();
   }
-
-  const url = new URL(adminUrl);
-  url.pathname = `/${name}`;
-  return url.toString();
-}
-
-/** Creates a database and applies the committed migrations with `prisma migrate deploy`. */
-export async function createMigratedDatabase(): Promise<string> {
-  const databaseUrl = await createEmptyDatabase();
-  await prisma(databaseUrl, 'migrate', 'deploy');
-  return databaseUrl;
+  return databaseUrlOf(adminUrl, name);
 }
