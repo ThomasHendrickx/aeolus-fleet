@@ -63,11 +63,21 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
 
   it('waits longer before each next call while the fleet stays busy', async () => {
     await aFleetAnswering([BUSY, BUSY, whoami], async (fleetUrl, asked) => {
-      await createRestFleetDoor(fleetUrl, { busyWaitsMs: [100, 300] }).whoami('aeolus_ct_v1_x');
+      await createRestFleetDoor(fleetUrl, { busyWaitsMs: [100, 300], random: () => 1 }).whoami('aeolus_ct_v1_x');
 
       const [first = 0, second = 0, third = 0] = asked.map(({ at }) => at);
       expect(second - first).toBeGreaterThanOrEqual(90);
       expect(third - second).toBeGreaterThanOrEqual(290);
+    });
+  });
+
+  it('draws each wait between half and all of it, so callers refused together do not call again together (#610)', async () => {
+    await aFleetAnswering([BUSY, whoami], async (fleetUrl, asked) => {
+      await createRestFleetDoor(fleetUrl, { busyWaitsMs: [400], random: () => 0 }).whoami('aeolus_ct_v1_x');
+
+      const [first = 0, second = 0] = asked.map(({ at }) => at);
+      expect(second - first).toBeGreaterThanOrEqual(190);
+      expect(second - first).toBeLessThan(350);
     });
   });
 
