@@ -1,5 +1,5 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { isAttentionChange, isLabelChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
 
@@ -78,22 +78,16 @@ describe('reloadQueries', () => {
         }),
     });
     const unsubscribe = observer.subscribe(() => undefined);
-    await vi.waitFor(() => {
-      expect(reads).toHaveLength(1);
-    });
+    await expect.poll(() => reads).toHaveLength(1);
 
     // An event for a change committed after the first read began.
     const reloaded = reloadQueries(queryClient, ['fleet']);
     reads[0]?.('before the change');
-    await vi.waitFor(() => {
-      expect(reads).toHaveLength(2);
-    });
+    await expect.poll(() => reads).toHaveLength(2);
     reads[1]?.('after the change');
     await reloaded;
 
-    await vi.waitFor(() => {
-      expect(queryClient.getQueryData(['fleet', 'inbox'])).toBe('after the change');
-    });
+    await expect.poll(() => queryClient.getQueryData(['fleet', 'inbox'])).toBe('after the change');
     unsubscribe();
   });
 
@@ -108,9 +102,7 @@ describe('reloadQueries', () => {
       },
     });
     const unsubscribe = observer.subscribe(() => undefined);
-    await vi.waitFor(() => {
-      expect(queryClient.getQueryData(['fleet', 'list'])).toBe('read 1');
-    });
+    await expect.poll(() => queryClient.getQueryData(['fleet', 'list'])).toBe('read 1');
 
     await reloadQueries(queryClient, ['fleet']);
 

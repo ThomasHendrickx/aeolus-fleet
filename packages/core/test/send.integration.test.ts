@@ -1,5 +1,5 @@
 import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
@@ -86,9 +86,7 @@ function unitOfWorkWith(wrap: (tx: PrismaTx) => PrismaTx): UnitOfWork<PrismaTx> 
 async function probe(): Promise<void> {
   const { messageId } = unwrap(await core.useCases.sendMessage(scout, aReview({ selector: { kind: 'ship', name: 'argo' }, model: 'claude-opus-5-5' })));
   const delivery = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
-  await vi.waitFor(() => {
-    expect(notices.map((notice) => notice.deliveryId)).toContain(delivery.id);
-  });
+  await expect.poll(() => notices.map((notice) => notice.deliveryId)).toContain(delivery.id);
 }
 
 async function storedCounts() {
@@ -162,9 +160,7 @@ describe('sending a message on Postgres', () => {
         details: { selector: 'ship', recipientType: null, model: null },
       }),
     ]);
-    await vi.waitFor(() => {
-      expect(notices).toEqual([{ fleetId, deliveryId: delivery?.id, recipient: { kind: 'ship', shipId: scoutId } }]);
-    });
+    await expect.poll(() => notices).toEqual([{ fleetId, deliveryId: delivery?.id, recipient: { kind: 'ship', shipId: scoutId } }]);
   });
 
   it('stores the content type exactly as sent', async () => {
@@ -327,12 +323,12 @@ describe('the notice of a send', () => {
     unwrap(await sending);
 
     expect(whileOpen).toEqual([{ kind: 'ship', shipId: argoId }]);
-    await vi.waitFor(() => {
-      expect(notices.map((notice) => notice.recipient)).toEqual([
+    await expect
+      .poll(() => notices.map((notice) => notice.recipient))
+      .toEqual([
         { kind: 'ship', shipId: argoId },
         { kind: 'ship', shipId: scoutId },
       ]);
-    });
   });
 });
 
@@ -463,9 +459,7 @@ describe('a send and a retire of the ship it addresses', () => {
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM ships WHERE id = ${scoutId} FOR NO KEY UPDATE`;
           sending = core.useCases.sendMessage(argo, aReview({ selector: selector() }));
-          await vi.waitFor(async () => {
-            expect(await sessionsWaitingForALock()).toBe(1);
-          });
+          await expect.poll(sessionsWaitingForALock).toBe(1);
           await tx.ship.update({ where: { id: scoutId }, data: { retiredAt: core.clock.now() } });
         },
         { timeout: 15_000 },
