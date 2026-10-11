@@ -10,8 +10,8 @@ function aConsole(): { isOnline: () => boolean; hasForgotten: () => boolean; cal
     isOnline: () => isOnline,
     hasForgotten: () => hasForgotten,
     calls: {
-      setOnline: (next) => {
-        isOnline = next;
+      setOnline: (isNowOnline) => {
+        isOnline = isNowOnline;
       },
       forget: () => {
         hasForgotten = true;

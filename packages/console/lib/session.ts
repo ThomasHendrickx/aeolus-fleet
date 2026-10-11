@@ -1,9 +1,10 @@
-import { onlineManager, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
+import { createContext, useContext, useEffect, useEffectEvent, useLayoutEffect } from 'react';
 
 import { isSignedInElsewhere, trpcErrorCode } from './errors';
 import { useTRPC } from './trpc';
+import type { WayOut } from './way-out';
 
 /** Where a console whose session is gone sends the operator: the sign-in page, saying why when it was no failure. */
 function signInPathFor(error: unknown): string {
@@ -31,40 +32,33 @@ export function useSignInWhenSessionEnds(errors: readonly unknown[]): void {
   }, [signInPath]);
 }
 
+export const WayOutContext = createContext<WayOut | undefined>(undefined);
+
 /**
- * The way out of a page whose session has ended, or is ending, for one
- * without a session. While the console holds its calls it asks nothing: a
- * call asked then would race Sign out, or carry no session (#584, #611).
- * TanStack Query holds every call while it is offline, so the console counts
- * as offline meanwhile. Leaving, it forgets what it loaded only as the page
- * goes, since forgetting while the page still shows asks every read again;
- * the next page asks as usual.
+ * Ends the console's way out (lib/way-out.ts) once the page goes. Layout
+ * effects run before the next page's queries subscribe, so they ask as usual.
  */
-function useWayOut(): { holdCalls: () => void; letCallsGo: () => void; leave: (destination: string) => void } {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const isHoldingRef = useRef(false);
-  useEffect(
+export function useWayOutEndsWithPage(wayOut: WayOut): void {
+  const pathname = usePathname();
+  useLayoutEffect(
     () => () => {
-      if (isHoldingRef.current) {
-        queryClient.clear();
-        onlineManager.setOnline(true);
-      }
+      wayOut.pageGoes();
     },
-    [queryClient],
+    [wayOut, pathname],
   );
-  const holdCalls = () => {
-    isHoldingRef.current = true;
-    onlineManager.setOnline(false);
-  };
+}
+
+/** The console's way out, leaving for destination: a console path or another site. */
+function useWayOut(): WayOut & { leave: (destination: string) => void } {
+  const router = useRouter();
+  const wayOut = useContext(WayOutContext);
+  if (wayOut === undefined) {
+    throw new Error('useWayOut runs inside the root layout, which provides the way out');
+  }
   return {
-    holdCalls,
-    letCallsGo: () => {
-      isHoldingRef.current = false;
-      onlineManager.setOnline(true);
-    },
+    ...wayOut,
     leave: (destination) => {
-      holdCalls();
+      wayOut.holdCalls();
       if (destination.startsWith('/')) {
         router.replace(destination);
       } else {
