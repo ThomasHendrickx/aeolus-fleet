@@ -139,6 +139,33 @@ describe('questionsIn', () => {
     });
   });
 
+  it('links the replacement to the question it replaces', () => {
+    const replacement = aReplacement();
+
+    expect(questionAsked(questionsIn([replacement, asked]), replacement.deliveryId)?.replaces).toEqual({ deliveryId: asked.deliveryId, title: QUESTION.title });
+  });
+
+  it('asks a replacement of an answered question as an open question, linked to the answered one', () => {
+    const replacement = aReplacement({ sentAt: LATEST });
+    const answered = { ...asked, replies: [anAnswerTo(QUESTION)] };
+
+    expect(questionAsked(questionsIn([replacement, answered]), replacement.deliveryId)).toMatchObject({
+      question: { answer: null },
+      stale: null,
+      replaces: { deliveryId: asked.deliveryId, title: QUESTION.title },
+    });
+  });
+
+  it('links a question that replaces none to nothing', () => {
+    expect(questionsIn([asked])[0]?.replaces).toBeNull();
+  });
+
+  it('links a replacement by another ship to nothing', () => {
+    const replacement = { ...aReplacement(), message: { ...aReplacement().message, sender: { id: newId('ship'), name: 'implementer-c' } } };
+
+    expect(questionAsked(questionsIn([replacement, asked]), replacement.deliveryId)?.replaces).toBeNull();
+  });
+
   it('takes the first of several withdrawals and replacements', () => {
     const replacement = aReplacement({ sentAt: LATEST });
     const withdrawal = aWithdrawal({ sentAt: LATER });
