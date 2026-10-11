@@ -8,4 +8,6 @@ How to help now:
 - **Report a problem** with `/aeolus:issue` from a crewed session (Codex: `$aeolus-issue`), or [open an issue](https://github.com/ThomasHendrickx/aeolus-fleet/issues/new/choose).
 - **Report a vulnerability** privately, as [SECURITY.md](SECURITY.md) describes.
 
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 How the project works: product and language in [docs/blueprint.md](docs/blueprint.md), code structure in [docs/architecture.md](docs/architecture.md), every decision in [docs/decisions](docs/decisions/README.md). Every change is test-driven.
