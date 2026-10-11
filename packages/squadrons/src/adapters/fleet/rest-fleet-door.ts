@@ -40,20 +40,21 @@ interface FleetCall<T> {
   signal?: AbortSignal;
 }
 
-/** Where the fleet answers, how long to wait before each next call while it is busy, and the draw for each wait. */
+/** Where the fleet answers, how long to wait before each next call while it is busy, the draw for each wait, and how a drawn wait is waited. */
 interface Door {
   fleetUrl: string;
   busyWaitsMs: readonly number[];
   random: () => number;
+  wait: (waitMs: number, signal?: AbortSignal) => Promise<void>;
 }
 
-async function call<T>({ fleetUrl, busyWaitsMs, random }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
+async function call<T>({ fleetUrl, busyWaitsMs, random, wait: waitBusy }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
   for (const waitMs of busyWaitsMs) {
     const answered = await callOnce(fleetUrl, request);
     if (answered.isOk || answered.error.code !== FLEET_BUSY) {
       return answered;
     }
-    await wait(busyWaitMs(waitMs, random), undefined, { signal: request.signal });
+    await waitBusy(busyWaitMs(waitMs, random), request.signal);
   }
   return callOnce(fleetUrl, request);
 }
@@ -90,8 +91,8 @@ function dateOf(iso: string | null): Date | null {
   return iso === null ? null : new Date(iso);
 }
 
-export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: readonly number[]; random?: () => number } = {}): FleetDoor {
-  const door = { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS, random: options.random ?? Math.random };
+export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: readonly number[]; random?: () => number; wait?: (waitMs: number, signal?: AbortSignal) => Promise<void> } = {}): FleetDoor {
+  const door = { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS, random: options.random ?? Math.random, wait: options.wait ?? ((waitMs: number, signal?: AbortSignal) => wait(waitMs, undefined, { signal })) };
   return {
     register: ({ shipId, secret }) =>
       call(door, {
