@@ -15,8 +15,8 @@ export interface PluginShip {
   fleetScopes: FleetScope[];
 }
 
-/** Squadrons' management ship. */
-export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] };
+/** Squadrons' management ship: it reads the fleet, commissions squadrons' ships and labels them for their reach. */
+export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] };
 
 /** The trierarch plugin's ship: it reads the fleet, commissions machines' ships, assigns crew requests and labels machines (os and arch). */
 export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', fleetScopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] };
