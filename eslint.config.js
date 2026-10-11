@@ -117,22 +117,41 @@ const coreFromTheRouterDoors = {
   message: 'adapters/rest and adapters/mcp never import src/domain: they map onto the tRPC router (ADR 0004).',
 };
 
-/** The console's atomic design layers, lowest first. Pages in app/ sit above them all. */
-const webLayers = ['atoms', 'molecules', 'organisms', 'templates'];
+/**
+ * The console's atomic design layers, lowest first, in components/ (shared)
+ * and in each features/<feature>/ (web-frontend skill). Pages and their route
+ * layouts in app/ compose them.
+ */
+const webLayers = ['atoms', 'molecules', 'organisms'];
 
 /**
  * @param {string} layer
- * @returns {ImportRestriction}
+ * @returns {ImportRestriction[]}
  */
 function upwardImports(layer) {
-  const above = [...webLayers.slice(webLayers.indexOf(layer) + 1), 'app'];
-  return {
-    regex: `^\\.{1,2}/(.+/)?(${above.join('|')})(/|$)`,
-    message: `components/${layer} never imports ${above.join(', ')}: atomic design imports downward only.`,
-  };
+  const above = webLayers.slice(webLayers.indexOf(layer) + 1);
+  return above.length === 0
+    ? []
+    : [{ regex: `^\\.\\./(${above.join('|')})(/|$)`, message: `${layer} never import ${above.join(' or ')}: atomic design imports downward only.` }];
 }
 
-const propsOnlyMessage = 'Atoms and molecules take props only: no tRPC. Data arrives through an organism hook.';
+/** @type {ImportRestriction} */
+const sharedImportsAFeature = {
+  regex: '^(\\.\\./)+(features|app)(/|$)',
+  message: 'Shared code (components/, lib/) never imports a feature or app/: what a second feature needs moves to shared, props only.',
+};
+
+/** @type {ImportRestriction} */
+const featureImportsAnother = {
+  regex: '^\\.\\./\\.\\./[^./][^/]*(/|$)',
+  message: 'A feature never imports another: app/ composes them, passing one into another as a slot or props.',
+};
+
+const propsOnlyMessage =
+  "Shared components and a feature's atoms and molecules take props only: no tRPC and no hooks. Data arrives through a feature organism's hooks.";
+
+/** @type {ImportRestriction} */
+const featureHooks = { regex: '^\\.\\./hooks(/|$)', message: propsOnlyMessage };
 
 /** @type {ImportRestriction[]} */
 const trpcInPresentationalLayers = [
@@ -373,14 +392,33 @@ export default defineConfig(
       'no-restricted-globals': ['error', ...webImpure.globals],
     },
   },
+  {
+    name: 'aeolus/web-lib',
+    files: ['packages/console/lib/**/*.{ts,tsx}'],
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, sharedImportsAFeature], paths: reactManualMemo }),
+  },
   ...webLayers.map((layer) => ({
-    name: `aeolus/web-${layer}`,
+    name: `aeolus/web-shared-${layer}`,
     files: [`packages/console/components/${layer}/**/*.{ts,tsx}`],
+    rules: importRules({
+      patterns: [...prismaOutsideItsAdapter, ...upwardImports(layer), sharedImportsAFeature, ...trpcInPresentationalLayers],
+      paths: reactManualMemo,
+    }),
+  })),
+  {
+    name: 'aeolus/web-features',
+    files: ['packages/console/features/**/*.{ts,tsx}'],
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, featureImportsAnother], paths: reactManualMemo }),
+  },
+  ...webLayers.map((layer) => ({
+    name: `aeolus/web-feature-${layer}`,
+    files: [`packages/console/features/*/${layer}/**/*.{ts,tsx}`],
     rules: importRules({
       patterns: [
         ...prismaOutsideItsAdapter,
-        upwardImports(layer),
-        ...(layer === 'atoms' || layer === 'molecules' ? trpcInPresentationalLayers : []),
+        ...upwardImports(layer),
+        featureImportsAnother,
+        ...(layer === 'atoms' || layer === 'molecules' ? [...trpcInPresentationalLayers, featureHooks] : []),
       ],
       paths: reactManualMemo,
     }),
