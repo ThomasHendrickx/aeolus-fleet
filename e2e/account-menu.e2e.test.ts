@@ -9,7 +9,7 @@ import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures
 import { createMigratedDatabase } from '../packages/core/test/support/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/test/support/result.js';
-import { signIn } from './support/console.js';
+import { holdSignOutSlow, signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The AccountMenu, end to end, on desktop and on phone: the session's device
@@ -204,6 +204,50 @@ describe.each([
 
     expect(hasSessionEnded).toBe(true);
     expect(readsAfterSessionEnded).toEqual([]);
+  });
+
+  it('sends no call once Sign out has started, while its answer is slow', async () => {
+    const page = await signedInPage({ isPhone });
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    const signOut = holdSignOutSlow(page);
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-sign-out').click();
+    await signOut.started;
+    // Coming back to the page while Sign out is on its way asks its reads again; TanStack Query hears it on window.
+    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await page.waitForURL(`${web.url}/sign-in`);
+    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+
+    expect(signOut.callsSent).toEqual([]);
+  });
+
+  it('asks again as usual once Sign out has failed, as the operator is still signed in', async () => {
+    const page = await signedInPage({ isPhone });
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.route(
+      (url) => url.pathname.endsWith('/console.signOut'),
+      (route) => route.abort(),
+    );
+    let hasSignOutFailed = false;
+    const callsAfterSignOutFailed: string[] = [];
+    page.on('requestfailed', (request) => {
+      if (new URL(request.url()).pathname.endsWith('/console.signOut')) {
+        hasSignOutFailed = true;
+      }
+    });
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (hasSignOutFailed && pathname.startsWith('/trpc/')) {
+        callsAfterSignOutFailed.push(pathname);
+      }
+    });
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-sign-out').click();
+    await page.getByText('Couldn’t sign out').waitFor();
+
+    await expect.poll(() => callsAfterSignOutFailed.length).toBeGreaterThan(0);
   });
 
   it('signs out without sending any write but Sign out', async () => {

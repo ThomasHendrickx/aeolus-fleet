@@ -7,7 +7,7 @@ import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
 import { useConsoleConstants } from './console-constants';
 import { useConsoleGuide } from './guide';
-import { useLeaveSignedOut } from './session';
+import { useSignOut } from './session';
 import { useTRPC } from './trpc';
 import { usePluginNav } from './plugin-nav';
 
@@ -43,21 +43,15 @@ export function useAccountMenu(now: Date): AccountMenuProps {
       },
     }),
   );
-  const leaveSignedOut = useLeaveSignedOut();
-  const signOut = useMutation(trpc.console.signOut.mutationOptions());
+  const { signOut, isSigningOut } = useSignOut();
   const trySignOut = () => {
-    signOut.mutate(undefined, {
-      onSuccess: () => {
-        leaveSignedOut('/sign-in');
-      },
-      onError: () => {
-        showToast({
-          title: 'Couldn’t sign out',
-          description: 'The server did not answer. You are still signed in.',
-          tone: 'error',
-          action: { label: 'Try again', onClick: trySignOut },
-        });
-      },
+    signOut('/sign-in', () => {
+      showToast({
+        title: 'Couldn’t sign out',
+        description: 'The server did not answer. You are still signed in.',
+        tone: 'error',
+        action: { label: 'Try again', onClick: trySignOut },
+      });
     });
   };
 
@@ -70,7 +64,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
       setTheme.mutate({ theme });
     },
     onSignOut: trySignOut,
-    isSigningOut: signOut.isPending,
+    isSigningOut,
     now,
     ...(accountUrl === undefined ? {} : { accountUrl }),
     ...(guide.onTakeTour === undefined ? {} : { onTakeTour: guide.onTakeTour }),

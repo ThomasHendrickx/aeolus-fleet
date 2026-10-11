@@ -1,9 +1,9 @@
 import type { NoticeLink } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 
 import { showToast } from '../components/atoms/toast';
 import type { Notice } from '../components/molecules/notice-banner';
+import { useSignOut } from './session';
 import { useTRPC } from './trpc';
 
 /** Where a link that signs out goes once the session ended: its url, or sign in when it has none. */
@@ -19,7 +19,6 @@ export function afterSignOutOf(link: NoticeLink): string {
  */
 export function useConsoleNotices(): { notices: Notice[]; onDismiss: (noticeId: string) => void; onSignOut: (link: NoticeLink) => void } {
   const trpc = useTRPC();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const notices = useQuery(trpc.console.notices.queryOptions());
   const dismiss = useMutation(
@@ -30,13 +29,7 @@ export function useConsoleNotices(): { notices: Notice[]; onDismiss: (noticeId: 
       },
     }),
   );
-  const signOut = useMutation(
-    trpc.console.signOut.mutationOptions({
-      onError: () => {
-        showToast({ title: 'Couldn’t sign out', description: 'The server did not answer. You are still signed in.', tone: 'error' });
-      },
-    }),
-  );
+  const { signOut } = useSignOut();
 
   return {
     notices: notices.data ?? [],
@@ -44,16 +37,8 @@ export function useConsoleNotices(): { notices: Notice[]; onDismiss: (noticeId: 
       dismiss.mutate({ noticeId });
     },
     onSignOut: (link) => {
-      signOut.mutate(undefined, {
-        onSuccess: () => {
-          queryClient.clear();
-          const destination = afterSignOutOf(link);
-          if (destination.startsWith('/')) {
-            router.replace(destination);
-          } else {
-            window.location.assign(destination);
-          }
-        },
+      signOut(afterSignOutOf(link), () => {
+        showToast({ title: 'Couldn’t sign out', description: 'The server did not answer. You are still signed in.', tone: 'error' });
       });
     },
   };
