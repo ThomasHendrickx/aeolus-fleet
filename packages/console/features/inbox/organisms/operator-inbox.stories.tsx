@@ -24,6 +24,7 @@ function aMessage(
     readAt: null,
     doneAt: null,
     repliedWith: null,
+    question: null,
     ...delivery,
     message: {
       id: messageId(suffix),

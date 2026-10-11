@@ -50,6 +50,9 @@ import {
   renameShipInputSchema,
   renameShipOutputSchema,
   replyInputSchema,
+  answerQuestionInputSchema,
+  answerQuestionOutputSchema,
+  inboxQuestionOf,
   replyOutputSchema,
   resendDeliveryInputSchema,
   resendDeliveryOutputSchema,
@@ -721,10 +724,14 @@ export const fleetRouter = router({
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) =>
-      (await ctx.useCases.readInbox(ctx.caller, input)).map((entry) => ({
+      (await ctx.useCases.readInbox(ctx.caller, input)).map(({ replies, ...entry }) => ({
         ...entry,
         readAt: entry.readAt?.toISOString() ?? null,
         doneAt: entry.doneAt?.toISOString() ?? null,
+        question: inboxQuestionOf({
+          message: entry.message,
+          replies: replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
+        }),
         message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
       })),
     ),
@@ -752,6 +759,12 @@ export const fleetRouter = router({
     .input(replyInputSchema)
     .output(replyOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.replyToMessage(ctx.crew, input))),
+
+  /** Answers a question to argo (decision 0038) as a reply of the answer type to its asker, and marks it done, in one transaction. */
+  answer: scopedCrewCallerProcedure('messages:send', 'messages:receive')
+    .input(answerQuestionInputSchema)
+    .output(answerQuestionOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.answerQuestion(ctx.crew, input))),
 
   /**
    * The fleet's committed events after a position, for a client that is no

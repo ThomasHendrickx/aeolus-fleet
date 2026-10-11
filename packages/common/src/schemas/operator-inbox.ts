@@ -4,6 +4,7 @@ import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
 import { sendInputSchema } from './message.js';
+import { inboxQuestionSchema } from './question.js';
 
 /**
  * Inputs and outputs of the operator inbox (docs/blueprint.md, "Inbox"): the
@@ -22,7 +23,7 @@ export type InboxFilter = z.infer<typeof inboxFilterSchema>;
 /** Input of `fleet.inbox`. */
 export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema });
 
-/** One message to argo: its delivery's state, when it was read and done, the reply that made it done, and the message. */
+/** One message to argo: its delivery's state, when it was read and done, the reply that made it done, the question it asks, and the message. */
 export const inboxMessageSchema = z.object({
   deliveryId: idSchema('delivery'),
   state: deliveryStateSchema,
@@ -32,6 +33,8 @@ export const inboxMessageSchema = z.object({
   doneAt: isoTime.nullable(),
   /** The reply that acknowledged it, when a reply did. */
   repliedWith: idSchema('message').nullable(),
+  /** The question it asks, with its answer, when it is one (decision 0038); null for any other message. */
+  question: inboxQuestionSchema.nullable(),
   message: z.object({
     id: idSchema('message'),
     sender: partySchema,

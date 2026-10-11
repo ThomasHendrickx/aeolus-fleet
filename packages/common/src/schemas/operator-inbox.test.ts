@@ -69,7 +69,7 @@ describe('operatorInboxOutputSchema', () => {
   });
 
   it('refuses an entry that does not say whether it carries a question', () => {
-    const { question: _, ...withoutQuestion } = open;
+    const withoutQuestion = Object.fromEntries(Object.entries(open).filter(([key]) => key !== 'question'));
 
     expect(operatorInboxOutputSchema.safeParse([withoutQuestion]).success).toBe(false);
   });
