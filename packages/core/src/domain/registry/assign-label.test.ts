@@ -76,11 +76,10 @@ describe('assigning a label', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it("refuses the owner's own ship: no ship labels itself", async () => {
-    const refused = refusalOf(await registry.assignLabel(plugin, { shipId: pluginId, valueId: macos }));
+  it("puts its value on the owner's own ship too: the owner labels any ship (#573)", async () => {
+    unwrap(await registry.assignLabel(plugin, { shipId: pluginId, valueId: macos }));
 
-    expect(refused.kind).toBe('LABEL_ON_OWN_SHIP');
-    expect(core.state.shipLabels).toEqual([]);
+    expect(core.state.shipLabels).toEqual([expect.objectContaining({ shipId: pluginId, valueId: macos })]);
   });
 
   it('refuses a ship that does not own the label, argo too', async () => {

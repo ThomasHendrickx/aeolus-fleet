@@ -24,8 +24,8 @@ export interface LabelValue {
  * A label (docs/blueprint.md, "Label"; decision 0031): a key with a defined
  * set of values, each with its own id, owned by the ship that defined it.
  * Ids are for machines, key and value texts for people. Only its owner
- * changes its values and assigns them, never to itself. It retires with its
- * owner.
+ * changes its values and assigns them, to any ship, its own included. It
+ * retires with its owner.
  */
 export interface Label {
   fleetId: FleetId;
@@ -314,21 +314,14 @@ function assignmentEvent(
   };
 }
 
-type OwnShip = DomainError<'LABEL_ON_OWN_SHIP'>;
-
-/** No ship labels itself: that would let it enforce a plugin's policy on its own (decision 0031). */
-function checkNotOwnShip(label: Label, ship: Ship): Result<void, OwnShip> {
-  return ship.id === label.ownerShipId ? refuse('LABEL_ON_OWN_SHIP', `No ship labels itself: ${label.key} is your own ship's label`) : ok(undefined);
-}
-
-export type AssignLabelRefusal = NotTheOwner | OwnShip | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;
+export type AssignLabelRefusal = NotTheOwner | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;
 
 /**
  * The owner gives a ship one of its label's values, by its id: the ship
  * holds a set of values, so it may carry several of one label. A value it
- * carries changes nothing. Never the owner's own ship or a retired ship;
- * argo and the viewer ship as any other (decision 0016). A ship carries at
- * most 20 values. LabelAssigned names the ship, with the label and the value.
+ * carries changes nothing. Any ship, the owner's own included, but never a
+ * retired ship; argo and the viewer ship as any other (decision 0016). A ship
+ * carries at most 20 values. LabelAssigned names the ship, with the label and the value.
  */
 export function assignLabel(
   {
@@ -353,10 +346,6 @@ export function assignLabel(
   if (!owned.isOk) {
     return owned;
   }
-  const notOwn = checkNotOwnShip(label, ship);
-  if (!notOwn.isOk) {
-    return notOwn;
-  }
   if (ship.retiredAt !== null) {
     return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired`);
   }
@@ -378,7 +367,7 @@ export function assignLabel(
   });
 }
 
-export type UnassignLabelRefusal = NotTheOwner | OwnShip;
+export type UnassignLabelRefusal = NotTheOwner;
 
 /**
  * The owner takes one value of its label off a ship. A ship that does not
@@ -389,12 +378,10 @@ export function unassignLabel(
   {
     label,
     ownerName,
-    ship,
     carried,
   }: {
     label: Label;
     ownerName: string;
-    ship: Ship;
     carried: readonly ShipLabel[];
   },
   input: {
@@ -407,10 +394,6 @@ export function unassignLabel(
   const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'unassigns' });
   if (!owned.isOk) {
     return owned;
-  }
-  const notOwn = checkNotOwnShip(label, ship);
-  if (!notOwn.isOk) {
-    return notOwn;
   }
   const current = carried.find((each) => each.valueId === input.valueId);
   if (!current) {

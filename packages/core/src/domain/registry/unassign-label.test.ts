@@ -72,8 +72,12 @@ describe('unassigning a label', () => {
     expect(carriedText(core, builderId)).toEqual(['os=linux', 'os=macos', 'project=hemma']);
   });
 
-  it("refuses the owner's own ship, which never carries its labels", async () => {
-    await expect(registry.unassignLabel(plugin, { shipId: pluginId, valueId: macos })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_ON_OWN_SHIP' } });
+  it("takes its value off the owner's own ship too (#573)", async () => {
+    unwrap(await registry.assignLabel(plugin, { shipId: pluginId, valueId: macos }));
+
+    unwrap(await registry.unassignLabel(plugin, { shipId: pluginId, valueId: macos }));
+
+    expect(carriedText(core, pluginId)).toEqual([]);
   });
 
   it('refuses a value the fleet has no label for, and a ship it does not have', async () => {
