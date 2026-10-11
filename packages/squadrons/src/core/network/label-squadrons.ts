@@ -44,7 +44,7 @@ const NO_LABEL_SCOPES = 'its management ship holds no label scopes, and scopes n
  * value of the label comes off. A value no ship carries any more and no
  * squadron needs is removed; a squadron the 50 values leave out is not
  * labelled, and argo is told once. A key another ship owns is left alone.
- * Without the label scopes it labels nothing and says why.
+ * Without the label scopes it labels nothing, says why and tells argo once.
  */
 export function createLabelSquadrons(deps: {
   door: NetworkDoor;
@@ -64,6 +64,14 @@ export function createLabelSquadrons(deps: {
       return unavailable(own.error);
     }
     if (!LABEL_SCOPES.every((scope) => own.value.scopes.includes(scope))) {
+      await deps.operator.tell({
+        fleetId,
+        text:
+          `squadrons' management ship ${crew.name} holds no ${LABEL_SCOPES.join(' or ')}: it was connected before squadrons labelled squadrons, and scopes never change. ` +
+          'Retire it and connect squadrons again in the console, Settings: until then squadrons labels no squadron and declares no network rules for their reach.',
+        // One key per management ship tells argo once; a ship connected again sends its own.
+        key: 'no-label-scopes',
+      });
       return ok({ defined: 0, valuesChanged: 0, assigned: 0, unassigned: 0, unlabelled: [], skipped: NO_LABEL_SCOPES });
     }
     const serving = (await deps.squadrons.list(fleetId)).filter((squadron) => squadron.state !== 'disbanded');

@@ -235,6 +235,16 @@ describe('squadrons labelling its squadrons (#573)', () => {
     expect(fleet.state.labelWrites).toEqual([]);
   });
 
+  it('tells argo once, without the label scopes, that its management ship must be connected again (#627)', async () => {
+    management.state.scopes = management.state.scopes.filter((scope) => scope !== 'labels:define');
+
+    await labelSquadrons(FLEET_ID);
+    await labelSquadrons(FLEET_ID);
+
+    expect(told.map(({ fleetId, key }) => ({ fleetId, key }))).toEqual([{ fleetId: FLEET_ID, key: 'no-label-scopes' }]);
+    expect(told[0]?.text).toContain('connect squadrons again');
+  });
+
   it('is refused for a fleet it is not connected to', async () => {
     await expect(labelSquadrons(OTHER_FLEET_ID)).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_CONNECTED' } });
   });
