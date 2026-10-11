@@ -11,13 +11,15 @@ export interface TourStepProps {
   total: number;
   /** The element the step points at; null shows the step centred on the page (decision 0024). */
   anchor: Element | null;
+  /** The side of its anchor the step shows on; it goes to the other side when this one has no room. */
+  side: 'top' | 'bottom';
   onBack: () => void;
   onNext: () => void;
   onSkip: () => void;
   onFinish: () => void;
 }
 
-function StepBody({ index, total, onBack, onNext, onSkip, onFinish, children }: Omit<TourStepProps, 'anchor' | 'title' | 'text'> & { children: React.ReactNode }) {
+function StepBody({ index, total, onBack, onNext, onSkip, onFinish, children }: Omit<TourStepProps, 'anchor' | 'side' | 'title' | 'text'> & { children: React.ReactNode }) {
   const isFirst = index === 0;
   const isLast = index === total - 1;
   return (
@@ -59,7 +61,7 @@ function StepBody({ index, total, onBack, onNext, onSkip, onFinish, children }: 
  * operator moves on: clicking elsewhere does not close it.
  */
 export function TourStep(props: TourStepProps) {
-  const { title, text, anchor } = props;
+  const { title, text, anchor, side } = props;
   if (anchor === null) {
     return (
       <div
@@ -83,7 +85,7 @@ export function TourStep(props: TourStepProps) {
   }
   return (
     <Popover open modal={false}>
-      <PopoverContent anchor={anchor} data-testid="tour-step" data-placement="anchored">
+      <PopoverContent anchor={anchor} side={side} data-testid="tour-step" data-placement="anchored">
         <StepBody {...props}>
           <PopoverTitle className="text-body font-semibold text-foreground">{title}</PopoverTitle>
           <PopoverDescription className="text-body text-muted-foreground">{text}</PopoverDescription>

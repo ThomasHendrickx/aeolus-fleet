@@ -13,6 +13,7 @@ const meta = {
     index: 0,
     total: 6,
     anchor: null,
+    side: 'bottom',
     onBack: fn(),
     onNext: fn(),
     onSkip: fn(),
@@ -35,7 +36,7 @@ export const LastStep: Story = { args: { index: 5, title: 'Sign up', text: 'Run 
 function Anchored(args: TourStepProps) {
   const [anchor, setAnchor] = useState<Element | null>(null);
   return (
-    <div className="p-10">
+    <div className="p-10 pt-60">
       <div ref={setAnchor} className="inline-block rounded-lg border border-border bg-card px-4 py-3 text-body">
         The fleet table
       </div>
@@ -46,3 +47,6 @@ function Anchored(args: TourStepProps) {
 
 /** Pointing at its anchor, below it. */
 export const PointingAtItsAnchor: Story = { render: (args) => <Anchored {...args} /> };
+
+/** On a narrow window: above its anchor, so what follows the anchor stays in sight. */
+export const AboveItsAnchor: Story = { args: { side: 'top' }, render: (args) => <Anchored {...args} /> };
