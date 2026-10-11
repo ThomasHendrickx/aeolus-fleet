@@ -34,11 +34,13 @@ const commonPackage = z.object({ version: z.string() }).parse(
 );
 
 const reachable = () => Promise.resolve();
+const LATEST_MIGRATION = '20261001040000_lease_last_seen';
 const unreachable = () => Promise.reject(new Error('connect ECONNREFUSED'));
 
 function start(
   options: {
     checkDatabase?: () => Promise<void>;
+    latestMigration?: () => Promise<string | null>;
     signInRateLimit?: RateLimit;
     registerRateLimit?: RateLimit;
     cookieDomain?: string;
@@ -55,6 +57,7 @@ function start(
       ping: () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 }),
     },
     checkDatabase: options.checkDatabase ?? reachable,
+    latestMigration: options.latestMigration ?? (() => Promise.resolve(LATEST_MIGRATION)),
     clock: core.clock,
     logger: false,
     signInRateLimit: options.signInRateLimit,
@@ -158,6 +161,45 @@ describe('/api/version', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ server: serverPackage.version, common: commonPackage.version });
+  });
+});
+
+describe('system.version', () => {
+  function systemVersion(headers: Record<string, string> = {}) {
+    return server.inject({ method: 'GET', url: '/trpc/system.version', headers });
+  }
+
+  it("answers the signed-in operator the server's versions and its database's latest migration", async () => {
+    start();
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await systemVersion({ cookie });
+
+    expect(response.json()).toEqual({ result: { data: { server: serverPackage.version, common: commonPackage.version, migration: LATEST_MIGRATION } } });
+  });
+
+  it('answers no migration when the database does not say', async () => {
+    start({ latestMigration: () => Promise.reject(new Error('connect ECONNREFUSED')) });
+    const cookie = cookieOf(await signIn(OPERATOR));
+
+    const response = await systemVersion({ cookie });
+
+    expect(response.json()).toEqual({ result: { data: { server: serverPackage.version, common: commonPackage.version, migration: null } } });
+  });
+
+  it('refuses a call without a crew token or a session with 401', async () => {
+    start();
+
+    expect((await systemVersion()).statusCode).toBe(401);
+  });
+
+  it('refuses a ship without fleet:manage with 403, fleet:read alone included', async () => {
+    start();
+    const crewToken = crewedAgent(['fleet:read']);
+
+    const response = await systemVersion({ authorization: `Bearer ${crewToken}` });
+
+    expect(response.statusCode).toBe(403);
   });
 });
 
