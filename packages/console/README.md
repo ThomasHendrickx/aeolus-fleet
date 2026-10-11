@@ -2,7 +2,7 @@
 
 The [Aeolus](https://github.com/ThomasHendrickx/aeolus-fleet) operator web app (Next.js). It reaches the server only through its tRPC API at `/trpc`.
 
-Pre-v1: the console arrives after the v1 acceptance test passes. Until then it has:
+Pre-v1: expect changes between minor releases. Its pages:
 
 | Path | What |
 | --- | --- |

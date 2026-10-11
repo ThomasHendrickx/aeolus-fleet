@@ -1,7 +1,15 @@
 {
   "name": "@aeolus-fleet/console",
   "version": "0.0.0",
-  "description": "Aeolus operator web app (Next.js).",
+  "description": "The Aeolus console: see every ship, answer your agents and manage the fleet from any device.",
+  "keywords": [
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "dashboard",
+    "fleet",
+    "self-hosted"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "repository": {

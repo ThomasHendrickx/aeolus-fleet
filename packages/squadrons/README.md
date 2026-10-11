@@ -1,6 +1,6 @@
 # @aeolus-fleet/squadrons
 
-Forms squadrons of ships from blueprints and leads them (decision 0017). Optional: a fleet works with individual ships only. Aeolus knows nothing about squadrons; squadrons is a ship of the fleet with `fleet:read`, `fleet:manage`, `labels:define` and `labels:assign`, its management ship, and reaches the fleet only through its public API.
+Forms teams of ships from blueprint files in git and leads them: roles, hand-offs, each member's health. See decision 0017. Optional: a fleet works with individual ships only. Aeolus knows nothing about squadrons; squadrons is a ship of the fleet with `fleet:read`, `fleet:manage`, `labels:define` and `labels:assign`, its management ship, and reaches the fleet only through its public API.
 
 So far: its own process and database, the connection the operator makes in the console as its management ship, the catalogue of templates and blueprints from git (docs/squadrons.md), forming squadrons, the check-in at each flagship (docs/squadrons.md, "Check-in"), `/api/health` and `/api/version`.
 
