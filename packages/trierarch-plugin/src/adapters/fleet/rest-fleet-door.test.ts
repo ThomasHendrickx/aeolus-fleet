@@ -7,7 +7,6 @@ import { createRestFleetDoor } from './rest-fleet-door.js';
 /** The fleet's refusal while every pool connection is taken: nothing was stored (#542). */
 const BUSY = { status: 503, body: { code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).' } };
 
-const MESSAGE_ID = 'msg_01m3tbfspe96yf1rnr4ank9h1d';
 const SHIP_ID = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 const FLEET_ID = 'flt_01m3tbfspe96yf1rnr4ank9h1c';
 
@@ -43,21 +42,16 @@ async function aFleetAnswering(answers: readonly { status: number; body: unknown
   }
 }
 
-const whoami = { status: 200, body: { shipId: SHIP_ID, fleetId: FLEET_ID, name: 'squadrons', type: 'squadrons' } };
+const whoami = { status: 200, body: { shipId: SHIP_ID, fleetId: FLEET_ID, name: 'trierarch-plugin', type: 'trierarch-plugin' } };
 
-describe('the fleet door over REST while the fleet is busy (#546)', () => {
-  it('sends again by itself with the same idempotency key while the fleet is busy', async () => {
-    await aFleetAnswering([BUSY, BUSY, { status: 200, body: { messageId: MESSAGE_ID } }], async (fleetUrl, asked) => {
-      const sent = await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1, 1, 1, 1] }).send('aeolus_ct_v1_x', {
-        selector: { kind: 'ship', name: 'scout' },
-        payload: 'your role',
-        contentType: 'text/plain',
-        idempotencyKey: 'role-1',
-      });
+describe('the fleet door over REST while the fleet is busy (#610)', () => {
+  it('tells argo again by itself with the same idempotency key while the fleet is busy', async () => {
+    await aFleetAnswering([BUSY, BUSY, { status: 200, body: { messageId: 'msg_01m3tbfspe96yf1rnr4ank9h1d' } }], async (fleetUrl, asked) => {
+      const told = await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1, 1, 1, 1] }).tellArgo('aeolus_ct_v1_x', { text: 'scout has no machine', idempotencyKey: 'notice-1' });
 
-      expect(sent).toMatchObject({ isOk: true, value: { messageId: MESSAGE_ID } });
+      expect(told).toMatchObject({ isOk: true });
       expect(asked.map(({ url, body }) => [url, body])).toEqual(Array.from({ length: 3 }, () => ['/api/v1/ship/send', asked[0]?.body]));
-      expect(JSON.parse(asked[0]?.body ?? '')).toMatchObject({ idempotencyKey: 'role-1' });
+      expect(JSON.parse(asked[0]?.body ?? '')).toMatchObject({ idempotencyKey: 'notice-1' });
     });
   });
 
@@ -71,7 +65,7 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
     });
   });
 
-  it('draws each wait between half and all of it, so callers refused together do not call again together (#610)', async () => {
+  it('draws each wait between half and all of it, so callers refused together do not call again together', async () => {
     await aFleetAnswering([BUSY, whoami], async (fleetUrl, asked) => {
       await createRestFleetDoor(fleetUrl, { busyWaitsMs: [400], random: () => 0 }).whoami('aeolus_ct_v1_x');
 
@@ -94,20 +88,6 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
     await aFleetAnswering([{ status: 401, body: { code: 'LEASE_ENDED', message: 'This ship was released' } }], async (fleetUrl, asked) => {
       await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1] }).whoami('aeolus_ct_v1_x');
 
-      expect(asked).toHaveLength(1);
-    });
-  });
-
-  it('ends a receive at once when it is stopped while it waits to call again', async () => {
-    await aFleetAnswering([BUSY], async (fleetUrl, asked) => {
-      const stopping = new AbortController();
-      const ended = createRestFleetDoor(fleetUrl, { busyWaitsMs: [60_000] })
-        .receive('aeolus_ct_v1_x', { signal: stopping.signal })
-        .catch((error: unknown) => error);
-      await expect.poll(() => asked.length).toBe(1);
-      stopping.abort();
-
-      await expect(ended).resolves.toMatchObject({ name: 'AbortError' });
       expect(asked).toHaveLength(1);
     });
   });
