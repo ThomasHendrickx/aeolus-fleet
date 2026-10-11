@@ -1,10 +1,11 @@
 import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import type { ReceiverWakeups } from '../src/domain/messaging/ports.js';
 import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
 import { createDeregister } from '../src/domain/registry/deregister.js';
 import { createReleaseShip } from '../src/domain/registry/release-ship.js';
@@ -34,8 +35,6 @@ import { newKey } from './support/keys.js';
 const newId = createIdGenerator();
 /** How long a receive waits on an empty inbox in these tests: short, so an empty receive costs little. */
 const WAIT_MS = 2_000;
-/** Time for a receive to start waiting before the test releases its ship. */
-const SETTLE_MS = 300;
 /** The wait of a receive that must end early: it proves a wake-up, not a timeout. */
 const LONG_WAIT_MS = 15_000;
 /** A test that waits out a long receive, with room for a loaded machine. */
@@ -132,16 +131,37 @@ function stored(deliveryId: DeliveryId) {
   return prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } });
 }
 
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** A receive by the crew that waits up to the given time on an empty inbox. */
+/**
+ * A receive by the crew that waits up to the given time on an empty inbox, and
+ * `waiting`, which settles once it waits: it has looked at the inbox, holding
+ * the lease, and found nothing. A receive that has not looked yet when the
+ * lease ends is refused (LEASE_ENDED), so a test that ends the lease under a
+ * waiting receive waits for this, not for a fixed time (#499).
+ */
 function receiveWaiting(crewed: Crewed, waitMs: number) {
-  return createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups, waitMs })(
+  let isWaiting: () => void = () => undefined;
+  const waiting = new Promise<void>((resolve) => {
+    isWaiting = resolve;
+  });
+  const watchedWakeups: ReceiverWakeups = {
+    watch: (address) => {
+      const watch = wakeups.watch(address);
+      return {
+        next: (ms) => {
+          isWaiting();
+          return watch.next(ms);
+        },
+        stop: () => {
+          watch.stop();
+        },
+      };
+    },
+  };
+  const answer = createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watchedWakeups, waitMs })(
     crewed.crew,
     {},
   );
+  return { answer, waiting };
 }
 
 /**
@@ -151,9 +171,7 @@ function receiveWaiting(crewed: Crewed, waitMs: number) {
  */
 async function probe(): Promise<void> {
   const deliveryId = await sendTo({ kind: 'ship', shipId: argo.shipId });
-  await vi.waitFor(() => {
-    expect(notices.map((notice) => notice.deliveryId)).toContain(deliveryId);
-  });
+  await expect.poll(() => notices.map((notice) => notice.deliveryId)).toContain(deliveryId);
 }
 
 /** The Prisma unit of work, failing right after the use case queued its first notice. */
@@ -275,17 +293,17 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
     expect(await receive(scout)).toEqual([deliveryId]);
     const startedAt = performance.now();
     const receiving = receiveWaiting(lookout, LONG_WAIT_MS);
-    await pause(SETTLE_MS);
+    await receiving.waiting;
 
     unwrap(await end(scout));
 
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
   });
 
   it('completes promptly while a receive of the crew waits, and the receive answers without deliveries', async () => {
     const receiving = receiveWaiting(scout, LONG_WAIT_MS);
-    await pause(SETTLE_MS);
+    await receiving.waiting;
 
     const startedAt = performance.now();
     unwrap(await end(scout));
@@ -293,7 +311,7 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
 
     // Held up, the release would end only with the receive's wait.
     expect(tookMs).toBeLessThan(LONG_WAIT_MS / 2);
-    await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
   }, LONG_WAIT_TEST_MS);
 });
 
