@@ -21,10 +21,10 @@ Claude Code, Codex, your chat assistants and your own code hand work to each oth
 ## What it does
 
 1. **Hand-offs without you.** Every session becomes a ship with a name. A send says OK only once the message is stored, and the message waits until a session takes it, so nothing is lost when a session dies.
-2. **Any harness, any model, any code.** Claude Code and Codex crew a ship with a plugin. Claude and ChatGPT join over MCP, scripts and apps over REST. Every ship shows the model it runs.
+2. **Any harness, any model, any code.** Claude Code and Codex crew a ship with a plugin. Claude and ChatGPT join over MCP, scripts and apps over REST. Every agent ship shows the model it runs.
 3. **You answer only what needs you.** Every ship, its status and its last report on one screen, on desktop or phone. What needs you lands in one inbox.
 4. **Your way of working, in git.** Squadrons form a team of ships from a blueprint file: roles, how many of each, and where each hand-off goes.
-5. **Sessions that keep running.** The optional trierarch starts, restarts and wakes Claude Code and Codex sessions on your machines, each in its own git worktree.
+5. **Sessions that keep running.** The optional trierarch starts, restarts and wakes Claude Code and Codex sessions on your machines, each in its own git worktree or a folder you add.
 
 ## How it is different
 
@@ -37,11 +37,11 @@ Aeolus is not an orchestrator, an agent framework or a model router, and it neve
 ## What works today
 
 - **The fleet.** Commission ships, hand out their starting prompts, release, re-crew, rename, ping and retire them. Each ship reports working, blocked or idle with a short note, and a new session reads where the last one stopped.
-- **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged; one that nobody manages to take goes to the operator's Needs attention.
-- **The console.** The operator's web app, live on desktop and phone: the fleet overview with labels and filters, each ship's timeline and messages, the operator inbox, Needs attention, Needs crew, machines, labels, network rules and Compose.
+- **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged; one that keeps failing goes to the operator's Needs attention.
+- **The console.** The operator's web app, live on desktop and phone: the fleet overview with labels and filters, each ship's timeline and messages, the operator inbox, Needs attention, Needs crew, Trierarchs, labels, network rules (with the networking plugin) and Compose.
 - **The plugins for Claude Code and Codex.** One line crews a ship from a session. The session keeps it across `/clear` and restarts, wakes by itself when a delivery arrives without spending tokens while it waits, and never shows its crew token to the model. Codex needs a one-time setup.
 - **Labels and network rules (optional).** Label ships, filter the fleet by label, and, with the networking plugin, set rules for which ships may message which, see each ship's reach and read what was refused. Without rules, every ship can reach every other.
-- **The trierarch (optional).** A plain process on a machine that keeps ships crewed there: request crew from the console, a machine that fits takes it, or the console says why none could. It starts, restarts, wakes and stops Claude Code or Codex sessions, each in its own git worktree. See [Keep sessions running](#keep-sessions-running).
+- **The trierarch (optional).** A plain process on a machine that keeps ships crewed there: request crew from the console, a machine that fits takes it, or the console says why none could. It starts, restarts, wakes and stops Claude Code or Codex sessions, each in its own git worktree or a folder you add. See [Keep sessions running](#keep-sessions-running).
 - **Squadrons (optional).** Form a team of ships from a blueprint in git: roles, how many ships each, and where each hand-off goes. squadrons gives each member its role when it checks in, shows each member's health, adds and removes members, and stands the squadron down when its work is done. A fleet works without it.
 
 What changed in each release is in [Releases](https://github.com/ThomasHendrickx/aeolus-fleet/releases).
@@ -95,7 +95,7 @@ The plugin makes every fleet call through its scripts, so the crew token never r
 
 ## Keep sessions running
 
-The trierarch is a small process you install on a machine (macOS or Linux). It crews the ships you request from the console: it starts their Claude Code or Codex sessions, wakes them when work arrives and restarts them when they die. It is a plain process, not an AI, and never decides the work. It runs as you, only in the repositories and folders you add, each ship in its own git worktree, and permission-skipping flags stay off unless you accept them at setup. Releasing a ship removes its worktree, and you are told first which uncommitted or unpushed work it held. Sessions on one machine share your user account. Setup and the full safety story are in [docs/trierarch.md](docs/trierarch.md) and the [trierarch README](packages/trierarch/README.md).
+The trierarch is a small process you install on a machine (macOS or Linux). It crews the ships you request from the console: it starts their Claude Code or Codex sessions, wakes them when work arrives and restarts them when they die. It is a plain process, not an AI, and never decides the work. It runs as you, only in the repositories and folders you add, and permission-skipping flags stay off unless you accept them at setup. Releasing a ship removes its worktree, and you are told which uncommitted or unpushed work it held. Sessions on one machine share your user account. Setup and the full safety story are in [docs/trierarch.md](docs/trierarch.md) and the [trierarch README](packages/trierarch/README.md).
 
 ## Documentation
 
