@@ -3,31 +3,31 @@
   "skills": {
     "domain-modelling": {
       "source": "ThomasHendrickx/skills",
-      "ref": "v1.0.0",
+      "ref": "v2.2.0",
       "sourceType": "github",
       "skillPath": "skills/domain-modelling/SKILL.md",
       "computedHash": "69aebd36b728cbae350e587ea1ecdd0ae67cc417f6c184ebd0ce7c5bec2b4717"
     },
     "test-driven-development": {
       "source": "ThomasHendrickx/skills",
-      "ref": "v1.0.0",
+      "ref": "v2.2.0",
       "sourceType": "github",
       "skillPath": "skills/test-driven-development/SKILL.md",
       "computedHash": "5585af990aa658835be7df7782ed9258e89affc918897d983122ce2549d68e42"
     },
     "typescript": {
       "source": "ThomasHendrickx/skills",
-      "ref": "v1.0.0",
+      "ref": "v2.2.0",
       "sourceType": "github",
       "skillPath": "skills/typescript/SKILL.md",
       "computedHash": "9823889bc11aa9985706df55e80dfbb55816c1be0f3835826a5a158af5b3a4dc"
     },
     "web-frontend": {
       "source": "ThomasHendrickx/skills",
-      "ref": "v1.0.0",
+      "ref": "v2.2.0",
       "sourceType": "github",
       "skillPath": "skills/web-frontend/SKILL.md",
-      "computedHash": "ab0067bfae8bde0ad22e8243a624e0c8888b26723da50f37869c017ee8c36fe5"
+      "computedHash": "e05970b074778d15560767b0cec770e5dafe31163565281a438922d052322f55"
     }
   }
 }
