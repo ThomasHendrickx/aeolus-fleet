@@ -19,7 +19,7 @@ export function useOpenInboxCount(): number | undefined {
 }
 
 /** The messages to argo that are no question: the inbox page's; questions have their own (decision 0038). */
-export function plainMessagesOf<T extends Pick<InboxMessage, 'question'>>(messages: readonly T[]): T[] {
+export function plainMessagesOf<T extends { question: unknown }>(messages: readonly T[]): T[] {
   return messages.filter((message) => message.question === null);
 }
 
