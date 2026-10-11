@@ -1,8 +1,10 @@
 # Publishes @aeolus-fleet/common, core, console, squadrons, trierarch-plugin, networking-plugin and trierarch to npm with one version, and
-# tags the released commit v<version>, so a version on npm always matches a tag
-# in git. Then creates the GitHub Release for the tag, with notes from the merged
-# pull requests carrying the label <version>, and sets the aeolus Claude Code
-# plugin to that version on main, where the plugin marketplace installs from.
+# tags v<version> a commit with the aeolus plugin's version on top of the
+# released commit, so a version on npm always matches a tag in git and the tag
+# holds the plugin of that version (aeolus-trierarch upgrade installs it from
+# there). Then creates the GitHub Release for the tag, with notes from the merged
+# pull requests carrying the label <version>, and sets the aeolus plugin to that
+# version on main, where the plugin marketplaces install from by default.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -196,13 +198,19 @@ jobs:
             npm publish --access public --workspace "$PACKAGE"
           fi
 
-      # After all seven are on npm. If this step fails, push the tag by hand:
-      # the version is already published and cannot be released again.
-      - name: Tag the released commit v${{ inputs.version }}
+      # After all seven are on npm. The tag holds the released commit with the
+      # plugin's manifests at the version on top (set above), off main's
+      # history, so a harness installing the plugin from the tag gets the
+      # plugin of that version under its version. If this step fails, push the
+      # tag by hand: the version is already published and cannot be released again.
+      - name: Tag v${{ inputs.version }}, the released commit with the plugin's version
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git tag "v$VERSION" "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --quiet --message "chore(release): the aeolus plugin is $VERSION" -- plugins/aeolus/.claude-plugin/plugin.json plugins/aeolus/.codex-plugin/plugin.json
+          git tag "v$VERSION" HEAD
           git push origin "refs/tags/v$VERSION"
 
       # Notes from the merged pull requests labelled with the version: git and the
