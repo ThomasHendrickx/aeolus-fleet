@@ -23,6 +23,8 @@ const SIGN_IN_WINDOW_MS = 60_000;
 const AFTER_SIGN_OUT_MS = 3_000;
 /** How long a call's answer is held on its way back, long enough for Sign out to answer first without the console waiting for it. */
 const HELD_ANSWER_MS = 2_000;
+/** How soon coming back to the page asks its reads again: well before the fleet's own refresh (30 s) would. */
+const ASKED_AGAIN_MS = 5_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -168,9 +170,13 @@ describe.each([
   it('signs out with a call still answering, and that call does not set the session cookie again', async () => {
     const page = await signedInPage({ isPhone });
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    // The live fleet reads the fleet again once it connects; only coming back to the page may ask it after that.
+    await page.waitForLoadState('networkidle');
     const held = holdOneAnswer(page, 'fleet.list');
+    const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.list'), { timeout: ASKED_AGAIN_MS });
     // Coming back to the page asks its reads again, the fleet among them.
     await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+    await askedAgain;
     await held.reached;
 
     await visible(page, 'account-menu').click();
