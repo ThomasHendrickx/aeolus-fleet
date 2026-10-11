@@ -10,7 +10,7 @@ import type { Context } from './context.js';
 /** All a caller learns of a server failure, with the request's id; the log keeps the rest under that id. */
 export const INTERNAL_ERROR_MESSAGE = 'Internal error';
 
-/** What a caller reads when no database connection came free in time: the call stored nothing and can be made again. */
+/** What a caller reads when the database was too busy for the call: it stored nothing and can be made again. */
 export const FLEET_BUSY_MESSAGE =
   'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).';
 
@@ -225,8 +225,8 @@ function fieldName(path: InputPath): string {
  * the door refuses it in any text input, as a bad request naming the field,
  * before anything else reads the input.
  *
- * A call whose transaction got no database connection in time stored nothing,
- * so it is refused as SERVICE_UNAVAILABLE (503), never answered as a server
+ * A call the database was too busy for (fleet-busy.ts) stored nothing, so it
+ * is refused as SERVICE_UNAVAILABLE (503), never answered as a server
  * failure: the caller makes the same call again.
  */
 export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => {
