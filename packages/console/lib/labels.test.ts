@@ -1,7 +1,7 @@
 import { createIdGenerator, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { activeShipCount, assignKeysOf, chipTitleOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
+import { activeShipCount, assignKeysOf, canAssignLabelsTo, chipTitleOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
 
 const newId = createIdGenerator();
 
@@ -237,6 +237,24 @@ describe('labelLimitOf', () => {
 
   it('is at the limit at 20 labels', () => {
     expect(labelLimitOf(carrying(20), SHIP_LABELS_MAX)).toEqual({ count: '20 of 20', isAtLimit: true });
+  });
+});
+
+describe('canAssignLabelsTo', () => {
+  it('lets argo put its labels on its own ship (decision 0031)', () => {
+    expect(canAssignLabelsTo(ARGO, { canAssignLabels: true })).toBe(true);
+  });
+
+  it('lets you put your labels on another ship', () => {
+    expect(canAssignLabelsTo(BUILDER, { canAssignLabels: true })).toBe(true);
+  });
+
+  it('keeps a retired ship read-only', () => {
+    expect(canAssignLabelsTo(RETIRED, { canAssignLabels: true })).toBe(false);
+  });
+
+  it('keeps every ship read-only without labels:assign', () => {
+    expect(canAssignLabelsTo(ARGO, { canAssignLabels: false })).toBe(false);
   });
 });
 

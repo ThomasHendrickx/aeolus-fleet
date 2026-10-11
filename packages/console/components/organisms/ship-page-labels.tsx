@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useConsoleConstants } from '../../lib/console-constants';
 import { useAccess } from '../../lib/access';
 import { useAssignLabel, useLabelContext, useUnassignLabel } from '../../lib/fleet';
-import { assignKeysOf, chipsOf, labelLimitOf } from '../../lib/labels';
+import { assignKeysOf, canAssignLabelsTo, chipsOf, labelLimitOf } from '../../lib/labels';
 import { Skeleton } from '../atoms/skeleton';
 import { ShipLabels } from '../molecules/ship-labels';
 import { ShipLabelsEdit } from './ship-labels-edit';
@@ -24,8 +24,8 @@ function textOf(keys: ReturnType<typeof assignKeysOf>, valueId: string): string 
 
 /**
  * A ship's labels on its page (#102): with labels:assign, yours to put on,
- * change or take off, on any ship but argo itself and a retired one (no ship
- * labels itself, decision 0031); read-only otherwise. Each change applies at
+ * change or take off, on any ship but a retired one, argo's own included
+ * (decision 0031); read-only otherwise. Each change applies at
  * once; a refusal says why and nothing changes.
  */
 export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
@@ -40,8 +40,7 @@ export function ShipPageLabels({ ship }: { ship: ShipDetail }) {
     return <Skeleton className="h-5.5 w-40" />;
   }
   const chips = chipsOf(ship, context);
-  const canAssign = access.canAssignLabels && ship.kind !== 'operator' && ship.status !== 'retired';
-  if (!canAssign) {
+  if (!canAssignLabelsTo(ship, access)) {
     return <ShipLabels chips={chips} />;
   }
   const keys = assignKeysOf(ship, context);

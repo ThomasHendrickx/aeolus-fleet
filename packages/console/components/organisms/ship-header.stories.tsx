@@ -1,9 +1,14 @@
+import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
+import { fn } from 'storybook/test';
 
+import { assignKeysOf, chipsOf, labelLimitOf } from '../../lib/labels';
 import { Button } from '../atoms/button';
 import { ShipLabels } from '../molecules/ship-labels';
 import { ShipHeader } from './ship-header';
+import { AREA, carried, labelContext, labelledFleet, PROJECT } from './labels.fixtures';
+import { ShipLabelsEdit } from './ship-labels-edit';
 import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, RETIRED_SHIP, UNKNOWN_SHIP_ID } from './ship-page.fixtures';
 
 const meta = {
@@ -75,6 +80,27 @@ export const WithLabels: Story = { args: { labels: <ShipLabels chips={LABEL_CHIP
 export const WithoutLabels: Story = { args: { labels: <ShipLabels chips={[]} /> } };
 /** On phone, the labels row stacks under its title. */
 export const WithLabelsPhone: Story = { args: { labels: <ShipLabels chips={LABEL_CHIPS} /> }, globals: { viewport: { value: 'mobile1' } } };
+
+const ARGO_LABELS = { labels: [carried(PROJECT, 'hemma'), carried(AREA, 'frontend')] };
+const LABEL_CONTEXT = labelContext(labelledFleet());
+
+/** argo's own ship takes argo's labels as any ship does (decision 0031): yours to change or remove, and Add label. */
+export const ArgoWithItsLabels: Story = {
+  args: {
+    ship: ARGO_SHIP,
+    actions: undefined,
+    labels: (
+      <ShipLabelsEdit
+        chips={chipsOf(ARGO_LABELS, LABEL_CONTEXT)}
+        keys={assignKeysOf(ARGO_LABELS, LABEL_CONTEXT)}
+        limit={labelLimitOf(ARGO_LABELS, SHIP_LABELS_MAX)}
+        onAssign={fn()}
+        onUnassign={fn()}
+        onChange={fn()}
+      />
+    ),
+  },
+};
 
 /** A plugin's own ship, squadrons' here: a plugin chip beside its type (#368). */
 export const PluginShip: Story = {
