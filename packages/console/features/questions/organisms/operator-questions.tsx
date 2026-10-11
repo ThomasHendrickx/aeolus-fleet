@@ -1,7 +1,7 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
-import { ChevronLeft, CircleCheck, CircleHelp, Send } from 'lucide-react';
+import { ChevronLeft, CircleCheck, CircleHelp, CircleSlash, Replace, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../../lib/class-names';
@@ -31,7 +31,7 @@ interface OperatorQuestionsProps {
   counts: Partial<Record<QuestionFilter, number>>;
   /** The open question, from the URL. */
   selectedId: DeliveryId | undefined;
-  /** Opens a question; undefined goes back to the list on phone. */
+  /** Opens a question, also one the filter leaves out (a replacement or the question it replaces); undefined goes back to the list on phone. */
   onSelect: (deliveryId: DeliveryId | undefined) => void;
   state: 'loading' | 'error' | 'ready';
   onRetry: () => void;
@@ -48,8 +48,50 @@ const DAY_MS = 24 * 60 * 60 * 1_000;
 const FILTERS: readonly { value: QuestionFilter; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'answered', label: 'Answered' },
+  { value: 'stale', label: 'Stale' },
   { value: 'all', label: 'All' },
 ];
+
+const EMPTY_OPEN = {
+  title: 'No questions for you',
+  description: 'When a ship asks argo a question, it shows up here with its options. You answer it from the question.',
+};
+
+const EMPTY: Record<QuestionFilter, { title: string; description: string }> = {
+  open: EMPTY_OPEN,
+  answered: { title: 'Nothing answered yet', description: 'Questions you answer show up here.' },
+  stale: { title: 'Nothing stale', description: 'Questions their ship withdrew or replaced before you answered show up here.' },
+  all: EMPTY_OPEN,
+};
+
+/** What a question's row says it is, for a screen reader; its icon shows it. */
+function stateOf(question: Question): 'Open' | 'Answered' | 'Withdrawn' | 'Replaced' {
+  if (question.question.answer !== null) {
+    return 'Answered';
+  }
+  switch (question.stale?.kind) {
+    case 'withdrawn':
+      return 'Withdrawn';
+    case 'replaced':
+      return 'Replaced';
+    case undefined:
+      return 'Open';
+  }
+}
+
+function StateIcon({ state }: { state: ReturnType<typeof stateOf> }) {
+  const className = 'size-(--size-icon-sm) shrink-0 text-muted-foreground';
+  switch (state) {
+    case 'Answered':
+      return <CircleCheck aria-hidden className={className} />;
+    case 'Withdrawn':
+      return <CircleSlash aria-hidden className={className} />;
+    case 'Replaced':
+      return <Replace aria-hidden className={className} />;
+    case 'Open':
+      return null;
+  }
+}
 
 /** "14:30" today, "28 Sep, 14:30" before. */
 function listTime(at: Date, now: Date): string {
@@ -84,7 +126,8 @@ function QuestionList({ questions, selectedId, onSelect, now }: Pick<OperatorQue
     <ul aria-label="Questions to argo" className="flex flex-col max-sm:gap-2">
       {questions.map((question) => {
         const sentAt = new Date(question.message.sentAt);
-        const isAnswered = question.question.answer !== null;
+        const state = stateOf(question);
+        const isOpen = state === 'Open';
         const isSelected = question.deliveryId === selectedId;
         return (
           <li key={question.deliveryId}>
@@ -98,21 +141,28 @@ function QuestionList({ questions, selectedId, onSelect, now }: Pick<OperatorQue
               }}
               className="relative flex w-full min-w-0 flex-col gap-1 border-b border-border py-2.5 pr-3 pl-5 text-left transition-colors duration-(--duration-fast) outline-none hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[current=true]:bg-accent max-sm:rounded-lg max-sm:border max-sm:bg-card max-sm:py-3"
             >
-              {isAnswered ? null : <span aria-hidden className="absolute top-4 left-2 size-1.5 rounded-full bg-primary max-sm:top-4.5" />}
+              {isOpen ? <span aria-hidden className="absolute top-4 left-2 size-1.5 rounded-full bg-primary max-sm:top-4.5" /> : null}
               <span className="flex min-w-0 items-center gap-2">
-                {isAnswered ? <CircleCheck aria-hidden className="size-(--size-icon-sm) shrink-0 text-muted-foreground" /> : null}
+                <StateIcon state={state} />
                 <ShipName
                   name={question.message.sender.name}
                   shipId={question.message.sender.id}
                   isSuffixShown
-                  className={classNames('min-w-0', isAnswered ? 'text-muted-foreground' : 'font-semibold')}
+                  className={classNames('min-w-0', isOpen ? 'font-semibold' : 'text-muted-foreground')}
                 />
                 <time dateTime={question.message.sentAt} title={fullDateTime(sentAt)} className="ml-auto shrink-0 text-meta text-muted-foreground tabular-nums">
                   {listTime(sentAt, now)}
                 </time>
               </span>
-              <span className="block min-w-0 truncate text-meta text-foreground max-sm:text-body">{question.question.title}</span>
-              <span className="sr-only">{isAnswered ? 'Answered' : 'Open'}</span>
+              <span
+                className={classNames(
+                  'block min-w-0 truncate text-meta max-sm:text-body',
+                  question.stale === null ? 'text-foreground' : 'text-muted-foreground line-through',
+                )}
+              >
+                {question.question.title}
+              </span>
+              <span className="sr-only">{state}</span>
             </button>
           </li>
         );
@@ -145,6 +195,56 @@ function AnsweredNotice({ question }: { question: Question }) {
         </span>
       </p>
       {answer.note === null ? null : <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{answer.note}</p>}
+    </div>
+  );
+}
+
+/** A link that opens another question: the replacement, or the question a replacement replaces. */
+function QuestionLink({ deliveryId, title, onSelect, testId }: { deliveryId: DeliveryId; title: string; onSelect: OperatorQuestionsProps['onSelect']; testId: string }) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={() => {
+        onSelect(deliveryId);
+      }}
+      className="min-w-0 text-left font-medium text-foreground underline underline-offset-2 [overflow-wrap:anywhere] hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {title}
+    </button>
+  );
+}
+
+/** "Withdrawn by implementer-b at 14:05." or "Replaced at 14:05 by: <the new question>"; nothing while not stale. */
+function StaleNotice({ question, onSelect }: { question: Question; onSelect: OperatorQuestionsProps['onSelect'] }) {
+  const { stale } = question;
+  if (stale === null) {
+    return null;
+  }
+  const at = new Date(stale.sentAt);
+  const time = (
+    <time dateTime={stale.sentAt} title={fullDateTime(at)}>
+      {clockTime(at)}
+    </time>
+  );
+  return (
+    <div
+      role="status"
+      data-testid="questions-stale"
+      className="flex flex-col gap-1 rounded-md border border-tone-ended-border bg-tone-ended-bg px-3 py-2 text-meta text-tone-ended-fg"
+    >
+      <p className="flex items-center gap-2 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
+        {stale.kind === 'withdrawn' ? <CircleSlash aria-hidden /> : <Replace aria-hidden />}
+        <span>
+          {stale.kind === 'withdrawn' ? 'Withdrawn' : 'Replaced'} by {question.message.sender.name} at {time}. It can’t be answered.
+        </span>
+      </p>
+      {stale.kind === 'replaced' ? (
+        <p className="flex flex-wrap items-baseline gap-1">
+          Answer the new question:{' '}
+          <QuestionLink deliveryId={stale.deliveryId} title={stale.by.title} onSelect={onSelect} testId="questions-replacement" />
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -281,13 +381,14 @@ function AnswerForm({
 function QuestionPane({
   question,
   onAnswer,
+  onSelect,
   pendingIds,
   isPhone,
   isReadOnly = false,
-}: Pick<OperatorQuestionsProps, 'onAnswer' | 'pendingIds' | 'isReadOnly'> & { question: Question; isPhone: boolean }) {
+}: Pick<OperatorQuestionsProps, 'onAnswer' | 'onSelect' | 'pendingIds' | 'isReadOnly'> & { question: Question; isPhone: boolean }) {
   const sentAt = new Date(question.message.sentAt);
   const sender = question.message.sender;
-  const isAnswered = question.question.answer !== null;
+  const isAnswerable = question.question.answer === null && question.stale === null;
   return (
     <article
       aria-label={question.question.title}
@@ -302,19 +403,26 @@ function QuestionPane({
             {shortDateTime(sentAt)}
           </time>
         </p>
+        {question.replaces === null ? null : (
+          <p className="flex flex-wrap items-baseline gap-1 text-meta text-muted-foreground">
+            Replaces{' '}
+            <QuestionLink deliveryId={question.replaces.deliveryId} title={question.replaces.title} onSelect={onSelect} testId="questions-replaces" />
+          </p>
+        )}
       </header>
       <AnsweredNotice question={question} />
+      <StaleNotice question={question} onSelect={onSelect} />
       <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto">
         {question.question.context === '' ? null : (
           <p className="text-body whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch">{question.question.context}</p>
         )}
-        {isAnswered || isReadOnly ? (
+        {!isAnswerable || isReadOnly ? (
           <OptionList question={question} />
         ) : (
           <AnswerForm question={question} onAnswer={onAnswer} isPending={pendingIds.has(question.deliveryId)} isPhone={isPhone} />
         )}
       </div>
-      {isReadOnly && !isAnswered ? (
+      {isReadOnly && isAnswerable ? (
         <p data-testid="questions-read-only" className="border-t border-border pt-3 text-meta text-muted-foreground">
           Read-only: you see argo’s questions, and can’t answer them.
         </p>
@@ -328,7 +436,9 @@ function QuestionPane({
  * the operator a question, each with its context, numbered options and the
  * asker's pick and why. A question is open until it is answered, whatever its
  * delivery's state. Answering picks one option with an optional note, or sends
- * a note alone, as a reply to the asking ship. Laid out as the operator inbox:
+ * a note alone, as a reply to the asking ship. A question its asker withdrew
+ * or replaced is stale: it can't be answered and links to its replacement,
+ * which links back. Laid out as the operator inbox:
  * two panes on desktop, the list and a pushed page on phone. Read-only, for a
  * viewer session, it shows the questions and nothing that answers them.
  */
@@ -371,12 +481,8 @@ export function OperatorQuestions({
     <div data-testid="questions-empty">
       <EmptyState
         icon={<CircleHelp />}
-        title={filter === 'answered' ? 'Nothing answered yet' : 'No questions for you'}
-        description={
-          filter === 'answered'
-            ? 'Questions you answer show up here.'
-            : 'When a ship asks argo a question, it shows up here with its options. You answer it from the question.'
-        }
+        title={EMPTY[filter].title}
+        description={EMPTY[filter].description}
       />
     </div>
   );
@@ -394,7 +500,7 @@ export function OperatorQuestions({
         </div>
         <div className="flex min-h-0 flex-col bg-background p-5">
           {selected ? (
-            <QuestionPane question={selected} isPhone={false} {...actions} />
+            <QuestionPane question={selected} isPhone={false} onSelect={onSelect} {...actions} />
           ) : (
             <p className="m-auto text-meta text-muted-foreground">
               {questions.length === 0 ? null : actions.isReadOnly === true ? 'Choose a question to read it.' : 'Choose a question to answer it.'}
@@ -417,7 +523,7 @@ export function OperatorQuestions({
             >
               Questions
             </Button>
-            <QuestionPane question={selected} isPhone {...actions} />
+            <QuestionPane question={selected} isPhone onSelect={onSelect} {...actions} />
           </>
         ) : (
           <>
