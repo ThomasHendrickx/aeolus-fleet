@@ -16,7 +16,12 @@ export function createEmptyDatabase(): Promise<string> {
  * migrate deploy` leaves it: a copy of the template the global setup migrated.
  */
 export function createMigratedDatabase(): Promise<string> {
-  return createDatabase(` TEMPLATE ${MIGRATED_TEMPLATE}`);
+  return createCopyOf(MIGRATED_TEMPLATE);
+}
+
+/** Creates a copy of the named template database in the shared Postgres container and returns its URL. */
+export function createCopyOf(template: string): Promise<string> {
+  return createDatabase(` TEMPLATE ${template}`);
 }
 
 /**

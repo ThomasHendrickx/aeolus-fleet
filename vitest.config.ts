@@ -150,7 +150,7 @@ export default defineConfig({
           name: 'squadrons:integration',
           root: 'packages/squadrons',
           include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../core/test/postgres.global-setup.ts'],
+          globalSetup: ['../core/test/postgres.global-setup.ts', 'test/squadrons.global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
@@ -217,7 +217,7 @@ export default defineConfig({
           include: ['e2e/**/*.e2e.test.ts'],
           // Each file starts its own next dev in packages/console; one at a time.
           fileParallelism: false,
-          globalSetup: ['packages/core/test/postgres.global-setup.ts'],
+          globalSetup: ['packages/core/test/postgres.global-setup.ts', 'packages/squadrons/test/squadrons.global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 240_000,
         },
