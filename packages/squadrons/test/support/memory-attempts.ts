@@ -5,7 +5,7 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
   const attempts: FormationAttempts & { held: (FormationAttempt & { isFinished: boolean })[] } = {
     held: [],
     begin: (attempt) => {
-      attempts.held.push({ ...attempt, ships: [], isFinished: false });
+      attempts.held.push({ ...attempt, ships: [], isGivenUp: false, isFinished: false });
       return Promise.resolve();
     },
     plan: (attemptId, name) => {
@@ -19,6 +19,13 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
       }
       return Promise.resolve();
     },
+    giveUp: (attemptId) => {
+      const held = attempts.held.find((each) => each.id === attemptId);
+      if (held) {
+        held.isGivenUp = true;
+      }
+      return Promise.resolve();
+    },
     finish: (attemptId) => {
       const held = attempts.held.find((each) => each.id === attemptId);
       if (held) {
@@ -26,7 +33,7 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
       }
       return Promise.resolve();
     },
-    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished)),
+    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished).map(({ isFinished: _isFinished, ...attempt }) => attempt)),
   };
   return attempts;
 }

@@ -73,7 +73,7 @@ beforeEach(async () => {
   await attempts.commissioned('attempt-1', { name: 'planner-k3x9', shipId: 'shp_01m3tbfspe96yf1rnr4ank0002' });
 });
 
-const recover = () => createRecoverFormations({ door, management, attempts })(FLEET);
+const recover = (which: 'all' | 'given-up' = 'all') => createRecoverFormations({ door, management, attempts })(FLEET, which);
 
 describe('recovering formations a crash left unfinished', () => {
   it('retires every ship the attempt commissioned, finding by name one whose id was never recorded', async () => {
@@ -115,6 +115,22 @@ describe('recovering formations a crash left unfinished', () => {
     await recover();
 
     await expect(recover()).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 1 } });
+
+    expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
+  });
+});
+
+describe('recovering formations at a rescan (#738)', () => {
+  it('leaves alone an attempt a forming still holds', async () => {
+    await expect(recover('given-up')).resolves.toEqual({ isOk: true, value: { recovered: 0, retired: 0 } });
+
+    expect(ships.filter((ship) => ship.isRetired)).toEqual([]);
+  });
+
+  it('retires every ship of an attempt the forming gave up, then finishes it', async () => {
+    await attempts.giveUp('attempt-1');
+
+    await expect(recover('given-up')).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 3 } });
 
     expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
   });

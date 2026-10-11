@@ -331,9 +331,18 @@ describe('the formation attempt', () => {
     fleet.state.retiresRefused.set('hemma-feature-a1b2c3', 1);
     await form(fromHemmaFeature);
 
-    await createRecoverFormations({ door: fleet.door, management: managementStore, attempts })(FLEET);
+    await createRecoverFormations({ door: fleet.door, management: managementStore, attempts })(FLEET, 'all');
 
     expect(fleet.state.ships.filter((ship) => !ship.isRetired)).toEqual([]);
+  });
+
+  it('is given up when the fleet refuses a retire, so a rescan may recover it (#738)', async () => {
+    fleet.state.refuseCommissionAfter = 3;
+    fleet.state.retiresRefused.set('hemma-feature-a1b2c3', 1);
+
+    await form(fromHemmaFeature);
+
+    expect(attempts.held.map(({ isFinished, isGivenUp }) => ({ isFinished, isGivenUp }))).toEqual([{ isFinished: false, isGivenUp: true }]);
   });
 
   it('keeps a ship whose retire the fleet refused twice, so the recovery after retires it (#738)', async () => {
@@ -342,8 +351,8 @@ describe('the formation attempt', () => {
     await form(fromHemmaFeature);
     const recover = createRecoverFormations({ door: fleet.door, management: managementStore, attempts });
 
-    await recover(FLEET);
-    await recover(FLEET);
+    await recover(FLEET, 'given-up');
+    await recover(FLEET, 'given-up');
 
     expect(fleet.state.ships.filter((ship) => !ship.isRetired)).toEqual([]);
   });

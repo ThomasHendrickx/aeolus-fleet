@@ -174,6 +174,21 @@ describe('formation attempts begun in the same instant', () => {
   });
 });
 
+describe('a formation attempt the forming gave up (#738)', () => {
+  it('is read as given up, and one a forming still holds is not', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+    await attempts.begin({ id: 'team-c3d4e5@1', fleetId: FLEET, squadronId: 'team-c3d4e5', startedAt: LATER });
+
+    await attempts.giveUp('team-b2c3d4@1');
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([
+      expect.objectContaining({ id: 'team-b2c3d4@1', isGivenUp: true }),
+      expect.objectContaining({ id: 'team-c3d4e5@1', isGivenUp: false }),
+    ]);
+  });
+});
+
 function unused(): never {
   throw new Error('not used: an attempt begins without the fleet');
 }
