@@ -81,6 +81,22 @@ export function watchFlagships(deps: {
 
   const isStopping = (): boolean => stopping.signal.aborted;
 
+  // Fleets whose reach a rescan keeps or withdraws now: rescans overlap, and two passes at once would declare twice.
+  const reaching = new Set<FleetId>();
+  const reachOnce = async (fleetId: FleetId, pass: { work: () => Promise<void>; failure: string }): Promise<void> => {
+    if (reaching.has(fleetId)) {
+      return;
+    }
+    reaching.add(fleetId);
+    try {
+      await pass.work();
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, pass.failure);
+    } finally {
+      reaching.delete(fleetId);
+    }
+  };
+
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
       const squadron = (await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId);
@@ -139,20 +155,10 @@ export function watchFlagships(deps: {
     } catch (error) {
       deps.log.error({ err: error, fleet: fleetId }, 'the stand-downs could not advance');
     }
-    try {
-      await deps.reach.keep(fleetId);
-    } catch (error) {
-      deps.log.error({ err: error, fleet: fleetId }, 'the squadron labels and network rules could not be kept');
-    }
+    await reachOnce(fleetId, { work: () => deps.reach.keep(fleetId), failure: 'the squadron labels and network rules could not be kept' });
   };
 
-  const restFleet = async (fleetId: FleetId): Promise<void> => {
-    try {
-      await deps.reach.withdraw(fleetId);
-    } catch (error) {
-      deps.log.error({ err: error, fleet: fleetId }, 'the network rules could not be withdrawn');
-    }
-  };
+  const restFleet = (fleetId: FleetId): Promise<void> => reachOnce(fleetId, { work: () => deps.reach.withdraw(fleetId), failure: 'the network rules could not be withdrawn' });
 
   const rescan = async (): Promise<void> => {
     for (const crew of await deps.management.connected()) {

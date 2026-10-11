@@ -477,8 +477,10 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
     await watch.rescan();
     finish();
     await first;
-    await watch.rescan();
+    const third = watch.rescan();
+    await expect.poll(() => keeps).toBe(2);
     finish();
+    await third;
     await watch.stop();
 
     expect(keeps).toBe(2);
