@@ -3,12 +3,12 @@
  * not TypeScript-bound may make them: squadrons uses the public API like any
  * client (decision 0017). A refusal reads as the fleet's code and message.
  * While the fleet is busy (nothing stored), each call is made again by itself
- * with the same body, after each of the busy waits, so a send keeps its
- * idempotency key.
+ * with the same body, after each of the busy waits (each drawn by
+ * `busyWaitMs`), so a send keeps its idempotency key.
  */
 import { setTimeout as wait } from 'node:timers/promises';
 
-import { crewLineSchema, FLEET_BUSY_WAITS_MS, findLabelValueOutputSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
+import { busyWaitMs, crewLineSchema, FLEET_BUSY_WAITS_MS, findLabelValueOutputSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -40,19 +40,20 @@ interface FleetCall<T> {
   signal?: AbortSignal;
 }
 
-/** Where the fleet answers, and how long to wait before each next call while it is busy. */
+/** Where the fleet answers, how long to wait before each next call while it is busy, and the draw for each wait. */
 interface Door {
   fleetUrl: string;
   busyWaitsMs: readonly number[];
+  random: () => number;
 }
 
-async function call<T>({ fleetUrl, busyWaitsMs }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
+async function call<T>({ fleetUrl, busyWaitsMs, random }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
   for (const waitMs of busyWaitsMs) {
     const answered = await callOnce(fleetUrl, request);
     if (answered.isOk || answered.error.code !== FLEET_BUSY) {
       return answered;
     }
-    await wait(waitMs, undefined, { signal: request.signal });
+    await wait(busyWaitMs(waitMs, random), undefined, { signal: request.signal });
   }
   return callOnce(fleetUrl, request);
 }
@@ -89,8 +90,8 @@ function dateOf(iso: string | null): Date | null {
   return iso === null ? null : new Date(iso);
 }
 
-export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: readonly number[] } = {}): FleetDoor {
-  const door = { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS };
+export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: readonly number[]; random?: () => number } = {}): FleetDoor {
+  const door = { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS, random: options.random ?? Math.random };
   return {
     register: ({ shipId, secret }) =>
       call(door, {
