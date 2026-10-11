@@ -47,4 +47,28 @@ describe('a racing unit of work', () => {
 
     expect(steps).toEqual(['the late one comes', 'one goes on', 'one goes on']);
   });
+
+  it('lets them take turns when a lock taken before the step keeps them apart', async () => {
+    const fleetId = newId('fleet');
+    await prisma.fleet.create({ data: { id: fleetId, name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') } });
+    const steps: string[] = [];
+    const uow = racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
+      ...tx,
+      fleets: {
+        ...tx.fleets,
+        findForUpdate: async (id) => {
+          const fleet = await tx.fleets.findForUpdate(id);
+          steps.push('one locks');
+          await allArrived();
+          steps.push('one goes on');
+          return fleet;
+        },
+      },
+    }));
+    const race = () => uow.run(async (tx) => ok(await tx.fleets.findForUpdate(fleetId)));
+
+    await Promise.all([race(), race()]);
+
+    expect(steps).toEqual(['one locks', 'one goes on', 'one locks', 'one goes on']);
+  });
 });

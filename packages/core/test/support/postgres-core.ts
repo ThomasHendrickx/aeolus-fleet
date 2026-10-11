@@ -45,50 +45,67 @@ export async function createPostgresCore(): Promise<PostgresCore> {
   };
 }
 
-/** How long a racing transaction waits for the others before it goes on alone. */
-export const RACE_WAIT_MS = 250;
+/** How often a held transaction looks whether other ones wait for its locks. */
+const WAITER_POLL_MS = 10;
+
+/** How many transactions on this database wait for a lock: there, one a held transaction holds. */
+async function transactionsWaiting(prisma: PrismaClient): Promise<number> {
+  const [found] = await prisma.$queryRaw<{ waiting: number }[]>`
+    SELECT count(*)::int AS waiting
+    FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+  return found?.waiting ?? 0;
+}
+
+/** Settles once a transaction on this database waits for a lock: there, the one a held transaction holds. */
+async function aTransactionWaits(prisma: PrismaClient): Promise<void> {
+  while ((await transactionsWaiting(prisma)) === 0) {
+    await new Promise((resolve) => setTimeout(resolve, WAITER_POLL_MS));
+  }
+}
 
 /**
- * The Prisma unit of work, with every transaction held at one step until all
- * of them get there (or a moment passes). Without that the transactions finish
- * one after the other and never race; a lock taken before that step keeps them
- * apart anyway. `holdAt` returns the ports with the step wrapped.
+ * The Prisma unit of work, with every racing transaction held at one step
+ * until all of them have met: each one is at the step, waits for a lock a held
+ * one holds, or has finished. Without that the transactions finish one after
+ * the other and never race; a lock taken before the step keeps them apart, and
+ * the held ones go on once the others wait for it. However late a transaction
+ * comes, the others wait for it (#644). `holdAt` returns the ports with the
+ * step wrapped.
  */
 export function racingUnitOfWork(
   race: { prisma: PrismaClient; transactions: number },
   holdAt: (tx: PrismaTx, allArrived: () => Promise<void>) => PrismaTx,
 ): UnitOfWork<PrismaTx> {
   const uow = createPrismaUnitOfWork(race.prisma);
-  let arrived: (() => void)[] = [];
+  let finished = 0;
+  let held: (() => void)[] = [];
+  let meeting: Promise<void> | undefined;
+  const allMet = async () => {
+    while (held.length + finished < race.transactions) {
+      if (held.length + finished + (await transactionsWaiting(race.prisma)) >= race.transactions) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, WAITER_POLL_MS));
+    }
+  };
   const allArrived = () =>
     new Promise<void>((resolve) => {
-      arrived.push(resolve);
-      if (arrived.length === race.transactions) {
-        arrived.forEach((release) => {
+      held.push(resolve);
+      meeting ??= allMet().then(() => {
+        const going = held;
+        held = [];
+        meeting = undefined;
+        going.forEach((release) => {
           release();
         });
-        arrived = [];
-      }
-      setTimeout(resolve, RACE_WAIT_MS);
+      });
     });
-  return { run: (work) => uow.run((tx) => work(holdAt(tx, allArrived))) };
-}
-
-/** How often a held transaction looks whether another one waits for its locks. */
-const WAITER_POLL_MS = 10;
-
-/** Settles once a transaction on this database waits for a lock: there, the one a held transaction holds. */
-async function aTransactionWaits(prisma: PrismaClient): Promise<void> {
-  for (;;) {
-    const [found] = await prisma.$queryRaw<{ isWaiting: boolean }[]>`
-      SELECT EXISTS (
-        SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'
-      ) AS "isWaiting"`;
-    if (found?.isWaiting === true) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, WAITER_POLL_MS));
-  }
+  return {
+    run: (work) =>
+      uow.run((tx) => work(holdAt(tx, allArrived))).finally(() => {
+        finished += 1;
+      }),
+  };
 }
 
 /**
