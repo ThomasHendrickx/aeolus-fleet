@@ -26,6 +26,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const SESSION_LIFETIME_MS = 30 * DAY_MS;
 /** Two refresh cycles of the squadrons list (5 s each), with room for a slow compile. */
 const WITHIN_MS = 15_000;
+const UNAUTHORIZED = 401;
 const clock = createTestClock(new Date().toISOString());
 
 /** A squadrons that is connected and has no squadron and no blueprint. */
@@ -84,6 +85,21 @@ async function aSignedInPage(): Promise<Page> {
   return page;
 }
 
+/**
+ * A signed-in squadrons page whose console reads are the only way to hear the
+ * session ended: its live subscription's WebSocket opens but stays silent,
+ * and once the page shows, every tRPC call over HTTP fails without an answer,
+ * so neither can send the page to sign in.
+ */
+async function aSquadronsPageHearingOnlyItsReads(): Promise<Page> {
+  const page = await aSignedInPage();
+  await page.routeWebSocket(/\/trpc/, () => undefined);
+  await page.goto('/squadrons');
+  await page.getByText('No blueprints found').waitFor();
+  await page.route(/\/trpc\//, (route) => route.abort());
+  return page;
+}
+
 /** A signed-in page on the squadrons list, whose reads ask again every few seconds. */
 async function aSquadronsPage(): Promise<Page> {
   const page = await aSignedInPage();
@@ -101,11 +117,13 @@ describe('a console page whose session ended', () => {
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
   });
 
-  it('says the operator signed in somewhere else when a read it asks again is the first to hear it', async () => {
-    const page = await aSquadronsPage();
+  it('says the operator signed in somewhere else when a read it asks again is the only one to hear it', async () => {
+    const page = await aSquadronsPageHearingOnlyItsReads();
+    const refusedRead = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith('/api/reads/') && response.status() === UNAUTHORIZED, { timeout: WITHIN_MS });
 
     await aSignedInPage();
 
+    await refusedRead;
     await page.waitForURL(`${web.url}/sign-in?notice=signed-in-elsewhere`, { timeout: WITHIN_MS });
     await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
   });
