@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppRouter } from '@aeolus-fleet/core';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createTRPCClient, createWSClient, httpBatchLink, httpLink, splitLink, wsLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
 
@@ -10,8 +10,10 @@ import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client
 import { ConsoleConstantsContext, type ConsoleConstants } from '../lib/console-constants';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
+import { WayOutContext, useWayOutEndsWithPage } from '../lib/session';
 import { createSessionFetch } from '../lib/session-fetch';
 import { TRPCProvider } from '../lib/trpc';
+import { createWayOut, type WayOut } from '../lib/way-out';
 
 /** Retrying cannot fix a missing session or a missing scope. */
 function retry(failureCount: number, error: unknown): boolean {
@@ -58,6 +60,12 @@ function createClient(serverUrl: string) {
   });
 }
 
+/** Ends the way out once the page goes (lib/way-out.ts). */
+function WayOutEndsWithPage({ wayOut }: { wayOut: WayOut }): null {
+  useWayOutEndsWithPage(wayOut);
+  return null;
+}
+
 /** Tracks a pageview per page shown, while analytics is on. */
 function Pageviews(): null {
   useAnalyticsPageviews();
@@ -84,6 +92,16 @@ export function Providers({
 }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
   const [trpcClient] = useState(() => createClient(serverUrl));
+  const [wayOut] = useState(() =>
+    createWayOut({
+      setOnline: (isOnline) => {
+        onlineManager.setOnline(isOnline);
+      },
+      forget: () => {
+        queryClient.clear();
+      },
+    }),
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -91,8 +109,11 @@ export function Providers({
         <ConsoleConstantsContext value={constants}>
           <HostedAccountUrlContext value={hostedAccountUrl}>
             <AnalyticsContext value={isAnalyticsOn}>
-              <Pageviews />
-              {children}
+              <WayOutContext value={wayOut}>
+                <Pageviews />
+                <WayOutEndsWithPage wayOut={wayOut} />
+                {children}
+              </WayOutContext>
               <Toaster />
             </AnalyticsContext>
           </HostedAccountUrlContext>

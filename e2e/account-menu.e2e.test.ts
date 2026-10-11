@@ -23,6 +23,8 @@ const SIGN_IN_WINDOW_MS = 60_000;
 const AFTER_SIGN_OUT_MS = 3_000;
 /** How long a call's answer is held on its way back, long enough for Sign out to answer first without the console waiting for it. */
 const HELD_ANSWER_MS = 2_000;
+/** How soon coming back to the page asks its reads again: well before the fleet's own refresh (30 s) would. */
+const ASKED_AGAIN_MS = 5_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
@@ -98,6 +100,17 @@ function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefi
   return { reached: reached.promise, answered: answered.promise };
 }
 
+/** What the console logs about a component switching between controlled and uncontrolled, as React and Base UI warn. */
+function controlledWarnings(page: Page): string[] {
+  const warnings: string[] = [];
+  page.on('console', (message) => {
+    if (/uncontrolled/i.test(message.text())) {
+      warnings.push(message.text());
+    }
+  });
+  return warnings;
+}
+
 function visible(page: Page, testId: string) {
   return page.locator(`[data-testid="${testId}"]:visible`);
 }
@@ -155,6 +168,31 @@ describe.each([
     await expect(visible(page, 'account-hosted').count()).resolves.toBe(0);
   });
 
+  it('keeps the theme controlled while the account is read, and logs no warning', async () => {
+    const page = await signedInPage({ isPhone });
+    const warnings = controlledWarnings(page);
+    const account = holdOneAnswer(page, 'console.account');
+    await page.reload();
+
+    await visible(page, 'account-menu').click();
+    await account.answered;
+    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('signs out from the menu, and logs no warning about the theme', async () => {
+    const page = await signedInPage({ isPhone });
+    const warnings = controlledWarnings(page);
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await visible(page, 'account-sign-out').click();
+    await page.waitForURL(`${web.url}/sign-in`);
+
+    expect(warnings).toEqual([]);
+  });
+
   it('signs out from the menu', async () => {
     const page = await signedInPage({ isPhone });
 
@@ -168,9 +206,13 @@ describe.each([
   it('signs out with a call still answering, and that call does not set the session cookie again', async () => {
     const page = await signedInPage({ isPhone });
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    // The live fleet reads the fleet again once it connects; only coming back to the page may ask it after that.
+    await page.waitForLoadState('networkidle');
     const held = holdOneAnswer(page, 'fleet.list');
-    // Coming back to the page asks its reads again, the fleet among them.
-    await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+    const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.list'), { timeout: ASKED_AGAIN_MS });
+    // Coming back to the page asks its reads again, the fleet among them; TanStack Query hears it on window.
+    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await askedAgain;
     await held.reached;
 
     await visible(page, 'account-menu').click();
