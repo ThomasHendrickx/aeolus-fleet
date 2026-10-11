@@ -5,7 +5,7 @@
  * forming, starts the receive of a new squadron and advances every stand-down,
  * fleet by fleet, then keeps the fleet's squadron labels and declared
  * network rules (#573). A fleet's rescan takes the fleet's turn, so it never
- * overlaps another, nor a switch-off's withdrawal; rescans asked while one
+ * overlaps another, nor a switch-off's or delete's withdrawal; rescans asked while one
  * waits share it (#626). Squadrons are told apart by fleet and id: two fleets may
  * each have a squadron of one id. A fleet squadrons does not serve (switched
  * off) rests: its flagships stop receiving after their current receive, and

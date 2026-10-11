@@ -1,7 +1,7 @@
 /**
  * Each fleet's turns (#626): the work that keeps or withdraws a fleet's
  * reach runs one at a time per fleet, in the order it was taken, so a rescan
- * never overlaps another and a switch-off's withdrawal waits for the rescan in
+ * never overlaps another and a switch-off's or delete's withdrawal waits for the rescan in
  * flight. Another fleet's work runs meanwhile. A failed turn passes on to the
  * next, and its failure reaches whoever took it.
  */
