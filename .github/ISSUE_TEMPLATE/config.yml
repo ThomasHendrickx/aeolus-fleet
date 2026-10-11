@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question
+    url: https://github.com/ThomasHendrickx/aeolus-fleet/discussions/categories/q-a
+    about: Questions about using Aeolus.
+  - name: Suggest an idea
+    url: https://github.com/ThomasHendrickx/aeolus-fleet/discussions/categories/ideas
+    about: Ideas and feature requests.
+  - name: Report a vulnerability
+    url: https://github.com/ThomasHendrickx/aeolus-fleet/security/advisories/new
+    about: Privately, never as a public issue.
