@@ -1,6 +1,6 @@
 # 0032 Clearing a kept worktree is a declared request
 
-- A trierarch keeps a worktree with changes when it releases its ship (0026). A human clears it by asking its trierarch, never by reaching into the machine: `fleet.clearWorktree` (`fleet:manage`) stores a clear request for the trierarch ship, naming the worktree as the trierarch's report does, by the ship it belonged to and its repository. Paths stay on the machine: the trierarch maps the name to its path.
+- A release removes the worktree whatever it holds (0026). A trierarch keeps a worktree only when it gives back a crew before it is final and the worktree has changes (docs/trierarch.md, rule 1). A human clears it by asking its trierarch, never by reaching into the machine: `fleet.clearWorktree` (`fleet:manage`) stores a clear request for the trierarch ship, naming the worktree as the trierarch's report does, by the ship it belonged to and its repository. Paths stay on the machine: the trierarch maps the name to its path.
 - One request per trierarch, ship and repository. Asking again for one it holds changes nothing. A request names a ship of type `trierarch` that is not retired, and a ship of the fleet; anything else is refused.
 - At most 100 pending per trierarch (`CLEAR_REQUESTS_PER_TRIERARCH_MAX` in common), named by the refusal.
 - A pending request has no status beyond pending and is never withdrawn.
