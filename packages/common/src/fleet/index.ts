@@ -101,12 +101,13 @@ export const EVENT_TYPES = [
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
+export * from './busy-wait.js';
 export * from './mcp-url.js';
 export * from './no-terminal-questions.js';
 
 /**
  * How long a caller waits before each next call while the fleet answers busy
  * (`SERVICE_UNAVAILABLE`, nothing stored; docs/architecture.md): bounded and
- * longer each time, then the refusal stands.
+ * longer each time, then the refusal stands. Each is drawn by `busyWaitMs`.
  */
 export const FLEET_BUSY_WAITS_MS = [1000, 2000, 4000, 8000] as const;
