@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../atoms/tabs';
-import { ShipHeader } from '../organisms/ship-header';
-import { CREWED_SHIP, NOW, REVIEWER, TIMELINE } from '../organisms/ship-page.fixtures';
-import { ShipTimeline } from '../organisms/ship-timeline';
+import { ShipHeader } from '../../features/ship/organisms/ship-header';
+import { CREWED_SHIP, NOW, REVIEWER, TIMELINE } from '../../lib/fixtures/ship-page.fixtures';
+import { ShipTimeline } from '../../features/ship/organisms/ship-timeline';
 import { DetailLayout } from './detail-layout';
 
 const meta = {

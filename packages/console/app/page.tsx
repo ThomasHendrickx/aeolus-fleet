@@ -1,5 +1,5 @@
-import { urlParamsOf } from '../lib/fleet-filter';
-import { readFleetView } from '../lib/read-fleet-view';
+import { urlParamsOf } from '../features/fleet/lib/fleet-filter';
+import { readFleetView } from '../features/fleet/lib/read-fleet-view';
 import { OverviewPage } from './overview-page';
 
 type SearchParams = Record<string, string | string[] | undefined>;

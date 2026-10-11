@@ -119,7 +119,7 @@ export default defineConfig({
         test: {
           name: 'console:unit',
           root: 'packages/console',
-          include: ['lib/**/*.test.ts'],
+          include: ['lib/**/*.test.ts', 'features/**/*.test.ts'],
         },
       },
       {

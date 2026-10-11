@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 
-import { ComposeMessage } from '../../components/organisms/compose-message';
-import { ConsoleCommands } from '../../components/organisms/console-commands';
-import { ConsoleGuide } from '../../components/organisms/console-guide';
-import { ConsoleNotices } from '../../components/organisms/console-notices';
-import { NetworkingPluginConnection } from '../../components/organisms/networking-plugin-connection';
-import { SquadronsConnection } from '../../components/organisms/squadrons-connection';
-import { TemplateRepositories } from '../../components/organisms/template-repositories';
-import { TrierarchPluginConnection } from '../../components/organisms/trierarch-plugin-connection';
+import { ComposeMessage } from '../../features/compose/organisms/compose-message';
+import { ConsoleCommands } from '../../features/commands/organisms/console-commands';
+import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
+import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
+import { NetworkingPluginConnection } from '../../features/settings/organisms/networking-plugin-connection';
+import { SquadronsConnection } from '../../features/settings/organisms/squadrons-connection';
+import { TemplateRepositories } from '../../features/settings/organisms/template-repositories';
+import { TrierarchPluginConnection } from '../../features/settings/organisms/trierarch-plugin-connection';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';

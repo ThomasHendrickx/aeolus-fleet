@@ -1,6 +1,6 @@
 import { idSchema } from '@aeolus-fleet/common';
 
-import { shipTabOf } from '../../../lib/ship-tab';
+import { shipTabOf } from '../../../features/ship/lib/ship-tab';
 import { ShipPageFor } from './ship-page';
 
 type SearchParams = Record<string, string | string[] | undefined>;

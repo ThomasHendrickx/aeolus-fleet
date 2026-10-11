@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
-import { ComposeMessage } from '../../../components/organisms/compose-message';
-import { ConsoleCommands } from '../../../components/organisms/console-commands';
-import { ConsoleGuide } from '../../../components/organisms/console-guide';
-import { ConsoleNotices } from '../../../components/organisms/console-notices';
-import { MessageThreads } from '../../../components/organisms/message-threads';
-import { ShipCrewRequest } from '../../../components/organisms/ship-crew-request';
-import { ShipSquadron } from '../../../components/organisms/ship-squadron';
-import { ShipActions } from '../../../components/organisms/ship-actions';
-import { ShipHeader } from '../../../components/organisms/ship-header';
-import { ShipPageLabels } from '../../../components/organisms/ship-page-labels';
-import { ShipTimeline } from '../../../components/organisms/ship-timeline';
+import { ComposeMessage } from '../../../features/compose/organisms/compose-message';
+import { ConsoleCommands } from '../../../features/commands/organisms/console-commands';
+import { ConsoleGuide } from '../../../features/guide/organisms/console-guide';
+import { ConsoleNotices } from '../../../features/notices/organisms/console-notices';
+import { MessageThreads } from '../../../features/ship/organisms/message-threads';
+import { ShipCrewRequest } from '../../../features/ship/organisms/ship-crew-request';
+import { ShipSquadron } from '../../../features/ship/organisms/ship-squadron';
+import { ShipActions } from '../../../features/ship-actions/organisms/ship-actions';
+import { ShipHeader } from '../../../features/ship/organisms/ship-header';
+import { ShipPageLabels } from '../../../features/ship/organisms/ship-page-labels';
+import { ShipTimeline } from '../../../features/ship/organisms/ship-timeline';
 import { DetailLayout } from '../../../components/templates/detail-layout';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
@@ -31,10 +31,10 @@ import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
 import { usePluginNav } from '../../../lib/plugin-nav';
-import { SHIP_TABS, type ShipTab } from '../../../lib/ship-tab';
+import { SHIP_TABS, type ShipTab } from '../../../features/ship/lib/ship-tab';
 
 // Dialogs load when first opened, not with the page.
-const MessageSheet = lazyDialog(() => import('../../../components/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
+const MessageSheet = lazyDialog(() => import('../../../features/ship/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
 
 
 /** The ship page's view in the URL: its tab and the open message. */

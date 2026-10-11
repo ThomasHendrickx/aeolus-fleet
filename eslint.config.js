@@ -293,7 +293,7 @@ export default defineConfig(
       'packages/console/app/**/{page,layout,loading,error,not-found,global-error,template,default}.tsx',
       '**/*.config.{js,ts}',
       // Storybook reads a story file's default export (its meta) and its configuration's.
-      'packages/console/components/**/*.stories.tsx',
+      'packages/console/{components,features}/**/*.stories.tsx',
       'packages/console/.storybook/{main,preview}.{ts,tsx}',
     ],
     rules: { 'no-restricted-exports': 'off' },

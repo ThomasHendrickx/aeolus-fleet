@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '../../components/atoms/button';
-import { SignedInElsewhereNotice } from '../../components/molecules/signed-in-elsewhere-notice';
-import { SignInForm } from '../../components/organisms/sign-in-form';
+import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
+import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
 import { AuthLayout } from '../../components/templates/auth-layout';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 

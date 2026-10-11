@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { ARGO, minutesAgo, PLANNER } from './ship-page.fixtures';
+import { ARGO, minutesAgo, PLANNER } from '../../lib/fixtures/ship-page.fixtures';
 import { CrewReleaseDialog } from './crew-release-dialog';
 
 const meta = {

@@ -4,12 +4,12 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
-import { ComposeMessage } from '../../components/organisms/compose-message';
-import { ConsoleCommands } from '../../components/organisms/console-commands';
-import { ConsoleGuide } from '../../components/organisms/console-guide';
-import { ConsoleNotices } from '../../components/organisms/console-notices';
-import type { ValuesBusy } from '../../components/organisms/label-values-dialog';
-import { LabelsTable } from '../../components/organisms/labels-table';
+import { ComposeMessage } from '../../features/compose/organisms/compose-message';
+import { ConsoleCommands } from '../../features/commands/organisms/console-commands';
+import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
+import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
+import type { ValuesBusy } from '../../features/labels/organisms/label-values-dialog';
+import { LabelsTable } from '../../features/labels/organisms/labels-table';
 import { DetailLayout } from '../../components/templates/detail-layout';
 import { lazyDialog } from '../../lib/lazy-dialog';
 import { useAccess } from '../../lib/access';
@@ -24,9 +24,9 @@ import { usePluginNav } from '../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 
 // Dialogs load when first opened, not with the page.
-const DefineLabelDialog = lazyDialog(() => import('../../components/organisms/define-label-dialog').then((module) => module.DefineLabelDialog), (props) => props.isOpen);
-const DeleteLabelDialog = lazyDialog(() => import('../../components/organisms/delete-label-dialog').then((module) => module.DeleteLabelDialog), (props) => props.row !== undefined);
-const LabelValuesDialog = lazyDialog(() => import('../../components/organisms/label-values-dialog').then((module) => module.LabelValuesDialog), (props) => props.row !== undefined);
+const DefineLabelDialog = lazyDialog(() => import('../../features/labels/organisms/define-label-dialog').then((module) => module.DefineLabelDialog), (props) => props.isOpen);
+const DeleteLabelDialog = lazyDialog(() => import('../../features/labels/organisms/delete-label-dialog').then((module) => module.DeleteLabelDialog), (props) => props.row !== undefined);
+const LabelValuesDialog = lazyDialog(() => import('../../features/labels/organisms/label-values-dialog').then((module) => module.LabelValuesDialog), (props) => props.row !== undefined);
 
 const DESCRIPTION = 'An owned vocabulary for selecting ships: filter the fleet with them, and crew requests use them to pick a machine. Only a label’s owner assigns it.';
 

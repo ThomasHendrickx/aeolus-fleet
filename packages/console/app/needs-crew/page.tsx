@@ -3,12 +3,12 @@
 import { useState } from 'react';
 
 import { FleetSegments } from '../../components/molecules/fleet-segments';
-import { ComposeMessage } from '../../components/organisms/compose-message';
-import { ConsoleCommands } from '../../components/organisms/console-commands';
-import { ConsoleGuide } from '../../components/organisms/console-guide';
-import { ConsoleNotices } from '../../components/organisms/console-notices';
-import { NeedsCrewAction } from '../../components/organisms/needs-crew-action';
-import { NeedsCrewList } from '../../components/organisms/needs-crew-list';
+import { ComposeMessage } from '../../features/compose/organisms/compose-message';
+import { ConsoleCommands } from '../../features/commands/organisms/console-commands';
+import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
+import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
+import { NeedsCrewAction } from '../../features/needs-crew/organisms/needs-crew-action';
+import { NeedsCrewList } from '../../features/needs-crew/organisms/needs-crew-list';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
