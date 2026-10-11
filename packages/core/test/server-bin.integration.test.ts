@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { readdirSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -44,17 +43,12 @@ async function appliedMigrations(databaseUrl: string): Promise<string[]> {
   }
 }
 
-async function freePort(): Promise<number> {
-  const probe = createServer();
-  probe.listen(0, '127.0.0.1');
-  await once(probe, 'listening');
-  const address = probe.address();
-  probe.close();
-  if (address === null || typeof address === 'string') {
-    throw new Error('could not find a free port');
-  }
-  return address.port;
-}
+/**
+ * The address in the server's own log line once it listens. The server binds
+ * port 0, so the OS hands it a port no other process holds: a port probed
+ * free and bound later could be taken in between by another run on the host.
+ */
+const LISTENING = /Server listening at (http:\/\/[^"\s]+)/;
 
 const running: { kill(): void }[] = [];
 
@@ -121,20 +115,27 @@ describe('aeolus-core migrate', () => {
 describe('aeolus-core start', () => {
   it('migrates an empty database first, then serves: /health answers the database up', async () => {
     const databaseUrl = await createEmptyDatabase();
-    const port = await freePort();
     const child = spawn('npm', ['run', '--silent', 'aeolus-core', '-w', '@aeolus-fleet/core', '--', 'start'], {
       cwd: repositoryRoot,
-      env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL, PORT: String(port), LOG_LEVEL: 'error' },
-      stdio: 'ignore',
+      env: { ...process.env, DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL, PORT: '0', LOG_LEVEL: 'info' },
+      stdio: ['ignore', 'pipe', 'ignore'],
       detached: true,
     });
     // npm starts the server as a child of its own: end the whole group.
     running.push({ kill: () => process.kill(-(child.pid ?? 0), 'SIGTERM') });
+    // Read every line, so the server never blocks on a full pipe.
+    let serverUrl: string | undefined;
+    createInterface({ input: child.stdout }).on('line', (line) => {
+      serverUrl ??= LISTENING.exec(line)?.[1];
+    });
 
     await expect
       .poll(
         async () => {
-          const response = await fetch(`http://127.0.0.1:${String(port)}/health`).catch(() => undefined);
+          if (serverUrl === undefined) {
+            return undefined;
+          }
+          const response = await fetch(`${serverUrl}/health`).catch(() => undefined);
           return response?.status;
         },
         { timeout: START_TIMEOUT_MS, interval: 250 },
