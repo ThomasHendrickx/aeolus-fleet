@@ -5,11 +5,13 @@ import { createSessionFetch } from './session-fetch';
 const SERVER = 'http://localhost:4000/trpc';
 const SIGN_OUT = `${SERVER}/console.signOut`;
 const A_READ = `${SERVER}/console.account,fleet.list?batch=1`;
+const OK = 200;
+const INTERNAL_SERVER_ERROR = 500;
 
 /** A server call the test answers when it wants, so a call can still be on its way when another is asked. */
 interface HeldCall {
   url: string;
-  answer(): void;
+  answer(status?: number): void;
   fail(): void;
 }
 
@@ -20,8 +22,8 @@ function aHoldingFetch(): { fetchImplementation: typeof fetch; sent: HeldCall[] 
     new Promise<Response>((resolve, reject) => {
       sent.push({
         url: input instanceof Request ? input.url : String(input),
-        answer: () => {
-          resolve(new Response('[]'));
+        answer: (status = OK) => {
+          resolve(new Response('[]', { status }));
         },
         fail: () => {
           reject(new TypeError('Failed to fetch'));
@@ -87,7 +89,7 @@ describe('createSessionFetch', () => {
     expect(urlsOf(sent)).toEqual([A_READ, SIGN_OUT]);
   });
 
-  it('holds a call asked while sign out is on its way until sign out has answered, when it carries no session to renew', async () => {
+  it('sends no call asked while sign out was on its way once sign out has ended the session, as it would carry none', async () => {
     const { fetchImplementation, sent } = aHoldingFetch();
     const sessionFetch = createSessionFetch(fetchImplementation);
     void sessionFetch(SIGN_OUT, { method: 'POST' });
@@ -95,10 +97,36 @@ describe('createSessionFetch', () => {
 
     void sessionFetch(A_READ);
     await settled();
-    expect(urlsOf(sent)).toEqual([SIGN_OUT]);
-
     callTo(sent, SIGN_OUT).answer();
     await settled();
+
+    expect(urlsOf(sent)).toEqual([SIGN_OUT]);
+  });
+
+  it('sends a call asked once sign out has answered at once, as the page without a session asks', async () => {
+    const { fetchImplementation, sent } = aHoldingFetch();
+    const sessionFetch = createSessionFetch(fetchImplementation);
+    void sessionFetch(SIGN_OUT, { method: 'POST' });
+    await settled();
+    callTo(sent, SIGN_OUT).answer();
+    await settled();
+
+    void sessionFetch(A_READ);
+    await settled();
+
+    expect(urlsOf(sent)).toEqual([SIGN_OUT, A_READ]);
+  });
+
+  it('lets a held call go when sign out is refused, as the operator is still signed in', async () => {
+    const { fetchImplementation, sent } = aHoldingFetch();
+    const sessionFetch = createSessionFetch(fetchImplementation);
+    void sessionFetch(SIGN_OUT, { method: 'POST' });
+    await settled();
+    void sessionFetch(A_READ);
+
+    callTo(sent, SIGN_OUT).answer(INTERNAL_SERVER_ERROR);
+    await settled();
+
     expect(urlsOf(sent)).toEqual([SIGN_OUT, A_READ]);
   });
 
