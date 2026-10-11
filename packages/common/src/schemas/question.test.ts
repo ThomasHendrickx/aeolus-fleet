@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   ANSWER_CONTENT_TYPE,
-  answerQuestionInputSchema,
   answerSchema,
   inboxQuestionOf,
   isAnswerContentType,
@@ -124,23 +123,6 @@ describe('answerSchema', () => {
 
   it('refuses an answer to an id that is not a uuid', () => {
     expect(answerSchema.safeParse({ questionId: 'q-1', option: 1 }).success).toBe(false);
-  });
-});
-
-describe('answerQuestionInputSchema', () => {
-  it('takes the question’s delivery, one option and a note, and a key', () => {
-    const input = { deliveryId: newId('delivery'), answer: { option: 1, note: 'Go.' }, idempotencyKey: 'answer-1' };
-    expect(answerQuestionInputSchema.parse(input)).toEqual(input);
-  });
-
-  it('takes a note alone', () => {
-    const input = { deliveryId: newId('delivery'), answer: { note: 'More context, please.' }, idempotencyKey: 'answer-1' };
-    expect(answerQuestionInputSchema.parse(input)).toEqual(input);
-  });
-
-  it('refuses an answer with neither an option nor a note', () => {
-    const input = { deliveryId: newId('delivery'), answer: {}, idempotencyKey: 'answer-1' };
-    expect(answerQuestionInputSchema.safeParse(input).success).toBe(false);
   });
 });
 

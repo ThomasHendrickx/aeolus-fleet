@@ -50,8 +50,6 @@ import {
   renameShipInputSchema,
   renameShipOutputSchema,
   replyInputSchema,
-  answerQuestionInputSchema,
-  answerQuestionOutputSchema,
   inboxQuestionOf,
   replyOutputSchema,
   resendDeliveryInputSchema,
@@ -759,12 +757,6 @@ export const fleetRouter = router({
     .input(replyInputSchema)
     .output(replyOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.replyToMessage(ctx.crew, input))),
-
-  /** Answers a question to argo (decision 0038) as a reply of the answer type to its asker, and marks it done, in one transaction. */
-  answer: scopedCrewCallerProcedure('messages:send', 'messages:receive')
-    .input(answerQuestionInputSchema)
-    .output(answerQuestionOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.answerQuestion(ctx.crew, input))),
 
   /**
    * The fleet's committed events after a position, for a client that is no

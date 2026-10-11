@@ -1,4 +1,4 @@
-import { ANSWER_CONTENT_TYPE, createIdGenerator, idSchema, QUESTION_CONTENT_TYPE, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/domain/messaging/mark-done.js';
@@ -37,13 +37,12 @@ afterEach(async () => {
   await core.close();
 });
 
-async function toArgo(payload: string, contentType = 'text/plain'): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
+async function toArgo(payload: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   core.clock.advance(1_000);
   const { messageId } = unwrap(
     await core.useCases.sendMessage(captain, { ...modelOf(captain),
       selector: { kind: 'ship', shipId: argo.shipId },
       payload,
-      contentType,
       idempotencyKey: `key-${newId('message')}`,
     }),
   );
@@ -176,33 +175,6 @@ describe("argo's inbox on Postgres", () => {
     expect(entry?.replies).toEqual([
       { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
       { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
-    ]);
-  });
-
-  it('answers a question: the answer to the asker as a reply of the answer type, the message done', async () => {
-    const asked = await toArgo(
-      JSON.stringify({
-        id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47',
-        title: 'Which port?',
-        context: 'The docs name two.',
-        options: [{ key: 1, label: 'Keep 3000', detail: '' }],
-        pick: { option: 1, why: 'Nothing else needs it.' },
-      }),
-      QUESTION_CONTENT_TYPE,
-    );
-
-    const { messageId } = unwrap(
-      await core.useCases.answerQuestion(argo, { deliveryId: asked.deliveryId, answer: { option: 1 }, idempotencyKey: 'answer' }),
-    );
-
-    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
-      senderShipId: argo.shipId,
-      selectorShipId: captain.shipId,
-      inReplyToMessageId: asked.messageId,
-      contentType: ANSWER_CONTENT_TYPE,
-    });
-    await expect(core.useCases.readInbox(argo, { filter: 'done' })).resolves.toEqual([
-      expect.objectContaining({ deliveryId: asked.deliveryId, repliedWith: messageId }),
     ]);
   });
 

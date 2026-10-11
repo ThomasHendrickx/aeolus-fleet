@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANSWER_CONTENT_TYPE, ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, QUESTION_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, QUESTION_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -328,7 +328,6 @@ describe('the fleet procedures at the API', () => {
       markRead: { deliveryId, isRead: true },
       markDone: { deliveryId },
       reply: { deliveryId, payload: 'hi', idempotencyKey: newKey() },
-      answer: { deliveryId, answer: { note: 'hi' }, idempotencyKey: newKey() },
     };
 
     const codes = await Promise.all(
@@ -1428,25 +1427,6 @@ describe("argo's inbox at the API", () => {
     expect(entry).toMatchObject({ state: 'acknowledged', question: { ...question, answer: null } });
   });
 
-  it('answer a question: the asker receives the answer as a reply, and the question shows answered', async () => {
-    const asArgo = await signedInArgo();
-    const { deliveryId, messageId, crewToken } = await toArgo(JSON.stringify(question), QUESTION_CONTENT_TYPE);
-
-    const answer = await asArgo.fleet.answer.mutate({ deliveryId, answer: { option: 2, note: 'Tell core first.' }, idempotencyKey: `answer-${deliveryId}` });
-
-    const { deliveries } = await client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({});
-    expect(deliveries).toEqual([
-      expect.objectContaining({ messageId: answer.messageId, contentType: ANSWER_CONTENT_TYPE, inReplyTo: messageId }),
-    ]);
-    expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: question.id, option: 2, note: 'Tell core first.' });
-    expect((await asArgo.fleet.inbox.query({ filter: 'all' })).find((entry) => entry.deliveryId === deliveryId)?.question?.answer).toEqual({
-      messageId: answer.messageId,
-      sentAt: clock.now().toISOString(),
-      option: 2,
-      note: 'Tell core first.',
-    });
-  });
-
   it('show a message of the question type whose payload is no question as a plain message', async () => {
     const asArgo = await signedInArgo();
     const { deliveryId } = await toArgo('Which port?', QUESTION_CONTENT_TYPE);
@@ -1454,19 +1434,6 @@ describe("argo's inbox at the API", () => {
     const entry = (await asArgo.fleet.inbox.query({ filter: 'all' })).find((each) => each.deliveryId === deliveryId);
 
     expect(entry).toMatchObject({ question: null, message: { payload: 'Which port?' } });
-  });
-
-  it('refuse an answer to a message that is no question, or with an option the question lacks, with BAD_REQUEST', async () => {
-    const asArgo = await signedInArgo();
-    const plain = await toArgo('Promote 2.14?');
-    const asked = await toArgo(JSON.stringify(question), QUESTION_CONTENT_TYPE);
-
-    await expect(
-      codeOf(asArgo.fleet.answer.mutate({ deliveryId: plain.deliveryId, answer: { option: 1 }, idempotencyKey: newKey() })),
-    ).resolves.toBe('BAD_REQUEST');
-    await expect(
-      codeOf(asArgo.fleet.answer.mutate({ deliveryId: asked.deliveryId, answer: { option: 3 }, idempotencyKey: newKey() })),
-    ).resolves.toBe('BAD_REQUEST');
   });
 
   it("answer NOT_FOUND for a delivery not in argo's inbox", async () => {
@@ -1486,7 +1453,6 @@ describe("argo's inbox at the API", () => {
     await expect(codeOf(agent.fleet.markDone.mutate({ deliveryId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.fleet.markRead.mutate({ deliveryId, isRead: true }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.fleet.reply.mutate({ deliveryId, payload: 'go', idempotencyKey: 'go' }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(agent.fleet.answer.mutate({ deliveryId, answer: { option: 1 }, idempotencyKey: 'go' }))).resolves.toBe('FORBIDDEN');
   });
 
   it('refuse the inbox without fleet:read', async () => {

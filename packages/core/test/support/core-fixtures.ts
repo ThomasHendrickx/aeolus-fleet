@@ -31,7 +31,6 @@ import { createCheckInbox } from '../../src/domain/messaging/check-inbox.js';
 import { createMarkDone } from '../../src/domain/messaging/mark-done.js';
 import { createMarkRead } from '../../src/domain/messaging/mark-read.js';
 import { createPingShip } from '../../src/domain/messaging/ping-ship.js';
-import { createAnswerQuestion } from '../../src/domain/messaging/answer-question.js';
 import { createReplyToMessage } from '../../src/domain/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
@@ -233,7 +232,6 @@ export function messagingUseCases(core: InMemoryCore) {
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
     replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
-    answerQuestion: createAnswerQuestion({ ...deps, hasher: core.hasher }),
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
     pingShip: createPingShip({ ...deps, hasher: core.hasher }),
     answerPing: createAnswerPing(deps),

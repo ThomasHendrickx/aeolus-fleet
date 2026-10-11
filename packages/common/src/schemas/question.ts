@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 import { idSchema, type MessageId } from '../ids/index.js';
-import { sendInputSchema } from './message.js';
 
 /**
  * Questions to argo (decision 0038): a ship asks the operator by sending a
  * message of the question content type to argo; the console answers it with a
- * reply of the answer content type. Both payloads are data only: how a
- * question looks is the console's business. A question is open until argo
+ * reply of the answer content type. Both payloads are data only: the fleet
+ * carries them as any message and never reads them; the console's server
+ * does. A question is open until argo
  * sends its answer, whatever its delivery's state.
  */
 export const QUESTION_CONTENT_TYPE = 'application/vnd.aeolus.question+json';
@@ -71,18 +71,6 @@ export const answerSchema = z.union([
 ]);
 
 export type Answer = z.infer<typeof answerSchema>;
-
-/** Input of `fleet.answer`: argo's answer to the question a delivery to it carries. */
-export const answerQuestionInputSchema = z.object({
-  deliveryId: idSchema('delivery'),
-  answer: answerChoiceSchema,
-  idempotencyKey: sendInputSchema.shape.idempotencyKey,
-});
-
-export type AnswerQuestionInput = z.infer<typeof answerQuestionInputSchema>;
-
-/** Output of `fleet.answer`: the answer, a message to the asking ship. */
-export const answerQuestionOutputSchema = z.object({ messageId: idSchema('message') });
 
 /** The answer a question in argo's inbox has: the reply that carries it, when, and what it says. */
 export const inboxAnswerSchema = z.object({

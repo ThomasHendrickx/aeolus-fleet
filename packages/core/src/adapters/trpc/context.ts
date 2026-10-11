@@ -12,7 +12,6 @@ import type { DismissDelivery } from '../../domain/messaging/dismiss-delivery.js
 import type { MarkDone } from '../../domain/messaging/mark-done.js';
 import type { MarkRead } from '../../domain/messaging/mark-read.js';
 import type { ReceiveDeliveries } from '../../domain/messaging/receive-deliveries.js';
-import type { AnswerQuestion } from '../../domain/messaging/answer-question.js';
 import type { ReplyToMessage } from '../../domain/messaging/reply-to-message.js';
 import type { PingShip } from '../../domain/messaging/ping-ship.js';
 import type { ResendDelivery } from '../../domain/messaging/resend-delivery.js';
@@ -148,7 +147,6 @@ export interface UseCases {
   markRead: MarkRead;
   markDone: MarkDone;
   replyToMessage: ReplyToMessage;
-  answerQuestion: AnswerQuestion;
   readFleetEvents: ReadFleetEvents;
   followFleet: FollowFleet;
   readShipTimeline: ReadShipTimeline;
