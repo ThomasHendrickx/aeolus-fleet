@@ -40,7 +40,7 @@ import { createStandDown, type StandDown } from './core/squadron/stand-down.js';
 import { createForceStandDown } from './core/squadron/force-stand-down.js';
 import { createAddMember } from './core/squadron/add-member.js';
 import { createRemoveMember } from './core/squadron/remove-member.js';
-import { createDeleteFleet } from './core/installation/delete-fleet.js';
+import { createDeleteFleet, type DeleteFleet } from './core/installation/delete-fleet.js';
 import type { FleetForgetter, InstallationMode } from './core/installation/ports.js';
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
@@ -201,11 +201,13 @@ export function createSquadronsApp(options: {
   // What this process declared to each fleet, so a pass declares or withdraws only what changed.
   const declarations: Declarations = new Map();
   const withdraw = createWithdrawNetworkRules({ door: network, management: store, declarations });
-  // Each fleet's rescans and its switch-off take turns (#626): a rescan in flight cannot declare the rules again after the switch-off withdrew them.
+  // Each fleet's rescans, its switch-off and its delete take turns (#626, #639): a rescan in flight cannot declare the rules again after the switch-off or the delete withdrew them.
+  // The delete takes the turn whole, so no rescan declares between its withdrawal and the fleet being forgotten.
   const turns = createFleetTurns();
   const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw: (fleetId) => turns.take(fleetId, () => withdraw(fleetId)) });
   const readFleet = createReadFleet({ isServed, management: store });
-  const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
+  const deleteFleetOutsideTurns = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
+  const deleteFleet: DeleteFleet = (input) => turns.take(input.fleetId, () => deleteFleetOutsideTurns(input));
   const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
   const declareNetworkRules = createDeclareNetworkRules({ door: network, management: store, declarations });
   // Each rescan labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.

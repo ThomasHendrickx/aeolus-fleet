@@ -91,6 +91,31 @@ async function fleetDown(): Promise<() => Promise<void>> {
   };
 }
 
+/**
+ * The fleet up again on the same address, holding every declaration of rules
+ * until the test lets them through: a rescan declaring meanwhile is in flight.
+ * A withdrawal (an empty list) passes at once.
+ */
+async function fleetHoldingDeclarations(): Promise<{ isHolding: () => boolean; letThrough: () => void }> {
+  const { port } = new URL(fleetUrl);
+  await fleet.close();
+  let letThrough = (): void => undefined;
+  const through = new Promise<void>((resolve) => {
+    letThrough = resolve;
+  });
+  let isHolding = false;
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+  fleet.addHook('preHandler', async (request) => {
+    const declaration = z.object({ rules: z.array(z.unknown()) }).safeParse(request.body);
+    if (request.url === '/api/v1/fleet/declareNetworkRules' && declaration.success && declaration.data.rules.length > 0) {
+      isHolding = true;
+      await through;
+    }
+  });
+  await fleet.listen({ host: '127.0.0.1', port: Number(port) });
+  return { isHolding: () => isHolding, letThrough };
+}
+
 /** Waits for a few rescans to pass. */
 function severalRescans(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, RESCAN_MS * 6));
@@ -199,6 +224,20 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
     await expect(declared()).resolves.toHaveLength(1);
 
     await expectOk(installation('installation.delete', { requestId: newKey(), fleetId }));
+    await expect(declared()).resolves.toEqual([]);
+  });
+
+  it('withdraws the rules a rescan in flight declares when the fleet is deleted, so none stay once it is forgotten (#639)', async () => {
+    const held = await fleetHoldingDeclarations();
+    await aFormedSquadron();
+    await expect.poll(() => held.isHolding()).toBe(true);
+
+    const deleted = installation('installation.delete', { requestId: newKey(), fleetId });
+    await severalRescans();
+    held.letThrough();
+    await expectOk(deleted);
+    await severalRescans();
+
     await expect(declared()).resolves.toEqual([]);
   });
 });
