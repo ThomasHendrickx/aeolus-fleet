@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+
 import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
@@ -1516,6 +1518,20 @@ describe('/api/version', () => {
     const body = z.record(z.string(), z.string()).parse(await response.json());
     expect(Object.keys(body).sort()).toEqual(['common', 'server']);
     expect(body.server).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
+
+describe('system.version', () => {
+  it('answers the signed-in operator the latest migration the database applied', async () => {
+    const latest = readdirSync(new URL('../src/adapters/prisma/migrations/', import.meta.url), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .at(-1);
+
+    const answer = await (await signedInArgo()).system.version.query();
+
+    expect(answer.migration).toBe(latest);
   });
 });
 
