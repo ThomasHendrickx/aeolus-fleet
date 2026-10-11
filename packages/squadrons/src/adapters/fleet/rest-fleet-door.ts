@@ -48,7 +48,8 @@ interface Door {
   wait: (waitMs: number, signal?: AbortSignal) => Promise<void>;
 }
 
-async function call<T>({ fleetUrl, busyWaitsMs, random, wait: waitBusy }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
+/** One call to the fleet's REST API with a crew token, made again while the fleet is busy: its answer parsed, or the fleet's refusal; UNAVAILABLE when no answer came. */
+export async function call<T>({ fleetUrl, busyWaitsMs, random, wait: waitBusy }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
   for (const waitMs of busyWaitsMs) {
     const answered = await callOnce(fleetUrl, request);
     if (answered.isOk || answered.error.code !== FLEET_BUSY) {
@@ -91,8 +92,16 @@ function dateOf(iso: string | null): Date | null {
   return iso === null ? null : new Date(iso);
 }
 
-export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: readonly number[]; random?: () => number; wait?: (waitMs: number, signal?: AbortSignal) => Promise<void> } = {}): FleetDoor {
-  const door = { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS, random: options.random ?? Math.random, wait: options.wait ?? ((waitMs: number, signal?: AbortSignal) => wait(waitMs, undefined, { signal })) };
+/** How a door waits while the fleet is busy; each left out takes the fleet's own. */
+export type DoorOptions = Partial<Omit<Door, 'fleetUrl'>>;
+
+/** The door to the fleet at `fleetUrl`, with the fleet's busy waits, draw and timer where options leave them out. */
+export function restDoor(fleetUrl: string, options: DoorOptions = {}): Door {
+  return { fleetUrl, busyWaitsMs: options.busyWaitsMs ?? FLEET_BUSY_WAITS_MS, random: options.random ?? Math.random, wait: options.wait ?? ((waitMs, signal) => wait(waitMs, undefined, { signal })) };
+}
+
+export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {}): FleetDoor {
+  const door = restDoor(fleetUrl, options);
   return {
     register: ({ shipId, secret }) =>
       call(door, {

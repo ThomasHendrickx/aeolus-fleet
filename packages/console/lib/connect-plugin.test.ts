@@ -75,6 +75,14 @@ beforeEach(() => {
 });
 
 describe('connecting squadrons from the console', () => {
+  it('commissions the management ship with the label scopes, so squadrons labels its squadrons and declares their reach (#573)', async () => {
+    const { state, calls } = fakes();
+
+    await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey });
+
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign']]);
+  });
+
   it('commissions the management ship, squadrons of type squadrons, and hands its secret to squadrons', async () => {
     const { state, calls } = fakes();
 

@@ -1,7 +1,10 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { memoryManagementStore, SHIP_ID } from '../../../test/support/management-fakes.js';
 import { memoryFleetSwitches, memoryForgetter, memoryInstallationRequests, plainHasher } from '../../../test/support/memory-installation.js';
+import { fakeNetworkFleet } from '../../../test/support/network-fakes.js';
+import { createWithdrawNetworkRules } from '../network/withdraw-network-rules.js';
 import { createDeleteFleet } from './delete-fleet.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
@@ -12,12 +15,17 @@ let switches: ReturnType<typeof memoryFleetSwitches>;
 let requests: ReturnType<typeof memoryInstallationRequests>;
 let forgetter: ReturnType<typeof memoryForgetter>;
 let deleteFleet: ReturnType<typeof createDeleteFleet>;
+let fleet: ReturnType<typeof fakeNetworkFleet>;
 
 beforeEach(async () => {
   switches = memoryFleetSwitches();
   requests = memoryInstallationRequests();
   forgetter = memoryForgetter({ switches, requests });
-  deleteFleet = createDeleteFleet({ forgetter, requests, hasher: plainHasher, clock: { now: () => AT } });
+  fleet = fakeNetworkFleet(new Set(['aeolus_ct_v1_squadrons']));
+  const management = memoryManagementStore();
+  await management.save({ fleetId: FLEET, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_squadrons', crewedAt: AT });
+  const withdraw = createWithdrawNetworkRules({ door: fleet.door, management, declarations: new Map() });
+  deleteFleet = createDeleteFleet({ forgetter, requests, hasher: plainHasher, clock: { now: () => AT }, withdraw });
   await switches.set(FLEET, { isEnabled: true, at: AT });
 });
 
@@ -42,5 +50,20 @@ describe('deleting a fleet from squadrons', () => {
 
     await expect(deleteFleet({ requestId: 'r-1', fleetId: OTHER })).resolves.toMatchObject({ isOk: false, error: { kind: 'REQUEST_ID_USED' } });
     expect(forgetter.forgotten).toEqual([FLEET]);
+  });
+
+  it('withdraws its declared network rules from the fleet before it forgets the fleet (#573)', async () => {
+    await deleteFleet({ requestId: 'r-1', fleetId: FLEET });
+
+    expect(fleet.state.declarations).toEqual([[]]);
+    expect(forgetter.forgotten).toEqual([FLEET]);
+  });
+
+  it('is refused while the fleet does not answer, forgetting nothing, for the hosting service to retry', async () => {
+    fleet.state.isAnswering = false;
+
+    await expect(deleteFleet({ requestId: 'r-1', fleetId: FLEET })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_UNAVAILABLE' } });
+    expect(forgetter.forgotten).toEqual([]);
+    expect(requests.held).toEqual([]);
   });
 });

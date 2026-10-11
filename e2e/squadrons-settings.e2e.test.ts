@@ -121,7 +121,7 @@ describe('Settings, Squadrons', () => {
     expect(new Set(squadronsReceived)).toEqual(new Set(['GET /trpc/connection.status']));
   });
 
-  it('connects squadrons as a new management ship with fleet read and manage, and the browser never gets the secret', async () => {
+  it('connects squadrons as a new management ship with fleet read and manage and the label scopes, and the browser never gets the secret', async () => {
     const page = await settingsPage();
     await expect(page.getByTestId('settings-squadrons-state').textContent()).resolves.toContain('Not connected');
 
@@ -133,7 +133,7 @@ describe('Settings, Squadrons', () => {
     await page.getByText('Connected as').waitFor();
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1|Ship secret/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'squadrons', retiredAt: null } });
-    expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] });
+    expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] });
     await expect(isCrewed('squadrons')).resolves.toBe(true);
   });
 

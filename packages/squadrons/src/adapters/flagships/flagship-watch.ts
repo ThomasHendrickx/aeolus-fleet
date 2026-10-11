@@ -3,10 +3,13 @@
  * long-poll receive per squadron that is forming, sailing or standing down, each delivery handed to the flagship's rule with
  * the squadron as it is stored then. A rescan, every interval and after each
  * forming, starts the receive of a new squadron and advances every stand-down,
- * fleet by fleet. Squadrons are told apart by fleet and id: two fleets may
+ * fleet by fleet, then keeps the fleet's squadron labels and declared
+ * network rules (#573). Squadrons are told apart by fleet and id: two fleets may
  * each have a squadron of one id. A fleet squadrons does not serve (switched
  * off) rests: its flagships stop receiving after their current receive, and
- * a rescan once it is on again starts them anew.
+ * a rescan once it is on again starts them anew; each rescan withdraws its
+ * declared rules, which switching it off could not while the fleet did not
+ * answer.
  * A flagship whose lease ended (the operator released it) is no longer
  * watched, says so in the log, and argo is told once; one squadrons retired
  * as its squadron disbanded just stops.
@@ -29,6 +32,12 @@ function isReceiving(squadron: Squadron | undefined): squadron is Squadron {
   return squadron !== undefined && squadron.state !== 'disbanded';
 }
 
+/** What a rescan does for a fleet's reach: keep its labels and declared rules while squadrons serves it, withdraw the rules while it is off. Each logs its own refusals. */
+export interface FleetReach {
+  keep(fleetId: FleetId): Promise<void>;
+  withdraw(fleetId: FleetId): Promise<void>;
+}
+
 export interface FlagshipWatch {
   /** Starts the receive of every squadron not disbanded and not watched yet, and advances every stand-down. */
   rescan(): Promise<void>;
@@ -44,6 +53,7 @@ export function watchFlagships(deps: {
   advanceStandDowns: AdvanceStandDowns;
   isServed: IsServed;
   operator: OperatorNotices;
+  reach: FleetReach;
   log: FastifyBaseLogger;
   rescanMs: number;
 }): FlagshipWatch {
@@ -70,6 +80,22 @@ export function watchFlagships(deps: {
     });
 
   const isStopping = (): boolean => stopping.signal.aborted;
+
+  // Fleets whose reach a rescan keeps or withdraws now: rescans overlap, and two passes at once would declare twice.
+  const reaching = new Set<FleetId>();
+  const reachOnce = async (fleetId: FleetId, pass: { work: () => Promise<void>; failure: string }): Promise<void> => {
+    if (reaching.has(fleetId)) {
+      return;
+    }
+    reaching.add(fleetId);
+    try {
+      await pass.work();
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, pass.failure);
+    } finally {
+      reaching.delete(fleetId);
+    }
+  };
 
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
@@ -129,7 +155,10 @@ export function watchFlagships(deps: {
     } catch (error) {
       deps.log.error({ err: error, fleet: fleetId }, 'the stand-downs could not advance');
     }
+    await reachOnce(fleetId, { work: () => deps.reach.keep(fleetId), failure: 'the squadron labels and network rules could not be kept' });
   };
+
+  const restFleet = (fleetId: FleetId): Promise<void> => reachOnce(fleetId, { work: () => deps.reach.withdraw(fleetId), failure: 'the network rules could not be withdrawn' });
 
   const rescan = async (): Promise<void> => {
     for (const crew of await deps.management.connected()) {
@@ -138,6 +167,8 @@ export function watchFlagships(deps: {
       }
       if (await deps.isServed(crew.fleetId)) {
         await rescanFleet(crew.fleetId);
+      } else {
+        await restFleet(crew.fleetId);
       }
     }
   };

@@ -1,15 +1,12 @@
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../../core/management/ports.js';
+import type { NetworkDoor } from '../../core/network/ports.js';
 import type { Result } from '../../core/shared/result.js';
 
-/**
- * The fleet door, watching each fleet's management ship lease: when a call
- * made with a fleet's management crew token answers LEASE_ENDED, its operator
- * released the ship, so that token is dropped and squadrons is not connected
- * to that fleet until its operator connects it again; other fleets stay
- * connected. Calls with a flagship's token pass untouched.
- */
-export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore): FleetDoor {
-  const watched = async <T>(crewToken: string, call: Promise<Result<T, FleetRefusal>>): Promise<Result<T, FleetRefusal>> => {
+type Watched = <T>(crewToken: string, call: Promise<Result<T, FleetRefusal>>) => Promise<Result<T, FleetRefusal>>;
+
+/** Passes a call's answer on, dropping the fleet's management crew token first when it answers LEASE_ENDED. */
+function leaseWatcher(store: ManagementCrewStore): Watched {
+  return async (crewToken, call) => {
     const result = await call;
     if (!result.isOk && result.error.code === 'LEASE_ENDED') {
       const released = (await store.connected()).find((crew) => crew.crewToken === crewToken);
@@ -19,6 +16,17 @@ export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore
     }
     return result;
   };
+}
+
+/**
+ * The fleet door, watching each fleet's management ship lease: when a call
+ * made with a fleet's management crew token answers LEASE_ENDED, its operator
+ * released the ship, so that token is dropped and squadrons is not connected
+ * to that fleet until its operator connects it again; other fleets stay
+ * connected. Calls with a flagship's token pass untouched.
+ */
+export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore): FleetDoor {
+  const watched = leaseWatcher(store);
   return {
     register: (claim) => door.register(claim),
     whoami: (crewToken) => watched(crewToken, door.whoami(crewToken)),
@@ -36,5 +44,19 @@ export function watchManagementLease(door: FleetDoor, store: ManagementCrewStore
     ack: (crewToken, deliveryId) => watched(crewToken, door.ack(crewToken, deliveryId)),
     pong: (crewToken, deliveryId) => watched(crewToken, door.pong(crewToken, deliveryId)),
     send: (crewToken, message) => watched(crewToken, door.send(crewToken, message)),
+  };
+}
+
+/** The label and network rule calls, watching each fleet's management ship lease as the fleet door does. */
+export function watchNetworkLease(door: NetworkDoor, store: ManagementCrewStore): NetworkDoor {
+  const watched = leaseWatcher(store);
+  return {
+    listLabels: (crewToken) => watched(crewToken, door.listLabels(crewToken)),
+    defineLabel: (crewToken, label) => watched(crewToken, door.defineLabel(crewToken, label)),
+    changeLabelValues: (crewToken, change) => watched(crewToken, door.changeLabelValues(crewToken, change)),
+    listLabelledShips: (crewToken) => watched(crewToken, door.listLabelledShips(crewToken)),
+    assignLabel: (crewToken, assignment) => watched(crewToken, door.assignLabel(crewToken, assignment)),
+    unassignLabel: (crewToken, assignment) => watched(crewToken, door.unassignLabel(crewToken, assignment)),
+    declareNetworkRules: (crewToken, declaration) => watched(crewToken, door.declareNetworkRules(crewToken, declaration)),
   };
 }
