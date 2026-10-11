@@ -3,7 +3,7 @@
  * long-poll receive per squadron that is forming, sailing or standing down, each delivery handed to the flagship's rule with
  * the squadron as it is stored then. A rescan, every interval and after each
  * forming, starts the receive of a new squadron and advances every stand-down,
- * fleet by fleet, then keeps the fleet's squadron labels and declared
+ * fleet by fleet, recovers the formations a forming gave up (#738), then keeps the fleet's squadron labels and declared
  * network rules (#573). A fleet's rescan takes the fleet's turn, so it never
  * overlaps another, nor a switch-off's or delete's withdrawal; rescans asked while one
  * waits share it (#626). Squadrons are told apart by fleet and id: two fleets may
@@ -54,6 +54,8 @@ export function watchFlagships(deps: {
   squadrons: SquadronRepository;
   handle: HandleFlagshipDelivery;
   advanceStandDowns: AdvanceStandDowns;
+  /** Retires what the fleet's given-up formations commissioned; logs its own refusals. */
+  recoverFormations: (fleetId: FleetId) => Promise<void>;
   isServed: IsServed;
   operator: OperatorNotices;
   reach: FleetReach;
@@ -142,6 +144,11 @@ export function watchFlagships(deps: {
       await deps.advanceStandDowns(fleetId);
     } catch (error) {
       deps.log.error({ err: error, fleet: fleetId }, 'the stand-downs could not advance');
+    }
+    try {
+      await deps.recoverFormations(fleetId);
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, 'the formations a forming gave up could not be recovered');
     }
     try {
       await deps.reach.keep(fleetId);

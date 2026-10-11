@@ -33,7 +33,7 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
       }
       return Promise.resolve();
     },
-    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished).map(({ isFinished: _isFinished, ...attempt }) => attempt)),
+    unfinished: (fleetId) => Promise.resolve(attempts.held.filter((held) => held.fleetId === fleetId && !held.isFinished)),
   };
   return attempts;
 }
