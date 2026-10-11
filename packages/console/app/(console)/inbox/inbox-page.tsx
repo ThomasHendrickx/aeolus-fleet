@@ -20,6 +20,7 @@ import {
   useReply,
 } from '../../../lib/inbox';
 import { useAccess } from '../../../lib/access';
+import { useQuestions } from '../../../lib/questions';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -50,7 +51,11 @@ export function InboxPageFor({ filterParameter, selectedId }: { filterParameter?
   const access = useAccess();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
-  const all = plainMessagesOf(inbox.data ?? []);
+  // Questions have their own page (decision 0038); the inbox waits for which messages they are, and shows every message when that read fails.
+  const questions = useQuestions();
+  const questionIds = new Set((questions.data ?? []).map(({ deliveryId }) => deliveryId));
+  const isQuestionsKnown = questions.data !== undefined || questions.isError;
+  const all = plainMessagesOf(inbox.data ?? [], questionIds);
   const show = (view: { filter: InboxFilter; deliveryId?: DeliveryId }) => {
     router.replace(inboxPathOf(view), { scroll: false });
   };
@@ -79,7 +84,7 @@ export function InboxPageFor({ filterParameter, selectedId }: { filterParameter?
         onFilterChange={(next) => {
           show({ filter: next });
         }}
-        counts={inbox.data ? filterCounts(all) : {}}
+        counts={inbox.data && isQuestionsKnown ? filterCounts(all) : {}}
         selectedId={selectedId}
         onSelect={(deliveryId) => {
           show({ filter, deliveryId });
@@ -89,7 +94,7 @@ export function InboxPageFor({ filterParameter, selectedId }: { filterParameter?
             markRead.mutate({ deliveryId, isRead: true });
           }
         }}
-        state={inbox.isError ? 'error' : inbox.data ? 'ready' : 'loading'}
+        state={inbox.isError ? 'error' : inbox.data && isQuestionsKnown ? 'ready' : 'loading'}
         onRetry={() => {
           void inbox.refetch();
         }}

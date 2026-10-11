@@ -53,10 +53,10 @@ describe('inboxPathOf', () => {
 });
 
 describe('plainMessagesOf', () => {
-  it('leaves out the questions, which have their own page', () => {
-    const plain = { id: 'a', question: null };
-    const asking = { id: 'b', question: { title: 'Which port?' } };
+  it('leaves out the messages that carry questions, which have their own page', () => {
+    const plain = { deliveryId: newId('delivery') };
+    const asking = { deliveryId: newId('delivery') };
 
-    expect(plainMessagesOf([plain, asking])).toEqual([plain]);
+    expect(plainMessagesOf([plain, asking], new Set([asking.deliveryId]))).toEqual([plain]);
   });
 });

@@ -1,6 +1,7 @@
 import type { DeliveryId, InboxFilter, InboxMessage } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useQuestionDeliveryIds } from './questions';
 import { useTRPC } from './trpc';
 
 /**
@@ -15,12 +16,13 @@ export function useInbox() {
 /** How many messages to argo are open, questions left out, for the navigation; undefined until known. */
 export function useOpenInboxCount(): number | undefined {
   const messages = useInbox().data;
-  return messages === undefined ? undefined : isOpenCount(plainMessagesOf(messages));
+  const questionIds = useQuestionDeliveryIds();
+  return messages === undefined || questionIds === undefined ? undefined : isOpenCount(plainMessagesOf(messages, questionIds));
 }
 
-/** The messages to argo that are no question: the inbox page's; questions have their own (decision 0038). */
-export function plainMessagesOf<T extends { question: unknown }>(messages: readonly T[]): T[] {
-  return messages.filter((message) => message.question === null);
+/** The messages to argo that carry no question: the inbox page's; questions have their own (decision 0038). */
+export function plainMessagesOf<T extends Pick<InboxMessage, 'deliveryId'>>(messages: readonly T[], questionIds: ReadonlySet<DeliveryId>): T[] {
+  return messages.filter((message) => !questionIds.has(message.deliveryId));
 }
 
 function isOpen(message: Pick<InboxMessage, 'state'>): boolean {

@@ -9,10 +9,9 @@ import { ListPage } from '../../../components/organisms/list-page';
 import { OperatorQuestions } from '../../../features/questions/organisms/operator-questions';
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { useInbox } from '../../../lib/inbox';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
-import { questionFilterCounts, questionsFor, questionsPathOf, readQuestionFilter, useAnswer, type QuestionFilter } from '../../../lib/questions';
+import { questionFilterCounts, questionsFor, questionsPathOf, readQuestionFilter, useAnswer, useQuestions, type QuestionFilter } from '../../../lib/questions';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 
 /** The refusal's words, safe to show: the server's message. */
@@ -30,15 +29,15 @@ export function QuestionsPageFor({ filterParameter, selectedId }: { filterParame
   const now = useNow();
   const filter = readQuestionFilter(filterParameter);
 
-  const inbox = useInbox();
+  const questions = useQuestions();
   const answer = useAnswer();
   const liveFleet = useLiveFleet();
   const frame = useConsoleFrame();
-  useSignInWhenSessionEnds([inbox.error, liveFleet.error]);
+  useSignInWhenSessionEnds([liveFleet.error]);
   const access = useAccess();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
-  const all = inbox.data ?? [];
+  const all = questions.data ?? [];
   const show = (view: { filter: QuestionFilter; deliveryId?: DeliveryId }) => {
     router.replace(questionsPathOf(view), { scroll: false });
   };
@@ -57,14 +56,14 @@ export function QuestionsPageFor({ filterParameter, selectedId }: { filterParame
         onFilterChange={(next) => {
           show({ filter: next });
         }}
-        counts={inbox.data ? questionFilterCounts(all) : {}}
+        counts={questions.data ? questionFilterCounts(all) : {}}
         selectedId={selectedId}
         onSelect={(deliveryId) => {
           show({ filter, ...(deliveryId === undefined ? {} : { deliveryId }) });
         }}
-        state={inbox.isError ? 'error' : inbox.data ? 'ready' : 'loading'}
+        state={questions.isError ? 'error' : questions.data ? 'ready' : 'loading'}
         onRetry={() => {
-          void inbox.refetch();
+          void questions.refetch();
         }}
         onAnswer={({ deliveryId, answer: choice }) => {
           setPendingIds((pending) => new Set([...pending, deliveryId]));

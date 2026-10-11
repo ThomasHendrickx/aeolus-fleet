@@ -33,6 +33,8 @@ export interface PluginCall<T> {
   input?: unknown;
   isMutation?: boolean;
   cookie: string;
+  /** The console's Origin, for a state-changing call to the fleet, which takes a session's only from the console. */
+  origin?: string;
   answers: z.ZodType<T>;
   fetch?: typeof fetch;
 }
@@ -41,6 +43,9 @@ export interface PluginCall<T> {
 export async function callPlugin<T>(call: PluginCall<T>): Promise<PluginAnswer<T>> {
   const send = call.fetch ?? fetch;
   const headers: Record<string, string> = { cookie: call.cookie };
+  if (call.origin !== undefined) {
+    headers.origin = call.origin;
+  }
   let response: Response;
   try {
     if (call.isMutation === true) {

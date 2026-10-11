@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { questionFilterCounts, questionsFor, questionsOf, questionsPathOf, readQuestionFilter } from './questions';
+import { questionFilterCounts, questionsFor, questionsPathOf, readQuestionFilter } from './questions';
 
 const newId = createIdGenerator();
 
@@ -16,16 +16,9 @@ function aQuestion(answer: { option: number } | null) {
   };
 }
 
-const plain = { id: 'a', question: null };
 const open = { id: 'b', question: aQuestion(null) };
 const answered = { id: 'c', question: aQuestion({ option: 1 }) };
-const messages = [plain, open, answered];
-
-describe('questionsOf', () => {
-  it('keeps the messages that ask a question, in order', () => {
-    expect(questionsOf(messages)).toEqual([open, answered]);
-  });
-});
+const messages = [open, answered];
 
 describe('questionsFor', () => {
   it('keeps the questions not answered yet for Open', () => {
@@ -42,7 +35,7 @@ describe('questionsFor', () => {
 });
 
 describe('questionFilterCounts', () => {
-  it('counts each filter, plain messages left out', () => {
+  it('counts each filter', () => {
     expect(questionFilterCounts(messages)).toEqual({ open: 1, answered: 1, all: 2 });
   });
 });
