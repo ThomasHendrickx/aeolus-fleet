@@ -8,3 +8,12 @@ export const pingOutputSchema = z.object({
 });
 
 export type PingOutput = z.infer<typeof pingOutputSchema>;
+
+/** Output of `system.version`: the versions the server process runs and the latest migration applied to its database (null before the first). */
+export const systemVersionOutputSchema = z.object({
+  server: z.string(),
+  common: z.string(),
+  migration: z.string().nullable(),
+});
+
+export type SystemVersionOutput = z.infer<typeof systemVersionOutputSchema>;
