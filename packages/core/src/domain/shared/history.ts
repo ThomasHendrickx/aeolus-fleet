@@ -113,8 +113,7 @@ export interface InboxReply {
 /**
  * A message to a ship, as its inbox lists it: its delivery's state, when it
  * was read and done, the reply that made it done, and every reply the ship
- * sent to it, oldest first (a question is open until one answers it, decision
- * 0038).
+ * sent to it, oldest first.
  */
 export interface InboxEntry {
   deliveryId: DeliveryId;

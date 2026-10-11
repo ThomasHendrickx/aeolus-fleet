@@ -50,7 +50,6 @@ import {
   renameShipInputSchema,
   renameShipOutputSchema,
   replyInputSchema,
-  inboxQuestionOf,
   replyOutputSchema,
   resendDeliveryInputSchema,
   resendDeliveryOutputSchema,
@@ -722,14 +721,11 @@ export const fleetRouter = router({
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) =>
-      (await ctx.useCases.readInbox(ctx.caller, input)).map(({ replies, ...entry }) => ({
+      (await ctx.useCases.readInbox(ctx.caller, input)).map((entry) => ({
         ...entry,
         readAt: entry.readAt?.toISOString() ?? null,
         doneAt: entry.doneAt?.toISOString() ?? null,
-        question: inboxQuestionOf({
-          message: entry.message,
-          replies: replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-        }),
+        replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
       })),
     ),
@@ -752,7 +748,7 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Replies to a message to argo as plain text to its sender, and marks it done, in one transaction. */
+  /** Replies to a message to argo, as plain text unless it says another content type, to its sender, and marks it done, in one transaction. */
   reply: scopedCrewCallerProcedure('messages:send', 'messages:receive')
     .input(replyInputSchema)
     .output(replyOutputSchema)

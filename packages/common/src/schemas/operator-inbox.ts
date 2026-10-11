@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
-import { sendInputSchema } from './message.js';
-import { inboxQuestionSchema } from './question.js';
+import { contentTypeSchema, sendInputSchema } from './message.js';
 
 /**
  * Inputs and outputs of the operator inbox (docs/blueprint.md, "Inbox"): the
@@ -23,7 +22,7 @@ export type InboxFilter = z.infer<typeof inboxFilterSchema>;
 /** Input of `fleet.inbox`. */
 export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema });
 
-/** One message to argo: its delivery's state, when it was read and done, the reply that made it done, the question it asks, and the message. */
+/** One message to argo: its delivery's state, when it was read and done, the reply that made it done, argo's replies to it, and the message. */
 export const inboxMessageSchema = z.object({
   deliveryId: idSchema('delivery'),
   state: deliveryStateSchema,
@@ -33,8 +32,8 @@ export const inboxMessageSchema = z.object({
   doneAt: isoTime.nullable(),
   /** The reply that acknowledged it, when a reply did. */
   repliedWith: idSchema('message').nullable(),
-  /** The question it asks, with its answer, when it is one (decision 0038); null for any other message. */
-  question: inboxQuestionSchema.nullable(),
+  /** Every reply argo sent to it, oldest first: what a console reads an answer from (decision 0038). */
+  replies: z.array(z.object({ id: idSchema('message'), contentType: z.string(), payload: z.string(), sentAt: isoTime })),
   message: z.object({
     id: idSchema('message'),
     sender: partySchema,
@@ -63,11 +62,13 @@ export const markDoneInputSchema = z.object({ deliveryId: idSchema('delivery') }
 
 /**
  * Input of `fleet.reply`: an answer to a message sent to argo, named by its
- * delivery, as plain text to its sender, which also marks the message done.
+ * delivery, to its sender, as plain text unless it says another content type,
+ * which also marks the message done.
  */
 export const replyInputSchema = z.object({
   deliveryId: idSchema('delivery'),
   payload: sendInputSchema.shape.payload,
+  contentType: contentTypeSchema.optional(),
   idempotencyKey: sendInputSchema.shape.idempotencyKey,
 });
 
