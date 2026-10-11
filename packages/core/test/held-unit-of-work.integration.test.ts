@@ -37,15 +37,12 @@ describe('a held unit of work', () => {
         findForUpdate: async (id) => {
           const fleet = await tx.fleets.findForUpdate(id);
           await hold();
+          steps.push('the held one goes on');
           return fleet;
         },
       },
     }));
-    const held = uow
-      .run(async (tx) => ok(await tx.fleets.findForUpdate(fleetId)))
-      .then(() => {
-        steps.push('the held one commits');
-      });
+    const held = uow.run(async (tx) => ok(await tx.fleets.findForUpdate(fleetId)));
     await reached;
     await new Promise((resolve) => setTimeout(resolve, LATE_MS));
 
@@ -57,6 +54,6 @@ describe('a held unit of work', () => {
     });
     await Promise.all([held, late]);
 
-    expect(steps).toEqual(['the late one comes', 'the held one commits', 'the late one locks']);
+    expect(steps).toEqual(['the late one comes', 'the held one goes on', 'the late one locks']);
   });
 });
