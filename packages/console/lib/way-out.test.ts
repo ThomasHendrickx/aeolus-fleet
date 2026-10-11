@@ -41,6 +41,45 @@ describe('the way out of a page', () => {
     expect(theConsole.hasForgotten()).toBe(false);
   });
 
+  it('leaves once however many parts of the page ask it to leave', () => {
+    const theConsole = aConsole();
+    const wayOut = createWayOut(theConsole.calls);
+    let timesLeft = 0;
+    const go = (): void => {
+      timesLeft += 1;
+    };
+
+    wayOut.leave(go);
+    wayOut.leave(go);
+    wayOut.leave(go);
+
+    expect(timesLeft).toBe(1);
+  });
+
+  it('holds every call as it leaves', () => {
+    const theConsole = aConsole();
+    const wayOut = createWayOut(theConsole.calls);
+
+    wayOut.leave(() => undefined);
+
+    expect(theConsole.isOnline()).toBe(false);
+  });
+
+  it('leaves again once the page it left has gone', () => {
+    const theConsole = aConsole();
+    const wayOut = createWayOut(theConsole.calls);
+    let timesLeft = 0;
+    const go = (): void => {
+      timesLeft += 1;
+    };
+    wayOut.leave(go);
+    wayOut.pageGoes();
+
+    wayOut.leave(go);
+
+    expect(timesLeft).toBe(2);
+  });
+
   it('forgets what the console loaded and lets calls go once the page has gone', () => {
     const theConsole = aConsole();
     const wayOut = createWayOut(theConsole.calls);
