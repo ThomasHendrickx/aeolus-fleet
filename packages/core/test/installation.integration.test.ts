@@ -226,7 +226,7 @@ describe('the installation procedures on a hosting server', () => {
     await expect(codeOf(installation().delete.mutate({ requestId: newKey(), fleetId: created.fleetId }))).resolves.toBe('NOT_FOUND');
   });
 
-  it('delete a fleet of thousands of messages, deliveries and events within the transaction limit', async () => {
+  it('delete a fleet of thousands of messages, deliveries and events within the bulk transaction time', async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'long-lived', operatorEmail: 'long-lived@example.com' });
     const argo = argoOf(created);
     const { shipId } = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

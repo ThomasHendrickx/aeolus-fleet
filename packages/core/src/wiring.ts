@@ -24,7 +24,7 @@ import {
   createPrismaNoticeRepository,
 } from './adapters/prisma/installation.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
-import { createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
+import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
 import { createGetGuide, type GetGuide } from './domain/identity/get-guide.js';
@@ -225,6 +225,8 @@ export function createUseCases(options: {
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
+  // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
+  const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const wakeups = options.wakeups ?? createReceiverWakeups();
   const notices = createPrismaNoticeRepository(prisma);
@@ -237,7 +239,7 @@ export function createUseCases(options: {
     initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     createFleet: createCreateFleet({ uow, clock, ids, hasher: sha256Hasher }),
-    deleteFleet: createDeleteFleet({ uow, clock, hasher: sha256Hasher }),
+    deleteFleet: createDeleteFleet({ uow: bulkUow, clock, hasher: sha256Hasher }),
     issueSignInTicket: createIssueSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     getInstallationSettings: createGetInstallationSettings({ settings: createPrismaInstallationSettings(prisma) }),
     setInstallationSettings: createSetInstallationSettings({ uow }),
@@ -258,7 +260,7 @@ export function createUseCases(options: {
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
-    retireShip: createRetireShip({ uow, clock, ids }),
+    retireShip: createRetireShip({ uow: bulkUow, clock, ids }),
     renameShip: createRenameShip({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
