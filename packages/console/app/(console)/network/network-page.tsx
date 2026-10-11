@@ -9,6 +9,7 @@ import { Button } from '../../../components/atoms/button';
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { DeclaredNetworkRules } from '../../../features/network/organisms/declared-network-rules';
 import { FleetReachGraph } from '../../../features/network/organisms/fleet-reach-graph';
 import { NetworkDeclarationForm } from '../../../features/network/organisms/network-declaration-form';
 import { NetworkRulesEditor } from '../../../features/network/organisms/network-rules-editor';
@@ -25,6 +26,8 @@ import { supplyNote } from '../../../lib/network-rules';
 import { useHasNetwork, useNetwork, useSaveNetworkDeclaration, useSaveNetworkRules } from '../../../lib/networking-plugin';
 import { useNow } from '../../../lib/now';
 import { usePluginNav } from '../../../lib/plugin-nav';
+import { useDeclaredNetworkRules } from '../../../features/network/hooks/declared-rules';
+import { declaredRulesOf } from '../../../features/network/lib/declared-rules';
 import { networkPathOf, useShipReach } from '../../../features/network/hooks/reach';
 import { graphShipsOf } from '../../../features/network/lib/reach-graph';
 import { useReachRefusals } from '../../../features/network/hooks/reach-refusals';
@@ -35,7 +38,8 @@ const DESCRIPTION = 'Who may message whom. The networking plugin supplies these 
 /**
  * Network (#260; decisions 0034 to 0036): the networking plugin's page,
  * argo's alone while the plugin is connected. The rules, all-to-all until
- * argo sets some, what the plugin declares for while it does not respond,
+ * argo sets some, the rules plugins declared apart and read-only (#573),
+ * what the plugin declares for while it does not respond,
  * and the fleet graph showing which ships a picked ship reaches, the pick in
  * the URL (page.tsx), and the log of the sends the rules refused. Without the plugin connected, or for a session without
  * fleet:network, it says where to go instead.
@@ -54,6 +58,7 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const fleet = useFleetSnapshot();
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined);
   const refusals = useReachRefusals(hasNetwork);
+  const declared = useDeclaredNetworkRules(hasNetwork);
   const saveRules = useSaveNetworkRules();
   const saveDeclaration = useSaveNetworkDeclaration();
   const { networkRulesMax, shipLabelsMax, whileUnavailable, notRespondingAfterMinSeconds, notRespondingAfterMaxSeconds } = useConsoleConstants();
@@ -101,6 +106,14 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
           onSave={(rules) => {
             saveRules.mutate(rules);
           }}
+        />
+        <DeclaredNetworkRules
+          declared={declared.data === undefined ? undefined : declaredRulesOf(declared.data, fleet.data)}
+          error={declared.error?.message}
+          onRetry={() => {
+            void declared.refetch();
+          }}
+          context={context}
         />
         <NetworkDeclarationForm
           key={JSON.stringify(network.data.declaration)}

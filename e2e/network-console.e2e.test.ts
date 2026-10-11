@@ -26,7 +26,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // what the plugin declares for while it is unavailable, and turning rules
 // off, once confirmed, leaves the fleet all-to-all again. On the fleet graph,
 // picking a ship shows which ships the rules let it message (S3), and a send
-// the rules refused shows in the refusals log (S4).
+// the rules refused shows in the refusals log (S4). A plugin's declared rules
+// show apart, read-only, with the plugin that declared them (#573).
 
 const clock = createTestClock(new Date().toISOString());
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
@@ -247,5 +248,24 @@ describe('the networking plugin in the console', () => {
     await sheet.getByTestId('account-network').click();
     await page.getByRole('heading', { name: 'Network' }).waitFor();
     await page.getByTestId('network-rules-state').waitFor(WITHIN);
+  });
+
+  it('shows the rules a plugin declared apart from argo\'s, with the plugin that declared them, and nothing to edit', async () => {
+    const { shipId } = unwrap(
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crew-keeper', type: 'plugin', fleetScopes: ['labels:define', 'labels:assign'] }),
+    );
+    const keeper: Caller = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
+    const crew = unwrap(await useCases.defineLabel(keeper, { key: 'crew', values: ['blue'] }));
+    unwrap(await useCases.declareNetworkRules(keeper, { rules: [{ from: [{ labelId: crew.labelId, value: '#' }], to: [{ labelId: crew.labelId, value: '#' }] }] }));
+    const page = await signedIn();
+
+    await page.getByTestId('nav-network').click();
+
+    const declared = page.getByTestId('network-declared');
+    await expect.poll(() => declared.getByTestId('network-declared-by').textContent(), WITHIN).toBe('Declared by crew-keeper');
+    await expect(declared.getByTestId('network-declared-rule-from-value').textContent()).resolves.toBe('crew=#');
+    await expect(declared.getByTestId('network-declared-rule-to-value').textContent()).resolves.toBe('crew=#');
+    await expect(declared.getByRole('button').count()).resolves.toBe(0);
+    await expect(page.getByTestId('network-rules').getByText('crew=#').count()).resolves.toBe(0);
   });
 });
