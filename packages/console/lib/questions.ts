@@ -26,8 +26,15 @@ export type Staleness =
   | { kind: 'withdrawn'; deliveryId: DeliveryId; sentAt: string }
   | { kind: 'replaced'; deliveryId: DeliveryId; sentAt: string; by: { title: string } };
 
-/** A message to argo that asks a question, with its answer or none, and why it is stale or null. */
-export type QuestionMessage = Omit<InboxMessage, 'replies'> & { question: InboxQuestion; stale: Staleness | null };
+/**
+ * A message to argo that asks a question, with its answer or none, why it is
+ * stale or null, and for a replacement the question it replaces.
+ */
+export type QuestionMessage = Omit<InboxMessage, 'replies'> & {
+  question: InboxQuestion;
+  stale: Staleness | null;
+  replaces: { deliveryId: DeliveryId; title: string } | null;
+};
 
 /** The questions read's key, which a live inbox change reloads (lib/live-fleet.ts). */
 export const QUESTIONS_KEY = ['questions'];

@@ -30,10 +30,22 @@ function stalenessOf({ asked, questionId }: { asked: Pick<InboxMessage, 'message
     : { kind: 'replaced', deliveryId, sentAt: message.sentAt, by: { title: first.replacement.title } };
 }
 
+/** The question its asker's replacement replaces, answered or not; null for a question that replaces none in the inbox. */
+function replacedBy(replacement: Pick<InboxMessage, 'message'>, inbox: readonly InboxMessage[]): QuestionMessage['replaces'] {
+  const questionId = withdrawalOf(replacement.message)?.questionId;
+  for (const other of inbox) {
+    const question = other.message.sender.id === replacement.message.sender.id ? inboxQuestionOf({ message: other.message, replies: [] }) : null;
+    if (question !== null && question.id === questionId) {
+      return { deliveryId: other.deliveryId, title: question.title };
+    }
+  }
+  return null;
+}
+
 /**
  * The questions among argo's messages, in the inbox's order: each with its
- * answer among argo's replies, and why it is stale when its asker withdrew or
- * replaced it before argo answered.
+ * answer among argo's replies, why it is stale when its asker withdrew or
+ * replaced it before argo answered, and the question a replacement replaces.
  */
 export function questionsIn(inbox: readonly InboxMessage[]): QuestionMessage[] {
   return inbox.flatMap(({ replies, ...entry }) => {
@@ -42,7 +54,7 @@ export function questionsIn(inbox: readonly InboxMessage[]): QuestionMessage[] {
       return [];
     }
     const stale = question.answer === null ? stalenessOf({ asked: entry, questionId: question.id }, inbox) : null;
-    return [{ ...entry, question, stale }];
+    return [{ ...entry, question, stale, replaces: replacedBy(entry, inbox) }];
   });
 }
 

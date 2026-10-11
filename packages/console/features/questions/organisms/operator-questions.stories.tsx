@@ -24,6 +24,7 @@ function aQuestion(
     repliedWith: null,
     question: { answer: null, ...question },
     stale: null,
+    replaces: null,
     message: {
       id: messageId(suffix),
       sender: { id: shipId(suffix), name: sender },
