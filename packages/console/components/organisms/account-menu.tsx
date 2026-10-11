@@ -180,8 +180,9 @@ export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigni
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          {/* null, never undefined: undefined until the account is read would leave the group uncontrolled, then controlled once it is (#612). */}
           <DropdownMenuRadioGroup
-            value={theme}
+            value={theme ?? null}
             onValueChange={(value: unknown) => {
               const picked = themeOf(value, themes);
               if (picked !== undefined) {
