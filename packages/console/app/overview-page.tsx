@@ -14,6 +14,8 @@ import { OverviewMetrics } from '../features/fleet/organisms/overview-metrics';
 import { CommissionShip } from '../features/fleet/organisms/commission-ship';
 import { FleetLimits } from '../features/fleet/organisms/fleet-limits';
 import { FleetOverview } from '../features/fleet/organisms/fleet-overview';
+import { ShipActions } from '../features/ship-actions/organisms/ship-actions';
+import { NewCrewLineFlow } from '../features/squadrons/organisms/get-new-crew-line';
 import { LimitNotice } from '../components/molecules/limit-notice';
 import { ListLayout } from '../components/templates/list-layout';
 import { FleetSegments } from '../components/molecules/fleet-segments';
@@ -106,7 +108,14 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <FleetLimits />
       <OverviewMetrics />
-      <FleetOverview view={view} onViewChange={changeView} newShipIds={liveFleet.newShipIds} />
+      <FleetOverview
+        view={view}
+        onViewChange={changeView}
+        newShipIds={liveFleet.newShipIds}
+        renderRowActions={(ship, layout) => (
+          <ShipActions ship={ship} layout={layout === 'table' ? 'menu' : layout === 'phone' ? 'sheet' : 'next'} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} />
+        )}
+      />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
       <ConsoleCommands
         isOpen={isSearching}

@@ -48,7 +48,7 @@ import { LabelFilterButton, PhoneLabelFilter, PickedLabels } from './label-filte
 /** Where row actions render: the desktop row menu, the phone row's actions sheet, or the one next step in the Report cell. */
 export type RowActionsLayout = 'table' | 'phone' | 'next';
 
-interface FleetTableProps {
+export interface FleetTableProps {
   /** Every ship of the fleet, argo and retired ships included; the table filters and orders them. */
   ships: readonly ListedShip[];
   /** Search and filters, kept by the page in the URL. */

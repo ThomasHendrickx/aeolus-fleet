@@ -1,9 +1,9 @@
 'use client';
 
-import type { ListedShip } from '@aeolus-fleet/common';
+import type { ListedShip, ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { Archive, Copy, Ellipsis, Inbox, KeyRound, Pen, Radio, Shapes, SquarePen, UserMinus, UserPlus, UserX, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useState, type ComponentType, type ReactNode } from 'react';
 
 import {
   useFleetSnapshot,
@@ -22,14 +22,13 @@ import { canPing } from '../../../lib/ping';
 import { useShip } from '../../../lib/ship';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useRemoveMember, useSquadrons } from '../../../lib/squadrons-api';
+import type { Squadron } from '../../../lib/squadrons-schemas';
 import { otherMembersOfRole } from '../../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
 import { Button } from '../../../components/atoms/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/atoms/dropdown-menu';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
 import { showToast } from '../../../components/atoms/toast';
-import { ComposeMessage } from '../../compose/organisms/compose-message';
-import { useNewCrewLineFlow } from '../../crew-line/organisms/get-new-crew-line';
 import type { StartingPromptDialogState } from '../../../components/organisms/starting-prompt-dialog';
 
 // Dialogs load when first opened, not with the page.
@@ -66,6 +65,24 @@ interface ShipAction {
   isMenuOnly?: boolean;
   /** What the session must be allowed to offer it; none for what only reads (Copy ship id, Open inbox, Open squadron). */
   needs?: 'canManage' | 'canSend';
+}
+
+type Member = Squadron['members'][number];
+
+/** Compose, from the compose feature: app/ passes it in, since a feature never imports another. */
+export type ComposeSlot = ComponentType<{ isOpen: boolean; onOpenChange: (isOpen: boolean) => void; toShipId?: ShipId }>;
+
+/** A squadron member's Get new crew line flow, from the squadrons feature, passed in by app/ the same way. */
+export type CrewLineFlowSlot = ComponentType<{
+  of: { squadronId: string; member: Member; ship: ShipDetail | undefined } | undefined;
+  children: (flow: { isReady: boolean; start: () => void; dialog: ReactNode }) => ReactNode;
+}>;
+
+interface ShipActionsProps {
+  ship: ListedShip;
+  layout?: ShipActionsLayout;
+  compose: ComposeSlot;
+  crewLineFlow: CrewLineFlowSlot;
 }
 
 /** Where a crewed ship's session runs, as the release dialog names it. */
@@ -106,7 +123,45 @@ function sessionLocationOf(ship: ListedShip): string | null {
  * Open squadron. The viewer ship itself offers only Copy ship id: it is never
  * released, retired, renamed or pinged, and receives nothing (decision 0022).
  */
-export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; layout?: ShipActionsLayout }) {
+export function ShipActions({ ship, layout = 'buttons', compose, crewLineFlow: CrewLineFlow }: ShipActionsProps) {
+  const connection = useSquadronsConnection();
+  const squadrons = useSquadrons();
+  const squadron = squadrons.data?.find(
+    (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
+  );
+  const isMember = squadron !== undefined && squadron.flagship.shipId !== ship.id;
+  // A member's new crew line asks first when it ends a session: that needs its in-flight count.
+  const memberDetail = useShip(isMember && ship.status !== 'retired' ? ship.id : undefined);
+  const member = squadron?.members.find((each) => each.shipId === ship.id);
+  // Pending only until the connection is known and, when connected, until the list first answers: a refetch never hides known actions.
+  const isMembershipPending = connection === 'unknown' || (connection === 'connected' && !squadrons.isFetched);
+  return (
+    <CrewLineFlow of={squadron && member ? { squadronId: squadron.id, member, ship: memberDetail.data } : undefined}>
+      {(crewLine) => (
+        <ShipActionsOf ship={ship} layout={layout} compose={compose} squadron={squadron} member={member} isMembershipPending={isMembershipPending} crewLine={crewLine} />
+      )}
+    </CrewLineFlow>
+  );
+}
+
+/** The actions once the ship's squadron, if any, and its crew line flow are known. */
+function ShipActionsOf({
+  ship,
+  layout,
+  compose: Compose,
+  squadron,
+  member,
+  isMembershipPending,
+  crewLine,
+}: {
+  ship: ListedShip;
+  layout: ShipActionsLayout;
+  compose: ComposeSlot;
+  squadron: Squadron | undefined;
+  member: Member | undefined;
+  isMembershipPending: boolean;
+  crewLine: { isReady: boolean; start: () => void; dialog: ReactNode };
+}) {
   const access = useAccess();
   const [dialog, setDialog] = useState<OpenDialog>();
   const [isComposing, setIsComposing] = useState(false);
@@ -120,19 +175,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
   const fleet = useFleetSnapshot();
   const labels = useLabelContext();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
-  const connection = useSquadronsConnection();
-  const squadrons = useSquadrons();
   const removeMember = useRemoveMember();
-  const squadron = squadrons.data?.find(
-    (each) => each.state !== 'disbanded' && (each.flagship.shipId === ship.id || each.members.some((member) => member.shipId === ship.id)),
-  );
-  const isMember = squadron !== undefined && squadron.flagship.shipId !== ship.id;
-  // A member's new crew line asks first when it ends a session: that needs its in-flight count.
-  const memberDetail = useShip(isMember && ship.status !== 'retired' ? ship.id : undefined);
-  const member = squadron?.members.find((each) => each.shipId === ship.id);
-  const crewLine = useNewCrewLineFlow(squadron && member ? { squadronId: squadron.id, member, ship: memberDetail.data } : undefined);
-  // Pending only until the connection is known and, when connected, until the list first answers: a refetch never hides known actions.
-  const isMembershipPending = connection === 'unknown' || (connection === 'connected' && !squadrons.isFetched);
 
   const close = () => {
     setDialog(undefined);
@@ -340,7 +383,7 @@ export function ShipActions({ ship, layout = 'buttons' }: { ship: ListedShip; la
         onConfirm={issuePrompt}
       />
       {crewLine.dialog}
-      {isComposing && <ComposeMessage isOpen onOpenChange={setIsComposing} toShipId={ship.id} />}
+      {isComposing && <Compose isOpen onOpenChange={setIsComposing} toShipId={ship.id} />}
     </>
   );
 }

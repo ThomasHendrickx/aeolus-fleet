@@ -1,18 +1,17 @@
 'use client';
 
-import type { ShipDetail } from '@aeolus-fleet/common';
+import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { Copy, Ellipsis, KeyRound, SquarePen, SquareArrowOutUpRight, UserMinus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 
 import type { Squadron } from '../../../lib/squadrons-schemas';
 import { Button } from '../../../components/atoms/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/atoms/dropdown-menu';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
 import { showToast } from '../../../components/atoms/toast';
-import { ComposeMessage } from '../../compose/organisms/compose-message';
-import { useNewCrewLineFlow } from '../../crew-line/organisms/get-new-crew-line';
+import { useNewCrewLineFlow } from './get-new-crew-line';
 
 interface MemberActionsProps {
   squadronId: string;
@@ -27,6 +26,8 @@ interface MemberActionsProps {
   /** Whether the squadron's state lets it lose members (Sailing or Standing down). */
   isRemovable: boolean;
   onRemove: () => void;
+  /** Compose, from the compose feature: app/ passes it in, since a feature never imports another. */
+  compose: ComponentType<{ isOpen: boolean; onOpenChange: (isOpen: boolean) => void; toShipId?: ShipId }>;
 }
 
 interface MemberAction {
@@ -49,7 +50,7 @@ interface MemberAction {
  * member gets a new session (docs/squadrons.md). A viewer's session opens the
  * page and copies the id only.
  */
-export function MemberActions({ squadronId, member, ship, template, canManage, canSend, isRemovable, onRemove }: MemberActionsProps) {
+export function MemberActions({ squadronId, member, ship, template, canManage, canSend, isRemovable, onRemove, compose: Compose }: MemberActionsProps) {
   const [isComposing, setIsComposing] = useState(false);
   const isRetired = member.crew.status === 'retired' || ship?.status === 'retired';
   const flow = useNewCrewLineFlow(canManage && !isRetired ? { squadronId, member, ship, template } : undefined);
@@ -138,7 +139,7 @@ export function MemberActions({ squadronId, member, ship, template, canManage, c
         </Sheet>
       </span>
       {flow.dialog}
-      <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} toShipId={member.shipId} />
+      <Compose isOpen={isComposing} onOpenChange={setIsComposing} toShipId={member.shipId} />
     </span>
   );
 }

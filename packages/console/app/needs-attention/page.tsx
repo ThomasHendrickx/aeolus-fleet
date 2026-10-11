@@ -10,7 +10,7 @@ import { ConsoleCommands } from '../../features/commands/organisms/console-comma
 import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
 import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
 import { NeedsAttentionList } from '../../features/needs-attention/organisms/needs-attention-list';
-import { GetNewCrewLine } from '../../features/crew-line/organisms/get-new-crew-line';
+import { GetNewCrewLine } from '../../features/squadrons/organisms/get-new-crew-line';
 import { SilentMembers } from '../../features/needs-attention/organisms/silent-members';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';

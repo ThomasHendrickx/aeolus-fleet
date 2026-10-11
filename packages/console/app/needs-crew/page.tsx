@@ -8,6 +8,8 @@ import { ConsoleCommands } from '../../features/commands/organisms/console-comma
 import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
 import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
 import { NeedsCrewAction } from '../../features/needs-crew/organisms/needs-crew-action';
+import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';
+import { NewCrewLineFlow } from '../../features/squadrons/organisms/get-new-crew-line';
 import { NeedsCrewList } from '../../features/needs-crew/organisms/needs-crew-list';
 import { ListLayout } from '../../components/templates/list-layout';
 import { useAccess } from '../../lib/access';
@@ -77,7 +79,7 @@ export default function NeedsCrewPage() {
         onRetry={() => {
           void fleet.refetch();
         }}
-        actionOf={(ship) => <NeedsCrewAction ship={ship} hasTrierarchs={hasTrierarchs} />}
+        actionOf={(ship) => (hasTrierarchs ? <NeedsCrewAction ship={ship} /> : <ShipActions ship={ship} layout="next" compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} />)}
         now={now}
       />
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />

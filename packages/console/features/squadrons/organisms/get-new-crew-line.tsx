@@ -85,6 +85,14 @@ export function useNewCrewLineFlow(of: NewCrewLineFor | undefined): { isReady: b
   };
 }
 
+/**
+ * The same flow for a part outside this feature, such as ShipActions: app/
+ * passes it in, since a feature never imports another.
+ */
+export function NewCrewLineFlow({ of, children }: { of: NewCrewLineFor | undefined; children: (flow: ReturnType<typeof useNewCrewLineFlow>) => ReactNode }) {
+  return children(useNewCrewLineFlow(of));
+}
+
 /** Get new crew line for a member as a button, primary for a silent member (docs/design/conventions.md, "Squadrons"). */
 export function GetNewCrewLine({ isPrimary = false, testId, ...of }: NewCrewLineFor & { isPrimary?: boolean; testId: string }) {
   const flow = useNewCrewLineFlow(of);

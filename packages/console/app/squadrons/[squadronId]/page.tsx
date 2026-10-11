@@ -203,6 +203,7 @@ export default function SquadronPage({
                 removeMember.reset();
                 setRemoving(member);
               }}
+              compose={ComposeMessage}
             />
           )}
         />

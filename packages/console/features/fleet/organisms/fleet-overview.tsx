@@ -8,12 +8,11 @@ import type { FleetView } from '../lib/fleet-filter';
 import { useNow } from '../../../lib/now';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
-import { FleetTable } from './fleet-table';
-import { ShipActions } from '../../ship-actions/organisms/ship-actions';
+import { FleetTable, type FleetTableProps } from './fleet-table';
 
 /**
  * The fleet overview: the live snapshot in FleetTable, each ship with its
- * actions behind their dialogs, and with squadrons on, each flagship's and
+ * actions behind their dialogs (from the page, since they are another feature), and with squadrons on, each flagship's and
  * member's squadron, and each ship's labels with the label filter (#102). Search and filters come from the page, which
  * keeps them in the URL.
  */
@@ -21,11 +20,13 @@ export function FleetOverview({
   view,
   onViewChange,
   newShipIds,
+  renderRowActions,
 }: {
   view: FleetView;
   onViewChange: (view: FleetView) => void;
   /** Ships commissioned since the page opened: their rows get the highlight. */
   newShipIds: ReadonlySet<ShipId>;
+  renderRowActions: FleetTableProps['renderRowActions'];
 }) {
   const fleet = useFleetSnapshot();
   const now = useNow();
@@ -48,7 +49,7 @@ export function FleetOverview({
         }}
         highlightedShipIds={newShipIds}
         now={now}
-        renderRowActions={(ship, layout) => <ShipActions ship={ship} layout={layout === 'table' ? 'menu' : layout === 'phone' ? 'sheet' : 'next'} />}
+        renderRowActions={renderRowActions}
         squadronsOf={squadrons.data ? shipsInSquadrons(squadrons.data) : undefined}
         labels={labels}
         pluginShipIds={pluginShipIds}

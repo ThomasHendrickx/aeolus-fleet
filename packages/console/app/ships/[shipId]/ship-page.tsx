@@ -13,6 +13,7 @@ import { MessageThreads } from '../../../features/ship/organisms/message-threads
 import { ShipCrewRequest } from '../../../features/ship/organisms/ship-crew-request';
 import { ShipSquadron } from '../../../features/ship/organisms/ship-squadron';
 import { ShipActions } from '../../../features/ship-actions/organisms/ship-actions';
+import { NewCrewLineFlow } from '../../../features/squadrons/organisms/get-new-crew-line';
 import { ShipHeader } from '../../../features/ship/organisms/ship-header';
 import { ShipPageLabels } from '../../../features/ship/organisms/ship-page-labels';
 import { ShipTimeline } from '../../../features/ship/organisms/ship-timeline';
@@ -125,7 +126,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           shipId={shipId}
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
-          actions={ship.data ? <ShipActions ship={ship.data} /> : undefined}
+          actions={ship.data ? <ShipActions ship={ship.data} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
           isPluginShip={pluginShipIds.has(shipId)}

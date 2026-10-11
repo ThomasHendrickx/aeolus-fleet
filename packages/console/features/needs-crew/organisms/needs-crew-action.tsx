@@ -10,27 +10,24 @@ import { crewRequestStage } from '../../../lib/crew-request';
 import { useRemoveCrewRequest } from '../../../lib/fleet';
 import { useShip } from '../../../lib/ship';
 import { Button } from '../../../components/atoms/button';
-import { ShipActions } from '../../ship-actions/organisms/ship-actions';
 
 // Dialogs load when first opened, not with the page.
 const CrewReleaseDialog = lazyDialog(() => import('../../../components/organisms/crew-release-dialog').then((module) => module.CrewReleaseDialog), (props) => props.isOpen);
 
 /**
- * A Needs crew row's next step (canvas CrNeedsOff, CrNeedsOn): without the
- * trierarch plugin, Get starting prompt, to crew the ship by hand; with it,
+ * A Needs crew row's next step with the trierarch plugin (canvas CrNeedsOn):
  * Release… on a crashed request, which its trierarch carries out. Nothing
  * else: the rest waits on the plugin, and the ship's page holds every action.
+ * Without the plugin the page shows ShipActions' next step instead (canvas
+ * CrNeedsOff): Get starting prompt, to crew the ship by hand.
  */
-export function NeedsCrewAction({ ship, hasTrierarchs }: { ship: ListedShip; hasTrierarchs: boolean }) {
+export function NeedsCrewAction({ ship }: { ship: ListedShip }) {
   const access = useAccess();
   const removeCrewRequest = useRemoveCrewRequest();
   const [isReleasing, setIsReleasing] = useState(false);
   // The in-flight count, read once the confirm opens, so the dialog says what returns to pending.
   const detail = useShip(isReleasing ? ship.id : undefined);
   const stage = crewRequestStage(ship);
-  if (!hasTrierarchs) {
-    return <ShipActions ship={ship} layout="next" />;
-  }
   if (!access.canManage || stage.kind !== 'assigned' || stage.status !== 'crashed') {
     return null;
   }
