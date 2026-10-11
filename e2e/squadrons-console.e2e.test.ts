@@ -540,4 +540,14 @@ describe('the first squadron in the console', () => {
     const version: unknown = await fetch(`${web.url}/version`).then((response) => response.json());
     expect(Object.keys(z.record(z.string(), z.unknown()).parse(version))).toEqual(['web', 'server']);
   });
+
+  it("shows the signed-in operator squadrons' version and the server's latest migration on /version, and nothing of its configuration", async () => {
+    const page = await squadronsPage();
+
+    const version: unknown = await (await page.request.get('/version')).json();
+
+    // The schema drops what it does not name, so an answer saying more than these versions differs from it.
+    const named = z.object({ web: z.string(), server: z.object({ server: z.string(), common: z.string(), migration: z.string() }), squadrons: z.string().regex(/^\d+\.\d+\.\d+/) });
+    expect(named.parse(version)).toEqual(version);
+  });
 });
