@@ -80,6 +80,33 @@ export function useAnchorInView(anchor: Element | null): void {
   }, [anchor]);
 }
 
+/** A window this narrow shows a step's popover about as wide as the window (#721). */
+const NARROW_WINDOW = '(width < 40rem)';
+
+/** Follows the window's width across the narrow window's edge. */
+function subscribeToNarrowWindow(onChange: () => void): () => void {
+  const query = window.matchMedia(NARROW_WINDOW);
+  query.addEventListener('change', onChange);
+  return () => {
+    query.removeEventListener('change', onChange);
+  };
+}
+
+/**
+ * The side of its anchor a step's popover takes (#721). On a narrow window it
+ * spans the width, so it goes above the anchor, in the room centring the
+ * anchor leaves (#690), and what follows the anchor stays in sight; on a
+ * wider one, below. Either way it goes to the other side when its own has no
+ * room.
+ */
+export function useStepSide(): 'top' | 'bottom' {
+  return useSyncExternalStore(
+    subscribeToNarrowWindow,
+    () => (window.matchMedia(NARROW_WINDOW).matches ? 'top' : 'bottom'),
+    () => 'bottom',
+  );
+}
+
 /**
  * Tracks tour_started when the guide shows its first step after not showing:
  * by itself on the session's first page, or from Take the tour. Called once,
