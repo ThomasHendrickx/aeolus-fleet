@@ -153,7 +153,7 @@ squadrons keeps each squadron's reach in place itself (#573, decisions 0031 and 
 
 Switching squadrons off for a fleet withdraws its declared rules at once (an empty list); if the fleet does not answer, the switch is kept and a later rescan withdraws them. The labels it assigned stay.
 
-A fleet's rescans run one at a time (#626): one asked while another runs waits for it, and those asked meanwhile share one rescan after it. Switching off waits for the rescan in flight too, so that rescan cannot declare the rules again after they are withdrawn.
+A fleet's rescans run one at a time (#626): one asked while another runs waits for it, and those asked meanwhile share one rescan after it. Switching off and deleting a fleet wait for the rescan in flight too, so that rescan cannot declare the rules again after they are withdrawn; a delete holds the fleet until it is forgotten, so no rescan declares in between.
 
 ## Switched per fleet
 
