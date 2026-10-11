@@ -1,7 +1,16 @@
 {
   "name": "@aeolus-fleet/core",
   "version": "0.0.0",
-  "description": "Aeolus server: the tRPC API and the fleet domain on Postgres.",
+  "description": "The Aeolus fleet server: ships, guaranteed delivery and the API for Claude Code, Codex and any agent.",
+  "keywords": [
+    "ai-agents",
+    "agent-communication",
+    "claude-code",
+    "codex",
+    "mcp",
+    "fleet",
+    "self-hosted"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "repository": {

@@ -1,7 +1,11 @@
 {
   "name": "@aeolus-fleet/networking-plugin",
   "version": "0.0.0",
-  "description": "Aeolus networking plugin: supplies the network rules the operator edits to the fleet, as a ship of the fleet.",
+  "description": "Rules for which Aeolus ships may message which.",
+  "keywords": [
+    "aeolus",
+    "ai-agents"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "repository": {

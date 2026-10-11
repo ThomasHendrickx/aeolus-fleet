@@ -1,7 +1,14 @@
 {
   "name": "@aeolus-fleet/squadrons",
   "version": "0.0.0",
-  "description": "Aeolus squadrons: forms squadrons of ships from blueprints and leads them, as a ship of the fleet with fleet scopes.",
+  "description": "Aeolus squadrons: teams of agents with roles and hand-offs, defined in a git file.",
+  "keywords": [
+    "ai-agents",
+    "multi-agent",
+    "claude-code",
+    "codex",
+    "workflow-as-code"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "repository": {

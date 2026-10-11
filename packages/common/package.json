@@ -1,7 +1,10 @@
 {
   "name": "@aeolus-fleet/common",
   "version": "0.0.0",
-  "description": "Aeolus shared schemas, prefixed ids and types.",
+  "description": "Shared schemas and ids for Aeolus packages.",
+  "keywords": [
+    "aeolus"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
