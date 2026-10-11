@@ -509,6 +509,7 @@ describe('a procedure that needs a scope', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
+      latestMigration: () => Promise.resolve(LATEST_MIGRATION),
       clock: core.clock,
       logger: false,
       consoleOrigin: FLEET_ORIGIN,
@@ -542,6 +543,7 @@ describe('error responses', () => {
         ping: () => Promise.reject(new Error('database unreachable')),
       },
       checkDatabase: reachable,
+      latestMigration: () => Promise.resolve(LATEST_MIGRATION),
       clock: core.clock,
       logger: {
         level: 'error',

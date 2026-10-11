@@ -1,4 +1,4 @@
-import { pingOutputSchema } from '@aeolus-fleet/common';
+import { pingOutputSchema, systemVersionOutputSchema } from '@aeolus-fleet/common';
 
 import { router, scopedProcedure } from './trpc.js';
 
@@ -13,4 +13,14 @@ export const systemRouter = router({
       const { serverTime, fleetCount } = await ctx.useCases.ping();
       return { serverTime: serverTime.toISOString(), fleetCount };
     }),
+
+  /**
+   * The versions the server process runs and its database's latest migration,
+   * for the console's /version to a signed-in operator (#478). Needs
+   * fleet:manage: the operator holds it, the viewer does not. Never asked
+   * without a caller, unlike `/api/version`.
+   */
+  version: scopedProcedure('fleet:manage')
+    .output(systemVersionOutputSchema)
+    .query(({ ctx }) => ctx.readVersion()),
 });

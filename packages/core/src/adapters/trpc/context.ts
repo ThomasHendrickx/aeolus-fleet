@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetId, SystemVersionOutput } from '@aeolus-fleet/common';
 
 import type { Authenticate } from '../../domain/identity/authenticate.js';
 import type { ReadAccount } from '../../domain/identity/read-account.js';
@@ -211,6 +211,8 @@ export interface Context {
   log: ProcedureLog;
   /** Where ships reach the fleet, the public URL: what starting prompts and crew lines carry. */
   fleetUrl: string;
+  /** The versions the server process runs and its database's latest migration (null when unknown or before the first). */
+  readVersion: () => Promise<SystemVersionOutput>;
   fleetEvents: FleetEventWatches;
   credentials: RequestCredentials;
   /**
