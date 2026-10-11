@@ -77,11 +77,11 @@ export const NoneDeclared: Story = {
 
 export const Loading: Story = { args: { declared: undefined } };
 
-/** The fleet did not answer: the rest of Network stays, and Retry asks again. */
+/** The fleet did not answer: the rest of Network stays, and Try again asks again. */
 export const CouldNotRead: Story = {
   args: { declared: undefined, error: 'the fleet did not answer' },
   play: async ({ args, canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole('button', { name: /Retry/ }));
+    await userEvent.click(within(canvasElement).getByRole('button', { name: /Try again/ }));
     await expect(args.onRetry).toHaveBeenCalled();
   },
 };
