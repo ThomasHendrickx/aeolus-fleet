@@ -19,7 +19,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // Labels in the console (#102, L2a), end to end: argo's labels show on the
 // overview's rows and on a ship's page, the label filter keeps the ships that
 // carry every value picked and keeps them in the URL, and a label assigned
-// meanwhile shows without a reload.
+// meanwhile shows without a reload. argo labels its own ship with its labels
+// (decision 0031).
 
 const clock = createTestClock('2026-10-07T12:00:00.000Z');
 /** A live change, or the page after the URL changed, shows within this. */
@@ -197,6 +198,19 @@ describe('Labels in the console', () => {
     await page.getByTestId('labels-delete').click();
     await page.getByTestId('delete-label-confirm').click();
     await expect.poll(() => page.getByTestId('labels-row-site').count(), WITHIN).toBe(0);
+  });
+
+  it('puts one of argo’s labels on argo’s own ship from its page', async () => {
+    const page = await signedIn();
+    await page.goto(`/ships/${argo.shipId}`);
+    const labels = page.getByTestId('ship-labels');
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('No labels');
+
+    await labels.getByTestId('ship-labels-add').click();
+    const add = page.getByTestId('ship-labels-add-popover');
+    await add.getByTestId('label-picker-key').filter({ hasText: 'area' }).click();
+    await add.getByTestId('label-picker-value').filter({ hasText: 'frontend' }).click();
+    await expect.poll(() => labels.textContent(), WITHIN).toContain('area=frontend');
   });
 
   it('puts one of argo’s labels on a ship from its page, changes its value, names it in the retire confirm and takes it off', async () => {
