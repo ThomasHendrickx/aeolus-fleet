@@ -165,20 +165,25 @@ describe('a console page whose session ended', () => {
     await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
   });
 
-  it('sends no call once a read is refused for the ended session, while the way to sign in is slow', async () => {
+  it('sends no call on its way to sign in once a read is refused for the ended session, while the way to sign in is slow', async () => {
     // A live subscription that comes late must not be the call that hears the session ended (#645).
     const page = await aSquadronsPage({ isLiveLate: true });
     let isRefused = false;
-    const callsAfterRefusal: string[] = [];
+    // The page asks for sign in only once it holds its calls (lib/session.ts); a call the page sent before it handled the refusal is not one on its way out (#702).
+    let isLeaving = false;
+    const callsWhileLeaving: string[] = [];
     page.on('response', (response) => {
-      if (response.status() === 401) {
+      if (response.status() === UNAUTHORIZED) {
         isRefused = true;
       }
     });
     page.on('request', (request) => {
       const { pathname } = new URL(request.url());
-      if (isRefused && (pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/'))) {
-        callsAfterRefusal.push(pathname);
+      if (pathname === '/sign-in') {
+        isLeaving = true;
+      }
+      if (isLeaving && (pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/'))) {
+        callsWhileLeaving.push(pathname);
       }
     });
     await page.route(
@@ -190,12 +195,12 @@ describe('a console page whose session ended', () => {
     );
 
     clock.advance(SESSION_LIFETIME_MS);
-    await expect.poll(() => isRefused, { timeout: WITHIN_MS }).toBe(true);
+    await expect.poll(() => isRefused && isLeaving, { timeout: WITHIN_MS }).toBe(true);
     // Coming back to the page while it is on its way out asks its reads again; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
     await new Promise((resolve) => setTimeout(resolve, AFTER_LEAVING_MS));
 
-    expect(callsAfterRefusal).toEqual([]);
+    expect(callsWhileLeaving).toEqual([]);
   });
 });
