@@ -14,11 +14,17 @@ export type Db = PrismaClient | Prisma.TransactionClient;
  */
 const CONNECTION_WAIT_MS = 10_000;
 
+/**
+ * How long a call's transaction may run before Prisma rolls it back; the
+ * call is then refused as busy too (fleet-busy.ts).
+ */
+const TRANSACTION_TIME_MS = 5_000;
+
 /** Creates a Prisma client on a pg connection pool for the given database. */
 export function createPrismaClient(databaseUrl: string): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString: databaseUrl, connectionTimeoutMillis: CONNECTION_WAIT_MS }),
-    transactionOptions: { maxWait: CONNECTION_WAIT_MS },
+    transactionOptions: { maxWait: CONNECTION_WAIT_MS, timeout: TRANSACTION_TIME_MS },
   });
 }
 
