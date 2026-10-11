@@ -304,6 +304,13 @@ The operator restarting a session is not a recovery step for messages: nothing w
 3. Mark done acknowledges it: the console never receives, so the delivery is claimed and acknowledged at once under the console session's lease (`DeliveryClaimed`, then `DeliveryAcknowledged`). It moves to Done.
 4. Reply sends a plain-text message from `argo` to the sender, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
 
+### Questions to argo
+
+1. Any ship asks the operator by sending `argo` a message of the question content type (decision 0038): its own uuid, a title, the context, numbered options with label and detail, and its pick and why. Its prompt says when to ask.
+2. The console shows it on Questions, Open, with the count of open questions in the navigation; the inbox leaves it out. A message of the question type whose payload is no question stays in the inbox as a plain message.
+3. The operator picks one option, with an optional note, or sends a note alone (more context needed, or none of the options fits). The console sends the answer as a reply to the question's message, of the answer content type, and marks the message done in the same transaction, as Reply does.
+4. A question is open until argo has sent an answer naming it, whatever its delivery's state: Mark done does not answer it. Answered, it shows its answer under Answered. The asking ship receives the answer like any reply.
+
 ### Needs attention
 
 1. A delivery claimed a fifth time without an acknowledgement becomes undeliverable and shows in Needs attention, oldest first. Abandoned deliveries never do.
