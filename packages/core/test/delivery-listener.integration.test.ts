@@ -141,9 +141,7 @@ describe('the delivery listener', () => {
     const receiving = wired(LONG_WAIT_MS).receiveDeliveries(scout, {});
     await pause(SETTLE_MS);
     await killListenerConnection();
-    await vi.waitFor(() => {
-      expect(errors.length).toBeGreaterThanOrEqual(1);
-    });
+    await expect.poll(() => errors.length).toBeGreaterThanOrEqual(1);
 
     const deliveryId = await sendToScout();
 

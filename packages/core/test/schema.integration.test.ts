@@ -5,7 +5,8 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createEmptyDatabase, createMigratedDatabase, prisma } from './support/database.js';
+import { createEmptyDatabase, createMigratedDatabase, executeSqlFile } from './support/database.js';
+import { prisma } from './support/prisma-cli.js';
 
 // The key constraints of docs/architecture.md ("Core tables"), proven against
 // the committed migration on a real Postgres.
@@ -159,7 +160,7 @@ describe('the operator login migration', () => {
 
   async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
     for (const name of migrations) {
-      await prisma(databaseUrl, 'db', 'execute', '--file', `${MIGRATIONS}/${name}/migration.sql`);
+      await executeSqlFile(databaseUrl, `${MIGRATIONS}/${name}/migration.sql`);
     }
   }
 
@@ -206,7 +207,7 @@ describe('the event sequence migration', () => {
 
   async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
     for (const name of migrations) {
-      await prisma(databaseUrl, 'db', 'execute', '--file', `${MIGRATIONS}/${name}/migration.sql`);
+      await executeSqlFile(databaseUrl, `${MIGRATIONS}/${name}/migration.sql`);
     }
   }
 
@@ -272,7 +273,7 @@ describe('the network scope migration', () => {
         ],
       });
 
-      await prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${networkScope ?? ''}/migration.sql`);
+      await executeSqlFile(url, `${MIGRATIONS}/${networkScope ?? ''}/migration.sql`);
 
       await expect(client.ship.findMany({ select: { id: true, scopes: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
         { id: argoId, scopes: [...everyScopeBefore, 'fleet:network'] },
@@ -306,7 +307,7 @@ describe('the rules only through a plugin migration', () => {
         ],
       });
 
-      await prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${rulesThroughPlugin ?? 'missing'}/migration.sql`);
+      await executeSqlFile(url, `${MIGRATIONS}/${rulesThroughPlugin ?? 'missing'}/migration.sql`);
 
       await expect(client.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true }, orderBy: { version: 'asc' } })).resolves.toEqual([
         { fleetId: withoutPlugin, rules: null, version: 3 },
@@ -323,7 +324,7 @@ describe('the cleared rules on record migration', () => {
   const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
   const clearedRulesOnRecord = readdirSync(MIGRATIONS).find((name) => name.endsWith('_cleared_network_rules_on_record'));
 
-  const execute = (url: string, migration: string | undefined) => prisma(url, 'db', 'execute', '--file', `${MIGRATIONS}/${migration ?? 'missing'}/migration.sql`);
+  const execute = (url: string, migration: string | undefined) => executeSqlFile(url, `${MIGRATIONS}/${migration ?? 'missing'}/migration.sql`);
 
   /**
    * Fleets as an upgrade from before rules only through a plugin finds them:

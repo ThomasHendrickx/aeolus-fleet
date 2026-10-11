@@ -13,7 +13,7 @@ import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createEmptyDatabase, createMigratedDatabase, prisma } from './support/database.js';
+import { createEmptyDatabase, createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
 
@@ -164,8 +164,7 @@ describe('a database error at the doors', () => {
 
 describe('a database error in a server command', () => {
   it('reports it by its codes, never its message', async () => {
-    const databaseUrl = await createEmptyDatabase();
-    await prisma(databaseUrl, 'migrate', 'deploy');
+    const databaseUrl = await createMigratedDatabase();
     const database = createPrismaClient(databaseUrl);
     try {
       await refuseInserts(database, { name: 'operators', column: 'email' });
