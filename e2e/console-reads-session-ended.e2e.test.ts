@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -27,6 +27,10 @@ const SESSION_LIFETIME_MS = 30 * DAY_MS;
 /** Two refresh cycles of the squadrons list (5 s each), with room for a slow compile. */
 const WITHIN_MS = 15_000;
 const clock = createTestClock(new Date().toISOString());
+/** How long the sign-in page takes to answer: a slow way out. */
+const SLOW_WAY_OUT_MS = 2_000;
+/** How long after leaving the calls the page sends are watched. */
+const AFTER_LEAVING_MS = 3_000;
 
 /** A squadrons that is connected and has no squadron and no blueprint. */
 function aConnectedSquadrons(): Server {
@@ -108,5 +112,38 @@ describe('a console page whose session ended', () => {
 
     await page.waitForURL(`${web.url}/sign-in?notice=signed-in-elsewhere`, { timeout: WITHIN_MS });
     await page.getByTestId('sign-in-signed-in-elsewhere').getByText('You signed in somewhere else').waitFor();
+  });
+
+  it('sends no call once a read is refused for the ended session, while the way to sign in is slow', async () => {
+    const page = await aSquadronsPage();
+    let isRefused = false;
+    const callsAfterRefusal: string[] = [];
+    page.on('response', (response) => {
+      if (response.status() === 401) {
+        isRefused = true;
+      }
+    });
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (isRefused && (pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/'))) {
+        callsAfterRefusal.push(pathname);
+      }
+    });
+    await page.route(
+      (url) => url.pathname === '/sign-in',
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, SLOW_WAY_OUT_MS));
+        await route.continue();
+      },
+    );
+
+    clock.advance(SESSION_LIFETIME_MS);
+    await expect.poll(() => isRefused, { timeout: WITHIN_MS }).toBe(true);
+    // Coming back to the page while it is on its way out asks its reads again; TanStack Query hears it on window.
+    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
+    await new Promise((resolve) => setTimeout(resolve, AFTER_LEAVING_MS));
+
+    expect(callsAfterRefusal).toEqual([]);
   });
 });
