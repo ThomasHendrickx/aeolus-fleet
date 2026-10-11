@@ -1,26 +1,20 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
-import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { chromium, type Browser } from 'playwright';
 
+// .ts, not .js: a test run starts this file in Node itself, beside Vitest.
+import { claimFreePort } from './port-claims.ts';
+
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 const webRoot = fileURLToPath(new URL('../../packages/console', import.meta.url));
 
-/** A port nothing listens on right now. */
-export async function freePort(): Promise<number> {
-  const probe = createServer();
-  probe.listen(0, '127.0.0.1');
-  await once(probe, 'listening');
-  const address = probe.address();
-  probe.close();
-  if (address === null || typeof address === 'string') {
-    throw new Error('could not find a free port');
-  }
-  return address.port;
+/** A port nothing listens on and no other test run on this host serves on (port-claims.ts). */
+export function freePort(): Promise<number> {
+  return claimFreePort();
 }
 
 /** Runs next dev for as long as the process that starts it lives. */
@@ -32,9 +26,10 @@ export interface RunningWeb {
 }
 
 /**
- * Where the web app will run: a free port on localhost. Known before the
- * server starts, so the server can take it as the console's origin, the one
- * state-changing console calls must come from.
+ * Where the web app will run: a free port on localhost, claimed for this
+ * test run (see freePort). Known before the server starts, so the server can
+ * take it as the console's origin, the one state-changing console calls must
+ * come from.
  */
 export async function reserveWebUrl(): Promise<string> {
   return `http://localhost:${String(await freePort())}`;
