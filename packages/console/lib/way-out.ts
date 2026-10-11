@@ -6,7 +6,9 @@
  * it: a part that goes while the page still shows (a read in a closing
  * dialog) must not let calls go (#618). Only the page going ends it: the
  * console then forgets what it loaded, since forgetting while the page still
- * shows asks every read again, and the next page asks as usual.
+ * shows asks every read again, and the next page asks as usual. It leaves
+ * once: every read refused for the ended session asks it to leave, and each
+ * leaving again would navigate again (#709).
  */
 
 /** What the way out does to the console's calls: TanStack Query holds every call while it counts as offline. */
@@ -17,6 +19,8 @@ export interface ConsoleCalls {
 
 export interface WayOut {
   holdCalls: () => void;
+  /** Holds every call and goes, once per page however many parts of it ask. */
+  leave: (go: () => void) => void;
   /** Sign out failed: the operator is still signed in, so the held calls go. */
   letCallsGo: () => void;
   pageGoes: () => void;
@@ -24,16 +28,27 @@ export interface WayOut {
 
 export function createWayOut(calls: ConsoleCalls): WayOut {
   let isHolding = false;
+  let isLeaving = false;
+  const holdCalls = (): void => {
+    isHolding = true;
+    calls.setOnline(false);
+  };
   return {
-    holdCalls: () => {
-      isHolding = true;
-      calls.setOnline(false);
+    holdCalls,
+    leave: (go) => {
+      holdCalls();
+      if (isLeaving) {
+        return;
+      }
+      isLeaving = true;
+      go();
     },
     letCallsGo: () => {
       isHolding = false;
       calls.setOnline(true);
     },
     pageGoes: () => {
+      isLeaving = false;
       if (!isHolding) {
         return;
       }

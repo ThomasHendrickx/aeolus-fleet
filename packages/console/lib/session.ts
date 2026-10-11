@@ -49,7 +49,7 @@ export function useWayOutEndsWithPage(wayOut: WayOut): void {
 }
 
 /** The console's way out, leaving for destination: a console path or another site. */
-function useWayOut(): WayOut & { leave: (destination: string) => void } {
+function useWayOut(): Omit<WayOut, 'leave'> & { leave: (destination: string) => void } {
   const router = useRouter();
   const wayOut = useContext(WayOutContext);
   if (wayOut === undefined) {
@@ -58,12 +58,13 @@ function useWayOut(): WayOut & { leave: (destination: string) => void } {
   return {
     ...wayOut,
     leave: (destination) => {
-      wayOut.holdCalls();
-      if (destination.startsWith('/')) {
-        router.replace(destination);
-      } else {
-        window.location.assign(destination);
-      }
+      wayOut.leave(() => {
+        if (destination.startsWith('/')) {
+          router.replace(destination);
+        } else {
+          window.location.assign(destination);
+        }
+      });
     },
   };
 }
