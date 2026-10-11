@@ -70,6 +70,8 @@ async function otherRunClaims(where: PortClaims, options: { claims: number; isHe
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   otherRuns.push(run);
+  // Listened for at once: a run that is not held may end before it is awaited.
+  const exited = once(run, 'exit');
   let output = '';
   run.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
   while (!output.includes('\n')) {
@@ -79,7 +81,7 @@ async function otherRunClaims(where: PortClaims, options: { claims: number; isHe
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   if (!options.isHeld) {
-    await once(run, 'exit');
+    await exited;
   }
   const ports: unknown = JSON.parse(output);
   if (!Array.isArray(ports) || !ports.every((port) => typeof port === 'number')) {
