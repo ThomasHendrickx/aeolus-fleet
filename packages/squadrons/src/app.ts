@@ -64,7 +64,7 @@ export interface SquadronsApp {
   connect: Connect;
   /** Fetches every template repository of every connected fleet and rebuilds each fleet's catalogue, at start; a failure is logged. */
   refreshCatalogue: () => Promise<void>;
-  /** Retires what formations of a fleet a crash left unfinished commissioned: run once connected, before anything else forms. */
+  /** Retires what formations of a fleet a crash or a refused retire left unfinished commissioned: all of them once connected, before anything else forms; at a rescan, those a forming gave up. */
   recoverFormations: RecoverFormations;
   /**
    * At start: reads every fleet's kept connection (dropping a crew token its
@@ -242,7 +242,7 @@ export function createSquadronsApp(options: {
   const connect: Connect = async (input) => {
     const connected = await connectOnly(input);
     if (connected.isOk) {
-      const recovered = await recoverFormations(input.operatorFleetId);
+      const recovered = await recoverFormations(input.operatorFleetId, 'all');
       if (!recovered.isOk) {
         server.log.error({ refusal: recovered.error, fleet: input.operatorFleetId }, 'formations a crash left unfinished could not be recovered');
       }
@@ -321,7 +321,7 @@ export function createSquadronsApp(options: {
         if (connection.state !== 'connected') {
           continue;
         }
-        const recovered = await recoverFormations(crew.fleetId);
+        const recovered = await recoverFormations(crew.fleetId, 'all');
         if (!recovered.isOk) {
           server.log.error({ refusal: recovered.error, fleet: crew.fleetId }, 'formations a crash left unfinished could not be recovered');
         }
@@ -336,6 +336,15 @@ export function createSquadronsApp(options: {
         squadrons,
         handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, advanceStandDowns, clock }),
         advanceStandDowns,
+        // Only given up: a forming in flight holds its attempt unfinished too.
+        recoverFormations: async (fleetId) => {
+          const recovered = await recoverFormations(fleetId, 'given-up');
+          if (!recovered.isOk) {
+            server.log.warn({ fleet: fleetId, refusal: recovered.error }, 'formations a forming gave up could not be recovered; the next rescan tries again');
+          } else if (recovered.value.recovered > 0) {
+            server.log.info({ fleet: fleetId, ...recovered.value }, 'formations a forming gave up recovered');
+          }
+        },
         isServed,
         operator,
         reach,

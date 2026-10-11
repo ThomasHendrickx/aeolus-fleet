@@ -21,7 +21,7 @@ export interface Formation {
   commission: (slot: string, ship: { names: () => string; type: string }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
   /**
    * Retires every ship this attempt commissioned and finishes the attempt: it formed nothing.
-   * When the fleet refuses a retire the attempt stays unfinished, for recover-formations.
+   * When the fleet refuses a retire the attempt is given up unfinished, for recover-formations at a rescan.
    */
   retireCommissioned: () => Promise<void>;
 }
@@ -91,9 +91,12 @@ export async function beginFormation(
           isEveryShipRetired = false;
         }
       }
-      // A refused retire leaves the attempt unfinished, so recovering formations retires its ship later (#736).
+      // A refused retire leaves the attempt unfinished, so recovering formations retires its ship later (#736);
+      // given up, a rescan recovers it, never one a forming still holds (#738).
       if (isEveryShipRetired) {
         await deps.attempts.finish(attemptId);
+      } else {
+        await deps.attempts.giveUp(attemptId);
       }
     },
   };

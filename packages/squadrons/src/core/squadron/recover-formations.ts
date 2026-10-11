@@ -4,23 +4,35 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts } from './ports.js';
 
-export type RecoverFormations = (fleetId: FleetId) => Promise<Result<{ recovered: number; retired: number }, FleetRefusal>>;
+/** What the fleet answers a retire of a ship there is nothing left to retire of: retired already (CONFLICT), or no such ship. */
+const NOTHING_TO_RETIRE: ReadonlySet<string> = new Set(['CONFLICT', 'NOT_FOUND']);
+
+/**
+ * Which unfinished attempts a recovery undoes: `all` where no forming runs (at
+ * start, and on connecting), `given-up` at a rescan, where a forming may hold one.
+ */
+export type RecoveredAttempts = 'all' | 'given-up';
+
+export type RecoverFormations = (fleetId: FleetId, which: RecoveredAttempts) => Promise<Result<{ recovered: number; retired: number }, FleetRefusal>>;
 
 /**
  * Use case: at start, and on connecting, squadrons undoes every formation of a
- * fleet a crash or a refused retire left unfinished, so forming stays all or nothing across a crash (a controller is
+ * fleet a crash or a refused retire left unfinished, and at every rescan each
+ * one its forming gave up, so forming stays all or nothing across a crash (a controller is
  * safe to kill at any moment and recomputes from what it stored). Every ship
  * the attempt recorded is retired: by its id, or, for one commissioned but
  * killed before its id was recorded, by its name among the fleet's ships. A
- * ship retired already is fine. Then the attempt is finished.
+ * ship retired already is fine. Then the attempt is finished, unless the
+ * fleet refused one of its retires: it stays unfinished, so the next
+ * recovery retires that ship (#738).
  */
 export function createRecoverFormations(deps: { door: FleetDoor; management: ManagementCrewStore; attempts: FormationAttempts }): RecoverFormations {
-  return async (fleetId) => {
+  return async (fleetId, which) => {
     const crew = await deps.management.find(fleetId);
     if (!crew) {
       return ok({ recovered: 0, retired: 0 });
     }
-    const unfinished = await deps.attempts.unfinished(crew.fleetId);
+    const unfinished = (await deps.attempts.unfinished(crew.fleetId)).filter((attempt) => which === 'all' || attempt.isGivenUp);
     let retired = 0;
     for (const attempt of unfinished) {
       let byName: Map<string, ShipId> | undefined;
@@ -31,13 +43,22 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
         }
         byName = new Map(listed.value.map((ship) => [ship.name, ship.shipId]));
       }
+      let isEveryShipRetired = true;
       for (const ship of attempt.ships) {
         const shipId = ship.shipId ?? byName?.get(ship.name);
-        if (shipId !== undefined && (await deps.door.retire(crew.crewToken, { shipId })).isOk) {
+        if (shipId === undefined) {
+          continue;
+        }
+        const retire = await deps.door.retire(crew.crewToken, { shipId });
+        if (retire.isOk) {
           retired += 1;
+        } else if (!NOTHING_TO_RETIRE.has(retire.error.code)) {
+          isEveryShipRetired = false;
         }
       }
-      await deps.attempts.finish(attempt.id);
+      if (isEveryShipRetired) {
+        await deps.attempts.finish(attempt.id);
+      }
     }
     return ok({ recovered: unfinished.length, retired });
   };

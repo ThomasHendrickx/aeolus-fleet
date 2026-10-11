@@ -24,6 +24,8 @@ export interface FormationAttempt {
   squadronId: string;
   startedAt: Date;
   ships: { name: string; shipId: ShipId | null }[];
+  /** Whether its forming gave it up with a ship the fleet refused to retire: no forming holds it any more. */
+  isGivenUp: boolean;
 }
 
 /**
@@ -31,11 +33,13 @@ export interface FormationAttempt {
  * fleet, so a start after a crash finds what an unfinished one commissioned.
  */
 export interface FormationAttempts {
-  begin(attempt: Omit<FormationAttempt, 'ships'>): Promise<void>;
+  begin(attempt: Omit<FormationAttempt, 'ships' | 'isGivenUp'>): Promise<void>;
   /** Records the name of a ship before it is commissioned. */
   plan(attemptId: string, name: string): Promise<void>;
   /** Records the id of a planned ship once it is commissioned. */
   commissioned(attemptId: string, ship: { name: string; shipId: ShipId }): Promise<void>;
+  /** Records that its forming gave the attempt up unfinished, so a recovery at a rescan may undo it. */
+  giveUp(attemptId: string): Promise<void>;
   finish(attemptId: string): Promise<void>;
   unfinished(fleetId: FleetId): Promise<FormationAttempt[]>;
 }

@@ -16,6 +16,9 @@ export function createPrismaFormationAttempts(db: Db, clock: { now(): Date }): F
     commissioned: async (attemptId, { name, shipId }) => {
       await db.formationShip.update({ where: { attemptId_name: { attemptId, name } }, data: { shipId } });
     },
+    giveUp: async (attemptId) => {
+      await db.formationAttempt.updateMany({ where: { id: attemptId, givenUpAt: null }, data: { givenUpAt: clock.now() } });
+    },
     finish: async (attemptId) => {
       await db.formationAttempt.updateMany({ where: { id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } });
     },
@@ -32,6 +35,7 @@ export function createPrismaFormationAttempts(db: Db, clock: { now(): Date }): F
         squadronId: attempt.squadronId,
         startedAt: attempt.startedAt,
         ships: attempt.ships.map((ship) => ({ name: ship.name, shipId: ship.shipId === null ? null : idSchema('ship').parse(ship.shipId) })),
+        isGivenUp: attempt.givenUpAt !== null,
       })),
   };
 }
