@@ -234,6 +234,11 @@ export function labelLimitOf(ship: Pick<ListedShip, 'labels'>, shipLabelsMax: nu
   };
 }
 
+/** Whether you put your labels on this ship from its page: with labels:assign, on any ship but a retired one, argo's own included (decision 0031). */
+export function canAssignLabelsTo(ship: Pick<ListedShip, 'status'>, access: { canAssignLabels: boolean }): boolean {
+  return access.canAssignLabels && ship.status !== 'retired';
+}
+
 /** One of your keys as Add label offers it on a ship: its values with their ships, and which the ship carries. */
 export interface AssignKey extends FilterKey {
   carriedValueIds: ListedLabel['values'][number]['id'][];
