@@ -302,13 +302,13 @@ The operator restarting a session is not a recovery step for messages: nothing w
 1. A ship sends a message to `argo`: it waits in the operator inbox, Open, unread.
 2. The operator opens it, which marks it read. Read is not done: the delivery stays pending, and no event is written. The operator can mark it unread again.
 3. Mark done acknowledges it: the console never receives, so the delivery is claimed and acknowledged at once under the console session's lease (`DeliveryClaimed`, then `DeliveryAcknowledged`). It moves to Done.
-4. Reply sends a plain-text message from `argo` to the sender, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
+4. Reply sends a message from `argo` to the sender, plain text unless the console gives another content type, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
 
 ### Questions to argo
 
 1. Any ship asks the operator by sending `argo` a message of the question content type (decision 0038): its own uuid, a title, the context, numbered options with label and detail, and its pick and why. Its prompt says when to ask.
 2. The console shows it on Questions, Open, with the count of open questions in the navigation; the inbox leaves it out. A message of the question type whose payload is no question stays in the inbox as a plain message.
-3. The operator picks one option, with an optional note, or sends a note alone (more context needed, or none of the options fits). The console sends the answer as a reply to the question's message, of the answer content type, and marks the message done in the same transaction, as Reply does.
+3. The operator picks one option, with an optional note, or sends a note alone (more context needed, or none of the options fits). The console checks it against the question and sends it with Reply, of the answer content type, which marks the message done. The fleet never reads either payload.
 4. A question is open until argo has sent an answer naming it, whatever its delivery's state: Mark done does not answer it. Answered, it shows its answer under Answered. The asking ship receives the answer like any reply.
 
 ### Needs attention
