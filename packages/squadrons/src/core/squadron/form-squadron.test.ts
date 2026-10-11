@@ -5,6 +5,7 @@ import { CHARTER_MAX_BYTES, type BlueprintVersion, type Catalogue, type Template
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
+import { createRecoverFormations } from './recover-formations.js';
 import type { Squadron } from './squadron.js';
 import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
@@ -78,6 +79,8 @@ function fakeFleet() {
     /** The fleet's label values, by `key=value`. */
     labelValues: new Map<string, string>([['os=macos', 'lbv_01m3tbfspe96yf1rnr4ank9h3a']]),
     refuseCrewRequests: false,
+    /** Names whose first retire the fleet refuses as busy, storing nothing (#736). */
+    retiresRefused: new Set<string>(),
   };
   let next = 0;
   const door: FleetDoor = {
@@ -145,6 +148,9 @@ function fakeFleet() {
     listShips: () => Promise.resolve(ok(state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
     retire: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId);
+      if (ship && state.retiresRefused.delete(ship.name)) {
+        return Promise.resolve(err({ code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored' }));
+      }
       if (ship) {
         ship.isRetired = true;
       }
@@ -316,6 +322,16 @@ describe('the formation attempt', () => {
     await form(fromHemmaFeature);
 
     expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
+  });
+
+  it('keeps a ship whose retire the fleet refused, so recovering formations retires it later (#736)', async () => {
+    fleet.state.refuseCommissionAfter = 3;
+    fleet.state.retiresRefused.add('hemma-feature-a1b2c3');
+    await form(fromHemmaFeature);
+
+    await createRecoverFormations({ door: fleet.door, management: managementStore, attempts })(FLEET);
+
+    expect(fleet.state.ships.filter((ship) => !ship.isRetired)).toEqual([]);
   });
 });
 
