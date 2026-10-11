@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
 import { fn } from 'storybook/test';
 
+import { SQUADRONS_SHIP } from '../../../lib/connect-plugin';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../../lib/labels';
 import { Button } from '../../../components/atoms/button';
 import { ShipLabels } from '../../../components/molecules/ship-labels';
@@ -102,7 +103,10 @@ export const ArgoWithItsLabels: Story = {
   },
 };
 
-/** A plugin's own ship, squadrons' here: a plugin chip beside its type (#368). */
+/** A plugin's own ship, squadrons' here: a plugin chip beside its type (#368), with the scopes the console commissions it with. */
 export const PluginShip: Story = {
-  args: { ship: { ...CREWED_SHIP, name: 'squadrons', type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] }, isPluginShip: true },
+  args: {
+    ship: { ...CREWED_SHIP, name: SQUADRONS_SHIP.name, type: SQUADRONS_SHIP.type, scopes: ['messages:send', 'messages:receive', ...SQUADRONS_SHIP.fleetScopes] },
+    isPluginShip: true,
+  },
 };

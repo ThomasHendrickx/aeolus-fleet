@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Avatar } from '../../components/atoms/avatar';
 
 /**
- * Signed-out pages (docs/design/png/AuthLayout.png): the brand above the
+ * Signed-out pages (docs/design/png/SignInLayout.png): the brand above the
  * page's AuthCard on the dotted ground. No Sidebar, Header or TabBar.
  */
 export default function SignInLayout({ children }: { children: ReactNode }) {

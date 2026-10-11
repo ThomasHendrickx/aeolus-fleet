@@ -26,7 +26,7 @@ interface DetailPageProps {
 
 /**
  * A detail page inside the ConsoleFrame, such as the ship page
- * (docs/design/png/DetailLayout.png). Desktop: Header with the breadcrumb,
+ * (docs/design/png/DetailPage.png). Desktop: Header with the breadcrumb,
  * ShipHeader, then line Tabs and their content; a message opens in the side
  * Sheet over the page. Phone: TopBar in detail mode with the back link, the
  * stacked ShipHeader and segmented Tabs, the TabBar's height kept free at
