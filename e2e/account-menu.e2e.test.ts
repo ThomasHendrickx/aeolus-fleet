@@ -19,10 +19,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
-/** How long after Sign out the reads the page asks are counted. */
+/** How long after Sign out the calls the page sends are watched. */
 const AFTER_SIGN_OUT_MS = 3_000;
-/** Each read may be asked once more as the console forgets what it loaded, and once for a page still on its way out; never in a loop. */
-const MOST_ASKS_AFTER_SIGN_OUT = 2;
 /** How long a call's answer is held on its way back, long enough for Sign out to answer first without the console waiting for it. */
 const HELD_ANSWER_MS = 2_000;
 
@@ -183,22 +181,29 @@ describe.each([
     await expect(page.context().cookies()).resolves.toEqual([]);
   });
 
-  it('signs out without asking the console reads again and again', async () => {
+  it('asks no console read once Sign out has ended the session', async () => {
     const page = await signedInPage({ isPhone });
     await visible(page, 'account-menu').click();
-    const readsAsked: string[] = [];
+    let hasSessionEnded = false;
+    const readsAfterSessionEnded: string[] = [];
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname.endsWith('/console.signOut') && response.ok()) {
+        hasSessionEnded = true;
+      }
+    });
     page.on('request', (request) => {
       const { pathname } = new URL(request.url());
-      if (pathname.startsWith('/api/reads/')) {
-        readsAsked.push(pathname);
+      if (hasSessionEnded && pathname.startsWith('/api/reads/')) {
+        readsAfterSessionEnded.push(pathname);
       }
     });
 
     await visible(page, 'account-sign-out').click();
+    await page.waitForURL(`${web.url}/sign-in`);
     await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
 
-    const mostAsked = Math.max(0, ...readsAsked.map((read) => readsAsked.filter((asked) => asked === read).length));
-    expect(mostAsked).toBeLessThanOrEqual(MOST_ASKS_AFTER_SIGN_OUT);
+    expect(hasSessionEnded).toBe(true);
+    expect(readsAfterSessionEnded).toEqual([]);
   });
 
   it('signs out without sending any write but Sign out', async () => {

@@ -1,6 +1,5 @@
 import type { Account, Theme } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 
 import { showToast } from '../components/atoms/toast';
 import type { AccountMenuProps } from '../components/organisms/account-menu';
@@ -8,6 +7,7 @@ import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
 import { useConsoleConstants } from './console-constants';
 import { useConsoleGuide } from './guide';
+import { useLeaveSignedOut } from './session';
 import { useTRPC } from './trpc';
 import { usePluginNav } from './plugin-nav';
 
@@ -20,7 +20,6 @@ import { usePluginNav } from './plugin-nav';
  */
 export function useAccountMenu(now: Date): AccountMenuProps {
   const trpc = useTRPC();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const account = useQuery(trpc.console.account.queryOptions());
   const accountUrl = useHostedAccountUrl();
@@ -44,16 +43,13 @@ export function useAccountMenu(now: Date): AccountMenuProps {
       },
     }),
   );
-  const signOut = useMutation(
-    trpc.console.signOut.mutationOptions({
-      onSuccess: () => {
-        queryClient.clear();
-        router.replace('/sign-in');
-      },
-    }),
-  );
+  const leaveSignedOut = useLeaveSignedOut();
+  const signOut = useMutation(trpc.console.signOut.mutationOptions());
   const trySignOut = () => {
     signOut.mutate(undefined, {
+      onSuccess: () => {
+        leaveSignedOut('/sign-in');
+      },
       onError: () => {
         showToast({
           title: 'Couldn’t sign out',
