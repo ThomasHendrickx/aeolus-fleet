@@ -3,8 +3,9 @@ import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/a
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
-import { watchManagementLease } from './adapters/fleet/lease-watching-door.js';
+import { watchManagementLease, watchNetworkLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
+import { createRestNetworkDoor } from './adapters/fleet/rest-network-door.js';
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
@@ -43,6 +44,8 @@ import type { FleetForgetter, InstallationMode } from './core/installation/ports
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
+import type { Declarations } from './core/network/ports.js';
+import { createWithdrawNetworkRules } from './core/network/withdraw-network-rules.js';
 import { createNewCrewLine } from './core/squadron/new-crew-line.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
 import type { Clock } from './core/shared/clock.js';
@@ -191,9 +194,13 @@ export function createSquadronsApp(options: {
       catalogues.delete(fleetId);
     },
   };
-  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock });
+  const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
+  // What this process declared to each fleet, so a pass declares or withdraws only what changed.
+  const declarations: Declarations = new Map();
+  const withdraw = createWithdrawNetworkRules({ door: network, management: store, declarations });
+  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw });
   const readFleet = createReadFleet({ isServed, management: store });
-  const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock });
+  const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
   const connectOnly = createConnect({ door, store, clock });
   // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
