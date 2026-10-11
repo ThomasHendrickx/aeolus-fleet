@@ -12,6 +12,7 @@ import {
   filterCounts,
   inboxPathOf,
   messagesFor,
+  plainMessagesOf,
   readInboxFilter,
   useInbox,
   useMarkDone,
@@ -49,7 +50,7 @@ export function InboxPageFor({ filterParameter, selectedId }: { filterParameter?
   const access = useAccess();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
 
-  const all = inbox.data ?? [];
+  const all = plainMessagesOf(inbox.data ?? []);
   const show = (view: { filter: InboxFilter; deliveryId?: DeliveryId }) => {
     router.replace(inboxPathOf(view), { scroll: false });
   };

@@ -12,10 +12,15 @@ export function useInbox() {
   return useQuery(trpc.fleet.inbox.queryOptions({ filter: 'all' }));
 }
 
-/** How many messages to argo are open, for the navigation; undefined until known. */
+/** How many messages to argo are open, questions left out, for the navigation; undefined until known. */
 export function useOpenInboxCount(): number | undefined {
   const messages = useInbox().data;
-  return messages === undefined ? undefined : isOpenCount(messages);
+  return messages === undefined ? undefined : isOpenCount(plainMessagesOf(messages));
+}
+
+/** The messages to argo that are no question: the inbox page's; questions have their own (decision 0038). */
+export function plainMessagesOf<T extends Pick<InboxMessage, 'question'>>(messages: readonly T[]): T[] {
+  return messages.filter((message) => message.question === null);
 }
 
 function isOpen(message: Pick<InboxMessage, 'state'>): boolean {

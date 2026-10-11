@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { filterCounts, inboxPathOf, messagesFor, readInboxFilter } from './inbox';
+import { filterCounts, inboxPathOf, messagesFor, plainMessagesOf, readInboxFilter } from './inbox';
 
 const newId = createIdGenerator();
 const pending = { id: 'a', state: 'pending' } as const;
@@ -49,5 +49,14 @@ describe('inboxPathOf', () => {
     const deliveryId = newId('delivery');
 
     expect(inboxPathOf({ filter: 'done', deliveryId })).toBe(`/inbox?filter=done&message=${deliveryId}`);
+  });
+});
+
+describe('plainMessagesOf', () => {
+  it('leaves out the questions, which have their own page', () => {
+    const plain = { id: 'a', question: null };
+    const asking = { id: 'b', question: { title: 'Which port?' } };
+
+    expect(plainMessagesOf([plain, asking])).toEqual([plain]);
   });
 });
