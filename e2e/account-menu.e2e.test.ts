@@ -222,6 +222,34 @@ describe.each([
     expect(signOut.callsSent).toEqual([]);
   });
 
+  it('asks again as usual once Sign out has failed, as the operator is still signed in', async () => {
+    const page = await signedInPage({ isPhone });
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.route(
+      (url) => url.pathname.endsWith('/console.signOut'),
+      (route) => route.abort(),
+    );
+    let hasSignOutFailed = false;
+    const callsAfterSignOutFailed: string[] = [];
+    page.on('requestfailed', (request) => {
+      if (new URL(request.url()).pathname.endsWith('/console.signOut')) {
+        hasSignOutFailed = true;
+      }
+    });
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (hasSignOutFailed && pathname.startsWith('/trpc/')) {
+        callsAfterSignOutFailed.push(pathname);
+      }
+    });
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-sign-out').click();
+    await page.getByText('Couldn’t sign out').waitFor();
+
+    await expect.poll(() => callsAfterSignOutFailed.length).toBeGreaterThan(0);
+  });
+
   it('signs out without sending any write but Sign out', async () => {
     const page = await signedInPage({ isPhone });
     await visible(page, 'account-menu').click();
