@@ -40,7 +40,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Before 1.0.0 breaking changes are allowed (decision 0013). Keep designs minimal; do not build compatibility layers.
 - Every state change writes its event in the same transaction.
 - Payloads are at most 64 KB. A message is the travelling ticket; the reference is where the content lives.
-- Web follows atomic design: components/atoms, molecules, organisms, templates. shadcn/ui on Base UI for atoms.
+- Web follows the web-frontend skill: vertical by feature (features/<feature>/ owns its atoms, molecules, organisms and hooks), shared props-only parts in components/, route layouts in app/. shadcn/ui on Base UI for atoms.
 
 ## Skills
 
