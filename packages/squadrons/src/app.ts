@@ -20,7 +20,7 @@ import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-messa
 import { createPrismaFormationAttempts } from './adapters/prisma/formation-attempts.js';
 import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
-import { watchFlagships, type FlagshipWatch } from './adapters/flagships/flagship-watch.js';
+import { watchFlagships, type FlagshipWatch, type FleetReach } from './adapters/flagships/flagship-watch.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { createAddRepository } from './core/catalogue/add-repository.js';
 import { createBlueprintCrew } from './core/catalogue/blueprint-crew.js';
@@ -44,6 +44,8 @@ import type { FleetForgetter, InstallationMode } from './core/installation/ports
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
+import { createDeclareNetworkRules } from './core/network/declare-network-rules.js';
+import { createLabelSquadrons } from './core/network/label-squadrons.js';
 import type { Declarations } from './core/network/ports.js';
 import { createWithdrawNetworkRules } from './core/network/withdraw-network-rules.js';
 import { createNewCrewLine } from './core/squadron/new-crew-line.js';
@@ -69,7 +71,7 @@ export interface SquadronsApp {
    * answers each fleet still connected, as which ship, and what it recovered.
    */
   restoreConnections: () => Promise<{ fleetId: FleetId; ship: string; recovered: number; retired: number }[]>;
-  /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons every interval. */
+  /** Starts receiving on every forming or sailing squadron's flagship, looking for new squadrons and keeping each fleet's squadron labels and declared rules every interval. */
   startFlagships: (rescanMs: number) => void;
   /** Stops the server and disconnects the database. */
   close(): Promise<void>;
@@ -201,6 +203,35 @@ export function createSquadronsApp(options: {
   const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw });
   const readFleet = createReadFleet({ isServed, management: store });
   const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
+  const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
+  const declareNetworkRules = createDeclareNetworkRules({ door: network, management: store, declarations });
+  // Each rescan labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.
+  const reach: FleetReach = {
+    keep: async (fleetId) => {
+      const labelled = await labelSquadrons(fleetId);
+      if (!labelled.isOk) {
+        server.log.warn({ fleet: fleetId, refusal: labelled.error }, 'squadron labels refused; the next rescan tries again');
+      } else if (labelled.value.skipped !== undefined) {
+        server.log.warn({ fleet: fleetId, skipped: labelled.value.skipped }, 'squadron labels skipped');
+      } else if (labelled.value.defined + labelled.value.valuesChanged + labelled.value.assigned + labelled.value.unassigned > 0) {
+        server.log.info({ fleet: fleetId, ...labelled.value }, 'squadron labels');
+      }
+      const declared = await declareNetworkRules(fleetId);
+      if (!declared.isOk) {
+        server.log.warn({ fleet: fleetId, refusal: declared.error }, 'network rules refused; the next rescan tries again');
+      } else if (declared.value.isDeclared) {
+        server.log.info({ fleet: fleetId }, 'network rules declared');
+      }
+    },
+    withdraw: async (fleetId) => {
+      const withdrawn = await withdraw(fleetId);
+      if (!withdrawn.isOk) {
+        server.log.warn({ fleet: fleetId, refusal: withdrawn.error }, 'withdrawing network rules refused; the next rescan tries again');
+      } else if (withdrawn.value.isWithdrawn) {
+        server.log.info({ fleet: fleetId }, 'network rules withdrawn');
+      }
+    },
+  };
   const connectOnly = createConnect({ door, store, clock });
   // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
@@ -302,6 +333,7 @@ export function createSquadronsApp(options: {
         advanceStandDowns,
         isServed,
         operator,
+        reach,
         log: server.log,
         rescanMs,
       });
