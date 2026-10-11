@@ -14,6 +14,7 @@ import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { waitingWakeups } from './support/waiting-wakeups.js';
 
 // The delivery listener losing its database connection: it never throws,
 // listens again, and wakes every waiting receive when it does, so a delivery
@@ -27,8 +28,6 @@ const RECONNECT_DELAY_MS = 200;
 const LONG_WAIT_MS = 15_000;
 /** A receive that must end at its wait. */
 const SHORT_WAIT_MS = 2_000;
-/** Time for a receive to start waiting. */
-const SETTLE_MS = 300;
 
 let databaseUrl: string;
 let prisma: PrismaClient;
@@ -105,6 +104,17 @@ function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * A receive by scout that waits up to the given time on an empty inbox, and
+ * `waiting`, which settles once it waits: a delivery or a wake-up before then
+ * would only meet its first look, not the wait the test is about (#630).
+ */
+function receiveWaiting(waitMs: number) {
+  const { wakeups: watched, waiting } = waitingWakeups(wakeups);
+  const answer = createUseCases({ prisma, clock: systemClock, wakeups: watched, receiveWaitMs: waitMs }).receiveDeliveries(scout, {});
+  return { answer, waiting };
+}
+
 describe('the delivery listener', () => {
   it('reports a killed connection, never throws, and listens again', async () => {
     await killListenerConnection();
@@ -127,37 +137,37 @@ describe('the delivery listener', () => {
       { timeout: 10_000 },
     );
     const startedAt = performance.now();
-    const receiving = wired(LONG_WAIT_MS).receiveDeliveries(scout, {});
-    await pause(SETTLE_MS);
+    const receiving = receiveWaiting(LONG_WAIT_MS);
+    await receiving.waiting;
 
     const deliveryId = await sendToScout();
 
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
   });
 
   it('finds a delivery sent while it did not listen as soon as it listens again', async () => {
     const startedAt = performance.now();
-    const receiving = wired(LONG_WAIT_MS).receiveDeliveries(scout, {});
-    await pause(SETTLE_MS);
+    const receiving = receiveWaiting(LONG_WAIT_MS);
+    await receiving.waiting;
     await killListenerConnection();
     await expect.poll(() => errors.length).toBeGreaterThanOrEqual(1);
 
     const deliveryId = await sendToScout();
 
-    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
     expect(listens).toBe(2);
   });
 
   it('lets a receive waiting while it reconnects return within its wait', async () => {
     const startedAt = performance.now();
-    const receiving = wired(SHORT_WAIT_MS).receiveDeliveries(scout, {});
-    await pause(SETTLE_MS);
+    const receiving = receiveWaiting(SHORT_WAIT_MS);
+    await receiving.waiting;
 
     await killListenerConnection();
 
-    await expect(receiving).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
     expect(performance.now() - startedAt).toBeLessThan(SHORT_WAIT_MS + 1_000);
   });
 
