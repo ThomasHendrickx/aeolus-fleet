@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '../../components/atoms/button';
-import { SignedInElsewhereNotice } from '../../components/molecules/signed-in-elsewhere-notice';
-import { SignInForm } from '../../components/organisms/sign-in-form';
-import { AuthLayout } from '../../components/templates/auth-layout';
+import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
+import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
+import { AuthCard } from '../../features/sign-in/organisms/auth-card';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 
 // The hosted sign-in URL is runtime config: read on each request.
@@ -31,7 +31,7 @@ export default async function SignInPage({
   }
   if (hosted !== undefined) {
     return (
-      <AuthLayout recovery={null}>
+      <AuthCard recovery={null}>
         <div className="flex flex-col gap-5">
           <h1 className="text-heading font-semibold max-sm:text-title-touch">Sign in to Aeolus</h1>
           <SignedInElsewhereNotice />
@@ -39,11 +39,11 @@ export default async function SignInPage({
             Go to sign in
           </Button>
         </div>
-      </AuthLayout>
+      </AuthCard>
     );
   }
   return (
-    <AuthLayout
+    <AuthCard
       recovery={
         <>
           Forgot your password? Reset it on the server with{' '}
@@ -54,6 +54,6 @@ export default async function SignInPage({
       }
     >
       <SignInForm isSignedInElsewhere={isSignedInElsewhere} />
-    </AuthLayout>
+    </AuthCard>
   );
 }

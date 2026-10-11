@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import { createLint, reportsOf } from './support/lint-probe.ts';
 
-// The console: atomic design layers import downward only, atoms and molecules
-// take props only, no browser storage, no manual memoisation, stable keys and
-// accessible markup (web-frontend skill).
+// The console (web-frontend skill): vertical by feature, atomic design inside
+// each; shared components take props only and import downward; shared code
+// never imports a feature or app/, and no feature imports another; no browser
+// storage, no manual memoisation, stable keys and accessible markup.
 
 const probes = {
   atom: 'packages/console/components/atoms/layer-probe.tsx',
   molecule: 'packages/console/components/molecules/layer-probe.tsx',
   organism: 'packages/console/components/organisms/layer-probe.tsx',
-  template: 'packages/console/components/templates/layer-probe.tsx',
+  featureAtom: 'packages/console/features/probe/atoms/layer-probe.tsx',
+  featureMolecule: 'packages/console/features/probe/molecules/layer-probe.tsx',
+  featureOrganism: 'packages/console/features/probe/organisms/layer-probe.tsx',
+  featureHook: 'packages/console/features/probe/hooks/hook-probe.ts',
   page: 'packages/console/app/probe/page.tsx',
   lib: 'packages/console/lib/web-probe.ts',
 };
@@ -21,45 +25,92 @@ async function importViolations(code: string, path: string): Promise<string[]> {
   return [...reportsOf(messages, 'no-restricted-imports'), ...reportsOf(messages, 'no-restricted-syntax')];
 }
 
-describe('atoms and molecules take props only', () => {
-  it.each([
-    { label: 'the tRPC hook', code: "import { useTRPC } from '../../lib/trpc';" },
-    { label: 'a tRPC package', code: "import { createTRPCClient } from '@trpc/client';" },
-    { label: "the server's router type", code: "import type { AppRouter } from '@aeolus-fleet/core';" },
-  ])('refuses $label in an atom and in a molecule', async ({ code }) => {
-    for (const path of [probes.atom, probes.molecule]) {
-      await expect(importViolations(code, path)).resolves.toEqual([
-        expect.stringContaining('Atoms and molecules take props only: no tRPC'),
+const tRPC = [
+  { label: 'the tRPC hook', from: '../../lib/trpc' },
+  { label: 'a tRPC package', from: '@trpc/client' },
+  { label: "the server's router type", from: '@aeolus-fleet/core' },
+];
+
+describe('shared components take props only', () => {
+  it.each(tRPC)('refuses $label in a shared atom, molecule and organism', async ({ from }) => {
+    for (const path of [probes.atom, probes.molecule, probes.organism]) {
+      await expect(importViolations(`import { anything } from '${from}';`, path)).resolves.toEqual([
+        expect.stringContaining('take props only'),
+      ]);
+    }
+  });
+});
+
+describe("a feature's atoms and molecules take props only", () => {
+  it.each(tRPC)('refuses $label', async ({ from }) => {
+    const relative = from.replace('../../lib/', '../../../lib/');
+    for (const path of [probes.featureAtom, probes.featureMolecule]) {
+      await expect(importViolations(`import { anything } from '${relative}';`, path)).resolves.toEqual([
+        expect.stringContaining('take props only'),
       ]);
     }
   });
 
-  it('allows an organism the tRPC hook', async () => {
-    await expect(importViolations("import { useTRPC } from '../../lib/trpc';", probes.organism)).resolves.toEqual([]);
+  it("refuses the feature's hooks", async () => {
+    for (const path of [probes.featureAtom, probes.featureMolecule]) {
+      await expect(importViolations("import { useProbe } from '../hooks/hook-probe';", path)).resolves.toEqual([
+        expect.stringContaining('take props only'),
+      ]);
+    }
+  });
+
+  it("allows a feature's organism its hooks and the tRPC hook", async () => {
+    await expect(importViolations("import { useProbe } from '../hooks/hook-probe';", probes.featureOrganism)).resolves.toEqual([]);
+    await expect(importViolations("import { useTRPC } from '../../../lib/trpc';", probes.featureOrganism)).resolves.toEqual([]);
   });
 });
 
 describe('atomic design imports downward only', () => {
   it.each([
-    { label: 'an atom imports a molecule', path: probes.atom, code: "import { StatusBadge } from '../molecules/status-badge';" },
-    { label: 'an atom imports an organism', path: probes.atom, code: "import { Fleet } from '../organisms/fleet';" },
-    { label: 'an atom imports a template', path: probes.atom, code: "import { Shell } from '../templates/shell';" },
-    { label: 'an atom imports a page', path: probes.atom, code: "import Page from '../../app/page';" },
-    { label: 'a molecule imports an organism', path: probes.molecule, code: "import { Fleet } from '../organisms/fleet';" },
-    { label: 'a molecule imports a template', path: probes.molecule, code: "import { Shell } from '../templates/shell';" },
-    { label: 'an organism imports a template', path: probes.organism, code: "import { Shell } from '../templates/shell';" },
-    { label: 'a template imports a page', path: probes.template, code: "import Page from '../../app/page';" },
+    { label: 'a shared atom imports a molecule', path: probes.atom, code: "import { StatusBadge } from '../molecules/status-badge';" },
+    { label: 'a shared atom imports an organism', path: probes.atom, code: "import { Header } from '../organisms/header';" },
+    { label: 'a shared molecule imports an organism', path: probes.molecule, code: "import { Header } from '../organisms/header';" },
+    { label: "a feature's atom imports its molecule", path: probes.featureAtom, code: "import { Row } from '../molecules/row';" },
+    { label: "a feature's atom imports its organism", path: probes.featureAtom, code: "import { List } from '../organisms/list';" },
+    { label: "a feature's molecule imports its organism", path: probes.featureMolecule, code: "import { List } from '../organisms/list';" },
   ])('refuses: $label', async ({ code, path }) => {
-    await expect(importViolations(code, path)).resolves.toEqual([
-      expect.stringContaining('atomic design imports downward only'),
-    ]);
+    await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('atomic design imports downward only')]);
   });
 
   it.each([
-    { label: 'a molecule imports an atom', path: probes.molecule, code: "import { Button } from '../atoms/button';" },
-    { label: 'an organism imports a molecule', path: probes.organism, code: "import { StatusBadge } from '../molecules/status-badge';" },
-    { label: 'a template imports an organism', path: probes.template, code: "import { Fleet } from '../organisms/fleet';" },
-    { label: 'a page imports a template', path: probes.page, code: "import { Shell } from '../../components/templates/shell';" },
+    { label: 'a shared molecule imports an atom', path: probes.molecule, code: "import { Button } from '../atoms/button';" },
+    { label: 'a shared organism imports a molecule', path: probes.organism, code: "import { StatusBadge } from '../molecules/status-badge';" },
+    { label: "a feature's molecule imports its atom", path: probes.featureMolecule, code: "import { Dot } from '../atoms/dot';" },
+    { label: "a feature's organism imports its molecule", path: probes.featureOrganism, code: "import { Row } from '../molecules/row';" },
+    { label: "a feature's organism imports a shared organism", path: probes.featureOrganism, code: "import { Header } from '../../../components/organisms/header';" },
+  ])('allows: $label', async ({ code, path }) => {
+    await expect(importViolations(code, path)).resolves.toEqual([]);
+  });
+});
+
+describe('shared code never imports a feature or app/', () => {
+  it.each([
+    { label: 'a shared atom imports a feature', path: probes.atom, code: "import { FleetTable } from '../../features/fleet/organisms/fleet-table';" },
+    { label: 'a shared organism imports a feature', path: probes.organism, code: "import { FleetTable } from '../../features/fleet/organisms/fleet-table';" },
+    { label: 'a shared organism imports a page', path: probes.organism, code: "import Page from '../../app/page';" },
+    { label: 'lib imports a feature', path: probes.lib, code: "import { useProbe } from '../features/probe/hooks/hook-probe';" },
+    { label: 'lib imports a page', path: probes.lib, code: "import Page from '../app/page';" },
+  ])('refuses: $label', async ({ code, path }) => {
+    await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('never imports a feature or app/')]);
+  });
+});
+
+describe('no feature imports another', () => {
+  it.each([
+    { label: "an organism imports another feature's organism", path: probes.featureOrganism, code: "import { ShipActions } from '../../ship-actions/organisms/ship-actions';" },
+    { label: "a hook imports another feature's hook", path: probes.featureHook, code: "import { useSendMessage } from '../../compose/hooks/compose';" },
+  ])('refuses: $label', async ({ code, path }) => {
+    await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('A feature never imports another')]);
+  });
+
+  it.each([
+    { label: 'a page composes features', path: probes.page, code: "import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';" },
+    { label: 'a feature imports shared lib', path: probes.featureHook, code: "import { useFleetSnapshot } from '../../../lib/fleet';" },
   ])('allows: $label', async ({ code, path }) => {
     await expect(importViolations(code, path)).resolves.toEqual([]);
   });
