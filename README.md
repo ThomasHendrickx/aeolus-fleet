@@ -124,6 +124,8 @@ Releases are published only by the Release workflow (`.github/workflows/release.
 
 Questions, ideas, and fleets you built: [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions).
 
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Contributing
 
 Pull requests from outside the project are not open yet. Questions and ideas are welcome in [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions).
