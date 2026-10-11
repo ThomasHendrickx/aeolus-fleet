@@ -310,6 +310,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. The console shows it on Questions, Open, with the count of open questions in the navigation; the inbox leaves it out. A message of the question type whose payload is no question stays in the inbox as a plain message.
 3. The operator picks one option, with an optional note, or sends a note alone (more context needed, or none of the options fits). The console checks it against the question and sends it with Reply, of the answer content type, which marks the message done. The fleet never reads either payload.
 4. A question is open until argo has sent an answer naming it, whatever its delivery's state: Mark done does not answer it. Answered, it shows its answer under Answered. The asking ship receives the answer like any reply.
+5. The asking ship withdraws a question by sending `argo` a withdrawal naming its uuid, or replaces it by sending a replacement naming its uuid and carrying the new question. Not yet answered, the question is then stale: it shows under Stale, can not be answered, and links to its replacement. The replacement is an open question of its own, linked to the question it replaces, also when that one was answered. An answered question stays answered. The inbox leaves out a withdrawal that made a question stale; one from another ship, or naming no question of its sender, stays in the inbox as a plain message.
 
 ### Needs attention
 

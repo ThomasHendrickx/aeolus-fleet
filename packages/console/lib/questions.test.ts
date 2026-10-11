@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { questionFilterCounts, questionsFor, questionsPathOf, readQuestionFilter } from './questions';
+import { questionDeliveryIdsOf, questionFilterCounts, questionsFor, questionsPathOf, readQuestionFilter } from './questions';
 
 const newId = createIdGenerator();
 
@@ -16,12 +16,13 @@ function aQuestion(answer: { option: number } | null) {
   };
 }
 
-const open = { id: 'b', question: aQuestion(null) };
-const answered = { id: 'c', question: aQuestion({ option: 1 }) };
-const messages = [open, answered];
+const open = { id: 'b', question: aQuestion(null), stale: null };
+const answered = { id: 'c', question: aQuestion({ option: 1 }), stale: null };
+const withdrawn = { id: 'd', question: aQuestion(null), stale: { kind: 'withdrawn' as const } };
+const messages = [open, answered, withdrawn];
 
 describe('questionsFor', () => {
-  it('keeps the questions not answered yet for Open', () => {
+  it('keeps the questions not answered yet and not stale for Open', () => {
     expect(questionsFor(messages, 'open')).toEqual([open]);
   });
 
@@ -29,14 +30,31 @@ describe('questionsFor', () => {
     expect(questionsFor(messages, 'answered')).toEqual([answered]);
   });
 
+  it('keeps the withdrawn and replaced ones for Stale', () => {
+    expect(questionsFor(messages, 'stale')).toEqual([withdrawn]);
+  });
+
   it('keeps every question for All', () => {
-    expect(questionsFor(messages, 'all')).toEqual([open, answered]);
+    expect(questionsFor(messages, 'all')).toEqual([open, answered, withdrawn]);
+  });
+});
+
+describe('questionDeliveryIdsOf', () => {
+  it('names the deliveries of the questions and of the withdrawals that made one stale, which the inbox leaves out', () => {
+    const [asked, withdrawal, replacement, replaced] = [newId('delivery'), newId('delivery'), newId('delivery'), newId('delivery')];
+    const questions = [
+      { deliveryId: asked, stale: { kind: 'withdrawn' as const, deliveryId: withdrawal } },
+      { deliveryId: replacement, stale: null },
+      { deliveryId: replaced, stale: { kind: 'replaced' as const, deliveryId: replacement } },
+    ];
+
+    expect(questionDeliveryIdsOf(questions)).toEqual(new Set([asked, withdrawal, replacement, replaced]));
   });
 });
 
 describe('questionFilterCounts', () => {
   it('counts each filter', () => {
-    expect(questionFilterCounts(messages)).toEqual({ open: 1, answered: 1, all: 2 });
+    expect(questionFilterCounts(messages)).toEqual({ open: 1, answered: 1, stale: 1, all: 3 });
   });
 });
 
@@ -44,6 +62,7 @@ describe('readQuestionFilter', () => {
   it.each([
     [undefined, 'open'],
     ['answered', 'answered'],
+    ['stale', 'stale'],
     ['all', 'all'],
     ['done', 'open'],
   ] as const)('reads %s as %s', (value, filter) => {

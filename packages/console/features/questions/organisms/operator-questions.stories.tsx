@@ -23,6 +23,8 @@ function aQuestion(
     doneAt: null,
     repliedWith: null,
     question: { answer: null, ...question },
+    stale: null,
+    replaces: null,
     message: {
       id: messageId(suffix),
       sender: { id: shipId(suffix), name: sender },
@@ -74,7 +76,31 @@ const ANSWERED = {
   question: { ...MIGRATION.question, answer: { messageId: messageId('b002'), sentAt: '2026-10-11T13:20:00Z', option: 2, note: 'Squadrons still reads it.' } },
 } satisfies QuestionMessage;
 
-const COUNTS = { open: 2, answered: 1, all: 3 };
+const PORT_AGAIN = {
+  ...aQuestion('a003', {
+    sender: 'implementer-b',
+    sentAt: '2026-10-11T14:36:00Z',
+    question: {
+      ...PORT.question,
+      id: '9b2e4d6f-1a3c-4e5b-8d7f-0c2a4e6b8d1f',
+      title: 'Which port, now that core moved to 3100?',
+      context: 'Core moved to 3100 this morning, so 3000 is free again.',
+    },
+  }),
+  replaces: { deliveryId: PORT.deliveryId, title: PORT.question.title },
+} satisfies QuestionMessage;
+
+const REPLACED = {
+  ...PORT,
+  stale: { kind: 'replaced', deliveryId: PORT_AGAIN.deliveryId, sentAt: PORT_AGAIN.message.sentAt, by: { title: PORT_AGAIN.question.title } },
+} satisfies QuestionMessage;
+
+const WITHDRAWN = {
+  ...MIGRATION,
+  stale: { kind: 'withdrawn', deliveryId: deliveryId('c002'), sentAt: '2026-10-11T13:15:00Z' },
+} satisfies QuestionMessage;
+
+const COUNTS = { open: 2, answered: 1, stale: 2, all: 5 };
 
 /** Stateful questions for the stories: the filter and the open question move as the operator clicks. */
 function Questions({
@@ -126,6 +152,21 @@ export const DefaultOpen: Story = {};
 
 export const Answered: Story = {
   args: { questions: [ANSWERED], initialFilter: 'answered', initialSelected: ANSWERED.deliveryId },
+};
+
+/** Withdrawn by its asker: no answer form, and a notice that says so. */
+export const Withdrawn: Story = {
+  args: { questions: [REPLACED, WITHDRAWN], initialFilter: 'stale', initialSelected: WITHDRAWN.deliveryId },
+};
+
+/** Replaced by its asker: no answer form, and a link to the new question. */
+export const Replaced: Story = {
+  args: { questions: [PORT_AGAIN, REPLACED, WITHDRAWN], initialFilter: 'all', initialSelected: REPLACED.deliveryId },
+};
+
+/** The replacement: open to answer, linked to the question it replaces. */
+export const Replacement: Story = {
+  args: { questions: [PORT_AGAIN, MIGRATION], initialSelected: PORT_AGAIN.deliveryId },
 };
 
 export const NothingSelected: Story = { args: { initialSelected: undefined } };

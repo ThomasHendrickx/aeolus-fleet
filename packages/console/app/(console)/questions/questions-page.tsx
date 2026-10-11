@@ -20,7 +20,7 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Questions ships asked argo, live: Open, Answered or All. Answering sends
+ * Questions ships asked argo, live: Open, Answered, Stale or All. Answering sends
  * the answer as a reply to the asking ship. The filter and the open question
  * live in the URL, read on the web app's server (page.tsx).
  */
@@ -59,7 +59,13 @@ export function QuestionsPageFor({ filterParameter, selectedId }: { filterParame
         counts={questions.data ? questionFilterCounts(all) : {}}
         selectedId={selectedId}
         onSelect={(deliveryId) => {
-          show({ filter, ...(deliveryId === undefined ? {} : { deliveryId }) });
+          if (deliveryId === undefined) {
+            show({ filter });
+            return;
+          }
+          // A replacement or the question it replaces may sit under another filter; All shows it.
+          const isShown = questionsFor(all, filter).some((question) => question.deliveryId === deliveryId);
+          show({ filter: isShown ? filter : 'all', deliveryId });
         }}
         state={questions.isError ? 'error' : questions.data ? 'ready' : 'loading'}
         onRetry={() => {

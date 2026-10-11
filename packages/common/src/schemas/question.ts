@@ -8,10 +8,14 @@ import { idSchema, type MessageId } from '../ids/index.js';
  * reply of the answer content type. Both payloads are data only: the fleet
  * carries them as any message and never reads them; the console's server
  * does. A question is open until argo
- * sends its answer, whatever its delivery's state.
+ * sends its answer, whatever its delivery's state. The asking ship withdraws
+ * a question, or replaces it with a new one, by a message of its own content
+ * type naming the question's uuid.
  */
 export const QUESTION_CONTENT_TYPE = 'application/vnd.aeolus.question+json';
 export const ANSWER_CONTENT_TYPE = 'application/vnd.aeolus.answer+json';
+export const WITHDRAWAL_CONTENT_TYPE = 'application/vnd.aeolus.question-withdrawal+json';
+export const REPLACEMENT_CONTENT_TYPE = 'application/vnd.aeolus.question-replacement+json';
 
 /** A content type's essence: media types compare without case and without their parameters (RFC 9110). */
 function essenceOf(contentType: string): string {
@@ -25,6 +29,14 @@ export function isQuestionContentType(contentType: string): boolean {
 
 export function isAnswerContentType(contentType: string): boolean {
   return essenceOf(contentType) === ANSWER_CONTENT_TYPE;
+}
+
+export function isWithdrawalContentType(contentType: string): boolean {
+  return essenceOf(contentType) === WITHDRAWAL_CONTENT_TYPE;
+}
+
+export function isReplacementContentType(contentType: string): boolean {
+  return essenceOf(contentType) === REPLACEMENT_CONTENT_TYPE;
 }
 
 const FIRST_OPTION = 1;
@@ -55,6 +67,17 @@ export const questionSchema = z
   });
 
 export type Question = z.infer<typeof questionSchema>;
+
+/** A withdrawal: the uuid of the question the asker withdraws. */
+export const withdrawalSchema = z.object({ questionId: z.uuid() });
+
+/** A replacement: the uuid of the question the asker replaces, and the new question, with a uuid of its own. */
+export const replacementSchema = z
+  .object({ questionId: z.uuid(), question: questionSchema })
+  .refine(({ questionId, question }) => question.id !== questionId, {
+    message: 'The new question has a uuid of its own',
+    path: ['question', 'id'],
+  });
 
 /** What the operator answers: one option and an optional note, or a note alone (more context needed, or none of the options). */
 export const answerChoiceSchema = z.union([
@@ -106,10 +129,40 @@ function jsonOf(payload: string): unknown {
   }
 }
 
+/** The question a message asks: a question's payload, or the new question a replacement carries; null for any other message. */
+function questionOf({ contentType, payload }: Carried): Question | null {
+  if (isQuestionContentType(contentType)) {
+    const question = questionSchema.safeParse(jsonOf(payload));
+    return question.success ? question.data : null;
+  }
+  if (isReplacementContentType(contentType)) {
+    const replacement = replacementSchema.safeParse(jsonOf(payload));
+    return replacement.success ? replacement.data.question : null;
+  }
+  return null;
+}
+
 /**
- * The question a message to argo asks, and its answer among argo's replies
- * to it (the first answer naming the question); null when the message is not
- * of the question type or its payload is no question.
+ * The question a message withdraws, and the new question when it replaces it;
+ * null when the message is neither a withdrawal nor a replacement.
+ */
+export function withdrawalOf({ contentType, payload }: Carried): { questionId: string; replacement: Question | null } | null {
+  if (isWithdrawalContentType(contentType)) {
+    const withdrawal = withdrawalSchema.safeParse(jsonOf(payload));
+    return withdrawal.success ? { questionId: withdrawal.data.questionId, replacement: null } : null;
+  }
+  if (isReplacementContentType(contentType)) {
+    const replacement = replacementSchema.safeParse(jsonOf(payload));
+    return replacement.success ? { questionId: replacement.data.questionId, replacement: replacement.data.question } : null;
+  }
+  return null;
+}
+
+/**
+ * The question a message to argo asks (a question, or the new question of a
+ * replacement), and its answer among argo's replies
+ * to it (the first answer naming the question); null when the message asks
+ * no question.
  */
 export function inboxQuestionOf<T>({
   message,
@@ -118,18 +171,15 @@ export function inboxQuestionOf<T>({
   message: Carried;
   replies: readonly (Carried & { id: MessageId; sentAt: T })[];
 }): (Question & { answer: { messageId: MessageId; sentAt: T; option: number | null; note: string | null } | null }) | null {
-  if (!isQuestionContentType(message.contentType)) {
-    return null;
-  }
-  const question = questionSchema.safeParse(jsonOf(message.payload));
-  if (!question.success) {
+  const question = questionOf(message);
+  if (question === null) {
     return null;
   }
   for (const reply of replies) {
     const answer = isAnswerContentType(reply.contentType) ? answerSchema.safeParse(jsonOf(reply.payload)) : undefined;
-    if (answer?.success === true && answer.data.questionId === question.data.id) {
+    if (answer?.success === true && answer.data.questionId === question.id) {
       return {
-        ...question.data,
+        ...question,
         answer: {
           messageId: reply.id,
           sentAt: reply.sentAt,
@@ -139,5 +189,5 @@ export function inboxQuestionOf<T>({
       };
     }
   }
-  return { ...question.data, answer: null };
+  return { ...question, answer: null };
 }

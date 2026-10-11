@@ -1,4 +1,4 @@
-import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE } from '@aeolus-fleet/common';
+import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,6 +20,8 @@ import { newKey } from '../packages/core/test/support/keys.js';
 // question over the REST API, it shows live on Questions with its count and
 // not in the inbox, the operator picks an option with a note, and the asking
 // ship receives the answer as a reply to its question, which shows answered.
+// The asking ship withdraws or replaces a question by its uuid; it shows
+// stale, can't be answered, and links to its replacement.
 
 const clock = createTestClock('2026-10-11T09:00:00.000Z');
 /** A live change shows within this. */
@@ -190,5 +192,58 @@ describe('questions to argo', () => {
     await visible(page, 'questions-answered').getByText('Who still reads it?').waitFor();
     const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
     expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: question.id, note: 'Who still reads it?' });
+  });
+
+  it('shows a question the asker withdrew or replaced as stale, not answerable, with the replacement linked and answerable', async () => {
+    const implementer = await crewedOverRest({ name: 'implementer-d', type: 'implementer' });
+    const withdrawn = { ...QUESTION, id: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e', title: 'Rename the inbox filter?' };
+    const replaced = { ...QUESTION, id: '7e2a4c6b-8d0f-4a1c-b3e5-6f8a0c2e4b7d', title: 'Which port for the preview server?' };
+    const replacement = { ...QUESTION, id: '1d3f5b7a-9c2e-4f6a-8b0d-2e4c6a8f0b3d', title: 'Which port for the preview server, now that core moved?' };
+    const toArgo = { kind: 'ship', shipId: argo.shipId };
+    for (const question of [withdrawn, replaced]) {
+      await implementer.call('send', { selector: toArgo, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(question), idempotencyKey: `ask-${question.id}` });
+    }
+    const page = await signedInPage();
+    await page.goto('/questions');
+    await questionRow(page, withdrawn.title).waitFor();
+    await questionRow(page, replaced.title).waitFor();
+
+    await implementer.call('send', {
+      selector: toArgo,
+      contentType: WITHDRAWAL_CONTENT_TYPE,
+      payload: JSON.stringify({ questionId: withdrawn.id }),
+      idempotencyKey: 'withdraw-rename',
+    });
+    await implementer.call('send', {
+      selector: toArgo,
+      contentType: REPLACEMENT_CONTENT_TYPE,
+      payload: JSON.stringify({ questionId: replaced.id, question: replacement }),
+      idempotencyKey: 'replace-preview-port',
+    });
+
+    await questionRow(page, withdrawn.title).waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
+    await questionRow(page, replaced.title).waitFor({ state: 'detached' });
+    await questionRow(page, replacement.title).waitFor();
+    await page.goto('/questions?filter=stale');
+    await questionRow(page, withdrawn.title).click();
+    await visible(page, 'questions-stale').getByText('Withdrawn by implementer-d', { exact: false }).waitFor();
+    await expect(visible(page, 'questions-send').count()).resolves.toBe(0);
+
+    await questionRow(page, replaced.title).click();
+    await visible(page, 'questions-stale').getByText('Replaced by implementer-d', { exact: false }).waitFor();
+    await expect(visible(page, 'questions-send').count()).resolves.toBe(0);
+    await visible(page, 'questions-replacement').getByText(replacement.title).click();
+    await page.waitForURL(/filter=all/);
+    const opened = visible(page, 'questions-question');
+    await opened.getByRole('heading', { name: replacement.title }).waitFor();
+    await visible(page, 'questions-replaces').getByText(replaced.title).waitFor();
+
+    await opened.getByTestId('questions-option-1').getByText('1. Keep 3000').click();
+    await visible(page, 'questions-send').click();
+    await visible(page, 'questions-answered').waitFor();
+    const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
+    expect(deliveries.map(({ payload }): unknown => JSON.parse(payload))).toEqual([{ questionId: replacement.id, option: 1 }]);
+    await page.goto('/inbox?filter=all');
+    await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
   });
 });

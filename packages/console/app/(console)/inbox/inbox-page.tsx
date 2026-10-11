@@ -20,7 +20,7 @@ import {
   useReply,
 } from '../../../lib/inbox';
 import { useAccess } from '../../../lib/access';
-import { useQuestions } from '../../../lib/questions';
+import { questionDeliveryIdsOf, useQuestions } from '../../../lib/questions';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -53,7 +53,7 @@ export function InboxPageFor({ filterParameter, selectedId }: { filterParameter?
 
   // Questions have their own page (decision 0038); the inbox waits for which messages they are, and shows every message when that read fails.
   const questions = useQuestions();
-  const questionIds = new Set((questions.data ?? []).map(({ deliveryId }) => deliveryId));
+  const questionIds = questionDeliveryIdsOf(questions.data ?? []);
   const isQuestionsKnown = questions.data !== undefined || questions.isError;
   const all = plainMessagesOf(inbox.data ?? [], questionIds);
   const show = (view: { filter: InboxFilter; deliveryId?: DeliveryId }) => {

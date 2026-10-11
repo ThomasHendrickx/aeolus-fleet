@@ -7,13 +7,21 @@ import {
   inboxQuestionOf,
   isAnswerContentType,
   isQuestionContentType,
+  isReplacementContentType,
+  isWithdrawalContentType,
   QUESTION_CONTENT_TYPE,
   questionSchema,
+  REPLACEMENT_CONTENT_TYPE,
+  replacementSchema,
+  WITHDRAWAL_CONTENT_TYPE,
+  withdrawalOf,
+  withdrawalSchema,
 } from './question.js';
 
 const newId = createIdGenerator();
 
 const QUESTION_ID = '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47';
+const REPLACEMENT_ID = '9b2e4d6f-1a3c-4e5b-8d7f-0c2a4e6b8d1f';
 
 function aQuestion(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,6 +67,26 @@ describe('the content types', () => {
 
   it('knows a question is not an answer', () => {
     expect(isAnswerContentType(QUESTION_CONTENT_TYPE)).toBe(false);
+  });
+
+  it('names a withdrawal application/vnd.aeolus.question-withdrawal+json', () => {
+    expect(WITHDRAWAL_CONTENT_TYPE).toBe('application/vnd.aeolus.question-withdrawal+json');
+  });
+
+  it('names a replacement application/vnd.aeolus.question-replacement+json', () => {
+    expect(REPLACEMENT_CONTENT_TYPE).toBe('application/vnd.aeolus.question-replacement+json');
+  });
+
+  it('knows a withdrawal in any case and with parameters', () => {
+    expect(isWithdrawalContentType('Application/VND.Aeolus.Question-Withdrawal+JSON; charset=utf-8')).toBe(true);
+  });
+
+  it('knows a replacement in any case and with parameters', () => {
+    expect(isReplacementContentType('Application/VND.Aeolus.Question-Replacement+JSON; charset=utf-8')).toBe(true);
+  });
+
+  it('knows a question is neither a withdrawal nor a replacement', () => {
+    expect([isWithdrawalContentType(QUESTION_CONTENT_TYPE), isReplacementContentType(QUESTION_CONTENT_TYPE)]).toEqual([false, false]);
   });
 });
 
@@ -126,6 +154,53 @@ describe('answerSchema', () => {
   });
 });
 
+describe('withdrawalSchema', () => {
+  it('takes the uuid of the question it withdraws', () => {
+    expect(withdrawalSchema.parse({ questionId: QUESTION_ID })).toEqual({ questionId: QUESTION_ID });
+  });
+
+  it('refuses an id that is not a uuid', () => {
+    expect(withdrawalSchema.safeParse({ questionId: 'q-1' }).success).toBe(false);
+  });
+});
+
+describe('replacementSchema', () => {
+  const replacement = { questionId: QUESTION_ID, question: aQuestion({ id: REPLACEMENT_ID }) };
+
+  it('takes the uuid of the question it replaces and the new question', () => {
+    expect(replacementSchema.parse(replacement)).toEqual(replacement);
+  });
+
+  it('refuses a new question that is no question', () => {
+    expect(replacementSchema.safeParse({ ...replacement, question: aQuestion({ options: [] }) }).success).toBe(false);
+  });
+
+  it('refuses a new question with the uuid of the one it replaces', () => {
+    expect(replacementSchema.safeParse({ ...replacement, question: aQuestion() }).success).toBe(false);
+  });
+});
+
+describe('withdrawalOf', () => {
+  it('reads a withdrawal: the question it withdraws, with no replacement', () => {
+    const message = { contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION_ID }) };
+    expect(withdrawalOf(message)).toEqual({ questionId: QUESTION_ID, replacement: null });
+  });
+
+  it('reads a replacement as a withdrawal with the new question', () => {
+    const replacement = aQuestion({ id: REPLACEMENT_ID });
+    const message = { contentType: REPLACEMENT_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION_ID, question: replacement }) };
+    expect(withdrawalOf(message)).toEqual({ questionId: QUESTION_ID, replacement });
+  });
+
+  it('is no withdrawal for a message of another type', () => {
+    expect(withdrawalOf({ contentType: 'application/json', payload: JSON.stringify({ questionId: QUESTION_ID }) })).toBeNull();
+  });
+
+  it('is no withdrawal when the payload is not one', () => {
+    expect(withdrawalOf({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: 'Never mind.' })).toBeNull();
+  });
+});
+
 describe('inboxQuestionOf', () => {
   const sentAt = new Date('2026-10-11T09:00:00.000Z');
 
@@ -143,6 +218,17 @@ describe('inboxQuestionOf', () => {
 
   it('reads an open question from a message of the question type', () => {
     expect(inboxQuestionOf({ message: asked, replies: [] })).toEqual({ ...aQuestion(), answer: null });
+  });
+
+  it('reads the new question a replacement asks', () => {
+    const replacement = aQuestion({ id: REPLACEMENT_ID, title: 'Which port, now that core moved?' });
+    const message = { contentType: REPLACEMENT_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION_ID, question: replacement }) };
+    expect(inboxQuestionOf({ message, replies: [] })).toEqual({ ...replacement, answer: null });
+  });
+
+  it('is no question for a withdrawal', () => {
+    const message = { contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION_ID }) };
+    expect(inboxQuestionOf({ message, replies: [] })).toBeNull();
   });
 
   it('is no question for a message of another type', () => {
