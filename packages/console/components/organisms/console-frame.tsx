@@ -23,8 +23,8 @@ export interface ConsoleNav {
 }
 
 /**
- * The frame around every signed-in page (docs/design/png/ListLayout.png,
- * DetailLayout.png): the Sidebar on desktop, the TabBar on phone, and the
+ * The frame around every signed-in page (docs/design/png/ListPage.png,
+ * DetailPage.png): the Sidebar on desktop, the TabBar on phone, and the
  * page between them, a ListPage or a DetailPage. The signed-in route layout
  * fills it.
  */

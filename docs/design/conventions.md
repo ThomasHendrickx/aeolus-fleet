@@ -122,7 +122,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Below `--breakpoint-sm`: phone. From `--breakpoint-sm`: desktop layout, Sidebar as rail (`--size-rail`). From `--breakpoint-lg`: full Sidebar (`--size-sidebar`).
 - Phone swaps: MemberList → role groups of cards; Sidebar → TabBar; Sidebar account button → TopBar Avatar opening AccountMenu; Header → TopBar; Table → list rows (FleetTable: name, chip, status and menu; report or next step; runs on, model, seen); DropdownMenu → bottom Sheet; form Dialog → full-screen page; confirm Dialog → bottom Sheet; side Sheet → pushed page, delivery first; two-pane OperatorInbox → list + page with pinned reply, TabBar hidden; filters → bottom Sheet; Toast above TabBar.
 - Never drop an action on phone; move it into the TopBar menu or a bottom Sheet.
-- Pages use AuthLayout, ListLayout or DetailLayout; no other skeleton.
+- Signed-out pages sit in SignInLayout; signed-in pages render ListPage or DetailPage inside the ConsoleFrame; no other skeleton.
 
 ## Accessibility
 - Contrast: text 4.5:1; text 24 px and up 3:1; focus indicator 3:1. Token pairs on the page pass; recheck any new pair.

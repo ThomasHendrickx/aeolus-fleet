@@ -30,7 +30,7 @@ interface ListPageProps {
 }
 
 /**
- * A list page inside the ConsoleFrame (docs/design/png/ListLayout.png):
+ * A list page inside the ConsoleFrame (docs/design/png/ListPage.png):
  * Header on desktop, TopBar (root, with the AccountMenu's Avatar last) on
  * phone. The title and the one primary action share the first row, the
  * toolbar sits under it and the list fills the rest. On phone the TopBar
