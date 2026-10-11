@@ -60,7 +60,7 @@ export function fakeNetworkFleet(liveTokens: Set<string>) {
         return refused;
       }
       const label = state.labels.find((each) => each.labelId === changed);
-      if (label === undefined || label.ownerShipId !== SHIP_ID) {
+      if (label?.ownerShipId !== SHIP_ID) {
         return Promise.resolve(err({ code: 'NOT_FOUND', message: 'No such label of yours' }));
       }
       if (values.length > LABEL_VALUES_MAX) {
