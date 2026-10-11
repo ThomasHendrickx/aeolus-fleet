@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '../../../components/atoms/button';
-import { AuthLayout } from '../../../components/templates/auth-layout';
+import { AuthCard } from '../../../features/sign-in/organisms/auth-card';
 import { hostedSignInUrlFrom } from '../../../lib/hosted-sign-in';
 
 // The hosted sign-in URL is runtime config: read on each request.
@@ -19,7 +19,7 @@ export default function SignInFailedPage() {
     redirect('/sign-in');
   }
   return (
-    <AuthLayout recovery={null}>
+    <AuthCard recovery={null}>
       <div className="flex flex-col gap-4" data-testid="sign-in-failed">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-section font-semibold">We couldn’t sign you in</h1>
@@ -29,6 +29,6 @@ export default function SignInFailedPage() {
           Go to sign in
         </Button>
       </div>
-    </AuthLayout>
+    </AuthCard>
   );
 }
