@@ -445,4 +445,42 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
 
     expect(kept).toEqual([OTHER_FLEET_ID]);
   });
+
+  it("are kept by one rescan at a time: a rescan while the fleet's are being kept leaves them to it, so nothing is declared twice", async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    let keeps = 0;
+    let finish = (): void => undefined;
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      reach: {
+        keep: () => {
+          keeps += 1;
+          return new Promise<void>((resolve) => {
+            finish = resolve;
+          });
+        },
+        withdraw: () => Promise.resolve(),
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    const first = watch.rescan();
+    await expect.poll(() => keeps).toBe(1);
+    await watch.rescan();
+    finish();
+    await first;
+    await watch.rescan();
+    finish();
+    await watch.stop();
+
+    expect(keeps).toBe(2);
+  });
 });

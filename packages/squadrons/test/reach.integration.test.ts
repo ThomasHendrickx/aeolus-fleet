@@ -141,6 +141,7 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
     const { flagship, member } = await aFormedSquadron();
 
     await expect.poll(() => declared()).toHaveLength(1);
+    await expect.poll(() => labelsOf(member)).toEqual(['squadron=team-one']);
     await severalRescans();
 
     await expect(labelsOf(flagship)).resolves.toEqual(['squadron-role=flagship', 'squadron=team-one']);
@@ -166,6 +167,8 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
   it('withdraws the declared rules when switched off, keeping the labels, and declares them again once on', async () => {
     const { member } = await aFormedSquadron();
     await expect.poll(() => declared()).toHaveLength(1);
+    // Two rescans may overlap: one may declare while the other still labels.
+    await expect.poll(() => labelsOf(member)).toEqual(['squadron=team-one']);
 
     await expectOk(installation('installation.setEnabled', { requestId: newKey(), fleetId, enabled: false }));
     await expect(declared()).resolves.toEqual([]);
