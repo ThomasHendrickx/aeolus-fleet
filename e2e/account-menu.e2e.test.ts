@@ -100,6 +100,17 @@ function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefi
   return { reached: reached.promise, answered: answered.promise };
 }
 
+/** What the console logs about a component switching between controlled and uncontrolled, as React and Base UI warn. */
+function controlledWarnings(page: Page): string[] {
+  const warnings: string[] = [];
+  page.on('console', (message) => {
+    if (/uncontrolled/i.test(message.text())) {
+      warnings.push(message.text());
+    }
+  });
+  return warnings;
+}
+
 function visible(page: Page, testId: string) {
   return page.locator(`[data-testid="${testId}"]:visible`);
 }
@@ -155,6 +166,31 @@ describe.each([
 
     await visible(page, 'account-session').waitFor();
     await expect(visible(page, 'account-hosted').count()).resolves.toBe(0);
+  });
+
+  it('keeps the theme controlled while the account is read, and logs no warning', async () => {
+    const page = await signedInPage({ isPhone });
+    const warnings = controlledWarnings(page);
+    const account = holdOneAnswer(page, 'console.account');
+    await page.reload();
+
+    await visible(page, 'account-menu').click();
+    await account.answered;
+    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('signs out from the menu, and logs no warning about the theme', async () => {
+    const page = await signedInPage({ isPhone });
+    const warnings = controlledWarnings(page);
+
+    await visible(page, 'account-menu').click();
+    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await visible(page, 'account-sign-out').click();
+    await page.waitForURL(`${web.url}/sign-in`);
+
+    expect(warnings).toEqual([]);
   });
 
   it('signs out from the menu', async () => {
