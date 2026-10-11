@@ -22,6 +22,7 @@ import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch, type FleetReach } from './adapters/flagships/flagship-watch.js';
 import { createFleetTurns } from './adapters/flagships/fleet-turns.js';
+import { createSetFleetEnabledInTurn } from './adapters/flagships/set-fleet-enabled-in-turn.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { createAddRepository } from './core/catalogue/add-repository.js';
 import { createBlueprintCrew } from './core/catalogue/blueprint-crew.js';
@@ -44,7 +45,6 @@ import { createDeleteFleet, type DeleteFleet } from './core/installation/delete-
 import type { FleetForgetter, InstallationMode } from './core/installation/ports.js';
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
-import { createSetFleetEnabled } from './core/installation/set-fleet-enabled.js';
 import { createDeclareNetworkRules } from './core/network/declare-network-rules.js';
 import { createLabelSquadrons } from './core/network/label-squadrons.js';
 import type { Declarations } from './core/network/ports.js';
@@ -204,7 +204,7 @@ export function createSquadronsApp(options: {
   // Each fleet's rescans, its switch-off and its delete take turns (#626, #639): a rescan in flight cannot declare the rules again after the switch-off or the delete withdrew them.
   // The delete takes the turn whole, so no rescan declares between its withdrawal and the fleet being forgotten.
   const turns = createFleetTurns();
-  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw: (fleetId) => turns.take(fleetId, () => withdraw(fleetId)) });
+  const setFleetEnabled = createSetFleetEnabledInTurn({ switches, requests, hasher: sha256RequestHasher, clock, withdraw, turns });
   const readFleet = createReadFleet({ isServed, management: store });
   const deleteFleetOutsideTurns = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
   const deleteFleet: DeleteFleet = (input) => turns.take(input.fleetId, () => deleteFleetOutsideTurns(input));
