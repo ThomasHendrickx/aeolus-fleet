@@ -78,6 +78,31 @@ describe('replying to a message to argo', () => {
     ]);
   });
 
+  it('sends the reply with the content type argo gives, untouched', async () => {
+    const asked = await toArgo();
+
+    const { messageId } = unwrap(
+      await useCases.replyToMessage(argo, {
+        deliveryId: asked.deliveryId,
+        payload: '{"go":true}',
+        contentType: 'application/vnd.example.answer+json',
+        idempotencyKey: 'reply-go',
+      }),
+    );
+    expect(message(messageId)).toMatchObject({ contentType: 'application/vnd.example.answer+json', inReplyToMessageId: asked.messageId });
+  });
+
+  it('refuses a content type that is no media type, sending nothing and leaving the message open', async () => {
+    const asked = await toArgo();
+    const messages = core.state.messages.length;
+
+    await expect(
+      useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', contentType: 'not a type', idempotencyKey: 'reply-go' }),
+    ).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_CONTENT_TYPE' } });
+    expect(core.state.messages).toHaveLength(messages);
+    expect(stored(asked.deliveryId)?.state).toBe('pending');
+  });
+
   it('marks the message done in the same step, its acknowledgement naming the reply', async () => {
     const asked = await toArgo();
 

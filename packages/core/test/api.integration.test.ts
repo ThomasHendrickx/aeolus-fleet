@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, QUESTION_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -1351,12 +1351,11 @@ describe('Needs attention at the API', () => {
 
 describe("argo's inbox at the API", () => {
   /** A message to argo from a crewed agent ship; answers its delivery and its sender's crew token. */
-  async function toArgo(payload: string, contentType = 'text/plain'): Promise<{ deliveryId: string; messageId: string; crewToken: string }> {
+  async function toArgo(payload: string): Promise<{ deliveryId: string; messageId: string; crewToken: string }> {
     const crewToken = await crewedShip();
     const { messageId } = await client({ authorization: `Bearer ${crewToken}` }).ship.send.mutate({
       selector: { kind: 'ship', shipId: argoId },
       payload,
-      contentType,
       model: 'claude-opus-5-5',
       idempotencyKey: `ask-${newId('message')}`,
     });
@@ -1406,34 +1405,25 @@ describe("argo's inbox at the API", () => {
     });
   });
 
-  const question = {
-    id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47',
-    title: 'Which port does the console use?',
-    context: 'The docs name two ports.',
-    options: [
-      { key: 1, label: 'Keep 3000', detail: 'What the console uses now.' },
-      { key: 2, label: 'Move to 4000', detail: 'Frees 3000 for core.' },
-    ],
-    pick: { option: 1, why: 'Nothing else needs 3000.' },
-  };
-
-  it('show a question as a question, open until argo answers it, whatever its delivery', async () => {
+  it("reply with a content type, and list argo's replies to each message in the inbox", async () => {
     const asArgo = await signedInArgo();
-    const { deliveryId } = await toArgo(JSON.stringify(question), QUESTION_CONTENT_TYPE);
+    const { deliveryId, messageId, crewToken } = await toArgo('Promote 2.14?');
     await asArgo.fleet.markDone.mutate({ deliveryId });
 
-    const entry = (await asArgo.fleet.inbox.query({ filter: 'all' })).find((each) => each.deliveryId === deliveryId);
+    const reply = await asArgo.fleet.reply.mutate({
+      deliveryId,
+      payload: '{"go":true}',
+      contentType: 'application/vnd.example.answer+json',
+      idempotencyKey: `answer-${deliveryId}`,
+    });
 
-    expect(entry).toMatchObject({ state: 'acknowledged', question: { ...question, answer: null } });
-  });
-
-  it('show a message of the question type whose payload is no question as a plain message', async () => {
-    const asArgo = await signedInArgo();
-    const { deliveryId } = await toArgo('Which port?', QUESTION_CONTENT_TYPE);
-
-    const entry = (await asArgo.fleet.inbox.query({ filter: 'all' })).find((each) => each.deliveryId === deliveryId);
-
-    expect(entry).toMatchObject({ question: null, message: { payload: 'Which port?' } });
+    const { deliveries } = await client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({});
+    expect(deliveries).toEqual([
+      expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
+    ]);
+    expect((await asArgo.fleet.inbox.query({ filter: 'all' })).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
+      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', sentAt: clock.now().toISOString() },
+    ]);
   });
 
   it("answer NOT_FOUND for a delivery not in argo's inbox", async () => {

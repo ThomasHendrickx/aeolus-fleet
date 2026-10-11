@@ -38,7 +38,7 @@ describe('operatorInboxOutputSchema', () => {
     readAt: null,
     doneAt: null,
     repliedWith: null,
-    question: null,
+    replies: [],
     message: {
       id: newId('message'),
       sender: releaseCaptain,
@@ -54,24 +54,16 @@ describe('operatorInboxOutputSchema', () => {
     expect(operatorInboxOutputSchema.parse([open])).toEqual([open]);
   });
 
-  it('takes a question with its answer, which the console shows as answerable', () => {
-    const question = {
-      id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47',
-      title: 'Which port?',
-      context: 'The docs name two.',
-      options: [{ key: 1, label: 'Keep 3000', detail: '' }],
-      pick: { option: 1, why: 'Nothing else needs it.' },
-      answer: { messageId: newId('message'), sentAt: AT, option: 1, note: null },
-    };
-    const asked = { ...open, question };
+  it("takes argo's replies to it, each with its content type and payload", () => {
+    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', sentAt: AT }] };
 
-    expect(operatorInboxOutputSchema.parse([asked])).toEqual([asked]);
+    expect(operatorInboxOutputSchema.parse([replied])).toEqual([replied]);
   });
 
-  it('refuses an entry that does not say whether it carries a question', () => {
-    const withoutQuestion = Object.fromEntries(Object.entries(open).filter(([key]) => key !== 'question'));
+  it("refuses an entry that does not list argo's replies", () => {
+    const withoutReplies = Object.fromEntries(Object.entries(open).filter(([key]) => key !== 'replies'));
 
-    expect(operatorInboxOutputSchema.safeParse([withoutQuestion]).success).toBe(false);
+    expect(operatorInboxOutputSchema.safeParse([withoutReplies]).success).toBe(false);
   });
 
   it('takes a done message, read, with the reply that made it done', () => {
@@ -119,6 +111,16 @@ describe('replyInputSchema', () => {
 
   it('refuses an empty key', () => {
     expect(replyInputSchema.safeParse({ ...reply, idempotencyKey: '' }).success).toBe(false);
+  });
+
+  it('takes the content type of the reply', () => {
+    const typed = { ...reply, contentType: 'application/vnd.example.answer+json' };
+
+    expect(replyInputSchema.parse(typed)).toEqual(typed);
+  });
+
+  it('refuses a content type that is no media type', () => {
+    expect(replyInputSchema.safeParse({ ...reply, contentType: 'not a type' }).success).toBe(false);
   });
 });
 

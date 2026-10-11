@@ -178,6 +178,24 @@ describe("argo's inbox on Postgres", () => {
     ]);
   });
 
+  it('replies with the content type argo gives', async () => {
+    const asked = await toArgo('Promote 2.14?');
+
+    const { messageId } = unwrap(
+      await core.useCases.replyToMessage(argo, {
+        deliveryId: asked.deliveryId,
+        payload: '{"go":true}',
+        contentType: 'application/vnd.example.answer+json',
+        idempotencyKey: 'answer',
+      }),
+    );
+
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      inReplyToMessageId: asked.messageId,
+      contentType: 'application/vnd.example.answer+json',
+    });
+  });
+
   it('refuses a reply to a retired sender and rolls back: nothing sent, the message still open', async () => {
     const asked = await toArgo('Promote 2.14?');
     unwrap(await core.useCases.retireShip(operator, { shipId: captain.shipId }));
