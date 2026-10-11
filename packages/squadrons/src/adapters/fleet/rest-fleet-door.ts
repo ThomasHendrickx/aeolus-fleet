@@ -4,7 +4,9 @@
  * client (decision 0017). A refusal reads as the fleet's code and message.
  * While the fleet is busy (nothing stored), each call is made again by itself
  * with the same body, after each of the busy waits (each drawn by
- * `busyWaitMs`), so a send keeps its idempotency key.
+ * `busyWaitMs`), so a send keeps its idempotency key. A bulk operation (a
+ * retire) is made once: busy, it ran past its time, and made again it would
+ * only put another such transaction on a fleet that is already slow (#734).
  */
 import { setTimeout as wait } from 'node:timers/promises';
 
@@ -38,6 +40,8 @@ interface FleetCall<T> {
   body?: unknown;
   answers: z.ZodType<T>;
   signal?: AbortSignal;
+  /** A bulk operation, whose work grows with the fleet's history: not made again while the fleet is busy. */
+  isBulk?: boolean;
 }
 
 /** Where the fleet answers, how long to wait before each next call while it is busy, the draw for each wait, and how a drawn wait is waited. */
@@ -48,9 +52,9 @@ interface Door {
   wait: (waitMs: number, signal?: AbortSignal) => Promise<void>;
 }
 
-/** One call to the fleet's REST API with a crew token, made again while the fleet is busy: its answer parsed, or the fleet's refusal; UNAVAILABLE when no answer came. */
+/** One call to the fleet's REST API with a crew token, made again while the fleet is busy unless it is bulk: its answer parsed, or the fleet's refusal; UNAVAILABLE when no answer came. */
 export async function call<T>({ fleetUrl, busyWaitsMs, random, wait: waitBusy }: Door, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
-  for (const waitMs of busyWaitsMs) {
+  for (const waitMs of request.isBulk === true ? [] : busyWaitsMs) {
     const answered = await callOnce(fleetUrl, request);
     if (answered.isOk || answered.error.code !== FLEET_BUSY) {
       return answered;
@@ -204,7 +208,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
       return released.isOk ? ok(undefined) : released;
     },
     retire: async (crewToken, ship) => {
-      const retired = await call(door, { path: '/fleet/retire', method: 'POST', crewToken, body: ship, answers: z.unknown() });
+      const retired = await call(door, { path: '/fleet/retire', method: 'POST', crewToken, body: ship, answers: z.unknown(), isBulk: true });
       return retired.isOk ? ok(undefined) : retired;
     },
   };

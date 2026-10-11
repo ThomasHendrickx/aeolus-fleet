@@ -101,6 +101,20 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
     });
   });
 
+  it('makes a busy retire once, without waiting: a bulk operation that ran past its time is not made again (#734)', async () => {
+    await aFleetAnswering([BUSY, { status: 200, body: {} }], async (fleetUrl, asked) => {
+      const waited: number[] = [];
+      const retired = await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1, 1, 1, 1], wait: (waitMs) => {
+        waited.push(waitMs);
+        return Promise.resolve();
+      } }).retire('aeolus_ct_v1_x', { shipId: SHIP_ID });
+
+      expect(retired).toMatchObject({ isOk: false, error: BUSY.body });
+      expect(asked.map(({ url }) => url)).toEqual(['/api/v1/fleet/retire']);
+      expect(waited).toEqual([]);
+    });
+  });
+
   it('ends a receive at once when it is stopped while it waits to call again', async () => {
     await aFleetAnswering([BUSY], async (fleetUrl, asked) => {
       const stopping = new AbortController();
