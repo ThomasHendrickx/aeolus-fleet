@@ -24,6 +24,9 @@ const forming: Squadron = {
   sailedAt: null,
 };
 
+/** A fleet's reach left as it is: what most tests need. */
+const untouchedReach = { keep: () => Promise.resolve(), withdraw: () => Promise.resolve() };
+
 // A logger that writes nothing: the watch logs only what goes wrong.
 const silentLog = Fastify({ logger: false }).log;
 
@@ -67,6 +70,7 @@ describe('stopping the flagship watch', () => {
       advanceStandDowns: () => Promise.resolve(),
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -116,6 +120,7 @@ describe('the flagships of every connected fleet', () => {
       },
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -152,6 +157,7 @@ describe('the flagships of a fleet squadrons does not serve', () => {
       },
       isServed: () => Promise.resolve(false),
       operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -189,6 +195,7 @@ describe('a released flagship', () => {
           return Promise.resolve();
         },
       },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -221,6 +228,7 @@ describe('a released flagship', () => {
             return Promise.resolve();
           },
         },
+        reach: untouchedReach,
         log: silentLog,
         rescanMs: 60_000,
       });
@@ -267,6 +275,7 @@ describe('the flagship of a squadron standing down', () => {
       advanceStandDowns: () => Promise.resolve(),
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -301,6 +310,7 @@ describe('the flagship of a squadron standing down', () => {
           return Promise.resolve();
         },
       },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -324,6 +334,7 @@ describe('the flagship of a squadron standing down', () => {
       },
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -333,5 +344,105 @@ describe('the flagship of a squadron standing down', () => {
     await watch.stop();
 
     expect(advances).toBe(2);
+  });
+});
+
+describe("each fleet's squadron labels and declared rules (#573)", () => {
+  it('are kept at every rescan of a fleet squadrons serves', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
+    const kept: string[] = [];
+    const withdrawn: string[] = [];
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      isServed: (fleetId) => Promise.resolve(fleetId === FLEET_ID),
+      operator: { tell: () => Promise.resolve() },
+      reach: {
+        keep: (fleetId) => {
+          kept.push(fleetId);
+          return Promise.resolve();
+        },
+        withdraw: (fleetId) => {
+          withdrawn.push(fleetId);
+          return Promise.resolve();
+        },
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.stop();
+
+    expect(kept).toEqual([FLEET_ID]);
+    expect(withdrawn).toEqual([OTHER_FLEET_ID]);
+  });
+
+  it('are withdrawn at every rescan of a fleet that is off, which switching off could not while the fleet did not answer', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    const withdrawn: string[] = [];
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(false),
+      operator: { tell: () => Promise.resolve() },
+      reach: {
+        keep: () => Promise.reject(new Error('not served')),
+        withdraw: (fleetId) => {
+          withdrawn.push(fleetId);
+          return Promise.resolve();
+        },
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.rescan();
+    await watch.stop();
+
+    expect(withdrawn).toEqual([FLEET_ID, FLEET_ID]);
+  });
+
+  it("go on to the next fleet when one fleet's fail", async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
+    const kept: string[] = [];
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      reach: {
+        keep: (fleetId) => {
+          if (fleetId === FLEET_ID) {
+            return Promise.reject(new Error('the database is gone'));
+          }
+          kept.push(fleetId);
+          return Promise.resolve();
+        },
+        withdraw: () => Promise.resolve(),
+      },
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.stop();
+
+    expect(kept).toEqual([OTHER_FLEET_ID]);
   });
 });
