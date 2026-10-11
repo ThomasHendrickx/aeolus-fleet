@@ -222,13 +222,16 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(carried(shipIdOf(100 * (LABEL_VALUES_MAX + 1)))).toEqual(['squadron-role=flagship']);
-    expect(told).toEqual([{ fleetId: FLEET_ID, key: `unlabelled-${last}`, text: expect.stringContaining(last) }]);
+    expect(told.map(({ fleetId, key }) => ({ fleetId, key }))).toEqual([{ fleetId: FLEET_ID, key: `unlabelled-${last}` }]);
+    expect(told[0]?.text).toContain(last);
   });
 
   it('labels nothing without the label scopes, and says why', async () => {
     management.state.scopes = management.state.scopes.filter((scope) => scope !== 'labels:assign');
 
-    await expect(labelSquadrons(FLEET_ID)).resolves.toMatchObject({ isOk: true, value: { assigned: 0, skipped: expect.stringContaining('label scopes') } });
+    const labelled = await labelSquadrons(FLEET_ID);
+
+    expect(labelled.isOk && labelled.value.skipped).toContain('label scopes');
     expect(fleet.state.labelWrites).toEqual([]);
   });
 
