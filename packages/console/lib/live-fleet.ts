@@ -68,6 +68,11 @@ export function isAttentionChange(type: EventType): boolean {
   return ATTENTION_EVENTS.has(type);
 }
 
+/** A ship declaring its network rules, or withdrawing them, changes the declared rules Network shows (decision 0037). */
+export function isDeclaredRulesChange(type: EventType): boolean {
+  return type === 'NetworkRulesDeclared';
+}
+
 /** The subscription's state as the live dot words it. */
 export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error'): LiveState {
   switch (status) {
@@ -95,7 +100,7 @@ export interface LiveFleet {
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message, the ships' message lists and
  * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * is dismissed reloads Needs attention, and a label's event the fleet's labels. `resync`, sent first and whenever the
+ * is dismissed reloads Needs attention, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
@@ -137,6 +142,9 @@ export function useLiveFleet(): LiveFleet {
           }
           if (isLabelChange(event.type)) {
             reload(trpc.fleet.labels.queryKey());
+          }
+          if (isDeclaredRulesChange(event.type)) {
+            reload(trpc.fleet.declaredNetworkRules.queryKey());
           }
           if (!isShipChange(event.type)) {
             return;
