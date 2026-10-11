@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { onlineManager, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
@@ -36,4 +36,32 @@ export function useSignInWhenSessionEnds(errors: readonly unknown[]): void {
     },
     [queryClient],
   );
+}
+
+/**
+ * Leaves a page whose session Sign out has just ended for one without a
+ * session. From then until the page has gone the console asks nothing: a slow
+ * way out still polls and mounts, and every call would carry no session
+ * (#584). TanStack Query holds every call while it is offline, so the console
+ * counts as offline meanwhile. As the page goes it forgets what it loaded, so
+ * nothing held is asked, and the next page asks as usual.
+ */
+export function useLeaveSignedOut(): (path: string) => void {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const isLeavingRef = useRef(false);
+  useEffect(
+    () => () => {
+      if (isLeavingRef.current) {
+        queryClient.clear();
+        onlineManager.setOnline(true);
+      }
+    },
+    [queryClient],
+  );
+  return (path) => {
+    isLeavingRef.current = true;
+    onlineManager.setOnline(false);
+    router.replace(path);
+  };
 }
