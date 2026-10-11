@@ -154,6 +154,22 @@ describe('a console page whose session ended', () => {
     await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
   });
 
+  it('goes to sign in once, however many of its reads are refused for the ended session', async () => {
+    const page = await aSquadronsPage();
+    let timesLeft = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/sign-in') {
+        timesLeft += 1;
+      }
+    });
+
+    clock.advance(SESSION_LIFETIME_MS);
+    await page.waitForURL(`${web.url}/sign-in`, { timeout: WITHIN_MS });
+    await new Promise((resolve) => setTimeout(resolve, AFTER_LEAVING_MS));
+
+    expect(timesLeft).toBe(1);
+  });
+
   it('says the operator signed in somewhere else when a read it asks again is the only one to hear it', async () => {
     const page = await aSquadronsPageHearingOnlyItsReads();
     const refusedRead = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith('/api/reads/') && response.status() === UNAUTHORIZED, { timeout: WITHIN_MS });
