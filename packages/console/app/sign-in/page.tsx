@@ -1,5 +1,8 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { Button } from '../../components/atoms/button';
+import { SignedInElsewhereNotice } from '../../components/molecules/signed-in-elsewhere-notice';
 import { SignInForm } from '../../components/organisms/sign-in-form';
 import { AuthLayout } from '../../components/templates/auth-layout';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
@@ -11,8 +14,9 @@ export const dynamic = 'force-dynamic';
  * Sign in with the operator's email and password. Only the session cookie
  * stays in the browser. `?notice=signed-in-elsewhere` says the last session
  * ended because the operator signed in on another device. A hosted console
- * (AEOLUS_HOSTED_SIGN_IN_URL set) has no screen of its own here: it redirects
- * to the hosting service's sign-in at once, and never serves a password form.
+ * (AEOLUS_HOSTED_SIGN_IN_URL set) never serves a password form: it redirects
+ * to the hosting service's sign-in at once, or, with the notice, shows the
+ * notice and a link there, since the hosting service would not say it.
  */
 export default async function SignInPage({
   searchParams,
@@ -20,10 +24,24 @@ export default async function SignInPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const hosted = hostedSignInUrlFrom(process.env);
-  if (hosted !== undefined) {
+  const { notice } = await searchParams;
+  const isSignedInElsewhere = notice === 'signed-in-elsewhere';
+  if (hosted !== undefined && !isSignedInElsewhere) {
     redirect(hosted);
   }
-  const { notice } = await searchParams;
+  if (hosted !== undefined) {
+    return (
+      <AuthLayout recovery={null}>
+        <div className="flex flex-col gap-5">
+          <h1 className="text-heading font-semibold max-sm:text-title-touch">Sign in to Aeolus</h1>
+          <SignedInElsewhereNotice />
+          <Button variant="primary" nativeButton={false} render={<Link href={hosted} />} data-testid="sign-in-elsewhere-again">
+            Go to sign in
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
   return (
     <AuthLayout
       recovery={
@@ -35,7 +53,7 @@ export default async function SignInPage({
         </>
       }
     >
-      <SignInForm isSignedInElsewhere={notice === 'signed-in-elsewhere'} />
+      <SignInForm isSignedInElsewhere={isSignedInElsewhere} />
     </AuthLayout>
   );
 }

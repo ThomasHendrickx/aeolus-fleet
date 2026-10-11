@@ -15,8 +15,8 @@ describe('signInUrlFor', () => {
     expect(signInUrlFor({}, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
   });
 
-  it("is the hosting service's sign-in, as for a read or call, when the operator signed in somewhere else on a hosted console", () => {
-    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://pagasae.example.com/sign-in');
+  it("is the console's own sign-in with the notice on a hosted console when the operator signed in somewhere else, so the notice shows before the hosting service's sign-in", () => {
+    expect(signInUrlFor({ AEOLUS_HOSTED_SIGN_IN_URL: 'https://pagasae.example.com/sign-in' }, { requestUrl: 'https://fleet.example.com/ships', ended: 'signedInElsewhere' }).href).toBe('https://fleet.example.com/sign-in?notice=signed-in-elsewhere');
   });
 });
 

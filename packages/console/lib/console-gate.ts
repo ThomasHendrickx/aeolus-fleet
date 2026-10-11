@@ -9,17 +9,19 @@ const SESSION_CHECK_TIMEOUT_MS = 3000;
 const UNAUTHORIZED = 401;
 
 /**
- * Where a request without a session goes: the hosting service's sign-in when
- * AEOLUS_HOSTED_SIGN_IN_URL is set, the console's own otherwise, saying so
- * when the operator signed in somewhere else, as a read or call that hears it
- * does (lib/session.ts).
+ * Where a request without a session goes. When the operator signed in
+ * somewhere else, the console's own sign-in says so, as a read or call that
+ * hears it does (lib/session.ts), hosted or not: a hosted console shows the
+ * notice there before the hosting service's sign-in. Otherwise the hosting
+ * service's sign-in when AEOLUS_HOSTED_SIGN_IN_URL is set, the console's own
+ * when not.
  */
 export function signInUrlFor(environment: Readonly<Record<string, string | undefined>>, { requestUrl, ended = 'ended' }: { requestUrl: string; ended?: 'ended' | 'signedInElsewhere' }): URL {
-  const hosted = hostedSignInUrlFrom(environment);
-  if (hosted !== undefined) {
-    return new URL(hosted, requestUrl);
+  if (ended === 'signedInElsewhere') {
+    return new URL('/sign-in?notice=signed-in-elsewhere', requestUrl);
   }
-  return new URL(ended === 'signedInElsewhere' ? '/sign-in?notice=signed-in-elsewhere' : '/sign-in', requestUrl);
+  const hosted = hostedSignInUrlFrom(environment);
+  return new URL(hosted ?? '/sign-in', requestUrl);
 }
 
 /** Where the request's console session stands: live, ended (no session cookie, or the server refuses it), ended because the operator signed in somewhere else, or unknown when the server does not answer. */

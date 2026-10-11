@@ -1,7 +1,7 @@
 'use client';
 
 import { signInEmailProblem, signInPasswordProblem } from '@aeolus-fleet/common/rules';
-import { CircleAlert, Info, Timer } from 'lucide-react';
+import { CircleAlert, Timer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import { useForm } from 'react-hook-form';
@@ -15,6 +15,7 @@ import { signInRefusal } from '../../lib/sign-in';
 import { Button } from '../atoms/button';
 import { Input } from '../atoms/input';
 import { Label } from '../atoms/label';
+import { SignedInElsewhereNotice } from '../molecules/signed-in-elsewhere-notice';
 
 const noSubscription = () => () => undefined;
 
@@ -91,18 +92,7 @@ export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewher
           </div>
         </div>
       ) : isSignedInElsewhere ? (
-        <div
-          data-testid="sign-in-signed-in-elsewhere"
-          className="flex gap-2.5 rounded-lg border border-border bg-muted px-3.5 py-3 text-meta text-foreground"
-        >
-          <Info aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-muted-foreground" />
-          <div role="status" className="flex flex-col gap-0.5">
-            <p className="font-medium">You signed in somewhere else</p>
-            <p className="text-muted-foreground">
-              This session ended when you signed in on another device. Sign in again to use the console here.
-            </p>
-          </div>
-        </div>
+        <SignedInElsewhereNotice />
       ) : null}
       <form
         method="post"
