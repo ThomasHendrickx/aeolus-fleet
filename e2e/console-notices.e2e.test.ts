@@ -9,6 +9,7 @@ import type { AppRouter } from '../packages/core/src/index.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/test/support/database.js';
 import { newKey } from '../packages/core/test/support/keys.js';
+import { holdSignOutSlow } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The installation's notices (decision 0023), end to end: set through the
@@ -16,6 +17,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 // audience, dismissed per session, and a link that signs out.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
+/** How long after leaving the calls the page sends are watched. */
+const AFTER_SIGN_OUT_MS = 3_000;
 
 let server: FastifyInstance;
 let serverUrl: string;
@@ -116,5 +119,19 @@ describe('the notices above the console', () => {
     await page.goto('/');
 
     await page.waitForURL(/\/sign-in/);
+  });
+
+  it('sends no call once a link that signs out has started Sign out, while its answer is slow', async () => {
+    const page = await signedIn('viewer');
+    const signOut = holdSignOutSlow(page);
+
+    await notice(page, 'read-only').getByRole('button', { name: 'Leave' }).click();
+    await signOut.started;
+    // Coming back to the page while Sign out is on its way asks its reads again; TanStack Query hears it on window.
+    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
+    await page.waitForURL(`${web.url}/sign-in`);
+    await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
+
+    expect(signOut.callsSent).toEqual([]);
   });
 });
