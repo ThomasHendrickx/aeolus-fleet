@@ -8,7 +8,7 @@ export type RecoverFormations = (fleetId: FleetId) => Promise<Result<{ recovered
 
 /**
  * Use case: at start, and on connecting, squadrons undoes every formation of a
- * fleet a crash left unfinished, so forming stays all or nothing across a crash (a controller is
+ * fleet a crash or a refused retire left unfinished, so forming stays all or nothing across a crash (a controller is
  * safe to kill at any moment and recomputes from what it stored). Every ship
  * the attempt recorded is retired: by its id, or, for one commissioned but
  * killed before its id was recorded, by its name among the fleet's ships. A
