@@ -23,7 +23,7 @@ import type {
 import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { UnitOfWork } from '../../domain/shared/unit-of-work.js';
-import type { Db, PrismaClient } from './client.js';
+import { BULK_TRANSACTION_TIME_MS, type Db, type PrismaClient } from './client.js';
 import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
 import {
@@ -108,6 +108,16 @@ class Refused extends Error {
  * inside the transaction and returned outside it.
  */
 export function createPrismaUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, {});
+}
+
+/** The same unit of work for a bulk operation, such as a fleet delete: it may run up to BULK_TRANSACTION_TIME_MS. */
+export function createPrismaBulkUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS });
+}
+
+/** A unit of work whose transactions take the given options over the client's. */
+function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number }): UnitOfWork<PrismaTx> {
   return {
     run: async <T, E>(work: (tx: PrismaTx) => Promise<Result<T, E>>): Promise<Result<T, E>> => {
       const outcome: { refusal?: Result<T, E> } = {};
@@ -121,7 +131,7 @@ export function createPrismaUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaT
           }
           await unit.events.flush();
           return result;
-        });
+        }, options);
       } catch (error) {
         if (error instanceof Refused && outcome.refusal) {
           return outcome.refusal;

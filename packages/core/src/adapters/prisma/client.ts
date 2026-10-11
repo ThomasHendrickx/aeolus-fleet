@@ -20,6 +20,13 @@ const CONNECTION_WAIT_MS = 10_000;
  */
 const TRANSACTION_TIME_MS = 5_000;
 
+/**
+ * How long a bulk operation's transaction may run instead: one whose work
+ * grows with the fleet's history, such as a fleet delete, so it legitimately
+ * runs past a call's time. Past this one it is refused as busy too.
+ */
+export const BULK_TRANSACTION_TIME_MS = 30_000;
+
 /** Creates a Prisma client on a pg connection pool for the given database. */
 export function createPrismaClient(databaseUrl: string): PrismaClient {
   return new PrismaClient({
