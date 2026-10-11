@@ -21,6 +21,7 @@ import { createPrismaFormationAttempts } from './adapters/prisma/formation-attem
 import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch, type FleetReach } from './adapters/flagships/flagship-watch.js';
+import { createFleetTurns } from './adapters/flagships/fleet-turns.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
 import { createAddRepository } from './core/catalogue/add-repository.js';
 import { createBlueprintCrew } from './core/catalogue/blueprint-crew.js';
@@ -200,7 +201,9 @@ export function createSquadronsApp(options: {
   // What this process declared to each fleet, so a pass declares or withdraws only what changed.
   const declarations: Declarations = new Map();
   const withdraw = createWithdrawNetworkRules({ door: network, management: store, declarations });
-  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw });
+  // Each fleet's rescans and its switch-off take turns (#626): a rescan in flight cannot declare the rules again after the switch-off withdrew them.
+  const turns = createFleetTurns();
+  const setFleetEnabled = createSetFleetEnabled({ switches, requests, hasher: sha256RequestHasher, clock, withdraw: (fleetId) => turns.take(fleetId, () => withdraw(fleetId)) });
   const readFleet = createReadFleet({ isServed, management: store });
   const deleteFleet = createDeleteFleet({ forgetter, requests, hasher: sha256RequestHasher, clock, withdraw });
   const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
@@ -334,6 +337,7 @@ export function createSquadronsApp(options: {
         isServed,
         operator,
         reach,
+        turns,
         log: server.log,
         rescanMs,
       });

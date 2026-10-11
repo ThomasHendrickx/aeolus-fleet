@@ -153,6 +153,8 @@ squadrons keeps each squadron's reach in place itself (#573, decisions 0031 and 
 
 Switching squadrons off for a fleet withdraws its declared rules at once (an empty list); if the fleet does not answer, the switch is kept and a later rescan withdraws them. The labels it assigned stay.
 
+A fleet's rescans run one at a time (#626): one asked while another runs waits for it, and those asked meanwhile share one rescan after it. Switching off waits for the rescan in flight too, so that rescan cannot declare the rules again after they are withdrawn.
+
 ## Switched per fleet
 
 A hosting service can switch squadrons on or off per fleet (decision 0021). With no installation token configured the installation is open: every fleet is served, and nothing below applies.

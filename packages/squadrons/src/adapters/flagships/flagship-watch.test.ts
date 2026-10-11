@@ -8,6 +8,7 @@ import { err, ok, type Result } from '../../core/shared/result.js';
 import type { FlagshipOutcome } from '../../core/squadron/handle-flagship-delivery.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
 import { watchFlagships } from './flagship-watch.js';
+import { createFleetTurns } from './fleet-turns.js';
 
 const AT = new Date('2026-10-03T11:00:00.000Z');
 const FLAGSHIP: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0000';
@@ -71,6 +72,7 @@ describe('stopping the flagship watch', () => {
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -121,6 +123,7 @@ describe('the flagships of every connected fleet', () => {
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -158,6 +161,7 @@ describe('the flagships of a fleet squadrons does not serve', () => {
       isServed: () => Promise.resolve(false),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -196,6 +200,7 @@ describe('a released flagship', () => {
         },
       },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -229,6 +234,7 @@ describe('a released flagship', () => {
           },
         },
         reach: untouchedReach,
+        turns: createFleetTurns(),
         log: silentLog,
         rescanMs: 60_000,
       });
@@ -276,6 +282,7 @@ describe('the flagship of a squadron standing down', () => {
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -311,6 +318,7 @@ describe('the flagship of a squadron standing down', () => {
         },
       },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -335,6 +343,7 @@ describe('the flagship of a squadron standing down', () => {
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -372,6 +381,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
           return Promise.resolve();
         },
       },
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -402,6 +412,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
           return Promise.resolve();
         },
       },
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -436,6 +447,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
         },
         withdraw: () => Promise.resolve(),
       },
+      turns: createFleetTurns(),
       log: silentLog,
       rescanMs: 60_000,
     });
@@ -445,12 +457,98 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
 
     expect(kept).toEqual([OTHER_FLEET_ID]);
   });
+});
 
-  it("are kept by one rescan at a time: a rescan while the fleet's are being kept leaves them to it, so nothing is declared twice", async () => {
+/** A gate the test opens: a pass waiting on it stays in flight until then. */
+function aGate(): { opened: Promise<void>; open: () => void } {
+  let open = (): void => undefined;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { opened, open };
+}
+
+/** Lets every pass that could start start. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+describe("a fleet's rescans (#626)", () => {
+  it("never overlap: a rescan while one is advancing the fleet's stand-downs or keeping its reach waits for it", async () => {
     const store = memoryManagementStore();
     await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
-    let keeps = 0;
-    let finish = (): void => undefined;
+    const gate = aGate();
+    let inFlight = 0;
+    let mostInFlight = 0;
+    const pass = async (): Promise<void> => {
+      inFlight += 1;
+      mostInFlight = Math.max(mostInFlight, inFlight);
+      await gate.opened;
+      inFlight -= 1;
+    };
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: pass,
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      reach: { keep: pass, withdraw: () => Promise.resolve() },
+      turns: createFleetTurns(),
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    const first = watch.rescan();
+    const second = watch.rescan();
+    await settle();
+    gate.open();
+    await Promise.all([first, second]);
+    await watch.stop();
+
+    expect(mostInFlight).toBe(1);
+  });
+
+  it('asked while one runs share one rescan after it, so none is lost and none piles up', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    const gate = aGate();
+    let advances = 0;
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: async () => {
+        advances += 1;
+        await gate.opened;
+      },
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
+      turns: createFleetTurns(),
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    const first = watch.rescan();
+    await expect.poll(() => advances).toBe(1);
+    const asked = [watch.rescan(), watch.rescan(), watch.rescan()];
+    gate.open();
+    await Promise.all([first, ...asked]);
+    await watch.stop();
+
+    expect(advances).toBe(2);
+  });
+
+  it('do not undo a switch-off: its withdrawal waits for the rescan keeping the fleet, so the rules it declares are withdrawn after', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    const gate = aGate();
+    const turns = createFleetTurns();
+    const done: string[] = [];
+    let isKeeping = false;
     const watch = watchFlagships({
       door: fakeManagementFleet().door,
       management: store,
@@ -460,29 +558,29 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: {
-        keep: () => {
-          keeps += 1;
-          return new Promise<void>((resolve) => {
-            finish = resolve;
-          });
+        keep: async () => {
+          isKeeping = true;
+          await gate.opened;
+          done.push('declared');
         },
         withdraw: () => Promise.resolve(),
       },
+      turns,
       log: silentLog,
       rescanMs: 60_000,
     });
 
-    const first = watch.rescan();
-    await expect.poll(() => keeps).toBe(1);
-    await watch.rescan();
-    finish();
-    await first;
-    const third = watch.rescan();
-    await expect.poll(() => keeps).toBe(2);
-    finish();
-    await third;
+    const rescan = watch.rescan();
+    await expect.poll(() => isKeeping).toBe(true);
+    const switchedOff = turns.take(FLEET_ID, () => {
+      done.push('withdrawn');
+      return Promise.resolve();
+    });
+    await settle();
+    gate.open();
+    await Promise.all([rescan, switchedOff]);
     await watch.stop();
 
-    expect(keeps).toBe(2);
+    expect(done).toEqual(['declared', 'withdrawn']);
   });
 });
