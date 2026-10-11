@@ -1,7 +1,7 @@
 import type { consoleGuideOutputSchema, GuideStep } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { z } from 'zod';
 
 import { showToast } from '../components/atoms/toast';
@@ -65,6 +65,19 @@ export function useGuideAnchor(step: GuideStep | undefined): Element | null {
     () => visibleElement(selector),
     () => null,
   );
+}
+
+/**
+ * Brings a step's anchor into view before its popover shows (#690): an anchor
+ * below the fold would leave the popover pointing at nothing the visitor sees.
+ * Centred, so the popover has room beside it. Called once, where the guide
+ * shows.
+ */
+export function useAnchorInView(anchor: Element | null): void {
+  // The page's scroll is an outside system the guide moves, before paint.
+  useLayoutEffect(() => {
+    anchor?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }, [anchor]);
 }
 
 /**
