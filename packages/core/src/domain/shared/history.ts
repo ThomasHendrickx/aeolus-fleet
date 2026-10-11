@@ -102,13 +102,27 @@ export interface UndeliverableEntry {
   message: Omit<HistoryMessage, 'delivery'>;
 }
 
-/** A message to a ship, as its inbox lists it: its delivery's state, when it was read and done, and the reply that made it done. */
+/** A reply the inbox's ship sent to a message in its inbox. */
+export interface InboxReply {
+  id: MessageId;
+  contentType: string;
+  payload: string;
+  sentAt: Date;
+}
+
+/**
+ * A message to a ship, as its inbox lists it: its delivery's state, when it
+ * was read and done, the reply that made it done, and every reply the ship
+ * sent to it, oldest first (a question is open until one answers it, decision
+ * 0038).
+ */
 export interface InboxEntry {
   deliveryId: DeliveryId;
   state: DeliveryState;
   readAt: Date | null;
   doneAt: Date | null;
   repliedWith: MessageId | null;
+  replies: InboxReply[];
   message: Omit<HistoryMessage, 'delivery' | 'recipient'>;
 }
 

@@ -49,6 +49,7 @@ import { createMarkDone, type MarkDone } from './domain/messaging/mark-done.js';
 import { createMarkRead, type MarkRead } from './domain/messaging/mark-read.js';
 import type { ReceiverWakeups } from './domain/messaging/ports.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './domain/messaging/receive-deliveries.js';
+import { createAnswerQuestion, type AnswerQuestion } from './domain/messaging/answer-question.js';
 import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/reply-to-message.js';
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
@@ -167,6 +168,7 @@ export interface UseCases {
   markRead: MarkRead;
   markDone: MarkDone;
   replyToMessage: ReplyToMessage;
+  answerQuestion: AnswerQuestion;
   readFleetEvents: ReadFleetEvents;
   followFleet: FollowFleet;
   readShipTimeline: ReadShipTimeline;
@@ -310,6 +312,7 @@ export function createUseCases(options: {
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
     replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    answerQuestion: createAnswerQuestion({ uow, clock, ids, hasher: sha256Hasher }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),

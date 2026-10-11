@@ -238,6 +238,13 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       );
       const found = rows.map((row) => ({ row, message: toMessage(row.message) }));
       const party = await partiesOf(db, { fleetId, shipIds: found.map(({ message }) => message.senderShipId) });
+      // The ship's own replies to its inbox's messages, oldest first.
+      const replies = (
+        await db.message.findMany({
+          where: { fleetId, senderShipId: shipId, inReplyToMessageId: { in: found.map(({ message }) => message.id) } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        })
+      ).map(toMessage);
       return found.map(({ row, message }) => {
         const deliveryId = idSchema('delivery').parse(row.id);
         const done = acknowledged.get(deliveryId);
@@ -248,6 +255,9 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           readAt: row.readAt,
           doneAt: done?.occurredAt ?? null,
           repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+          replies: replies
+            .filter((held) => held.inReplyToMessageId === message.id)
+            .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
           message: {
             id: message.id,
             sender: party(message.senderShipId),

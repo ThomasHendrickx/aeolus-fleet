@@ -1368,6 +1368,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
               doneAt: acknowledged?.occurredAt ?? null,
               repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+              replies: state.messages
+                .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
+                .sort((first, second) => newestFirst(second, first))
+                .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
               message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
             };
           }),
