@@ -129,6 +129,7 @@ export default defineConfig({
           name: 'plugin:unit',
           root: 'plugins/aeolus',
           include: ['test/**/*.test.ts'],
+          setupFiles: ['test/foreign-harness.setup.ts'],
           testTimeout: 30_000,
         },
       },
