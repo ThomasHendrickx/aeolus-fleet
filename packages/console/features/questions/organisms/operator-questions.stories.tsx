@@ -23,6 +23,7 @@ function aQuestion(
     doneAt: null,
     repliedWith: null,
     question: { answer: null, ...question },
+    stale: null,
     message: {
       id: messageId(suffix),
       sender: { id: shipId(suffix), name: sender },
