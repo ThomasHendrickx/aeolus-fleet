@@ -16,14 +16,15 @@ export type ReplyToMessageRefusal = DomainError<'DELIVERY_NOT_FOUND' | 'NOT_THE_
 
 export type ReplyToMessage = (
   crew: Crew,
-  input: { deliveryId: DeliveryId; payload: string; idempotencyKey: string },
+  input: { deliveryId: DeliveryId; payload: string; contentType?: string; idempotencyKey: string },
 ) => Promise<Result<{ messageId: MessageId }, ReplyToMessageRefusal>>;
 
 /**
  * Use case: argo replies to a message to it from the operator inbox
  * (docs/blueprint.md, "Inbox"). Its scopes (messages:send and
  * messages:receive) are checked before this runs. One unit of work: the reply
- * as plain text from argo to the message's sender, naming the message, as a
+ * (plain text unless argo gives another content type, passed on untouched as a
+ * send's) from argo to the message's sender, naming the message, as a
  * send would store it, and the message marked done, its acknowledgement
  * naming the reply. A message already done stays done; the reply is a new
  * message all the same. A repeat of the key answers the same reply. Any
@@ -51,7 +52,7 @@ export function createReplyToMessage(deps: {
         {
           selector: { kind: 'ship', shipId: asked.senderShipId },
           payload: input.payload,
-          contentType: 'text/plain',
+          contentType: input.contentType ?? 'text/plain',
           idempotencyKey: input.idempotencyKey,
           inReplyTo: asked.id,
         },

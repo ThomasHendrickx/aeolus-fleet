@@ -4,6 +4,7 @@ import { useSubscription } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
 import type { LiveState } from '../components/molecules/live-status';
+import { QUESTIONS_KEY } from './questions';
 import { useTRPC } from './trpc';
 
 /**
@@ -136,6 +137,7 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.shipMessages.pathKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
+            reload(QUESTIONS_KEY);
           }
           if (isAttentionChange(event.type)) {
             reload(trpc.fleet.needsAttention.queryKey());

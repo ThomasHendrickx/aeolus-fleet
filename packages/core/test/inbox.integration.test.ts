@@ -149,6 +149,53 @@ describe("argo's inbox on Postgres", () => {
     ]);
   });
 
+  it("lists argo's own replies to a message, oldest first, each with its content type and payload", async () => {
+    const asked = await toArgo('Promote 2.14?');
+    core.clock.advance(1_000);
+    const { messageId: first } = unwrap(
+      await core.useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: 'go' }),
+    );
+    const firstAt = core.clock.now();
+    core.clock.advance(1_000);
+    const { messageId: second } = unwrap(
+      await core.useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'and thanks', idempotencyKey: 'thanks' }),
+    );
+    unwrap(
+      await core.useCases.sendMessage(captain, {
+        ...modelOf(captain),
+        selector: { kind: 'ship', shipId: captain.shipId },
+        payload: 'a note to self',
+        inReplyTo: asked.messageId,
+        idempotencyKey: 'self',
+      }),
+    );
+
+    const [entry] = await core.useCases.readInbox(argo, { filter: 'all' });
+
+    expect(entry?.replies).toEqual([
+      { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
+      { id: second, contentType: 'text/plain', payload: 'and thanks', sentAt: core.clock.now() },
+    ]);
+  });
+
+  it('replies with the content type argo gives', async () => {
+    const asked = await toArgo('Promote 2.14?');
+
+    const { messageId } = unwrap(
+      await core.useCases.replyToMessage(argo, {
+        deliveryId: asked.deliveryId,
+        payload: '{"go":true}',
+        contentType: 'application/vnd.example.answer+json',
+        idempotencyKey: 'answer',
+      }),
+    );
+
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      inReplyToMessageId: asked.messageId,
+      contentType: 'application/vnd.example.answer+json',
+    });
+  });
+
   it('refuses a reply to a retired sender and rolls back: nothing sent, the message still open', async () => {
     const asked = await toArgo('Promote 2.14?');
     unwrap(await core.useCases.retireShip(operator, { shipId: captain.shipId }));

@@ -1405,6 +1405,27 @@ describe("argo's inbox at the API", () => {
     });
   });
 
+  it("reply with a content type, and list argo's replies to each message in the inbox", async () => {
+    const asArgo = await signedInArgo();
+    const { deliveryId, messageId, crewToken } = await toArgo('Promote 2.14?');
+    await asArgo.fleet.markDone.mutate({ deliveryId });
+
+    const reply = await asArgo.fleet.reply.mutate({
+      deliveryId,
+      payload: '{"go":true}',
+      contentType: 'application/vnd.example.answer+json',
+      idempotencyKey: `answer-${deliveryId}`,
+    });
+
+    const { deliveries } = await client({ authorization: `Bearer ${crewToken}` }).ship.receive.mutate({});
+    expect(deliveries).toEqual([
+      expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
+    ]);
+    expect((await asArgo.fleet.inbox.query({ filter: 'all' })).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
+      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', sentAt: clock.now().toISOString() },
+    ]);
+  });
+
   it("answer NOT_FOUND for a delivery not in argo's inbox", async () => {
     const asArgo = await signedInArgo();
 

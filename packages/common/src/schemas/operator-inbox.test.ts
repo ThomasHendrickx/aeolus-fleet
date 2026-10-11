@@ -38,6 +38,7 @@ describe('operatorInboxOutputSchema', () => {
     readAt: null,
     doneAt: null,
     repliedWith: null,
+    replies: [],
     message: {
       id: newId('message'),
       sender: releaseCaptain,
@@ -51,6 +52,18 @@ describe('operatorInboxOutputSchema', () => {
 
   it('takes an open message, unread', () => {
     expect(operatorInboxOutputSchema.parse([open])).toEqual([open]);
+  });
+
+  it("takes argo's replies to it, each with its content type and payload", () => {
+    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', sentAt: AT }] };
+
+    expect(operatorInboxOutputSchema.parse([replied])).toEqual([replied]);
+  });
+
+  it("refuses an entry that does not list argo's replies", () => {
+    const withoutReplies = Object.fromEntries(Object.entries(open).filter(([key]) => key !== 'replies'));
+
+    expect(operatorInboxOutputSchema.safeParse([withoutReplies]).success).toBe(false);
   });
 
   it('takes a done message, read, with the reply that made it done', () => {
@@ -98,6 +111,16 @@ describe('replyInputSchema', () => {
 
   it('refuses an empty key', () => {
     expect(replyInputSchema.safeParse({ ...reply, idempotencyKey: '' }).success).toBe(false);
+  });
+
+  it('takes the content type of the reply', () => {
+    const typed = { ...reply, contentType: 'application/vnd.example.answer+json' };
+
+    expect(replyInputSchema.parse(typed)).toEqual(typed);
+  });
+
+  it('refuses a content type that is no media type', () => {
+    expect(replyInputSchema.safeParse({ ...reply, contentType: 'not a type' }).success).toBe(false);
   });
 });
 

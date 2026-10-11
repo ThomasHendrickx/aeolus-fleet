@@ -1,16 +1,18 @@
-import { Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { CircleHelp, Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'questions' | 'inbox' | 'attention';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
   active: TabBarDestination | undefined;
-  /** Open messages to argo; hidden until known, and when there are none. */
+  /** Open questions to argo; hidden until known, and when there are none. */
+  questionsCount?: number;
+  /** Open messages to argo, questions left out; hidden until known, and when there are none. */
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
@@ -65,14 +67,15 @@ function Tab({
 
 /**
  * Phone navigation (docs/design/png/TabBar.png): 68 px including the safe
- * area, the same destinations and counts as Sidebar: Fleet; Inbox with the
- * open messages to argo counted on its icon in --primary; and Attention with
+ * area, the same destinations and counts as Sidebar: Fleet; Questions with
+ * the open questions to argo and Inbox with its other open messages, each
+ * counted on its icon in --primary; and Attention with
  * the undeliverable deliveries counted in the attention tone. With squadrons
  * on, Squadrons is the second tab; with the trierarch plugin on, Trierarchs
  * follows it. Settings and Network have no tab: the account sheet offers them.
  * The active tab uses --primary for icon and label.
  */
-export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
+export function TabBar({ active, questionsCount, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
@@ -91,6 +94,14 @@ export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = fals
           count={{ value: trierarchsCount, tone: 'attention', words: 'silent' }}
         />
       )}
+      <Tab
+        href="/questions"
+        label="Questions"
+        icon={<CircleHelp aria-hidden />}
+        isActive={active === 'questions'}
+        testId="tab-questions"
+        count={{ value: questionsCount, tone: 'primary', words: 'open' }}
+      />
       <Tab
         href="/inbox"
         label="Inbox"
