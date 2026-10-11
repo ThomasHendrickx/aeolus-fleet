@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { createServer, type Server } from 'node:http';
 
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page, WebSocketRoute } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -32,6 +32,8 @@ const clock = createTestClock(new Date().toISOString());
 const SLOW_WAY_OUT_MS = 2_000;
 /** How long after leaving the calls the page sends are watched. */
 const AFTER_LEAVING_MS = 3_000;
+/** How long a page's live subscription waits before it reaches the server: longer than the page takes to show its reads. */
+const LATE_LIVE_MS = 2_000;
 
 /** A squadrons that is connected and has no squadron and no blueprint. */
 function aConnectedSquadrons(): Server {
@@ -104,9 +106,38 @@ async function aSquadronsPageHearingOnlyItsReads(): Promise<Page> {
   return page;
 }
 
-/** A signed-in page on the squadrons list, whose reads ask again every few seconds. */
-async function aSquadronsPage(): Promise<Page> {
+/**
+ * Holds the page's live subscription for a while before it reaches the
+ * server, as a slow WebSocket does: what the page sends meanwhile waits and
+ * goes once the server is reached.
+ */
+async function holdLiveSubscription(page: Page): Promise<void> {
+  await page.routeWebSocket(/\/trpc$/, (socket) => {
+    const waiting: (string | Buffer)[] = [];
+    let server: WebSocketRoute | undefined;
+    socket.onMessage((message) => {
+      if (server === undefined) {
+        waiting.push(message);
+      } else {
+        server.send(message);
+      }
+    });
+    setTimeout(() => {
+      const reached = socket.connectToServer();
+      for (const message of waiting.splice(0)) {
+        reached.send(message);
+      }
+      server = reached;
+    }, LATE_LIVE_MS);
+  });
+}
+
+/** A signed-in page on the squadrons list, whose reads ask again every few seconds; its live subscription comes late when asked. */
+async function aSquadronsPage({ isLiveLate = false }: { isLiveLate?: boolean } = {}): Promise<Page> {
   const page = await aSignedInPage();
+  if (isLiveLate) {
+    await holdLiveSubscription(page);
+  }
   await page.goto('/squadrons');
   await page.getByText('No blueprints found').waitFor();
   return page;
@@ -133,7 +164,8 @@ describe('a console page whose session ended', () => {
   });
 
   it('sends no call once a read is refused for the ended session, while the way to sign in is slow', async () => {
-    const page = await aSquadronsPage();
+    // A live subscription that comes late must not be the call that hears the session ended (#645).
+    const page = await aSquadronsPage({ isLiveLate: true });
     let isRefused = false;
     const callsAfterRefusal: string[] = [];
     page.on('response', (response) => {
