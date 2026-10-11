@@ -174,8 +174,8 @@ describe.each([
     await page.waitForLoadState('networkidle');
     const held = holdOneAnswer(page, 'fleet.list');
     const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.list'), { timeout: ASKED_AGAIN_MS });
-    // Coming back to the page asks its reads again, the fleet among them.
-    await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+    // Coming back to the page asks its reads again, the fleet among them; TanStack Query hears it on window.
+    await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
     await askedAgain;
     await held.reached;
 
