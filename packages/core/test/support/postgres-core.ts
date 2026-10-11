@@ -74,21 +74,40 @@ export function racingUnitOfWork(
   return { run: (work) => uow.run((tx) => work(holdAt(tx, allArrived))) };
 }
 
+/** How often a held transaction looks whether another one waits for its locks. */
+const WAITER_POLL_MS = 10;
+
+/** Settles once a transaction on this database waits for a lock: there, the one a held transaction holds. */
+async function aTransactionWaits(prisma: PrismaClient): Promise<void> {
+  for (;;) {
+    const [found] = await prisma.$queryRaw<{ isWaiting: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'
+      ) AS "isWaiting"`;
+    if (found?.isWaiting === true) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, WAITER_POLL_MS));
+  }
+}
+
 /**
  * The Prisma unit of work, with its transaction held at one step: `reached`
  * settles when the transaction gets there, holding every lock it took before,
- * and the transaction goes on a moment later. Another transaction started
- * meanwhile meets those locks. `holdAt` returns the ports with the step wrapped.
+ * and the transaction goes on once another transaction waits for one of those
+ * locks, however late that one comes (#630). For a race whose other side
+ * never waits for it, `hold(until)` goes on once `until` settles instead.
+ * `holdAt` returns the ports with the step wrapped.
  */
 export function heldUnitOfWork(
   prisma: PrismaClient,
-  holdAt: (tx: PrismaTx, hold: () => Promise<void>) => PrismaTx,
+  holdAt: (tx: PrismaTx, hold: (until?: Promise<void>) => Promise<void>) => PrismaTx,
 ): { uow: UnitOfWork<PrismaTx>; reached: Promise<void> } {
   const uow = createPrismaUnitOfWork(prisma);
   const reached = Promise.withResolvers<undefined>();
-  const hold = async () => {
+  const hold = async (until?: Promise<void>) => {
     reached.resolve(undefined);
-    await new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS));
+    await (until ?? aTransactionWaits(prisma));
   };
   return { uow: { run: (work) => uow.run((tx) => work(holdAt(tx, hold))) }, reached: reached.promise };
 }
