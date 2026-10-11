@@ -9,6 +9,7 @@ import { trierarchPluginVersionOf, webVersion } from './version';
 const SERVER = { server: '0.7.0', common: '0.7.0', migration: '20261001040000_lease_last_seen' };
 const SQUADRONS = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connectedFleets: 2, installation: 'enabled' };
 const TRIERARCH_PLUGIN = { trierarchPlugin: '0.19.0', migration: '20261005090000_machines', connectedFleets: 1, installation: 'open' };
+const NETWORKING_PLUGIN = { networkingPlugin: '0.21.0' };
 
 /** An address nothing listens on, so a call there fails. */
 const NOWHERE = 'http://127.0.0.1:9';
@@ -69,10 +70,19 @@ describe('webVersion', () => {
     const server = await aProcessAnswering(200, SERVER);
     const squadrons = await aProcessAnswering(200, SQUADRONS);
     const trierarchPlugin = await aProcessAnswering(200, TRIERARCH_PLUGIN);
+    const networkingPlugin = await aProcessAnswering(200, NETWORKING_PLUGIN);
 
-    const answer = await webVersion({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: squadrons.url, AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url }, '0.7.0');
+    const answer = await webVersion(
+      {
+        AEOLUS_SERVER_INTERNAL_URL: server.url,
+        AEOLUS_SQUADRONS_URL: squadrons.url,
+        AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url,
+        AEOLUS_NETWORKING_PLUGIN_URL: networkingPlugin.url,
+      },
+      '0.7.0',
+    );
 
-    expect({ answer, pluginCalls: squadrons.calls() + trierarchPlugin.calls() }).toEqual({ answer: { web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } }, pluginCalls: 0 });
+    expect({ answer, pluginCalls: squadrons.calls() + trierarchPlugin.calls() + networkingPlugin.calls() }).toEqual({ answer: { web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } }, pluginCalls: 0 });
   });
 });
 

@@ -66,14 +66,20 @@ describe('webHealth', () => {
     expect(Object.keys(body)).toEqual(['web', 'server', 'database']);
   });
 
-  it('says nothing about plugins, and never asks them, even when the console has squadrons and the trierarch plugin', async () => {
+  it('says nothing about plugins, and never asks them, even when the console has squadrons, the trierarch plugin and the networking plugin', async () => {
     const server = await serverUp();
     const squadrons = await aProcessAnswering(200, { status: 'ok', connectedFleets: 2, installation: 'enabled' });
-    const plugin = await aProcessAnswering(200, { status: 'ok', connectedFleets: 1, installation: 'open' });
+    const trierarchPlugin = await aProcessAnswering(200, { status: 'ok', connectedFleets: 1, installation: 'open' });
+    const networkingPlugin = await aProcessAnswering(200, { status: 'ok' });
 
-    const health = await webHealth({ AEOLUS_SERVER_INTERNAL_URL: server.url, AEOLUS_SQUADRONS_URL: squadrons.url, AEOLUS_TRIERARCH_PLUGIN_URL: plugin.url });
+    const health = await webHealth({
+      AEOLUS_SERVER_INTERNAL_URL: server.url,
+      AEOLUS_SQUADRONS_URL: squadrons.url,
+      AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url,
+      AEOLUS_NETWORKING_PLUGIN_URL: networkingPlugin.url,
+    });
 
     expect(health).toEqual({ isHealthy: true, body: { web: 'up', server: 'up', database: 'up' } });
-    expect(squadrons.calls() + plugin.calls()).toBe(0);
+    expect(squadrons.calls() + trierarchPlugin.calls() + networkingPlugin.calls()).toBe(0);
   });
 });
