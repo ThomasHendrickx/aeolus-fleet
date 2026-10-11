@@ -1,6 +1,6 @@
 # @aeolus-fleet/trierarch-plugin
 
-Brings your machines into the fleet and places each crew request on a machine that fits. The trierarchs' plugin on the server side (decision 0030): it brings machines into the fleet and assigns crew requests to their trierarchs. Optional: a fleet works without it. Aeolus knows nothing about it beyond its ship, which holds `fleet:read`, `fleet:manage`, `crew:assign`, `labels:define` and `labels:assign` and reaches the fleet only through its public API. What it does is in [docs/trierarch.md](../../docs/trierarch.md).
+Brings your machines into the fleet and places each crew request on a machine that fits. It is the trierarchs' plugin on the server side (decision 0030). Optional: a fleet works without it. Aeolus knows nothing about it beyond its ship, which holds `fleet:read`, `fleet:manage`, `crew:assign`, `labels:define` and `labels:assign` and reaches the fleet only through its public API. What it does is in [docs/trierarch.md](../../docs/trierarch.md).
 
 So far: its own process and small database (each fleet's connection and switch), the connection the operator makes as its ship, a machine joining, the machines with their trierarchs' reports, assignment (docs/trierarch.md, "Assignment"), the installation procedures, `/api/health` and `/api/version`.
 
