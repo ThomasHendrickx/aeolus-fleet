@@ -105,7 +105,7 @@ No squadron prefix by default: membership is known by squadrons and shown with S
 - **Squadron id:** the blueprint's name plus six random lowercase alphanumerics, `hemma-feature-a1b2c3`, unless the operator gives one when forming. It is a ship handle, so it can name ships.
 - **Flagship:** named as the squadron id (`hemma-feature-a1b2c3`), type `flagship`. "Message the squadron" means messaging this ship, and a member finds its flagship from the squadron id in its crew line. The squadron page offers Message, to the flagship, until the squadron is Disbanded (Forming, Sailing and Standing down), to a session that may send: Aeolus blocks no message. A member's menu on that page offers no Release: Get new crew line is how a member gets a new session. While the squadron is Standing down, and once it is Disbanded, the page says what that state means, with no time: the squadrons API records none for either. The page of a ship in a squadron, its flagship or a member, sits below it: the breadcrumb reads Squadrons, the squadron, the ship, and each level above links up to it.
 - **Members:** `<role>-<four random lowercase alphanumerics>`, `implementer-k3x9`, so two squadrons formed from one blueprint never ask for the same name. A blueprint may choose prefixed names with `memberNames: prefixed`, which gives `<squadron id>:<role>-<n>` (`hemma-feature-a1b2c3:implementer-1`).
-- **Member types:** every member of one role in one squadron has the ship type `<squadron id>:<role>` (`hemma-feature-a1b2c3:implementer`). A hand-off to a role is a message to any ship of that type, so the first free member of the role takes it, and no other squadron's ship ever does. The type carries the membership, never a label (decision 0031); names carry none.
+- **Member types:** every member of one role in one squadron has the ship type `<squadron id>:<role>` (`hemma-feature-a1b2c3:implementer`). A hand-off to a role is a message to any ship of that type, so the first free member of the role takes it, and no other squadron's ship ever does. The type carries the membership; names carry none. The squadron label carries reach only (see Labels and reach).
 - **The flagship has no template:** squadrons crews it itself.
 - **What squadrons' ships state:** its management ship and every flagship state `@aeolus-fleet/squadrons@<version>`, the version it runs, as their model on every send, and `aeolus-squadrons` as their harness (decision 0018).
 
@@ -136,11 +136,22 @@ The lifecycle of a squadron and its members (states, transitions, stand down, fo
 
 ## Connection
 
-One squadrons install serves every fleet at its `FLEET_URL`, with one connection per fleet (decision 0021): each fleet's operator connects it for their own fleet, and works on that fleet only. squadrons starts not connected to a fleet: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read` and `fleet:manage`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds both scopes (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
+One squadrons install serves every fleet at its `FLEET_URL`, with one connection per fleet (decision 0021): each fleet's operator connects it for their own fleet, and works on that fleet only. squadrons starts not connected to a fleet: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read`, `fleet:manage`, `labels:define` and `labels:assign`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds `fleet:read` and `fleet:manage` (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
 
 - **Not connected:** that fleet's forming and flagships wait, and the squadrons API answers its operator that squadrons is not connected.
 - **Connected:** squadrons crews each fleet's ship again with its kept crew token after a restart.
 - **Released:** when the operator releases the management ship, squadrons drops that fleet's crew token and is not connected to it; other fleets stay connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
+
+## Labels and reach
+
+squadrons keeps each squadron's reach in place itself (#573, decisions 0031 and 0037), so argo writes no rule per squadron. On every rescan of a fleet it serves (every interval, and after forming and standing down) it:
+
+- **defines and assigns two labels it owns:** `squadron`, with one value per squadron that is not disbanded, its id; and `squadron-role`, with `flagship` and `squadrons`. Each such squadron's flagship carries `squadron=<id>` and `squadron-role=flagship`, each member that serves `squadron=<id>`, and its management ship `squadron-role=squadrons`. A value no ship carries any more and no squadron needs is removed. A key another ship owns is left alone;
+- **declares three rules** with `fleet.declareNetworkRules`: `squadron=#` to `squadron=#` (every ship reaches the ships of its own squadron), `squadron-role=flagship` to `squadron-role=squadrons` and the reverse (the flagships and its management ship reach each other). No flagship reaches another. Declared once per process while its labels stay the same; they are in force only once a networking plugin supplies them (decision 0035);
+- **at the limit:** a label holds at most 50 values (decision 0031), so a squadron beyond them carries no squadron label and argo is told once: once rules are in force its ships do not reach each other by these rules. A value frees once a disbanded squadron's ships are retired;
+- **without the label scopes** (a management ship commissioned before them; scopes never change) it labels and declares nothing and logs why: retire the management ship and connect squadrons again.
+
+Switching squadrons off for a fleet withdraws its declared rules at once (an empty list); if the fleet does not answer, the switch is kept and a later rescan withdraws them. The labels it assigned stay.
 
 ## Switched per fleet
 
@@ -148,7 +159,7 @@ A hosting service can switch squadrons on or off per fleet (decision 0021). With
 
 - **Off until switched on:** with an installation token, a fleet is off until the hosting service switches it on.
 - **Off:** squadrons does nothing for the fleet. Its console shows nothing of squadrons; the squadrons API answers only `connection.status` (with `enabled: false`) and refuses the rest, Connect included; its flagships stop receiving and its stand-downs wait. Everything is kept: on again, it resumes as it was.
-- **Delete:** squadrons forgets everything it holds of the fleet: its repositories and their tokens, its catalogue, its squadrons and what their flagships kept, its formation attempts, its connection and its switch. The fleet is told nothing; its ships stay there.
+- **Delete:** squadrons withdraws its declared network rules from the fleet, then forgets everything it holds of the fleet: its repositories and their tokens, its catalogue, its squadrons and what their flagships kept, its formation attempts, its connection and its switch. While the fleet does not answer, the delete is refused (502) and forgets nothing, for the hosting service to retry. Its ships and the labels it assigned stay there.
 
 ## Template repositories
 
