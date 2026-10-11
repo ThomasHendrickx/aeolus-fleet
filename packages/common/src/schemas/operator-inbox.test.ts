@@ -38,6 +38,7 @@ describe('operatorInboxOutputSchema', () => {
     readAt: null,
     doneAt: null,
     repliedWith: null,
+    question: null,
     message: {
       id: newId('message'),
       sender: releaseCaptain,
@@ -51,6 +52,26 @@ describe('operatorInboxOutputSchema', () => {
 
   it('takes an open message, unread', () => {
     expect(operatorInboxOutputSchema.parse([open])).toEqual([open]);
+  });
+
+  it('takes a question with its answer, which the console shows as answerable', () => {
+    const question = {
+      id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47',
+      title: 'Which port?',
+      context: 'The docs name two.',
+      options: [{ key: 1, label: 'Keep 3000', detail: '' }],
+      pick: { option: 1, why: 'Nothing else needs it.' },
+      answer: { messageId: newId('message'), sentAt: AT, option: 1, note: null },
+    };
+    const asked = { ...open, question };
+
+    expect(operatorInboxOutputSchema.parse([asked])).toEqual([asked]);
+  });
+
+  it('refuses an entry that does not say whether it carries a question', () => {
+    const { question: _, ...withoutQuestion } = open;
+
+    expect(operatorInboxOutputSchema.safeParse([withoutQuestion]).success).toBe(false);
   });
 
   it('takes a done message, read, with the reply that made it done', () => {
