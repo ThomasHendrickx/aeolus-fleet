@@ -12,6 +12,8 @@ const AT = new Date('2026-10-03T09:00:00.000Z');
 
 let ships: { shipId: ShipId; name: string; isRetired: boolean }[];
 let attempts: ReturnType<typeof memoryAttempts>;
+/** How many retires of each name the fleet refuses as busy, storing nothing. */
+let retiresRefused: Map<string, number>;
 
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -31,6 +33,11 @@ const door: FleetDoor = {
   findLabelValue: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   retire: (_crewToken, { shipId }) => {
     const ship = ships.find((held) => held.shipId === shipId);
+    const refusals = ship ? (retiresRefused.get(ship.name) ?? 0) : 0;
+    if (ship && refusals > 0) {
+      retiresRefused.set(ship.name, refusals - 1);
+      return Promise.resolve(err({ code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored' }));
+    }
     if (!ship || ship.isRetired) {
       return Promise.resolve(err({ code: 'CONFLICT', message: 'retired already' }));
     }
@@ -55,6 +62,7 @@ beforeEach(async () => {
     { shipId: 'shp_01m3tbfspe96yf1rnr4ank0009', name: 'unrelated', isRetired: false },
   ];
   attempts = memoryAttempts();
+  retiresRefused = new Map();
   // A forming that died midway: the flagship and the planner recorded with their ids, the
   // tester commissioned but killed before its id was recorded, the last member never commissioned.
   await attempts.begin({ id: 'attempt-1', fleetId: FLEET, squadronId: 'team-a1b2c3', startedAt: AT });
@@ -92,5 +100,22 @@ describe('recovering formations a crash left unfinished', () => {
     }
 
     await expect(recover()).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 0 } });
+  });
+
+  it('keeps the attempt unfinished while the fleet refuses one of its retires (#738)', async () => {
+    retiresRefused.set('planner-k3x9', 1);
+
+    await expect(recover()).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 2 } });
+
+    expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([false]);
+  });
+
+  it('retires the refused ship on the next recovery, then finishes the attempt (#738)', async () => {
+    retiresRefused.set('planner-k3x9', 1);
+    await recover();
+
+    await expect(recover()).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 1 } });
+
+    expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
   });
 });

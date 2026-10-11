@@ -79,8 +79,8 @@ function fakeFleet() {
     /** The fleet's label values, by `key=value`. */
     labelValues: new Map<string, string>([['os=macos', 'lbv_01m3tbfspe96yf1rnr4ank9h3a']]),
     refuseCrewRequests: false,
-    /** Names whose first retire the fleet refuses as busy, storing nothing (#736). */
-    retiresRefused: new Set<string>(),
+    /** How many retires of each name the fleet refuses as busy, storing nothing (#736, #738). */
+    retiresRefused: new Map<string, number>(),
   };
   let next = 0;
   const door: FleetDoor = {
@@ -148,7 +148,9 @@ function fakeFleet() {
     listShips: () => Promise.resolve(ok(state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
     retire: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId);
-      if (ship && state.retiresRefused.delete(ship.name)) {
+      const refusals = ship ? (state.retiresRefused.get(ship.name) ?? 0) : 0;
+      if (ship && refusals > 0) {
+        state.retiresRefused.set(ship.name, refusals - 1);
         return Promise.resolve(err({ code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored' }));
       }
       if (ship) {
@@ -326,10 +328,22 @@ describe('the formation attempt', () => {
 
   it('keeps a ship whose retire the fleet refused, so recovering formations retires it later (#736)', async () => {
     fleet.state.refuseCommissionAfter = 3;
-    fleet.state.retiresRefused.add('hemma-feature-a1b2c3');
+    fleet.state.retiresRefused.set('hemma-feature-a1b2c3', 1);
     await form(fromHemmaFeature);
 
     await createRecoverFormations({ door: fleet.door, management: managementStore, attempts })(FLEET);
+
+    expect(fleet.state.ships.filter((ship) => !ship.isRetired)).toEqual([]);
+  });
+
+  it('keeps a ship whose retire the fleet refused twice, so the recovery after retires it (#738)', async () => {
+    fleet.state.refuseCommissionAfter = 3;
+    fleet.state.retiresRefused.set('hemma-feature-a1b2c3', 2);
+    await form(fromHemmaFeature);
+    const recover = createRecoverFormations({ door: fleet.door, management: managementStore, attempts });
+
+    await recover(FLEET);
+    await recover(FLEET);
 
     expect(fleet.state.ships.filter((ship) => !ship.isRetired)).toEqual([]);
   });
