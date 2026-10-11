@@ -4,7 +4,9 @@
  * the squadron as it is stored then. A rescan, every interval and after each
  * forming, starts the receive of a new squadron and advances every stand-down,
  * fleet by fleet, then keeps the fleet's squadron labels and declared
- * network rules (#573). Squadrons are told apart by fleet and id: two fleets may
+ * network rules (#573). A fleet's rescan takes the fleet's turn, so it never
+ * overlaps another, nor a switch-off's withdrawal; rescans asked while one
+ * waits share it (#626). Squadrons are told apart by fleet and id: two fleets may
  * each have a squadron of one id. A fleet squadrons does not serve (switched
  * off) rests: its flagships stop receiving after their current receive, and
  * a rescan once it is on again starts them anew; each rescan withdraws its
@@ -23,6 +25,7 @@ import type { AdvanceStandDowns } from '../../core/squadron/advance-stand-downs.
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
 import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
+import type { FleetTurns } from './fleet-turns.js';
 
 /** How long a flagship waits before it receives again after a failure. */
 const RETRY_MS = 1_000;
@@ -54,6 +57,7 @@ export function watchFlagships(deps: {
   isServed: IsServed;
   operator: OperatorNotices;
   reach: FleetReach;
+  turns: FleetTurns;
   log: FastifyBaseLogger;
   rescanMs: number;
 }): FlagshipWatch {
@@ -80,22 +84,6 @@ export function watchFlagships(deps: {
     });
 
   const isStopping = (): boolean => stopping.signal.aborted;
-
-  // Fleets whose reach a rescan keeps or withdraws now: rescans overlap, and two passes at once would declare twice.
-  const reaching = new Set<FleetId>();
-  const reachOnce = async (fleetId: FleetId, pass: { work: () => Promise<void>; failure: string }): Promise<void> => {
-    if (reaching.has(fleetId)) {
-      return;
-    }
-    reaching.add(fleetId);
-    try {
-      await pass.work();
-    } catch (error) {
-      deps.log.error({ err: error, fleet: fleetId }, pass.failure);
-    } finally {
-      reaching.delete(fleetId);
-    }
-  };
 
   const watch = async (fleetId: FleetId, squadronId: string): Promise<void> => {
     while (!stopping.signal.aborted) {
@@ -155,21 +143,46 @@ export function watchFlagships(deps: {
     } catch (error) {
       deps.log.error({ err: error, fleet: fleetId }, 'the stand-downs could not advance');
     }
-    await reachOnce(fleetId, { work: () => deps.reach.keep(fleetId), failure: 'the squadron labels and network rules could not be kept' });
+    try {
+      await deps.reach.keep(fleetId);
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, 'the squadron labels and network rules could not be kept');
+    }
   };
 
-  const restFleet = (fleetId: FleetId): Promise<void> => reachOnce(fleetId, { work: () => deps.reach.withdraw(fleetId), failure: 'the network rules could not be withdrawn' });
+  const restFleet = async (fleetId: FleetId): Promise<void> => {
+    try {
+      await deps.reach.withdraw(fleetId);
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, 'the network rules could not be withdrawn');
+    }
+  };
+
+  // Each fleet's rescan waiting for its turn: one asked meanwhile shares it.
+  const waiting = new Map<FleetId, Promise<void>>();
+  const passFleet = (fleetId: FleetId): Promise<void> => {
+    const waited = waiting.get(fleetId);
+    if (waited !== undefined) {
+      return waited;
+    }
+    const pass = deps.turns.take(fleetId, async () => {
+      waiting.delete(fleetId);
+      if (await deps.isServed(fleetId)) {
+        await rescanFleet(fleetId);
+      } else {
+        await restFleet(fleetId);
+      }
+    });
+    waiting.set(fleetId, pass);
+    return pass;
+  };
 
   const rescan = async (): Promise<void> => {
     for (const crew of await deps.management.connected()) {
       if (stopping.signal.aborted) {
         return;
       }
-      if (await deps.isServed(crew.fleetId)) {
-        await rescanFleet(crew.fleetId);
-      } else {
-        await restFleet(crew.fleetId);
-      }
+      await passFleet(crew.fleetId);
     }
   };
 
