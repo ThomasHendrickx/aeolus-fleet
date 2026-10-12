@@ -16,6 +16,7 @@ import { createSquadronsDatabase } from './support/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
 import { seedRepository } from './support/repositories.js';
 import { newKey } from '../../core/test/support/keys.js';
+import { connectSquadrons } from './support/connection.js';
 
 // Forming killed midway, then squadrons started again on the same database: the
 // start retires every ship the killed forming commissioned, the one whose id it
@@ -141,6 +142,34 @@ async function shipsOtherThanArgoAndSquadrons() {
 }
 
 describe('forming that a crash kills midway', () => {
+  it('refuses a second connect while a forming is in flight and leaves its ships active', async () => {
+    let hung: () => void = () => undefined;
+    const commissionInFlight = new Promise<void>((resolve) => {
+      hung = resolve;
+    });
+    killed = squadronsApp(await startCrashingProxy(() => { hung(); }));
+    unwrap(await killed.connect(managementShip));
+    await killed.refreshCatalogue();
+    const address = await killed.server.listen({ host: '127.0.0.1', port: 0 });
+    void fetch(`${address}/trpc/squadrons.form`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ blueprint: { repository: REPO, name: 'team', version: 1 }, squadronId: 'team-one' }),
+    }).catch(() => undefined);
+    await commissionInFlight;
+    const formingShips = await shipsOtherThanArgoAndSquadrons();
+    expect(formingShips).toHaveLength(COMMISSION_THAT_HANGS);
+    expect(formingShips.every((ship) => ship.retiredAt === null)).toBe(true);
+
+    const refused = await connectSquadrons(address, { cookie, ...managementShip });
+
+    expect(refused.status).toBe(409);
+    const error = z.object({ error: z.object({ message: z.string(), data: z.object({ code: z.string() }) }) }).parse(await refused.json());
+    expect(error.error).toMatchObject({ message: 'squadrons is connected to this fleet already', data: { code: 'CONFLICT' } });
+    expect(await shipsOtherThanArgoAndSquadrons()).toEqual(formingShips);
+    expect(await fleetDatabase.lease.count({ where: { fleetId: managementShip.operatorFleetId, shipId: managementShip.shipId } })).toBe(1);
+  });
+
   it('is undone by the next start: every ship it commissioned is retired, and no squadron is kept', async () => {
     let hung: () => void = () => undefined;
     const reachedTheCrash = new Promise<void>((resolve) => {
