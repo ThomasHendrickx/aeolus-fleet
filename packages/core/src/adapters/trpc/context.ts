@@ -12,6 +12,8 @@ import type { DismissDelivery } from '../../domain/messaging/dismiss-delivery.js
 import type { MarkDone } from '../../domain/messaging/mark-done.js';
 import type { MarkRead } from '../../domain/messaging/mark-read.js';
 import type { HandOverDelivery } from '../../domain/messaging/hand-over-delivery.js';
+import type { ReportHandled } from '../../domain/messaging/report-handled.js';
+import type { ReportNotHandled } from '../../domain/messaging/report-not-handled.js';
 import type { PushReceiveDeliveries } from '../../domain/messaging/push-receive-deliveries.js';
 import type { ReceiveDeliveries } from '../../domain/messaging/receive-deliveries.js';
 import type { ReplyToMessage } from '../../domain/messaging/reply-to-message.js';
@@ -48,6 +50,7 @@ import type { ReleaseShip } from '../../domain/registry/release-ship.js';
 import type { RenameShip } from '../../domain/registry/rename-ship.js';
 import type { RetireShip } from '../../domain/registry/retire-ship.js';
 import type { Report } from '../../domain/registry/report.js';
+import type { ReportTurn } from '../../domain/registry/report-turn.js';
 import type { Whoami } from '../../domain/registry/whoami.js';
 import type { ReadReportLog } from '../../domain/registry/report-log.js';
 import type { RequestCrew } from '../../domain/registry/request-crew.js';
@@ -111,6 +114,7 @@ export interface UseCases {
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
+  reportTurn: ReportTurn;
   reportLog: ReadReportLog;
   requestCrew: RequestCrew;
   removeCrewRequest: RemoveCrewRequest;
@@ -142,6 +146,8 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   pushReceiveDeliveries: PushReceiveDeliveries;
   handOverDelivery: HandOverDelivery;
+  reportHandled: ReportHandled;
+  reportNotHandled: ReportNotHandled;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;

@@ -4,8 +4,12 @@ import {
   deregisterOutputSchema,
   handedInputSchema,
   handedOutputSchema,
+  handledInputSchema,
+  handledOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
+  notHandledInputSchema,
+  notHandledOutputSchema,
   PING_CONTENT_TYPE,
   pongInputSchema,
   pongOutputSchema,
@@ -13,6 +17,8 @@ import {
   reportInputSchema,
   reportLogOutputSchema,
   reportOutputSchema,
+  turnInputSchema,
+  turnOutputSchema,
   receiveInputSchema,
   receiveOutputSchema,
   registerInputSchema,
@@ -175,11 +181,50 @@ export const shipRouter = router({
         'For the trierarch or the plugin watcher, not the agent: says you handed a delivery to the agent, with its hand-over number (1, 2, 3 and so on under your lease).',
         'A higher number than the last counts one attempt. The same number again, or a lower one, changes nothing: retry it freely after an error or a lost answer.',
         'It answers the state: handed, acknowledged when the agent already confirmed it, or undeliverable at the fifth attempt, when nothing may be handed.',
+        'When a confirmed (acknowledged) message\'s turn died, hand it once more with isOnceMore: true and your next number:',
+        'it stays acknowledged and counts no attempt. A message is handed once more only once.',
       ].join(' '),
     })
     .input(handedInputSchema)
     .output(handedOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.handOverDelivery(ctx.crew, input))),
+
+  /**
+   * The hooks report the turn that took an acknowledged delivery ended by
+   * itself (decision 0040): handled. Reporting it again is OK.
+   */
+  handled: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'For the plugin hooks or the trierarch, not the agent: says the turn that took an acknowledged delivery ended by itself, so it is handled.',
+        'Pass its deliveryId (dlv_...). Again is fine. A delivery not acknowledged yet is refused: so a ping not answered with pong stays handed.',
+      ].join(' '),
+    })
+    .input(handledInputSchema)
+    .output(handledOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.reportHandled(ctx.crew, input));
+      return {};
+    }),
+
+  /**
+   * The hooks or the trierarch report the turn a confirmed message was handed
+   * once more to died too (decision 0040): not handled, in Needs attention.
+   */
+  notHandled: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'For the plugin hooks or the trierarch, not the agent: says the turn a confirmed message was handed once more to died too, so it is not handled.',
+        'Pass its deliveryId (dlv_...). The operator sees it in Needs attention, to resend or dismiss. Again is fine.',
+        'A delivery never handed once more is refused.',
+      ].join(' '),
+    })
+    .input(notHandledInputSchema)
+    .output(notHandledOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.reportNotHandled(ctx.crew, input));
+      return {};
+    }),
 
   /** Acknowledges a delivery the ship received: it is done. Acknowledging it again is OK. */
   ack: scopedCrewProcedure('messages:receive')
@@ -237,6 +282,26 @@ export const shipRouter = router({
     .output(reportOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.report(ctx.crew, input));
+      return {};
+    }),
+
+  /**
+   * The hooks report the session's turn, idle or busy, with the time they saw
+   * it (decision 0040). No scope beyond being the crew.
+   */
+  turn: crewProcedure
+    .meta({
+      description: [
+        'For the plugin hooks or the trierarch, not the agent: says your session\'s turn, busy while a turn runs and idle between turns,',
+        'with at: the time you saw it change, in ISO 8601. A late report keeps its own time, and one older than the turn the fleet holds changes nothing.',
+        'The same turn again changes nothing.',
+      ].join(' '),
+      example: { turn: 'busy', at: '2026-10-12T12:00:00.000Z' },
+    })
+    .input(turnInputSchema)
+    .output(turnOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.reportTurn(ctx.crew, { turn: input.turn, at: new Date(input.at) }));
       return {};
     }),
 
