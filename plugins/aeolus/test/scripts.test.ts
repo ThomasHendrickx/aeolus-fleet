@@ -1236,6 +1236,85 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
   });
 
+  describe('a session started again by a person (SessionStart on startup or resume, D6)', () => {
+    const aSessionStart = (source: string) => aHook('aeolus-session-start.sh', { payload: { hook_event_name: 'SessionStart', source } });
+    const aPrompt = () => aHook('aeolus-turn.sh', { payload: { hook_event_name: 'UserPromptSubmit', prompt: 'hello again' } });
+    const handedBodies = (stub: StubFleet) => callsTo(stub, '/api/v1/ship/handed').map((call) => call.body);
+    const handedNumber = (number: number) => `{"deliveryId":"${DELIVERY_ID}","handOverNumber":${String(number)}}`;
+
+    it('reports a handed message the session never took handed again with the next number, and the first prompt confirms it', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged] });
+
+      await aSessionStart('startup');
+
+      expect(handedBodies(stub)).toEqual([handedNumber(1), handedNumber(2)]);
+      expect(store()).toEqual([`${DELIVERY_ID} handed`]);
+      expect(JSON.parse((await aPrompt()).stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: MESSAGE } });
+      expect(store()).toEqual([`${DELIVERY_ID} confirmed`]);
+    });
+
+    it('reports a message whose confirmation failed handed with the next number at resume', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [busy] });
+      await aFirstToolCall();
+
+      await aSessionStart('resume');
+
+      expect(handedBodies(stub)).toEqual([handedNumber(1), handedNumber(2)]);
+      expect(store()).toEqual([`${DELIVERY_ID} handed`]);
+    });
+
+    it('keeps a confirmed message whose session died to hand once more, and the first prompt puts it in as handed before', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')] });
+      await aFirstToolCall();
+
+      await aSessionStart('startup');
+
+      expect(store()).toEqual([`${DELIVERY_ID} onceMore`]);
+      expect(handedBodies(stub)).toEqual([handedNumber(1)]);
+      expect((await aPrompt()).stdout).toContain('aeolus: handed before');
+      expect(handedBodies(stub).at(-1)).toBe(`{"deliveryId":"${DELIVERY_ID}","handOverNumber":2,"isOnceMore":true}`);
+    });
+
+    it('reports a message handed once more not handled when its session died too, and drops it', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], '/api/v1/ship/notHandled': [taken] });
+      await aFirstToolCall();
+      await aPrompt();
+
+      await aSessionStart('startup');
+
+      expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+      expect(store()).toEqual([]);
+    });
+
+    it('drops a message the fleet answers undeliverable at its fifth attempt', async () => {
+      await aHandOver({ '/api/v1/ship/handed': [handedOk, handedAs('undeliverable')] });
+
+      await aSessionStart('startup');
+
+      expect(store()).toEqual([]);
+    });
+
+    it('marks nothing after /clear or a compact: the session did not die', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged] });
+      await aFirstToolCall();
+
+      await aSessionStart('clear');
+      await aSessionStart('compact');
+
+      expect(handedBodies(stub)).toEqual([handedNumber(1)]);
+      expect(store()).toEqual([`${DELIVERY_ID} confirmed`]);
+    });
+
+    it('marks nothing in a folder a trierarch crews: the trierarch hands over there', async () => {
+      const stub = await aHandOver({});
+      writeFileSync(identityFile(), `${readFileSync(identityFile(), 'utf8')}wakeBy=trierarch\n`);
+
+      await aSessionStart('startup');
+
+      expect(handedBodies(stub)).toEqual([handedNumber(1)]);
+    });
+  });
+
   it('reports no turn and nothing handled for a lease the watcher has not pushed: the ship pulls', async () => {
     fleet = await startRoutedStubFleet({});
     crew(fleet.url);
