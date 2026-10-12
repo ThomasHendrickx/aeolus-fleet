@@ -118,6 +118,7 @@ import { createListInstallationFleets, type ListInstallationFleets } from './dom
 import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
+import { createReadOverdue, type ReadOverdue } from './domain/shared/read-overdue.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -187,6 +188,7 @@ export interface UseCases {
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
   readNeedsAttention: ReadNeedsAttention;
+  readOverdue: ReadOverdue;
   readInbox: ReadInbox;
   signIn: SignIn;
   signOut: SignOut;
@@ -348,6 +350,7 @@ export function createUseCases(options: {
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
+    readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
     signIn: createSignIn({
       uow,

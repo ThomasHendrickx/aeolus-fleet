@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
-import { createTellOverdueDeliveries } from '../messaging/tell-overdue-deliveries.js';
 import type { Crew } from './caller.js';
 
 const MINUTE = 60_000;
@@ -25,9 +24,8 @@ async function handed(crew: Crew, messageId: MessageId): Promise<DeliveryId> {
 
 /** Moves the clock, then one pass of the clocks. */
 async function after(ms: number): Promise<void> {
-  const { core } = scene;
-  core.clock.advance(ms);
-  await createTellOverdueDeliveries({ fleets: core.fleets, pushedCrews: core.pushedCrews, uow: core.uow, clock: core.clock, ids: core.ids })();
+  scene.core.clock.advance(ms);
+  await scene.messaging.tellOverdueDeliveries();
 }
 
 describe('reading the overdue deliveries', () => {

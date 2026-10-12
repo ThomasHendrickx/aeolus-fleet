@@ -40,6 +40,7 @@ import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delive
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
+import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
 import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
@@ -95,6 +96,7 @@ import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
+import { createReadOverdue } from '../../src/domain/shared/read-overdue.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/domain/shared/selector.js';
@@ -222,6 +224,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipMessages: createReadShipMessages({ history: core.history }),
     readMessage: createReadMessage({ history: core.history }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
+    readOverdue: createReadOverdue({ history: core.history }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships }),
   };
 }
@@ -245,6 +248,7 @@ export function messagingUseCases(core: InMemoryCore) {
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher }),
     pingShip: createPingShip({ ...deps, hasher: core.hasher }),
     answerPing: createAnswerPing(deps),
+    tellOverdueDeliveries: createTellOverdueDeliveries({ ...deps, fleets: core.fleets, pushedCrews: core.pushedCrews }),
   };
 }
 

@@ -31,6 +31,16 @@ import type { Db } from './client.js';
 import type { Location } from '../../domain/registry/public.js';
 import { toMessage, toSequencedEvent } from './rows.js';
 
+/** What argo was told is overdue, as the clocks stored it (overdue.ts). */
+const overdueRow = z.object({
+  deliveryId: idSchema('delivery'),
+  shipId: idSchema('ship'),
+  state: z.enum(['pending', 'received', 'handed']),
+  clock: z.enum(['notConfirmed', 'idle', 'busy']),
+  minutes: z.number().int(),
+  toldAt: z.date(),
+});
+
 const deliveryRow = z.object({
   id: idSchema('delivery'),
   state: deliveryStateSchema,
@@ -313,6 +323,38 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             payload: message.payload,
           },
         }));
+    },
+
+    overdue: async (fleetId) => {
+      // Told on a lease that has not ended; it still stands while the delivery
+      // is in the state it was told in, held by that lease when in flight.
+      const rows = await db.overdueDelivery.findMany({
+        where: { fleetId, lease: { endedAt: null } },
+        include: { delivery: { select: { state: true, claimedByLeaseId: true, message: true } } },
+        orderBy: [{ toldAt: 'asc' }, { deliveryId: 'asc' }],
+      });
+      const standing = rows
+        .filter((row) => row.delivery.state === row.state && (row.state === 'pending' || row.delivery.claimedByLeaseId === row.leaseId))
+        .map((row) => ({ told: overdueRow.parse(row), message: toMessage(row.delivery.message) }));
+      const party = await partiesOf(db, { fleetId, shipIds: standing.flatMap(({ told, message }) => [told.shipId, ...shipsNamedBy(message)]) });
+      return standing.map(({ told, message }) => ({
+        deliveryId: told.deliveryId,
+        ship: party(told.shipId),
+        state: told.state,
+        clock: told.clock,
+        minutes: told.minutes,
+        toldAt: told.toldAt,
+        message: {
+          id: message.id,
+          sender: party(message.senderShipId),
+          recipient: recipientOf(message.selector, party),
+          inReplyTo: message.inReplyToMessageId,
+          sentAt: message.createdAt,
+          contentType: message.contentType,
+          model: message.model,
+          payload: message.payload,
+        },
+      }));
     },
   };
 }

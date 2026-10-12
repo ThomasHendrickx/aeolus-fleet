@@ -11,6 +11,7 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
+import type { OverdueClock, WaitingState } from '../messaging/public.js';
 import type { Location } from '../registry/public.js';
 import type { EventDetails } from './events.js';
 
@@ -53,6 +54,9 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 
 /** A timeline entry as the read answers it, its message telling whether it is a ping. */
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
+
+/** An overdue delivery as it is answered, its message telling whether it is a ping. */
+export type ShownOverdueEntry = Omit<OverdueEntry, 'message'> & { message: WithPing<OverdueEntry['message']> };
 
 /** A delivery in Needs attention as it is answered, its message telling whether it is a ping. */
 export type ShownNeedsAttentionEntry = Omit<NeedsAttentionEntry, 'message'> & { message: WithPing<NeedsAttentionEntry['message']> };
@@ -109,6 +113,21 @@ export interface NeedsAttentionEntry {
 /** The delivery states Needs attention lists, each waiting for the operator to resend or dismiss it. */
 export type NeedsAttentionState = Extract<DeliveryState, 'undeliverable' | 'notHandled'>;
 
+/**
+ * A delivery argo was told is overdue (decision 0040): the ship whose clock
+ * ran out, the state it waits in, which clock, when argo was told, and its
+ * whole message. Listed until it clears by itself.
+ */
+export interface OverdueEntry {
+  deliveryId: DeliveryId;
+  ship: HistoryParty;
+  state: WaitingState;
+  clock: OverdueClock;
+  minutes: number;
+  toldAt: Date;
+  message: Omit<HistoryMessage, 'delivery'>;
+}
+
 /** A reply the inbox's ship sent to a message in its inbox. */
 export interface InboxReply {
   id: MessageId;
@@ -162,6 +181,12 @@ export interface ShipHistory {
   ): Promise<(HistoryMessage & { history: DeliveryChange[] }) | undefined>;
   /** Every undeliverable or not handled delivery, oldest first by since when. */
   needsAttention(fleetId: FleetId): Promise<NeedsAttentionEntry[]>;
+  /**
+   * Every delivery argo was told is overdue that still stands, oldest told
+   * first: still in the state it was told in, on the lease it was told on,
+   * which has not ended.
+   */
+  overdue(fleetId: FleetId): Promise<OverdueEntry[]>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }
