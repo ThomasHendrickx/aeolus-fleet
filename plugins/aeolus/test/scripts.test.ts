@@ -1189,6 +1189,53 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
   });
 
+  describe('a turn that fails (StopFailure)', () => {
+    const aTurnFails = () => aHook('aeolus-turn-died.sh', { payload: { hook_event_name: 'StopFailure', error: 'rate_limit', last_assistant_message: 'API Error: Rate limit reached' } });
+    const aPrompt = () => aHook('aeolus-turn.sh', { payload: { hook_event_name: 'UserPromptSubmit', prompt: 'go on' } });
+
+    it('keeps a confirmed message to hand once more at the next prompt, says nothing, and reports the turn idle (D3)', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/turn': [taken] });
+      await aFirstToolCall();
+
+      const failed = await aTurnFails();
+
+      expect(failed).toEqual({ status: 0, stdout: '', stderr: '' });
+      expect(store()).toEqual([`${DELIVERY_ID} onceMore`]);
+      const [state, at] = turn().stdout.trim().split(' ');
+      expect(state).toBe('idle');
+      expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body).at(-1)).toBe(`{"turn":"idle","at":"${at ?? ''}"}`);
+      expect(callsTo(stub, '/api/v1/ship/handled')).toEqual([]);
+    });
+
+    it('lets the next prompt put the message in once more', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')] });
+      await aFirstToolCall();
+      await aTurnFails();
+
+      const prompted = await aPrompt();
+
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body).at(-1)).toBe(`{"deliveryId":"${DELIVERY_ID}","handOverNumber":2,"isOnceMore":true}`);
+      expect(prompted.stdout).toContain('aeolus: handed before');
+      expect(store()).toEqual([`${DELIVERY_ID} onceMore`]);
+    });
+
+    it('reports a message not handled when the turn it was handed once more to fails too, and drops it', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], '/api/v1/ship/notHandled': [taken] });
+      await aFirstToolCall();
+      await aTurnFails();
+      await aPrompt();
+
+      await aTurnFails();
+
+      expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+      expect(store()).toEqual([]);
+    });
+
+    it('does nothing in a folder that crews no ship', async () => {
+      expect(await aTurnFails()).toEqual({ status: 0, stdout: '', stderr: '' });
+    });
+  });
+
   it('reports no turn and nothing handled for a lease the watcher has not pushed: the ship pulls', async () => {
     fleet = await startRoutedStubFleet({});
     crew(fleet.url);
