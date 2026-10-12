@@ -10,6 +10,9 @@ export const MACHINE_OS = ['macos', 'linux', 'windows'] as const;
 /** The architectures a trierarch names its machine by, for the trierarch plugin's arch label (#102); any other is left out. */
 export const MACHINE_ARCH = ['arm64', 'amd64'] as const;
 
+/** Where a trierarch runs its sessions: on the host or each in a container of its own (decision 0039). */
+export const SESSION_RUNTIMES = ['host', 'container'] as const;
+
 /**
  * The details of a trierarch's report (docs/trierarch.md, "What a trierarch
  * reports"; decision 0028): what its machine can do, read from its local
@@ -57,6 +60,12 @@ export const trierarchReportDetailsSchema = z.strictObject({
    * ones is left out. None from a trierarch before 0.20.0.
    */
   machine: z.strictObject({ os: z.enum(MACHINE_OS).optional(), arch: z.enum(MACHINE_ARCH).optional() }).optional(),
+  /**
+   * Where the machine runs its sessions, as its configuration picks it
+   * (decision 0039): a fact to show, no label, and placement never reads it.
+   * None from a trierarch before 0.25.0, which ran them on the host.
+   */
+  runtime: z.enum(SESSION_RUNTIMES).optional(),
   /** The trierarch's own version. */
   version: z.string().min(1),
 });

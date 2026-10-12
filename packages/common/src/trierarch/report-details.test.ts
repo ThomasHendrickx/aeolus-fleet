@@ -47,6 +47,18 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
   });
 
+  it.each(['host', 'container'])('takes the session runtime the machine runs its sessions in, %s, as a fact (decision 0039)', (runtime) => {
+    const details = { harnesses: [], workspaces: { repositories: [], folders: [] }, caps: { ships: 2, running: 1 }, kept: [], orphans: [], runtime, version: '0.25.0' };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('refuses a session runtime it does not know', () => {
+    const details = { harnesses: [], workspaces: { repositories: [], folders: [] }, caps: { ships: 2, running: 1 }, kept: [], orphans: [], runtime: 'vm', version: '0.25.0' };
+
+    expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
   it('takes a trierarch with nothing kept and no orphans', () => {
     const details = {
       harnesses: [{ harness: 'codex', options: {}, flags: [] }],

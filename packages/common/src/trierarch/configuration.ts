@@ -26,10 +26,26 @@ const harnessConfigurationSchema = z.strictObject({
   options: z.record(trierarchNameSchema, optionSchema),
 });
 
+/** A size as a container runtime takes it: bytes, or a whole number of b, k, m or g. */
+const MEMORY_PATTERN = /^[1-9]\d*[bkmg]?$/i;
+
+/**
+ * Where the sessions run (decision 0039): on the host, or each in a
+ * container of a rootless runtime, the docker-style binary named here, with
+ * the memory and cpu caps of each session. The model token is no part of it:
+ * it lives in a file of its own (docs/architecture.md, "Files on the machine").
+ */
+const runtimeSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('host') }),
+  z.strictObject({ kind: z.literal('container'), binary: z.string().min(1), memory: z.string().regex(MEMORY_PATTERN), cpus: z.number().positive() }),
+]);
+
 export const trierarchConfigurationSchema = z.strictObject({
   $schema: z.string().optional(),
   /** Where worktrees go, one folder per ship; `~/.aeolus/trierarch/worktrees/` when left out. */
   worktreeRoot: z.string().min(1).optional(),
+  /** Where the sessions run; on the host when left out. */
+  runtime: runtimeSchema.optional(),
   caps: z.strictObject({ ships: z.int().positive(), running: z.int().positive() }),
   repositories: z.record(trierarchNameSchema, placeSchema),
   folders: z.record(trierarchNameSchema, placeSchema),
