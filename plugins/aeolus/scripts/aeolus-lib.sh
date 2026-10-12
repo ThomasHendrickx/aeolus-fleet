@@ -417,10 +417,14 @@ aeolus_hook_folder() {
 # The store of a crewed folder (#756): one entry per delivery the watcher
 # received to hand to the session, so a restart of the watcher or the computer
 # picks up where it was. Beside the turn marker, never the crew token. An entry
-# is <deliveryId>.json (the delivery as the fleet's receive answered it) and
-# <deliveryId>.state (received, handed or confirmed, with when); a ping in the
-# turn has <deliveryId>.shown, and once pong answered it <deliveryId>.ponged; a
-# long payload is in <deliveryId>.payload. Handled, an entry is removed.
+# is <deliveryId>.json (the delivery as the fleet's push receive answered it),
+# <deliveryId>.state (received, handed or confirmed, with when),
+# <deliveryId>.lease (the key of the lease it was received under, D7) and
+# <deliveryId>.number (its last hand-over number, D4), with
+# <deliveryId>.unreported while the fleet has not taken that hand-over yet; a
+# ping in the turn has <deliveryId>.shown, and once pong answered it
+# <deliveryId>.ponged; a long payload is in <deliveryId>.payload. Handled, an
+# entry is removed.
 aeolus_store_dir() {
   local folder dir
   folder="$(aeolus_folder)" || return 1
@@ -436,6 +440,132 @@ aeolus_is_delivery_id() {
   esac
 }
 
+# The key of the lease a crew token stands for, never the token itself: each
+# crew of a folder holds one lease (#756, D7). <crew token>
+aeolus_lease_key() {
+  printf '%s' "$1" | aeolus_sha256 | cut -c1-16
+}
+
+# The key of the lease the folder's crew holds now; fails once it is gone.
+aeolus_current_lease_key() {
+  local identity token
+  identity="$(aeolus_identity_file)" || return 1
+  token="$(aeolus_identity_token "$identity")"
+  [ -n "$token" ] || return 1
+  aeolus_lease_key "$token"
+}
+
+# Marks that the watcher's push receive made the folder's lease pushed (#756,
+# D1): the lease key. From then on until the lease ends the hooks and the
+# watcher report the turn and how each message ended.
+aeolus_pushed_file() {
+  local folder dir
+  folder="$(aeolus_folder)" || return 1
+  dir="$(aeolus_ships_dir)" || return 1
+  printf '%s/%s.pushed' "$dir" "$(aeolus_key "$folder")"
+}
+
+# Whether this session reports its turn and its messages to the fleet: a
+# Claude Code session crewed by hand whose lease the watcher pushed. A folder
+# a trierarch crews and a Codex task do not report yet. <identity text>
+aeolus_reports_here() {
+  [ -z "${PLUGIN_ROOT:-}" ] || return 1
+  ! aeolus_woken_by_trierarch "$1" || return 1
+  [ "$(cat "$(aeolus_pushed_file)" 2>/dev/null)" = "$(aeolus_lease_key "$(aeolus_identity_field "$1" crewToken)")" ]
+}
+
+# The turn as the fleet last took it: the turn marker's line it reported.
+aeolus_turn_reported_file() {
+  local file
+  file="$(aeolus_turn_file)" || return 1
+  printf '%s.reported' "$file"
+}
+
+# Reports the turn marker to the fleet, busy or idle with the time it was
+# marked, unless the fleet took that line already: a report the fleet did not
+# take is sent again with the next one, keeping its own time (3.15). One call,
+# bounded as an acknowledgement is, so no hook waits long. <identity text>
+aeolus_report_turn() {
+  local marker state at
+  aeolus_reports_here "$1" || return 0
+  marker="$(head -n 1 "$(aeolus_turn_file)" 2>/dev/null)" || return 0
+  [ -n "$marker" ] || return 0
+  [ "$(cat "$(aeolus_turn_reported_file)" 2>/dev/null)" != "$marker" ] || return 0
+  state="${marker%% *}"
+  at="${marker#* }"
+  if AEOLUS_CALL_MAX_SECONDS="${AEOLUS_CONFIRM_SECONDS:-3}" AEOLUS_BUSY_WAITS='' \
+    "$(dirname "${BASH_SOURCE[0]}")/aeolus-fleet.sh" turn "{\"turn\":\"${state}\",\"at\":\"${at}\"}" >/dev/null 2>&1; then
+    printf '%s\n' "$marker" > "$(aeolus_turn_reported_file)"
+  fi
+  return 0
+}
+
+# Drops the entries received under another lease than the folder's crew holds
+# now (#756, D7): the folder was crewed again. An unconfirmed one comes back by
+# push receive; a confirmed one stays acknowledged, handled unknown.
+aeolus_store_drop_older_leases() {
+  local dir lease file id identity
+  dir="$(aeolus_store_dir)" || return 0
+  [ -d "$dir" ] || return 0
+  lease="$(aeolus_current_lease_key)" || return 0
+  identity="$(aeolus_identity_file)" || return 0
+  for file in "$dir"/*.state; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.state}"
+    if [ "$(cat "$dir/$id.lease" 2>/dev/null)" != "$lease" ]; then
+      aeolus_store_drop "$id"
+      aeolus_log "$identity" handover "dropped ${id}: it was received under an older lease"
+    fi
+  done
+}
+
+# Gets an entry ready to hand to the session (#756, D4): an entry the fleet
+# took a hand-over of gets the next number, one whose hand-over the fleet has
+# not taken yet keeps its number, so a lost answer counts no attempt. Marks it
+# handed, unless it is handed once more, which keeps it as it is. Prints the
+# input of the fleet's handed. <deliveryId> [once-more]
+aeolus_store_handing() {
+  local id="$1" is_once_more="${2:-}" dir number
+  dir="$(aeolus_store_dir)" || return 1
+  number="$(cat "$dir/$id.number" 2>/dev/null)" || number=0
+  if [ ! -e "$dir/$id.unreported" ]; then
+    number=$((${number:-0} + 1))
+    printf '%s\n' "$number" > "$dir/$id.number" || return 1
+    : > "$dir/$id.unreported"
+  fi
+  [ -n "$is_once_more" ] || aeolus_store_mark "$id" handed
+  printf '{"deliveryId":"%s","handOverNumber":%s%s}' "$id" "$number" "${is_once_more:+,\"isOnceMore\":true}"
+}
+
+# What the fleet answered a hand-over with: its state, or the code it refused
+# it with. <identity file> <deliveryId> <state or code>. Returns 0 when the
+# entry is handed (or the fleet holds it acknowledged already: the answer to
+# a confirmation was lost, and the session has not seen it), 1 when it is
+# dropped (undeliverable at its fifth attempt, or no longer the session's), 2
+# when the fleet did not take the hand-over: hand it again later.
+aeolus_store_handed() {
+  local identity="$1" id="$2" outcome="$3" dir
+  dir="$(aeolus_store_dir)" || return 2
+  case "$outcome" in
+    handed|acknowledged)
+      rm -f "$dir/$id.unreported"
+      return 0
+      ;;
+    undeliverable)
+      aeolus_store_drop "$id"
+      aeolus_log "$identity" handover "dropped ${id}: undeliverable at its fifth attempt"
+      return 1
+      ;;
+    DELIVERY_NOT_IN_FLIGHT|DELIVERY_HELD_BY_ANOTHER_SHIP|DELIVERY_NOT_ACKNOWLEDGED|DELIVERY_HANDED_ONCE_MORE)
+      aeolus_store_drop "$id"
+      aeolus_log "$identity" handover "dropped ${id}: the fleet refused the hand-over: ${outcome}"
+      return 1
+      ;;
+  esac
+  return 2
+}
+
 # Writes an entry's state, with the time in UTC: <deliveryId> <state>.
 aeolus_store_mark() {
   local dir
@@ -447,14 +577,20 @@ aeolus_store_mark() {
 # store is keyed by the delivery id, so the same delivery received again is one
 # entry, as it was. Prints its id; fails for an answer that holds none.
 aeolus_store_put() {
-  local delivery="$1" dir id
+  local delivery="$1" dir id number
   id="$(aeolus_json_string "$delivery" deliveryId)"
   aeolus_is_delivery_id "$id" || return 1
   dir="$(aeolus_store_dir)" || return 1
   (umask 077 && mkdir -p "$dir") || return 1
   if [ ! -f "$dir/$id.state" ]; then
     printf '%s' "$delivery" > "$dir/$id.json" || return 1
+    aeolus_current_lease_key > "$dir/$id.lease" || return 1
     aeolus_store_mark "$id" received || return 1
+  fi
+  # The fleet's last hand-over number counts on, when the store lost its own.
+  number="$(printf '%s' "$delivery" | sed -n 's/.*"handOverNumber"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')"
+  if [ -n "$number" ] && [ "$number" -gt "$(cat "$dir/$id.number" 2>/dev/null || echo 0)" ]; then
+    printf '%s\n' "$number" > "$dir/$id.number"
   fi
   printf '%s' "$id"
 }
@@ -470,6 +606,7 @@ aeolus_store_state() {
 # turn: delivery ids are time-ordered, so their order is the order of sending.
 aeolus_store_first() {
   local dir file id state wanted
+  aeolus_store_drop_older_leases
   dir="$(aeolus_store_dir)" || return 1
   for file in "$dir"/*.state; do
     [ -f "$file" ] || continue
@@ -491,7 +628,7 @@ aeolus_store_first() {
 aeolus_store_drop() {
   local dir
   dir="$(aeolus_store_dir)" || return 0
-  rm -f "$dir/$1.json" "$dir/$1.state" "$dir/$1.shown" "$dir/$1.ponged" "$dir/$1.payload"
+  rm -f "$dir/$1.json" "$dir/$1.state" "$dir/$1.lease" "$dir/$1.number" "$dir/$1.unreported" "$dir/$1.shown" "$dir/$1.ponged" "$dir/$1.payload"
 }
 
 # Removes every entry, as on LEASE_ENDED.
