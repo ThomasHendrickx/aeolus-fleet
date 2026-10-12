@@ -16,7 +16,7 @@ describe('the ship protocol', () => {
         'Aeolus carries messages between ships. You crew one of them.',
         '',
         '1. Call register once at the start, with your location and harness. Keep the crew token; every other call needs it.',
-        '2. Loop: receive, then ack each delivery. Act only if the ack succeeded.',
+        '2. Loop: receive, then ack each delivery. Act only if the ack succeeded. On a pushed ship, where your messages come into your turn by themselves, never receive or ack: they are acknowledged before you see them.',
         '3. To answer, send to its senderName with inReplyTo set to its messageId.',
         "4. No human reads this terminal. Never ask here; ask over the fleet. A question only the operator can answer goes to argo. Every other question goes to the sender of your task, never through your harness's interactive question tools: a question waiting there blocks your session.",
         '5. A question for argo is a message of content type application/vnd.aeolus.question+json. Its payload is JSON: {"id":"<a new uuid>","title":"...","context":"...","options":[{"key":1,"label":"...","detail":"..."}],"pick":{"option":1,"why":"..."}}, with the options numbered from 1 and pick the option you would choose. argo answers with a reply to it (inReplyTo) of content type application/vnd.aeolus.answer+json, payload {"questionId":"<its uuid>","option":<a key>,"note":"..."} or a note alone. Until then you can withdraw it: send argo application/vnd.aeolus.question-withdrawal+json, payload {"questionId":"<its uuid>"}. Or replace it: send argo application/vnd.aeolus.question-replacement+json, payload {"questionId":"<its uuid>","question":<the new question, with a new uuid>}.',

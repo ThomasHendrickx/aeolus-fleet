@@ -4,9 +4,13 @@ import { createIdGenerator } from '../ids/index.js';
 import {
   ackInputSchema,
   ackOutputSchema,
+  handedInputSchema,
+  handedOutputSchema,
   INBOX_WAIT_MAX_SECONDS,
   inboxInputSchema,
   inboxOutputSchema,
+  pushReceiveOutputSchema,
+  pushReceivedDeliverySchema,
   RECEIVE_MAX_DEFAULT,
   RECEIVE_MAX_UPPER_BOUND,
   receivedDeliverySchema,
@@ -141,5 +145,78 @@ describe('inboxOutputSchema', () => {
 
   it('rejects a negative count', () => {
     expect(inboxOutputSchema.safeParse({ waiting: -1 }).success).toBe(false);
+  });
+});
+
+describe('pushReceivedDeliverySchema', () => {
+  const delivery = {
+    deliveryId: newId('delivery'),
+    messageId: newId('message'),
+    senderShipId: newId('ship'),
+    senderName: 'argo',
+    senderType: 'operator',
+    recipient: { kind: 'ship', shipId: newId('ship') },
+    payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/22',
+    contentType: 'text/plain',
+    model: null,
+    inReplyTo: null,
+    sentAt: '2026-10-12T12:00:00.000Z',
+    attempts: 0,
+    state: 'received',
+    handOverNumber: null,
+  };
+
+  it('accepts a delivery received and not yet handed: no attempt, no hand-over number', () => {
+    expect(pushReceivedDeliverySchema.parse(delivery)).toEqual(delivery);
+  });
+
+  it('accepts a delivery handed already, with its last hand-over number', () => {
+    const handed = { ...delivery, state: 'handed', attempts: 2, handOverNumber: 2 };
+
+    expect(pushReceivedDeliverySchema.parse(handed)).toEqual(handed);
+  });
+
+  it.each([
+    ['a pending delivery', { ...delivery, state: 'pending' }],
+    ['an acknowledged delivery', { ...delivery, state: 'acknowledged' }],
+    ['a hand-over number of 0', { ...delivery, state: 'handed', handOverNumber: 0 }],
+    ['negative attempts', { ...delivery, attempts: -1 }],
+  ])('rejects %s', (_label, candidate) => {
+    expect(pushReceivedDeliverySchema.safeParse(candidate).success).toBe(false);
+  });
+
+  it('answers a push receive with no deliveries when the wait ended empty', () => {
+    expect(pushReceiveOutputSchema.parse({ deliveries: [] })).toEqual({ deliveries: [] });
+  });
+});
+
+describe('handedInputSchema', () => {
+  it('takes the delivery and its hand-over number', () => {
+    const input = { deliveryId: newId('delivery'), handOverNumber: 1 };
+
+    expect(handedInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['a hand-over number of 0', 0],
+    ['a fraction', 1.5],
+    ['no hand-over number', undefined],
+  ])('rejects %s', (_label, handOverNumber) => {
+    expect(handedInputSchema.safeParse({ deliveryId: newId('delivery'), handOverNumber }).success).toBe(false);
+  });
+
+  it('rejects a message id for the delivery', () => {
+    expect(handedInputSchema.safeParse({ deliveryId: newId('message'), handOverNumber: 1 }).success).toBe(false);
+  });
+});
+
+describe('handedOutputSchema', () => {
+  it.each(['handed', 'acknowledged', 'undeliverable'])('answers the state %s', (state) => {
+    expect(handedOutputSchema.parse({ state })).toEqual({ state });
+  });
+
+  it('never answers received or pending', () => {
+    expect(handedOutputSchema.safeParse({ state: 'received' }).success).toBe(false);
+    expect(handedOutputSchema.safeParse({ state: 'pending' }).success).toBe(false);
   });
 });

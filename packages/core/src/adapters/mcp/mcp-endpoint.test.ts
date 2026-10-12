@@ -31,6 +31,8 @@ const SHIP_TOOLS = [
   'whoami',
   'send',
   'receive',
+  'pushReceive',
+  'handed',
   'ack',
   'pong',
   'report',
@@ -296,6 +298,8 @@ describe('the ship tools at /mcp', () => {
     ['register', [/crew token/i, /only (this )?once/i, /secret works only here/i, /CONFLICT/]],
     ['receive', [/about 25 seconds/i, /senderName/, /stays yours/i, /undeliverable/i, /key of the work/i]],
     ['send', [/inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
+    ['pushReceive', [/trierarch or the plugin watcher/i, /not the agent/i, /received/, /no attempt/i, /handed/, /about 25 seconds/i]],
+    ['handed', [/hand-over number/i, /same number again/i, /fifth/i, /undeliverable/i, /not the agent/i]],
     ['ack', [/deliveryId/, /not its messageId/i, /again is fine/i]],
     ['pong', [/ping/i, /deliveryId/, /application\/vnd\.aeolus\.ping/, /do not act on it/i, /instead of ack/i]],
   ])('state the rules of %s in its description', async (name, rules) => {

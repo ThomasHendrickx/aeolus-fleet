@@ -131,6 +131,8 @@ describe('the ship calls at /api/v1', () => {
       '/ship/whoami',
       '/ship/send',
       '/ship/receive',
+      '/ship/pushReceive',
+      '/ship/handed',
       '/ship/ack',
       '/ship/pong',
       '/ship/report',
@@ -236,6 +238,49 @@ describe('the ship calls at /api/v1', () => {
     await expect(request('whoami', { crewToken: mooringToken, method: 'GET' })).resolves.toMatchObject({
       status: 401,
       body: { code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' },
+    });
+  });
+
+  it('pushReceive, handed and ack: the computer side receives and hands over, the hook confirms, and the plain receive answers nothing', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    await ok(
+      request('send', {
+        crewToken: harbourToken,
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
+      }),
+      z.object({ messageId: z.string() }),
+    );
+
+    const pushed = await ok(
+      request('pushReceive', { crewToken: mooringToken }),
+      z.object({ deliveries: z.array(z.object({ deliveryId: z.string(), state: z.string(), handOverNumber: z.null(), attempts: z.literal(0) })) }),
+    );
+    const [delivery] = pushed.deliveries;
+    const handed = await ok(
+      request('handed', { crewToken: mooringToken, body: { deliveryId: delivery?.deliveryId, handOverNumber: 1 } }),
+      z.object({ state: z.string() }),
+    );
+    await ok(request('ack', { crewToken: mooringToken, body: { deliveryId: delivery?.deliveryId } }), z.strictObject({}));
+
+    expect(delivery?.state).toBe('received');
+    expect(handed).toEqual({ state: 'handed' });
+    await expect(database.delivery.findUniqueOrThrow({ where: { id: delivery?.deliveryId } })).resolves.toMatchObject({
+      state: 'acknowledged',
+      attempts: 1,
+      handOverNumber: 1,
+    });
+    await expect(ok(request('receive', { crewToken: mooringToken }), deliveriesSchema)).resolves.toEqual({ deliveries: [] });
+  });
+
+  it('refuse handed with a hand-over number of 0 with 400', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+
+    await expect(request('handed', { crewToken, body: { deliveryId: 'dlv_01m4rm7txqv22v2h7znfatqcfw', handOverNumber: 0 } })).resolves.toMatchObject({
+      status: 400,
     });
   });
 
