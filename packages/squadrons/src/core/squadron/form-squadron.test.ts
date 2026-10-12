@@ -95,13 +95,13 @@ function fakeFleet() {
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
     getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
       const original = state.keys.get(idempotencyKey);
       if (original) {
-        return Promise.resolve(ok({ shipId: original, secret: null, crewLines: null }));
+        return Promise.resolve(ok({ shipId: original, prompt: null, secret: null, crewLines: null }));
       }
       if (state.ships.filter((ship) => !ship.isRetired).length >= state.refuseCommissionAfter) {
         return Promise.resolve(err({ code: 'INTERNAL_SERVER_ERROR', message: 'Internal error' }));

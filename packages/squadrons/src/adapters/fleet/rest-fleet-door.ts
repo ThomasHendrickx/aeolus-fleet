@@ -127,7 +127,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         method: 'POST',
         crewToken,
         body: ship,
-        answers: z.object({ shipId: idSchema('ship'), secret: z.string().nullable(), crewLines: z.array(crewLineSchema).nullable() }),
+        answers: z.object({ shipId: idSchema('ship'), prompt: z.string().nullable(), secret: z.string().nullable(), crewLines: z.array(crewLineSchema).nullable() }),
       }),
     getShip: async (crewToken, ship) => {
       const read = await call(door, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: shipDetailOutputSchema });
@@ -156,7 +156,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         method: 'POST',
         crewToken,
         body: ship,
-        answers: z.object({ secret: z.string(), crewLines: z.array(crewLineSchema) }),
+        answers: z.object({ prompt: z.string(), secret: z.string(), crewLines: z.array(crewLineSchema) }),
       }),
     receive: async (crewToken, until) => {
       const received = await call(door, {
