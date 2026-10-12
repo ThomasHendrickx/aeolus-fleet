@@ -20,9 +20,12 @@ import type {
   OperatorAccountRepository,
 } from '../../src/domain/identity/ports.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
+import type { Overdue, PushedCrew, WaitingDelivery } from '../../src/domain/messaging/overdue.js';
 import type {
   DeliveryRepository,
   MessageRepository,
+  OverdueDeliveryRepository,
+  PushedCrews,
   ReceiverAddress,
   ReceiverWakeups,
 } from '../../src/domain/messaging/ports.js';
@@ -122,6 +125,8 @@ export interface InMemoryState {
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
+  /** The deliveries argo was told are overdue, once per lease and delivery, with the state each was told in. */
+  overdueDeliveries: (Omit<Overdue, 'delivery'> & { deliveryId: Delivery['id']; state: WaitingDelivery['state']; at: Date })[];
   /** The installation's requests: a table that belongs to no fleet (decision 0020). */
   installationRequests: InstallationRequest[];
   /** The installation's settings: no row until it sets them, then one. */
@@ -149,6 +154,7 @@ export interface InMemoryTx {
   signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  overdueDeliveries: OverdueDeliveryRepository;
   events: EventLog;
   notifier: Notifier;
   installationRequests: InstallationRequestRepository;
@@ -179,6 +185,10 @@ export interface InMemoryCore {
   ships: ShipRepository;
   /** The leases, read outside a unit of work. */
   leases: LeaseRepository;
+  /** The fleets, read outside a unit of work. */
+  fleets: FleetRepository;
+  /** The open pushed leases and what waits for them, for the clocks. */
+  pushedCrews: PushedCrews;
   /** The crew requests, read outside a unit of work. */
   crewRequests: CrewRequestRepository;
   /** The clear requests, read outside a unit of work. */
@@ -254,6 +264,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     declaredNetworkRules: [],
     reachRefusals: [],
     events: [],
+    overdueDeliveries: [],
     installationRequests: [],
     installationSettings: [],
     fleetLimitSettings: [],
@@ -943,6 +954,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    overdueDeliveries: {
+      tell: (overdue, at) => {
+        const { delivery: waiting, ...told } = overdue;
+        const delivery = state.deliveries.find((held) => held.fleetId === told.fleetId && held.id === waiting.deliveryId);
+        const isStill = delivery?.state === waiting.state && (waiting.state === 'pending' || delivery.claimedByLeaseId === told.leaseId);
+        const isTold = state.overdueDeliveries.some((held) => held.fleetId === told.fleetId && held.leaseId === told.leaseId && held.deliveryId === waiting.deliveryId);
+        if (!isStill || isTold) {
+          return Promise.resolve(false);
+        }
+        state.overdueDeliveries.push({ ...told, deliveryId: waiting.deliveryId, state: waiting.state, at });
+        return Promise.resolve(true);
+      },
+    },
     signInTickets: {
       create: (ticket) => {
         state.signInTickets.push({ ...ticket });
@@ -1485,7 +1509,54 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  /** When the delivery entered its state, as the event log has it: its latest return, receipt or hand-over, else its creation. */
+  const stateSince = (delivery: Delivery): Date => {
+    const entered = state.events.filter(
+      (event) =>
+        event.fleetId === delivery.fleetId &&
+        event.deliveryId === delivery.id &&
+        (event.type === 'DeliveryReturned' || (event.type === 'DeliveryReceived' && event.details.again !== true) || (event.type === 'DeliveryHanded' && event.details.onceMore !== true)),
+    );
+    return entered.at(-1)?.occurredAt ?? delivery.createdAt;
+  };
+
+  const pushedCrews: PushedCrews = {
+    waiting: (fleetId) => {
+      const crews = state.leases.flatMap((lease): PushedCrew[] => {
+        const pushed = state.pushedLeases.find((held) => held.fleetId === fleetId && held.leaseId === lease.id);
+        const crewShip = ship(fleetId, lease.shipId);
+        if (lease.fleetId !== fleetId || lease.endedAt !== null || !pushed || !crewShip) {
+          return [];
+        }
+        const isWaiting = (delivery: Delivery): delivery is Delivery & { state: WaitingDelivery['state'] } =>
+          delivery.fleetId === fleetId &&
+          ((isInFlight(delivery) && delivery.claimedByLeaseId === lease.id) ||
+            (delivery.state === 'pending' &&
+              ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === lease.shipId) ||
+                (delivery.recipient.kind === 'type' && delivery.recipient.type === crewShip.type && (delivery.reachableShipIds?.includes(lease.shipId) ?? true)))));
+        const turn = state.leaseTurns.find((held) => held.fleetId === fleetId && held.leaseId === lease.id)?.turn ?? null;
+        return [
+          {
+            fleetId,
+            shipId: lease.shipId,
+            leaseId: lease.id,
+            pushedAt: pushed.at,
+            turn: turn && { ...turn },
+            waiting: state.deliveries.filter(isWaiting).map((delivery) => ({
+              deliveryId: delivery.id,
+              messageId: delivery.messageId,
+              state: delivery.state,
+              since: stateSince(delivery),
+              sentAt: delivery.createdAt,
+            })),
+          },
+        ];
+      });
+      return Promise.resolve(crews);
+    },
+  };
+
+  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -1511,6 +1582,7 @@ const FLEET_TABLES = [
   'declaredNetworkRules',
   'reachRefusals',
   'events',
+  'overdueDeliveries',
   'notices',
   'noticeDismissals',
   'guideProgress',
@@ -1540,6 +1612,7 @@ const TABLES = [
   'declaredNetworkRules',
   'reachRefusals',
   'events',
+  'overdueDeliveries',
   'installationRequests',
   'installationSettings',
   'fleetLimitSettings',

@@ -143,6 +143,17 @@ function messageAccepted(entry: TimelineEntry, shipId: string): SentencePart[] {
   return [text('Received a message from '), ship(sent.sender)];
 }
 
+/** Which of the 10 and 60 minute clocks ran out (decision 0040). */
+function overdueReason(entry: TimelineEntry): string {
+  const minutes = entry.details.minutes;
+  const after = typeof minutes === 'number' ? `${String(minutes)} min` : 'too long';
+  const clock = stringDetail(entry, 'clock');
+  if (clock === 'notConfirmed') {
+    return `handed, not confirmed for ${after}`;
+  }
+  return `waiting ${after} while its session is ${clock === 'busy' ? 'busy' : 'idle'}`;
+}
+
 /**
  * The one sentence, tone and icon of a timeline row
  * (docs/design/png/ShipTimeline.png), from the point of view of the ship whose
@@ -282,6 +293,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'attention',
         icon: 'undeliverable',
       };
+    case 'DeliveryOverdue':
+      return { parts: [...aMessageFromStarting(entry), text(` is overdue: ${overdueReason(entry)}, argo told`)], tone: 'attention', icon: 'undeliverable' };
     case 'DeliveryAcknowledged':
       return {
         parts:

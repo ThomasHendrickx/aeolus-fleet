@@ -1,6 +1,7 @@
 import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { Delivery, Message } from './message.js';
+import type { Overdue, PushedCrew } from './overdue.js';
 
 /** One sender's idempotency key, in its fleet. */
 export interface SenderKey {
@@ -118,4 +119,25 @@ export interface ReceiverWatch {
   next(waitMs: number): Promise<'woken' | 'timedOut'>;
   /** Stops watching. */
   stop(): void;
+}
+
+/** Outbound port: the fleet's open pushed leases, for the 10 and 60 minute clocks. Read without a lock. */
+export interface PushedCrews {
+  /**
+   * Every open pushed lease of the fleet, with its turn and the deliveries
+   * waiting for it: pending for its ship or its type, or received or handed
+   * with the lease, each with when it entered its state.
+   */
+  waiting(fleetId: FleetId): Promise<PushedCrew[]>;
+}
+
+/** Outbound port: the deliveries argo was told are overdue, once per lease and delivery. */
+export interface OverdueDeliveryRepository {
+  /**
+   * Stores that argo is told the delivery is overdue on the lease, at `at`,
+   * only while the delivery is still in the state it was judged in and argo
+   * was not told of it on that lease before. Whether it stored it: two passes
+   * at once store it once.
+   */
+  tell(overdue: Overdue, at: Date): Promise<boolean>;
 }

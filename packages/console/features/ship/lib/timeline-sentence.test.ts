@@ -217,6 +217,17 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a message is overdue, by the clock that ran out, and that argo was told', () => {
+    const overdue = (details: Record<string, string | number>) => onScoutsPage(anEntry('DeliveryOverdue', { actor: null, message: fromPlanner, details })).sentence;
+    expect(onScoutsPage(anEntry('DeliveryOverdue', { actor: null, message: fromPlanner, details: { clock: 'notConfirmed', minutes: 10 } }))).toEqual({
+      sentence: 'A message from planner is overdue: handed, not confirmed for 10 min, argo told',
+      tone: 'attention',
+      icon: 'undeliverable',
+    });
+    expect(overdue({ clock: 'idle', minutes: 10 })).toBe('A message from planner is overdue: waiting 10 min while its session is idle, argo told');
+    expect(overdue({ clock: 'busy', minutes: 60 })).toBe('A message from planner is overdue: waiting 60 min while its session is busy, argo told');
+  });
+
   it("says the session's turn started or ended, as its hooks reported it", () => {
     expect(onScoutsPage(anEntry('TurnReported', { actor: scout, details: { turn: 'busy' } }))).toEqual({
       sentence: 'Turn started: busy',

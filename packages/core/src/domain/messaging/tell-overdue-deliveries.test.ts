@@ -305,7 +305,7 @@ describe('which ships and deliveries the clocks tell of', () => {
 
     await after(10 * MINUTE);
 
-    expect(overdueEvents().map((event) => [event.deliveryId, event.details['leaseId']])).toEqual([
+    expect(overdueEvents().map((event) => [event.deliveryId, event.details.leaseId])).toEqual([
       [deliveryId, scout.leaseId],
       [deliveryId, next.leaseId],
     ]);
