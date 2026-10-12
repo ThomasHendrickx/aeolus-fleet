@@ -799,23 +799,56 @@ aeolus_store_died_turn() {
   done
 }
 
-# Puts the oldest message to hand once more into the turn (#756, D3), once the
-# fleet took the hand-over with isOnceMore and the next number: it stays
-# acknowledged, so no ack. A refusal drops it; not taken, it waits for the
-# next prompt. <identity file> <shipName> <plugin root> <prefix>; prints the
-# text, ending with an x; fails when nothing goes in.
-aeolus_put_once_more() {
-  local identity="$1" ship="$2" root="$3" prefix="$4" id dir output status outcome
-  id="$(aeolus_store_first onceMore)" || return 1
-  dir="$(aeolus_store_dir)" || return 1
-  output="$(AEOLUS_CALL_MAX_SECONDS="${AEOLUS_CONFIRM_SECONDS:-3}" "$(dirname "${BASH_SOURCE[0]}")/aeolus-fleet.sh" handed "$(aeolus_store_handing "$id" once-more)" 2>/dev/null)"
+# A hook hands an entry over and reports it to the fleet (#756): as
+# aeolus_store_handed returns, and 1 on LEASE_ENDED, when the store went with
+# the ship. <identity file> <deliveryId> [once-more]
+aeolus_report_handed() {
+  local identity="$1" id="$2" output status outcome
+  output="$(AEOLUS_CALL_MAX_SECONDS="${AEOLUS_CONFIRM_SECONDS:-3}" "$(dirname "${BASH_SOURCE[0]}")/aeolus-fleet.sh" handed "$(aeolus_store_handing "$id" "${3:-}")" 2>/dev/null)"
   status=$?
   case "$status" in
     0) outcome="$(aeolus_json_string "$output" state)" ;;
     3) return 1 ;;
     *) outcome="$(aeolus_refusal_code "$output")" ;;
   esac
-  aeolus_store_handed "$identity" "$id" "$outcome" || return 1
+  aeolus_store_handed "$identity" "$id" "$outcome"
+}
+
+# A person started the session again, after it died or was closed (#756, D6):
+# what the store holds is marked for the first prompt. A received or handed
+# message is reported handed with the next number, for the prompt to confirm;
+# a confirmed one is kept to hand once more; one handed once more already is
+# not handled, since its session died too. <identity file>
+aeolus_store_session_started() {
+  local identity="$1" dir file id state
+  aeolus_store_drop_older_leases
+  aeolus_store_died_turn "$identity"
+  dir="$(aeolus_store_dir)" || return 0
+  for file in "$dir"/*.state; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.state}"
+    [ ! -e "$dir/$id.shown" ] || continue
+    state="$(aeolus_store_state "$id")"
+    case "$state" in
+      received|handed)
+        aeolus_report_handed "$identity" "$id" && aeolus_log "$identity" handover "handed ${id} for the first prompt: the session started again"
+        ;;
+    esac
+  done
+  aeolus_send_owed "$identity"
+}
+
+# Puts the oldest message to hand once more into the turn (#756, D3), once the
+# fleet took the hand-over with isOnceMore and the next number: it stays
+# acknowledged, so no ack. A refusal drops it; not taken, it waits for the
+# next prompt. <identity file> <shipName> <plugin root> <prefix>; prints the
+# text, ending with an x; fails when nothing goes in.
+aeolus_put_once_more() {
+  local identity="$1" ship="$2" root="$3" prefix="$4" id dir
+  id="$(aeolus_store_first onceMore)" || return 1
+  dir="$(aeolus_store_dir)" || return 1
+  aeolus_report_handed "$identity" "$id" once-more || return 1
   : > "$dir/$id.shown"
   aeolus_log "$identity" handover "handed ${id} once more: put into the turn"
   aeolus_turn_text "$id" "$ship" "$root" "${prefix}aeolus: handed before: the turn that took this message ended before it did, so it comes in once more."$'\n\n'
