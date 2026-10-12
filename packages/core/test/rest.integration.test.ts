@@ -133,9 +133,12 @@ describe('the ship calls at /api/v1', () => {
       '/ship/receive',
       '/ship/pushReceive',
       '/ship/handed',
+      '/ship/handled',
+      '/ship/notHandled',
       '/ship/ack',
       '/ship/pong',
       '/ship/report',
+      '/ship/turn',
       '/ship/reportLog',
       '/ship/inbox',
       '/ship/deregister',
@@ -273,6 +276,75 @@ describe('the ship calls at /api/v1', () => {
       handOverNumber: 1,
     });
     await expect(ok(request('receive', { crewToken: mooringToken }), deliveriesSchema)).resolves.toEqual({ deliveries: [] });
+  });
+
+  it('turn, handed once more, handled and notHandled: the hooks report the turn and how it ended', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    const send = async (payload: string) =>
+      ok(
+        request('send', {
+          crewToken: harbourToken,
+          body: { selector: { kind: 'ship', name: mooring.name }, payload, model: 'claude-opus-5-5', idempotencyKey: freshKey() },
+        }),
+        z.object({ messageId: z.string() }),
+      );
+    await send('Moor at berth 4');
+    await send('Then at berth 5');
+    const pushed = await ok(
+      request('pushReceive', { crewToken: mooringToken, body: { max: 2 } }),
+      z.object({ deliveries: z.array(z.object({ deliveryId: z.string() })) }),
+    );
+    const [first, second] = pushed.deliveries.map((delivery) => delivery.deliveryId);
+    const turnAt = new Date(Date.now() - 1_000).toISOString();
+
+    await ok(request('turn', { crewToken: mooringToken, body: { turn: 'busy', at: turnAt } }), z.strictObject({}));
+    for (const deliveryId of [first, second]) {
+      await ok(request('handed', { crewToken: mooringToken, body: { deliveryId, handOverNumber: 1 } }), z.object({ state: z.string() }));
+      await ok(request('ack', { crewToken: mooringToken, body: { deliveryId } }), z.strictObject({}));
+    }
+    await ok(request('handled', { crewToken: mooringToken, body: { deliveryId: first } }), z.strictObject({}));
+    const onceMore = await ok(
+      request('handed', { crewToken: mooringToken, body: { deliveryId: second, handOverNumber: 2, isOnceMore: true } }),
+      z.object({ state: z.string() }),
+    );
+    await ok(request('notHandled', { crewToken: mooringToken, body: { deliveryId: second } }), z.strictObject({}));
+
+    expect(onceMore).toEqual({ state: 'acknowledged' });
+    await expect(database.delivery.findUniqueOrThrow({ where: { id: first } })).resolves.toMatchObject({ state: 'handled' });
+    await expect(database.delivery.findUniqueOrThrow({ where: { id: second } })).resolves.toMatchObject({ state: 'notHandled' });
+    await expect(database.lease.findFirstOrThrow({ where: { shipId: mooring.shipId, endedAt: null } })).resolves.toMatchObject({
+      turn: 'busy',
+      turnAt: new Date(turnAt),
+    });
+  });
+
+  it('refuse notHandled on a delivery never handed once more with 409', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    await ok(
+      request('send', {
+        crewToken: harbourToken,
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
+      }),
+      z.object({ messageId: z.string() }),
+    );
+    const pushed = await ok(request('pushReceive', { crewToken: mooringToken }), z.object({ deliveries: z.array(z.object({ deliveryId: z.string() })) }));
+    const deliveryId = pushed.deliveries[0]?.deliveryId;
+    await ok(request('ack', { crewToken: mooringToken, body: { deliveryId } }), z.strictObject({}));
+
+    await expect(request('notHandled', { crewToken: mooringToken, body: { deliveryId } })).resolves.toMatchObject({ status: 409 });
+  });
+
+  it('refuse a turn that is neither idle nor busy with 400', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+
+    await expect(request('turn', { crewToken, body: { turn: 'working', at: new Date().toISOString() } })).resolves.toMatchObject({ status: 400 });
   });
 
   it('refuse handed with a hand-over number of 0 with 400', async () => {
