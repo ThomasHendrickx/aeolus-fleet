@@ -2,11 +2,14 @@ import {
   ackInputSchema,
   ackOutputSchema,
   deregisterOutputSchema,
+  handedInputSchema,
+  handedOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
   PING_CONTENT_TYPE,
   pongInputSchema,
   pongOutputSchema,
+  pushReceiveOutputSchema,
   reportInputSchema,
   reportLogOutputSchema,
   reportOutputSchema,
@@ -136,6 +139,47 @@ export const shipRouter = router({
       const { deliveries } = okOrThrow(await ctx.useCases.receiveDeliveries(ctx.crew, { max: input?.max }));
       return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
     }),
+
+  /**
+   * The computer side's receive (decision 0040), for the trierarch or the
+   * plugin watcher, never the agent: takes up to `max` deliveries as
+   * received, counting no attempt, its own in flight first, and makes the
+   * lease pushed until it ends. Waits as receive does. A mutation: every
+   * delivery it returns is the crew's.
+   */
+  pushReceive: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'For the trierarch or the plugin watcher, not the agent: takes your next deliveries for the computer side, up to max (1 to 10, one when left out),',
+        'each with its message, its sender, its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
+        'Your own received or handed ones come first again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
+        'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
+        'Report each hand-over to the agent with handed.',
+      ].join(' '),
+    })
+    .input(receiveInputSchema)
+    .output(pushReceiveOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { deliveries } = okOrThrow(await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max }));
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+    }),
+
+  /**
+   * The computer side reports it handed a delivery to the agent, with its
+   * hand-over number (decision 0040): a higher number counts one attempt,
+   * a repeat changes nothing, and the fifth is answered undeliverable.
+   */
+  handed: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'For the trierarch or the plugin watcher, not the agent: says you handed a delivery to the agent, with its hand-over number (1, 2, 3 and so on under your lease).',
+        'A higher number than the last counts one attempt. The same number again, or a lower one, changes nothing: retry it freely after an error or a lost answer.',
+        'It answers the state: handed, acknowledged when the agent already confirmed it, or undeliverable at the fifth attempt, when nothing may be handed.',
+      ].join(' '),
+    })
+    .input(handedInputSchema)
+    .output(handedOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.handOverDelivery(ctx.crew, input))),
 
   /** Acknowledges a delivery the ship received: it is done. Acknowledging it again is OK. */
   ack: scopedCrewProcedure('messages:receive')

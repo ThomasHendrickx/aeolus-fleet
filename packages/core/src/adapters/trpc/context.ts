@@ -11,6 +11,8 @@ import type { CheckInbox } from '../../domain/messaging/check-inbox.js';
 import type { DismissDelivery } from '../../domain/messaging/dismiss-delivery.js';
 import type { MarkDone } from '../../domain/messaging/mark-done.js';
 import type { MarkRead } from '../../domain/messaging/mark-read.js';
+import type { HandOverDelivery } from '../../domain/messaging/hand-over-delivery.js';
+import type { PushReceiveDeliveries } from '../../domain/messaging/push-receive-deliveries.js';
 import type { ReceiveDeliveries } from '../../domain/messaging/receive-deliveries.js';
 import type { ReplyToMessage } from '../../domain/messaging/reply-to-message.js';
 import type { PingShip } from '../../domain/messaging/ping-ship.js';
@@ -138,6 +140,8 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
+  pushReceiveDeliveries: PushReceiveDeliveries;
+  handOverDelivery: HandOverDelivery;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
