@@ -243,6 +243,44 @@ describe('a pushed lease', () => {
     expect(stored(deliveryId)).toMatchObject({ state: 'received', attempts: 0 });
   });
 
+  it('writes LeasePushed once, at its first push receive, caused by the ship and naming the lease', async () => {
+    const pushedAt = core.clock.now();
+    await pushReceive(scout);
+    await sendTo(toScout());
+    await pushReceive(scout);
+
+    const [event] = eventsOf('LeasePushed');
+    expect(eventsOf('LeasePushed')).toEqual([
+      {
+        id: event?.id,
+        fleetId,
+        type: 'LeasePushed',
+        occurredAt: pushedAt,
+        actor: { kind: 'ship', shipId: scoutId },
+        shipId: scoutId,
+        details: { leaseId: scout.leaseId },
+      },
+    ]);
+  });
+
+  it('writes LeasePushed before the DeliveryReceived of its first push receive', async () => {
+    await sendTo(toScout());
+
+    await pushReceive(scout);
+
+    expect(core.state.events.map((event) => event.type)).toEqual(['MessageAccepted', 'LeasePushed', 'DeliveryReceived']);
+  });
+
+  it('writes LeasePushed again for the next lease of the ship, at its own first push receive', async () => {
+    await pushReceive(scout);
+    await endLeaseOf(scout);
+    const nextCrew = crewAboard(core, { fleetId, shipId: scoutId });
+
+    await pushReceive(nextCrew);
+
+    expect(eventsOf('LeasePushed').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId }, { leaseId: nextCrew.leaseId }]);
+  });
+
   it('is pushed from a push receive that found nothing', async () => {
     await pushReceive(scout);
     await sendTo(toScout());

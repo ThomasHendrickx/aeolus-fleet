@@ -56,6 +56,7 @@ describe('eventTypeSchema', () => {
       'StartingPromptIssued',
       'OperatorPasswordReset',
       'MessageAccepted',
+      'LeasePushed',
       'DeliveryReceived',
       'DeliveryHanded',
       'DeliveryAcknowledged',

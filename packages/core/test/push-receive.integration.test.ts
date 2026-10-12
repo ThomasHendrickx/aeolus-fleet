@@ -201,6 +201,7 @@ describe('concurrent push receivers of one type', () => {
     const results = await Promise.all([pushReceive(scout), pushReceive(scout), pushReceive(scout)]);
 
     expect(results).toEqual([[], [], []]);
+    await expect(prisma.event.count({ where: { fleetId, type: 'LeasePushed', shipId: scout.shipId } })).resolves.toBe(1);
   });
 });
 
@@ -265,6 +266,7 @@ describe('a push receive that fails midway', () => {
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'pending', claimedByLeaseId: null, attempts: 0 });
     await expect(eventTypesOf(deliveryId)).resolves.toEqual(['MessageAccepted']);
     await expect(prisma.lease.findUniqueOrThrow({ where: { id: scout.leaseId } })).resolves.toMatchObject({ pushedAt: null });
+    await expect(prisma.event.count({ where: { fleetId, type: 'LeasePushed' } })).resolves.toBe(0);
   });
 });
 
