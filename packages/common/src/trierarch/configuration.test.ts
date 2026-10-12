@@ -39,6 +39,37 @@ describe('the trierarch configuration', () => {
     expect(trierarchConfigurationSchema.parse(aConfiguration()).worktreeRoot).toBeUndefined();
   });
 
+  it('runs its sessions on the host when it names no runtime (decision 0039)', () => {
+    expect(trierarchConfigurationSchema.parse(aConfiguration()).runtime).toBeUndefined();
+  });
+
+  it('takes the host runtime', () => {
+    expect(trierarchConfigurationSchema.parse(aConfiguration({ runtime: { kind: 'host' } })).runtime).toEqual({ kind: 'host' });
+  });
+
+  it('takes the container runtime with its binary and the memory and cpu caps of each session (decision 0039)', () => {
+    const runtime = { kind: 'container', binary: 'podman', memory: '4g', cpus: 2 };
+
+    expect(trierarchConfigurationSchema.parse(aConfiguration({ runtime })).runtime).toEqual(runtime);
+  });
+
+  it.each([
+    ['no binary', { kind: 'container', memory: '4g', cpus: 2 }],
+    ['no memory cap', { kind: 'container', binary: 'podman', cpus: 2 }],
+    ['no cpu cap', { kind: 'container', binary: 'podman', memory: '4g' }],
+    ['a memory cap that is no size', { kind: 'container', binary: 'podman', memory: 'plenty', cpus: 2 }],
+    ['a memory cap of nothing', { kind: 'container', binary: 'podman', memory: '0g', cpus: 2 }],
+    ['no cpus', { kind: 'container', binary: 'podman', memory: '4g', cpus: 0 }],
+    ['the model token in it, which lives in a file of its own', { kind: 'container', binary: 'podman', memory: '4g', cpus: 2, token: 'sk-ant-oat01-secret' }],
+    ['a runtime it does not know', { kind: 'vm' }],
+  ])('refuses a container runtime with %s', (_label, runtime) => {
+    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ runtime })).success).toBe(false);
+  });
+
+  it.each(['512m', '4g', '4G', '1073741824'])('takes a memory cap of %s, as the runtime takes it', (memory) => {
+    expect(trierarchConfigurationSchema.safeParse(aConfiguration({ runtime: { kind: 'container', binary: 'podman', memory, cpus: 1.5 } })).error).toBeUndefined();
+  });
+
   it('refuses an unknown field', () => {
     expect(trierarchConfigurationSchema.safeParse(aConfiguration({ sandbox: true })).success).toBe(false);
   });
