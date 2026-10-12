@@ -35,7 +35,7 @@ describe('isShipChange', () => {
     },
   );
 
-  it.each(['MessageAccepted', 'DeliveryClaimed', 'DeliveryReturned'] as const)(
+  it.each(['MessageAccepted', 'DeliveryHanded', 'DeliveryReturned'] as const)(
     'leaves the snapshot alone for %s',
     (type) => {
       expect(isShipChange(type)).toBe(false);
@@ -58,7 +58,7 @@ describe('isAttentionChange', () => {
     expect(isAttentionChange(type)).toBe(true);
   });
 
-  it.each(['MessageAccepted', 'DeliveryClaimed', 'DeliveryAcknowledged', 'DeliveryAbandoned', 'ShipRetired'] as const)(
+  it.each(['MessageAccepted', 'DeliveryHanded', 'DeliveryAcknowledged', 'DeliveryAbandoned', 'ShipRetired'] as const)(
     'leaves Needs attention alone for %s',
     (type) => {
       expect(isAttentionChange(type)).toBe(false);

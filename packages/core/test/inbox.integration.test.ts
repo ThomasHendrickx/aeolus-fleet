@@ -102,7 +102,7 @@ describe("argo's inbox on Postgres", () => {
     await expect(
       core.prisma.event.findMany({ where: { deliveryId, type: { not: 'MessageAccepted' } }, orderBy: { seq: 'asc' } }),
     ).resolves.toEqual([
-      expect.objectContaining({ type: 'DeliveryClaimed', actorShipId: argo.shipId }),
+      expect.objectContaining({ type: 'DeliveryHanded', actorShipId: argo.shipId }),
       expect.objectContaining({ type: 'DeliveryAcknowledged', actorShipId: argo.shipId }),
     ]);
   });

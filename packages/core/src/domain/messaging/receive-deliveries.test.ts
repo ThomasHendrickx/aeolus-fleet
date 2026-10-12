@@ -124,12 +124,12 @@ describe('how many deliveries a receive returns', () => {
       error: { kind: 'INVALID_RECEIVE_MAX', message: 'A receive returns 1 to 10 deliveries at once' },
     });
     expect(stored(deliveryId)).toMatchObject({ state: 'pending', attempts: 0 });
-    expect(eventsOf('DeliveryClaimed')).toEqual([]);
+    expect(eventsOf('DeliveryHanded')).toEqual([]);
   });
 });
 
-describe('claiming a delivery', () => {
-  it("marks it in flight, claimed by the ship and its crew's lease, with one attempt, and hands over its message and its sender's id, name and type", async () => {
+describe('handing a delivery over', () => {
+  it("marks it handed, at once, to the ship and its crew's lease, with one attempt, and hands over its message and its sender's id, name and type", async () => {
     const deliveryId = await sendTo(toScout());
     const [message] = core.state.messages;
 
@@ -154,25 +154,25 @@ describe('claiming a delivery', () => {
       ],
     });
     expect(stored(deliveryId)).toMatchObject({
-      state: 'delivered',
+      state: 'handed',
       claimedByShipId: scoutId,
       claimedByLeaseId: scout.leaseId,
       attempts: 1,
     });
   });
 
-  it('writes DeliveryClaimed, caused by the receiving ship, on its timeline', async () => {
+  it('writes DeliveryHanded, caused by the receiving ship, on its timeline', async () => {
     const deliveryId = await sendTo(toScout());
 
     await receive(scout);
 
-    const [event] = eventsOf('DeliveryClaimed');
+    const [event] = eventsOf('DeliveryHanded');
     expect(event?.id).toMatch(/^evt_/);
-    expect(eventsOf('DeliveryClaimed')).toEqual([
+    expect(eventsOf('DeliveryHanded')).toEqual([
       {
         id: event?.id,
         fleetId,
-        type: 'DeliveryClaimed',
+        type: 'DeliveryHanded',
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: scoutId },
         shipId: scoutId,
@@ -188,7 +188,7 @@ describe('claiming a delivery', () => {
     const toShip = await sendTo(toScout());
 
     expect(await receive(scout, 2)).toEqual([toType, toShip]);
-    expect(stored(toType)).toMatchObject({ state: 'delivered', claimedByShipId: scoutId });
+    expect(stored(toType)).toMatchObject({ state: 'handed', claimedByShipId: scoutId });
   });
 
   it('never claims a delivery for another ship or for another type', async () => {
@@ -231,13 +231,13 @@ describe('the sender of a delivery', () => {
 });
 
 describe("a crew's own delivery in flight", () => {
-  it('is returned again by its next receive, and that counts as a claim', async () => {
+  it('is handed again by its next receive, and that counts as an attempt', async () => {
     const deliveryId = await sendTo(toScout());
     await receive(scout);
 
     expect(await receive(scout)).toEqual([deliveryId]);
-    expect(stored(deliveryId)).toMatchObject({ state: 'delivered', claimedByLeaseId: scout.leaseId, attempts: 2 });
-    expect(eventsOf('DeliveryClaimed').map((event) => event.details)).toEqual([
+    expect(stored(deliveryId)).toMatchObject({ state: 'handed', claimedByLeaseId: scout.leaseId, attempts: 2 });
+    expect(eventsOf('DeliveryHanded').map((event) => event.details)).toEqual([
       { leaseId: scout.leaseId, attempts: 1 },
       { leaseId: scout.leaseId, attempts: 2 },
     ]);
@@ -265,7 +265,7 @@ describe("a crew's own delivery in flight", () => {
   });
 });
 
-describe('the fifth claim without an acknowledgement', () => {
+describe('the fifth attempt without an acknowledgement', () => {
   it('makes the delivery undeliverable instead of returning it', async () => {
     const deliveryId = await sendTo(toScout());
     const handedOut: DeliveryId[][] = [];
@@ -299,7 +299,7 @@ describe('the fifth claim without an acknowledgement', () => {
         details: { leaseId: scout.leaseId, attempts: 5 },
       }),
     ]);
-    expect(eventsOf('DeliveryClaimed')).toHaveLength(4);
+    expect(eventsOf('DeliveryHanded')).toHaveLength(4);
   });
 
   it('lets the next delivery take its place within max', async () => {
@@ -313,7 +313,7 @@ describe('the fifth claim without an acknowledgement', () => {
     expect(stored(poison)?.state).toBe('undeliverable');
   });
 
-  it('counts the claims of every crew: after four, the next crew makes it undeliverable', async () => {
+  it('counts the attempts of every crew: after four, the next crew makes it undeliverable', async () => {
     const deliveryId = await sendTo(toReviewers);
     for (let claim = 1; claim <= 4; claim += 1) {
       await receive(scout);

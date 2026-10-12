@@ -15,7 +15,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
-import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
@@ -55,7 +55,7 @@ async function undeliverable(
     }),
   );
   const deliveryId = deliveryIdOf(core, messageId);
-  for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+  for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
     unwrap(await useCases.receiveDeliveries(scout, {}));
   }
   expect(stored(deliveryId)?.state).toBe('undeliverable');
@@ -111,7 +111,7 @@ describe('resending an undeliverable delivery', () => {
     const original = await undeliverable();
 
     unwrap(await useCases.resendDelivery(argo, { deliveryId: original.deliveryId }));
-    expect(stored(original.deliveryId)).toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_CLAIM });
+    expect(stored(original.deliveryId)).toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_ATTEMPT });
   });
 
   it('writes MessageAccepted naming the original and DeliveryDismissed, both caused by the operator', async () => {
@@ -195,7 +195,7 @@ describe('resending an undeliverable delivery', () => {
     expect(core.state.messages).toHaveLength(messages);
   });
 
-  it.each(['pending', 'delivered', 'acknowledged', 'dismissed', 'abandoned'] as const)(
+  it.each(['pending', 'handed', 'acknowledged', 'dismissed', 'abandoned'] as const)(
     'refuses a delivery that is %s: only an undeliverable one is resent',
     async (state) => {
       const original = await undeliverable();
@@ -214,7 +214,7 @@ describe('resending an undeliverable delivery', () => {
 
   it('refuses an undeliverable ping, and leaves it undeliverable: a fresh ping goes through Ping, pings never stack', async () => {
     const { messageId } = unwrap(await useCases.pingShip(argo, { shipId: scoutId }));
-    for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
       unwrap(await useCases.receiveDeliveries(scout, {}));
     }
     const before = structuredClone(core.state);

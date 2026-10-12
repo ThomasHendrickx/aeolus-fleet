@@ -71,7 +71,7 @@ async function deliveryInFlightToArgo(): Promise<string> {
       fleetId,
       messageId,
       recipientShipId: argoId,
-      state: 'delivered',
+      state: 'handed',
       claimedByShipId: argoId,
       claimedByLeaseId: lease.id,
       attempts: 1,

@@ -129,7 +129,7 @@ describe('the ship page', () => {
     await messageRow(page, asked).getByText('Pending').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
     const [delivery] = receivedSchema.parse(await scout.call('receive', { max: 1 })).deliveries;
-    await messageRow(page, asked).getByText('In flight').waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await messageRow(page, asked).getByText('Handed (pulled)').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await scout.call('ack', { deliveryId: delivery?.deliveryId });
     await messageRow(page, asked).getByText('Acknowledged').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
@@ -160,7 +160,7 @@ describe('the ship page', () => {
     const types = await Promise.all((await history.all()).map((entry) => entry.getAttribute('data-type')));
     expect(types).toEqual([
       'DeliveryAcknowledged',
-      'DeliveryClaimed',
+      'DeliveryHanded',
       'MessageAccepted',
     ]);
     await sheet.getByText('"task": "review"').waitFor();

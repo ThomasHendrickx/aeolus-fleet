@@ -50,7 +50,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| 1 to 10, default 1 | Deliveries one receive claims | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `RECEIVE_MAX_UPPER_BOUND`, `RECEIVE_MAX_DEFAULT` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
+| 1 to 10, default 1 | Deliveries one receive hands over | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `RECEIVE_MAX_UPPER_BOUND`, `RECEIVE_MAX_DEFAULT` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
 | 100, default 100 | Events one `fleet.follow` returns | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_MAX_LIMIT`, `FOLLOW_MAX_DEFAULT` | none recorded |
 | 100 | Reach refusals one read returns | [schemas/network.ts](../packages/common/src/schemas/network.ts) `REACH_REFUSALS_READ_MAX` | [0034](decisions/0034-network-rules.md) |
 | 50 | Values one label defines | [schemas/label.ts](../packages/common/src/schemas/label.ts) `LABEL_VALUES_MAX` | [0031](decisions/0031-labels.md) |
@@ -78,7 +78,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
 | 25 s | How long a receive waits on an empty inbox before it answers empty (long poll) | [messaging/receive-deliveries.ts](../packages/core/src/domain/messaging/receive-deliveries.ts) `RECEIVE_WAIT_MS` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
-| 5th claim | A delivery claimed this often without an ack becomes undeliverable and shows in needs attention | [messaging/delivery.ts](../packages/core/src/domain/messaging/delivery.ts) `UNDELIVERABLE_AT_CLAIM` | [blueprint.md](blueprint.md), [architecture.md](architecture.md) |
+| 5th attempt | A delivery received this often without an ack is refused, handed to no one: it becomes undeliverable and shows in needs attention | [messaging/delivery.ts](../packages/core/src/domain/messaging/delivery.ts) `UNDELIVERABLE_AT_ATTEMPT` | [blueprint.md](blueprint.md), [architecture.md](architecture.md) |
 | 00:00 UTC | When the daily message count starts again | [shared/utc-day.ts](../packages/core/src/domain/shared/utc-day.ts) `nextUtcDayStart` | [0020](decisions/0020-installation.md) |
 | 7 days | The installation's message window, counted per UTC day | [registry/installation-fleet.ts](../packages/core/src/domain/registry/installation-fleet.ts) `MESSAGE_WINDOW_DAYS` | [0020](decisions/0020-installation.md), [blueprint.md](blueprint.md) |
 | none by default | Ships per fleet, messages per day, fleets per installation | [registry/limits.ts](../packages/core/src/domain/registry/limits.ts) `NO_INSTALLATION_SETTINGS`; set by the installation | [0020](decisions/0020-installation.md) |

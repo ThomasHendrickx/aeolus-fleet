@@ -112,7 +112,7 @@ describe('replying to a message to argo', () => {
     expect(stored(asked.deliveryId)).toMatchObject({ state: 'acknowledged', claimedByLeaseId: argo.leaseId });
     expect(core.state.events.map((event) => event.type)).toEqual([
       'MessageAccepted',
-      'DeliveryClaimed',
+      'DeliveryHanded',
       'DeliveryAcknowledged',
     ]);
     expect(core.state.events[2]?.details).toEqual({ leaseId: argo.leaseId, reply: messageId });

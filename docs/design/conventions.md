@@ -12,7 +12,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Brand accent = `--primary`: primary Button, active nav item, open-message counts, active TabBar item. Nothing else.
 - `--accent` = neutral hover and selected surface (shadcn meaning), never brand.
 - Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, alerts and count badges. Never on buttons, text blocks or layout.
-- Mapping: Awaiting crew, Pending, Forming, Blocked, Late, seen long ago → waiting. In flight, Standing down, Working → active. Crewed, Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
+- Mapping: Awaiting crew, Pending, Forming, Blocked, Late, seen long ago → waiting. Handed (pulled), Standing down, Working → active. Crewed, Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
 - Status is never colour alone: icon + label always; the live dot always has its word.
 - Alert tone: error → attention; warning or rate limit → waiting; neutral fact → ended; calm notice (signed in elsewhere) → `--muted` panel.
 - `--destructive` fills only the final confirm Button. Destructive menu items and field errors use `--destructive-text`.
@@ -101,7 +101,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Copy
 - Plain, direct, present tense, "you" for the operator. Short sentences.
 - Sentence case everywhere: titles, buttons, menu items, tabs. Ship names, types and ids exactly as stored.
-- Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, crew line, re-crew, ping, report, harness, model, last seen, fleet scope, delivery, pending, in flight, acknowledged, undeliverable, dismissed, abandoned, operator, argo. Squadrons: squadron, flagship, member, role, blueprint, template, charter, launch note, check-in, form, on station, sailing, stand down, disbanded, hand-off. Not: lease, revoke, rotate, user, agent (except "agent session"), team, deploy.
+- Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, crew line, re-crew, ping, report, harness, model, last seen, fleet scope, delivery, pending, handed (pulled), acknowledged, undeliverable, dismissed, abandoned, operator, argo. Squadrons: squadron, flagship, member, role, blueprint, template, charter, launch note, check-in, form, on station, sailing, stand down, disbanded, hand-off. Not: lease, revoke, rotate, user, agent (except "agent session"), team, deploy.
 - ShipName: add ` · XXXX` (last 4 id characters) in ShipTimeline, DeliveryHistory, retired ships and message parties. Never for argo.
 - Type address: Badge type chip in mono; prose "Any ship of type reviewer"; short "any reviewer".
 - Ids: mono, shortened in the middle (`shp_01J8XK4T…YB4C`), full value in `title`; CopyButton copies the full id.

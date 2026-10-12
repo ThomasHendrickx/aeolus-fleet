@@ -25,8 +25,8 @@ const clock = createTestClock('2026-10-01T09:00:00.000Z');
 const LIVE_TIMEOUT_MS = 20_000;
 /** A receive returns at once when it has deliveries; an empty one waits no longer than this. */
 const RECEIVE_WAIT_MS = 500;
-/** The claim that makes a delivery never acknowledged undeliverable. */
-const UNDELIVERABLE_AT_CLAIM = 5;
+/** The attempt that makes a delivery never acknowledged undeliverable. */
+const UNDELIVERABLE_AT_ATTEMPT = 5;
 /** Sign-ins are rate limited per window; each test signs in after the window of the one before. */
 const SIGN_IN_WINDOW_MS = 60_000;
 
@@ -105,7 +105,7 @@ async function undeliverable(message: { from: Session; to: Session; payload: str
     await from.call('send', { selector: { kind: 'ship', shipId: to.shipId }, payload, idempotencyKey: payload }),
   );
   let deliveryId = '';
-  for (let claim = 1; claim < UNDELIVERABLE_AT_CLAIM; claim += 1) {
+  for (let claim = 1; claim < UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
     const { deliveries } = receivedSchema.parse(await to.call('receive', {}));
     expect(deliveries.map((delivery) => delivery.messageId)).toEqual([messageId]);
     deliveryId = deliveries[0]?.deliveryId ?? '';
@@ -144,7 +144,7 @@ describe('Needs attention', () => {
     await page.getByRole('heading', { name: 'Needs attention' }).waitFor();
     const row = attentionRow(page, deliveryId);
     await row.getByText('{"run":"e2e","ref":"pr-320"}').waitFor();
-    await row.getByText('Received 5 times, never acknowledged.').waitFor();
+    await row.getByText('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.').waitFor();
 
     await row.getByTestId('attention-resend').click();
 

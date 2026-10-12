@@ -112,7 +112,7 @@ describe('the history reads on Postgres', () => {
     ]);
     expect(scoutMessages).toHaveLength(2);
     expect(lookoutMessages).toMatchObject([
-      { id: toReviewers, recipient: { kind: 'type', type: 'reviewer' }, delivery: { state: 'delivered', claimedBy: { name: 'lookout' } } },
+      { id: toReviewers, recipient: { kind: 'type', type: 'reviewer' }, delivery: { state: 'handed', claimedBy: { name: 'lookout' } } },
     ]);
   });
 
@@ -134,9 +134,9 @@ describe('the history reads on Postgres', () => {
     });
     expect(message.delivery.history).toMatchObject([
       { type: 'DeliveryAcknowledged', ship: { name: 'lookout' }, location: null, attempts: null },
-      { type: 'DeliveryClaimed', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, harness: 'claude-code', attempts: 2 },
+      { type: 'DeliveryHanded', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, harness: 'claude-code', attempts: 2 },
       { type: 'DeliveryReturned', ship: { name: 'scout' }, location: null, attempts: 1 },
-      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
+      { type: 'DeliveryHanded', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
       { type: 'MessageAccepted', ship: null, location: null, attempts: null },
     ]);
   });

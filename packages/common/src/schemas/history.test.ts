@@ -174,11 +174,11 @@ describe('messageOutputSchema', () => {
     payload: '{"pr":48}',
     delivery: {
       id: newId('delivery'),
-      state: 'delivered',
+      state: 'handed',
       attempts: 2,
       claimedBy: planner,
       history: [
-        { seq: 3, type: 'DeliveryClaimed', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2 },
+        { seq: 3, type: 'DeliveryHanded', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2 },
         { seq: 2, type: 'DeliveryReturned', occurredAt: AT, ship: planner, location: null, harness: null, attempts: 1 },
         { seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null, location: null, harness: null, attempts: null },
       ],

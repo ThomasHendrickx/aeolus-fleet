@@ -448,7 +448,7 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
       const rows = await db.$queryRaw<unknown[]>`
         WITH returned AS (
           UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL
-          WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state = 'delivered'
+          WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state = 'handed'
           RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
                     claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
         )
@@ -576,8 +576,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     },
     deliveryCounts: async (fleetId, shipId) => {
       const [inFlight, open] = await Promise.all([
-        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: 'delivered' } }),
-        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'delivered'] } } }),
+        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: 'handed' } }),
+        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'handed'] } } }),
       ]);
       return { inFlight, open };
     },

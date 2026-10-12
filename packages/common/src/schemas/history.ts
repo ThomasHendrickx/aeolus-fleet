@@ -114,7 +114,7 @@ export const messageInputSchema = z.object({ messageId: idSchema('message') });
 /** The event types that change a delivery: its history. */
 export const DELIVERY_HISTORY_TYPES = [
   'MessageAccepted',
-  'DeliveryClaimed',
+  'DeliveryHanded',
   'DeliveryReturned',
   'DeliveryAcknowledged',
   'DeliveryUndeliverable',

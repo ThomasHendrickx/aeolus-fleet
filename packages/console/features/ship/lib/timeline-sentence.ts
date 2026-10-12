@@ -260,7 +260,7 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'ended',
         icon: entry.message?.sender.id === shipId ? 'sent' : 'received',
       };
-    case 'DeliveryClaimed':
+    case 'DeliveryHanded':
       return { parts: deliveryAct(entry, { shipId, verb: 'took' }), tone: 'active', icon: 'received' };
     case 'DeliveryAcknowledged':
       return {

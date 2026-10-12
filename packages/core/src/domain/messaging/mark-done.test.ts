@@ -56,7 +56,7 @@ function stored(deliveryId: DeliveryId) {
 }
 
 describe('marking a message to argo done', () => {
-  it("acknowledges it, claimed by argo under the console session's lease, as one claim", async () => {
+  it("acknowledges it, handed to argo under the console session's lease, as one attempt", async () => {
     const deliveryId = await toArgo();
 
     await expect(useCases.markDone(argo, { deliveryId })).resolves.toEqual({ isOk: true, value: undefined });
@@ -68,14 +68,14 @@ describe('marking a message to argo done', () => {
     });
   });
 
-  it('writes DeliveryClaimed and DeliveryAcknowledged, caused by argo', async () => {
+  it('writes DeliveryHanded and DeliveryAcknowledged, caused by argo', async () => {
     const deliveryId = await toArgo();
 
     unwrap(await useCases.markDone(argo, { deliveryId }));
     const byArgo = { kind: 'ship', shipId: argoId };
     expect(core.state.events).toEqual([
       expect.objectContaining({
-        type: 'DeliveryClaimed',
+        type: 'DeliveryHanded',
         occurredAt: core.clock.now(),
         actor: byArgo,
         shipId: argoId,

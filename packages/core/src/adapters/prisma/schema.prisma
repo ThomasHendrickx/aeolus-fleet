@@ -461,7 +461,7 @@ model Message {
 
 enum DeliveryState {
   pending
-  delivered
+  handed
   acknowledged
   undeliverable
   dismissed
@@ -471,9 +471,9 @@ enum DeliveryState {
 }
 
 /// One message to one resolved recipient: a ship or a type. Ids start with dlv_.
-/// A receive claims it for the ship and the lease of the crew receiving: set while it
-/// is in flight, kept once acknowledged, none while it is pending. Attempts count the
-/// claims; the fifth makes it undeliverable.
+/// A receive hands it to the ship and the lease of the crew receiving: set while it
+/// is handed, kept once acknowledged, none while it is pending. Attempts count the
+/// hand-overs; the fifth makes it undeliverable.
 /// The read date is set when the operator opens a message to argo.
 /// For a type under network rules, the ships of the type its sender may reach,
 /// fixed at send time: only they claim it (decision 0034). Empty: any ship of

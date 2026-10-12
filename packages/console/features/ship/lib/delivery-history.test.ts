@@ -26,20 +26,20 @@ describe('deliveryHistorySentence', () => {
     expect(sentence(anEntry('MessageAccepted'), toReviewers)).toBe('Queued for any ship of type reviewer.');
   });
 
-  it('names the ship that claimed it and where its session ran', () => {
-    const claimed = anEntry('DeliveryClaimed', { ship: planner, location: { kind: 'DEVICE', description: null }, attempts: 1 });
+  it('says it was handed (pulled) to the ship, and where its session ran', () => {
+    const handed = anEntry('DeliveryHanded', { ship: planner, location: { kind: 'DEVICE', description: null }, attempts: 1 });
 
-    expect(sentence(claimed)).toBe('Claimed by planner, session on Device.');
+    expect(sentence(handed)).toBe('Handed (pulled) to planner, session on Device.');
   });
 
   it("uses the session's own description, and counts the attempt after the first", () => {
-    const claimed = anEntry('DeliveryClaimed', {
+    const handed = anEntry('DeliveryHanded', {
       ship: planner,
       location: { kind: 'SERVER', description: 'hetzner-1' },
       attempts: 3,
     });
 
-    expect(sentence(claimed)).toBe('Attempt 3: claimed by planner, session on hetzner-1.');
+    expect(sentence(handed)).toBe('Attempt 3: handed (pulled) to planner, session on hetzner-1.');
   });
 
   it('says a returned message to one ship is back in its inbox', () => {
@@ -58,9 +58,9 @@ describe('deliveryHistorySentence', () => {
     expect(sentence(anEntry('DeliveryAcknowledged', { ship: planner }))).toBe('Acknowledged by planner.');
   });
 
-  it('counts the claims of an undeliverable message', () => {
+  it('counts the hand-overs of an undeliverable message and says the fifth receive was refused', () => {
     expect(sentence(anEntry('DeliveryUndeliverable', { ship: planner, attempts: 5 }))).toBe(
-      'Received 5 times, never acknowledged.',
+      'Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.',
     );
   });
 
@@ -79,7 +79,7 @@ describe('deliveryHistoryState', () => {
   it.each([
     ['MessageAccepted', 'pending'],
     ['DeliveryReturned', 'pending'],
-    ['DeliveryClaimed', 'delivered'],
+    ['DeliveryHanded', 'handed'],
     ['DeliveryAcknowledged', 'acknowledged'],
     ['DeliveryAbandoned', 'abandoned'],
     ['DeliveryDismissed', 'dismissed'],

@@ -140,7 +140,7 @@ describe('a pong on Postgres', () => {
     await expect(failing(scout, { deliveryId })).rejects.toThrow('the event log is down');
 
     await expect(core.prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } })).resolves.toMatchObject({
-      state: 'delivered',
+      state: 'handed',
     });
     await expect(lastSeen()).resolves.toEqual(seenBefore);
   });

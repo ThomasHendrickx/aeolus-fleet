@@ -57,7 +57,7 @@ describe("reading a ship's messages", () => {
     await expect(messagesOf(scene.planner.shipId)).resolves.toMatchObject([{ id: messageId }]);
     await expect(messagesOf(scene.scout.shipId)).resolves.toMatchObject([{ id: messageId }]);
     await expect(messagesOf(scene.lookout.shipId)).resolves.toMatchObject([
-      { id: messageId, delivery: { state: 'delivered', claimedBy: { name: 'lookout' } } },
+      { id: messageId, delivery: { state: 'handed', claimedBy: { name: 'lookout' } } },
     ]);
   });
 

@@ -772,7 +772,7 @@ describe('deliveries', () => {
     const shipId = await createShip(fleetId);
     const { id: leaseId } = await database.lease.create({ data: lease(fleetId, shipId) });
     const delivery = async (claim: {
-      state: 'pending' | 'delivered' | 'acknowledged';
+      state: 'pending' | 'handed' | 'acknowledged';
       claimedByShipId?: ShipId;
       claimedByLeaseId?: string;
     }) =>
@@ -780,12 +780,12 @@ describe('deliveries', () => {
         data: { id: newId('delivery'), fleetId, messageId: await createMessage(fleetId), recipientShipId: shipId, createdAt: now, ...claim },
       });
 
-    await expect(delivery({ state: 'delivered' })).rejects.toThrow(/deliveries_claim/);
-    await expect(delivery({ state: 'delivered', claimedByShipId: shipId })).rejects.toThrow(/deliveries_claim/);
+    await expect(delivery({ state: 'handed' })).rejects.toThrow(/deliveries_claim/);
+    await expect(delivery({ state: 'handed', claimedByShipId: shipId })).rejects.toThrow(/deliveries_claim/);
     await expect(delivery({ state: 'pending', claimedByShipId: shipId, claimedByLeaseId: leaseId })).rejects.toThrow(
       /deliveries_claim/,
     );
-    await expect(delivery({ state: 'delivered', claimedByShipId: shipId, claimedByLeaseId: leaseId })).resolves.toMatchObject({
+    await expect(delivery({ state: 'handed', claimedByShipId: shipId, claimedByLeaseId: leaseId })).resolves.toMatchObject({
       claimedByLeaseId: leaseId,
     });
     await expect(
@@ -807,7 +807,7 @@ describe('deliveries', () => {
           fleetId,
           messageId: await createMessage(fleetId),
           recipientShipId: shipId,
-          state: 'delivered',
+          state: 'handed',
           claimedByShipId: shipId,
           claimedByLeaseId: foreignLeaseId,
           createdAt: now,
@@ -886,5 +886,84 @@ describe('events', () => {
     await expect(database.event.delete({ where: { id } })).rejects.toThrow(/append-only: DELETE/);
     await expect(database.$executeRaw`TRUNCATE events`).rejects.toThrow(/append-only: TRUNCATE/);
     await expect(database.event.findUnique({ where: { id } })).resolves.toMatchObject({ type: 'ShipCommissioned' });
+  });
+});
+
+describe('the handed migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const handed = names.findIndex((name) => name.endsWith('_delivery_handed'));
+
+  async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
+    for (const name of migrations) {
+      await executeSqlFile(databaseUrl, `${MIGRATIONS}/${name}/migration.sql`);
+    }
+  }
+
+  /** A fleet as the fleet stored it before handed: one delivery delivered, its DeliveryClaimed, and a later ack's event. */
+  async function storedBeforeHanded(url: string) {
+    await apply(url, names.slice(0, handed));
+    const before = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const shipId = newId('ship');
+    const leaseId = newId('lease');
+    const messageId = newId('message');
+    const deliveryId = newId('delivery');
+    const [claimed, acknowledged] = [newId('event'), newId('event')];
+    try {
+      await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 2n } });
+      await before.ship.create({ data: { id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now } });
+      await before.lease.create({ data: { ...lease(fleetId, shipId), id: leaseId } });
+      await before.message.create({
+        data: { id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now },
+      });
+      // Raw: the generated client knows no state delivered any more.
+      await before.$executeRaw`
+        INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, claimed_by_ship_id, claimed_by_lease_id, attempts, created_at)
+        VALUES (${deliveryId}, ${fleetId}, ${messageId}, ${shipId}, 'delivered', ${shipId}, ${leaseId}, 2, ${now})`;
+      await before.event.createMany({
+        data: [
+          { id: claimed, fleetId, type: 'DeliveryClaimed', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId, attempts: 2 }, seq: 1n },
+          { id: acknowledged, fleetId, type: 'DeliveryAcknowledged', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId }, seq: 2n },
+        ],
+      });
+    } finally {
+      await before.$disconnect();
+    }
+    return { deliveryId, claimed, acknowledged, leaseId };
+  }
+
+  it('names a delivery that was delivered handed, keeping who holds it and its attempts', async () => {
+    const url = await createEmptyDatabase();
+    const { deliveryId, leaseId } = await storedBeforeHanded(url);
+
+    await apply(url, [names[handed] ?? 'missing']);
+
+    const after = createPrismaClient(url);
+    try {
+      await expect(after.delivery.findUnique({ where: { id: deliveryId } })).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: leaseId, attempts: 2 });
+    } finally {
+      await after.$disconnect();
+    }
+  });
+
+  it('names every stored DeliveryClaimed DeliveryHanded, with its details and number, and leaves the other events as they were', async () => {
+    const url = await createEmptyDatabase();
+    const { claimed, acknowledged, leaseId } = await storedBeforeHanded(url);
+
+    await apply(url, [names[handed] ?? 'missing']);
+
+    const after = createPrismaClient(url);
+    try {
+      await expect(after.event.findMany({ select: { id: true, type: true, details: true, seq: true }, orderBy: { seq: 'asc' } })).resolves.toEqual([
+        { id: claimed, type: 'DeliveryHanded', details: { leaseId, attempts: 2 }, seq: 1n },
+        { id: acknowledged, type: 'DeliveryAcknowledged', details: { leaseId }, seq: 2n },
+      ]);
+    } finally {
+      await after.$disconnect();
+    }
   });
 });

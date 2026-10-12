@@ -13,7 +13,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
-import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import { newKey } from '../../../test/support/keys.js';
 
 let core: InMemoryCore;
@@ -49,7 +49,7 @@ async function sendTo(selector: Selector): Promise<DeliveryId> {
 /** A delivery the scout's crew received five times without acknowledging it: undeliverable. */
 async function undeliverable(selector: Selector = { kind: 'ship', shipId: scoutId }): Promise<DeliveryId> {
   const deliveryId = await sendTo(selector);
-  for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+  for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
     unwrap(await useCases.receiveDeliveries(scout, {}));
   }
   expect(stored(deliveryId)?.state).toBe('undeliverable');
@@ -66,7 +66,7 @@ describe('dismissing an undeliverable delivery', () => {
     const deliveryId = await undeliverable();
 
     await expect(useCases.dismissDelivery(argo, { deliveryId })).resolves.toEqual({ isOk: true, value: undefined });
-    expect(stored(deliveryId)).toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_CLAIM });
+    expect(stored(deliveryId)).toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_ATTEMPT });
   });
 
   it('writes DeliveryDismissed, caused by the operator, naming the ship it was for', async () => {
@@ -101,7 +101,7 @@ describe('dismissing an undeliverable delivery', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it.each(['pending', 'delivered', 'acknowledged', 'abandoned'] as const)(
+  it.each(['pending', 'handed', 'acknowledged', 'abandoned'] as const)(
     'refuses a delivery that is %s: only an undeliverable one is dismissed',
     async (state) => {
       const deliveryId = await sendTo({ kind: 'ship', shipId: scoutId });

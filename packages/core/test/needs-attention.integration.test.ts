@@ -2,7 +2,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@a
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
-import { UNDELIVERABLE_AT_CLAIM } from '../src/domain/messaging/delivery.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from '../src/domain/messaging/delivery.js';
 import { createDismissDelivery } from '../src/domain/messaging/dismiss-delivery.js';
 import { createResendDelivery } from '../src/domain/messaging/resend-delivery.js';
 import type { Caller, Crew } from '../src/domain/shared/caller.js';
@@ -68,7 +68,7 @@ async function deliveryOf(messageId: MessageId): Promise<DeliveryId> {
 async function undeliverable(): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   const messageId = await sendTo({ kind: 'ship', shipId: scout.shipId });
   const next = await sendTo({ kind: 'ship', shipId: scout.shipId }, 'next');
-  for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+  for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
     core.clock.advance(1_000);
     unwrap(await core.useCases.receiveDeliveries(scout, {}));
   }
@@ -91,14 +91,14 @@ describe('Needs attention on Postgres', () => {
     expect(listed.map((entry) => entry.deliveryId)).toEqual([first.deliveryId, second.deliveryId]);
     expect(listed[0]).toEqual({
       deliveryId: first.deliveryId,
-      attempts: UNDELIVERABLE_AT_CLAIM,
+      attempts: UNDELIVERABLE_AT_ATTEMPT,
       since,
       message: {
         id: first.messageId,
         sender: { id: planner.shipId, name: 'planner' },
         recipient: { kind: 'ship', ship: { id: scout.shipId, name: 'scout' } },
         inReplyTo: null,
-        sentAt: new Date(since.getTime() - UNDELIVERABLE_AT_CLAIM * 1_000 - 1_000),
+        sentAt: new Date(since.getTime() - UNDELIVERABLE_AT_ATTEMPT * 1_000 - 1_000),
         contentType: 'application/json',
         isPing: false,
         model: 'claude-opus-5-5',
@@ -113,7 +113,7 @@ describe('Needs attention on Postgres', () => {
 
     unwrap(await core.useCases.dismissDelivery(argo, { deliveryId }));
 
-    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_CLAIM });
+    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'dismissed', attempts: UNDELIVERABLE_AT_ATTEMPT });
     await expect(core.prisma.event.findMany({ where: { type: 'DeliveryDismissed' } })).resolves.toEqual([
       expect.objectContaining({ actorShipId: argo.shipId, shipId: scout.shipId, messageId, deliveryId }),
     ]);

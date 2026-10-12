@@ -8,7 +8,7 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { claimDelivery } from './delivery.js';
+import { handDelivery } from './delivery.js';
 import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
 import { receiveMax } from './receive-max.js';
 
@@ -33,7 +33,7 @@ export interface ReceivedDelivery {
   model: string | null;
   inReplyTo: MessageId | null;
   sentAt: Date;
-  /** How many times the delivery has been claimed, this time included. */
+  /** How many times the delivery has been handed over, this time included: its attempts. */
   attempts: number;
 }
 
@@ -92,12 +92,12 @@ async function claimForCrew(
     hasMore = claimable.length === limit;
     for (const { delivery, message } of claimable) {
       claimed.push(delivery.id);
-      const { outcome, delivery: changed, events } = claimDelivery(delivery, { crew, at });
+      const { outcome, delivery: changed, events } = handDelivery(delivery, { crew, at });
       await tx.deliveries.update(changed);
       for (const event of events) {
         await recordEvent({ events: tx.events, ids }, event);
       }
-      if (outcome === 'claimed') {
+      if (outcome === 'handed') {
         const sender = await findShip(tx, { fleetId: crew.fleetId, shipId: message.senderShipId });
         if (!sender.isOk) {
           // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
@@ -127,10 +127,10 @@ async function claimForCrew(
  * Use case: a crew receives its deliveries (`receive`), up to `max`, 1 to 10,
  * one by default. Its scope (messages:receive) is checked before this runs.
  * Each attempt is one unit of work (see `claimForCrew`): every delivery it
- * returns is in flight, claimed by the crew's ship and lease, until the ship
- * acknowledges it or the lease ends, and the crew's next receive returns it
- * again, counted as another claim, so a lost reply loses nothing. Its fifth
- * claim makes it undeliverable instead. Each delivery names its sender by id,
+ * returns is handed at once, in flight with the crew's ship and lease, until
+ * the ship acknowledges it or the lease ends, and the crew's next receive
+ * hands it again, counted as another attempt, so a lost reply loses nothing.
+ * Its fifth attempt makes it undeliverable instead. Each delivery names its sender by id,
  * and by the name and type the sender has now, so the crew can answer by name.
  *
  * When nothing is there it waits, about 25 seconds, for a wake-up for its ship

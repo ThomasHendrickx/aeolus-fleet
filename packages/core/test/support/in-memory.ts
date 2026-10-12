@@ -656,7 +656,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const inFlight = state.deliveries
           .filter(
             (delivery) =>
-              delivery.fleetId === fleetId && delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId,
+              delivery.fleetId === fleetId && delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId,
           )
           .sort(byAge);
         for (const delivery of inFlight) {
@@ -831,7 +831,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const inFlight = ofFleet
           .filter(
             (delivery) =>
-              delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
+              delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
           )
           .sort(byAge);
         const pending = ofFleet
@@ -853,7 +853,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.deliveries.filter(
             (delivery) =>
               delivery.fleetId === fleetId &&
-              ((delivery.state === 'delivered' && delivery.claimedByLeaseId === leaseId) ||
+              ((delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId) ||
                 (delivery.state === 'pending' &&
                   ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
                     (delivery.recipient.kind === 'type' && delivery.recipient.type === type && (delivery.reachableShipIds?.includes(shipId) ?? true))))),
@@ -873,7 +873,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             delivery.fleetId === fleetId &&
             delivery.recipient.kind === 'ship' &&
             delivery.recipient.shipId === shipId &&
-            (delivery.state === 'pending' || delivery.state === 'delivered') &&
+            (delivery.state === 'pending' || delivery.state === 'handed') &&
             state.messages.some((message) => message.id === delivery.messageId && message.contentType === PING_CONTENT_TYPE),
         );
         const message = open && state.messages.find((held) => held.id === open.messageId);
@@ -1167,10 +1167,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveryCounts: (fleetId, shipId) => {
       const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
       return Promise.resolve({
-        inFlight: ofFleet.filter((delivery) => delivery.state === 'delivered' && delivery.claimedByShipId === shipId).length,
+        inFlight: ofFleet.filter((delivery) => delivery.state === 'handed' && delivery.claimedByShipId === shipId).length,
         open: ofFleet.filter(
           (delivery) =>
-            (delivery.state === 'pending' || delivery.state === 'delivered') &&
+            (delivery.state === 'pending' || delivery.state === 'handed') &&
             delivery.recipient.kind === 'ship' &&
             delivery.recipient.shipId === shipId,
         ).length,
@@ -1280,7 +1280,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       return [];
     }
     const lease =
-      event.type === 'DeliveryClaimed' ? state.leases.find((held) => held.id === event.details.leaseId) : undefined;
+      event.type === 'DeliveryHanded' ? state.leases.find((held) => held.id === event.details.leaseId) : undefined;
     const { attempts } = event.details;
     return [
       {
@@ -1312,7 +1312,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       }
       const claimed = new Set(
         state.events
-          .filter((event) => event.fleetId === fleetId && event.type === 'DeliveryClaimed' && event.shipId === shipId)
+          .filter((event) => event.fleetId === fleetId && event.type === 'DeliveryHanded' && event.shipId === shipId)
           .map((event) => event.messageId),
       );
       return Promise.resolve(
