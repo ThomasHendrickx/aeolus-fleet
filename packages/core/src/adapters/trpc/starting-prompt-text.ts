@@ -10,7 +10,7 @@ import { mcpUrlOf, type CrewLine, type ShipId, type StartingPromptOutput } from 
 
 /**
  * The starting prompt's text: identity only. Where the fleet's MCP server is
- * and how to add it, the ship's id and secret, how to pick the location, and
+ * and how to connect it from a chat app or add it to Claude Code, the ship's id and secret, how to pick the location, and
  * to call register. The protocol comes from the fleet when the session
  * connects, and each call's rules from its description; what the ship works
  * on, the operator adds.
@@ -24,7 +24,9 @@ function startingPromptText(input: { mcpUrl: string; shipId: ShipId; secret: str
     `Ship id: ${shipId}`,
     `Ship secret: ${secret}`,
     '',
-    "Its tools come from the fleet's MCP server at that URL. If this session has none of them, add the server with this command, then start the session again with this prompt:",
+    "Its tools come from the fleet's MCP server at that URL. If this session has none of them, connect the server, then start again with this prompt.",
+    'In a chat app (Claude chat, ChatGPT), connect that URL as a remote MCP server or connector, without auth.',
+    'In Claude Code, add it with this command:',
     `claude mcp add --transport http --scope user aeolus ${mcpUrl}`,
     '',
     'Your location is where this session runs:',
