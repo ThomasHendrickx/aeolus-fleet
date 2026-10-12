@@ -8,6 +8,7 @@ import { failureForLog } from './adapters/prisma/failure-log.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './domain/shared/clock.js';
+import { repeatPass } from './repeating-pass.js';
 import { createUseCases, systemClock } from './wiring.js';
 
 export interface AppOptions {
@@ -30,13 +31,18 @@ export interface AppOptions {
   receiveWaitMs?: number;
   /** The installation token that opens the installation procedures; unset, they are off. */
   installationToken?: string;
+  /** How often the 10 and 60 minute clocks pass; every 30 seconds unless a test says otherwise. */
+  overduePassMs?: number;
 }
+
+/** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
+const OVERDUE_PASS_MS = 30_000;
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
  * The delivery listener starts at once and wakes waiting receives and live
- * subscriptions. Closing the
- * server also stops the listener and disconnects the database.
+ * subscriptions, and the 10 and 60 minute clocks pass every 30 seconds.
+ * Closing the server also stops both and disconnects the database.
  */
 export function createApp(options: AppOptions): FastifyInstance {
   const prisma = createPrismaClient(options.databaseUrl);
@@ -44,14 +50,15 @@ export function createApp(options: AppOptions): FastifyInstance {
   const wakeups = createReceiverWakeups();
   const fleetEvents = createFleetEventWakeups();
 
+  const useCases = createUseCases({
+    prisma,
+    clock,
+    wakeups,
+    fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
+    receiveWaitMs: options.receiveWaitMs,
+  });
   const server = buildHttpServer({
-    useCases: createUseCases({
-      prisma,
-      clock,
-      wakeups,
-      fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
-      receiveWaitMs: options.receiveWaitMs,
-    }),
+    useCases,
     fleetUrl: options.publicUrl,
     installationToken: options.installationToken,
     fleetEvents,
@@ -83,6 +90,14 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
+  const overduePasses = repeatPass({
+    pass: useCases.tellOverdueDeliveries,
+    everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
+    onError: (error) => {
+      server.log.warn(failureForLog(error), 'the 10 and 60 minute clocks failed a pass: passing again shortly');
+    },
+  });
+
   // Before the server stops taking requests and waits for the ones it holds:
   // a waiting receive answers no deliveries at once instead of holding it up,
   // and a live subscription ends.
@@ -103,6 +118,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   server.addHook('onClose', async () => {
+    await overduePasses.stop();
     await listener.close();
     await prisma.$disconnect();
   });

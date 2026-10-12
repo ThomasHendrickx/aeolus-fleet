@@ -191,6 +191,7 @@ describe('initialise fleet', () => {
       declaredNetworkRules: [],
       reachRefusals: [],
       events: [],
+      overdueDeliveries: [],
       installationRequests: [],
       installationSettings: [],
       fleetLimitSettings: [],

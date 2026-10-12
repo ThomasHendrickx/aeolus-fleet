@@ -40,6 +40,29 @@ export type NeedsAttentionDelivery = z.infer<typeof needsAttentionDeliverySchema
 /** Output of `fleet.needsAttention`: every undeliverable or not handled delivery of the fleet, oldest first. */
 export const needsAttentionOutputSchema = z.array(needsAttentionDeliverySchema);
 
+/**
+ * One delivery argo was told is overdue (decision 0040): the ship whose 10 or
+ * 60 minute clock ran out, the state it waits in, which clock, when argo was
+ * told, and its whole message. It clears by itself; nothing resends or
+ * dismisses it.
+ */
+export const overdueDeliverySchema = z.object({
+  deliveryId: idSchema('delivery'),
+  ship: partySchema,
+  state: z.enum(['pending', 'received', 'handed']),
+  /** Handed and not confirmed, or waiting while the session is idle or busy. */
+  clock: z.enum(['notConfirmed', 'idle', 'busy']),
+  /** After how long it ran out: 10 or 60. */
+  minutes: z.int().min(1),
+  toldAt: isoTime,
+  message: needsAttentionDeliverySchema.shape.message,
+});
+
+export type OverdueDelivery = z.infer<typeof overdueDeliverySchema>;
+
+/** Output of `fleet.overdue`: every overdue delivery of the fleet that still stands, oldest told first. */
+export const overdueOutputSchema = z.array(overdueDeliverySchema);
+
 /** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({
   deliveryId: idSchema('delivery'),

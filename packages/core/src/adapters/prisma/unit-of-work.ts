@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, MessageRepository, OverdueDeliveryRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -35,6 +35,7 @@ import {
 } from './identity.js';
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
+import { createPrismaOverdueDeliveryRepository } from './overdue.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import {
   createPrismaClearRequestRepository,
@@ -64,6 +65,7 @@ export interface PrismaTx {
   signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
   notifier: Notifier;
   installationRequests: InstallationRequestRepository;
@@ -88,6 +90,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     signInTickets: createPrismaSignInTicketRepository(db),
     messages: createPrismaMessageRepository(db),
     deliveries: createPrismaDeliveryRepository(db),
+    overdueDeliveries: createPrismaOverdueDeliveryRepository(db),
     events: createPrismaEventLog(db),
     installationRequests: createPrismaInstallationRequestRepository(db),
     installationSettings: createPrismaInstallationSettings(db),

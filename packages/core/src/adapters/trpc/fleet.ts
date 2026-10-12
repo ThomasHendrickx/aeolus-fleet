@@ -14,6 +14,7 @@ import {
   messageInputSchema,
   messageOutputSchema,
   needsAttentionOutputSchema,
+  overdueOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
   pingShipInputSchema,
@@ -693,6 +694,17 @@ export const fleetRouter = router({
       (await ctx.useCases.readNeedsAttention(ctx.caller)).map((entry) => ({
         ...entry,
         since: entry.since.toISOString(),
+        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+      })),
+    ),
+
+  /** The overdue deliveries argo was told of by the 10 and 60 minute clocks, oldest told first, until each clears. */
+  overdue: scopedProcedure('fleet:read')
+    .output(overdueOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.readOverdue(ctx.caller)).map((entry) => ({
+        ...entry,
+        toldAt: entry.toldAt.toISOString(),
         message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
       })),
     ),

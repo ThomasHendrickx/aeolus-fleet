@@ -6,6 +6,7 @@ import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaShipHistory } from './adapters/prisma/history.js';
+import { createPrismaPushedCrews } from './adapters/prisma/overdue.js';
 import {
   createPrismaFleetListing,
   createPrismaFleetRepository,
@@ -45,6 +46,7 @@ import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/me
 import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
 import { createReportHandled, type ReportHandled } from './domain/messaging/report-handled.js';
 import { createReportNotHandled, type ReportNotHandled } from './domain/messaging/report-not-handled.js';
+import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './domain/messaging/tell-overdue-deliveries.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './domain/messaging/check-inbox.js';
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
@@ -116,6 +118,7 @@ import { createListInstallationFleets, type ListInstallationFleets } from './dom
 import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
+import { createReadOverdue, type ReadOverdue } from './domain/shared/read-overdue.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -168,6 +171,8 @@ export interface UseCases {
   handOverDelivery: HandOverDelivery;
   reportHandled: ReportHandled;
   reportNotHandled: ReportNotHandled;
+  /** One pass of the 10 and 60 minute clocks; core runs it, never the API. */
+  tellOverdueDeliveries: TellOverdueDeliveries;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -183,6 +188,7 @@ export interface UseCases {
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
   readNeedsAttention: ReadNeedsAttention;
+  readOverdue: ReadOverdue;
   readInbox: ReadInbox;
   signIn: SignIn;
   signOut: SignOut;
@@ -324,6 +330,7 @@ export function createUseCases(options: {
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
+    tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
@@ -343,6 +350,7 @@ export function createUseCases(options: {
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
+    readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
     signIn: createSignIn({
       uow,

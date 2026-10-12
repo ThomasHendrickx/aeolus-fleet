@@ -75,6 +75,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       // Children first: every foreign key restricts deletes. A message may answer
       // or resend another of the fleet, so those links go before the messages.
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;

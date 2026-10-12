@@ -13,6 +13,8 @@ import {
   locationKindSchema,
   scopeSchema,
   shipKindSchema,
+  type FleetId,
+  type LeaseId,
   type ShipId,
 } from '@aeolus-fleet/common';
 import { z } from 'zod';
@@ -24,6 +26,7 @@ import type { AuthenticatedCrew, AuthenticatedShip, CrewTokenLease } from '../..
 import type { Credential } from '../../domain/identity/credential.js';
 import type { OperatorAccount } from '../../domain/identity/operator-account.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
+import type { PushedCrew, WaitingDelivery } from '../../domain/messaging/overdue.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { Turn } from '../../domain/registry/turn.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
@@ -609,4 +612,43 @@ const abandonedDeliverySqlRow = z.object({ id: idSchema('delivery'), message_id:
 export function toAbandonedDelivery(row: unknown) {
   const { id, message_id, created_at } = abandonedDeliverySqlRow.parse(row);
   return { deliveryId: id, messageId: message_id, createdAt: created_at };
+}
+
+const pushedCrewSqlRow = z.object({
+  lease_id: idSchema('lease'),
+  ship_id: idSchema('ship'),
+  pushed_at: z.date(),
+  turn: turnStateSchema.nullable(),
+  turn_at: z.date().nullable(),
+});
+
+/** An open pushed lease as raw SQL returns it, before its waiting deliveries are added. */
+export function toPushedCrewFromSql(fleetId: FleetId, row: unknown): PushedCrew {
+  const lease = pushedCrewSqlRow.parse(row);
+  return {
+    fleetId,
+    shipId: lease.ship_id,
+    leaseId: lease.lease_id,
+    pushedAt: lease.pushed_at,
+    turn: lease.turn === null || lease.turn_at === null ? null : { state: lease.turn, at: lease.turn_at },
+    waiting: [],
+  };
+}
+
+const waitingDeliverySqlRow = z.object({
+  lease_id: idSchema('lease'),
+  delivery_id: idSchema('delivery'),
+  message_id: idSchema('message'),
+  state: z.enum(['pending', 'received', 'handed']),
+  since: z.date(),
+  created_at: z.date(),
+});
+
+/** A delivery waiting for a pushed lease as raw SQL returns it, with the lease it waits for. */
+export function toWaitingDeliveryFromSql(row: unknown): { leaseId: LeaseId; delivery: WaitingDelivery } {
+  const waiting = waitingDeliverySqlRow.parse(row);
+  return {
+    leaseId: waiting.lease_id,
+    delivery: { deliveryId: waiting.delivery_id, messageId: waiting.message_id, state: waiting.state, since: waiting.since, sentAt: waiting.created_at },
+  };
 }

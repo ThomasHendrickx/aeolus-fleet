@@ -57,6 +57,7 @@ model Fleet {
   credentials      Credential[]
   messages         Message[]
   deliveries       Delivery[]
+  overdueDeliveries OverdueDelivery[]
   events           Event[]
   consoleSessions  ConsoleSession[]
   signInTickets    SignInTicket[]
@@ -100,6 +101,7 @@ model Ship {
   addressedMessages Message[]        @relation("MessageSelectorShip")
   deliveries        Delivery[]       @relation("DeliveryRecipientShip")
   claimedDeliveries Delivery[]       @relation("DeliveryClaimedByShip")
+  overdueDeliveries OverdueDelivery[]
   consoleSessions   ConsoleSession[]
   actorOfEvents     Event[]          @relation("EventActorShip")
   events            Event[]          @relation("EventShip")
@@ -187,6 +189,7 @@ model Lease {
   ship              Ship             @relation(fields: [fleetId, shipId], references: [fleetId, id])
   consoleSessions   ConsoleSession[]
   claimedDeliveries Delivery[]
+  overdueDeliveries OverdueDelivery[]
 
   @@unique([fleetId, id])
   /// At most one open lease per ship.
@@ -519,6 +522,7 @@ model Delivery {
   claimedByShip  Ship?   @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
   claimedByLease Lease?  @relation(fields: [fleetId, claimedByLeaseId], references: [fleetId, id], onDelete: Restrict)
   events         Event[]
+  overdue        OverdueDelivery[]
 
   @@unique([fleetId, id])
   /// One row per recipient.
@@ -533,6 +537,41 @@ model Delivery {
   @@index([fleetId, messageId])
   @@index([fleetId, claimedByShipId])
   @@map("deliveries")
+}
+
+/// Which of the 10 and 60 minute clocks ran out (decision 0040).
+enum OverdueClock {
+  notConfirmed
+  idle
+  busy
+
+  @@map("overdue_clock")
+}
+
+/// A delivery argo was told is overdue on a pushed lease: its clock ran out
+/// while it waited in the state kept here. Once per lease and delivery, so a
+/// pass after a restart, or a second pass at once, tells nothing again.
+model OverdueDelivery {
+  fleetId    String        @map("fleet_id")
+  leaseId    String        @map("lease_id")
+  deliveryId String        @map("delivery_id")
+  shipId     String        @map("ship_id")
+  state      DeliveryState
+  clock      OverdueClock
+  minutes    Int
+  toldAt     DateTime      @map("told_at") @db.Timestamptz(3)
+
+  fleet    Fleet    @relation(fields: [fleetId], references: [id])
+  lease    Lease    @relation(fields: [fleetId, leaseId], references: [fleetId, id], onDelete: Restrict)
+  delivery Delivery @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
+  ship     Ship     @relation(fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+
+  @@id([fleetId, leaseId, deliveryId])
+  /// Every foreign key has an index leading with its columns, so deleting a
+  /// referenced row checks it with an index, not a scan (#331).
+  @@index([fleetId, deliveryId])
+  @@index([fleetId, shipId])
+  @@map("overdue_deliveries")
 }
 
 /// Append-only log of every state change: never updated or deleted. Ids start with evt_.

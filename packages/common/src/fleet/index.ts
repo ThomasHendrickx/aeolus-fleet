@@ -86,6 +86,7 @@ export const EVENT_TYPES = [
   'DeliveryAcknowledged',
   'DeliveryHandled',
   'DeliveryNotHandled',
+  'DeliveryOverdue',
   'DeliveryUndeliverable',
   'DeliveryReturned',
   'ShipRetired',

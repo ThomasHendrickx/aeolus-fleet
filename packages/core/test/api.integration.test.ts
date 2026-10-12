@@ -202,6 +202,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_push_receive$/),
       expect.stringMatching(/^\d{14}_handled$/),
       expect.stringMatching(/^\d{14}_turn$/),
+      expect.stringMatching(/^\d{14}_overdue$/),
     ]);
   });
 });
@@ -1350,6 +1351,39 @@ describe('Needs attention at the API', () => {
     await expect(codeOf(reader.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('the overdue deliveries at the API', () => {
+  it('list a delivery argo was told is overdue for fleet:read, and clear it once confirmed', async () => {
+    const asArgo = await signedInArgo();
+    const crew = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId } = await crew.ship.whoami.query();
+    const { messageId } = await asArgo.ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Rebase onto main.', idempotencyKey: `rebase-${newId('message')}` });
+    const [received] = (await crew.ship.pushReceive.mutate({})).deliveries;
+    const deliveryId = received?.deliveryId ?? '';
+    await crew.ship.handed.mutate({ deliveryId, handOverNumber: 1 });
+    clock.advance(10 * 60_000);
+    await createUseCases({ prisma: database, clock }).tellOverdueDeliveries();
+
+    const listed = (await asArgo.fleet.overdue.query()).find((entry) => entry.deliveryId === deliveryId);
+
+    expect(listed).toMatchObject({
+      ship: { id: shipId },
+      state: 'handed',
+      clock: 'notConfirmed',
+      minutes: 10,
+      toldAt: clock.now().toISOString(),
+      message: { id: messageId, payload: 'Rebase onto main.', isPing: false },
+    });
+    await crew.ship.ack.mutate({ deliveryId });
+    expect((await asArgo.fleet.overdue.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+  });
+
+  it('refuse the list without fleet:read', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(agent.fleet.overdue.query())).resolves.toBe('FORBIDDEN');
   });
 });
 

@@ -62,6 +62,7 @@ describe('eventTypeSchema', () => {
       'DeliveryAcknowledged',
       'DeliveryHandled',
       'DeliveryNotHandled',
+      'DeliveryOverdue',
       'DeliveryUndeliverable',
       'DeliveryReturned',
       'ShipRetired',
