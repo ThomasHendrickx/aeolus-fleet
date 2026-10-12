@@ -364,7 +364,7 @@ describe('adding a member', () => {
       ['codex', 'team-six'],
       ['chat', 'charter.'],
     ]);
-    expect(added.crewLines[2]?.line).toContain(`the fleet's MCP connector at ${fleetUrl}/mcp:`);
+    expect(added.crewLines[2]?.line).toContain(`the fleet's MCP server at ${fleetUrl}/mcp is not connected yet`);
     expect(added.launchNote).toBe('Start in the repository root.');
     const listed = z
       .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ name: z.string(), health: z.string() })) })) }) })

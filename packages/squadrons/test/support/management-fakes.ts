@@ -29,7 +29,7 @@ export function memberCrewLines(member: { shipId: ShipId; secret: string; squadr
     {
       harness: 'chat',
       line:
-        `Crew Aeolus ship ${shipId} through the fleet's MCP connector at ${MCP_URL}: register with ship id ${shipId}, secret ${secret} and your chat client as harness (claude-chat or chatgpt). ` +
+        `Crew Aeolus ship ${shipId} from this chat. If the fleet's MCP server at ${MCP_URL} is not connected yet, connect it in this chat app as a remote MCP server or connector, without auth. Then register with ship id ${shipId}, secret ${secret}, location CLOUD and your chat client as harness (claude-chat or chatgpt). It answers your crew token only once: keep it in this conversation, pass it to every later call and never register again; a CONFLICT on register means the ship is crewed already, not a reason to retry. ` +
         `Then check in: send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json, payload {"squadron":"${squadronId}","model":"<your exact model id>"}; it answers your role and charter; ` +
         `answer that inReplyTo with application/vnd.aeolus.squadron.on-station+json, payload {"squadron":"${squadronId}","role":"${role}"}, and take up the charter.`,
     },
