@@ -60,6 +60,8 @@ describe('eventTypeSchema', () => {
       'DeliveryReceived',
       'DeliveryHanded',
       'DeliveryAcknowledged',
+      'DeliveryHandled',
+      'DeliveryNotHandled',
       'DeliveryUndeliverable',
       'DeliveryReturned',
       'ShipRetired',
@@ -106,12 +108,14 @@ describe('selectorKindSchema', () => {
 });
 
 describe('deliveryStateSchema', () => {
-  it('knows the seven delivery states, nothing else', () => {
+  it('knows the nine delivery states, nothing else', () => {
     expect(deliveryStateSchema.options).toEqual([
       'pending',
       'received',
       'handed',
       'acknowledged',
+      'handled',
+      'notHandled',
       'undeliverable',
       'dismissed',
       'abandoned',
