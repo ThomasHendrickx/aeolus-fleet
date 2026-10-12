@@ -463,7 +463,7 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
           UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL, hand_over_number = NULL
           WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state IN ('received', 'handed')
           RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
         )
         SELECT * FROM returned ORDER BY created_at, id`;
       return rows

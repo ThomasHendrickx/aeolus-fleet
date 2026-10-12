@@ -66,6 +66,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
           handOverNumber: delivery.handOverNumber,
+          handedOnceMoreAt: delivery.handedOnceMoreAt,
           reachableShipIds: delivery.reachableShipIds ? [...delivery.reachableShipIds] : [],
           createdAt: delivery.createdAt,
         },
@@ -92,7 +93,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       // and no longer matches.
       const inFlight = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId}
           AND id <> ALL(${[...excluding]}::text[])
@@ -104,7 +105,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         room > 0
           ? await db.$queryRaw<unknown[]>`
               SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                     claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+                     claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
               FROM deliveries
               WHERE fleet_id = ${fleetId} AND state = 'pending'
                 AND (recipient_ship_id = ${shipId}
@@ -131,7 +132,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findForUpdate: async (fleetId, deliveryId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND id = ${deliveryId}
         FOR UPDATE`;
@@ -140,7 +141,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findOfMessage: async (fleetId, messageId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND message_id = ${messageId}
         LIMIT 1`;
@@ -166,6 +167,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
           handOverNumber: delivery.handOverNumber,
+          handedOnceMoreAt: delivery.handedOnceMoreAt,
         },
       });
     },

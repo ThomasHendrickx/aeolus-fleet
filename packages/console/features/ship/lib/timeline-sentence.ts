@@ -269,7 +269,19 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'received',
       };
     case 'DeliveryHanded':
-      return { parts: deliveryAct(entry, { shipId, verb: 'took' }), tone: 'active', icon: 'received' };
+      return {
+        parts: deliveryAct(entry, { shipId, verb: entry.details.onceMore === true ? 'took once more' : 'took' }),
+        tone: 'active',
+        icon: 'received',
+      };
+    case 'DeliveryHandled':
+      return { parts: deliveryAct(entry, { shipId, verb: 'handled' }), tone: 'ok', icon: 'acknowledged' };
+    case 'DeliveryNotHandled':
+      return {
+        parts: [...aMessageFromStarting(entry), text(' was not handled: its turn died twice')],
+        tone: 'attention',
+        icon: 'undeliverable',
+      };
     case 'DeliveryAcknowledged':
       return {
         parts:

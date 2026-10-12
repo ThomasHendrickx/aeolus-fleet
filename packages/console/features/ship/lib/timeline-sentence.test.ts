@@ -195,6 +195,28 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the ship took a confirmed message once more after its turn died', () => {
+    expect(onScoutsPage(anEntry('DeliveryHanded', { actor: scout, message: fromPlanner, details: { onceMore: true } })).sentence).toBe(
+      'Took once more a message from planner',
+    );
+  });
+
+  it('says the ship handled a message: the turn that took it ended by itself', () => {
+    expect(onScoutsPage(anEntry('DeliveryHandled', { actor: scout, message: fromPlanner }))).toEqual({
+      sentence: 'Handled a message from planner',
+      tone: 'ok',
+      icon: 'acknowledged',
+    });
+  });
+
+  it('says a message was not handled: its turn died twice', () => {
+    expect(onScoutsPage(anEntry('DeliveryNotHandled', { actor: scout, message: fromPlanner }))).toEqual({
+      sentence: 'A message from planner was not handled: its turn died twice',
+      tone: 'attention',
+      icon: 'undeliverable',
+    });
+  });
+
   it('says argo pinged the ship, on its page', () => {
     expect(onScoutsPage(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }))).toEqual({
       sentence: 'Pinged by argo',

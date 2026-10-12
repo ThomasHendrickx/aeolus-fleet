@@ -3,7 +3,9 @@ import {
   Anchor,
   Archive,
   Ban,
+  CircleAlert,
   CircleArrowRight,
+  CircleCheckBig,
   CirclePlay,
   Clock,
   CircleCheck,
@@ -50,7 +52,8 @@ const TONE_CLASSES: Record<Tone, string> = {
  * flight: a receive handed it to a crew, which has not acknowledged it yet. A
  * receive is all a pull ship does, so handed reads "Handed (pulled)". A
  * received delivery is in flight with a pushed ship's computer side, not yet
- * handed to its agent.
+ * handed to its agent. Handled and not handled say how the turn that took
+ * an acknowledged delivery ended: by itself, or died twice.
  */
 const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> = {
   awaitingCrew: { tone: 'waiting', Icon: CircleDashed, label: 'Awaiting crew' },
@@ -60,6 +63,8 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   received: { tone: 'active', Icon: Inbox, label: 'Received' },
   handed: { tone: 'active', Icon: CircleArrowRight, label: 'Handed (pulled)' },
   acknowledged: { tone: 'ok', Icon: CircleCheck, label: 'Acknowledged' },
+  handled: { tone: 'ok', Icon: CircleCheckBig, label: 'Handled' },
+  notHandled: { tone: 'attention', Icon: CircleAlert, label: 'Not handled' },
   undeliverable: { tone: 'attention', Icon: CircleX, label: 'Undeliverable' },
   dismissed: { tone: 'ended', Icon: CircleMinus, label: 'Dismissed' },
   abandoned: { tone: 'ended', Icon: Ban, label: 'Abandoned' },

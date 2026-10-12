@@ -19,7 +19,7 @@ export type HandOverDeliveryRefusal = DomainError<'DELIVERY_NOT_FOUND'> | HandOv
 
 export type HandOverDelivery = (
   crew: Crew,
-  input: { deliveryId: DeliveryId; handOverNumber: number },
+  input: { deliveryId: DeliveryId; handOverNumber: number; isOnceMore?: boolean },
 ) => Promise<Result<{ state: HandedState }, HandOverDeliveryRefusal>>;
 
 /**
@@ -29,7 +29,8 @@ export type HandOverDelivery = (
  * holds the crew's lease, so a release waits for it, locks the delivery and
  * applies the hand-over: a new number counts one attempt and writes
  * DeliveryHanded, the fifth is undeliverable instead, and a repeated number
- * changes nothing. The lock makes a hand-over, an ack and a receive of the
+ * changes nothing. Handed once more keeps a confirmed message acknowledged
+ * and writes DeliveryHanded marked once more, only once. The lock makes a hand-over, an ack and a receive of the
  * same delivery take turns. It answers where the delivery stands.
  */
 export function createHandOverDelivery(deps: {
@@ -47,7 +48,12 @@ export function createHandOverDelivery(deps: {
       if (!delivery) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
       }
-      const handedOver = handOverDelivery(delivery, { crew, handOverNumber: input.handOverNumber, at: deps.clock.now() });
+      const handedOver = handOverDelivery(delivery, {
+        crew,
+        handOverNumber: input.handOverNumber,
+        isOnceMore: input.isOnceMore === true,
+        at: deps.clock.now(),
+      });
       if (!handedOver.isOk) {
         return handedOver;
       }

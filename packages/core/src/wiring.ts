@@ -43,6 +43,8 @@ import { createSignIn, type SignIn } from './domain/identity/sign-in.js';
 import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
 import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
+import { createReportHandled, type ReportHandled } from './domain/messaging/report-handled.js';
+import { createReportNotHandled, type ReportNotHandled } from './domain/messaging/report-not-handled.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './domain/messaging/check-inbox.js';
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
@@ -162,6 +164,8 @@ export interface UseCases {
   receiveDeliveries: ReceiveDeliveries;
   pushReceiveDeliveries: PushReceiveDeliveries;
   handOverDelivery: HandOverDelivery;
+  reportHandled: ReportHandled;
+  reportNotHandled: ReportNotHandled;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -315,6 +319,8 @@ export function createUseCases(options: {
       waitMs: options.receiveWaitMs,
     }),
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
+    reportHandled: createReportHandled({ uow, clock, ids }),
+    reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),

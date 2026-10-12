@@ -52,9 +52,21 @@ export type SelectorKind = z.infer<typeof selectorKindSchema>;
  * ship receives it; received when a push receive took it and has not handed
  * it to the agent yet; handed once the agent has it (a plain receive hands it
  * at once). Received and handed are in flight with the crew, until it is
- * acknowledged or returns to pending.
+ * acknowledged or returns to pending. After acknowledged, a pushed crew
+ * reports it handled when the turn that took it ended by itself, or not
+ * handled when that turn died twice.
  */
-export const DELIVERY_STATES = ['pending', 'received', 'handed', 'acknowledged', 'undeliverable', 'dismissed', 'abandoned'] as const;
+export const DELIVERY_STATES = [
+  'pending',
+  'received',
+  'handed',
+  'acknowledged',
+  'handled',
+  'notHandled',
+  'undeliverable',
+  'dismissed',
+  'abandoned',
+] as const;
 export const deliveryStateSchema = z.enum(DELIVERY_STATES);
 export type DeliveryState = z.infer<typeof deliveryStateSchema>;
 
@@ -72,6 +84,8 @@ export const EVENT_TYPES = [
   'DeliveryReceived',
   'DeliveryHanded',
   'DeliveryAcknowledged',
+  'DeliveryHandled',
+  'DeliveryNotHandled',
   'DeliveryUndeliverable',
   'DeliveryReturned',
   'ShipRetired',
