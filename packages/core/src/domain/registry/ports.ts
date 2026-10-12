@@ -157,9 +157,9 @@ export interface LeaseRepository {
   /**
    * Marks the open lease pushed from `at`, keeping an earlier mark, before
    * anything else of the lease is locked: two marks take turns and never
-   * deadlock with the units of work holding it.
+   * deadlock with the units of work holding it. True when this call marked it.
    */
-  markPushed(pushed: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<void>;
+  markPushed(pushed: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<boolean>;
   /** Whether a push receive marked the lease pushed. */
   isPushed(fleetId: FleetId, leaseId: LeaseId): Promise<boolean>;
 }

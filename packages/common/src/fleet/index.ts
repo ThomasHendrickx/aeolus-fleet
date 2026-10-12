@@ -68,6 +68,7 @@ export const EVENT_TYPES = [
   'StartingPromptIssued',
   'OperatorPasswordReset',
   'MessageAccepted',
+  'LeasePushed',
   'DeliveryReceived',
   'DeliveryHanded',
   'DeliveryAcknowledged',

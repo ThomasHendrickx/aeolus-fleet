@@ -49,7 +49,8 @@ interface PushReceiptDeps {
 
 /**
  * Takes up to `max` deliveries for the crew in one unit of work: marks its
- * lease pushed, holds it, then takes its own in flight, received or handed,
+ * lease pushed (LeasePushed the first time), holds it, then takes its own in
+ * flight, received or handed,
  * and then the oldest pending for its ship or its type, each received.
  */
 async function pushReceiptForCrew(
@@ -58,7 +59,7 @@ async function pushReceiptForCrew(
 ): Promise<Result<{ ship: Ship; deliveries: PushReceivedDelivery[] }, ReceiveRefusal>> {
   const { tx, ids, at } = deps;
   const { crew, max } = receipt;
-  await markLeasePushed(tx, { fleetId: crew.fleetId, leaseId: crew.leaseId, at });
+  await markLeasePushed({ tx, ids }, { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, at });
   const ship = await holdLease(tx, crew);
   if (!ship.isOk) {
     return ship;

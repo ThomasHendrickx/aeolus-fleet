@@ -652,10 +652,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       markPushed: ({ fleetId, leaseId, at }) => {
         const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
-        if (isOpen && !state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId)) {
+        const isMarked = isOpen && !state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId);
+        if (isMarked) {
           state.pushedLeases.push({ fleetId, leaseId, at });
         }
-        return Promise.resolve();
+        return Promise.resolve(isMarked);
       },
       isPushed: (fleetId, leaseId) =>
         Promise.resolve(state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId)),

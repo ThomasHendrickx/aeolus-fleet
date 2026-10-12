@@ -260,6 +260,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'ended',
         icon: entry.message?.sender.id === shipId ? 'sent' : 'received',
       };
+    case 'LeasePushed':
+      return { parts: [text('Pushed: its trierarch or plugin watcher receives for its session')], tone: 'ok', icon: 'received' };
     case 'DeliveryReceived':
       return {
         parts: deliveryAct(entry, { shipId, verb: entry.details.again === true ? 'received again' : 'received' }),

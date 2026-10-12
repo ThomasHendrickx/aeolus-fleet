@@ -152,6 +152,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the session is pushed from its first push receive', () => {
+    expect(onScoutsPage(anEntry('LeasePushed', { actor: scout }))).toEqual({
+      sentence: 'Pushed: its trierarch or plugin watcher receives for its session',
+      tone: 'ok',
+      icon: 'received',
+    });
+  });
+
   it('says the ship received a message by a push receive, and received it again', () => {
     expect(onScoutsPage(anEntry('DeliveryReceived', { actor: scout, message: fromPlanner }))).toEqual({
       sentence: 'Received a message from planner',

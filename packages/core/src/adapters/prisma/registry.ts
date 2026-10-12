@@ -431,9 +431,10 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       // An update before the lease is held FOR SHARE, so two marks take turns
       // on the row lock instead of each waiting for the other's share. A lease
       // already pushed matches nothing and locks nothing.
-      await db.$executeRaw`
+      const marked = await db.$executeRaw`
         UPDATE leases SET pushed_at = ${at}
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL AND pushed_at IS NULL`;
+      return marked > 0;
     },
     isPushed: async (fleetId, leaseId) => {
       const pushed = await db.lease.count({ where: { fleetId, id: leaseId, pushedAt: { not: null } } });
