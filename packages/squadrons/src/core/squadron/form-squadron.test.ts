@@ -7,7 +7,7 @@ import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import { createRecoverFormations } from './recover-formations.js';
 import type { Squadron } from './squadron.js';
-import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 
@@ -204,7 +204,6 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
     random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
-    mcpUrl: MCP_URL,
   });
 }
 

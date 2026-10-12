@@ -176,7 +176,7 @@ describe('the first squadron in the console', () => {
     const squadronId = crewLine.split(' ')[4] ?? '';
     // The harness switch shows the line a chat client pastes, with the check-in at the flagship in full.
     await page.getByTestId('member-crew-line-chat-tab').click();
-    await expect(page.getByTestId('member-crew-line-chat').textContent()).resolves.toContain(`/mcp is not connected yet, connect it in this chat app as a remote MCP server or connector, without auth. Then register with ship id shp_`);
+    await expect(page.getByTestId('member-crew-line-chat').textContent()).resolves.toContain(`in this chat app as a remote MCP server or connector, without auth`);
     await expect(page.getByTestId('member-crew-line-chat').textContent()).resolves.toContain(`send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json`);
 
     const call = await crewed(crewLine);
