@@ -172,13 +172,14 @@ answered() {
 }
 
 while :; do
+  # What the fleet did not take yet goes first, also on a watcher's last pass.
+  aeolus_send_owed "$identity"
   left=$((MAX_SECONDS - SECONDS))
   if [ "$left" -le 0 ]; then
     aeolus_log "$identity" watch 'stopped after almost 2 hours; the session starts it again'
     echo "aeolus: watched ${ship_name} for almost 2 hours, the most a background task runs: start the watcher again"
     exit 6
   fi
-  aeolus_send_owed "$identity"
   if [ "$is_handing_over" = 1 ] && aeolus_is_idle && id="$(aeolus_store_first received handed)"; then
     hand_over "$id" "handed ${id} over again: it was not confirmed"
     continue

@@ -749,7 +749,12 @@ aeolus_store_end_turn() {
     [ -f "$file" ] || continue
     id="${file##*/}"
     id="${id%.state}"
-    if [ -e "$dir/$id.shown" ] && [ "$is_reporting" = 1 ]; then
+    if [ "$(aeolus_store_state "$id")" = onceMore ] && [ -e "$dir/$id.shown" ]; then
+      rm -f "$dir/$id.shown"
+      aeolus_store_mark "$id" handled
+      aeolus_log "$identity" handover "handled ${id}: the turn it was handed once more to ended"
+      aeolus_report_end "$identity" "$id" handled
+    elif [ -e "$dir/$id.shown" ] && [ "$is_reporting" = 1 ]; then
       aeolus_end_ping "$identity" "$id"
     elif [ -e "$dir/$id.shown" ]; then
       if [ -e "$dir/$id.ponged" ]; then
@@ -769,6 +774,51 @@ aeolus_store_end_turn() {
       aeolus_log "$identity" handover "handled ${id}: the turn that took it ended"
     fi
   done
+}
+
+# A turn that took messages died, without Stop (#756, D3): a confirmed message
+# is to be handed once more, at the next prompt; one handed once more already,
+# whose turn died too, is not handled. Pings are left as they are: the next
+# turn end takes them.
+aeolus_store_died_turn() {
+  local identity="$1" dir file id state
+  dir="$(aeolus_store_dir)" || return 0
+  for file in "$dir"/*.state; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.state}"
+    state="$(aeolus_store_state "$id")"
+    if [ "$state" = confirmed ]; then
+      aeolus_store_mark "$id" onceMore
+      aeolus_log "$identity" handover "${id} to hand once more: the turn that took it died"
+    elif [ "$state" = onceMore ] && [ -e "$dir/$id.shown" ]; then
+      rm -f "$dir/$id.shown"
+      aeolus_store_mark "$id" notHandled
+      aeolus_log "$identity" handover "not handled ${id}: the turn it was handed once more to died too"
+    fi
+  done
+}
+
+# Puts the oldest message to hand once more into the turn (#756, D3), once the
+# fleet took the hand-over with isOnceMore and the next number: it stays
+# acknowledged, so no ack. A refusal drops it; not taken, it waits for the
+# next prompt. <identity file> <shipName> <plugin root> <prefix>; prints the
+# text, ending with an x; fails when nothing goes in.
+aeolus_put_once_more() {
+  local identity="$1" ship="$2" root="$3" prefix="$4" id dir output status outcome
+  id="$(aeolus_store_first onceMore)" || return 1
+  dir="$(aeolus_store_dir)" || return 1
+  output="$(AEOLUS_CALL_MAX_SECONDS="${AEOLUS_CONFIRM_SECONDS:-3}" "$(dirname "${BASH_SOURCE[0]}")/aeolus-fleet.sh" handed "$(aeolus_store_handing "$id" once-more)" 2>/dev/null)"
+  status=$?
+  case "$status" in
+    0) outcome="$(aeolus_json_string "$output" state)" ;;
+    3) return 1 ;;
+    *) outcome="$(aeolus_refusal_code "$output")" ;;
+  esac
+  aeolus_store_handed "$identity" "$id" "$outcome" || return 1
+  : > "$dir/$id.shown"
+  aeolus_log "$identity" handover "handed ${id} once more: put into the turn"
+  aeolus_turn_text "$id" "$ship" "$root" "${prefix}aeolus: handed before: the turn that took this message ended before it did, so it comes in once more."$'\n\n'
 }
 
 # The most a hook puts into a turn: Claude Code's cap on hook context (#756, D2).
