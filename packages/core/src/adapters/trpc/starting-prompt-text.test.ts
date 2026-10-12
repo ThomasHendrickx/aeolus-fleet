@@ -8,7 +8,7 @@ const FLEET_URL = 'https://fleet.example.com';
 const MCP_URL = 'https://fleet.example.com/mcp';
 const presented = presentStartingPrompt({ fleetUrl: FLEET_URL, shipId, secret: 'aeolus_sk_v1_abc' });
 
-describe('the starting prompt text', () => {
+describe('the starting prompt text: the ship\'s crew instructions for a chat', () => {
   const text = presented.prompt;
   const lines = text.split('\n');
 
@@ -18,51 +18,42 @@ describe('the starting prompt text', () => {
     );
   });
 
-  it('gives the one-line command that adds the fleet MCP server to Claude Code, for a session without its tools', () => {
-    expect(lines).toContain(`claude mcp add --transport http --scope user aeolus ${MCP_URL}`);
+  it('tells the chat to connect that URL in its chat app as a remote MCP server or connector, without auth', () => {
+    expect(lines).toContain("Connect the fleet's MCP server at that URL in this chat app as a remote MCP server or connector, without auth, if it is not connected yet.");
   });
 
-  it('tells a chat app to connect the URL as a remote MCP server or connector without auth, and gives the Claude Code command to Claude Code only', () => {
-    expect(lines).toContain('In a chat app (Claude chat, ChatGPT), connect that URL as a remote MCP server or connector, without auth.');
-    expect(lines[lines.indexOf(`claude mcp add --transport http --scope user aeolus ${MCP_URL}`) - 1]).toBe('In Claude Code, add it with this command:');
+  it('tells the chat to register with the ship id and secret, location CLOUD and its chat as harness, chatgpt or claude-chat', () => {
+    expect(lines).toContain('Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.');
   });
 
-  it('tells the session how to pick its location: DEVICE, CLOUD, SERVER, or OTHER with a few words', () => {
-    const kinds = lines.flatMap((line) => /^- ([A-Z]+): /.exec(line)?.[1] ?? []);
-
-    expect(kinds).toEqual(['DEVICE', 'CLOUD', 'SERVER', 'OTHER']);
-    expect(lines).toContain('- OTHER: none of these, with a few words on where you run');
+  it('tells the chat that register answers the crew token once, to keep it in the conversation for every later call, and that a CONFLICT is no reason to register again', () => {
+    expect(lines).toContain(
+      'register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.',
+    );
   });
 
-  it('ends by telling the session to call register', () => {
-    expect(lines.at(-1)).toBe('Call register.');
+  it('never tells a chat to run claude mcp add, which configures Claude Code only', () => {
+    expect(text).not.toContain('claude mcp add');
   });
 
-  it('holds identity only: no call but register and no crew token, since the protocol comes from the fleet', () => {
-    expect(text).not.toMatch(/\b(whoami|send|receive|ack|deregister)\b|crew token/i);
+  it('ends with one short line for a session that is no chat: a plugin harness pastes its crew line, another agent registers with its own location and harness', () => {
+    expect(lines.at(-1)).toBe('Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.');
   });
 
   it('reads as approved, in full', () => {
     expect(text).toBe(
       [
-        'You crew a ship in an Aeolus fleet.',
+        'You crew a ship in an Aeolus fleet, from this chat.',
         '',
         `Fleet MCP URL: ${MCP_URL}`,
         `Ship id: ${shipId}`,
         'Ship secret: aeolus_sk_v1_abc',
         '',
-        "Its tools come from the fleet's MCP server at that URL. If this session has none of them, connect the server, then start again with this prompt.",
-        'In a chat app (Claude chat, ChatGPT), connect that URL as a remote MCP server or connector, without auth.',
-        'In Claude Code, add it with this command:',
-        `claude mcp add --transport http --scope user aeolus ${MCP_URL}`,
+        "Connect the fleet's MCP server at that URL in this chat app as a remote MCP server or connector, without auth, if it is not connected yet.",
+        'Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.',
+        'register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.',
         '',
-        'Your location is where this session runs:',
-        "- DEVICE: a personal computer, such as the operator's laptop",
-        '- CLOUD: a hosted agent service, such as Claude Code on the web',
-        '- SERVER: a server the operator runs, such as a VPS',
-        '- OTHER: none of these, with a few words on where you run',
-        '',
-        'Call register.',
+        'Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.',
       ].join('\n'),
     );
   });
