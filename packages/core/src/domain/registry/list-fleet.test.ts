@@ -310,6 +310,14 @@ describe("a ship's last ping", () => {
     await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting' } });
   });
 
+  it('still waits once a push receive holds it, until it answers', async () => {
+    const scoutCrew = await crewedScout();
+    unwrap(await messagingUseCases(core).pingShip(argo, { shipId: scoutId }));
+    unwrap(await messagingUseCases(core).pushReceiveDeliveries(scoutCrew, {}));
+
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'waiting' } });
+  });
+
   it('is answered, with the moment of the pong', async () => {
     const scoutCrew = await crewedScout();
     const messaging = messagingUseCases(core);

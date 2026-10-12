@@ -107,6 +107,38 @@ describe('acknowledging a delivery', () => {
     expect(stored(deliveryId)?.state).toBe('acknowledged');
   });
 
+  it('acknowledges a delivery handed over after a push receive, keeping its hand-over number', async () => {
+    const deliveryId = await sendTo({ kind: 'ship', shipId: scoutId });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+
+    expect(stored(deliveryId)).toMatchObject({ state: 'acknowledged', claimedByShipId: scoutId, attempts: 1, handOverNumber: 1 });
+  });
+
+  it('acknowledges a delivery push received and not yet handed, so a lost hand-over answer never blocks the confirmation', async () => {
+    const deliveryId = await sendTo({ kind: 'ship', shipId: scoutId });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    core.state.events.length = 0;
+
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+
+    expect(stored(deliveryId)).toMatchObject({ state: 'acknowledged', claimedByShipId: scoutId, attempts: 0 });
+    expect(core.state.events.map((event) => event.type)).toEqual(['DeliveryAcknowledged']);
+  });
+
+  it('refuses a delivery push received by another ship', async () => {
+    const deliveryId = await sendTo({ kind: 'type', type: 'reviewer' });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    await expect(useCases.acknowledgeDelivery(lookout, { deliveryId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'DELIVERY_HELD_BY_ANOTHER_SHIP' },
+    });
+    expect(stored(deliveryId)?.state).toBe('received');
+  });
+
   it('returns OK when the ship acknowledges it twice, and changes nothing more', async () => {
     const deliveryId = await inFlightWith(scout);
     unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
