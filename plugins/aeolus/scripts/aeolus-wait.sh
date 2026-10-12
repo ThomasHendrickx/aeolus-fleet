@@ -8,7 +8,8 @@
 # when the turn marker says the session is idle, and nothing more until the
 # count rises again.
 #
-# In Claude Code the wake hands one message over (#756): the watcher receives
+# In Claude Code the wake hands one message over (#756), whenever deliveries
+# wait while the session is idle, rise or not: the watcher receives
 # one delivery, keeps it in the folder's store as handed, and exits saying so,
 # without its content. The hooks acknowledge it, then put it into the turn. A
 # message the store still holds unconfirmed while the session is idle is
@@ -172,9 +173,11 @@ while :; do
   is_owed=0
   { read -r seen is_owed < "$waiting_file"; } 2>/dev/null
   was_owed="$is_owed"
+  # A hand-over is owed whenever deliveries wait: each is handed over on its
+  # own, and a drop to none and a rise again may fall within one inbox wait.
   if [ "$waiting" -eq 0 ]; then
     is_owed=0
-  elif [ "$waiting" -gt "${seen:-0}" ]; then
+  elif [ "$is_handing_over" = 1 ] || [ "$waiting" -gt "${seen:-0}" ]; then
     is_owed=1
   fi
   if [ "$is_owed" = 1 ] && aeolus_is_idle; then
@@ -193,8 +196,9 @@ while :; do
       continue
     fi
     answered
-    # Nothing handed when another ship of its type took the delivery first.
     id="$(aeolus_store_put "$(printf '%s' "$body" | tr -d '\n')")" && hand_over "$id" "woken, ${waiting} deliveries wait: handed ${id} over"
+    # Nothing handed, as when another ship of its type took the delivery first.
+    aeolus_log "$identity" wake "woken, ${waiting} deliveries wait: the receive handed nothing over"
     continue
   fi
   if [ "$is_owed" = 1 ] && { [ "$was_owed" != 1 ] || [ "$waiting" != "${seen:-0}" ]; }; then
