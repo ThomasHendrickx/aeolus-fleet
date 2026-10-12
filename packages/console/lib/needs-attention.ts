@@ -13,6 +13,14 @@ export function canResend(delivery: UndeliverableDelivery): boolean {
   return !delivery.message.isPing;
 }
 
+/**
+ * Why a delivery is undeliverable, from its attempts: on a pull ship each
+ * receive hands it over once, and the fifth receive is refused instead.
+ */
+export function undeliverableReason(attempts: number): string {
+  return `Handed (pulled) ${String(attempts - 1)} times, never acknowledged; fifth receive refused: undeliverable.`;
+}
+
 /** Needs attention: every undeliverable delivery of the fleet, oldest first. */
 export function useNeedsAttention() {
   const trpc = useTRPC();

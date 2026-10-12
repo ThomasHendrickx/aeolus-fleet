@@ -45,15 +45,16 @@ const TONE_CLASSES: Record<Tone, string> = {
 
 /**
  * Every ship status, delivery state, squadron state, limit state and crew request state with its tone, icon
- * and label (docs/design/conventions.md, "Colour"). A delivered delivery is in
- * flight: claimed by a crew and not yet acknowledged.
+ * and label (docs/design/conventions.md, "Colour"). A handed delivery is in
+ * flight: a receive handed it to a crew, which has not acknowledged it yet. A
+ * receive is all a pull ship does, so handed reads "Handed (pulled)".
  */
 const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> = {
   awaitingCrew: { tone: 'waiting', Icon: CircleDashed, label: 'Awaiting crew' },
   crewed: { tone: 'ok', Icon: UserCheck, label: 'Crewed' },
   retired: { tone: 'ended', Icon: Archive, label: 'Retired' },
   pending: { tone: 'waiting', Icon: Hourglass, label: 'Pending' },
-  delivered: { tone: 'active', Icon: CircleArrowRight, label: 'In flight' },
+  handed: { tone: 'active', Icon: CircleArrowRight, label: 'Handed (pulled)' },
   acknowledged: { tone: 'ok', Icon: CircleCheck, label: 'Acknowledged' },
   undeliverable: { tone: 'attention', Icon: CircleX, label: 'Undeliverable' },
   dismissed: { tone: 'ended', Icon: CircleMinus, label: 'Dismissed' },

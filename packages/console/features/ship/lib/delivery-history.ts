@@ -1,6 +1,7 @@
 import type { DeliveryHistoryEntry, DeliveryState, MessageRecipient } from '@aeolus-fleet/common';
 
 import { locationKindWord } from '../../../lib/location';
+import { undeliverableReason } from '../../../lib/needs-attention';
 import { ship, text, type SentencePart } from '../../../lib/sentence';
 
 /** The StatusBadge each change of a delivery shows: the state it left the delivery in. */
@@ -9,8 +10,8 @@ export function deliveryHistoryState(entry: Pick<DeliveryHistoryEntry, 'type'>):
     case 'MessageAccepted':
     case 'DeliveryReturned':
       return 'pending';
-    case 'DeliveryClaimed':
-      return 'delivered';
+    case 'DeliveryHanded':
+      return 'handed';
     case 'DeliveryAcknowledged':
       return 'acknowledged';
     case 'DeliveryUndeliverable':
@@ -22,7 +23,7 @@ export function deliveryHistoryState(entry: Pick<DeliveryHistoryEntry, 'type'>):
   }
 }
 
-/** ", session on hetzner-1": where the claiming session ran, its description when it gave one. */
+/** ", session on hetzner-1": where the session it was handed to ran, its description when it gave one. */
 function sessionOn(location: DeliveryHistoryEntry['location']): SentencePart[] {
   if (location === null) {
     return [];
@@ -48,9 +49,9 @@ export function deliveryHistorySentence(entry: DeliveryHistoryEntry, recipient: 
       return recipient.kind === 'ship'
         ? [text('Stored in the inbox of '), ship(recipient.ship), text('.')]
         : [text(`Queued for any ship of type ${recipient.type}.`)];
-    case 'DeliveryClaimed': {
-      const attempt = entry.attempts !== null && entry.attempts > 1 ? `Attempt ${String(entry.attempts)}: claimed` : 'Claimed';
-      return [text(`${attempt} by `), ...shipOf(entry), ...sessionOn(entry.location), text('.')];
+    case 'DeliveryHanded': {
+      const attempt = entry.attempts !== null && entry.attempts > 1 ? `Attempt ${String(entry.attempts)}: handed (pulled)` : 'Handed (pulled)';
+      return [text(`${attempt} to `), ...shipOf(entry), ...sessionOn(entry.location), text('.')];
     }
     case 'DeliveryReturned':
       return recipient.kind === 'ship'
@@ -63,7 +64,7 @@ export function deliveryHistorySentence(entry: DeliveryHistoryEntry, recipient: 
         text(
           entry.attempts === null
             ? 'Never acknowledged: no ship takes it automatically any more.'
-            : `Received ${String(entry.attempts)} times, never acknowledged.`,
+            : undeliverableReason(entry.attempts),
         ),
       ];
     case 'DeliveryAbandoned':

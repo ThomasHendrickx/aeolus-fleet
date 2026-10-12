@@ -4,7 +4,7 @@ import type { DeliveryId, MessageRecipient, Party, UndeliverableDelivery } from 
 import { ChevronRight, CircleCheck, RotateCw } from 'lucide-react';
 
 import { classNames } from '../../../lib/class-names';
-import { canResend } from '../../../lib/needs-attention';
+import { canResend, undeliverableReason } from '../../../lib/needs-attention';
 import { isJson } from '../../../lib/payload';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../lib/relative-time';
 import { OPERATOR_NAME } from '../../../lib/sentence';
@@ -77,7 +77,7 @@ function Preview({ delivery }: { delivery: UndeliverableDelivery }) {
 }
 
 function reason(delivery: UndeliverableDelivery): string {
-  return `Received ${String(delivery.attempts)} times, never acknowledged.`;
+  return undeliverableReason(delivery.attempts);
 }
 
 /** "the message from builder-core to tester-01": what an action's accessible name is about. */

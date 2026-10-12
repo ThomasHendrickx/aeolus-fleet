@@ -26,7 +26,7 @@ export function plainMessagesOf<T extends Pick<InboxMessage, 'deliveryId'>>(mess
 }
 
 function isOpen(message: Pick<InboxMessage, 'state'>): boolean {
-  return message.state === 'pending' || message.state === 'delivered';
+  return message.state === 'pending' || message.state === 'handed';
 }
 
 function isOpenCount(messages: readonly Pick<InboxMessage, 'state'>[]): number {

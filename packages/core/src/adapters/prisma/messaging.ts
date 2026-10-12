@@ -75,7 +75,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         where: {
           fleetId,
           OR: [
-            { state: 'delivered', claimedByLeaseId: leaseId },
+            { state: 'handed', claimedByLeaseId: leaseId },
             {
               state: 'pending',
               OR: [{ recipientShipId: shipId }, { recipientType: type, OR: [{ reachableShipIds: { isEmpty: true } }, { reachableShipIds: { has: shipId } }] }],
@@ -93,7 +93,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
                claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
         FROM deliveries
-        WHERE fleet_id = ${fleetId} AND state = 'delivered' AND claimed_by_lease_id = ${leaseId}
+        WHERE fleet_id = ${fleetId} AND state = 'handed' AND claimed_by_lease_id = ${leaseId}
           AND id <> ALL(${[...excluding]}::text[])
         ORDER BY created_at, id
         LIMIT ${limit}
@@ -150,7 +150,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         where: {
           fleetId,
           contentType: PING_CONTENT_TYPE,
-          deliveries: { some: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'delivered'] } } },
+          deliveries: { some: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'handed'] } } },
         },
         orderBy: { createdAt: 'desc' },
       });

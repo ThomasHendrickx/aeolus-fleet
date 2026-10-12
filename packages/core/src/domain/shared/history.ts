@@ -129,7 +129,7 @@ export interface InboxEntry {
 export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
   switch (filter) {
     case 'open':
-      return state === 'pending' || state === 'delivered';
+      return state === 'pending' || state === 'handed';
     case 'done':
       return state === 'acknowledged';
     case 'all':

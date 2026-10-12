@@ -166,7 +166,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           OR: [
             { senderShipId: shipId },
             { selectorShipId: shipId },
-            { events: { some: { type: 'DeliveryClaimed', shipId } } },
+            { events: { some: { type: 'DeliveryHanded', shipId } } },
           ],
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -319,7 +319,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
 async function claimingLeases(db: Db, of: { fleetId: FleetId; events: SequencedEvent[] }) {
   const leaseIds = of.events.flatMap((event) => {
     const { leaseId } = event.details;
-    return event.type === 'DeliveryClaimed' && typeof leaseId === 'string' ? [leaseId] : [];
+    return event.type === 'DeliveryHanded' && typeof leaseId === 'string' ? [leaseId] : [];
   });
   const leases = await db.lease.findMany({
     where: { fleetId: of.fleetId, id: { in: leaseIds } },
@@ -342,7 +342,7 @@ function changeOf(
     return [];
   }
   const { leaseId, attempts } = event.details;
-  const claiming = event.type === 'DeliveryClaimed' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
+  const claiming = event.type === 'DeliveryHanded' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
   return [
     {
       seq: event.seq,

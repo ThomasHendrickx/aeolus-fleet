@@ -24,7 +24,7 @@ export function pingStatusOf(lastPing: ShipFacts['lastPing']): PingStatus | null
   const { sentAt, deliveryState, answeredWithPongAt } = lastPing;
   switch (deliveryState) {
     case 'pending':
-    case 'delivered':
+    case 'handed':
       return { state: 'waiting', sentAt, answeredAt: null };
     case 'acknowledged':
       return answeredWithPongAt === null

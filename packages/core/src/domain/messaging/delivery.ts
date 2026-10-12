@@ -7,17 +7,17 @@ import type { Delivery, Message } from './message.js';
 
 /**
  * The Delivery's rules once it is stored (docs/blueprint.md, "Key flows"): a
- * receive claims it, the claiming ship acknowledges it, and a delivery that
- * keeps being claimed without an acknowledgement stops, undeliverable, where
- * the operator sees it.
+ * receive hands it over at once, the ship it was handed to acknowledges it,
+ * and a delivery that keeps being handed over without an acknowledgement
+ * stops, undeliverable, where the operator sees it.
  */
 
 /**
- * The claim at which a delivery never acknowledged becomes undeliverable
- * instead of being handed out again: the fifth. A poison message stops there
+ * The attempt at which a delivery never acknowledged becomes undeliverable
+ * instead of being handed over again: the fifth. A poison message stops there
  * rather than looping forever.
  */
-export const UNDELIVERABLE_AT_CLAIM = 5;
+export const UNDELIVERABLE_AT_ATTEMPT = 5;
 
 /** The crew a receive or an ack comes from: its ship and the lease it crews it under. */
 export interface CrewOfShip {
@@ -25,22 +25,22 @@ export interface CrewOfShip {
   leaseId: LeaseId;
 }
 
-export interface DeliveryClaim {
-  /** Claimed: handed to the crew. Undeliverable: this was the fifth claim, so it is not handed out. */
-  outcome: 'claimed' | 'undeliverable';
+export interface DeliveryHandOver {
+  /** Handed: to the crew. Undeliverable: this was the fifth attempt, so it is handed to no one. */
+  outcome: 'handed' | 'undeliverable';
   delivery: Delivery;
   events: NewEvent[];
 }
 
 /**
- * A crew claims a delivery it may take: one pending for its ship or its type,
- * or one of its own in flight, returned again after a lost reply. Every claim
- * counts. The claim that reaches the fifth makes the delivery undeliverable
- * and hands it to no one; before that, the delivery is in flight with the
- * crew's ship and lease. Either change is caused by the receiving ship.
+ * A receive hands a crew a delivery it may take at once: one pending for its
+ * ship or its type, or one of its own handed, again after a lost reply. Every
+ * receive is one attempt. The fifth attempt makes the delivery undeliverable
+ * and hands it to no one; before that, the delivery is handed, in flight with
+ * the crew's ship and lease. Either change is caused by the receiving ship.
  */
-export function claimDelivery(delivery: Delivery, claim: { crew: CrewOfShip; at: Date }): DeliveryClaim {
-  const { crew, at } = claim;
+export function handDelivery(delivery: Delivery, handOver: { crew: CrewOfShip; at: Date }): DeliveryHandOver {
+  const { crew, at } = handOver;
   const attempts = delivery.attempts + 1;
   const concerns = {
     fleetId: delivery.fleetId,
@@ -52,7 +52,7 @@ export function claimDelivery(delivery: Delivery, claim: { crew: CrewOfShip; at:
     details: { leaseId: crew.leaseId, attempts },
   };
 
-  if (attempts >= UNDELIVERABLE_AT_CLAIM) {
+  if (attempts >= UNDELIVERABLE_AT_ATTEMPT) {
     return {
       outcome: 'undeliverable',
       delivery: { ...delivery, state: 'undeliverable', claimedByShipId: null, claimedByLeaseId: null, attempts },
@@ -60,9 +60,9 @@ export function claimDelivery(delivery: Delivery, claim: { crew: CrewOfShip; at:
     };
   }
   return {
-    outcome: 'claimed',
-    delivery: { ...delivery, state: 'delivered', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts },
-    events: [{ ...concerns, type: 'DeliveryClaimed' }],
+    outcome: 'handed',
+    delivery: { ...delivery, state: 'handed', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts },
+    events: [{ ...concerns, type: 'DeliveryHanded' }],
   };
 }
 
@@ -70,8 +70,8 @@ export type AcknowledgeRefusal = DomainError<'DELIVERY_NOT_IN_FLIGHT' | 'DELIVER
 
 /**
  * The ship takes responsibility for a delivery it received (ADR 0001): only a
- * delivery in flight with that ship moves to acknowledged, keeping who claimed
- * it. Acknowledging it again is harmless: OK, and nothing changes. A delivery
+ * delivery handed to that ship moves to acknowledged, keeping who it was
+ * handed to. Acknowledging it again is harmless: OK, and nothing changes. A delivery
  * another ship holds or acknowledged, or one that is not in flight, is refused.
  */
 export function acknowledgeDelivery(
@@ -80,7 +80,7 @@ export function acknowledgeDelivery(
 ): Result<{ delivery: Delivery; events: NewEvent[] }, AcknowledgeRefusal> {
   const { crew, at } = ack;
   switch (delivery.state) {
-    case 'delivered':
+    case 'handed':
     case 'acknowledged':
       if (delivery.claimedByShipId !== crew.shipId) {
         return refuse(
@@ -173,7 +173,7 @@ export function dismissDelivery(
         ],
       });
     case 'pending':
-    case 'delivered':
+    case 'handed':
     case 'acknowledged':
     case 'abandoned':
       return refuse(
@@ -203,8 +203,8 @@ export type MarkDoneRefusal = DomainError<'DELIVERY_NOT_FOUND' | 'DELIVERY_NOT_O
 
 /**
  * argo marks a message to it done (docs/blueprint.md, "Inbox"): the console
- * never receives, so an open delivery is claimed and acknowledged at once
- * under the console session's lease, one claim counted, and its two events
+ * never receives, so an open delivery is handed and acknowledged at once
+ * under the console session's lease, one attempt counted, and its two events
  * written as a receive and an ack would write them. One the session already
  * holds in flight is only acknowledged. The acknowledgement names the reply
  * that made it done, when a reply did. Marking it done again is harmless: OK,
@@ -241,10 +241,10 @@ export function markDone(
       const attempts = delivery.attempts + 1;
       return ok({
         delivery: { ...delivery, state: 'acknowledged', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts },
-        events: [{ ...concerns, type: 'DeliveryClaimed', details: { leaseId: crew.leaseId, attempts } }, acknowledged],
+        events: [{ ...concerns, type: 'DeliveryHanded', details: { leaseId: crew.leaseId, attempts } }, acknowledged],
       });
     }
-    case 'delivered':
+    case 'handed':
       return delivery.claimedByLeaseId === crew.leaseId
         ? ok({ delivery: { ...delivery, state: 'acknowledged' }, events: [acknowledged] })
         : refuse('DELIVERY_HELD_BY_ANOTHER_SHIP', `Delivery ${delivery.id} is held by another session`);

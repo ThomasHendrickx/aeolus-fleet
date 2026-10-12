@@ -111,7 +111,7 @@ const pingFromArgo = {
 /** A ping argo sent reviewer-01, which its session took and answered with pong, newest first. */
 export const PING_TIMELINE: TimelineEntry[] = [
   event(12, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: { answer: 'pong' } }),
-  event(11, { type: 'DeliveryClaimed', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: {} }),
+  event(11, { type: 'DeliveryHanded', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: {} }),
   event(10, { type: 'MessageAccepted', occurredAt: minutesAgo(3), actor: ARGO, ship: REVIEWER, message: pingFromArgo, details: {} }),
 ];
 
@@ -181,7 +181,7 @@ export const MESSAGES: ListedMessage[] = [
     sentAt: minutesAgo(30),
     contentType: 'application/json', model: null,
     preview: '{"task":"review","repo":"web","pr":321}',
-    state: 'delivered',
+    state: 'handed',
     claimedBy: REVIEWER,
   }),
 ];
@@ -216,23 +216,23 @@ function history(seq: number, entry: Omit<DeliveryHistoryEntry, 'seq'>): Deliver
 
 /** A type-addressed delivery: queued, claimed, returned when its crew was released, claimed again. */
 export const TYPE_HISTORY: DeliveryHistoryEntry[] = [
-  history(14, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:20:31Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 2 }),
+  history(14, { type: 'DeliveryHanded', occurredAt: '2026-09-28T14:20:31Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 2 }),
   history(12, { type: 'DeliveryReturned', occurredAt: '2026-09-28T14:20:02Z', ship: PLANNER, location: null, harness: null, attempts: 1 }),
-  history(11, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:06:15Z', ship: PLANNER, location: { kind: 'DEVICE', description: null }, harness: null, attempts: 1 }),
+  history(11, { type: 'DeliveryHanded', occurredAt: '2026-09-28T14:06:15Z', ship: PLANNER, location: { kind: 'DEVICE', description: null }, harness: null, attempts: 1 }),
   history(10, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:05:51Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
 /** A direct delivery, acknowledged. */
 export const DIRECT_HISTORY: DeliveryHistoryEntry[] = [
   history(9, { type: 'DeliveryAcknowledged', occurredAt: '2026-09-28T14:27:40Z', ship: REVIEWER, location: null, harness: null, attempts: null }),
-  history(8, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T14:26:12Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 1 }),
+  history(8, { type: 'DeliveryHanded', occurredAt: '2026-09-28T14:26:12Z', ship: REVIEWER, location: { kind: 'SERVER', description: 'hetzner-1' }, harness: null, attempts: 1 }),
   history(7, { type: 'MessageAccepted', occurredAt: '2026-09-28T14:26:03Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
 /** An undeliverable delivery: claimed five times, never acknowledged. */
 export const UNDELIVERABLE_HISTORY: DeliveryHistoryEntry[] = [
   history(30, { type: 'DeliveryUndeliverable', occurredAt: '2026-09-28T13:12:40Z', ship: REVIEWER, location: null, harness: null, attempts: 5 }),
-  history(29, { type: 'DeliveryClaimed', occurredAt: '2026-09-28T13:02:38Z', ship: REVIEWER, location: { kind: 'CLOUD', description: null }, harness: null, attempts: 5 }),
+  history(29, { type: 'DeliveryHanded', occurredAt: '2026-09-28T13:02:38Z', ship: REVIEWER, location: { kind: 'CLOUD', description: null }, harness: null, attempts: 5 }),
   history(20, { type: 'MessageAccepted', occurredAt: '2026-09-28T12:10:05Z', ship: null, location: null, harness: null, attempts: null }),
 ];
 
@@ -245,7 +245,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:05:51Z',
   contentType: 'application/json', model: null,
   payload: '{"task":"review","repo":"web","pr":321}',
-  delivery: { id: deliveryId('0003'), state: 'delivered', attempts: 2, claimedBy: REVIEWER, history: TYPE_HISTORY },
+  delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, history: TYPE_HISTORY },
 };
 
 /** planner's answer to reviewer-01, acknowledged. */
