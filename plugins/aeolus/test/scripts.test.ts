@@ -147,10 +147,15 @@ const acknowledged: StubAnswer = { status: 200, body: {} };
 const busy: StubAnswer = { status: 503, body: { code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy: nothing was stored. Make the same call again.' } };
 const notInFlight: StubAnswer = { status: 409, body: { code: 'DELIVERY_NOT_IN_FLIGHT', message: 'Delivery is undeliverable, not in flight' } };
 const leaseEnded: StubAnswer = { status: 401, body: { code: 'LEASE_ENDED', message: 'The lease ended' } };
+/** The fleet's answer to handed: where the delivery stands now. */
+const handedAs = (state: 'handed' | 'acknowledged' | 'undeliverable'): StubAnswer => ({ status: 200, body: { state } });
+const handedOk = handedAs('handed');
+/** An OK with nothing to say, as turn, handled and notHandled answer. */
+const taken: StubAnswer = { status: 200, body: {} };
 
 /** A stub fleet whose inbox answers these counts and whose receive hands these deliveries over, one per call. */
 function aWakingFleet(counts: readonly StubAnswer[], receives: readonly StubAnswer[] = [receiving(aDelivery())]): Promise<StubFleet> {
-  return startRoutedStubFleet({ '/api/v1/ship/inbox': counts, '/api/v1/ship/receive': receives, '/api/v1/ship/ack': [acknowledged] });
+  return startRoutedStubFleet({ '/api/v1/ship/inbox': counts, '/api/v1/ship/pushReceive': receives, '/api/v1/ship/handed': [handedOk], '/api/v1/ship/ack': [acknowledged] });
 }
 
 const inboxCalls = (stub: StubFleet) => stub.calls.filter((call) => call.path === '/api/v1/ship/inbox');
@@ -411,7 +416,7 @@ describe('aeolus-wait', () => {
     const isLockSeen = new Promise<void>((resolve) => {
       answer = resolve;
     });
-    fleet = await startStubFleet([{ ...inbox(1), hold: isLockSeen }, receiving(aDelivery())]);
+    fleet = await startStubFleet([{ ...inbox(1), hold: isLockSeen }, receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
 
@@ -473,6 +478,7 @@ describe('aeolus-wait', () => {
       { status: 401, body: { code: 'LEASE_ENDED', message: 'This ship was released' }, hold: held },
       inbox(1),
       receiving(aDelivery()),
+      handedOk,
     ]);
     const stub = fleet;
     crew(stub.url);
@@ -495,7 +501,7 @@ describe('aeolus-wait', () => {
   });
 
   it('retries a failing fleet quietly, then exits 0 once deliveries wait', async () => {
-    fleet = await startStubFleet([{ status: 500, body: {} }, { status: 503, body: {} }, inbox(1), receiving(aDelivery())]);
+    fleet = await startStubFleet([{ status: 500, body: {} }, { status: 503, body: {} }, inbox(1), receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
 
@@ -503,7 +509,7 @@ describe('aeolus-wait', () => {
       status: 0,
       stdout: HANDED_OVER,
     });
-    expect(fleet.calls).toHaveLength(4);
+    expect(fleet.calls).toHaveLength(6);
   });
 
   it('exits 2 when the folder crews no ship', () => {
@@ -656,7 +662,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
 
   /** The watcher hands one delivery over: the fleet's receive answers it while the session is idle. */
   async function aHandOver(routes: Record<string, readonly StubAnswer[]>): Promise<StubFleet> {
-    fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/receive': [receiving(aDelivery())], ...routes });
+    fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/pushReceive': [receiving(aDelivery())], '/api/v1/ship/handed': [handedOk], ...routes });
     crew(fleet.url);
     aTurnEnded();
     await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
@@ -666,13 +672,20 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
   const callsTo = (stub: StubFleet, path: string) => stub.calls.filter((call) => call.path === path);
 
   describe('the watcher', () => {
-    it('receives one delivery when deliveries wait and the session is idle, keeps it in the store as handed, and says so without its content', async () => {
+    it('push-receives one delivery when deliveries wait and the session is idle, keeps it in the store as handed, and says so without its content', async () => {
       const stub = await aHandOver({});
 
-      expect(callsTo(stub, '/api/v1/ship/receive')).toEqual([
-        { method: 'POST', path: '/api/v1/ship/receive', authorization: `Bearer ${CREW_TOKEN}`, body: '{"max":1}' },
+      expect(callsTo(stub, '/api/v1/ship/pushReceive')).toEqual([
+        { method: 'POST', path: '/api/v1/ship/pushReceive', authorization: `Bearer ${CREW_TOKEN}`, body: '{"max":1}' },
       ]);
+      expect(callsTo(stub, '/api/v1/ship/receive')).toEqual([]);
       expect(store()).toEqual([`${DELIVERY_ID} handed`]);
+    });
+
+    it('reports the hand-over to the fleet with its number, 1 for the first, before it says so', async () => {
+      const stub = await aHandOver({});
+
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`]);
     });
 
     it('hands the next message over whenever one waits while the session is idle, though the count did not rise since the last hand-over', async () => {
@@ -692,32 +705,114 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       expect(turn().stdout).toMatch(/^busy /);
     });
 
+    it('reports the turn busy to the fleet as it hands a message over, with the time it marked it', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/turn': [taken] });
+
+      const [state, at] = turn().stdout.trim().split(' ');
+      expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body)).toEqual([`{"turn":"${state ?? ''}","at":"${at ?? ''}"}`]);
+      expect(state).toBe('busy');
+    });
+
     it('keeps watching when the receive hands it nothing, as when another ship of its type took the delivery first', async () => {
-      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1), inbox(2)], '/api/v1/ship/receive': [receiving(), receiving(aDelivery())] });
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1), inbox(2)], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(), receiving(aDelivery())] });
       crew(fleet.url);
       aTurnEnded();
 
       await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
-      expect(callsTo(fleet, '/api/v1/ship/receive')).toHaveLength(2);
+      expect(callsTo(fleet, '/api/v1/ship/pushReceive')).toHaveLength(2);
     });
 
-    it('hands a message a failed confirmation left received over again at the next idle, without receiving it again', async () => {
+    it('hands a message a failed confirmation left received over again at the next idle, with the next number, without receiving it again', async () => {
       const stub = await aHandOver({ '/api/v1/ship/ack': [busy] });
       await aFirstToolCall();
       aTurnEnded();
 
       await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
-      expect(callsTo(stub, '/api/v1/ship/receive')).toHaveLength(1);
+      expect(callsTo(stub, '/api/v1/ship/pushReceive')).toHaveLength(1);
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([
+        `{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`,
+        `{"deliveryId":"${DELIVERY_ID}","handOverNumber":2}`,
+      ]);
       expect(store()).toEqual([`${DELIVERY_ID} handed`]);
     });
 
+    it('reports the same number again when the fleet did not take the hand-over, so a lost answer counts no attempt', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/handed': [{ status: 500, body: {} }, handedOk] });
+
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([
+        `{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`,
+        `{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`,
+      ]);
+    });
+
+    it('hands over a message the fleet already holds acknowledged: the answer to its confirmation was lost, and the model has not seen it', async () => {
+      await aHandOver({ '/api/v1/ship/handed': [handedAs('acknowledged')] });
+
+      expect(store()).toEqual([`${DELIVERY_ID} handed`]);
+    });
+
+    it('counts on from the hand-over number the fleet holds when its store lost the entry', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/pushReceive': [receiving({ ...aDelivery(), state: 'handed', handOverNumber: 2 })] });
+
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}","handOverNumber":3}`]);
+    });
+
+    it('drops a message the fleet answers undeliverable at its fifth attempt, hands nothing, and watches on', async () => {
+      fleet = await startRoutedStubFleet({
+        '/api/v1/ship/inbox': [inbox(1)],
+        '/api/v1/ship/pushReceive': [receiving(aDelivery()), receiving(anotherDelivery())],
+        '/api/v1/ship/handed': [handedAs('undeliverable'), handedOk],
+      });
+      crew(fleet.url);
+      aTurnEnded();
+
+      await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
+      expect(store()).toEqual([`${anotherDelivery().deliveryId} handed`]);
+    });
+
+    it('drops a message the fleet no longer holds in flight when it reports the hand-over, and watches on', async () => {
+      fleet = await startRoutedStubFleet({
+        '/api/v1/ship/inbox': [inbox(1)],
+        '/api/v1/ship/pushReceive': [receiving(aDelivery()), receiving(anotherDelivery())],
+        '/api/v1/ship/handed': [notInFlight, handedOk],
+      });
+      crew(fleet.url);
+      aTurnEnded();
+
+      await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
+      expect(store()).toEqual([`${anotherDelivery().deliveryId} handed`]);
+    });
+
     it('exits 3 and forgets the ship and its store on LEASE_ENDED at the receive', async () => {
-      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/receive': [leaseEnded] });
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/pushReceive': [leaseEnded] });
       crew(fleet.url);
       aTurnEnded();
 
       await expect(start('aeolus-wait.sh').exited).resolves.toMatchObject({ status: 3 });
       expect(run('aeolus-identity.sh', { args: ['show'] }).status).toBe(1);
+    });
+
+    it('exits 3 and forgets the ship and its store on LEASE_ENDED at the hand-over', async () => {
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/pushReceive': [receiving(aDelivery())], '/api/v1/ship/handed': [leaseEnded] });
+      crew(fleet.url);
+      aTurnEnded();
+
+      await expect(start('aeolus-wait.sh').exited).resolves.toMatchObject({ status: 3 });
+      expect(readdirSync(dirname(identityFile()))).toEqual([]);
+    });
+
+    it('drops the entries of an older lease instead of handing them over: the folder was crewed again (D7)', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [busy] });
+      await aFirstToolCall();
+      expect(run('aeolus-identity.sh', { args: ['write', stub.url, SHIP_ID, 'scout', 'aeolus_ct_v1_new_crew'] }).status).toBe(0);
+      aTurnEnded();
+
+      await expect(start('aeolus-wait.sh').exited).resolves.toEqual({ status: 0, stdout: HANDED_OVER });
+      expect(callsTo(stub, '/api/v1/ship/pushReceive')).toHaveLength(2);
+      expect(callsTo(stub, '/api/v1/ship/handed')[1]).toMatchObject({
+        authorization: 'Bearer aeolus_ct_v1_new_crew',
+        body: `{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`,
+      });
     });
   });
 
@@ -740,7 +835,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     it('names the message it answers, when it is a reply', async () => {
       fleet = await startRoutedStubFleet({
         '/api/v1/ship/inbox': [inbox(1)],
-        '/api/v1/ship/receive': [receiving(aDelivery({ inReplyTo: 'msg_01m4r9zzzzzzzzzzzzzzzzzzzz' }))],
+        '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aDelivery({ inReplyTo: 'msg_01m4r9zzzzzzzzzzzzzzzzzzzz' }))],
         '/api/v1/ship/ack': [acknowledged],
       });
       crew(fleet.url);
@@ -807,7 +902,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       const payload = `${'x'.repeat(9_000)}${'é'.repeat(3_000)}`;
       fleet = await startRoutedStubFleet({
         '/api/v1/ship/inbox': [inbox(1)],
-        '/api/v1/ship/receive': [receiving(aDelivery({ payload }))],
+        '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aDelivery({ payload }))],
         '/api/v1/ship/ack': [acknowledged],
       });
       crew(fleet.url);
@@ -827,7 +922,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       const payload = 'y'.repeat(10_000 - heading);
       fleet = await startRoutedStubFleet({
         '/api/v1/ship/inbox': [inbox(1)],
-        '/api/v1/ship/receive': [receiving(aDelivery({ payload }))],
+        '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aDelivery({ payload }))],
         '/api/v1/ship/ack': [acknowledged],
       });
       crew(fleet.url);
@@ -841,7 +936,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
 
     it('hands a ping over without acknowledging it, asking for pong, so the pong proves the model read it', async () => {
-      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/receive': [receiving(aPing())] });
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aPing())] });
       crew(fleet.url);
       aTurnEnded();
       await start('aeolus-wait.sh').exited;
@@ -898,7 +993,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     it('removes the file of a long payload with its message once it is handled', async () => {
       fleet = await startRoutedStubFleet({
         '/api/v1/ship/inbox': [inbox(1)],
-        '/api/v1/ship/receive': [receiving(aDelivery({ payload: 'z'.repeat(12_000) }))],
+        '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aDelivery({ payload: 'z'.repeat(12_000) }))],
         '/api/v1/ship/ack': [acknowledged],
       });
       crew(fleet.url);
@@ -913,7 +1008,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
 
     it('ends a ping answered with pong as handled at the turn end', async () => {
-      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/receive': [receiving(aPing())], '/api/v1/ship/pong': [acknowledged] });
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aPing())], '/api/v1/ship/pong': [acknowledged] });
       crew(fleet.url);
       aTurnEnded();
       await start('aeolus-wait.sh').exited;
@@ -926,7 +1021,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
 
     it('takes a ping not answered with pong back to received at the turn end, to be handed again', async () => {
-      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/receive': [receiving(aPing())] });
+      fleet = await startRoutedStubFleet({ '/api/v1/ship/inbox': [inbox(1)], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/pushReceive': [receiving(aPing())] });
       crew(fleet.url);
       aTurnEnded();
       await start('aeolus-wait.sh').exited;
@@ -1483,7 +1578,7 @@ describe('the Stop hook', () => {
   });
 
   it('asks for the watcher again once a watcher reached the fleet with the crew token', async () => {
-    fleet = await startStubFleet([{ status: 401, body: { code: 'UNAUTHORIZED', message: 'Call with the crew token' } }, inbox(1), receiving(aDelivery())]);
+    fleet = await startStubFleet([{ status: 401, body: { code: 'UNAUTHORIZED', message: 'Call with the crew token' } }, inbox(1), receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
     await start('aeolus-wait.sh').exited;
@@ -1929,7 +2024,7 @@ describe("the plugin's log: what the watcher and hooks do, one record per line i
   const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
   it("writes each record as the trierarch's log does: when, the ship, the action and its outcome", async () => {
-    fleet = await startStubFleet([inbox(2), receiving(aDelivery())]);
+    fleet = await startStubFleet([inbox(2), receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
 
@@ -1944,7 +2039,7 @@ describe("the plugin's log: what the watcher and hooks do, one record per line i
   });
 
   it('logs the watcher starting and the wake it gives', async () => {
-    fleet = await startStubFleet([inbox(0), inbox(2), receiving(aDelivery())]);
+    fleet = await startStubFleet([inbox(0), inbox(2), receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
 
@@ -2010,7 +2105,7 @@ describe("the plugin's log: what the watcher and hooks do, one record per line i
   });
 
   it('logs a failing fleet once, not every retry, and when it answers again', async () => {
-    fleet = await startStubFleet([{ status: 500, body: {} }, { status: 503, body: {} }, inbox(0), inbox(1), receiving(aDelivery())]);
+    fleet = await startStubFleet([{ status: 500, body: {} }, { status: 503, body: {} }, inbox(0), inbox(1), receiving(aDelivery()), handedOk]);
     crew(fleet.url);
     aTurnEnded();
 
