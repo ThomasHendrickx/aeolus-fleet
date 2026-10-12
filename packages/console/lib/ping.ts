@@ -35,7 +35,7 @@ export function pingLine(ping: NonNullable<ListedShip['ping']>, now: Date): stri
       return ping.answeredAt === null
         ? 'Answered ping'
         : `Answered ping in ${answerTime(sentAt, new Date(ping.answeredAt))}`;
-    case 'received':
+    case 'acknowledged':
       return 'Received, not answered with pong';
     case 'undeliverable':
       return 'Ping not answered: undeliverable';

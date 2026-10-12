@@ -20,7 +20,7 @@ export const Answered: Story = {
   args: { ping: { state: 'answered', sentAt: '2026-10-02T09:07:00.000Z', answeredAt: '2026-10-02T09:07:04.000Z' } },
 };
 export const Received: Story = {
-  args: { ping: { state: 'received', sentAt: '2026-10-02T09:07:00.000Z', answeredAt: null } },
+  args: { ping: { state: 'acknowledged', sentAt: '2026-10-02T09:07:00.000Z', answeredAt: null } },
 };
 /** Handed out again and again and never acknowledged: it went undeliverable. */
 export const Undeliverable: Story = {

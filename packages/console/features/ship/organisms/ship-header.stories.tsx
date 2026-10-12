@@ -45,7 +45,7 @@ export const PingAnswered: Story = {
   },
 };
 export const PingReceived: Story = {
-  args: { ship: { ...CREWED_SHIP, ping: { state: 'received', sentAt: minutesAgo(3), answeredAt: null } } },
+  args: { ship: { ...CREWED_SHIP, ping: { state: 'acknowledged', sentAt: minutesAgo(3), answeredAt: null } } },
 };
 /** A ship commissioned with fleet access: its fleet scopes beside its type. */
 export const WithFleetScopes: Story = {
