@@ -68,6 +68,7 @@ import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
+import { createReportTurn } from '../../src/domain/registry/report-turn.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
 import { createDeclareNetworkRules } from '../../src/domain/registry/declare-network-rules.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
@@ -206,6 +207,7 @@ export function registryUseCases(core: InMemoryCore) {
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed }),
     // Nothing wakes a follow here: it ends at its wait.

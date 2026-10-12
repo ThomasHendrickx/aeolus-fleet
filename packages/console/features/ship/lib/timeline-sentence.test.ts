@@ -217,6 +217,19 @@ describe('timelineSentence', () => {
     });
   });
 
+  it("says the session's turn started or ended, as its hooks reported it", () => {
+    expect(onScoutsPage(anEntry('TurnReported', { actor: scout, details: { turn: 'busy' } }))).toEqual({
+      sentence: 'Turn started: busy',
+      tone: 'active',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('TurnReported', { actor: scout, details: { turn: 'idle' } }))).toEqual({
+      sentence: 'Turn ended: idle',
+      tone: 'ended',
+      icon: 'reported',
+    });
+  });
+
   it('says argo pinged the ship, on its page', () => {
     expect(onScoutsPage(anEntry('MessageAccepted', { actor: argo, ship: scout, message: pingFromArgo }))).toEqual({
       sentence: 'Pinged by argo',

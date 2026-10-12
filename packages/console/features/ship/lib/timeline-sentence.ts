@@ -328,6 +328,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'reported',
       };
     }
+    case 'TurnReported': {
+      const turn = stringDetail(entry, 'turn');
+      return { parts: [text(turn === 'busy' ? 'Turn started: busy' : 'Turn ended: idle')], tone: turn === 'busy' ? 'active' : 'ended', icon: 'reported' };
+    }
     case 'ShipRenamed': {
       const from = stringDetail(entry, 'from');
       const to = stringDetail(entry, 'to');

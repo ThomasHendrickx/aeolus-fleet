@@ -28,6 +28,7 @@ import {
   toShipFromSql,
   toShipLabel,
   toShipReport,
+  toTurn,
 } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
@@ -400,6 +401,17 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           reportDetailsVersion: report.detailsVersion,
         },
       });
+    },
+    findTurnForUpdate: async (fleetId, leaseId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT turn::text AS turn, turn_at
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
+        FOR UPDATE`;
+      return row === undefined ? undefined : { turn: toTurn(row) };
+    },
+    saveTurn: async ({ fleetId, leaseId, turn }) => {
+      await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { turn: turn.state, turnAt: turn.at } });
     },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release

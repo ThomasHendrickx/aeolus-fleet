@@ -70,6 +70,7 @@ import { createReleaseShip, type ReleaseShip } from './domain/registry/release-s
 import { createRenameShip, type RenameShip } from './domain/registry/rename-ship.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
 import { createReport, type Report } from './domain/registry/report.js';
+import { createReportTurn, type ReportTurn } from './domain/registry/report-turn.js';
 import { createRequestCrew, type RequestCrew } from './domain/registry/request-crew.js';
 import { createRemoveCrewRequest, type RemoveCrewRequest } from './domain/registry/remove-crew-request.js';
 import { createAssignCrew, type AssignCrew } from './domain/registry/assign-crew.js';
@@ -133,6 +134,7 @@ export interface UseCases {
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
+  reportTurn: ReportTurn;
   requestCrew: RequestCrew;
   removeCrewRequest: RemoveCrewRequest;
   assignCrew: AssignCrew;
@@ -276,6 +278,7 @@ export function createUseCases(options: {
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
+    reportTurn: createReportTurn({ uow, clock, ids }),
     requestCrew: createRequestCrew({ uow, clock, ids }),
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),
     assignCrew: createAssignCrew({ uow, clock, ids }),
