@@ -117,6 +117,7 @@ describe('migrations', () => {
       'notice_dismissals',
       'notices',
       'operators',
+      'overdue_deliveries',
       'reach_refusals',
       'ship_labels',
       'ships',

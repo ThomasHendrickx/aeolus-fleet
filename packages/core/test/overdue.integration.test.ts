@@ -202,6 +202,7 @@ describe('a pass that fails midway', () => {
           work({
             ...tx,
             events: {
+              ...tx.events,
               append: async (event) => {
                 await tx.events.append(event);
                 throw new Error('disk full');

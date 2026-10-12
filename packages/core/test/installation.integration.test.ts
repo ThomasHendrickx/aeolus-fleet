@@ -211,6 +211,11 @@ describe('the installation procedures on a hosting server', () => {
     const crew = unwrap(await core.authenticate.byCrewToken(crewToken));
     const asked = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', idempotencyKey: newKey() }));
     unwrap(await core.receiveDeliveries(crew, {}));
+    // argo was told the delivery is overdue, as the 10 and 60 minute clocks store it.
+    await database.$executeRaw`
+      INSERT INTO overdue_deliveries (fleet_id, lease_id, delivery_id, ship_id, state, clock, minutes, told_at)
+      SELECT fleet_id, claimed_by_lease_id, id, claimed_by_ship_id, state, 'notConfirmed', 10, now()
+      FROM deliveries WHERE fleet_id = ${created.fleetId} AND message_id = ${asked.messageId}`;
     unwrap(await core.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'On it', model: 'claude-opus-5-5', inReplyTo: asked.messageId, idempotencyKey: newKey() }));
     // Its operator signed in with a ticket, so a console session, argo's lease and a used ticket exist too.
     const { ticket } = await client(hostingAddress, INSTALLATION_TOKEN).installation.operators.issueSignInTicket.mutate({ fleetId: created.fleetId });

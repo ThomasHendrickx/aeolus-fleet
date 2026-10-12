@@ -202,6 +202,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_push_receive$/),
       expect.stringMatching(/^\d{14}_handled$/),
       expect.stringMatching(/^\d{14}_turn$/),
+      expect.stringMatching(/^\d{14}_overdue$/),
     ]);
   });
 });
