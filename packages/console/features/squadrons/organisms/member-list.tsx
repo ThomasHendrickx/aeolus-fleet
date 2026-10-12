@@ -109,7 +109,7 @@ function RoleLaunch({ issued, template }: { issued: IssuedCrewLine; template: st
       <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
         <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
         <span>
-          <span className="font-medium">Shown once.</span> Paste a member’s crew line into Claude Code or Codex started where the launch note says, or into a chat client with the fleet’s connector.
+          <span className="font-medium">Shown once.</span> Paste a member’s crew line into Claude Code or Codex started where the launch note says, or the Chat one, the ship’s crew instructions for a chat, into a chat app.
         </span>
       </p>
     </div>

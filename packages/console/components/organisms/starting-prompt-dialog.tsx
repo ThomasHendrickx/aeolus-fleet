@@ -52,10 +52,10 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
         </span>
       </p>
       <CodeBlock
-        label={`Starting prompt for ${shipName}`}
+        label={`Crew instructions for a chat, for ${shipName}`}
         code={prompt}
         isWrapped
-        copyLabel={`Copy the starting prompt for ${shipName}`}
+        copyLabel={`Copy the crew instructions for a chat, for ${shipName}`}
         codeTestId="starting-prompt-text"
         copyTestId="starting-prompt-copy"
         onCopied={copied}
@@ -98,8 +98,8 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         <DialogHeader>
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
-            Paste it into the agent session that should crew this ship, or a crew line into Claude Code or Codex with
-            the aeolus plugin. Any earlier prompt for {shipName} stops working now.
+            Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code or Codex
+            with the aeolus plugin. Any earlier prompt for {shipName} stops working now.
           </DialogDescription>
         </DialogHeader>
 
