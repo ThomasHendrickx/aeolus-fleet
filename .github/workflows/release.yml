@@ -1,4 +1,5 @@
-# Publishes @aeolus-fleet/common, core, console, squadrons, trierarch-plugin, networking-plugin and trierarch to npm with one version, and
+# Publishes @aeolus-fleet/common, core, console, squadrons, trierarch-plugin, networking-plugin and trierarch to npm with one version,
+# pushes the session image (decision 0039) to ghcr.io with that version, and
 # tags v<version> a commit with the aeolus plugin's version on top of the
 # released commit, so a version on npm always matches a tag in git and the tag
 # holds the plugin of that version (aeolus-trierarch upgrade installs it from
@@ -27,6 +28,8 @@ permissions:
   pull-requests: read
   # To read CI's result for the released commit.
   actions: read
+  # To push the session image to ghcr.io.
+  packages: write
 
 concurrency:
   group: release
@@ -116,6 +119,17 @@ jobs:
             fi
           done
 
+      # Built before anything is published, so a broken image stops the release
+      # first. The plugin in it carries the version set above.
+      - name: Build the session image
+        env:
+          VERSION: ${{ inputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          IMAGE="ghcr.io/${OWNER,,}/aeolus-session:$VERSION"
+          podman build --file packages/trierarch/image/Containerfile --build-arg VERSION="$VERSION" --tag "$IMAGE" .
+          echo "SESSION_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
       # Each step skips a package whose version is on npm already, so releasing a
       # version again after it failed partway publishes only what is missing, then
       # tags and sets the plugin. Dispatch it again from main: Re-run jobs replays
@@ -197,6 +211,16 @@ jobs:
           else
             npm publish --access public --workspace "$PACKAGE"
           fi
+
+      # After all seven are on npm, before the tag: releasing a version again
+      # after it failed partway pushes the image again, which replaces it.
+      - name: Push the session image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printenv GH_TOKEN | podman login ghcr.io --username "$ACTOR" --password-stdin
+          podman push "$SESSION_IMAGE"
 
       # After all seven are on npm. The tag holds the released commit with the
       # plugin's manifests at the version on top (set above), off main's
