@@ -105,6 +105,7 @@ model FormationAttempt {
   squadronId String    @map("squadron_id")
   startedAt  DateTime  @map("started_at") @db.Timestamptz(3)
   givenUpAt  DateTime? @map("given_up_at") @db.Timestamptz(3)
+  recoveryRefusals Int @default(0) @map("recovery_refusals")
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
   ships      FormationShip[]
 
