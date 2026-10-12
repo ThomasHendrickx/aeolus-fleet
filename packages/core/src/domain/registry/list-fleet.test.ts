@@ -324,14 +324,14 @@ describe("a ship's last ping", () => {
     });
   });
 
-  it('is received, not answered with pong, after a plain ack', async () => {
+  it('is acknowledged, not answered with pong, after a plain ack', async () => {
     const scoutCrew = await crewedScout();
     const messaging = messagingUseCases(core);
     const { messageId } = unwrap(await messaging.pingShip(argo, { shipId: scoutId }));
     unwrap(await messaging.receiveDeliveries(scoutCrew, {}));
     unwrap(await messaging.acknowledgeDelivery(scoutCrew, { deliveryId: deliveryIdOf(core, messageId) }));
 
-    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'received', answeredAt: null } });
+    await expect(listedScout()).resolves.toMatchObject({ ping: { state: 'acknowledged', answeredAt: null } });
   });
 
   it('is the newest ping: a new one waits again after an answered one', async () => {
