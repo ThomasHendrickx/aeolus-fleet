@@ -1,4 +1,4 @@
-import type { ListedShip, UndeliverableDelivery } from '@aeolus-fleet/common';
+import type { ListedShip, NeedsAttentionDelivery } from '@aeolus-fleet/common';
 
 import { duration } from '../../../lib/relative-time';
 
@@ -19,7 +19,7 @@ function activeShipsOf(ships: readonly ListedShip[]): ListedShip[] {
 }
 
 /** The overview's metrics from the fleet snapshot and Needs attention, at `now`. */
-export function overviewMetrics(input: { ships: readonly ListedShip[]; undeliverable: readonly UndeliverableDelivery[]; now: Date }): OverviewMetrics {
+export function overviewMetrics(input: { ships: readonly ListedShip[]; undeliverable: readonly NeedsAttentionDelivery[]; now: Date }): OverviewMetrics {
   const active = activeShipsOf(input.ships);
   const awaiting = active.filter((ship) => ship.status === 'awaitingCrew');
   const longest = awaiting

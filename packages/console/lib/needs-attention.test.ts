@@ -1,15 +1,16 @@
-import { createIdGenerator, type UndeliverableDelivery } from '@aeolus-fleet/common';
+import { createIdGenerator, type NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast, undeliverableReason } from './needs-attention';
+import { attentionReason, canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast, undeliverableReason } from './needs-attention';
 
 const newId = createIdGenerator();
 const builder = { id: newId('ship'), name: 'builder-core' };
 const tester = { id: newId('ship'), name: 'tester-01' };
 
-function anUndeliverable(recipient: UndeliverableDelivery['message']['recipient']): UndeliverableDelivery {
+function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient']): NeedsAttentionDelivery {
   return {
     deliveryId: newId('delivery'),
+    state: 'undeliverable',
     attempts: 5,
     since: '2026-10-01T13:12:00.000Z',
     message: {
@@ -79,5 +80,17 @@ describe('canResend', () => {
 describe('undeliverableReason', () => {
   it('counts the hand-overs before the refused fifth receive of a pull ship', () => {
     expect(undeliverableReason(5)).toBe('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.');
+  });
+});
+
+describe('attentionReason', () => {
+  it('says why an undeliverable delivery is there, from its attempts', () => {
+    expect(attentionReason({ state: 'undeliverable', attempts: 5 })).toBe(undeliverableReason(5));
+  });
+
+  it('says a delivery not handled was confirmed, and its turn died twice', () => {
+    expect(attentionReason({ state: 'notHandled', attempts: 1 })).toBe(
+      'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.',
+    );
   });
 });

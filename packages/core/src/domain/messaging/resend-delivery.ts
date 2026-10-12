@@ -46,7 +46,7 @@ function resendKey(deliveryId: DeliveryId): string {
 }
 
 /**
- * Use case: the operator resends an undeliverable delivery from Needs
+ * Use case: the operator resends an undeliverable or not handled delivery from Needs
  * attention (docs/blueprint.md, "DeliveryUndeliverable"). Its scope
  * (fleet:manage) is checked before this runs. A resend is a retry of the same
  * delivery: a new message with the original's sender, selector, payload,

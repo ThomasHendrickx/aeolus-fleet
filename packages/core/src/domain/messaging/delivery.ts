@@ -377,12 +377,12 @@ export function answerPing(
 export type DismissRefusal = DomainError<'DELIVERY_NOT_UNDELIVERABLE'>;
 
 /**
- * The operator lets an undeliverable delivery go (docs/blueprint.md,
- * "DeliveryUndeliverable"): it becomes dismissed, kept in history with its
- * claims, and leaves Needs attention. The event names the ship it was for; a
- * delivery to a type names none. Dismissing it again is harmless: OK, and
- * nothing changes. Any other delivery is refused: only an undeliverable one
- * waits for the operator.
+ * The operator lets an undeliverable or not handled delivery go
+ * (docs/blueprint.md, "DeliveryUndeliverable"): it becomes dismissed, kept in
+ * history with its claims, and leaves Needs attention. The event names the
+ * ship it was for; a delivery to a type names none. Dismissing it again is
+ * harmless: OK, and nothing changes. Any other delivery is refused: only
+ * those two wait for the operator.
  */
 export function dismissDelivery(
   delivery: Delivery,
@@ -392,6 +392,7 @@ export function dismissDelivery(
     case 'dismissed':
       return ok({ delivery, events: [] });
     case 'undeliverable':
+    case 'notHandled':
       return ok({
         delivery: { ...delivery, state: 'dismissed' },
         events: [
@@ -411,28 +412,27 @@ export function dismissDelivery(
     case 'handed':
     case 'acknowledged':
     case 'handled':
-    case 'notHandled':
     case 'abandoned':
       return refuse(
         'DELIVERY_NOT_UNDELIVERABLE',
-        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is dismissed`,
+        `Delivery ${delivery.id} is ${delivery.state}: only an undeliverable or not handled delivery is dismissed`,
       );
   }
 }
 
 /**
- * A resend dismisses the delivery it resends, which must be undeliverable:
- * one already dismissed has nothing left to resend.
+ * A resend dismisses the delivery it resends, which must be undeliverable or
+ * not handled: one already dismissed has nothing left to resend.
  */
 export function dismissForResend(
   delivery: Delivery,
   dismiss: { by: ShipId; at: Date },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
-  return delivery.state === 'undeliverable'
+  return delivery.state === 'undeliverable' || delivery.state === 'notHandled'
     ? dismissDelivery(delivery, dismiss)
     : refuse(
         'DELIVERY_NOT_UNDELIVERABLE',
-        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is resent`,
+        `Delivery ${delivery.id} is ${delivery.state}: only an undeliverable or not handled delivery is resent`,
       );
 }
 

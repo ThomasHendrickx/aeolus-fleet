@@ -1,6 +1,6 @@
-import { idSchema, type UndeliverableDelivery } from '@aeolus-fleet/common';
+import { idSchema, type NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn } from 'storybook/test';
 
 import { NeedsAttentionList } from './needs-attention-list';
 
@@ -15,8 +15,9 @@ function ago(minutes: number): string {
   return new Date(NOW.getTime() - minutes * MINUTE_MS).toISOString();
 }
 
-const fromArgo: UndeliverableDelivery = {
+const fromArgo: NeedsAttentionDelivery = {
   deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0002'),
+  state: 'undeliverable',
   attempts: 5,
   since: ago(165),
   message: {
@@ -31,8 +32,9 @@ const fromArgo: UndeliverableDelivery = {
   },
 };
 
-const fromBuilder: UndeliverableDelivery = {
+const fromBuilder: NeedsAttentionDelivery = {
   deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0001'),
+  state: 'undeliverable',
   attempts: 5,
   since: ago(80),
   message: {
@@ -44,6 +46,24 @@ const fromBuilder: UndeliverableDelivery = {
     contentType: 'application/json',
     isPing: false,
     payload: '{"run":"e2e","ref":"pr-320"}',
+  },
+};
+
+/** Confirmed by its ship's hook, then its turn died twice. */
+const notHandled: NeedsAttentionDelivery = {
+  deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0003'),
+  state: 'notHandled',
+  attempts: 1,
+  since: ago(30),
+  message: {
+    id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0003'),
+    sender: builder,
+    recipient: { kind: 'ship', ship: tester },
+    inReplyTo: null,
+    sentAt: ago(45),
+    contentType: 'text/plain',
+    isPing: false,
+    payload: 'Rebase pr-320 on main and run the suite.',
   },
 };
 
@@ -77,6 +97,18 @@ export const UndeliverablePing: Story = {
         message: { ...fromBuilder.message, sender: argo, contentType: 'application/vnd.aeolus.ping', isPing: true, payload: 'Ping from argo: answer with pong(deliveryId).' },
       },
     ],
+  },
+};
+
+/** Not handled sits beside the undeliverable ones, by since when, with the same Resend and Dismiss. */
+export const NotHandled: Story = {
+  args: { deliveries: [fromArgo, fromBuilder, notHandled] },
+  play: async ({ canvas }) => {
+    // The table and the phone cards both hold the row; one of them shows.
+    await expect(canvas.getAllByText('Not handled')[0]).toBeInTheDocument();
+    await expect(
+      canvas.getAllByText('Acknowledged, then its turn died; handed once more, and that turn died too: not handled.', { exact: false })[0],
+    ).toBeInTheDocument();
   },
 };
 

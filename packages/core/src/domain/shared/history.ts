@@ -54,8 +54,8 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 /** A timeline entry as the read answers it, its message telling whether it is a ping. */
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
 
-/** An undeliverable delivery as Needs attention answers it, its message telling whether it is a ping. */
-export type ShownUndeliverableEntry = Omit<UndeliverableEntry, 'message'> & { message: WithPing<UndeliverableEntry['message']> };
+/** A delivery in Needs attention as it is answered, its message telling whether it is a ping. */
+export type ShownNeedsAttentionEntry = Omit<NeedsAttentionEntry, 'message'> & { message: WithPing<NeedsAttentionEntry['message']> };
 
 /** One message with its delivery as it stands. */
 export interface HistoryMessage {
@@ -93,14 +93,21 @@ export interface DeliveryChange {
   attempts: number | null;
 }
 
-/** An undeliverable delivery, for Needs attention: its claims, since when, and its whole message. */
-export interface UndeliverableEntry {
+/**
+ * A delivery in Needs attention: undeliverable, or not handled after its turn
+ * died twice (decision 0040). Its claims, since when, and its whole message.
+ */
+export interface NeedsAttentionEntry {
   deliveryId: DeliveryId;
+  state: NeedsAttentionState;
   attempts: number;
-  /** When it became undeliverable. */
+  /** When it became undeliverable, or was reported not handled. */
   since: Date;
   message: Omit<HistoryMessage, 'delivery'>;
 }
+
+/** The delivery states Needs attention lists, each waiting for the operator to resend or dismiss it. */
+export type NeedsAttentionState = Extract<DeliveryState, 'undeliverable' | 'notHandled'>;
 
 /** A reply the inbox's ship sent to a message in its inbox. */
 export interface InboxReply {
@@ -153,8 +160,8 @@ export interface ShipHistory {
     fleetId: FleetId,
     messageId: MessageId,
   ): Promise<(HistoryMessage & { history: DeliveryChange[] }) | undefined>;
-  /** Every undeliverable delivery, oldest first by when it became undeliverable. */
-  undeliverable(fleetId: FleetId): Promise<UndeliverableEntry[]>;
+  /** Every undeliverable or not handled delivery, oldest first by since when. */
+  needsAttention(fleetId: FleetId): Promise<NeedsAttentionEntry[]>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }

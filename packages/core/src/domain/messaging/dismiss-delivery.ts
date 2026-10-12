@@ -22,7 +22,7 @@ export type DismissDelivery = (
 ) => Promise<Result<undefined, DismissDeliveryRefusal>>;
 
 /**
- * Use case: the operator dismisses an undeliverable delivery from Needs
+ * Use case: the operator dismisses an undeliverable or not handled delivery from Needs
  * attention. Its scope (fleet:manage) is checked before this runs. The
  * delivery, locked, becomes dismissed with DeliveryDismissed in one unit of
  * work, so a resend of the same delivery waits and then finds it dismissed.

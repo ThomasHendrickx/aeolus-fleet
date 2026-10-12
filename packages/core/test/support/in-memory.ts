@@ -1395,24 +1395,27 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             };
           }),
       ),
-    undeliverable: (fleetId) => {
+    needsAttention: (fleetId) => {
       const events = numbered(fleetId);
       return Promise.resolve(
         state.deliveries
-          .filter((delivery) => delivery.fleetId === fleetId && delivery.state === 'undeliverable')
-          .map((delivery) => {
+          .filter((delivery) => delivery.fleetId === fleetId)
+          .flatMap((delivery) => (delivery.state === 'undeliverable' || delivery.state === 'notHandled' ? [{ delivery, state: delivery.state }] : []))
+          .map(({ delivery, state: attentionState }) => {
             const message = messageOf(fleetId, delivery.messageId);
             const since = events.findLast(
-              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryUndeliverable',
+              (event) =>
+                event.deliveryId === delivery.id && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'),
             );
             if (!message || !since) {
-              throw new Error(`undeliverable ${delivery.id} without its message or its event`);
+              throw new Error(`${attentionState} ${delivery.id} without its message or its event`);
             }
             const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
             return {
               seq: since.seq,
               entry: {
                 deliveryId: delivery.id,
+                state: attentionState,
                 attempts: delivery.attempts,
                 since: since.occurredAt,
                 message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
