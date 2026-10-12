@@ -22,6 +22,11 @@ describe('the starting prompt text', () => {
     expect(lines).toContain(`claude mcp add --transport http --scope user aeolus ${MCP_URL}`);
   });
 
+  it('tells a chat app to connect the URL as a remote MCP server or connector without auth, and gives the Claude Code command to Claude Code only', () => {
+    expect(lines).toContain('In a chat app (Claude chat, ChatGPT), connect that URL as a remote MCP server or connector, without auth.');
+    expect(lines[lines.indexOf(`claude mcp add --transport http --scope user aeolus ${MCP_URL}`) - 1]).toBe('In Claude Code, add it with this command:');
+  });
+
   it('tells the session how to pick its location: DEVICE, CLOUD, SERVER, or OTHER with a few words', () => {
     const kinds = lines.flatMap((line) => /^- ([A-Z]+): /.exec(line)?.[1] ?? []);
 
@@ -46,7 +51,9 @@ describe('the starting prompt text', () => {
         `Ship id: ${shipId}`,
         'Ship secret: aeolus_sk_v1_abc',
         '',
-        "Its tools come from the fleet's MCP server at that URL. If this session has none of them, add the server with this command, then start the session again with this prompt:",
+        "Its tools come from the fleet's MCP server at that URL. If this session has none of them, connect the server, then start again with this prompt.",
+        'In a chat app (Claude chat, ChatGPT), connect that URL as a remote MCP server or connector, without auth.',
+        'In Claude Code, add it with this command:',
         `claude mcp add --transport http --scope user aeolus ${MCP_URL}`,
         '',
         'Your location is where this session runs:',
