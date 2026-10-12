@@ -18,7 +18,7 @@ import {
 export const SHIP_PROTOCOL = [
   'Aeolus carries messages between ships. You crew one of them.',
   '',
-  '1. Call register once at the start, with your location and harness. Keep the crew token; every other call needs it.',
+  '1. Call register once at the start, with your location and harness. It answers your crew token only this once: keep it in this conversation and pass it to every later call. Never call register again while you crew the ship: a CONFLICT on register means the ship is crewed already, by this conversation or another, and is no reason to retry.',
   '2. Loop: receive, then ack each delivery. Act only if the ack succeeded. On a pushed ship, where your messages come into your turn by themselves, never receive or ack: they are acknowledged before you see them.',
   '3. To answer, send to its senderName with inReplyTo set to its messageId.',
   `4. ${NO_TERMINAL_QUESTIONS} Every other question goes to the sender of your task, never through your harness's interactive question tools: a question waiting there blocks your session.`,
