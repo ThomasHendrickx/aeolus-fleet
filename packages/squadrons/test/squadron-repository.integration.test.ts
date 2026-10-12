@@ -202,3 +202,17 @@ describe('a squadron formed before versions kept their file', () => {
     expect(stored?.blueprint.file).toBe('');
   });
 });
+
+ describe('formation recovery refusals', () => {
+  it('keeps the refusal count when the adapter restarts, scoped to its fleet', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'refused-attempt', fleetId: FLEET, squadronId: formed.id, startedAt: AT });
+    await attempts.recordRecoveryRefusal('refused-attempt');
+    await attempts.recordRecoveryRefusal('refused-attempt');
+    const restarted = createPrismaFormationAttempts(prisma, clock);
+    await expect(restarted.unfinished(FLEET)).resolves.toEqual([
+      expect.objectContaining({ id: 'refused-attempt', recoveryRefusals: 2 }),
+    ]);
+    await expect(restarted.unfinished('flt_01m3tb1zgr5h2ffee12xnch8sw')).resolves.toEqual([]);
+  });
+});

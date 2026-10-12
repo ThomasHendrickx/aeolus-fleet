@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
+import type { FleetDoor, ManagementCrewStore, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import { createRecoverFormations } from './recover-formations.js';
@@ -14,6 +14,8 @@ let ships: { shipId: ShipId; name: string; isRetired: boolean }[];
 let attempts: ReturnType<typeof memoryAttempts>;
 /** How many retires of each name the fleet refuses as busy, storing nothing. */
 let retiresRefused: Map<string, number>;
+let notices: OutgoingMessage[];
+let isNoticeRefused: boolean;
 
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -26,7 +28,13 @@ const door: FleetDoor = {
   receive: () => Promise.resolve(ok([])),
   ack: () => Promise.resolve(ok(undefined)),
   pong: () => Promise.resolve(ok(undefined)),
-  send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  send: (_crewToken, message) => {
+    if (isNoticeRefused) {
+      return Promise.resolve(err({ code: 'SERVICE_UNAVAILABLE', message: 'busy' }));
+    }
+    notices.push(message);
+    return Promise.resolve(ok({ messageId: 'msg_01m3tbfspe96yf1rnr4ank0001' }));
+  },
   listShips: () => Promise.resolve(ok(ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
   requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   removeCrewRequest: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -63,6 +71,8 @@ beforeEach(async () => {
   ];
   attempts = memoryAttempts();
   retiresRefused = new Map();
+  notices = [];
+  isNoticeRefused = false;
   // A forming that died midway: the flagship and the planner recorded with their ids, the
   // tester commissioned but killed before its id was recorded, the last member never commissioned.
   await attempts.begin({ id: 'attempt-1', fleetId: FLEET, squadronId: 'team-a1b2c3', startedAt: AT });
@@ -133,5 +143,49 @@ describe('recovering formations at a rescan (#738)', () => {
     await expect(recover('given-up')).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 3 } });
 
     expect(attempts.held.map((attempt) => attempt.isFinished)).toEqual([true]);
+  });
+});
+
+describe('bounded recovery of refused retires (#740)', () => {
+  it('retries below five refusals without telling argo', async () => {
+    retiresRefused.set('planner-k3x9', 10);
+    await attempts.giveUp('attempt-1');
+    for (let refusal = 0; refusal < 4; refusal += 1) {
+      await recover('given-up');
+    }
+    expect(notices).toEqual([]);
+    expect(retiresRefused.get('planner-k3x9')).toBe(6);
+    expect(attempts.held[0]?.isFinished).toBe(false);
+  });
+
+  it('stops after five refusals and tells argo once, naming the fleet and ship, across a restart', async () => {
+    retiresRefused.set('planner-k3x9', 10);
+    await attempts.giveUp('attempt-1');
+    for (let refusal = 0; refusal < 5; refusal += 1) {
+      await recover('given-up');
+    }
+    await recover('given-up');
+    await recover('all');
+    expect(retiresRefused.get('planner-k3x9')).toBe(5);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({ selector: { kind: 'ship', name: 'argo' }, contentType: 'text/plain' });
+    expect(notices[0]?.payload).toContain(FLEET);
+    expect(notices[0]?.payload).toContain('planner-k3x9');
+    expect(attempts.held[0]?.isFinished).toBe(true);
+  });
+
+  it('retries a refused notice with the same key without retiring again', async () => {
+    retiresRefused.set('planner-k3x9', 10);
+    isNoticeRefused = true;
+    for (let refusal = 0; refusal < 5; refusal += 1) {
+      await recover();
+    }
+    expect(attempts.held[0]?.isFinished).toBe(false);
+    isNoticeRefused = false;
+    await recover();
+    await recover();
+    expect(retiresRefused.get('planner-k3x9')).toBe(5);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.idempotencyKey).toBe('formation-recovery-stopped-attempt-1');
   });
 });
