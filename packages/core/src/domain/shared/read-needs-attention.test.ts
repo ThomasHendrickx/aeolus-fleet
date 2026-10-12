@@ -1,6 +1,7 @@
-import type { MessageId } from '@aeolus-fleet/common';
+import type { DeliveryId, MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
@@ -25,6 +26,23 @@ function deliveryOf(messageId: MessageId) {
   return scene.core.state.deliveries.find((held) => held.messageId === messageId);
 }
 
+/**
+ * Has the pushed crew's computer side take the message and hand it over, the
+ * hook acknowledge it, hand it once more after its turn died, and report it
+ * not handled when that turn died too. Answers the delivery's id.
+ */
+async function notHandled(crew: Crew, messageId: MessageId): Promise<DeliveryId> {
+  const deliveryId = deliveryIdOf(scene.core, messageId);
+  const { messaging } = scene;
+  unwrap(await messaging.pushReceiveDeliveries(crew, {}));
+  unwrap(await messaging.handOverDelivery(crew, { deliveryId, handOverNumber: 1 }));
+  unwrap(await messaging.acknowledgeDelivery(crew, { deliveryId }));
+  unwrap(await messaging.handOverDelivery(crew, { deliveryId, handOverNumber: 2, isOnceMore: true }));
+  scene.core.clock.advance(1_000);
+  unwrap(await messaging.reportNotHandled(crew, { deliveryId }));
+  return deliveryId;
+}
+
 describe('reading Needs attention', () => {
   it('lists an undeliverable delivery with its whole message, its claims and since when', async () => {
     const payload = '{"run":"e2e","ref":"pr-320"}';
@@ -37,6 +55,7 @@ describe('reading Needs attention', () => {
     await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([
       {
         deliveryId: deliveryOf(messageId)?.id,
+        state: 'undeliverable',
         attempts: UNDELIVERABLE_AT_ATTEMPT,
         since,
         message: {
@@ -89,6 +108,48 @@ describe('reading Needs attention', () => {
     await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
     await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
     unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.lookout.shipId }));
+
+    await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([]);
+  });
+
+  it('lists a delivery not handled, with its attempts and since when it was not handled', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const deliveryId = await notHandled(scene.scout, messageId);
+
+    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(entry).toMatchObject({
+      deliveryId,
+      state: 'notHandled',
+      attempts: 1,
+      since: scene.core.clock.now(),
+      message: { id: messageId, sender: { name: 'planner' }, isPing: false },
+    });
+  });
+
+  it('lists undeliverable and not handled deliveries together, oldest first by since when', async () => {
+    const undeliverable = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
+    const notHandledFirst = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await notHandled(scene.scout, notHandledFirst);
+    await receiveUntilUndeliverable(scene.lookout);
+    const notHandledLast = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await notHandled(scene.scout, notHandledLast);
+
+    const listed = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(listed.map((entry) => [entry.message.id, entry.state])).toEqual([
+      [notHandledFirst, 'notHandled'],
+      [undeliverable, 'undeliverable'],
+      [notHandledLast, 'notHandled'],
+    ]);
+  });
+
+  it('leaves out a handled delivery: the turn that took it ended by itself', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const deliveryId = deliveryIdOf(scene.core, messageId);
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, {}));
+    unwrap(await scene.messaging.acknowledgeDelivery(scene.scout, { deliveryId }));
+    unwrap(await scene.messaging.reportHandled(scene.scout, { deliveryId }));
 
     await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([]);
   });

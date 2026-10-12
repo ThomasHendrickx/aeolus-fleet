@@ -80,6 +80,23 @@ function stored(deliveryId: DeliveryId) {
   return core.prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } });
 }
 
+/**
+ * A message to scout that its pushed crew takes, hands over and confirms,
+ * hands once more after the turn died, and reports not handled when that turn
+ * died too. Answers when it was reported not handled.
+ */
+async function notHandled(): Promise<{ messageId: MessageId; deliveryId: DeliveryId; at: Date }> {
+  const messageId = await sendTo({ kind: 'ship', shipId: scout.shipId });
+  const deliveryId = await deliveryOf(messageId);
+  unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+  unwrap(await core.useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+  unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId }));
+  unwrap(await core.useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true }));
+  core.clock.advance(1_000);
+  unwrap(await core.useCases.reportNotHandled(scout, { deliveryId }));
+  return { messageId, deliveryId, at: core.clock.now() };
+}
+
 describe('Needs attention on Postgres', () => {
   it('lists the undeliverable deliveries oldest first, each with its whole message and since when', async () => {
     const first = await undeliverable();
@@ -91,6 +108,7 @@ describe('Needs attention on Postgres', () => {
     expect(listed.map((entry) => entry.deliveryId)).toEqual([first.deliveryId, second.deliveryId]);
     expect(listed[0]).toEqual({
       deliveryId: first.deliveryId,
+      state: 'undeliverable',
       attempts: UNDELIVERABLE_AT_ATTEMPT,
       since,
       message: {
@@ -106,6 +124,31 @@ describe('Needs attention on Postgres', () => {
       },
     });
     await expect(core.useCases.readNeedsAttention({ ...argo, fleetId: newId('fleet') })).resolves.toEqual([]);
+  });
+
+  it('lists a delivery not handled with the undeliverable ones, by since when, and dismisses and resends it as one', async () => {
+    const undeliverableOne = await undeliverable();
+    const dismissed = await notHandled();
+    const resent = await notHandled();
+
+    const listed = await core.useCases.readNeedsAttention(argo);
+
+    expect(listed.map(({ deliveryId, state, attempts }) => ({ deliveryId, state, attempts }))).toEqual([
+      { deliveryId: undeliverableOne.deliveryId, state: 'undeliverable', attempts: UNDELIVERABLE_AT_ATTEMPT },
+      { deliveryId: dismissed.deliveryId, state: 'notHandled', attempts: 1 },
+      { deliveryId: resent.deliveryId, state: 'notHandled', attempts: 1 },
+    ]);
+    expect(listed[1]?.since).toEqual(dismissed.at);
+
+    unwrap(await core.useCases.dismissDelivery(argo, { deliveryId: dismissed.deliveryId }));
+    const { messageId } = unwrap(await core.useCases.resendDelivery(argo, { deliveryId: resent.deliveryId }));
+
+    await expect(stored(dismissed.deliveryId)).resolves.toMatchObject({ state: 'dismissed' });
+    await expect(stored(resent.deliveryId)).resolves.toMatchObject({ state: 'dismissed' });
+    await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
+      resendOfMessageId: resent.messageId,
+    });
+    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([{ deliveryId: undeliverableOne.deliveryId }]);
   });
 
   it('dismisses one: dismissed, with DeliveryDismissed caused by argo, and gone from the list', async () => {
