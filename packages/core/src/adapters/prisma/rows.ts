@@ -545,6 +545,7 @@ const deliverySqlRow = z.object({
   claimed_by_ship_id: idSchema('ship').nullable(),
   claimed_by_lease_id: idSchema('lease').nullable(),
   attempts: z.int().nonnegative(),
+  hand_over_number: z.int().positive().nullable(),
   created_at: z.date(),
 });
 
@@ -560,6 +561,7 @@ export function toDeliveryFromSql(row: unknown): Delivery {
     claimedByShipId: delivery.claimed_by_ship_id,
     claimedByLeaseId: delivery.claimed_by_lease_id,
     attempts: delivery.attempts,
+    handOverNumber: delivery.hand_over_number,
     createdAt: delivery.created_at,
   };
 }

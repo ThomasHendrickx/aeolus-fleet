@@ -152,6 +152,17 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the ship received a message by a push receive, and received it again', () => {
+    expect(onScoutsPage(anEntry('DeliveryReceived', { actor: scout, message: fromPlanner }))).toEqual({
+      sentence: 'Received a message from planner',
+      tone: 'active',
+      icon: 'received',
+    });
+    expect(onScoutsPage(anEntry('DeliveryReceived', { actor: scout, message: fromPlanner, details: { again: true } })).sentence).toBe(
+      'Received again a message from planner',
+    );
+  });
+
   it('says the ship took a message it claimed', () => {
     expect(onScoutsPage(anEntry('DeliveryHanded', { actor: scout, message: fromPlanner }))).toEqual({
       sentence: 'Took a message from planner',

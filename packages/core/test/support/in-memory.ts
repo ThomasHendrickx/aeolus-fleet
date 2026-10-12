@@ -86,6 +86,8 @@ export interface InMemoryState {
   fleets: Fleet[];
   ships: Ship[];
   leases: Lease[];
+  /** The leases a push receive marked pushed, and from when. */
+  pushedLeases: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   credentials: Credential[];
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
@@ -212,6 +214,11 @@ export interface InMemoryCore {
   wakeups: InMemoryWakeups;
 }
 
+/** Whether a receive or a push receive holds the delivery: received or handed, in flight with its crew. */
+function isInFlight(delivery: Delivery): boolean {
+  return delivery.state === 'received' || delivery.state === 'handed';
+}
+
 /** Oldest first, as Postgres orders them: by creation, then by id. */
 function byAge(first: Delivery, second: Delivery): number {
   return first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id);
@@ -222,6 +229,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     fleets: [],
     ships: [],
     leases: [],
+    pushedLeases: [],
     credentials: [],
     operatorAccounts: [],
     consoleSessions: [],
@@ -642,6 +650,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         );
         return Promise.resolve(lease && { ...lease });
       },
+      markPushed: ({ fleetId, leaseId, at }) => {
+        const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
+        if (isOpen && !state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId)) {
+          state.pushedLeases.push({ fleetId, leaseId, at });
+        }
+        return Promise.resolve();
+      },
+      isPushed: (fleetId, leaseId) =>
+        Promise.resolve(state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId)),
       end: ({ fleetId, leaseId, endedAt }) => {
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === leaseId);
         if (lease?.endedAt !== null) {
@@ -656,13 +673,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const inFlight = state.deliveries
           .filter(
             (delivery) =>
-              delivery.fleetId === fleetId && delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId,
+              delivery.fleetId === fleetId && isInFlight(delivery) && delivery.claimedByLeaseId === leaseId,
           )
           .sort(byAge);
         for (const delivery of inFlight) {
           delivery.state = 'pending';
           delivery.claimedByShipId = null;
           delivery.claimedByLeaseId = null;
+          delivery.handOverNumber = null;
         }
         return Promise.resolve(
           inFlight.map(({ id, messageId, recipient, attempts }) => ({
@@ -831,7 +849,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const inFlight = ofFleet
           .filter(
             (delivery) =>
-              delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
+              isInFlight(delivery) && delivery.claimedByLeaseId === leaseId && !excluding.includes(delivery.id),
           )
           .sort(byAge);
         const pending = ofFleet
@@ -853,7 +871,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.deliveries.filter(
             (delivery) =>
               delivery.fleetId === fleetId &&
-              ((delivery.state === 'handed' && delivery.claimedByLeaseId === leaseId) ||
+              ((isInFlight(delivery) && delivery.claimedByLeaseId === leaseId) ||
                 (delivery.state === 'pending' &&
                   ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
                     (delivery.recipient.kind === 'type' && delivery.recipient.type === type && (delivery.reachableShipIds?.includes(shipId) ?? true))))),
@@ -873,7 +891,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             delivery.fleetId === fleetId &&
             delivery.recipient.kind === 'ship' &&
             delivery.recipient.shipId === shipId &&
-            (delivery.state === 'pending' || delivery.state === 'handed') &&
+            (delivery.state === 'pending' || isInFlight(delivery)) &&
             state.messages.some((message) => message.id === delivery.messageId && message.contentType === PING_CONTENT_TYPE),
         );
         const message = open && state.messages.find((held) => held.id === open.messageId);
@@ -1167,10 +1185,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveryCounts: (fleetId, shipId) => {
       const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
       return Promise.resolve({
-        inFlight: ofFleet.filter((delivery) => delivery.state === 'handed' && delivery.claimedByShipId === shipId).length,
+        inFlight: ofFleet.filter((delivery) => isInFlight(delivery) && delivery.claimedByShipId === shipId).length,
         open: ofFleet.filter(
           (delivery) =>
-            (delivery.state === 'pending' || delivery.state === 'handed') &&
+            (delivery.state === 'pending' || isInFlight(delivery)) &&
             delivery.recipient.kind === 'ship' &&
             delivery.recipient.shipId === shipId,
         ).length,
@@ -1461,6 +1479,7 @@ const FLEET_TABLES = [
   'deliveries',
   'deliveryReads',
   'leaseSeen',
+  'pushedLeases',
   'leaseReports',
   'crewRequests',
   'clearRequests',
@@ -1488,6 +1507,7 @@ const TABLES = [
   'deliveries',
   'deliveryReads',
   'leaseSeen',
+  'pushedLeases',
   'leaseReports',
   'crewRequests',
   'clearRequests',

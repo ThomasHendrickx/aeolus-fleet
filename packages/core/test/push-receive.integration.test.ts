@@ -126,9 +126,8 @@ describe('a push receive on Postgres', () => {
 
     await expect(useCases.receiveDeliveries(scout, {})).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
     await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
-    await expect(prisma.lease.findUniqueOrThrow({ where: { id: scout.leaseId } })).resolves.toMatchObject({
-      pushedAt: expect.any(Date),
-    });
+    const { pushedAt } = await prisma.lease.findUniqueOrThrow({ where: { id: scout.leaseId } });
+    expect(pushedAt).toBeInstanceOf(Date);
   });
 
   it('returns received and handed deliveries to pending when the lease ends, their hand-over number cleared', async () => {

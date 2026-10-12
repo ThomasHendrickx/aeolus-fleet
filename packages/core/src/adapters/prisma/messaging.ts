@@ -65,6 +65,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           claimedByShipId: delivery.claimedByShipId,
           claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
+          handOverNumber: delivery.handOverNumber,
           reachableShipIds: delivery.reachableShipIds ? [...delivery.reachableShipIds] : [],
           createdAt: delivery.createdAt,
         },
@@ -75,7 +76,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         where: {
           fleetId,
           OR: [
-            { state: 'handed', claimedByLeaseId: leaseId },
+            { state: { in: ['received', 'handed'] }, claimedByLeaseId: leaseId },
             {
               state: 'pending',
               OR: [{ recipientShipId: shipId }, { recipientType: type, OR: [{ reachableShipIds: { isEmpty: true } }, { reachableShipIds: { has: shipId } }] }],
@@ -91,9 +92,9 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       // and no longer matches.
       const inFlight = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
         FROM deliveries
-        WHERE fleet_id = ${fleetId} AND state = 'handed' AND claimed_by_lease_id = ${leaseId}
+        WHERE fleet_id = ${fleetId} AND state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId}
           AND id <> ALL(${[...excluding]}::text[])
         ORDER BY created_at, id
         LIMIT ${limit}
@@ -103,7 +104,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         room > 0
           ? await db.$queryRaw<unknown[]>`
               SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                     claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+                     claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
               FROM deliveries
               WHERE fleet_id = ${fleetId} AND state = 'pending'
                 AND (recipient_ship_id = ${shipId}
@@ -130,7 +131,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findForUpdate: async (fleetId, deliveryId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND id = ${deliveryId}
         FOR UPDATE`;
@@ -139,7 +140,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findOfMessage: async (fleetId, messageId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND message_id = ${messageId}
         LIMIT 1`;
@@ -150,7 +151,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         where: {
           fleetId,
           contentType: PING_CONTENT_TYPE,
-          deliveries: { some: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'handed'] } } },
+          deliveries: { some: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'received', 'handed'] } } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -164,6 +165,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           claimedByShipId: delivery.claimedByShipId,
           claimedByLeaseId: delivery.claimedByLeaseId,
           attempts: delivery.attempts,
+          handOverNumber: delivery.handOverNumber,
         },
       });
     },

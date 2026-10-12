@@ -118,3 +118,24 @@ export async function holdLease(
   const ship = lease && (await tx.ships.find(crew.fleetId, lease.shipId));
   return ship ? ok(ship) : refuseEndedLease();
 }
+
+/**
+ * Marks the crew's lease pushed (decision 0040): from its first push receive
+ * until it ends, the computer side takes its deliveries and the agent's plain
+ * receive answers nothing. Call it first in the unit of work, before the
+ * lease is held. A lease that has ended stays as it was.
+ */
+export async function markLeasePushed(
+  tx: { leases: Pick<LeaseRepository, 'markPushed'> },
+  pushed: { fleetId: FleetId; leaseId: LeaseId; at: Date },
+): Promise<void> {
+  await tx.leases.markPushed(pushed);
+}
+
+/** Whether the crew's lease is pushed: a push receive has marked it. */
+export async function isLeasePushed(
+  tx: { leases: Pick<LeaseRepository, 'isPushed'> },
+  crew: { fleetId: FleetId; leaseId: LeaseId },
+): Promise<boolean> {
+  return tx.leases.isPushed(crew.fleetId, crew.leaseId);
+}

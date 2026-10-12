@@ -916,7 +916,8 @@ describe('the handed migration', () => {
     try {
       await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 2n } });
       await before.ship.create({ data: { id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now } });
-      await before.lease.create({ data: { ...lease(fleetId, shipId), id: leaseId } });
+      // createMany: it returns no row, so it reads none of the columns later migrations add.
+      await before.lease.createMany({ data: [{ ...lease(fleetId, shipId), id: leaseId }] });
       await before.message.create({
         data: { id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now },
       });
@@ -944,7 +945,10 @@ describe('the handed migration', () => {
 
     const after = createPrismaClient(url);
     try {
-      await expect(after.delivery.findUnique({ where: { id: deliveryId } })).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: leaseId, attempts: 2 });
+      // Raw: the generated client reads columns later migrations add.
+      await expect(
+        after.$queryRaw`SELECT state::text AS state, claimed_by_lease_id, attempts FROM deliveries WHERE id = ${deliveryId}`,
+      ).resolves.toEqual([{ state: 'handed', claimed_by_lease_id: leaseId, attempts: 2 }]);
     } finally {
       await after.$disconnect();
     }

@@ -62,8 +62,8 @@ async function received(): Promise<DeliveryId> {
   return deliveryId;
 }
 
-function handOver(deliveryId: DeliveryId, handOverNumber: number, crew: Crew = scout) {
-  return useCases.handOverDelivery(crew, { deliveryId, handOverNumber });
+function handOver(deliveryId: DeliveryId, handOverNumber: number) {
+  return useCases.handOverDelivery(scout, { deliveryId, handOverNumber });
 }
 
 function stored(deliveryId: DeliveryId) {
@@ -221,7 +221,7 @@ describe('a hand-over that is refused', () => {
   it('refuses a delivery another ship holds', async () => {
     const deliveryId = await received();
 
-    await expect(handOver(deliveryId, 1, lookout)).resolves.toMatchObject({
+    await expect(useCases.handOverDelivery(lookout, { deliveryId, handOverNumber: 1 })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'DELIVERY_HELD_BY_ANOTHER_SHIP' },
     });

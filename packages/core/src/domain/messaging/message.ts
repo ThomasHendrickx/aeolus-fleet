@@ -50,8 +50,14 @@ export interface Delivery {
    */
   claimedByShipId: ShipId | null;
   claimedByLeaseId: LeaseId | null;
-  /** How many times a receive claimed it. */
+  /** How many times it was handed over: once per plain receive, or once per new hand-over number on a pushed ship. */
   attempts: number;
+  /**
+   * The last hand-over number its crew reported with handed: a repeat of it,
+   * or a lower one, changes nothing. None until a push receive's crew hands it
+   * over, and none again once it returns to pending.
+   */
+  handOverNumber: number | null;
   /**
    * For a type, under network rules: the ships of the type its sender may
    * reach, fixed at send time; only they may claim it (decision 0034).
@@ -154,6 +160,7 @@ export function acceptMessage(
     claimedByShipId: null,
     claimedByLeaseId: null,
     attempts: 0,
+    handOverNumber: null,
     ...(reachableShipIds && { reachableShipIds: [...reachableShipIds] }),
     createdAt: at,
   };

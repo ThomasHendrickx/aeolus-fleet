@@ -427,6 +427,18 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         },
       });
     },
+    markPushed: async ({ fleetId, leaseId, at }) => {
+      // An update before the lease is held FOR SHARE, so two marks take turns
+      // on the row lock instead of each waiting for the other's share. A lease
+      // already pushed matches nothing and locks nothing.
+      await db.$executeRaw`
+        UPDATE leases SET pushed_at = ${at}
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL AND pushed_at IS NULL`;
+    },
+    isPushed: async (fleetId, leaseId) => {
+      const pushed = await db.lease.count({ where: { fleetId, id: leaseId, pushedAt: { not: null } } });
+      return pushed > 0;
+    },
     end: async ({ fleetId, leaseId, endedAt }) => {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE leases SET ended_at = ${endedAt}
@@ -444,13 +456,13 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
       // One statement, on the index of a lease's claims. The lease has just
       // ended in this transaction, after any receive holding it FOR SHARE
       // committed, so read committed sees every claim made under it. Only the
-      // claim is cleared: recipient and attempts stay.
+      // claim and its hand-over number are cleared: recipient and attempts stay.
       const rows = await db.$queryRaw<unknown[]>`
         WITH returned AS (
-          UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL
-          WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state = 'handed'
+          UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL, hand_over_number = NULL
+          WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state IN ('received', 'handed')
           RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                    claimed_by_ship_id, claimed_by_lease_id, attempts, created_at
+                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
         )
         SELECT * FROM returned ORDER BY created_at, id`;
       return rows
@@ -576,8 +588,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     },
     deliveryCounts: async (fleetId, shipId) => {
       const [inFlight, open] = await Promise.all([
-        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: 'handed' } }),
-        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'handed'] } } }),
+        db.delivery.count({ where: { fleetId, claimedByShipId: shipId, state: { in: ['received', 'handed'] } } }),
+        db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'received', 'handed'] } } }),
       ]);
       return { inFlight, open };
     },
