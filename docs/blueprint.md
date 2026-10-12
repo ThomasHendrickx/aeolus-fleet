@@ -94,7 +94,7 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | --- | --- |
 | Come aboard and be reachable | `register`: claim a ship with its id and secret, saying where the session runs and in which harness, get the inbox that belongs to it |
 | Prove it is still alive (later, not v1) | `heartbeat`: keeps the ship's lease and its entry in the fleet snapshot fresh |
-| Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship. Each is handed to the crew at once, one attempt per receive |
+| Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship. Each is handed to the crew at once, one attempt per receive. On a pushed ship the agent never receives: its messages come into its turn by themselves (decision 0040) |
 | Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, stating the model the session runs, get an OK only once the message is durably stored |
 | Say what it is doing | `report`: working, blocked or idle, with a short note, and optionally its details for structured status. The console and anyone with `fleet:read` see it; calling it again with the same state, note and details still counts as a report |
@@ -136,7 +136,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease; a call with it afterwards is refused as lease ended, so the session knows its ship was released |
 | Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
 | Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
-| Delivery | One message to one resolved recipient, with its own state: pending, handed, acknowledged, undeliverable, dismissed, abandoned |
+| Delivery | One message to one resolved recipient, with its own state: pending, received, handed, acknowledged, undeliverable, dismissed, abandoned |
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
 | Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
@@ -213,7 +213,9 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated |
-| `DeliveryHanded` | Messaging | A receive hands the delivery to a crew: in flight with that ship and lease, one more attempt counted |
+| `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease |
+| `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
+| `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it. Its details say `answer: pong` when a pong answered a ping |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
 | `DeliveryDismissed` | Messaging | The operator let an undeliverable delivery go, by Dismiss or by a resend: it leaves Needs attention and stays in the timelines as dismissed |
@@ -236,17 +238,26 @@ Every flow keeps the delivery promise: a message leaves the fleet's responsibili
 stateDiagram-v2
   [*] --> pending: message accepted
   pending --> handed: receive
+  pending --> received: push receive
+  received --> received: push receive again (no change)
+  received --> handed: handed (hand-over number)
+  handed --> handed: handed with a higher number (one more attempt)
+  received --> acknowledged: ack
+  received --> pending: ship released before ack
   handed --> acknowledged: ack
   handed --> handed: receive again by the same crew (one more attempt)
   handed --> pending: ship released before ack
   pending --> undeliverable: fifth receive without ack
-  handed --> undeliverable: fifth receive without ack
+  handed --> undeliverable: fifth receive or fifth handed without ack
+  received --> undeliverable: fifth handed without ack
   pending --> abandoned: ship retired (direct deliveries)
   undeliverable --> dismissed: operator dismisses or resends
   acknowledged --> [*]
 ```
 
-`handed` means a receive handed it to a crew, at once: in flight with that ship and its lease. Every receive of it is one attempt, and the fifth is refused: it becomes undeliverable and is handed to no one. The console shows a handed delivery as handed (pulled).
+`handed` means the agent has it: a plain receive handed it to a crew at once, or a pushed crew's computer side handed it to the agent. Either way it is in flight with that ship and its lease. Every plain receive of it is one attempt, and so is every `handed` with a higher hand-over number; the fifth attempt is refused: it becomes undeliverable and is handed to no one. The console shows a handed delivery as handed (pulled).
+
+`received` means a push receive took it for the crew's computer side, the trierarch or the plugin watcher, which has not handed it to the agent yet (decision 0040): in flight with that ship and its lease, no attempt counted. A push receive returns its own received and handed deliveries again, changing nothing, so a restart of the computer side loses nothing. From its first push receive until it ends, the lease is pushed: the agent's plain receive answers nothing, and the hook's `ack` when the message comes into the agent's turn is the agent's confirmation.
 
 A crash never loses a delivery: an unacknowledged delivery returns to pending until a ship acknowledges it. A delivery that keeps failing (a poison message) stops after N attempts and lands in the operator's undeliverable queue instead of looping forever.
 
@@ -361,7 +372,9 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
 | `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), each with its message and its sender's id, name and type (the name the sender has now, so a crew answers it by name), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
 | `send` | Sends a payload with its content type (`text/plain` unless the sender says otherwise) to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
-| `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it |
+| `pushReceive` | For a pushed ship's computer side, never the agent: takes up to `max` deliveries as received, each with its state and last hand-over number, waiting briefly when the inbox is empty | No attempt counted; its own received and handed ones come back first, unchanged; the lease is pushed from then until it ends (decision 0040) |
+| `handed` | The computer side reports it handed a delivery to the agent, with its hand-over number | A higher number counts one attempt; the same or a lower one changes nothing; the fifth attempt answers undeliverable and nothing is handed |
+| `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it; on a pushed ship the hook acks a received or handed delivery when it comes into the agent's turn |
 | `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over 16 KB after the change are refused and nothing is stored (decision 0028) |
 | `reportLog` | Reads the crew's own report and the last report of the ship's previous crew, details included | No scope beyond being the crew; the previous crew's report is read-only |
 | `pong` | Answers a ping: acknowledges its delivery and marks the lease last seen | Only for a ping delivery the calling ship holds; answering again is OK and changes nothing |
