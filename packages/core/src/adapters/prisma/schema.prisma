@@ -168,6 +168,8 @@ model Lease {
   reportDetails        Json?        @map("report_details")
   /// Moves by one each time the details change; 0 before any.
   reportDetailsVersion Int          @default(0) @map("report_details_version")
+  /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
+  pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
   endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
@@ -461,6 +463,7 @@ model Message {
 
 enum DeliveryState {
   pending
+  received
   handed
   acknowledged
   undeliverable
@@ -471,9 +474,11 @@ enum DeliveryState {
 }
 
 /// One message to one resolved recipient: a ship or a type. Ids start with dlv_.
-/// A receive hands it to the ship and the lease of the crew receiving: set while it
-/// is handed, kept once acknowledged, none while it is pending. Attempts count the
-/// hand-overs; the fifth makes it undeliverable.
+/// A receive hands it to the ship and the lease of the crew receiving, or a push
+/// receive takes it for them: set while it is received or handed, kept once
+/// acknowledged, none while it is pending. Attempts count the hand-overs; the fifth
+/// makes it undeliverable. The hand-over number is the last one the crew reported
+/// with handed (decision 0040), none while pending.
 /// The read date is set when the operator opens a message to argo.
 /// For a type under network rules, the ships of the type its sender may reach,
 /// fixed at send time: only they claim it (decision 0034). Empty: any ship of
@@ -488,6 +493,7 @@ model Delivery {
   claimedByShipId  String?       @map("claimed_by_ship_id")
   claimedByLeaseId String?       @map("claimed_by_lease_id")
   attempts         Int           @default(0)
+  handOverNumber   Int?          @map("hand_over_number")
   reachableShipIds String[]      @default([]) @map("reachable_ship_ids")
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)

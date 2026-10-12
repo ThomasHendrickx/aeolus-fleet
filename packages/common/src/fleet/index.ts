@@ -49,10 +49,12 @@ export type SelectorKind = z.infer<typeof selectorKindSchema>;
 
 /**
  * Where one delivery stands (docs/blueprint.md, "Key flows"): pending until a
- * ship receives it, then handed (in flight with the crew that received it)
- * until it is acknowledged or returns to pending.
+ * ship receives it; received when a push receive took it and has not handed
+ * it to the agent yet; handed once the agent has it (a plain receive hands it
+ * at once). Received and handed are in flight with the crew, until it is
+ * acknowledged or returns to pending.
  */
-export const DELIVERY_STATES = ['pending', 'handed', 'acknowledged', 'undeliverable', 'dismissed', 'abandoned'] as const;
+export const DELIVERY_STATES = ['pending', 'received', 'handed', 'acknowledged', 'undeliverable', 'dismissed', 'abandoned'] as const;
 export const deliveryStateSchema = z.enum(DELIVERY_STATES);
 export type DeliveryState = z.infer<typeof deliveryStateSchema>;
 
@@ -66,6 +68,8 @@ export const EVENT_TYPES = [
   'StartingPromptIssued',
   'OperatorPasswordReset',
   'MessageAccepted',
+  'LeasePushed',
+  'DeliveryReceived',
   'DeliveryHanded',
   'DeliveryAcknowledged',
   'DeliveryUndeliverable',

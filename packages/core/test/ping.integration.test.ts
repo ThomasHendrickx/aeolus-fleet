@@ -173,7 +173,7 @@ describe("a ship's last ping in the listing on Postgres", () => {
 
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       isOk: true,
-      value: { ping: { state: 'received', answeredAt: null } },
+      value: { ping: { state: 'acknowledged', answeredAt: null } },
     });
   });
 });

@@ -53,7 +53,7 @@ describe('pingLine', () => {
   });
 
   it('says a ping acknowledged without pong was received, not answered', () => {
-    expect(pingLine({ state: 'received', sentAt: minutesAgo(3), answeredAt: null }, NOW)).toBe(
+    expect(pingLine({ state: 'acknowledged', sentAt: minutesAgo(3), answeredAt: null }, NOW)).toBe(
       'Received, not answered with pong',
     );
   });

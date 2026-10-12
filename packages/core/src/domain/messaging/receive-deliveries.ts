@@ -1,6 +1,6 @@
 import type { DeliveryId, IdGenerator, MessageId, ShipId } from '@aeolus-fleet/common';
 
-import { findShip, holdLease, type HoldLeaseTx, type LeaseEnded, type Ship } from '../registry/public.js';
+import { findShip, holdLease, isLeasePushed, type FindShipTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
@@ -9,10 +9,12 @@ import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { handDelivery } from './delivery.js';
+import type { Delivery, Message } from './message.js';
 import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
 import { receiveMax } from './receive-max.js';
 
 export interface ReceiveDeliveriesTx extends HoldLeaseTx {
+  leases: Pick<LeaseRepository, 'findOpenByIdForShare' | 'isPushed'>;
   deliveries: DeliveryRepository;
   events: EventLog;
 }
@@ -52,6 +54,36 @@ export type ReceiveDeliveries = (
 /** How long a receive waits for a delivery when none is there: about 25 seconds, then it returns empty. */
 export const RECEIVE_WAIT_MS = 25_000;
 
+/**
+ * The delivery as its crew gets it: with its message, and its sender by id
+ * and by the name and type it has in Registry now.
+ */
+export async function receivedDeliveryOf(
+  tx: FindShipTx,
+  held: { delivery: Delivery; message: Message },
+): Promise<Result<ReceivedDelivery, DomainError<'SHIP_NOT_FOUND'>>> {
+  const { delivery, message } = held;
+  const sender = await findShip(tx, { fleetId: delivery.fleetId, shipId: message.senderShipId });
+  if (!sender.isOk) {
+    // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
+    return sender;
+  }
+  return ok({
+    deliveryId: delivery.id,
+    messageId: message.id,
+    senderShipId: message.senderShipId,
+    senderName: sender.value.name,
+    senderType: sender.value.type,
+    recipient: delivery.recipient,
+    payload: message.payload,
+    contentType: message.contentType,
+    model: message.model,
+    inReplyTo: message.inReplyToMessageId,
+    sentAt: message.createdAt,
+    attempts: delivery.attempts,
+  });
+}
+
 interface ClaimDeps {
   tx: ReceiveDeliveriesTx;
   ids: IdGenerator;
@@ -74,6 +106,10 @@ async function claimForCrew(
   const ship = await holdLease(tx, crew);
   if (!ship.isOk) {
     return ship;
+  }
+  if (await isLeasePushed(tx, crew)) {
+    // The computer side takes a pushed lease's deliveries; the agent's own receive never gets one (decision 0040).
+    return ok({ ship: ship.value, deliveries: [] });
   }
 
   const handedOut: ReceivedDelivery[] = [];
@@ -98,25 +134,11 @@ async function claimForCrew(
         await recordEvent({ events: tx.events, ids }, event);
       }
       if (outcome === 'handed') {
-        const sender = await findShip(tx, { fleetId: crew.fleetId, shipId: message.senderShipId });
-        if (!sender.isOk) {
-          // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
-          return sender;
+        const received = await receivedDeliveryOf(tx, { delivery: changed, message });
+        if (!received.isOk) {
+          return received;
         }
-        handedOut.push({
-          deliveryId: changed.id,
-          messageId: message.id,
-          senderShipId: message.senderShipId,
-          senderName: sender.value.name,
-          senderType: sender.value.type,
-          recipient: changed.recipient,
-          payload: message.payload,
-          contentType: message.contentType,
-          model: message.model,
-          inReplyTo: message.inReplyToMessageId,
-          sentAt: message.createdAt,
-          attempts: changed.attempts,
-        });
+        handedOut.push(received.value);
       }
     }
   }
@@ -132,6 +154,8 @@ async function claimForCrew(
  * hands it again, counted as another attempt, so a lost reply loses nothing.
  * Its fifth attempt makes it undeliverable instead. Each delivery names its sender by id,
  * and by the name and type the sender has now, so the crew can answer by name.
+ * On a pushed lease it hands nothing, its pending deliveries included: the
+ * computer side takes them with a push receive (decision 0040).
  *
  * When nothing is there it waits, about 25 seconds, for a wake-up for its ship
  * or its type (ADR 0003: LISTEN/NOTIFY after commit), then returns empty. It
@@ -155,31 +179,48 @@ export function createReceiveDeliveries(deps: {
       return max;
     }
 
-    const until = deps.clock.now().getTime() + waitMs;
-    let watch: ReceiverWatch | undefined;
-    try {
-      for (;;) {
-        const attempt = await deps.uow.run((tx) =>
-          claimForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value }),
-        );
-        if (!attempt.isOk) {
-          return attempt;
-        }
-        const { ship, deliveries } = attempt.value;
-        if (deliveries.length > 0) {
-          return ok({ deliveries });
-        }
-        if (watch === undefined) {
-          watch = deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type: ship.type });
-          continue;
-        }
-        const remainingMs = until - deps.clock.now().getTime();
-        if (remainingMs <= 0 || (await watch.next(remainingMs)) === 'timedOut') {
-          return ok({ deliveries: [] });
-        }
-      }
-    } finally {
-      watch?.stop();
-    }
+    return waitForDeliveries(
+      { clock: deps.clock, wakeups: deps.wakeups, waitMs },
+      { crew, look: () => deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value })) },
+    );
   };
+}
+
+/**
+ * Looks for the crew's deliveries, one unit of work per `look`, and
+ * when there are none waits for a wake-up for its ship or its type, until
+ * `waitMs` has passed. It starts watching before it looks a second time, so a
+ * delivery that commits between its first look and its watch is found by that
+ * second look. A wake-up that brings nothing for it leaves it waiting for the
+ * rest of its time.
+ */
+export async function waitForDeliveries<Found, Refusal>(
+  deps: { clock: Clock; wakeups: ReceiverWakeups; waitMs: number },
+  wait: { crew: Crew; look: () => Promise<Result<{ ship: Ship; deliveries: Found[] }, Refusal>> },
+): Promise<Result<{ deliveries: Found[] }, Refusal>> {
+  const { crew, look } = wait;
+  const until = deps.clock.now().getTime() + deps.waitMs;
+  let watch: ReceiverWatch | undefined;
+  try {
+    for (;;) {
+      const attempt = await look();
+      if (!attempt.isOk) {
+        return attempt;
+      }
+      const { ship, deliveries } = attempt.value;
+      if (deliveries.length > 0) {
+        return ok({ deliveries });
+      }
+      if (watch === undefined) {
+        watch = deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type: ship.type });
+        continue;
+      }
+      const remainingMs = until - deps.clock.now().getTime();
+      if (remainingMs <= 0 || (await watch.next(remainingMs)) === 'timedOut') {
+        return ok({ deliveries: [] });
+      }
+    }
+  } finally {
+    watch?.stop();
+  }
 }

@@ -30,7 +30,9 @@ import { createAnswerPing } from '../../src/domain/messaging/answer-ping.js';
 import { createCheckInbox } from '../../src/domain/messaging/check-inbox.js';
 import { createMarkDone } from '../../src/domain/messaging/mark-done.js';
 import { createMarkRead } from '../../src/domain/messaging/mark-read.js';
+import { createHandOverDelivery } from '../../src/domain/messaging/hand-over-delivery.js';
 import { createPingShip } from '../../src/domain/messaging/ping-ship.js';
+import { createPushReceiveDeliveries } from '../../src/domain/messaging/push-receive-deliveries.js';
 import { createReplyToMessage } from '../../src/domain/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
@@ -226,6 +228,8 @@ export function messagingUseCases(core: InMemoryCore) {
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    handOverDelivery: createHandOverDelivery(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
     dismissDelivery: createDismissDelivery(deps),
@@ -482,6 +486,7 @@ export function deliveryInFlight(
     claimedByShipId: shipId,
     claimedByLeaseId: leaseId,
     attempts,
+    handOverNumber: null,
     createdAt: at,
   });
   return { deliveryId, messageId };

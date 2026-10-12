@@ -76,6 +76,13 @@ describe('checking the inbox', () => {
     await expect(waiting(scout)).resolves.toBe(1);
   });
 
+  it('counts the crew its own push received deliveries, which its next push receive returns again', async () => {
+    await sendTo(toScout());
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    await expect(waiting(scout)).resolves.toBe(1);
+  });
+
   it('leaves out what another crew holds, and what is acknowledged', async () => {
     await sendTo(toReviewers);
     unwrap(await useCases.receiveDeliveries(lookout, {}));

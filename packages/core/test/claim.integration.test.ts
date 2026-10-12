@@ -116,6 +116,7 @@ describe('claiming a ship on Postgres', () => {
         reportedAt: null,
         reportDetails: null,
         reportDetailsVersion: 0,
+        pushedAt: null,
         endedAt: null,
       },
     ]);

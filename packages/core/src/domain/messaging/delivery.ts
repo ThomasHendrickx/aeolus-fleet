@@ -7,7 +7,8 @@ import type { Delivery, Message } from './message.js';
 
 /**
  * The Delivery's rules once it is stored (docs/blueprint.md, "Key flows"): a
- * receive hands it over at once, the ship it was handed to acknowledges it,
+ * plain receive hands it over at once, a push receive takes it for the
+ * computer side to hand over, the ship it was handed to acknowledges it,
  * and a delivery that keeps being handed over without an acknowledgement
  * stops, undeliverable, where the operator sees it.
  */
@@ -33,14 +34,13 @@ export interface DeliveryHandOver {
 }
 
 /**
- * A receive hands a crew a delivery it may take at once: one pending for its
- * ship or its type, or one of its own handed, again after a lost reply. Every
- * receive is one attempt. The fifth attempt makes the delivery undeliverable
- * and hands it to no one; before that, the delivery is handed, in flight with
- * the crew's ship and lease. Either change is caused by the receiving ship.
+ * Counts one attempt at handing the delivery to the crew: the fifth makes it
+ * undeliverable and hands it to no one; before that, it is handed, in flight
+ * with the crew's ship and lease. A hand-over by a push receive's crew keeps
+ * its number. Either change is caused by the receiving ship.
  */
-export function handDelivery(delivery: Delivery, handOver: { crew: CrewOfShip; at: Date }): DeliveryHandOver {
-  const { crew, at } = handOver;
+function countAttempt(delivery: Delivery, attempt: { crew: CrewOfShip; at: Date; handOverNumber: number | null }): DeliveryHandOver {
+  const { crew, at, handOverNumber } = attempt;
   const attempts = delivery.attempts + 1;
   const concerns = {
     fleetId: delivery.fleetId,
@@ -49,29 +49,124 @@ export function handDelivery(delivery: Delivery, handOver: { crew: CrewOfShip; a
     shipId: crew.shipId,
     messageId: delivery.messageId,
     deliveryId: delivery.id,
-    details: { leaseId: crew.leaseId, attempts },
+    details: { leaseId: crew.leaseId, attempts, ...(handOverNumber !== null && { handOverNumber }) },
   };
 
   if (attempts >= UNDELIVERABLE_AT_ATTEMPT) {
     return {
       outcome: 'undeliverable',
-      delivery: { ...delivery, state: 'undeliverable', claimedByShipId: null, claimedByLeaseId: null, attempts },
+      delivery: { ...delivery, state: 'undeliverable', claimedByShipId: null, claimedByLeaseId: null, attempts, handOverNumber },
       events: [{ ...concerns, type: 'DeliveryUndeliverable' }],
     };
   }
   return {
     outcome: 'handed',
-    delivery: { ...delivery, state: 'handed', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts },
+    delivery: { ...delivery, state: 'handed', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, attempts, handOverNumber },
     events: [{ ...concerns, type: 'DeliveryHanded' }],
   };
+}
+
+/**
+ * A plain receive hands a crew a delivery it may take at once: one pending
+ * for its ship or its type, or one of its own handed, again after a lost
+ * reply. Every plain receive is one attempt (see `countAttempt`).
+ */
+export function handDelivery(delivery: Delivery, handOver: { crew: CrewOfShip; at: Date }): DeliveryHandOver {
+  return countAttempt(delivery, { ...handOver, handOverNumber: null });
+}
+
+/**
+ * A push receive takes a delivery for the crew's computer side, which hands
+ * it to the agent later (decision 0040). A pending one becomes received, in
+ * flight with the crew's ship and lease, with no attempt counted and no
+ * hand-over number yet. One of the crew's own in flight, received or handed,
+ * is received again: nothing changes, and DeliveryReceived marked again says
+ * so. The repository returns nothing else to a push receive.
+ */
+export function pushReceiveDelivery(
+  delivery: Delivery,
+  receipt: { crew: CrewOfShip; at: Date },
+): { delivery: Delivery; events: NewEvent[] } {
+  const { crew, at } = receipt;
+  const isAgain = delivery.state !== 'pending';
+  const event: NewEvent = {
+    fleetId: delivery.fleetId,
+    type: 'DeliveryReceived',
+    occurredAt: at,
+    actor: shipActor(crew.shipId),
+    shipId: crew.shipId,
+    messageId: delivery.messageId,
+    deliveryId: delivery.id,
+    details: { leaseId: crew.leaseId, ...(isAgain && { again: true }) },
+  };
+  return isAgain
+    ? { delivery, events: [event] }
+    : {
+        delivery: { ...delivery, state: 'received', claimedByShipId: crew.shipId, claimedByLeaseId: crew.leaseId, handOverNumber: null },
+        events: [event],
+      };
+}
+
+export type HandOverRefusal = DomainError<'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP'>;
+
+/** Where a delivery stands after handed: handed to the agent, acknowledged already, or undeliverable at the fifth attempt. */
+export type HandedState = 'handed' | 'acknowledged' | 'undeliverable';
+
+/**
+ * The crew's computer side reports it handed a delivery to the agent, with
+ * its hand-over number (decision 0040). A higher number than the last is a
+ * new hand-over and counts one attempt; the fifth is undeliverable and
+ * nothing is handed. The same number again, or a lower one, is a lost
+ * answer: OK, and nothing changes, also once the agent acknowledged it. Only
+ * the crew holding the delivery hands it over; one that is not in flight is
+ * refused.
+ */
+export function handOverDelivery(
+  delivery: Delivery,
+  handOver: { crew: CrewOfShip; handOverNumber: number; at: Date },
+): Result<{ state: HandedState; delivery: Delivery; events: NewEvent[] }, HandOverRefusal> {
+  const { crew, handOverNumber, at } = handOver;
+  const isRepeat = delivery.handOverNumber !== null && handOverNumber <= delivery.handOverNumber;
+  switch (delivery.state) {
+    case 'received':
+    case 'handed':
+    case 'acknowledged': {
+      if (delivery.claimedByLeaseId !== crew.leaseId) {
+        return refuse(
+          'DELIVERY_HELD_BY_ANOTHER_SHIP',
+          `Delivery ${delivery.id} is held by another ship: only the crew that received it hands it over`,
+        );
+      }
+      if (delivery.state !== 'received' && isRepeat) {
+        return ok({ state: delivery.state, delivery, events: [] });
+      }
+      if (delivery.state === 'acknowledged') {
+        return refuse(
+          'DELIVERY_NOT_IN_FLIGHT',
+          `Delivery ${delivery.id} is acknowledged, not in flight: its agent confirmed it, so there is nothing to hand over`,
+        );
+      }
+      const { outcome, delivery: changed, events } = countAttempt(delivery, { crew, at, handOverNumber });
+      return ok({ state: outcome, delivery: changed, events });
+    }
+    case 'pending':
+    case 'undeliverable':
+    case 'dismissed':
+    case 'abandoned':
+      return refuse(
+        'DELIVERY_NOT_IN_FLIGHT',
+        `Delivery ${delivery.id} is ${delivery.state}, not in flight: hand over a delivery once a push receive took it`,
+      );
+  }
 }
 
 export type AcknowledgeRefusal = DomainError<'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP'>;
 
 /**
  * The ship takes responsibility for a delivery it received (ADR 0001): only a
- * delivery handed to that ship moves to acknowledged, keeping who it was
- * handed to. Acknowledging it again is harmless: OK, and nothing changes. A delivery
+ * delivery in flight with that ship, received or handed, moves to
+ * acknowledged, keeping who it was handed to. A received one is taken too, so
+ * a lost answer to handed never blocks the agent's confirmation. Acknowledging it again is harmless: OK, and nothing changes. A delivery
  * another ship holds or acknowledged, or one that is not in flight, is refused.
  */
 export function acknowledgeDelivery(
@@ -80,6 +175,7 @@ export function acknowledgeDelivery(
 ): Result<{ delivery: Delivery; events: NewEvent[] }, AcknowledgeRefusal> {
   const { crew, at } = ack;
   switch (delivery.state) {
+    case 'received':
     case 'handed':
     case 'acknowledged':
       if (delivery.claimedByShipId !== crew.shipId) {
@@ -173,6 +269,7 @@ export function dismissDelivery(
         ],
       });
     case 'pending':
+    case 'received':
     case 'handed':
     case 'acknowledged':
     case 'abandoned':
@@ -244,6 +341,7 @@ export function markDone(
         events: [{ ...concerns, type: 'DeliveryHanded', details: { leaseId: crew.leaseId, attempts } }, acknowledged],
       });
     }
+    case 'received':
     case 'handed':
       return delivery.claimedByLeaseId === crew.leaseId
         ? ok({ delivery: { ...delivery, state: 'acknowledged' }, events: [acknowledged] })

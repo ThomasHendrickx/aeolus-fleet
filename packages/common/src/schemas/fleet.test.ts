@@ -249,7 +249,7 @@ describe('fleetListOutputSchema', () => {
   it.each([
     ['waiting for an answer', { state: 'waiting', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null }],
     ['answered with pong', { state: 'answered', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: '2026-09-29T12:05:04.000Z' }],
-    ['received, not answered with pong', { state: 'received', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null }],
+    ['acknowledged, not answered with pong', { state: 'acknowledged', sentAt: '2026-09-29T12:05:00.000Z', answeredAt: null }],
   ])('accepts a crewed ship whose last ping is %s', (_label, ping) => {
     const pinged = { ...ship, status: 'crewed', ping };
 
@@ -407,7 +407,7 @@ describe('renameShipInputSchema', () => {
 });
 
 describe('pingStateSchema', () => {
-  it.each(['waiting', 'answered', 'received', 'undeliverable'])('accepts the ping state %s', (state) => {
+  it.each(['waiting', 'answered', 'acknowledged', 'undeliverable'])('accepts the ping state %s', (state) => {
     expect(pingStateSchema.safeParse(state).success).toBe(true);
   });
 });

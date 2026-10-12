@@ -42,12 +42,14 @@ import { createSetTheme, type SetTheme } from './domain/identity/set-theme.js';
 import { createSignIn, type SignIn } from './domain/identity/sign-in.js';
 import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
+import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './domain/messaging/check-inbox.js';
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
 import { createMarkDone, type MarkDone } from './domain/messaging/mark-done.js';
 import { createMarkRead, type MarkRead } from './domain/messaging/mark-read.js';
 import type { ReceiverWakeups } from './domain/messaging/ports.js';
+import { createPushReceiveDeliveries, type PushReceiveDeliveries } from './domain/messaging/push-receive-deliveries.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './domain/messaging/receive-deliveries.js';
 import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/reply-to-message.js';
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
@@ -158,6 +160,8 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
+  pushReceiveDeliveries: PushReceiveDeliveries;
+  handOverDelivery: HandOverDelivery;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -303,6 +307,14 @@ export function createUseCases(options: {
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
+    pushReceiveDeliveries: createPushReceiveDeliveries({
+      uow,
+      clock,
+      ids,
+      wakeups,
+      waitMs: options.receiveWaitMs,
+    }),
+    handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),

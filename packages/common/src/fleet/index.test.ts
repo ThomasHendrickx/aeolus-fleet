@@ -56,6 +56,8 @@ describe('eventTypeSchema', () => {
       'StartingPromptIssued',
       'OperatorPasswordReset',
       'MessageAccepted',
+      'LeasePushed',
+      'DeliveryReceived',
       'DeliveryHanded',
       'DeliveryAcknowledged',
       'DeliveryUndeliverable',
@@ -104,9 +106,10 @@ describe('selectorKindSchema', () => {
 });
 
 describe('deliveryStateSchema', () => {
-  it('knows the six delivery states, nothing else', () => {
+  it('knows the seven delivery states, nothing else', () => {
     expect(deliveryStateSchema.options).toEqual([
       'pending',
+      'received',
       'handed',
       'acknowledged',
       'undeliverable',

@@ -180,6 +180,7 @@ describe('initialise fleet', () => {
       deliveries: [],
       deliveryReads: [],
       leaseSeen: [],
+      pushedLeases: [],
       leaseReports: [],
       crewRequests: [],
       clearRequests: [],

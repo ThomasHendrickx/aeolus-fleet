@@ -117,10 +117,10 @@ export const recrewShipInputSchema = z.object({ shipId: idSchema('ship') });
 
 /**
  * How a ship's last ping stands: waiting for an answer, answered with pong,
- * received with a plain ack, or undeliverable: handed out again and again and
+ * acknowledged with a plain ack, or undeliverable: handed out again and again and
  * never acknowledged.
  */
-export const PING_STATES = ['waiting', 'answered', 'received', 'undeliverable'] as const;
+export const PING_STATES = ['waiting', 'answered', 'acknowledged', 'undeliverable'] as const;
 
 export const pingStateSchema = z.enum(PING_STATES);
 

@@ -225,7 +225,7 @@ export const Pinged: Story = {
       ship('h1be', {
         name: 'old-bot',
         lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
-        ping: { state: 'received', sentAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(), answeredAt: null },
+        ping: { state: 'acknowledged', sentAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(), answeredAt: null },
       }),
     ],
   },

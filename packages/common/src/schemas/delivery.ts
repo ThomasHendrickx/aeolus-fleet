@@ -68,6 +68,41 @@ export const receiveOutputSchema = z.object({
 
 export type ReceiveOutput = z.infer<typeof receiveOutputSchema>;
 
+/**
+ * One delivery a push receive takes for the crew's computer side (decision
+ * 0040): received, not yet handed to the agent and with no attempt counted,
+ * or handed already, with the last hand-over number the crew reported.
+ */
+export const pushReceivedDeliverySchema = receivedDeliverySchema.extend({
+  /** How many times the delivery has been handed over so far: none while it is only received. */
+  attempts: z.int().min(0),
+  state: z.enum(['received', 'handed']),
+  /** The last hand-over number the crew reported with handed; null while received, or when a plain receive handed it. */
+  handOverNumber: z.int().positive().nullable(),
+});
+
+export type PushReceivedDelivery = z.infer<typeof pushReceivedDeliverySchema>;
+
+/** Output of `ship.pushReceive`: the deliveries taken, none when the wait ended without one. */
+export const pushReceiveOutputSchema = z.object({
+  deliveries: z.array(pushReceivedDeliverySchema).max(RECEIVE_MAX_UPPER_BOUND),
+});
+
+export type PushReceiveOutput = z.infer<typeof pushReceiveOutputSchema>;
+
+/**
+ * Input of `ship.handed`: the delivery the computer side handed to the agent,
+ * and the number of that hand-over, counting from 1 under the crew's lease.
+ */
+export const handedInputSchema = z.object({ deliveryId: idSchema('delivery'), handOverNumber: z.int().positive() });
+
+export type HandedInput = z.infer<typeof handedInputSchema>;
+
+/** Output of `ship.handed`: where the delivery stands now. Undeliverable: that was the fifth attempt, and nothing is handed. */
+export const handedOutputSchema = z.object({ state: z.enum(['handed', 'acknowledged', 'undeliverable']) });
+
+export type HandedOutput = z.infer<typeof handedOutputSchema>;
+
 /** Input of `ship.ack`: the delivery the calling ship received and takes responsibility for. */
 export const ackInputSchema = z.object({ deliveryId: idSchema('delivery') });
 

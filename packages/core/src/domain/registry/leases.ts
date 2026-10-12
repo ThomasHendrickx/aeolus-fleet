@@ -1,7 +1,7 @@
 import type { FleetId, IdGenerator, LeaseId, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
+import { recordEvent, shipActor, type Actor, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import { refuseEndedLease, type LeaseEnded, type LeaseEndReason, type Location } from './lease.js';
@@ -117,4 +117,37 @@ export async function holdLease(
   const lease = await tx.leases.findOpenByIdForShare(crew.fleetId, crew.leaseId);
   const ship = lease && (await tx.ships.find(crew.fleetId, lease.shipId));
   return ship ? ok(ship) : refuseEndedLease();
+}
+
+/**
+ * Marks the crew's lease pushed (decision 0040): from its first push receive
+ * until it ends, the computer side takes its deliveries and the agent's plain
+ * receive answers nothing. The first mark writes LeasePushed, caused by the
+ * crew's ship; a lease already pushed, or one that has ended, stays as it
+ * was. Call it first in the unit of work, before the lease is held.
+ */
+export async function markLeasePushed(
+  deps: { tx: { leases: Pick<LeaseRepository, 'markPushed'>; events: EventLog }; ids: IdGenerator },
+  crew: { fleetId: FleetId; shipId: ShipId; leaseId: LeaseId; at: Date },
+): Promise<void> {
+  const { tx, ids } = deps;
+  const { fleetId, shipId, leaseId, at } = crew;
+  if (await tx.leases.markPushed({ fleetId, leaseId, at })) {
+    await recordEvent({ events: tx.events, ids }, {
+      fleetId,
+      type: 'LeasePushed',
+      occurredAt: at,
+      actor: shipActor(shipId),
+      shipId,
+      details: { leaseId },
+    });
+  }
+}
+
+/** Whether the crew's lease is pushed: a push receive has marked it. */
+export async function isLeasePushed(
+  tx: { leases: Pick<LeaseRepository, 'isPushed'> },
+  crew: { fleetId: FleetId; leaseId: LeaseId },
+): Promise<boolean> {
+  return tx.leases.isPushed(crew.fleetId, crew.leaseId);
 }
