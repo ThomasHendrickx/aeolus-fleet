@@ -259,7 +259,11 @@ Each setting below is an environment variable the script reads, with the default
 | 2 s, doubling, at most 60 s | The watcher calling again after a failed call | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_RETRY_SECONDS`, `AEOLUS_RETRY_MAX_SECONDS` | none recorded |
 | 6900 s (1 h 55 min) | The watcher stops ("for almost 2 hours", exit 6); no limit under the Codex wake bridge | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_MAX_SECONDS`; [aeolus-codex-wake.sh](../plugins/aeolus/scripts/aeolus-codex-wake.sh) | [plugin README](../plugins/aeolus/README.md) |
 | the inbox wait plus 15 s | The watcher's inbox call (`curl --max-time`) | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) (inline) | none recorded |
-| 60 s | Every `aeolus-fleet.sh` call (`curl --max-time`) | [aeolus-fleet.sh](../plugins/aeolus/scripts/aeolus-fleet.sh) `MAX_SECONDS` | none recorded |
+| 60 s | Every `aeolus-fleet.sh` call (`curl --max-time`) | [aeolus-fleet.sh](../plugins/aeolus/scripts/aeolus-fleet.sh) `AEOLUS_CALL_MAX_SECONDS` | none recorded |
+| 3 s | Each ack a hook makes to confirm a handed message, so its busy retries end inside a hook's time | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_CONFIRM_SECONDS` | #756 (3.9) |
+| the inbox wait plus 15 s | The watcher's receive of the message it hands over (`curl --max-time`) | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) (inline) | #756 |
+| 10,000 bytes | The most a hook puts into a turn: Claude Code's cap on hook context. A longer message goes in as its first part and the path of a file that holds the payload | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_TURN_TEXT_MAX_BYTES` | #756 (D2) |
+| 8000 bytes | That first part of a longer payload | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_FIRST_PART_BYTES` | #756 (D2) |
 | 1, 2, 4, 8 s, each drawn between half and all of it | Calling again while the fleet answers busy, a copy of `FLEET_BUSY_WAITS_MS` | [aeolus-fleet.sh](../plugins/aeolus/scripts/aeolus-fleet.sh) `AEOLUS_BUSY_WAITS` | [architecture.md](architecture.md), #734 |
 | 15 s | The inbox script's call (`curl --max-time`) | [aeolus-inbox.sh](../plugins/aeolus/scripts/aeolus-inbox.sh) (inline) | none recorded |
 | 1 MiB, one rotated file | The plugin's log | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_LOG_MAX_BYTES` | [plugin README](../plugins/aeolus/README.md), [trierarch.md](trierarch.md#a-machine-joins) |
