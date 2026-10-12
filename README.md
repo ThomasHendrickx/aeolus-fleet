@@ -103,6 +103,7 @@ The trierarch is a small process you install on a machine (macOS or Linux). It c
 - [Solution and technical architecture](docs/architecture.md)
 - [Squadrons](docs/squadrons.md): templates, blueprints and the check-in
 - [Trierarch](docs/trierarch.md): keeping sessions running on your machines
+- [Timings and limits](docs/timings-and-limits.md): every fixed timing and limit, and where it is set
 - [Decision records](docs/decisions/README.md)
 - [Build plan](docs/build-plan.md)
 - [Design system](docs/design/README.md)
