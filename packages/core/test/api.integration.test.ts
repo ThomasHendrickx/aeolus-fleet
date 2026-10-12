@@ -200,6 +200,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_declared_network_rules$/),
       expect.stringMatching(/^\d{14}_delivery_handed$/),
       expect.stringMatching(/^\d{14}_push_receive$/),
+      expect.stringMatching(/^\d{14}_handled$/),
+      expect.stringMatching(/^\d{14}_turn$/),
     ]);
   });
 });

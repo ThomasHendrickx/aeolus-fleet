@@ -271,16 +271,17 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       });
     },
 
-    undeliverable: async (fleetId) => {
+    needsAttention: async (fleetId) => {
       const rows = await db.delivery.findMany({
-        where: { fleetId, state: 'undeliverable' },
-        select: { id: true, attempts: true, message: true },
+        where: { fleetId, state: { in: ['undeliverable', 'notHandled'] } },
+        select: { id: true, state: true, attempts: true, message: true },
       });
-      // When each became undeliverable: its last DeliveryUndeliverable, whose
-      // place in the stream also orders the list, oldest first.
+      // Since when each needs attention: its last DeliveryUndeliverable or
+      // DeliveryNotHandled, whose place in the stream also orders the list,
+      // oldest first.
       const events = (
         await db.event.findMany({
-          where: { fleetId, type: 'DeliveryUndeliverable', deliveryId: { in: rows.map((row) => row.id) } },
+          where: { fleetId, type: { in: ['DeliveryUndeliverable', 'DeliveryNotHandled'] }, deliveryId: { in: rows.map((row) => row.id) } },
           orderBy: { seq: 'asc' },
         })
       ).map(toSequencedEvent);
@@ -288,16 +289,17 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const found = rows.map((row) => {
         const deliveryId = idSchema('delivery').parse(row.id);
         const event = since.get(deliveryId);
-        if (!event) {
-          throw new Error(`Undeliverable delivery ${deliveryId} has no DeliveryUndeliverable`);
+        if (!event || (row.state !== 'undeliverable' && row.state !== 'notHandled')) {
+          throw new Error(`Delivery ${deliveryId} in Needs attention has no DeliveryUndeliverable or DeliveryNotHandled`);
         }
-        return { deliveryId, attempts: row.attempts, message: toMessage(row.message), event };
+        return { deliveryId, state: row.state, attempts: row.attempts, message: toMessage(row.message), event };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message }) => shipsNamedBy(message)) });
       return found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, attempts, message, event }) => ({
+        .map(({ deliveryId, state, attempts, message, event }) => ({
           deliveryId,
+          state,
           attempts,
           since: event.occurredAt,
           message: {

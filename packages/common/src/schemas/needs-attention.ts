@@ -5,20 +5,22 @@ import { messageRecipientSchema, partySchema } from './history.js';
 
 /**
  * Inputs and outputs of Needs attention (docs/blueprint.md, 'Domain events'):
- * the undeliverable deliveries, oldest first, which the operator resends or
- * dismisses. The list reads with fleet:read; resend and dismiss need
+ * the undeliverable and not handled deliveries, oldest first, which the
+ * operator resends or dismisses. The list reads with fleet:read; resend and dismiss need
  * fleet:manage.
  */
 
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
 
-/** One undeliverable delivery: its claims, since when it is undeliverable, and its whole message. */
-export const undeliverableDeliverySchema = z.object({
+/** One delivery in Needs attention: its state, its claims, since when, and its whole message. */
+export const needsAttentionDeliverySchema = z.object({
   deliveryId: idSchema('delivery'),
-  /** The claims counted, none of them acknowledged. */
+  /** Undeliverable: handed again and again, never acknowledged. Not handled: acknowledged, and its turn died twice (decision 0040). */
+  state: z.enum(['undeliverable', 'notHandled']),
+  /** The claims counted. */
   attempts: z.int().min(0),
-  /** When it became undeliverable. */
+  /** When it became undeliverable, or was reported not handled. */
   since: isoTime,
   message: z.object({
     id: idSchema('message'),
@@ -33,12 +35,12 @@ export const undeliverableDeliverySchema = z.object({
   }),
 });
 
-export type UndeliverableDelivery = z.infer<typeof undeliverableDeliverySchema>;
+export type NeedsAttentionDelivery = z.infer<typeof needsAttentionDeliverySchema>;
 
-/** Output of `fleet.needsAttention`: every undeliverable delivery of the fleet, oldest first. */
-export const needsAttentionOutputSchema = z.array(undeliverableDeliverySchema);
+/** Output of `fleet.needsAttention`: every undeliverable or not handled delivery of the fleet, oldest first. */
+export const needsAttentionOutputSchema = z.array(needsAttentionDeliverySchema);
 
-/** Input of `fleet.dismiss`: the undeliverable delivery the operator lets go. It stays in history, dismissed. */
+/** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({
   deliveryId: idSchema('delivery'),
 });
@@ -47,7 +49,7 @@ export const dismissDeliveryInputSchema = z.object({
 export const dismissDeliveryOutputSchema = z.strictObject({});
 
 /**
- * Input of `fleet.resend`: the undeliverable delivery to send again, as a new
+ * Input of `fleet.resend`: the undeliverable or not handled delivery to send again, as a new
  * message from the same sender to the same recipient that names the original.
  */
 export const resendDeliveryInputSchema = z.object({

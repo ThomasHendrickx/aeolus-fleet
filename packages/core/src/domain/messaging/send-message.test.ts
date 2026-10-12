@@ -94,6 +94,7 @@ describe('sending a message to a ship', () => {
         claimedByLeaseId: null,
         attempts: 0,
         handOverNumber: null,
+        handedOnceMoreAt: null,
         createdAt: core.clock.now(),
       },
     ]);

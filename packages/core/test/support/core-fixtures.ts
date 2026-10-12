@@ -31,6 +31,8 @@ import { createCheckInbox } from '../../src/domain/messaging/check-inbox.js';
 import { createMarkDone } from '../../src/domain/messaging/mark-done.js';
 import { createMarkRead } from '../../src/domain/messaging/mark-read.js';
 import { createHandOverDelivery } from '../../src/domain/messaging/hand-over-delivery.js';
+import { createReportHandled } from '../../src/domain/messaging/report-handled.js';
+import { createReportNotHandled } from '../../src/domain/messaging/report-not-handled.js';
 import { createPingShip } from '../../src/domain/messaging/ping-ship.js';
 import { createPushReceiveDeliveries } from '../../src/domain/messaging/push-receive-deliveries.js';
 import { createReplyToMessage } from '../../src/domain/messaging/reply-to-message.js';
@@ -66,6 +68,7 @@ import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
+import { createReportTurn } from '../../src/domain/registry/report-turn.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
 import { createDeclareNetworkRules } from '../../src/domain/registry/declare-network-rules.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
@@ -204,6 +207,7 @@ export function registryUseCases(core: InMemoryCore) {
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed }),
     // Nothing wakes a follow here: it ends at its wait.
@@ -230,6 +234,8 @@ export function messagingUseCases(core: InMemoryCore) {
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     handOverDelivery: createHandOverDelivery(deps),
+    reportHandled: createReportHandled(deps),
+    reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
     dismissDelivery: createDismissDelivery(deps),
@@ -487,6 +493,7 @@ export function deliveryInFlight(
     claimedByLeaseId: leaseId,
     attempts,
     handOverNumber: null,
+    handedOnceMoreAt: null,
     createdAt: at,
   });
   return { deliveryId, messageId };

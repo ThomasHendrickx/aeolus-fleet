@@ -210,6 +210,121 @@ describe('an acknowledged delivery', () => {
   });
 });
 
+function handOnceMore(deliveryId: DeliveryId, handOverNumber: number) {
+  return useCases.handOverDelivery(scout, { deliveryId, handOverNumber, isOnceMore: true });
+}
+
+/** A delivery to the scout, handed as number 1 and acknowledged by the hook. */
+async function acknowledged(): Promise<DeliveryId> {
+  const deliveryId = await received();
+  unwrap(await handOver(deliveryId, 1));
+  unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+  return deliveryId;
+}
+
+describe('handed once more', () => {
+  it('keeps the delivery acknowledged with its new hand-over number, and counts no attempt', async () => {
+    const deliveryId = await acknowledged();
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toEqual(ok({ state: 'acknowledged' }));
+    expect(stored(deliveryId)).toMatchObject({
+      state: 'acknowledged',
+      claimedByLeaseId: scout.leaseId,
+      attempts: 1,
+      handOverNumber: 2,
+      handedOnceMoreAt: core.clock.now(),
+    });
+  });
+
+  it('writes DeliveryHanded marked once more, with its hand-over number', async () => {
+    const deliveryId = await acknowledged();
+    core.state.events.length = 0;
+
+    unwrap(await handOnceMore(deliveryId, 2));
+
+    expect(core.state.events).toMatchObject([
+      {
+        type: 'DeliveryHanded',
+        occurredAt: core.clock.now(),
+        actor: { kind: 'ship', shipId: scoutId },
+        shipId: scoutId,
+        deliveryId,
+        details: { leaseId: scout.leaseId, attempts: 1, handOverNumber: 2, onceMore: true },
+      },
+    ]);
+  });
+
+  it('takes a delivery the hook acknowledged before any hand-over reached the fleet', async () => {
+    const deliveryId = await received();
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toEqual(ok({ state: 'acknowledged' }));
+    expect(stored(deliveryId)).toMatchObject({ attempts: 0, handOverNumber: 2, handedOnceMoreAt: core.clock.now() });
+  });
+
+  it('again with the same hand-over number is a lost answer: OK, and nothing changes', async () => {
+    const deliveryId = await acknowledged();
+    unwrap(await handOnceMore(deliveryId, 2));
+    const before = structuredClone(stored(deliveryId));
+    core.state.events.length = 0;
+    core.clock.advance(1_000);
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toEqual(ok({ state: 'acknowledged' }));
+    expect(stored(deliveryId)).toEqual(before);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses a second once more with a higher number: a message is handed once more only once', async () => {
+    const deliveryId = await acknowledged();
+    unwrap(await handOnceMore(deliveryId, 2));
+    const before = structuredClone(stored(deliveryId));
+
+    await expect(handOnceMore(deliveryId, 3)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_HANDED_ONCE_MORE' } });
+    expect(stored(deliveryId)).toEqual(before);
+  });
+
+  it('refuses a delivery not acknowledged yet: only a confirmed message is handed once more', async () => {
+    const deliveryId = await received();
+    unwrap(await handOver(deliveryId, 1));
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED' } });
+    expect(stored(deliveryId)).toMatchObject({ state: 'handed', attempts: 1, handOverNumber: 1, handedOnceMoreAt: null });
+  });
+
+  it('refuses a delivery another ship holds', async () => {
+    const deliveryId = await acknowledged();
+
+    await expect(useCases.handOverDelivery(lookout, { deliveryId, handOverNumber: 2, isOnceMore: true })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'DELIVERY_HELD_BY_ANOTHER_SHIP' },
+    });
+  });
+
+  it('refuses a handled delivery: it is not in flight', async () => {
+    const deliveryId = await acknowledged();
+    unwrap(await useCases.reportHandled(scout, { deliveryId }));
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_IN_FLIGHT' } });
+  });
+
+  it('refuses a delivery not handled: it is not in flight', async () => {
+    const deliveryId = await acknowledged();
+    unwrap(await handOnceMore(deliveryId, 2));
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId }));
+
+    await expect(handOnceMore(deliveryId, 2)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_IN_FLIGHT' } });
+  });
+});
+
+describe('a plain hand-over of a delivery past acknowledged', () => {
+  it('refuses a handled one: it is not in flight', async () => {
+    const deliveryId = await acknowledged();
+    unwrap(await useCases.reportHandled(scout, { deliveryId }));
+
+    await expect(handOver(deliveryId, 1)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_IN_FLIGHT' } });
+  });
+});
+
 describe('a hand-over that is refused', () => {
   it('refuses a pending delivery: nothing received it', async () => {
     const deliveryId = await sendTo(toScout());

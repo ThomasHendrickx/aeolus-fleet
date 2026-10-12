@@ -88,7 +88,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 
 ### The agent (a ship's crew)
 
-An agent session crews exactly one ship at a time. It experiences Aeolus only through the ship contract (six calls, see Components), and never needs to know where other ships run.
+An agent session crews exactly one ship at a time. It experiences Aeolus only through the ship contract (fifteen calls, see Components), and never needs to know where other ships run.
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
@@ -136,7 +136,7 @@ These terms mean the same thing in code, database, API, UI and conversation.
 | Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease; a call with it afterwards is refused as lease ended, so the session knows its ship was released |
 | Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
 | Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
-| Delivery | One message to one resolved recipient, with its own state: pending, received, handed, acknowledged, undeliverable, dismissed, abandoned |
+| Delivery | One message to one resolved recipient, with its own state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned |
 | Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
 | Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
 | Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
@@ -193,6 +193,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `StartingPromptIssued` | Registry | A new secret is out; the snapshot shows the prompt as unclaimed until a session claims the ship |
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable; details hold the session's location and harness |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
+| `TurnReported` | Registry | The hooks of a pushed ship reported its session's turn changed, idle or busy (decision 0040): kept with the lease, written at the time the hooks saw it; details hold the lease and the turn |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
@@ -215,10 +216,12 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated |
 | `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease |
 | `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
-| `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one |
+| `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one. Marked `onceMore`, it hands a confirmed message once more after its turn died: still acknowledged, no attempt counted |
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it. Its details say `answer: pong` when a pong answered a ping |
+| `DeliveryHandled` | Messaging | A pushed crew reported the turn that took the acknowledged delivery ended by itself (decision 0040) |
+| `DeliveryNotHandled` | Messaging | A pushed crew reported the turn the delivery was handed once more to died too (decision 0040): shown in Needs attention, where the operator resends or dismisses it as an undeliverable one |
 | `DeliveryUndeliverable` | Messaging | Shown in Needs attention, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
-| `DeliveryDismissed` | Messaging | The operator let an undeliverable delivery go, by Dismiss or by a resend: it leaves Needs attention and stays in the timelines as dismissed |
+| `DeliveryDismissed` | Messaging | The operator let an undeliverable or not handled delivery go, by Dismiss or by a resend: it leaves Needs attention and stays in the timelines as dismissed |
 | `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
@@ -252,12 +255,19 @@ stateDiagram-v2
   received --> undeliverable: fifth handed without ack
   pending --> abandoned: ship retired (direct deliveries)
   undeliverable --> dismissed: operator dismisses or resends
+  acknowledged --> acknowledged: handed once more (no attempt)
+  acknowledged --> handled: turn ended
+  acknowledged --> notHandled: handed once more, died again
+  notHandled --> dismissed: operator dismisses or resends
   acknowledged --> [*]
+  handled --> [*]
 ```
 
 `handed` means the agent has it: a plain receive handed it to a crew at once, or a pushed crew's computer side handed it to the agent. Either way it is in flight with that ship and its lease. Every plain receive of it is one attempt, and so is every `handed` with a higher hand-over number; the fifth attempt is refused: it becomes undeliverable and is handed to no one. The console shows a handed delivery as handed (pulled).
 
 `received` means a push receive took it for the crew's computer side, the trierarch or the plugin watcher, which has not handed it to the agent yet (decision 0040): in flight with that ship and its lease, no attempt counted. A push receive returns its own received and handed deliveries again, changing nothing, so a restart of the computer side loses nothing. From its first push receive until it ends, the lease is pushed: the agent's plain receive answers nothing, and the hook's `ack` when the message comes into the agent's turn is the agent's confirmation.
+
+`handled` and `not handled` say how the turn that took an acknowledged delivery ended on a pushed ship, as its hooks or trierarch report it (decision 0040): handled when the turn ended by itself; when the turn or the session died, the message is handed once more, still acknowledged, and not handled when that turn died too. A pull ship reports neither: its delivery ends acknowledged. A lease that ends leaves an acknowledged delivery acknowledged, handled unknown.
 
 A crash never loses a delivery: an unacknowledged delivery returns to pending until a ship acknowledges it. A delivery that keeps failing (a poison message) stops after N attempts and lands in the operator's undeliverable queue instead of looping forever.
 
@@ -325,7 +335,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Needs attention
 
-1. A delivery received a fifth time without an acknowledgement becomes undeliverable: the fifth attempt is refused, so nothing is handed and shows in Needs attention, oldest first. Abandoned deliveries never do.
+1. A delivery received a fifth time without an acknowledgement becomes undeliverable: the fifth attempt is refused, so nothing is handed and shows in Needs attention, oldest first. A delivery not handled, whose turn died twice on a pushed ship, shows there too, with its own reason. Abandoned deliveries never do.
 2. The operator resends it or dismisses it. Either way the delivery becomes dismissed and stays in the timelines.
 3. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 
@@ -370,12 +380,17 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | --- | --- | --- |
 | `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
 | `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
+| `whoami` | Says which ship the caller crews: its id, fleet, name and type | Any caller may ask about itself |
 | `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), each with its message and its sender's id, name and type (the name the sender has now, so a crew answers it by name), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
 | `send` | Sends a payload with its content type (`text/plain` unless the sender says otherwise) to a selector | OK only after the message is durably stored; idempotent per sender key: the same key and the same request return the original, the same key with a different request is refused |
 | `pushReceive` | For a pushed ship's computer side, never the agent: takes up to `max` deliveries as received, each with its state and last hand-over number, waiting briefly when the inbox is empty | No attempt counted; its own received and handed ones come back first, unchanged; the lease is pushed from then until it ends (decision 0040) |
-| `handed` | The computer side reports it handed a delivery to the agent, with its hand-over number | A higher number counts one attempt; the same or a lower one changes nothing; the fifth attempt answers undeliverable and nothing is handed |
+| `handed` | The computer side reports it handed a delivery to the agent, with its hand-over number, or handed a confirmed message once more after its turn died (`isOnceMore`) | A higher number counts one attempt; the same or a lower one changes nothing; the fifth attempt answers undeliverable and nothing is handed. Once more counts no attempt, keeps it acknowledged, and comes only once |
+| `handled` | The hooks or the trierarch report the turn that took an acknowledged delivery ended by itself | Only for an acknowledged delivery its crew holds; again changes nothing |
+| `notHandled` | The hooks or the trierarch report the turn a confirmed message was handed once more to died too | Only after once more; it shows in Needs attention; again changes nothing |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it; on a pushed ship the hook acks a received or handed delivery when it comes into the agent's turn |
 | `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over 16 KB after the change are refused and nothing is stored (decision 0028) |
+| `turn` | The hooks or the trierarch report the session's turn, idle or busy, with the time they saw it | Kept with the lease at that time; the same turn again or an older report changes nothing |
+| `inbox` | Says how many deliveries the crew's next `receive` would hand it, waiting up to 25 seconds while there are none | Claims nothing |
 | `reportLog` | Reads the crew's own report and the last report of the ship's previous crew, details included | No scope beyond being the crew; the previous crew's report is read-only |
 | `pong` | Answers a ping: acknowledges its delivery and marks the lease last seen | Only for a ping delivery the calling ship holds; answering again is OK and changes nothing |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |

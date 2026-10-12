@@ -226,6 +226,30 @@ describe('resending an undeliverable delivery', () => {
     expect(core.state).toEqual(before);
   });
 
+  it('resends a delivery not handled as an undeliverable one: a new pending message, the original dismissed', async () => {
+    const { messageId: original } = unwrap(
+      await useCases.sendMessage(planner, {
+        ...modelOf(planner),
+        selector: { kind: 'ship', shipId: scoutId },
+        payload: '{"run":"e2e","ref":"pr-320"}',
+        contentType: 'application/json',
+        idempotencyKey: `run-${core.ids('message')}`,
+      }),
+    );
+    const deliveryId = deliveryIdOf(core, original);
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true }));
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId }));
+
+    const { messageId } = unwrap(await useCases.resendDelivery(argo, { deliveryId }));
+
+    expect(message(messageId)).toMatchObject({ senderShipId: planner.shipId, resendOfMessageId: original });
+    expect(deliveryOf(messageId)).toMatchObject({ recipient: { kind: 'ship', shipId: scoutId }, state: 'pending', attempts: 0 });
+    expect(stored(deliveryId)).toMatchObject({ state: 'dismissed' });
+  });
+
   it('refuses a delivery the fleet does not have', async () => {
     await expect(useCases.resendDelivery(argo, { deliveryId: core.ids('delivery') })).resolves.toMatchObject({
       isOk: false,

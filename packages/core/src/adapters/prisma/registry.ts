@@ -28,6 +28,7 @@ import {
   toShipFromSql,
   toShipLabel,
   toShipReport,
+  toTurn,
 } from './rows.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
@@ -401,6 +402,17 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         },
       });
     },
+    findTurnForUpdate: async (fleetId, leaseId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT turn::text AS turn, turn_at
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
+        FOR UPDATE`;
+      return row === undefined ? undefined : { turn: toTurn(row) };
+    },
+    saveTurn: async ({ fleetId, leaseId, turn }) => {
+      await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { turn: turn.state, turnAt: turn.at } });
+    },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
@@ -463,7 +475,7 @@ export function createPrismaInFlightDeliveries(db: Db): InFlightDeliveries {
           UPDATE deliveries SET state = 'pending', claimed_by_ship_id = NULL, claimed_by_lease_id = NULL, hand_over_number = NULL
           WHERE fleet_id = ${fleetId} AND claimed_by_lease_id = ${leaseId} AND state IN ('received', 'handed')
           RETURNING id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, created_at
+                    claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
         )
         SELECT * FROM returned ORDER BY created_at, id`;
       return rows

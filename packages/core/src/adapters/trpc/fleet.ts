@@ -112,7 +112,7 @@ function pingOutputOf(ping: PingStatus | null) {
  * Fleet procedures: commission ships, hand out their starting prompts, release
  * them, list the fleet and follow it live, read a ship's page (the ship, its
  * timeline, its messages and one message's delivery history), and Needs
- * attention: the undeliverable deliveries, resent or dismissed, and argo's
+ * attention: the undeliverable and not handled deliveries, resent or dismissed, and argo's
  * inbox: the messages to it, read, marked done or replied to. The caller's
  * fleet and ship come from its credentials, never from the input.
  */
@@ -686,7 +686,7 @@ export const fleetRouter = router({
       };
     }),
 
-  /** Needs attention: every undeliverable delivery of the fleet, oldest first, with its whole message. */
+  /** Needs attention: every undeliverable or not handled delivery of the fleet, oldest first, with its whole message. */
   needsAttention: scopedProcedure('fleet:read')
     .output(needsAttentionOutputSchema)
     .query(async ({ ctx }) =>
@@ -697,7 +697,7 @@ export const fleetRouter = router({
       })),
     ),
 
-  /** Lets an undeliverable delivery go: dismissed, kept in history. Dismissing it again is OK. */
+  /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */
   dismiss: scopedProcedure('fleet:manage')
     .input(dismissDeliveryInputSchema)
     .output(dismissDeliveryOutputSchema)
@@ -707,7 +707,7 @@ export const fleetRouter = router({
     }),
 
   /**
-   * Sends an undeliverable delivery again: a new message from the same sender
+   * Sends an undeliverable or not handled delivery again: a new message from the same sender
    * to the same recipient that names the original, which is dismissed.
    * Answers the new message; a second resend of the delivery answers the same.
    */

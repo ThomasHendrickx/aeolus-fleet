@@ -5,6 +5,7 @@ import {
   crewStatusSchema,
   reportDetailsSchema,
   reportStateSchema,
+  turnStateSchema,
   eventTypeSchema,
   idSchema,
   carriedLabelSchema,
@@ -24,6 +25,7 @@ import type { Credential } from '../../domain/identity/credential.js';
 import type { OperatorAccount } from '../../domain/identity/operator-account.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
+import type { Turn } from '../../domain/registry/turn.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
 import type { Label, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
@@ -182,6 +184,14 @@ export function toShipReport(row: unknown): ShipReport | null {
   return report_state && reported_at
     ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
     : null;
+}
+
+const turnSqlRow = z.object({ turn: turnStateSchema.nullable(), turn_at: z.date().nullable() });
+
+/** A lease's turn columns as raw SQL reads them; null until its hooks report. */
+export function toTurn(row: unknown): Turn | null {
+  const { turn, turn_at } = turnSqlRow.parse(row);
+  return turn && turn_at ? { state: turn, at: turn_at } : null;
 }
 
 /** The ship of a lease as raw SQL reads it. */
@@ -546,6 +556,7 @@ const deliverySqlRow = z.object({
   claimed_by_lease_id: idSchema('lease').nullable(),
   attempts: z.int().nonnegative(),
   hand_over_number: z.int().positive().nullable(),
+  handed_once_more_at: z.date().nullable(),
   created_at: z.date(),
 });
 
@@ -562,6 +573,7 @@ export function toDeliveryFromSql(row: unknown): Delivery {
     claimedByLeaseId: delivery.claimed_by_lease_id,
     attempts: delivery.attempts,
     handOverNumber: delivery.hand_over_number,
+    handedOnceMoreAt: delivery.handed_once_more_at,
     createdAt: delivery.created_at,
   };
 }

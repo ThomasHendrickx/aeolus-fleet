@@ -17,6 +17,7 @@ const AT = '2026-10-01T09:00:00.000Z';
 describe('needsAttentionOutputSchema', () => {
   const undeliverable = {
     deliveryId: newId('delivery'),
+    state: 'undeliverable',
     attempts: 5,
     since: AT,
     message: {
@@ -39,6 +40,17 @@ describe('needsAttentionOutputSchema', () => {
     const toType = { ...undeliverable, message: { ...undeliverable.message, recipient: { kind: 'type', type: 'tester' } } };
 
     expect(needsAttentionOutputSchema.safeParse([toType]).success).toBe(true);
+  });
+
+  it('takes a delivery not handled', () => {
+    const notHandled = { ...undeliverable, state: 'notHandled', attempts: 1 };
+
+    expect(needsAttentionOutputSchema.parse([notHandled])).toEqual([notHandled]);
+  });
+
+  it('refuses a delivery in any other state', () => {
+    expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, state: 'acknowledged' }]).success).toBe(false);
+    expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, state: undefined }]).success).toBe(false);
   });
 
   it('refuses a time that is not ISO 8601', () => {

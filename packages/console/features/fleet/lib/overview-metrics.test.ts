@@ -1,4 +1,4 @@
-import { createIdGenerator, type ListedShip, type UndeliverableDelivery } from '@aeolus-fleet/common';
+import { createIdGenerator, type ListedShip, type NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { overviewMetrics, overviewSubtitle } from './overview-metrics';
@@ -28,10 +28,11 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
   };
 }
 
-function anUndeliverable(since: string): UndeliverableDelivery {
+function anUndeliverable(since: string): NeedsAttentionDelivery {
   const party = { id: newId('ship'), name: 'scout' };
   return {
     deliveryId: newId('delivery'),
+    state: 'undeliverable',
     attempts: 5,
     since,
     message: { id: newId('message'), sender: party, recipient: { kind: 'ship', ship: party }, inReplyTo: null, sentAt: since, contentType: 'text/plain', isPing: false, payload: 'Run 71' },

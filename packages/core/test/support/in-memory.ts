@@ -55,6 +55,7 @@ import { noNetworkSettings, type NetworkSettings } from '../../src/domain/regist
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
+import type { Turn } from '../../src/domain/registry/turn.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -104,6 +105,7 @@ export interface InMemoryState {
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** Each lease's crew report: the report columns, apart from the Lease. */
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
+  leaseTurns: { fleetId: FleetId; leaseId: Lease['id']; turn: Turn }[];
   crewRequests: CrewRequest[];
   /** The pending clear requests (decision 0032). */
   clearRequests: ClearRequest[];
@@ -243,6 +245,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveryReads: [],
     leaseSeen: [],
     leaseReports: [],
+    leaseTurns: [],
     crewRequests: [],
     clearRequests: [],
     labels: [],
@@ -641,6 +644,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           held.report = { ...report };
         } else {
           state.leaseReports.push({ fleetId, leaseId, report: { ...report } });
+        }
+        return Promise.resolve();
+      },
+      findTurnForUpdate: (fleetId, leaseId) => {
+        const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
+        const held = state.leaseTurns.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        return Promise.resolve(isOpen ? { turn: held ? { ...held.turn } : null } : undefined);
+      },
+      saveTurn: ({ fleetId, leaseId, turn }) => {
+        const held = state.leaseTurns.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        if (held) {
+          held.turn = { ...turn };
+        } else {
+          state.leaseTurns.push({ fleetId, leaseId, turn: { ...turn } });
         }
         return Promise.resolve();
       },
@@ -1395,24 +1412,27 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             };
           }),
       ),
-    undeliverable: (fleetId) => {
+    needsAttention: (fleetId) => {
       const events = numbered(fleetId);
       return Promise.resolve(
         state.deliveries
-          .filter((delivery) => delivery.fleetId === fleetId && delivery.state === 'undeliverable')
-          .map((delivery) => {
+          .filter((delivery) => delivery.fleetId === fleetId)
+          .flatMap((delivery) => (delivery.state === 'undeliverable' || delivery.state === 'notHandled' ? [{ delivery, state: delivery.state }] : []))
+          .map(({ delivery, state: attentionState }) => {
             const message = messageOf(fleetId, delivery.messageId);
             const since = events.findLast(
-              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryUndeliverable',
+              (event) =>
+                event.deliveryId === delivery.id && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'),
             );
             if (!message || !since) {
-              throw new Error(`undeliverable ${delivery.id} without its message or its event`);
+              throw new Error(`${attentionState} ${delivery.id} without its message or its event`);
             }
             const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
             return {
               seq: since.seq,
               entry: {
                 deliveryId: delivery.id,
+                state: attentionState,
                 attempts: delivery.attempts,
                 since: since.occurredAt,
                 message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
@@ -1482,6 +1502,7 @@ const FLEET_TABLES = [
   'leaseSeen',
   'pushedLeases',
   'leaseReports',
+  'leaseTurns',
   'crewRequests',
   'clearRequests',
   'labels',
@@ -1510,6 +1531,7 @@ const TABLES = [
   'leaseSeen',
   'pushedLeases',
   'leaseReports',
+  'leaseTurns',
   'crewRequests',
   'clearRequests',
   'labels',

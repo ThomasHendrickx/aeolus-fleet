@@ -6,9 +6,13 @@ import {
   ackOutputSchema,
   handedInputSchema,
   handedOutputSchema,
+  handledInputSchema,
+  handledOutputSchema,
   INBOX_WAIT_MAX_SECONDS,
   inboxInputSchema,
   inboxOutputSchema,
+  notHandledInputSchema,
+  notHandledOutputSchema,
   pushReceiveOutputSchema,
   pushReceivedDeliverySchema,
   RECEIVE_MAX_DEFAULT,
@@ -207,6 +211,42 @@ describe('handedInputSchema', () => {
 
   it('rejects a message id for the delivery', () => {
     expect(handedInputSchema.safeParse({ deliveryId: newId('message'), handOverNumber: 1 }).success).toBe(false);
+  });
+
+  it('takes a hand-over once more, after the turn that took the confirmed message died', () => {
+    const input = { deliveryId: newId('delivery'), handOverNumber: 2, isOnceMore: true };
+
+    expect(handedInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('rejects once more that is not a boolean', () => {
+    expect(handedInputSchema.safeParse({ deliveryId: newId('delivery'), handOverNumber: 2, isOnceMore: 'yes' }).success).toBe(false);
+  });
+});
+
+describe('handledInputSchema and notHandledInputSchema', () => {
+  it.each([
+    ['handled', handledInputSchema],
+    ['notHandled', notHandledInputSchema],
+  ])('%s takes the delivery', (_name, schema) => {
+    const input = { deliveryId: newId('delivery') };
+
+    expect(schema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['handled', handledInputSchema],
+    ['notHandled', notHandledInputSchema],
+  ])('%s rejects a message id for the delivery', (_name, schema) => {
+    expect(schema.safeParse({ deliveryId: newId('message') }).success).toBe(false);
+  });
+
+  it.each([
+    ['handled', handledOutputSchema],
+    ['notHandled', notHandledOutputSchema],
+  ])('%s answers nothing: the OK is the answer', (_name, schema) => {
+    expect(schema.safeParse({}).success).toBe(true);
+    expect(schema.safeParse({ state: 'handled' }).success).toBe(false);
   });
 });
 

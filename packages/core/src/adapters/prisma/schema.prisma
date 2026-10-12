@@ -134,6 +134,14 @@ enum ReportState {
   @@map("report_state")
 }
 
+/// A pushed session's turn, as its hooks report it (decision 0040).
+enum TurnState {
+  idle
+  busy
+
+  @@map("turn_state")
+}
+
 enum LocationKind {
   DEVICE
   CLOUD
@@ -170,6 +178,9 @@ model Lease {
   reportDetailsVersion Int          @default(0) @map("report_details_version")
   /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
   pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
+  /// The session's turn as its hooks last reported it, and when they saw it change; null until they report (decision 0040).
+  turn                 TurnState?
+  turnAt               DateTime?    @map("turn_at") @db.Timestamptz(3)
   endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
@@ -466,6 +477,8 @@ enum DeliveryState {
   received
   handed
   acknowledged
+  handled
+  notHandled
   undeliverable
   dismissed
   abandoned
@@ -494,6 +507,8 @@ model Delivery {
   claimedByLeaseId String?       @map("claimed_by_lease_id")
   attempts         Int           @default(0)
   handOverNumber   Int?          @map("hand_over_number")
+  /// When its crew handed it once more after the turn that took it died; only once (decision 0040).
+  handedOnceMoreAt DateTime?     @map("handed_once_more_at") @db.Timestamptz(3)
   reachableShipIds String[]      @default([]) @map("reachable_ship_ids")
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)

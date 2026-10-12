@@ -59,6 +59,11 @@ export interface Delivery {
    */
   handOverNumber: number | null;
   /**
+   * When its crew handed it once more, after the turn that took it died
+   * (decision 0040): only once, so none until then.
+   */
+  handedOnceMoreAt: Date | null;
+  /**
    * For a type, under network rules: the ships of the type its sender may
    * reach, fixed at send time; only they may claim it (decision 0034).
    * Absent, any ship of the type may. Written at send; a claim's query reads
@@ -161,6 +166,7 @@ export function acceptMessage(
     claimedByLeaseId: null,
     attempts: 0,
     handOverNumber: null,
+    handedOnceMoreAt: null,
     ...(reachableShipIds && { reachableShipIds: [...reachableShipIds] }),
     createdAt: at,
   };

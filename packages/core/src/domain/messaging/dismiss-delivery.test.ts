@@ -101,8 +101,8 @@ describe('dismissing an undeliverable delivery', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it.each(['pending', 'handed', 'acknowledged', 'abandoned'] as const)(
-    'refuses a delivery that is %s: only an undeliverable one is dismissed',
+  it.each(['pending', 'received', 'handed', 'acknowledged', 'handled', 'abandoned'] as const)(
+    'refuses a delivery that is %s: only an undeliverable or not handled one is dismissed',
     async (state) => {
       const deliveryId = await sendTo({ kind: 'ship', shipId: scoutId });
       const held = stored(deliveryId);
@@ -118,6 +118,22 @@ describe('dismissing an undeliverable delivery', () => {
       expect(core.state.events.filter((event) => event.type === 'DeliveryDismissed')).toEqual([]);
     },
   );
+
+  it('dismisses a delivery not handled as an undeliverable one: dismissed, with DeliveryDismissed', async () => {
+    const deliveryId = await sendTo({ kind: 'ship', shipId: scoutId });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true }));
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId }));
+    core.state.events.length = 0;
+
+    await expect(useCases.dismissDelivery(argo, { deliveryId })).resolves.toEqual({ isOk: true, value: undefined });
+    expect(stored(deliveryId)).toMatchObject({ state: 'dismissed', attempts: 1 });
+    expect(core.state.events).toMatchObject([
+      { type: 'DeliveryDismissed', actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, deliveryId },
+    ]);
+  });
 
   it('refuses a delivery the fleet does not have', async () => {
     await expect(useCases.dismissDelivery(argo, { deliveryId: core.ids('delivery') })).resolves.toMatchObject({

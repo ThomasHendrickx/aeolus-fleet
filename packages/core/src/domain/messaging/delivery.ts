@@ -107,10 +107,20 @@ export function pushReceiveDelivery(
       };
 }
 
-export type HandOverRefusal = DomainError<'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP'>;
+export type HandOverRefusal = DomainError<
+  'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP' | 'DELIVERY_NOT_ACKNOWLEDGED' | 'DELIVERY_HANDED_ONCE_MORE'
+>;
 
 /** Where a delivery stands after handed: handed to the agent, acknowledged already, or undeliverable at the fifth attempt. */
 export type HandedState = 'handed' | 'acknowledged' | 'undeliverable';
+
+/** A hand-over its crew reports: the number, and whether it hands a confirmed message once more after its turn died. */
+export interface HandOver {
+  crew: CrewOfShip;
+  handOverNumber: number;
+  isOnceMore: boolean;
+  at: Date;
+}
 
 /**
  * The crew's computer side reports it handed a delivery to the agent, with
@@ -119,11 +129,11 @@ export type HandedState = 'handed' | 'acknowledged' | 'undeliverable';
  * nothing is handed. The same number again, or a lower one, is a lost
  * answer: OK, and nothing changes, also once the agent acknowledged it. Only
  * the crew holding the delivery hands it over; one that is not in flight is
- * refused.
+ * refused. Handed once more is its own rule (see `handOnceMore`).
  */
 export function handOverDelivery(
   delivery: Delivery,
-  handOver: { crew: CrewOfShip; handOverNumber: number; at: Date },
+  handOver: HandOver,
 ): Result<{ state: HandedState; delivery: Delivery; events: NewEvent[] }, HandOverRefusal> {
   const { crew, handOverNumber, at } = handOver;
   const isRepeat = delivery.handOverNumber !== null && handOverNumber <= delivery.handOverNumber;
@@ -137,19 +147,24 @@ export function handOverDelivery(
           `Delivery ${delivery.id} is held by another ship: only the crew that received it hands it over`,
         );
       }
+      if (handOver.isOnceMore) {
+        return handOnceMore(delivery, handOver);
+      }
       if (delivery.state !== 'received' && isRepeat) {
         return ok({ state: delivery.state, delivery, events: [] });
       }
       if (delivery.state === 'acknowledged') {
         return refuse(
           'DELIVERY_NOT_IN_FLIGHT',
-          `Delivery ${delivery.id} is acknowledged, not in flight: its agent confirmed it, so there is nothing to hand over`,
+          `Delivery ${delivery.id} is acknowledged, not in flight: its agent confirmed it, so hand it only once more, after its turn died`,
         );
       }
       const { outcome, delivery: changed, events } = countAttempt(delivery, { crew, at, handOverNumber });
       return ok({ state: outcome, delivery: changed, events });
     }
     case 'pending':
+    case 'handled':
+    case 'notHandled':
     case 'undeliverable':
     case 'dismissed':
     case 'abandoned':
@@ -160,13 +175,134 @@ export function handOverDelivery(
   }
 }
 
+/**
+ * A confirmed message whose turn or session died is handed once more, the
+ * one retry (decision 0040). The fleet's promise ended at the ack, so it stays
+ * acknowledged and counts no attempt; DeliveryHanded marked once more records
+ * it. Its repeat, at the same or a lower number, is a lost answer: OK, and
+ * nothing changes. A second once more is refused: if that turn dies too, the
+ * message is not handled. Only an acknowledged delivery is handed once more.
+ */
+function handOnceMore(
+  delivery: Delivery,
+  handOver: HandOver,
+): Result<{ state: HandedState; delivery: Delivery; events: NewEvent[] }, HandOverRefusal> {
+  const { crew, handOverNumber, at } = handOver;
+  if (delivery.state !== 'acknowledged') {
+    return refuse(
+      'DELIVERY_NOT_ACKNOWLEDGED',
+      `Delivery ${delivery.id} is ${delivery.state}, not acknowledged: only a confirmed message is handed once more`,
+    );
+  }
+  if (delivery.handedOnceMoreAt !== null) {
+    return delivery.handOverNumber !== null && handOverNumber <= delivery.handOverNumber
+      ? ok({ state: delivery.state, delivery, events: [] })
+      : refuse(
+          'DELIVERY_HANDED_ONCE_MORE',
+          `Delivery ${delivery.id} was handed once more already: if that turn died too, report it not handled`,
+        );
+  }
+  return ok({
+    state: delivery.state,
+    delivery: { ...delivery, handOverNumber, handedOnceMoreAt: at },
+    events: [
+      {
+        fleetId: delivery.fleetId,
+        type: 'DeliveryHanded',
+        occurredAt: at,
+        actor: shipActor(crew.shipId),
+        shipId: crew.shipId,
+        messageId: delivery.messageId,
+        deliveryId: delivery.id,
+        details: { leaseId: crew.leaseId, attempts: delivery.attempts, handOverNumber, onceMore: true },
+      },
+    ],
+  });
+}
+
+export type TurnEndRefusal = DomainError<
+  'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP' | 'DELIVERY_NOT_ACKNOWLEDGED' | 'DELIVERY_NOT_HANDED_ONCE_MORE'
+>;
+
+/** How the turn that took a confirmed message ended: by itself (handled), or died a second time (not handled). */
+export type TurnEnd = 'handled' | 'notHandled';
+
+/**
+ * A pushed crew reports how the turn that took an acknowledged delivery
+ * ended (decision 0040): handled when it ended by itself, not handled when
+ * the turn it was handed once more to died too. Either writes its event,
+ * DeliveryHandled or DeliveryNotHandled, and keeps who it was handed to.
+ * The same report again is harmless: OK, and nothing changes. A delivery not
+ * acknowledged yet, or that ended the other way, is refused, so a ping not
+ * answered with pong stays handed. Not handled needs the once more first.
+ * Only the crew holding the delivery reports it.
+ */
+export function endTurn(
+  delivery: Delivery,
+  report: { crew: CrewOfShip; end: TurnEnd; at: Date },
+): Result<{ delivery: Delivery; events: NewEvent[] }, TurnEndRefusal> {
+  const { crew, end, at } = report;
+  switch (delivery.state) {
+    case 'received':
+    case 'handed':
+    case 'acknowledged':
+    case 'handled':
+    case 'notHandled': {
+      if (delivery.claimedByLeaseId !== crew.leaseId) {
+        return refuse(
+          'DELIVERY_HELD_BY_ANOTHER_SHIP',
+          `Delivery ${delivery.id} is held by another ship: only the crew it was handed to reports its turn`,
+        );
+      }
+      if (delivery.state === end) {
+        return ok({ delivery, events: [] });
+      }
+      if (delivery.state !== 'acknowledged') {
+        return refuse(
+          'DELIVERY_NOT_ACKNOWLEDGED',
+          `Delivery ${delivery.id} is ${delivery.state}, not acknowledged: report how its turn ended once the agent confirmed it`,
+        );
+      }
+      if (end === 'notHandled' && delivery.handedOnceMoreAt === null) {
+        return refuse(
+          'DELIVERY_NOT_HANDED_ONCE_MORE',
+          `Delivery ${delivery.id} was never handed once more: hand it once more after its turn died, and report it not handled only if that turn dies too`,
+        );
+      }
+      return ok({
+        delivery: { ...delivery, state: end },
+        events: [
+          {
+            fleetId: delivery.fleetId,
+            type: end === 'handled' ? 'DeliveryHandled' : 'DeliveryNotHandled',
+            occurredAt: at,
+            actor: shipActor(crew.shipId),
+            shipId: crew.shipId,
+            messageId: delivery.messageId,
+            deliveryId: delivery.id,
+            details: { leaseId: crew.leaseId },
+          },
+        ],
+      });
+    }
+    case 'pending':
+    case 'undeliverable':
+    case 'dismissed':
+    case 'abandoned':
+      return refuse(
+        'DELIVERY_NOT_IN_FLIGHT',
+        `Delivery ${delivery.id} is ${delivery.state}, not in flight: report how its turn ended once the agent confirmed it`,
+      );
+  }
+}
+
 export type AcknowledgeRefusal = DomainError<'DELIVERY_NOT_IN_FLIGHT' | 'DELIVERY_HELD_BY_ANOTHER_SHIP'>;
 
 /**
  * The ship takes responsibility for a delivery it received (ADR 0001): only a
  * delivery in flight with that ship, received or handed, moves to
  * acknowledged, keeping who it was handed to. A received one is taken too, so
- * a lost answer to handed never blocks the agent's confirmation. Acknowledging it again is harmless: OK, and nothing changes. A delivery
+ * a lost answer to handed never blocks the agent's confirmation. Acknowledging it again, also once handled or not handled, is harmless: OK, and nothing changes. A delivery
  * another ship holds or acknowledged, or one that is not in flight, is refused.
  */
 export function acknowledgeDelivery(
@@ -178,13 +314,15 @@ export function acknowledgeDelivery(
     case 'received':
     case 'handed':
     case 'acknowledged':
+    case 'handled':
+    case 'notHandled':
       if (delivery.claimedByShipId !== crew.shipId) {
         return refuse(
           'DELIVERY_HELD_BY_ANOTHER_SHIP',
           `Delivery ${delivery.id} is held by another ship: only the ship that received it acknowledges it`,
         );
       }
-      if (delivery.state === 'acknowledged') {
+      if (delivery.state !== 'received' && delivery.state !== 'handed') {
         return ok({ delivery, events: [] });
       }
       return ok({
@@ -239,12 +377,12 @@ export function answerPing(
 export type DismissRefusal = DomainError<'DELIVERY_NOT_UNDELIVERABLE'>;
 
 /**
- * The operator lets an undeliverable delivery go (docs/blueprint.md,
- * "DeliveryUndeliverable"): it becomes dismissed, kept in history with its
- * claims, and leaves Needs attention. The event names the ship it was for; a
- * delivery to a type names none. Dismissing it again is harmless: OK, and
- * nothing changes. Any other delivery is refused: only an undeliverable one
- * waits for the operator.
+ * The operator lets an undeliverable or not handled delivery go
+ * (docs/blueprint.md, "DeliveryUndeliverable"): it becomes dismissed, kept in
+ * history with its claims, and leaves Needs attention. The event names the
+ * ship it was for; a delivery to a type names none. Dismissing it again is
+ * harmless: OK, and nothing changes. Any other delivery is refused: only
+ * those two wait for the operator.
  */
 export function dismissDelivery(
   delivery: Delivery,
@@ -254,6 +392,7 @@ export function dismissDelivery(
     case 'dismissed':
       return ok({ delivery, events: [] });
     case 'undeliverable':
+    case 'notHandled':
       return ok({
         delivery: { ...delivery, state: 'dismissed' },
         events: [
@@ -272,27 +411,28 @@ export function dismissDelivery(
     case 'received':
     case 'handed':
     case 'acknowledged':
+    case 'handled':
     case 'abandoned':
       return refuse(
         'DELIVERY_NOT_UNDELIVERABLE',
-        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is dismissed`,
+        `Delivery ${delivery.id} is ${delivery.state}: only an undeliverable or not handled delivery is dismissed`,
       );
   }
 }
 
 /**
- * A resend dismisses the delivery it resends, which must be undeliverable:
- * one already dismissed has nothing left to resend.
+ * A resend dismisses the delivery it resends, which must be undeliverable or
+ * not handled: one already dismissed has nothing left to resend.
  */
 export function dismissForResend(
   delivery: Delivery,
   dismiss: { by: ShipId; at: Date },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
-  return delivery.state === 'undeliverable'
+  return delivery.state === 'undeliverable' || delivery.state === 'notHandled'
     ? dismissDelivery(delivery, dismiss)
     : refuse(
         'DELIVERY_NOT_UNDELIVERABLE',
-        `Delivery ${delivery.id} is ${delivery.state}, not undeliverable: only an undeliverable delivery is resent`,
+        `Delivery ${delivery.id} is ${delivery.state}: only an undeliverable or not handled delivery is resent`,
       );
 }
 
@@ -333,6 +473,8 @@ export function markDone(
 
   switch (delivery.state) {
     case 'acknowledged':
+    case 'handled':
+    case 'notHandled':
       return ok({ delivery, events: [] });
     case 'pending': {
       const attempts = delivery.attempts + 1;

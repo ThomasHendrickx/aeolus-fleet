@@ -13,6 +13,7 @@ import type { NetworkSettings } from './network-settings.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
+import type { Turn } from './turn.js';
 
 /** The crew a report speaks for: its ship and lease, in its fleet. */
 export interface CrewOfLease {
@@ -147,6 +148,9 @@ export interface LeaseRepository {
   /** The lease's report, the lease locked until the unit of work ends; undefined once it has ended. */
   findReportForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null } | undefined>;
   saveReport(change: { fleetId: FleetId; leaseId: LeaseId; report: ShipReport }): Promise<void>;
+  /** The open lease's turn, locked until the unit of work ends, so two turn reports take turns; undefined once it has ended. */
+  findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;
+  saveTurn(change: { fleetId: FleetId; leaseId: LeaseId; turn: Turn }): Promise<void>;
   /**
    * The lease's report and the last report of the lease its ship held before
    * it, the one that ended last; undefined once this lease has ended.

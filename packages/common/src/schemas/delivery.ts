@@ -93,8 +93,14 @@ export type PushReceiveOutput = z.infer<typeof pushReceiveOutputSchema>;
 /**
  * Input of `ship.handed`: the delivery the computer side handed to the agent,
  * and the number of that hand-over, counting from 1 under the crew's lease.
+ * Once more: it hands a confirmed message once more, after the turn that took
+ * it died (decision 0040).
  */
-export const handedInputSchema = z.object({ deliveryId: idSchema('delivery'), handOverNumber: z.int().positive() });
+export const handedInputSchema = z.object({
+  deliveryId: idSchema('delivery'),
+  handOverNumber: z.int().positive(),
+  isOnceMore: z.boolean().optional(),
+});
 
 export type HandedInput = z.infer<typeof handedInputSchema>;
 
@@ -102,6 +108,26 @@ export type HandedInput = z.infer<typeof handedInputSchema>;
 export const handedOutputSchema = z.object({ state: z.enum(['handed', 'acknowledged', 'undeliverable']) });
 
 export type HandedOutput = z.infer<typeof handedOutputSchema>;
+
+/** Input of `ship.handled`: the acknowledged delivery whose turn ended by itself. */
+export const handledInputSchema = z.object({ deliveryId: idSchema('delivery') });
+
+export type HandledInput = z.infer<typeof handledInputSchema>;
+
+/** Output of `ship.handled`: nothing; the OK is the answer. */
+export const handledOutputSchema = z.strictObject({});
+
+export type HandledOutput = z.infer<typeof handledOutputSchema>;
+
+/** Input of `ship.notHandled`: the delivery handed once more whose turn died too. */
+export const notHandledInputSchema = z.object({ deliveryId: idSchema('delivery') });
+
+export type NotHandledInput = z.infer<typeof notHandledInputSchema>;
+
+/** Output of `ship.notHandled`: nothing; the OK is the answer. */
+export const notHandledOutputSchema = z.strictObject({});
+
+export type NotHandledOutput = z.infer<typeof notHandledOutputSchema>;
 
 /** Input of `ship.ack`: the delivery the calling ship received and takes responsibility for. */
 export const ackInputSchema = z.object({ deliveryId: idSchema('delivery') });

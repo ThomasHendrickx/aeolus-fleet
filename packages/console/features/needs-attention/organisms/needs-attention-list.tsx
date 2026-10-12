@@ -1,10 +1,10 @@
 'use client';
 
-import type { DeliveryId, MessageRecipient, Party, UndeliverableDelivery } from '@aeolus-fleet/common';
+import type { DeliveryId, MessageRecipient, Party, NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { ChevronRight, CircleCheck, RotateCw } from 'lucide-react';
 
 import { classNames } from '../../../lib/class-names';
-import { canResend, undeliverableReason } from '../../../lib/needs-attention';
+import { attentionReason, canResend } from '../../../lib/needs-attention';
 import { isJson } from '../../../lib/payload';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../lib/relative-time';
 import { OPERATOR_NAME } from '../../../lib/sentence';
@@ -18,7 +18,7 @@ import { StatusBadge } from '../../../components/molecules/status-badge';
 
 interface NeedsAttentionListProps {
   /** Oldest first, as the server lists them. */
-  deliveries: readonly UndeliverableDelivery[];
+  deliveries: readonly NeedsAttentionDelivery[];
   state: 'loading' | 'error' | 'ready';
   /** The error state's Try again. */
   onRetry: () => void;
@@ -26,7 +26,7 @@ interface NeedsAttentionListProps {
   onResend?: (deliveryId: DeliveryId) => void;
   onDismiss?: (deliveryId: DeliveryId) => void;
   /** Opens the message: a click on the row's message, or the phone card's chevron. */
-  onOpen: (delivery: UndeliverableDelivery) => void;
+  onOpen: (delivery: NeedsAttentionDelivery) => void;
   /** Deliveries whose resend or dismiss is in flight: their buttons are disabled and show pending. */
   pendingIds: ReadonlySet<DeliveryId>;
   /** The time "since" is measured from. */
@@ -48,7 +48,7 @@ function recipientWords(recipient: MessageRecipient): string {
 }
 
 /** "builder-core · 3K2P → tester-01 · Q8ZR": who sent it and who it was for. */
-function Route({ delivery }: { delivery: UndeliverableDelivery }) {
+function Route({ delivery }: { delivery: NeedsAttentionDelivery }) {
   const { sender, recipient } = delivery.message;
   return (
     <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-meta text-muted-foreground">
@@ -61,7 +61,7 @@ function Route({ delivery }: { delivery: UndeliverableDelivery }) {
 }
 
 /** The payload's first line, one line long: mono for JSON, sans otherwise. */
-function Preview({ delivery }: { delivery: UndeliverableDelivery }) {
+function Preview({ delivery }: { delivery: NeedsAttentionDelivery }) {
   const { payload, contentType } = delivery.message;
   return (
     <span
@@ -76,12 +76,12 @@ function Preview({ delivery }: { delivery: UndeliverableDelivery }) {
   );
 }
 
-function reason(delivery: UndeliverableDelivery): string {
-  return undeliverableReason(delivery.attempts);
+function reason(delivery: NeedsAttentionDelivery): string {
+  return attentionReason(delivery);
 }
 
 /** "the message from builder-core to tester-01": what an action's accessible name is about. */
-function about(delivery: UndeliverableDelivery): string {
+function about(delivery: NeedsAttentionDelivery): string {
   return `the message from ${delivery.message.sender.name} to ${recipientWords(delivery.message.recipient)}`;
 }
 
@@ -92,7 +92,7 @@ function Actions({
   pendingIds,
   layout,
 }: Pick<NeedsAttentionListProps, 'onResend' | 'onDismiss' | 'pendingIds'> & {
-  delivery: UndeliverableDelivery;
+  delivery: NeedsAttentionDelivery;
   layout: 'table' | 'phone';
 }) {
   const isPending = pendingIds.has(delivery.deliveryId);
@@ -163,7 +163,7 @@ function DesktopTable({ deliveries, onOpen, now, ...actions }: Omit<NeedsAttenti
             return (
               <TableRow key={delivery.deliveryId} data-testid="attention-row" data-delivery-id={delivery.deliveryId}>
                 <TableCell className="align-top">
-                  <StatusBadge status="undeliverable" />
+                  <StatusBadge status={delivery.state} />
                 </TableCell>
                 <TableCell className="max-w-96 align-top">
                   <button
@@ -219,7 +219,7 @@ function PhoneCards({ deliveries, onOpen, now, ...actions }: Omit<NeedsAttention
             className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3.5 py-3"
           >
             <div className="flex items-center justify-between gap-3">
-              <StatusBadge status="undeliverable" />
+              <StatusBadge status={delivery.state} />
               <button
                 type="button"
                 aria-label={`Open ${about(delivery)}`}
