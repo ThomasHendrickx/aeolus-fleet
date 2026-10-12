@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CONFIGURATION, newId } from '../../test/support/in-memory.js';
 import { NO_TERMINAL_QUESTIONS } from '@aeolus-fleet/common';
 import { CODEX_ADAPTER_FLAGS, CODEX_TYPING_SETTLE_MS, codexCommandLine, createCodexHarness } from './codex.js';
-import { CODEX_SCREENS_CHECKED_ON } from './codex-screen.js';
 import { runCommand } from './run-command.js';
 
 // With the aeolus plugin's own scripts from this repository, in a temporary data folder standing for Codex's.
@@ -214,15 +213,6 @@ describe('Codex as a harness', () => {
     expect(woken).toContain(`› ${typed[0]?.text ?? ''}\n\n• I’m using the aeolus-wake skill`);
   });
 
-  it('names the Codex version its launch screens were checked on, so a launch on another version that shows no activity is told to argo (#594)', () => {
-    expect(harness().screensCheckedOn).toBe(CODEX_SCREENS_CHECKED_ON);
-  });
-
-  it("sees in its session's screen the model it launched with refused, as Codex has no hook for a failed turn", async () => {
-    screens.set(shipId, readFileSync(new URL('../../test/screens/codex-refused.txt', import.meta.url), 'utf8'));
-
-    await expect(harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, model: 'gpt-nonexistent-9' })).resolves.toEqual({ kind: 'refused', model: 'gpt-nonexistent-9' });
-  });
 });
 
 describe("Codex's launch window, from the launch marker its session's hooks keep (#490)", () => {
@@ -239,6 +229,9 @@ describe("Codex's launch window, from the launch marker its session's hooks keep
   const sessionStarted = { hook_event_name: 'SessionStart', source: 'startup' };
   const aToolCall = { hook_event_name: 'PreToolUse', tool_name: 'shell' };
   const seen = () => harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, model: 'gpt-5.6-sol' });
+  /** Codex's real session logs (test/logs), as its hooks name them in transcript_path. */
+  const REFUSED_LOG = fileURLToPath(new URL('../../test/logs/codex-refused.jsonl', import.meta.url));
+  const ANSWERED_LOG = fileURLToPath(new URL('../../test/logs/codex-answered.jsonl', import.meta.url));
   const hooksReview = () => readFileSync(new URL('../../test/screens/codex-hooks.txt', import.meta.url), 'utf8');
 
   beforeEach(async () => {
@@ -260,6 +253,25 @@ describe("Codex's launch window, from the launch marker its session's hooks keep
     await hooked(aToolCall);
 
     await expect(seen()).resolves.toEqual({ kind: 'active' });
+  });
+
+  it('sees the model it launched with refused in the session log its hooks named, as Codex has no hook for a failed turn', async () => {
+    await hooked({ ...sessionStarted, transcript_path: REFUSED_LOG });
+
+    await expect(harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, model: 'gpt-nonexistent-9' })).resolves.toEqual({ kind: 'refused', model: 'gpt-nonexistent-9' });
+  });
+
+  it('reads no refusal from its screen, only from its session log', async () => {
+    screens.set(shipId, readFileSync(new URL('../../test/screens/codex-refused.txt', import.meta.url), 'utf8'));
+    await hooked({ ...sessionStarted, transcript_path: ANSWERED_LOG });
+
+    await expect(harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, model: 'gpt-nonexistent-9' })).resolves.toEqual({ kind: 'none' });
+  });
+
+  it('sees no refusal when the session log its hooks named is gone', async () => {
+    await hooked({ ...sessionStarted, transcript_path: join(folder, 'gone.jsonl') });
+
+    await expect(harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, model: 'gpt-nonexistent-9' })).resolves.toEqual({ kind: 'none' });
   });
 
   it('names no screen once its session started', async () => {
