@@ -478,7 +478,7 @@ export function deliveryInFlight(
     fleetId,
     messageId,
     recipient,
-    state: 'delivered',
+    state: 'handed',
     claimedByShipId: shipId,
     claimedByLeaseId: leaseId,
     attempts,

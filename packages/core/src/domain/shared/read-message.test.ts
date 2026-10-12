@@ -31,7 +31,7 @@ describe('reading one message', () => {
     });
     expect(message.delivery.history).toMatchObject([
       { type: 'DeliveryAcknowledged', ship: { name: 'scout' }, location: null, harness: null },
-      { type: 'DeliveryClaimed', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
+      { type: 'DeliveryHanded', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
       { type: 'MessageAccepted', ship: null, location: null, harness: null, attempts: null },
     ]);
   });
@@ -45,9 +45,9 @@ describe('reading one message', () => {
     const message = unwrap(await scene.history.readMessage(scene.argo, { messageId }));
 
     expect(message.delivery.history.map((entry) => [entry.type, entry.ship?.name ?? null, entry.attempts])).toEqual([
-      ['DeliveryClaimed', 'lookout', 2],
+      ['DeliveryHanded', 'lookout', 2],
       ['DeliveryReturned', 'scout', 1],
-      ['DeliveryClaimed', 'scout', 1],
+      ['DeliveryHanded', 'scout', 1],
       ['MessageAccepted', null, null],
     ]);
   });

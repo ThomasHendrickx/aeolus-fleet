@@ -135,7 +135,7 @@ describe('an acknowledgement refused', () => {
         message: `Delivery ${deliveryId} is held by another ship: only the ship that received it acknowledges it`,
       },
     });
-    expect(stored(deliveryId)).toMatchObject({ state: 'delivered', claimedByShipId: lookout.shipId });
+    expect(stored(deliveryId)).toMatchObject({ state: 'handed', claimedByShipId: lookout.shipId });
     expect(core.state.events).toEqual([]);
   });
 
@@ -195,6 +195,6 @@ describe('an acknowledgement refused', () => {
       isOk: false,
       error: { kind: 'DELIVERY_NOT_FOUND' },
     });
-    expect(stored(deliveryId)?.state).toBe('delivered');
+    expect(stored(deliveryId)?.state).toBe('handed');
   });
 });

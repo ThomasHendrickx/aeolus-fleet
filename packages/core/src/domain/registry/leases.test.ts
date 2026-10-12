@@ -177,7 +177,7 @@ describe('ending a lease', () => {
     await endScoutLease();
 
     expect(stored(acknowledged.deliveryId)).toMatchObject({ state: 'acknowledged', claimedByLeaseId: scout.leaseId });
-    expect(stored(lookouts.deliveryId)).toMatchObject({ state: 'delivered', claimedByLeaseId: lookout.leaseId });
+    expect(stored(lookouts.deliveryId)).toMatchObject({ state: 'handed', claimedByLeaseId: lookout.leaseId });
   });
 
   it('wakes whoever waits for each returned delivery, as a send does: a notice for its ship or its type, oldest first', async () => {

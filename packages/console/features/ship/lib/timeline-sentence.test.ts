@@ -153,7 +153,7 @@ describe('timelineSentence', () => {
   });
 
   it('says the ship took a message it claimed', () => {
-    expect(onScoutsPage(anEntry('DeliveryClaimed', { actor: scout, message: fromPlanner }))).toEqual({
+    expect(onScoutsPage(anEntry('DeliveryHanded', { actor: scout, message: fromPlanner }))).toEqual({
       sentence: 'Took a message from planner',
       tone: 'active',
       icon: 'received',
@@ -163,7 +163,7 @@ describe('timelineSentence', () => {
   it('names another ship that took a message', () => {
     const reviewer = { id: newId('ship'), name: 'reviewer-02' };
 
-    expect(onScoutsPage(anEntry('DeliveryClaimed', { actor: reviewer, message: fromScout })).sentence).toBe(
+    expect(onScoutsPage(anEntry('DeliveryHanded', { actor: reviewer, message: fromScout })).sentence).toBe(
       'reviewer-02 took a message from scout',
     );
   });
@@ -191,7 +191,7 @@ describe('timelineSentence', () => {
   });
 
   it('says the ship took the ping', () => {
-    expect(onScoutsPage(anEntry('DeliveryClaimed', { actor: scout, message: pingFromArgo })).sentence).toBe(
+    expect(onScoutsPage(anEntry('DeliveryHanded', { actor: scout, message: pingFromArgo })).sentence).toBe(
       'Took a ping from argo',
     );
   });

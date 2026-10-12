@@ -1,7 +1,7 @@
 import { createIdGenerator, type UndeliverableDelivery } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast } from './needs-attention';
+import { canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, resentToast, undeliverableReason } from './needs-attention';
 
 const newId = createIdGenerator();
 const builder = { id: newId('ship'), name: 'builder-core' };
@@ -73,5 +73,11 @@ describe('canResend', () => {
     const ping = anUndeliverable({ kind: 'ship', ship: tester });
 
     expect(canResend({ ...ping, message: { ...ping.message, contentType: 'application/vnd.aeolus.ping', isPing: true } })).toBe(false);
+  });
+});
+
+describe('undeliverableReason', () => {
+  it('counts the hand-overs before the refused fifth receive of a pull ship', () => {
+    expect(undeliverableReason(5)).toBe('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.');
   });
 });

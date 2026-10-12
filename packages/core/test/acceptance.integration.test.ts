@@ -261,10 +261,10 @@ describe('the v1 acceptance test, over MCP', () => {
     });
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('MessageAccepted', { actorShipId: scoutId, shipId: lookoutId, ...concerning(asked) }),
-      logged('DeliveryClaimed', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(asked) }),
+      logged('DeliveryHanded', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(asked) }),
       logged('DeliveryAcknowledged', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(asked) }),
       logged('MessageAccepted', { actorShipId: lookoutId, shipId: scoutId, ...concerning(answered) }),
-      logged('DeliveryClaimed', { actorShipId: scoutId, shipId: scoutId, ...concerning(answered) }),
+      logged('DeliveryHanded', { actorShipId: scoutId, shipId: scoutId, ...concerning(answered) }),
       logged('DeliveryAcknowledged', { actorShipId: scoutId, shipId: scoutId, ...concerning(answered) }),
     ]);
 
@@ -273,7 +273,7 @@ describe('the v1 acceptance test, over MCP', () => {
     const inFlight = await receiveWhileWaiting(lookout);
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('MessageAccepted', { actorShipId: scoutId, shipId: lookoutId, ...concerning(inFlight) }),
-      logged('DeliveryClaimed', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(inFlight) }),
+      logged('DeliveryHanded', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(inFlight) }),
     ]);
     unwrap(await operator.releaseShip(argo, { shipId: lookoutId }));
     await expect(
@@ -322,10 +322,10 @@ describe('the v1 acceptance test, over MCP', () => {
     });
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('ShipClaimed', { actorShipId: lookoutId, shipId: lookoutId }),
-      logged('DeliveryClaimed', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(inFlight) }),
+      logged('DeliveryHanded', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(inFlight) }),
       logged('DeliveryAcknowledged', { actorShipId: lookoutId, shipId: lookoutId, ...concerning(inFlight) }),
       logged('MessageAccepted', { actorShipId: lookoutId, shipId: scoutId, ...concerning(answeredAgain) }),
-      logged('DeliveryClaimed', { actorShipId: scoutId, shipId: scoutId, ...concerning(answeredAgain) }),
+      logged('DeliveryHanded', { actorShipId: scoutId, shipId: scoutId, ...concerning(answeredAgain) }),
       logged('DeliveryAcknowledged', { actorShipId: scoutId, shipId: scoutId, ...concerning(answeredAgain) }),
     ]);
 

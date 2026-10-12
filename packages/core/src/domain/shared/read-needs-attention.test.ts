@@ -6,7 +6,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
 
 /** The claim that makes a delivery never acknowledged undeliverable (docs/blueprint.md, "Key flows"). */
-const UNDELIVERABLE_AT_CLAIM = 5;
+const UNDELIVERABLE_AT_ATTEMPT = 5;
 
 let scene: HistoryScenario;
 
@@ -16,7 +16,7 @@ beforeEach(async () => {
 
 /** Has the crew receive until its claims made what it held undeliverable. */
 async function receiveUntilUndeliverable(crew: Crew): Promise<void> {
-  for (let claim = 1; claim <= UNDELIVERABLE_AT_CLAIM; claim += 1) {
+  for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
     await scene.receive(crew);
   }
 }
@@ -32,12 +32,12 @@ describe('reading Needs attention', () => {
     const sentAt = scene.core.clock.now();
     await receiveUntilUndeliverable(scene.scout);
     // Each receive comes a second after the one before; the fifth claim made it undeliverable.
-    const since = new Date(sentAt.getTime() + UNDELIVERABLE_AT_CLAIM * 1_000);
+    const since = new Date(sentAt.getTime() + UNDELIVERABLE_AT_ATTEMPT * 1_000);
 
     await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([
       {
         deliveryId: deliveryOf(messageId)?.id,
-        attempts: UNDELIVERABLE_AT_CLAIM,
+        attempts: UNDELIVERABLE_AT_ATTEMPT,
         since,
         message: {
           id: messageId,

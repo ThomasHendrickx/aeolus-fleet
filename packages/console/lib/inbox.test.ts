@@ -7,13 +7,13 @@ import { questionDeliveryIdsOf, questionFilterCounts } from './questions';
 
 const newId = createIdGenerator();
 const pending = { id: 'a', state: 'pending' } as const;
-const delivered = { id: 'b', state: 'delivered' } as const;
+const handed = { id: 'b', state: 'handed' } as const;
 const acknowledged = { id: 'c', state: 'acknowledged' } as const;
-const messages = [pending, acknowledged, delivered];
+const messages = [pending, acknowledged, handed];
 
 describe('messagesFor', () => {
   it('keeps the messages not done yet for Open, in order', () => {
-    expect(messagesFor(messages, 'open')).toEqual([pending, delivered]);
+    expect(messagesFor(messages, 'open')).toEqual([pending, handed]);
   });
 
   it('keeps the acknowledged ones for Done', () => {

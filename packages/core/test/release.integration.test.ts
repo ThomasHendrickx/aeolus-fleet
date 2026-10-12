@@ -248,7 +248,7 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
     unwrap(await end(scout));
 
     await expect(stored(acknowledged)).resolves.toMatchObject({ state: 'acknowledged', claimedByLeaseId: scout.crew.leaseId });
-    await expect(stored(lookouts)).resolves.toMatchObject({ state: 'delivered', claimedByLeaseId: lookout.crew.leaseId });
+    await expect(stored(lookouts)).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: lookout.crew.leaseId });
   });
 
   it('writes CredentialRevoked, LeaseRevoked and one DeliveryReturned per returned delivery', async () => {
@@ -320,7 +320,7 @@ describe('a session its trierarch stops before it acks (#536)', () => {
     const next = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
 
     expect(await receive(next)).toEqual([deliveryId]);
-    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'delivered', claimedByLeaseId: next.crew.leaseId, attempts: 2 });
+    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: next.crew.leaseId, attempts: 2 });
   });
 });
 
@@ -473,7 +473,7 @@ describe('a release racing a receive', () => {
     await Promise.all(receives);
 
     await expect(
-      prisma.delivery.count({ where: { claimedByLeaseId: scout.crew.leaseId, state: 'delivered' } }),
+      prisma.delivery.count({ where: { claimedByLeaseId: scout.crew.leaseId, state: 'handed' } }),
     ).resolves.toBe(0);
     const returned = await prisma.delivery.count({ where: { fleetId, id: { in: sent }, state: 'pending', attempts: { gt: 0 } } });
     await expect(prisma.event.count({ where: { type: 'DeliveryReturned' } })).resolves.toBe(returned);

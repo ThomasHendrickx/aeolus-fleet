@@ -119,7 +119,7 @@ function pause(ms: number): Promise<void> {
 }
 
 describe('receiving on Postgres', () => {
-  it("claims a delivery: in flight, claimed by the ship and its crew's lease, one attempt, DeliveryClaimed", async () => {
+  it("hands a delivery over at once: handed to the ship and its crew's lease, one attempt, DeliveryHanded", async () => {
     const deliveryId = await sendTo(toShip(scout));
     const message = await prisma.message.findFirstOrThrow();
 
@@ -144,12 +144,12 @@ describe('receiving on Postgres', () => {
       ],
     });
     await expect(stored(deliveryId)).resolves.toMatchObject({
-      state: 'delivered',
+      state: 'handed',
       claimedByShipId: scout.shipId,
       claimedByLeaseId: scout.leaseId,
       attempts: 1,
     });
-    await expect(prisma.event.findMany({ where: { type: 'DeliveryClaimed' } })).resolves.toEqual([
+    await expect(prisma.event.findMany({ where: { type: 'DeliveryHanded' } })).resolves.toEqual([
       expect.objectContaining({
         fleetId,
         actorShipId: scout.shipId,
@@ -190,7 +190,7 @@ describe('receiving on Postgres', () => {
     await expect(stored(forType)).resolves.toMatchObject({ attempts: 2 });
   });
 
-  it('returns a delivery whose receive reply was lost to the same crew, as another claim', async () => {
+  it('hands a delivery whose receive reply was lost to the same crew again, as another attempt', async () => {
     const deliveryId = await sendTo(toShip(scout));
     await receive(scout);
 
@@ -198,7 +198,7 @@ describe('receiving on Postgres', () => {
     await expect(stored(deliveryId)).resolves.toMatchObject({ claimedByLeaseId: scout.leaseId, attempts: 2 });
   });
 
-  it('makes a delivery undeliverable at its fifth claim, and hands out the next one in its place', async () => {
+  it('makes a delivery undeliverable at its fifth attempt, and hands out the next one in its place', async () => {
     const poison = await sendTo(toShip(scout));
     const next = await sendTo(toShip(scout));
     for (let claim = 1; claim <= 4; claim += 1) {
@@ -268,7 +268,7 @@ describe('concurrent receivers of one type', () => {
     const results = await Promise.all(crews.map((crew) => receive(crew, 3)));
 
     expect(results.flat().sort()).toEqual([...sent].sort());
-    await expect(prisma.delivery.count({ where: { state: 'delivered', attempts: 1 } })).resolves.toBe(24);
+    await expect(prisma.delivery.count({ where: { state: 'handed', attempts: 1 } })).resolves.toBe(24);
   });
 });
 
@@ -391,7 +391,7 @@ describe('acknowledging on Postgres', () => {
       isOk: false,
       error: { kind: 'DELIVERY_HELD_BY_ANOTHER_SHIP' },
     });
-    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'delivered', claimedByShipId: lookout.shipId });
+    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'handed', claimedByShipId: lookout.shipId });
   });
 });
 
@@ -406,7 +406,7 @@ describe('checking the inbox on Postgres', () => {
     await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3 } });
     await expect(stored(pending)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(queued)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
-    await expect(stored(inFlight)).resolves.toMatchObject({ state: 'delivered', attempts: 1 });
+    await expect(stored(inFlight)).resolves.toMatchObject({ state: 'handed', attempts: 1 });
   });
 
   it('waits while nothing waits, and answers as soon as a delivery is sent', async () => {

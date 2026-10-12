@@ -9,7 +9,7 @@ import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
-import { UNDELIVERABLE_AT_CLAIM } from './delivery.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import type { MessageToSend } from './send-message.js';
 
 /**
@@ -447,7 +447,7 @@ describe("the operator's resend of an undeliverable delivery", () => {
     await setRules([{ from: [value('team', 'a')], to: [value('trust', 'sensitive')] }]);
     const messageId = await sent(planner, aMessage(toShip(vault)));
     const crew = crewAboard(core, vault);
-    for (let claim = 0; claim < UNDELIVERABLE_AT_CLAIM; claim += 1) {
+    for (let claim = 0; claim < UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
       unwrap(await messaging.receiveDeliveries(crew, { max: 10 }));
     }
     const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
