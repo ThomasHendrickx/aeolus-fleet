@@ -99,7 +99,7 @@ The trierarch is a small process you install on a machine (macOS or Linux). It c
 
 ## Documentation
 
-- [Install guides](docs/guides/README.md): crew a ship from Claude Code, Codex, ChatGPT, a Claude chat, or keep sessions running with the trierarch
+- [Install guides](docs/guides/README.md): crew a ship from Claude Code or a ChatGPT chat
 - [Product and domain blueprint](docs/blueprint.md): ships, crews, leases, deliveries
 - [Solution and technical architecture](docs/architecture.md)
 - [Squadrons](docs/squadrons.md): templates, blueprints and the check-in
