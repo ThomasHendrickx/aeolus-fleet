@@ -2,9 +2,12 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { ok, type Result } from '../shared/result.js';
-import type { FormationAttempts } from './ports.js';
+import type { FormationAttempt, FormationAttempts } from './ports.js';
 
-/** What the fleet answers a retire of a ship there is nothing left to retire of: retired already (CONFLICT), or no such ship. */
+/** Five tries, like commissioning's name attempts: tolerate temporary refusals, then ask argo to handle it. */
+const RECOVERY_REFUSAL_LIMIT = 5;
+
+/** What the fleet answers when a ship is retired already (CONFLICT), or does not exist. */
 const NOTHING_TO_RETIRE: ReadonlySet<string> = new Set(['CONFLICT', 'NOT_FOUND']);
 
 /**
@@ -24,9 +27,18 @@ export type RecoverFormations = (fleetId: FleetId, which: RecoveredAttempts) => 
  * killed before its id was recorded, by its name among the fleet's ships. A
  * ship retired already is fine. Then the attempt is finished, unless the
  * fleet refused one of its retires: it stays unfinished, so the next
- * recovery retires that ship (#738).
+ * recovery retires that ship (#738). After five refused recovery passes,
+ * retiring stops and argo gets one plain notice (#740). The notice keeps the
+ * same key across retries and restarts; finishing waits for its durable send.
  */
 export function createRecoverFormations(deps: { door: FleetDoor; management: ManagementCrewStore; attempts: FormationAttempts }): RecoverFormations {
+  const tellArgo = async (attempt: FormationAttempt, crewToken: string) => deps.door.send(crewToken, {
+    selector: { kind: 'ship', name: 'argo' },
+    contentType: 'text/plain',
+    payload: `Formation recovery stopped in fleet ${attempt.fleetId} after ${String(RECOVERY_REFUSAL_LIMIT)} refused retire passes. Ships: ${attempt.ships.map((ship) => ship.name).join(', ')}. Check and retire the ships still active.`,
+    idempotencyKey: `formation-recovery-stopped-${attempt.id}`,
+  });
+
   return async (fleetId, which) => {
     const crew = await deps.management.find(fleetId);
     if (!crew) {
@@ -35,6 +47,14 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
     const unfinished = (await deps.attempts.unfinished(crew.fleetId)).filter((attempt) => which === 'all' || attempt.isGivenUp);
     let retired = 0;
     for (const attempt of unfinished) {
+      if (attempt.recoveryRefusals >= RECOVERY_REFUSAL_LIMIT) {
+        const told = await tellArgo(attempt, crew.crewToken);
+        if (!told.isOk) {
+          return told;
+        }
+        await deps.attempts.finish(attempt.id);
+        continue;
+      }
       let byName: Map<string, ShipId> | undefined;
       if (attempt.ships.some((ship) => ship.shipId === null)) {
         const listed = await deps.door.listShips(crew.crewToken);
@@ -58,6 +78,16 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
       }
       if (isEveryShipRetired) {
         await deps.attempts.finish(attempt.id);
+      } else {
+        const recoveryRefusals = attempt.recoveryRefusals + 1;
+        await deps.attempts.recordRecoveryRefusal(crew.fleetId, attempt.id);
+        if (recoveryRefusals >= RECOVERY_REFUSAL_LIMIT) {
+          const told = await tellArgo(attempt, crew.crewToken);
+          if (!told.isOk) {
+            return told;
+          }
+          await deps.attempts.finish(attempt.id);
+        }
       }
     }
     return ok({ recovered: unfinished.length, retired });
