@@ -1385,6 +1385,79 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
         expect(actions().at(-1)).toEqual({ ...scout, action: 'wakeBridge', outcome: `queued a hand-over of ${DELIVERY_ID} to Codex task ${THREAD_ID}` });
       });
     });
+
+    describe('the queued prompt (UserPromptSubmit)', () => {
+      const theQueuedPrompt = () => aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: QUEUED });
+
+      it('acknowledges the handed message first, then adds it to the context of the turn the prompt starts', async () => {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/ack': [acknowledged] });
+
+        const prompted = await theQueuedPrompt();
+
+        expect(callsTo(stub, '/api/v1/ship/ack')).toEqual([
+          { method: 'POST', path: '/api/v1/ship/ack', authorization: `Bearer ${CREW_TOKEN}`, body: `{"deliveryId":"${DELIVERY_ID}"}` },
+        ]);
+        expect(JSON.parse(prompted.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: MESSAGE } });
+        expect(store()).toEqual([`${DELIVERY_ID} confirmed`]);
+      });
+
+      it('adds nothing while the fleet refuses the acknowledgement, and keeps the message received for the next hand-over', async () => {
+        await aCodexHandOver({ '/api/v1/ship/ack': [busy] });
+
+        expect((await theQueuedPrompt()).stdout).toBe('');
+        expect(store()).toEqual([`${DELIVERY_ID} received`]);
+      });
+
+      it('puts a ping in without an acknowledgement: its pong confirms it', async () => {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/pushReceive': [receiving(aPing())] });
+
+        const prompted = await theQueuedPrompt();
+
+        expect(callsTo(stub, '/api/v1/ship/ack')).toEqual([]);
+        expect(JSON.parse(prompted.stdout)).toEqual({
+          hookSpecificOutput: {
+            hookEventName: 'UserPromptSubmit',
+            additionalContext: PING.replace('"/plugin/scripts/', `"${SCRIPTS}`),
+          },
+        });
+      });
+
+      it('reports the turn busy to the fleet, with the time it marked it', async () => {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/turn': [taken] });
+        await theQueuedPrompt();
+        await aCodexTurnEnds();
+
+        await aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: 'go on' });
+
+        const [state, at] = turn(AS_CODEX).stdout.trim().split(' ');
+        expect(state).toBe('busy');
+        const reported = callsTo(stub, '/api/v1/ship/turn').map((call) => call.body);
+        expect(reported.map((body) => z.object({ turn: z.string() }).parse(JSON.parse(body)).turn)).toEqual(['busy', 'idle', 'busy']);
+        expect(reported.at(-1)).toBe(`{"turn":"busy","at":"${at ?? ''}"}`);
+      });
+    });
+
+    describe('the end of the turn (Stop)', () => {
+      it('reports the message the turn took handled, drops it and says nothing', async () => {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/ack': [acknowledged] });
+        await aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: QUEUED });
+
+        expect((await aCodexTurnEnds()).stdout).toBe('');
+        expect(callsTo(stub, '/api/v1/ship/handled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+        expect(store()).toEqual([]);
+      });
+
+      it('reports the turn idle to the fleet, with the time it marked it', async () => {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/turn': [taken] });
+        await aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: QUEUED });
+
+        await aCodexTurnEnds();
+
+        const [state, at] = turn(AS_CODEX).stdout.trim().split(' ');
+        expect(state).toBe('idle');
+        expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body).at(-1)).toBe(`{"turn":"idle","at":"${at ?? ''}"}`);
+      });
+    });
   });
 
   it('reports no turn and nothing handled for a lease the watcher has not pushed: the ship pulls', async () => {
