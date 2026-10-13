@@ -1458,6 +1458,51 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
         expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body).at(-1)).toBe(`{"turn":"idle","at":"${at ?? ''}"}`);
       });
     });
+
+    describe('an interrupted turn (Interrupt): a died turn (3.7, D3)', () => {
+      const ONCE_MORE = 'aeolus: handed before: the turn that took this message ended before it did, so it comes in once more.\n\n';
+      const anInterrupt = () => aCodexHook('aeolus-turn-died.sh', { hook_event_name: 'Interrupt', permission_mode: 'default', transcript_path: null });
+      const aPrompt = () => aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: 'go on' });
+
+      /** The bridge hands a message over, and the queued prompt confirms it. */
+      async function aConfirmedMessage(routes: Record<string, readonly StubAnswer[]>) {
+        const { stub } = await aCodexHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], ...routes });
+        await aCodexHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: QUEUED });
+        return stub;
+      }
+
+      it('keeps the message the turn took to hand once more at the next prompt, says nothing, and reports the turn idle', async () => {
+        const stub = await aConfirmedMessage({ '/api/v1/ship/turn': [taken] });
+
+        expect(await anInterrupt()).toEqual({ status: 0, stdout: '', stderr: '' });
+        expect(store()).toEqual([`${DELIVERY_ID} onceMore`]);
+        const [state, at] = turn(AS_CODEX).stdout.trim().split(' ');
+        expect(state).toBe('idle');
+        expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body).at(-1)).toBe(`{"turn":"idle","at":"${at ?? ''}"}`);
+        expect(callsTo(stub, '/api/v1/ship/handled')).toEqual([]);
+      });
+
+      it('lets the next prompt put the message in once more, reported handed once more with the next number', async () => {
+        const stub = await aConfirmedMessage({});
+        await anInterrupt();
+
+        const prompted = await aPrompt();
+
+        expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body).at(-1)).toBe(`{"deliveryId":"${DELIVERY_ID}","handOverNumber":2,"isOnceMore":true}`);
+        expect(JSON.parse(prompted.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: ONCE_MORE + MESSAGE } });
+      });
+
+      it('reports the message not handled when the turn it was handed once more to is interrupted too, and drops it', async () => {
+        const stub = await aConfirmedMessage({ '/api/v1/ship/notHandled': [taken] });
+        await anInterrupt();
+        await aPrompt();
+
+        await anInterrupt();
+
+        expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+        expect(store()).toEqual([]);
+      });
+    });
   });
 
   it('reports no turn and nothing handled for a lease the watcher has not pushed: the ship pulls', async () => {

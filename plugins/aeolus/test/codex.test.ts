@@ -269,6 +269,27 @@ describe('the Codex plugin package', () => {
   });
 });
 
+describe('Codex hooks on the new fleet (#756)', () => {
+  it('tells an interrupted turn apart as a died turn (3.7, D3)', () => {
+    const hook = z.object({ type: z.string(), command: z.string(), commandWindows: z.string() });
+    const hooks = z
+      .object({ hooks: z.record(z.string(), z.array(z.object({ matcher: z.string().optional(), hooks: z.array(hook) }))) })
+      .parse(json(join(PLUGIN, 'hooks/hooks.json'))).hooks;
+
+    expect(hooks.Interrupt).toEqual([
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'bash "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/scripts/aeolus-turn-died.sh"',
+            commandWindows: 'bash "%PLUGIN_ROOT%\\scripts\\aeolus-turn-died.sh"',
+          },
+        ],
+      },
+    ]);
+  });
+});
+
 describe('Codex plugin state', () => {
   it('keeps one identity per working folder in ~/.aeolus/crews/codex, outside the plugin data directory (#658)', () => {
     const written = runScript('aeolus-identity.sh', {
