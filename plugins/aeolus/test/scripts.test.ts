@@ -161,6 +161,17 @@ function aWakingFleet(counts: readonly StubAnswer[], receives: readonly StubAnsw
 const inboxCalls = (stub: StubFleet) => stub.calls.filter((call) => call.path === '/api/v1/ship/inbox');
 
 
+/** A codex on PATH that writes down each call; the env to run the bridge with it, and the calls file. */
+function aCodex() {
+  const bin = join(data, 'bin');
+  const calls = join(data, 'codex.calls');
+  mkdirSync(bin, { recursive: true });
+  const codex = join(bin, 'codex');
+  writeFileSync(codex, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${calls}"\n`);
+  chmodSync(codex, 0o700);
+  return { env: { PATH: `${bin}:${process.env.PATH ?? ''}` }, calls };
+}
+
 /** The session took a prompt: its turn is busy. */
 function aPromptSubmitted(): void {
   expect(claudeHook('aeolus-turn.sh', { hook_event_name: 'UserPromptSubmit', prompt: 'hello' }).status).toBe(0);
@@ -1315,6 +1326,67 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
   });
 
+  describe('in Codex: the wake bridge hands a message over, and the prompt it queues confirms it (2b, Codex)', () => {
+    const THREAD_ID = '01a103c9-80b0-7ab1-82e3-6f4a2f70ad86';
+    const QUEUED =
+      "Aeolus handed a message for scout to this task: it comes into this turn through the plugin's hooks, acknowledged. " +
+      'Do not receive or ack it. Handle it as the aeolus-crew skill says, then re-arm automatic wake-up before ending the turn.';
+
+    /** Runs a hook as Codex does: PLUGIN_ROOT and PLUGIN_DATA set, the task id in the payload, no Claude Code variables. */
+    const aCodexHook = (script: string, payload: Record<string, unknown>) =>
+      start(script, {
+        stdin: JSON.stringify({ session_id: THREAD_ID, turn_id: 'turn-1', cwd: folder, model: 'gpt-5.5', ...payload }),
+        env: {
+          AEOLUS_FOLDER: '',
+          AEOLUS_DATA: '',
+          CLAUDE_PROJECT_DIR: '',
+          CLAUDE_PLUGIN_DATA: '',
+          CLAUDE_PLUGIN_ROOT: '',
+          PLUGIN_DATA: data,
+          PLUGIN_ROOT: SCRIPTS.replace(/\/scripts\/$/, ''),
+          AEOLUS_CODEX_WAKE_DISABLED: '1',
+          ...NO_WAITS,
+        },
+      }).done;
+
+    /** The Codex task's turn ends, and the Stop hook lets it end. */
+    const aCodexTurnEnds = () => aCodexHook('aeolus-stop.sh', { hook_event_name: 'Stop', stop_hook_active: false, last_assistant_message: 'done' });
+
+    /** The wake bridge runs once for the task, with a codex on PATH that writes down what it queues. */
+    async function aCodexHandOver(routes: Record<string, readonly StubAnswer[]>) {
+      fleet = await startRoutedStubFleet({
+        '/api/v1/ship/inbox': [inbox(1)],
+        '/api/v1/ship/pushReceive': [receiving(aDelivery())],
+        '/api/v1/ship/handed': [handedOk],
+        '/api/v1/ship/handled': [taken],
+        ...routes,
+      });
+      crew(fleet.url, AS_CODEX);
+      await aCodexTurnEnds();
+      const codex = aCodex();
+      await expect(start('aeolus-codex-wake.sh', { args: ['run', THREAD_ID], env: { ...AS_CODEX, ...codex.env } }).exited).resolves.toMatchObject({ status: 0 });
+      return { stub: fleet, queued: () => readFileSync(codex.calls, 'utf8') };
+    }
+
+    describe('the wake bridge', () => {
+      it('push-receives one delivery while the task is idle, reports it handed with its number and keeps it in the store as handed', async () => {
+        const { stub } = await aCodexHandOver({});
+
+        expect(callsTo(stub, '/api/v1/ship/pushReceive').map((call) => call.body)).toEqual(['{"max":1}']);
+        expect(callsTo(stub, '/api/v1/ship/receive')).toEqual([]);
+        expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}","handOverNumber":1}`]);
+        expect(store()).toEqual([`${DELIVERY_ID} handed`]);
+      });
+
+      it('queues one prompt to the task, saying the message comes into that turn through the hooks, without its content', async () => {
+        const { queued } = await aCodexHandOver({});
+
+        expect(queued()).toBe(`queue --thread ${THREAD_ID} --message ${QUEUED}\n`);
+        expect(actions().at(-1)).toEqual({ ...scout, action: 'wakeBridge', outcome: `queued a hand-over of ${DELIVERY_ID} to Codex task ${THREAD_ID}` });
+      });
+    });
+  });
+
   it('reports no turn and nothing handled for a lease the watcher has not pushed: the ship pulls', async () => {
     fleet = await startRoutedStubFleet({});
     crew(fleet.url);
@@ -1336,17 +1408,6 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
 
 describe('the Codex wake bridge', () => {
   const THREAD_ID = '01a103c9-80b0-7ab1-82e3-6f4a2f70ad86';
-
-  /** A codex on PATH that writes down each call; the env to run the bridge with it, and the calls file. */
-  function aCodex() {
-    const bin = join(data, 'bin');
-    const calls = join(data, 'codex.calls');
-    mkdirSync(bin, { recursive: true });
-    const codex = join(bin, 'codex');
-    writeFileSync(codex, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${calls}"\n`);
-    chmodSync(codex, 0o700);
-    return { env: { PATH: `${bin}:${process.env.PATH ?? ''}` }, calls };
-  }
 
   const queued = (calls: string) => (statSync(calls, { throwIfNoEntry: false }) ? readFileSync(calls, 'utf8') : '');
 
