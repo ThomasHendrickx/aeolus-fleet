@@ -40,15 +40,22 @@ export function useNeedsAttention() {
   return useQuery(trpc.fleet.needsAttention.queryOptions());
 }
 
+/** Needs attention: the pending deliveries to a type no active ship can take, oldest sent first (decision 0041). */
+export function useNoShipCanTake() {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.noShipCanTake.queryOptions());
+}
+
 /**
  * How many things need attention, for the navigation: the undeliverable
- * and not handled deliveries and, with squadrons on, the silent members. Undefined until the
- * deliveries are known.
+ * and not handled deliveries, the deliveries no ship can take and, with
+ * squadrons on, the silent members. Undefined until the deliveries are known.
  */
 export function useAttentionCount(): number | undefined {
   const deliveries = useNeedsAttention().data?.length;
+  const noShipCanTake = useNoShipCanTake().data?.length;
   const squadrons = useSquadrons();
-  return deliveries === undefined ? undefined : deliveries + silentMembers(squadrons.data ?? []).length;
+  return deliveries === undefined || noShipCanTake === undefined ? undefined : deliveries + noShipCanTake + silentMembers(squadrons.data ?? []).length;
 }
 
 /** Refreshes Needs attention, and every ship page read, after a resend or a dismiss. */

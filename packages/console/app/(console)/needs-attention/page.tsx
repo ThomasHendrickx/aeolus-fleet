@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { showToast } from '../../../components/atoms/toast';
 import { NeedsAttentionList } from '../../../features/needs-attention/organisms/needs-attention-list';
+import { NoShipCanTake } from '../../../features/needs-attention/organisms/no-ship-can-take';
 import { GetNewCrewLine } from '../../../features/squadrons/organisms/get-new-crew-line';
 import { SilentMembers } from '../../../features/needs-attention/organisms/silent-members';
 import { ListPage } from '../../../components/organisms/list-page';
@@ -19,6 +20,7 @@ import {
   resentToast,
   useDismissDelivery,
   useNeedsAttention,
+  useNoShipCanTake,
   useResendDelivery,
 } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -31,13 +33,16 @@ import { silentMembers } from '../../../lib/squadrons-view';
 /**
  * Needs attention, live: every undeliverable delivery, oldest first. Resend
  * sends it again as a new message from its sender; Dismiss lets it go. Either
- * removes it from the list, with a toast. Without a session it sends the
- * operator to sign in.
+ * removes it from the list, with a toast. Beside them, the deliveries no ship
+ * can take, which clear by themselves once a ship of their type is
+ * commissioned, and the silent squadron members. Without a session it sends
+ * the operator to sign in.
  */
 export default function NeedsAttentionPage() {
   const router = useRouter();
   const now = useNow();
   const attention = useNeedsAttention();
+  const noShipCanTake = useNoShipCanTake().data ?? [];
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
@@ -109,7 +114,7 @@ export default function NeedsAttentionPage() {
       description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
     >
-      {silent.length > 0 ? (
+      {silent.length > 0 || noShipCanTake.length > 0 ? (
         <div className="flex flex-col gap-6">
           <section aria-labelledby="attention-undeliverable" className="flex flex-col gap-2">
             <h2 id="attention-undeliverable" className="text-body font-semibold">
@@ -117,26 +122,45 @@ export default function NeedsAttentionPage() {
             </h2>
             {attention.data?.length === 0 ? <p className="text-meta text-muted-foreground">None.</p> : deliveriesList}
           </section>
-          <section aria-labelledby="attention-silent" className="flex flex-col gap-2 max-sm:order-first">
-            <h2 id="attention-silent" className="text-body font-semibold">
-              Silent members ({silent.length})
-            </h2>
-            <SilentMembers
-              members={silent}
-              ships={shipsById}
-              now={now}
-              renderAction={
-                access.canManage
-                  ? ({ squadronId, member }) => (
-                      <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
-                    )
-                  : undefined
-              }
-            />
-            <p className="text-meta text-muted-foreground">
-              A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.
-            </p>
-          </section>
+          {noShipCanTake.length > 0 ? (
+            <section aria-labelledby="attention-no-ship-can-take" className="flex flex-col gap-2">
+              <h2 id="attention-no-ship-can-take" className="text-body font-semibold">
+                No ship can take it ({noShipCanTake.length})
+              </h2>
+              <NoShipCanTake
+                deliveries={noShipCanTake}
+                onOpen={(delivery) => {
+                  router.push(messagePathOf(delivery));
+                }}
+                now={now}
+              />
+              <p className="text-meta text-muted-foreground">
+                Sent to a type no active ship has, or none its sender may reach. Commission a ship of the type and it takes them; they clear by themselves.
+              </p>
+            </section>
+          ) : null}
+          {silent.length > 0 ? (
+            <section aria-labelledby="attention-silent" className="flex flex-col gap-2 max-sm:order-first">
+              <h2 id="attention-silent" className="text-body font-semibold">
+                Silent members ({silent.length})
+              </h2>
+              <SilentMembers
+                members={silent}
+                ships={shipsById}
+                now={now}
+                renderAction={
+                  access.canManage
+                    ? ({ squadronId, member }) => (
+                        <GetNewCrewLine squadronId={squadronId} member={member} ship={silentShips.get(member.shipId)} isPrimary testId="silent-member-new-crew-line" />
+                      )
+                    : undefined
+                }
+              />
+              <p className="text-meta text-muted-foreground">
+                A member is silent after 3 missed check-ins; only you can start its new session. Late members and blocked reports stay on their squadron page.
+              </p>
+            </section>
+          ) : null}
         </div>
       ) : (
         deliveriesList
