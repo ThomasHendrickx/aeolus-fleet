@@ -16,7 +16,7 @@ import { unwrap } from '../packages/core/test/support/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) brings a step's anchor into view before it points
-// at it, at desktop and phone widths. The anchor is a retired ship's day, in
+// at it, at desktop and phone widths. The anchor is a retired ship's row, in
 // the middle of a long overview with retired ships shown, and the window ends
 // just above it: the step's popover then fits above the anchor, so nothing
 // else scrolls the page.
@@ -25,7 +25,7 @@ const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const DESKTOP = { viewport: { width: 1280, height: 800 } };
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 const SHIPS_ABOVE_AND_BELOW = 10;
-const ANCHOR = 'fleet-retired-on';
+let anchor = 'fleet-row-old';
 /** How far below the fold the anchor starts, in pixels. */
 const BELOW_THE_FOLD = 4;
 
@@ -65,7 +65,7 @@ beforeAll(async () => {
       audience: 'viewers',
       steps: [
         { path: '/inbox', title: 'Messages to argo', text: 'What the fleet sends the operator.' },
-        { path: '/?retired=1', anchor: ANCHOR, title: 'Retired ships', text: 'A retired ship keeps the day it was retired.' },
+        { path: '/?retired=1', anchor, title: 'Retired ships', text: 'A retired ship keeps its read-only page.' },
       ],
     },
   });
@@ -91,7 +91,7 @@ async function signedInViewer(options: BrowserContextOptions): Promise<Page> {
 
 /** Where the anchor this width shows sits in the window; null while it is not there. */
 function anchorBox(page: Page): Promise<{ y: number; height: number } | null> {
-  return page.locator(`[data-testid="${ANCHOR}"]:visible`).first().boundingBox({ timeout: SETTLE_MS });
+  return page.locator(`[data-testid="${anchor}"]:visible`).first().boundingBox({ timeout: SETTLE_MS });
 }
 
 /** How long the anchor must stay put before the page counts as settled. */
@@ -133,6 +133,11 @@ describe('a guide step whose anchor is below the fold', () => {
     ['desktop', DESKTOP],
     ['phone', PHONE],
   ])('scrolls its anchor into view before pointing at it, at %s width', async (_width, options) => {
+    anchor = _width === 'phone' ? 'fleet-card-old' : 'fleet-row-old';
+    await installation().guide.set.mutate({ guide: { audience: 'viewers', steps: [
+      { path: '/inbox', title: 'Messages to argo', text: 'What the fleet sends the operator.' },
+      { path: '/?retired=1', anchor, title: 'Retired ships', text: 'A retired ship keeps its read-only page.' },
+    ] } });
     const page = await signedInViewer(options);
     await foldJustAboveTheAnchor(page);
     await page.goto('/inbox');

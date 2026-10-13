@@ -137,7 +137,9 @@ describe('commissioning a ship in the console', () => {
     await promptBlock(page, 'scout').waitFor({ state: 'detached' });
     const row = shipRow(page, 'scout');
     await row.getByText('Awaiting crew').waitFor();
-    await row.getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
+    await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
+    await row.getByRole('link', { name: 'scout' }).click();
+    await page.getByTestId('ship-header').getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
     await page.reload();
     await shipRow(page, 'scout').waitFor();
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
@@ -295,8 +297,10 @@ describe('releasing a crewed ship', () => {
     await page.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await row.getByText('Awaiting crew').waitFor();
-    await row.getByText('No starting prompt issued').waitFor();
+    await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
     await row.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await row.getByRole('link', { name: 'coxswain' }).click();
+    await page.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
     await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();
   });
 

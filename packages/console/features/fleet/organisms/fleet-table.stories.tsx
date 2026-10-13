@@ -405,3 +405,31 @@ export const LongNamePhone: Story = {
     await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
   },
 };
+
+
+/** Only members carry SquadronTag; a flagship keeps its existing kind and actions. */
+export const FlagshipAndMember: Story = {
+  ...SquadronsOn,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const flagship = canvas.getByTestId('fleet-row-builder-core');
+    const member = canvas.getByTestId('fleet-row-builder-web');
+    await expect(within(flagship).getByTestId('fleet-flagship')).toBeVisible();
+    await expect(flagship.querySelector('[data-slot="squadron-tag"]')).toBeNull();
+    await expect(member.querySelectorAll('[data-slot="squadron-tag"]').length).toBe(1);
+  },
+};
+
+/** The page renders an action component even when that component has no next step. */
+function NoNextStep() {
+  return null;
+}
+
+export const ReportWithEmptyNextStep: Story = {
+  ...Reported,
+  args: { ...Reported.args, renderRowActions: (listed, layout) => layout === 'next' ? <NoNextStep /> : rowActions(listed, layout) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(within(canvas.getByTestId('fleet-row-implementer-01')).getByTestId('fleet-report')).toBeVisible();
+  },
+};

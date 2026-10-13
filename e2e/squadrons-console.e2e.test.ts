@@ -205,7 +205,8 @@ describe('the first squadron in the console', () => {
     await page.getByTestId('fleet-flagship').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
     const tag = page.locator('[data-slot="squadron-tag"]').first();
     await tag.waitFor();
-    await expect(tag.textContent()).resolves.toMatch(/^team-[a-z0-9]{6}· tester$/);
+    await expect(tag.textContent()).resolves.toMatch(/^team-[a-z0-9]{6}$/);
+    await expect(tag.locator('..').getAttribute('title')).resolves.toMatch(/^team-[a-z0-9]{6} · tester$/);
     await expect(tag.getAttribute('href')).resolves.toMatch(/^\/squadrons\/team-[a-z0-9]{6}$/);
   });
 
