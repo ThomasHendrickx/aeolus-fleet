@@ -1408,7 +1408,8 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
         const [state, at] = turn(AS_CODEX).stdout.trim().split(' ');
         expect(state).toBe('busy');
         const reported = callsTo(stub, '/api/v1/ship/turn').map((call) => call.body);
-        expect(reported.map((body) => z.object({ turn: z.string() }).parse(JSON.parse(body)).turn)).toEqual(['busy', 'idle', 'busy']);
+        // The watcher's busy and the queued prompt's are one report when they fall in the same second, else two.
+        expect(reported.map((body) => z.object({ turn: z.string() }).parse(JSON.parse(body)).turn).slice(-2)).toEqual(['idle', 'busy']);
         expect(reported.at(-1)).toBe(`{"turn":"busy","at":"${at ?? ''}"}`);
       });
     });
