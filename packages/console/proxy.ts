@@ -17,6 +17,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  // Every console page; not sign-in, the web app's own API, health and version, or Next's and the app's static files.
-  matcher: ['/((?!sign-in|api|health|version|_next|icon\\.svg|favicon\\.ico|.*\\.(?:woff2?|png|svg|ico)$).*)'],
+  // Every console page; not sign-in, the web app's own API, health and version, /.well-known (OAuth discovery answers 404: the fleet has no OAuth), or Next's and the app's static files.
+  matcher: ['/((?!sign-in|api|health|version|\\.well-known|_next|icon\\.svg|favicon\\.ico|.*\\.(?:woff2?|png|svg|ico)$).*)'],
 };
