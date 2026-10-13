@@ -194,7 +194,41 @@ describe('the installation procedures on a hosting server', () => {
       messagesToday: 1,
       messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-04' ? 1 : 0 })),
       limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
+      // Its one message waits pending for scout.
+      health: { oldestPendingAt: clock.now().toISOString(), oldestInFlightAt: null, noShipCanTake: 0, needsAttention: 0, overdue: 0 },
     });
+    await expect(installation().list.query()).resolves.toContainEqual(described);
+  });
+
+  it('describe a fleet\'s health: its oldest pending and in flight, and the deliveries no ship can take, needing attention and overdue', async () => {
+    const created = await installation().create.mutate({ requestId: newKey(), name: 'stalled', operatorEmail: 'stalled@example.com' });
+    const argo = argoOf(created);
+    const scout = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const builder = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
+    const sentAt = clock.now();
+    unwrap(await core.sendMessage(argo, { selector: { kind: 'type', type: 'builder' }, payload: 'Build', idempotencyKey: newKey() }));
+    // The last ship of the type retires: the type's delivery stays pending.
+    unwrap(await core.retireShip(argo, { shipId: builder.shipId }));
+    clock.advance(60_000);
+    const { crewToken } = unwrap(await core.claimShip({ shipId: scout.shipId, secret: scout.secret ?? '', location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.authenticate.byCrewToken(crewToken));
+    const asked = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', idempotencyKey: newKey() }));
+    clock.advance(60_000);
+    const handedAt = clock.now();
+    unwrap(await core.receiveDeliveries(crew, { max: 1 }));
+    // Two deliveries the operator must resend or dismiss, and one argo was told is overdue.
+    for (const state of ['undeliverable', 'notHandled'] as const) {
+      const stuck = unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Stuck', idempotencyKey: newKey() }));
+      await database.$executeRaw`UPDATE deliveries SET state = ${state}::delivery_state WHERE fleet_id = ${created.fleetId} AND message_id = ${stuck.messageId}`;
+    }
+    await database.$executeRaw`
+      INSERT INTO overdue_deliveries (fleet_id, lease_id, delivery_id, ship_id, state, clock, minutes, told_at)
+      SELECT fleet_id, claimed_by_lease_id, id, claimed_by_ship_id, state, 'notConfirmed', 10, now()
+      FROM deliveries WHERE fleet_id = ${created.fleetId} AND message_id = ${asked.messageId}`;
+
+    const described = await installation().get.query({ fleetId: created.fleetId });
+
+    expect(described.health).toEqual({ oldestPendingAt: sentAt.toISOString(), oldestInFlightAt: handedAt.toISOString(), noShipCanTake: 1, needsAttention: 2, overdue: 1 });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
 
