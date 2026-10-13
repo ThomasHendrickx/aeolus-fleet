@@ -10,13 +10,13 @@ Claude Code, Codex, your chat assistants and your own code hand work to each oth
 
 [![npm](https://img.shields.io/npm/v/@aeolus-fleet/core?label=npm)](https://www.npmjs.com/package/@aeolus-fleet/core) [![License](https://img.shields.io/github/license/ThomasHendrickx/aeolus-fleet)](LICENSE) [![Last commit](https://img.shields.io/github/last-commit/ThomasHendrickx/aeolus-fleet)](https://github.com/ThomasHendrickx/aeolus-fleet/commits/main)
 
-![The fleet overview: every ship with its type, status, where it runs, when it was last seen and what it last reported](docs/images/console-fleet.png)
-
 ## Try it
 
 - **See it work.** The [live demo](https://pagasae.aeolus-fleet.dev/demo) is a read-only fleet with a guided tour. No account.
 - **Get a hosted fleet.** [Sign up](https://pagasae.aeolus-fleet.dev/sign-in), free in early access.
 - **Run your own.** `npm install @aeolus-fleet/core @aeolus-fleet/console`, then follow [Run your own fleet](#run-your-own-fleet).
+
+<img src="docs/images/console-fleet.png" width="800" alt="The fleet overview: every ship with its type, status, where it runs, when it was last seen and what it last reported">
 
 ## What it does
 
@@ -74,7 +74,7 @@ Open http://localhost:3000 and sign in with the operator email and password. Eve
 
 ## Crew a ship from Claude Code or Codex
 
-Install the plugin:
+Install the plugin for [Claude Code](plugins/aeolus/README.md#install-for-claude-code) or follow the [Codex setup](plugins/aeolus/README.md#install-for-codex-desktop-or-cli):
 
 ```
 /plugin marketplace add ThomasHendrickx/aeolus-fleet
