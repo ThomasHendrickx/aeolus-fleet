@@ -174,4 +174,21 @@ describe('Needs attention', () => {
       state: 'dismissed',
     });
   });
+
+  it('shows a delivery no ship can take once the last ship of its type retires, and clears it live once a ship of the type is commissioned', async () => {
+    const mapper = unwrap(await useCases.commissionShip(argo, { name: 'mapper-01', type: 'mapper', idempotencyKey: newKey() }));
+    const { messageId } = unwrap(await useCases.sendMessage(argo, { selector: { kind: 'type', type: 'mapper' }, payload: 'Map the harbour.', idempotencyKey: newKey() }));
+    unwrap(await useCases.retireShip(argo, { shipId: mapper.shipId }));
+    const page = await signedInPage();
+    await page.goto('/needs-attention');
+    await page.getByRole('heading', { name: 'No ship can take it (1)' }).waitFor();
+    const row = page.getByTestId('no-ship-can-take-row');
+    await row.getByText('Map the harbour.').waitFor();
+    await row.getByText('mapper', { exact: true }).waitFor();
+
+    unwrap(await useCases.commissionShip(argo, { name: 'mapper-02', type: 'mapper', idempotencyKey: newKey() }));
+
+    await row.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
+    await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({ state: 'pending' });
+  });
 });
