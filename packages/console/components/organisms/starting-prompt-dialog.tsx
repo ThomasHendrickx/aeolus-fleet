@@ -5,6 +5,7 @@ import type { CrewLine } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
+import { SOURCE_URL } from '../../lib/source';
 import { Button } from '../atoms/button';
 import { CodeBlock } from '../atoms/code-block';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
@@ -12,6 +13,9 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
 import { CrewLines } from '../molecules/crew-lines';
 import { InlineError } from '../molecules/inline-error';
+
+/** Where connecting a ChatGPT chat to the fleet is described, step by step. */
+const CHATGPT_GUIDE_URL = `${SOURCE_URL}/blob/main/docs/guides/chatgpt.md`;
 
 /** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
 export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
@@ -99,7 +103,11 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
             Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code or Codex
-            with the aeolus plugin. Any earlier prompt for {shipName} stops working now.
+            with the aeolus plugin. Any earlier prompt for {shipName} stops working now.{' '}
+            <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
+              Connect a ChatGPT chat
+            </a>
+            .
           </DialogDescription>
         </DialogHeader>
 
