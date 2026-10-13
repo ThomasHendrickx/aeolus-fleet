@@ -117,8 +117,6 @@ const MESSAGE_ID = 'msg_01m4raygfdtsjfbnmpvqjznsyv';
 const PING_DELIVERY_ID = 'dlv_01m4rb0m3d6r4xgnmnhm1k8b2q';
 const HANDED_OVER = 'aeolus: a message for scout is handed to this session: it reaches you at your next tool call, or when you end your turn. Do not receive or ack it.\n';
 const NO_WAITS = { AEOLUS_BUSY_WAITS: '0 0 0 0' };
-/** How the Codex wake bridge runs the watcher: it wakes the task, which receives for itself. */
-const WAKE_ONLY = { AEOLUS_WAKE_ONLY: '1' };
 
 /** A delivery as the fleet's receive answers it. */
 function aDelivery(overrides: Record<string, unknown> = {}) {
@@ -547,7 +545,7 @@ describe('aeolus-wait', () => {
   });
 });
 
-describe("the watcher's wake rule: one wake per rise in the waiting count, given only when the session is idle", () => {
+describe("the watcher's wake rule: given only when the session is idle", () => {
   it('holds the wake while the session is busy, and gives it once the turn ends', async () => {
     fleet = await aWakingFleet([inbox(1)]);
     const stub = fleet;
@@ -600,28 +598,6 @@ describe("the watcher's wake rule: one wake per rise in the waiting count, given
     await start('aeolus-wait.sh').exited;
 
     expect(turn().stdout).toMatch(/^busy /);
-  });
-
-  it('wakes once per rise, for the Codex wake bridge: started again, it wakes not for the deliveries it already woke for, but for one more', async () => {
-    fleet = await startStubFleet([inbox(2), inbox(2), inbox(2), inbox(3)]);
-    crew(fleet.url);
-    aTurnEnded();
-    await start('aeolus-wait.sh', { env: WAKE_ONLY }).exited;
-    aTurnEnded();
-
-    await expect(start('aeolus-wait.sh', { env: WAKE_ONLY }).exited).resolves.toEqual({ status: 0, stdout: 'aeolus: 3 deliveries wait for scout: receive them\n' });
-    expect(fleet.calls).toHaveLength(4);
-  });
-
-  it('wakes again once the count rises after the session received what waited, for the Codex wake bridge', async () => {
-    fleet = await startStubFleet([inbox(2), inbox(0), inbox(1)]);
-    crew(fleet.url);
-    aTurnEnded();
-    await start('aeolus-wait.sh', { env: WAKE_ONLY }).exited;
-    aTurnEnded();
-
-    await expect(start('aeolus-wait.sh', { env: WAKE_ONLY }).exited).resolves.toEqual({ status: 0, stdout: 'aeolus: 1 deliveries wait for scout: receive them\n' });
-    expect(fleet.calls).toHaveLength(3);
   });
 
   it('keeps a wake it held for a busy session when it is started again', async () => {
