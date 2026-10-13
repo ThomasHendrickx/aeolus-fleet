@@ -14,12 +14,34 @@ describe('the release gate', () => {
     expect(releaseRefusal({ ref: MAIN, sha: SHA, runs: [aCiRun()] })).toBeUndefined();
   });
 
-  it('refuses any ref but main, naming it', () => {
-    expect(releaseRefusal({ ref: 'refs/heads/feature', sha: SHA, runs: [aCiRun()] })).toBe('A release runs only from main, not from refs/heads/feature');
+  it('lets a commit on a hotfix branch whose CI run passed be released', () => {
+    expect(releaseRefusal({ ref: 'refs/heads/hotfix/0.24.x', sha: SHA, runs: [aCiRun()] })).toBeUndefined();
+  });
+
+  it.each(['hotfix/0.24.1', 'hotfix/0.24.x/feature', 'hotfix/01.24.x', 'hotfix/0.024.x'])('refuses malformed hotfix branch %s', (branch) => {
+    expect(releaseRefusal({ ref: `refs/heads/${branch}`, sha: SHA, runs: [aCiRun()] })).toBe(
+      `A release runs only from main or hotfix/<major>.<minor>.x, not from refs/heads/${branch}`,
+    );
+  });
+
+  it('refuses a hotfix commit CI never ran on, naming its branch', () => {
+    expect(releaseRefusal({ ref: 'refs/heads/hotfix/0.24.x', sha: SHA, runs: [] })).toBe(
+      `CI has not run on ${SHA} on hotfix/0.24.x, so it cannot be released`,
+    );
+  });
+
+  it('refuses a hotfix commit whose CI run failed', () => {
+    expect(releaseRefusal({ ref: 'refs/heads/hotfix/0.24.x', sha: SHA, runs: [aCiRun({ conclusion: 'failure' })] })).toBe(
+      `CI on ${SHA} did not pass (failure): https://github.com/acme/aeolus/actions/runs/1`,
+    );
+  });
+
+  it('refuses a feature branch, naming it', () => {
+    expect(releaseRefusal({ ref: 'refs/heads/feature', sha: SHA, runs: [aCiRun()] })).toBe('A release runs only from main or hotfix/<major>.<minor>.x, not from refs/heads/feature');
   });
 
   it('refuses a tag, even of a commit whose CI run passed', () => {
-    expect(releaseRefusal({ ref: 'refs/tags/v0.17.3', sha: SHA, runs: [aCiRun()] })).toBe('A release runs only from main, not from refs/tags/v0.17.3');
+    expect(releaseRefusal({ ref: 'refs/tags/v0.17.3', sha: SHA, runs: [aCiRun()] })).toBe('A release runs only from main or hotfix/<major>.<minor>.x, not from refs/tags/v0.17.3');
   });
 
   it('refuses a commit CI never ran on', () => {
