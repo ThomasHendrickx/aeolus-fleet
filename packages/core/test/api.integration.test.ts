@@ -1388,6 +1388,28 @@ describe('the overdue deliveries at the API', () => {
   });
 });
 
+describe('the deliveries no ship can take at the API', () => {
+  it('list a pending delivery to a type whose last ship retired for fleet:read, and clear it once a ship of the type is commissioned', async () => {
+    const asArgo = await signedInArgo();
+    const type = `mapper-${newId('ship').slice(-6)}`;
+    const mapper = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: type, type });
+    const { messageId } = await asArgo.ship.send.mutate({ selector: { kind: 'type', type }, payload: 'Map the harbour.', idempotencyKey: newKey() });
+    await asArgo.fleet.retire.mutate({ shipId: mapper.shipId });
+
+    const listed = (await asArgo.fleet.noShipCanTake.query()).find((entry) => entry.message.id === messageId);
+
+    expect(listed).toMatchObject({ type, message: { id: messageId, recipient: { kind: 'type', type }, payload: 'Map the harbour.', isPing: false, sentAt: clock.now().toISOString() } });
+    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `${type}-2`, type });
+    expect((await asArgo.fleet.noShipCanTake.query()).map((entry) => entry.message.id)).not.toContain(messageId);
+  });
+
+  it('refuse the list without fleet:read', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(agent.fleet.noShipCanTake.query())).resolves.toBe('FORBIDDEN');
+  });
+});
+
 describe("argo's inbox at the API", () => {
   /** A message to argo from a crewed agent ship; answers its delivery and its sender's crew token. */
   async function toArgo(payload: string): Promise<{ deliveryId: string; messageId: string; crewToken: string }> {
