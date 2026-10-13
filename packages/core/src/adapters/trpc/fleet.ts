@@ -14,6 +14,7 @@ import {
   messageInputSchema,
   messageOutputSchema,
   needsAttentionOutputSchema,
+  noShipCanTakeOutputSchema,
   overdueOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
@@ -707,6 +708,13 @@ export const fleetRouter = router({
         toldAt: entry.toldAt.toISOString(),
         message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
       })),
+    ),
+
+  /** The pending deliveries to a type no active ship can take, oldest sent first, until a ship can take each. */
+  noShipCanTake: scopedProcedure('fleet:read')
+    .output(noShipCanTakeOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.readNoShipCanTake(ctx.caller)).map((entry) => ({ ...entry, message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
     ),
 
   /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */

@@ -55,6 +55,9 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 /** A timeline entry as the read answers it, its message telling whether it is a ping. */
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
 
+/** A delivery no ship can take as it is answered, its message telling whether it is a ping. */
+export type ShownNoShipCanTakeEntry = Omit<NoShipCanTakeEntry, 'message'> & { message: WithPing<NoShipCanTakeEntry['message']> };
+
 /** An overdue delivery as it is answered, its message telling whether it is a ping. */
 export type ShownOverdueEntry = Omit<OverdueEntry, 'message'> & { message: WithPing<OverdueEntry['message']> };
 
@@ -128,6 +131,17 @@ export interface OverdueEntry {
   message: Omit<HistoryMessage, 'delivery'>;
 }
 
+/**
+ * A pending delivery to a type no active ship can take (decision 0041): none
+ * of the type is left, or none of the ships its sender may reach (decision
+ * 0034). Its type and its whole message; listed until a ship can take it.
+ */
+export interface NoShipCanTakeEntry {
+  deliveryId: DeliveryId;
+  type: string;
+  message: Omit<HistoryMessage, 'delivery'>;
+}
+
 /** A reply the inbox's ship sent to a message in its inbox. */
 export interface InboxReply {
   id: MessageId;
@@ -187,6 +201,8 @@ export interface ShipHistory {
    * which has not ended.
    */
   overdue(fleetId: FleetId): Promise<OverdueEntry[]>;
+  /** Every pending delivery to a type no active ship can take, oldest sent first. */
+  noShipCanTake(fleetId: FleetId): Promise<NoShipCanTakeEntry[]>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }

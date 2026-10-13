@@ -63,6 +63,23 @@ export type OverdueDelivery = z.infer<typeof overdueDeliverySchema>;
 /** Output of `fleet.overdue`: every overdue delivery of the fleet that still stands, oldest told first. */
 export const overdueOutputSchema = z.array(overdueDeliverySchema);
 
+/**
+ * One pending delivery to a type no active ship can take (decision 0041):
+ * none of the type is left, or none its sender may reach (decision 0034). Its
+ * type and its whole message. It clears by itself once a ship can take it;
+ * nothing resends or dismisses it.
+ */
+export const noShipCanTakeDeliverySchema = z.object({
+  deliveryId: idSchema('delivery'),
+  type: z.string(),
+  message: needsAttentionDeliverySchema.shape.message,
+});
+
+export type NoShipCanTakeDelivery = z.infer<typeof noShipCanTakeDeliverySchema>;
+
+/** Output of `fleet.noShipCanTake`: every pending delivery of the fleet no ship can take, oldest sent first. */
+export const noShipCanTakeOutputSchema = z.array(noShipCanTakeDeliverySchema);
+
 /** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({
   deliveryId: idSchema('delivery'),
