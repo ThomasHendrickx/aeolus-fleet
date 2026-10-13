@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
@@ -298,9 +298,9 @@ describe('aeolus-trierarch', () => {
   });
 });
 
-// Init spawns fresh shell stand-ins: their first execution on macOS can take
-// hundreds of milliseconds each, especially while a full test run shares the machine.
-const INIT_TIMEOUT_MS = 15_000;
+// Init runs real processes and writes configuration files. Use the shell-script
+// suite's budget while a full test run shares the machine.
+const INIT_TIMEOUT_MS = 30_000;
 
 /** `codex debug models` cut to what detection reads: two models it shows, both confirmed by a probe. */
 const CODEX_CATALOG = JSON.stringify({ models: [{ slug: 'gpt-6.1-sol', visibility: 'list' }, { slug: 'gpt-6-luna', visibility: 'list' }] });
@@ -317,10 +317,11 @@ function standInPrograms(): void {
   const program = (name: string, script: string) => {
     writeFileSync(join(bin, name), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
   };
-  program('sh', 'exec /bin/sh "$@"');
-  program('claude', 'exit 1');
+  // Reuse system executables: first executions of fresh shell scripts are slow on macOS.
+  symlinkSync('/bin/sh', join(bin, 'sh'));
+  symlinkSync('/usr/bin/false', join(bin, 'claude'));
   program('codex', `case "$1" in\n  --version) echo "codex-cli 0.160.1" ;;\n  debug) echo '${CODEX_CATALOG}' ;;\n  exec) echo OK ;;\n  app-server) read -r line; exit 1 ;;\n  *) exit 1 ;;\nesac`);
-  program('systemctl', 'exit 0');
+  symlinkSync('/usr/bin/true', join(bin, 'systemctl'));
   vi.stubEnv('PATH', bin);
 }
 
