@@ -5,6 +5,7 @@ import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet, OPERATOR, 
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
+import type { DeliveryState } from '@aeolus-fleet/common';
 import type { Caller } from '../shared/caller.js';
 import { createCreateFleet } from './create-fleet.js';
 import { createListInstallationFleets, type ListInstallationFleets } from './list-installation-fleets.js';
@@ -121,5 +122,93 @@ describe('listing the fleets of the installation', () => {
     const listed = await listFleets();
 
     expect(listed.map((fleet) => fleet.lastActivityAt)).toEqual([new Date('2026-10-01T12:00:00.000Z'), new Date('2026-10-03T12:00:00.000Z')]);
+  });
+});
+
+/** A message stored now in the fleet, its delivery to the recipient in the given state, held by a crewed ship when in flight. */
+function deliveryIn(fleetId: FleetId, held: { state: DeliveryState; recipient?: { kind: 'type'; type: string }; reachableShipIds?: ShipId[] }): { shipId: ShipId; leaseId: ReturnType<typeof crewAboard>['leaseId']; deliveryId: ReturnType<typeof deliveryInFlight>['deliveryId'] } {
+  const ship = addAgentShip(core, { fleetId });
+  const crew = crewAboard(core, { fleetId, shipId: ship.shipId });
+  const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: ship.shipId, leaseId: crew.leaseId, ...(held.recipient && { recipient: held.recipient }) });
+  const isInFlight = held.state === 'received' || held.state === 'handed';
+  core.state.deliveries = core.state.deliveries.map((delivery) =>
+    delivery.id === deliveryId
+      ? {
+          ...delivery,
+          state: held.state,
+          claimedByShipId: isInFlight ? ship.shipId : null,
+          claimedByLeaseId: isInFlight ? crew.leaseId : null,
+          ...(held.reachableShipIds && { reachableShipIds: held.reachableShipIds }),
+        }
+      : delivery,
+  );
+  return { shipId: ship.shipId, leaseId: crew.leaseId, deliveryId };
+}
+
+async function healthOf(fleetId: FleetId): Promise<unknown> {
+  return (await listFleets()).find((fleet) => fleet.fleetId === fleetId)?.health;
+}
+
+describe('the health of each fleet of the installation', () => {
+  it('gives a fleet with nothing waiting nothing pending, nothing in flight and nothing to count', async () => {
+    await expect(healthOf(hemma)).resolves.toEqual({ oldestPendingAt: null, oldestInFlightAt: null, noShipCanTake: 0, needsAttention: 0, overdue: 0 });
+  });
+
+  it('gives when its oldest pending delivery was sent', async () => {
+    const oldest = core.clock.now();
+    deliveryIn(hemma, { state: 'pending' });
+    core.clock.advance(60_000);
+    deliveryIn(hemma, { state: 'pending' });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ oldestPendingAt: oldest });
+  });
+
+  it('gives since when its oldest delivery in flight, received or handed, is in its state', async () => {
+    const oldest = core.clock.now();
+    deliveryIn(hemma, { state: 'received' });
+    core.clock.advance(60_000);
+    deliveryIn(hemma, { state: 'handed' });
+    deliveryIn(hemma, { state: 'acknowledged' });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ oldestInFlightAt: oldest });
+  });
+
+  it('counts the pending deliveries to a type no active ship has as ones no ship can take', async () => {
+    addAgentShip(core, { fleetId: hemma, type: 'gone', retiredAt: core.clock.now() });
+    deliveryIn(hemma, { state: 'pending', recipient: { kind: 'type', type: 'gone' } });
+    deliveryIn(hemma, { state: 'pending', recipient: { kind: 'type', type: 'reviewer' } });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ noShipCanTake: 1 });
+  });
+
+  it('counts a pending type delivery whose reachable ships are all retired as one no ship can take', async () => {
+    const reachable = addAgentShip(core, { fleetId: hemma, type: 'reviewer', retiredAt: core.clock.now() });
+    deliveryIn(hemma, { state: 'pending', recipient: { kind: 'type', type: 'reviewer' }, reachableShipIds: [reachable.shipId] });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ noShipCanTake: 1 });
+  });
+
+  it('counts the undeliverable and not handled deliveries as needing attention, and no dismissed one', async () => {
+    deliveryIn(hemma, { state: 'undeliverable' });
+    deliveryIn(hemma, { state: 'notHandled' });
+    deliveryIn(hemma, { state: 'dismissed' });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ needsAttention: 2 });
+  });
+
+  it('counts the overdue deliveries argo was told of that still stand, and none that left the state it was told in', async () => {
+    const standing = deliveryIn(hemma, { state: 'handed' });
+    const moved = deliveryIn(hemma, { state: 'acknowledged' });
+    for (const told of [standing, moved]) {
+      core.state.overdueDeliveries.push({ fleetId: hemma, shipId: told.shipId, leaseId: told.leaseId, deliveryId: told.deliveryId, state: 'handed', clock: 'notConfirmed', minutes: 10, at: core.clock.now() });
+    }
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ overdue: 1 });
+  });
+
+  it('reads each fleet from its own deliveries only', async () => {
+    deliveryIn(first, { state: 'undeliverable' });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ needsAttention: 0 });
   });
 });
