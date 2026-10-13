@@ -7,7 +7,7 @@ import { expect, fn, within } from 'storybook/test';
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../lib/fleet-filter';
 import { Button } from '../../../components/atoms/button';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
-import { AREA, BLUEPRINT, carried, COST, labelContext, OS, ownerShips, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../lib/fixtures/labels.fixtures';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;
@@ -309,10 +309,12 @@ export const PluginShips: Story = {
 const SQUADRON_ID = 'launch-a1b2';
 const SQUADRON_LABEL = {
   ...BLUEPRINT,
+  id: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankh3aa'),
+  owner: OWNERS.squadrons,
   key: 'squadron',
-  values: BLUEPRINT.values.map((value) => ({ ...value, value: SQUADRON_ID })),
+  values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ab'), value: SQUADRON_ID }],
 };
-const ROLE_LABEL = { ...COST, key: 'squadron-role', values: COST.values.map((value) => ({ ...value, value: 'implementer' })) };
+const ROLE_LABEL = { ...COST, id: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankh3ac'), owner: OWNERS.squadrons, key: 'squadron-role', values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ad'), value: 'implementer' }] };
 const IMPLEMENTER = ship('h2aa', {
   name: 'launch-implementer',
   harness: 'codex',
@@ -320,10 +322,10 @@ const IMPLEMENTER = ship('h2aa', {
   labels: [carried(SQUADRON_LABEL, SQUADRON_ID), carried(ROLE_LABEL, 'implementer'), carried(PROJECT, 'aeolus'), carried(OS, 'linux')],
   report: { state: 'working', note: 'Building the registry adapter', reportedAt: NOW.toISOString(), detailsVersion: 0 },
 });
-const CLEAN_FLEET = [argo, IMPLEMENTER, ship('h2ab', { name: 'harbour-ios', model: null }), FLEET[2] ?? argo, FLEET[7] ?? argo];
+const CLEAN_FLEET = [argo, IMPLEMENTER, ship('h2ab', { name: 'harbour-ios', model: null }), ship('h2ac', { name: 'trierarch-plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: { id: '@aeolus-fleet/trierarch-plugin@0.24.0', statedAt: NOW.toISOString() } }), FLEET[2] ?? argo, FLEET[7] ?? argo];
 const CLEAN_ARGS = {
   ships: CLEAN_FLEET,
-  labels: { ...labelContext(CLEAN_FLEET), labels: [...labelContext(CLEAN_FLEET).labels, SQUADRON_LABEL, ROLE_LABEL] },
+  labels: { ...labelContext(CLEAN_FLEET), ownerOf: new Map([...labelContext(CLEAN_FLEET).ownerOf, [SQUADRON_LABEL.id, { name: OWNERS.squadrons.name, mark: 'squadrons', isYours: false }], [ROLE_LABEL.id, { name: OWNERS.squadrons.name, mark: 'squadrons', isYours: false }]]), labels: [...labelContext(CLEAN_FLEET).labels, SQUADRON_LABEL, ROLE_LABEL] },
   squadronsOf: new Map([[IMPLEMENTER.id, { squadronId: SQUADRON_ID, role: 'implementer' }]]),
   view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true } },
 };
@@ -342,9 +344,13 @@ export const CleanOverview: Story = {
     await expect(cells[3]).toHaveTextContent(SQUADRON_ID);
     await expect(cells[3]).not.toHaveTextContent('squadron=');
     await expect(cells[3]).not.toHaveTextContent('squadron-role=');
+    await expect(within(cells[3] ?? row).getByRole('link', { name: SQUADRON_ID }).parentElement).toHaveAttribute('title', `${SQUADRON_ID} · implementer`);
     await expect(cells[4]).toHaveTextContent('Codex');
     await expect(cells[4]).toHaveTextContent('gpt-6.1-sol');
     await expect(row.getBoundingClientRect().height).toBe(48);
+    const software = canvas.getByTestId('fleet-row-trierarch-plugin');
+    await expect(within(software).getAllByRole('cell')[4]).toHaveTextContent('@aeolus-fleet/trierarch-plugin@0.24.0');
+    await expect(within(row).getByRole('link', { name: 'View 2 more labels' })).toHaveAttribute('href', `/ships/${IMPLEMENTER.id}`);
     await expect(within(row).getByRole('link', { name: 'launch-implementer' }).scrollWidth).toBeLessThanOrEqual(within(row).getByRole('link', { name: 'launch-implementer' }).clientWidth);
     await expect(within(table).queryByText('Not stated yet')).not.toBeInTheDocument();
     await expect(within(canvas.getByTestId('fleet-row-builder-web')).queryByText(/Prompt issued/)).not.toBeInTheDocument();
@@ -371,3 +377,31 @@ export const CleanOverviewPhone: Story = {
 };
 
 export const CleanOverviewPhoneDark: Story = { ...CleanOverviewPhone, globals: { ...CleanOverviewPhone.globals, theme: 'dark' } };
+
+
+/** Report states stay separate from registry status, with the same one-line density. */
+export const ReportStates: Story = {
+  ...Reported,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const [name, state] of [['implementer-01', 'working'], ['tester-01', 'blocked'], ['planner-01', 'idle']]) {
+      const row = canvas.getByTestId(`fleet-row-${name}`);
+      await expect(within(row).getByTestId('fleet-report')).toHaveAttribute('data-state', state);
+      await expect(within(row).getByText('Crewed')).toBeVisible();
+      await expect(row.getBoundingClientRect().height).toBe(48);
+    }
+  },
+};
+
+/** Long handles wrap on phone without metadata sharing their line. */
+export const LongNamePhone: Story = {
+  args: { ships: [argo, ship('h2ad', { name: 'launch-reviewer-with-a-long-ship-name-for-the-fleet' })] },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = canvas.getByTestId('fleet-card-launch-reviewer-with-a-long-ship-name-for-the-fleet');
+    const name = within(row).getByRole('link', { name: 'launch-reviewer-with-a-long-ship-name-for-the-fleet' });
+    await expect(getComputedStyle(name).whiteSpace).toBe('normal');
+    await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+  },
+};
