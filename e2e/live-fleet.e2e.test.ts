@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page, WebSocketRoute } from 'playwright';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -120,7 +120,10 @@ describe('the live fleet overview', () => {
     await first.getByTestId('release-dialog').getByRole('button', { name: 'Release ship' }).click();
 
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await watched.getByText('No starting prompt issued').waitFor();
+    await expect.poll(() => watched.getByTestId('fleet-runs-on').count(), { timeout: LIVE_TIMEOUT_MS }).toBe(0);
+    await watched.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await watched.getByRole('link', { name: 'scout' }).click();
+    await second.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
   });
 
   it('misses no change while its connection was down: it shows each one once it is back', async () => {
