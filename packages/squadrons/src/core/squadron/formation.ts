@@ -56,11 +56,11 @@ export async function beginFormation(
     if (!made.isOk) {
       return made;
     }
-    const { shipId, secret, crewLines } = made.value;
+    const { shipId, prompt: issued, secret, crewLines } = made.value;
     commissioned.push(shipId);
     await deps.attempts.commissioned(attemptId, { name: ship.name, shipId });
-    if (secret !== null && crewLines !== null) {
-      return ok({ shipId, secret, crewLines });
+    if (issued !== null && secret !== null && crewLines !== null) {
+      return ok({ shipId, prompt: issued, secret, crewLines });
     }
     const prompt = await deps.door.getStartingPrompt(crew.crewToken, { shipId });
     return prompt.isOk ? ok({ shipId, ...prompt.value }) : prompt;

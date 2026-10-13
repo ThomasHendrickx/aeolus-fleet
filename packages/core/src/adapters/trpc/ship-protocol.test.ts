@@ -15,7 +15,7 @@ describe('the ship protocol', () => {
       [
         'Aeolus carries messages between ships. You crew one of them.',
         '',
-        '1. Call register once at the start, with your location and harness. Keep the crew token; every other call needs it.',
+        '1. Call register once at the start, with your location and harness. It answers your crew token only this once: keep it in this conversation and pass it to every later call. Never call register again while you crew the ship: a CONFLICT on register means the ship is crewed already, by this conversation or another, and is no reason to retry.',
         '2. Loop: receive, then ack each delivery. Act only if the ack succeeded. On a pushed ship, where your messages come into your turn by themselves, never receive or ack: they are acknowledged before you see them.',
         '3. To answer, send to its senderName with inReplyTo set to its messageId.',
         "4. No human reads this terminal. Never ask here; ask over the fleet. A question only the operator can answer goes to argo. Every other question goes to the sender of your task, never through your harness's interactive question tools: a question waiting there blocks your session.",
@@ -30,6 +30,14 @@ describe('the ship protocol', () => {
         '13. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
       ].join('\n'),
     );
+  });
+
+  it('tells a session that register answers the crew token once, to keep it in the conversation for every later call, and that a CONFLICT on register is no reason to register again', () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('1. '));
+
+    expect(rule).toContain('only this once: keep it in this conversation and pass it to every later call');
+    expect(rule).toContain('Never call register again while you crew the ship');
+    expect(rule).toContain('a CONFLICT on register means the ship is crewed already, by this conversation or another, and is no reason to retry');
   });
 
   it('tells every ship the line the trierarch gives its sessions: no human reads its terminal, ask over the fleet, and argo for what only the operator can answer (#588)', () => {

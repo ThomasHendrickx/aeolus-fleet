@@ -1,7 +1,7 @@
 import { FIRST_PROMPT_MAX_BYTES, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
-import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { FleetDoor, ManagementCrew, ManagementCrewStore } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
@@ -121,7 +121,7 @@ const squadrons: SquadronRepository = {
   },
 };
 
-const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, mcpUrl: MCP_URL });
+const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW } });
 
 beforeEach(() => {
   held = aSquadron('sailing');

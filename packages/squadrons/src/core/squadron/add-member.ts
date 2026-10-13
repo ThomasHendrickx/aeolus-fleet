@@ -50,8 +50,6 @@ export function createAddMember(deps: {
   attempts: FormationAttempts;
   random: RandomNames;
   clock: Clock;
-  /** The fleet's MCP URL, which a member's chat crew line names. */
-  mcpUrl: string;
 }): AddMember {
   return async ({ fleetId, squadronId, role: roleName, member: form }) => {
     const crew = await deps.management.find(fleetId);
@@ -117,6 +115,6 @@ export function createAddMember(deps: {
       },
       finishesAttempt: formation.attemptId,
     });
-    return ok({ shipId, name, role: role.name, crewLines: memberCrewLines(made.value, { shipId, role: role.name, squadronId, mcpUrl: deps.mcpUrl }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ shipId, name, role: role.name, crewLines: memberCrewLines(made.value, { role: role.name, squadronId }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }

@@ -5,6 +5,7 @@ import type { CrewLine } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
+import { SOURCE_URL } from '../../lib/source';
 import { Button } from '../atoms/button';
 import { CodeBlock } from '../atoms/code-block';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
@@ -12,6 +13,9 @@ import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
 import { CrewLines } from '../molecules/crew-lines';
 import { InlineError } from '../molecules/inline-error';
+
+/** Where connecting a ChatGPT chat to the fleet is described, step by step. */
+const CHATGPT_GUIDE_URL = `${SOURCE_URL}/blob/main/docs/guides/chatgpt.md`;
 
 /** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
 export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
@@ -52,10 +56,10 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
         </span>
       </p>
       <CodeBlock
-        label={`Starting prompt for ${shipName}`}
+        label={`Crew instructions for a chat, for ${shipName}`}
         code={prompt}
         isWrapped
-        copyLabel={`Copy the starting prompt for ${shipName}`}
+        copyLabel={`Copy the crew instructions for a chat, for ${shipName}`}
         codeTestId="starting-prompt-text"
         copyTestId="starting-prompt-copy"
         onCopied={copied}
@@ -98,8 +102,12 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         <DialogHeader>
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
-            Paste it into the agent session that should crew this ship, or a crew line into Claude Code or Codex with
-            the aeolus plugin. Any earlier prompt for {shipName} stops working now.
+            Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code or Codex
+            with the aeolus plugin. Any earlier prompt for {shipName} stops working now.{' '}
+            <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
+              Connect a ChatGPT chat
+            </a>
+            .
           </DialogDescription>
         </DialogHeader>
 

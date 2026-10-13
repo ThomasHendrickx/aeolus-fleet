@@ -6,7 +6,7 @@ import { err, ok } from '../shared/result.js';
 import { createNewCrewLine } from './new-crew-line.js';
 import type { SquadronRepository } from './ports.js';
 import type { Member, Squadron } from './squadron.js';
-import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
@@ -98,7 +98,7 @@ const squadrons: SquadronRepository = {
   update: () => Promise.resolve(),
 };
 
-const newCrewLine = createNewCrewLine({ door, management, squadrons, mcpUrl: MCP_URL });
+const newCrewLine = createNewCrewLine({ door, management, squadrons });
 
 beforeEach(() => {
   held = aSquadron();

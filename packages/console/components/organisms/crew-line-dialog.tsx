@@ -52,7 +52,7 @@ function IssuedLines({
       <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
         <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
         <span>
-          <span className="font-medium">Shown once.</span> Paste the crew line into Claude Code or Codex started where the launch note says, or into a chat client with the fleet’s connector. A new crew line stops it working.
+          <span className="font-medium">Shown once.</span> Paste the crew line into Claude Code or Codex started where the launch note says, or the Chat one, the ship’s crew instructions for a chat, into a chat app. A new crew line stops it working.
         </span>
       </p>
     </>
@@ -80,7 +80,7 @@ export function CrewLineDialog({ memberName, state, template, launchNote = null,
       <DialogContent size="md" data-testid="crew-line-dialog" className={dialogSurface.phoneFullScreen}>
         <DialogHeader>
           <DialogTitle>Crew line for {memberName}</DialogTitle>
-          <DialogDescription>Start Claude Code or Codex where the launch note says, or open a chat client with the fleet’s connector, then paste its crew line. The member is on station once its session checks in.</DialogDescription>
+          <DialogDescription>Start Claude Code or Codex where the launch note says, or open a chat app, then paste its crew line or the ship’s crew instructions for a chat. The member is on station once its session checks in.</DialogDescription>
         </DialogHeader>
         {isIssuing && (
           <div aria-busy className="flex flex-col gap-3">

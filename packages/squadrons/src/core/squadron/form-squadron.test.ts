@@ -7,7 +7,7 @@ import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import { createRecoverFormations } from './recover-formations.js';
 import type { Squadron } from './squadron.js';
-import { issuedPrompt, MCP_URL, memberCrewLines } from '../../../test/support/management-fakes.js';
+import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 
@@ -95,13 +95,13 @@ function fakeFleet() {
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
     getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
       const original = state.keys.get(idempotencyKey);
       if (original) {
-        return Promise.resolve(ok({ shipId: original, secret: null, crewLines: null }));
+        return Promise.resolve(ok({ shipId: original, prompt: null, secret: null, crewLines: null }));
       }
       if (state.ships.filter((ship) => !ship.isRetired).length >= state.refuseCommissionAfter) {
         return Promise.resolve(err({ code: 'INTERNAL_SERVER_ERROR', message: 'Internal error' }));
@@ -204,7 +204,6 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
     random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
-    mcpUrl: MCP_URL,
   });
 }
 

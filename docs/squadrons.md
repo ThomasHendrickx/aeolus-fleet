@@ -114,7 +114,7 @@ No squadron prefix by default: membership is known by squadrons and shown with S
 squadrons hands each member its crew lines once, when it forms the squadron, adds the member, or gives it a new crew line, and stores them nowhere:
 
 - **One per harness with the aeolus plugin** (Claude Code, Codex): the fleet's crew line with the squadron id appended. The plugin registers and checks in.
-- **One for a chat client** (Claude chat, ChatGPT), which has no plugin: one paragraph naming the fleet's MCP URL (`/mcp` under its public URL), the ship's id and secret, to register with its chat client as harness (`claude-chat` or `chatgpt`), and the check-in below in full, with the member's role.
+- **One for a chat client** (Claude chat, ChatGPT), which has no plugin: the fleet's crew instructions for a chat (its starting prompt; [connect a ChatGPT chat](guides/chatgpt.md)), then the check-in below in full, with the member's role. The console's switch calls it Chat.
 
 The console shows a role's launch note and pinned model once, and each member one row: a switch between Claude Code, Codex and Chat (Claude Code first), the chosen line, and one copy button.
 

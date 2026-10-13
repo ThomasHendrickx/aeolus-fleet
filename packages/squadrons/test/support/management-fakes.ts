@@ -7,9 +7,10 @@ export const SHIP_ID: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 export const FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 
-/** What the fleet issues with a starting prompt: the secret and one crew line per harness. */
-export function issuedPrompt(shipId: ShipId, secret: string): { secret: string; crewLines: { harness: string; line: string }[] } {
+/** What the fleet issues with a starting prompt: its crew instructions for a chat, the secret and one crew line per harness. */
+export function issuedPrompt(shipId: ShipId, secret: string): { prompt: string; secret: string; crewLines: { harness: string; line: string }[] } {
   return {
+    prompt: `Crew instructions for a chat, for ship ${shipId} with secret ${secret}.`,
     secret,
     crewLines: [
       { harness: 'claude-code', line: `/aeolus:crew https://fleet.example.com ${shipId} ${secret}` },
@@ -17,9 +18,6 @@ export function issuedPrompt(shipId: ShipId, secret: string): { secret: string; 
     ],
   };
 }
-
-/** The fleet's MCP URL, where a chat client's connector reaches it. */
-export const MCP_URL = 'https://fleet.example.com/mcp';
 
 /** The crew lines a member is handed: the fleet's, each with the squadron id, and one for a chat client. */
 export function memberCrewLines(member: { shipId: ShipId; secret: string; squadronId: string; role: string }): { harness: string; line: string }[] {
@@ -29,8 +27,8 @@ export function memberCrewLines(member: { shipId: ShipId; secret: string; squadr
     {
       harness: 'chat',
       line:
-        `Crew Aeolus ship ${shipId} through the fleet's MCP connector at ${MCP_URL}: register with ship id ${shipId}, secret ${secret} and your chat client as harness (claude-chat or chatgpt). ` +
-        `Then check in: send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json, payload {"squadron":"${squadronId}","model":"<your exact model id>"}; it answers your role and charter; ` +
+        `${issuedPrompt(shipId, secret).prompt}\n\n` +
+        `Once registered, check in: send the ship ${squadronId} contentType application/vnd.aeolus.squadron.check-in+json, payload {"squadron":"${squadronId}","model":"<your exact model id>"}; it answers your role and charter; ` +
         `answer that inReplyTo with application/vnd.aeolus.squadron.on-station+json, payload {"squadron":"${squadronId}","role":"${role}"}, and take up the charter.`,
     },
   ];

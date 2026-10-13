@@ -1,6 +1,14 @@
-import type { CrewLine, CrewSettings, DeliveryId, FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type {
+  CrewLine,
+  CrewSettings,
+  DeliveryId,
+  FleetId,
+  LabelValueId,
+  MessageId,
+  ShipId,
+} from "@aeolus-fleet/common";
 
-import type { Result } from '../shared/result.js';
+import type { Result } from "../shared/result.js";
 
 /**
  * Why the fleet refused a ship call: its code (CONFLICT, UNAUTHORIZED,
@@ -12,8 +20,9 @@ export interface FleetRefusal {
   message: string;
 }
 
-/** What a starting prompt issues: the ship's secret, and one crew line per harness holding it. */
+/** What a starting prompt issues: the fleet's crew instructions for a chat, the ship's secret, and one crew line per harness holding it. */
 export interface IssuedPrompt {
+  prompt: string;
   secret: string;
   crewLines: CrewLine[];
 }
@@ -23,47 +32,102 @@ export interface IssuedPrompt {
  * its management ship. squadrons is a ship like any other (decision 0017).
  */
 export interface FleetDoor {
-  register(claim: { shipId: ShipId; secret: string }): Promise<Result<{ crewToken: string }, FleetRefusal>>;
-  whoami(crewToken: string): Promise<Result<{ shipId: ShipId; fleetId: FleetId; name: string; type: string }, FleetRefusal>>;
+  register(claim: {
+    shipId: ShipId;
+    secret: string;
+  }): Promise<Result<{ crewToken: string }, FleetRefusal>>;
+  whoami(
+    crewToken: string,
+  ): Promise<
+    Result<
+      { shipId: ShipId; fleetId: FleetId; name: string; type: string },
+      FleetRefusal
+    >
+  >;
   /**
    * Commissions an agent ship as the crew token's ship (fleet:manage) under
-   * squadrons' own idempotency key: its id, its secret and its crew lines. A
-   * repeat under the same key answers the same ship with neither: its secret
+   * squadrons' own idempotency key: its id, its crew instructions for a chat, its secret and its crew lines. A
+   * repeat under the same key answers the same ship with none of them: its secret
    * was shown once.
    */
   commission(
     crewToken: string,
     ship: { name: string; type: string; idempotencyKey: string },
-  ): Promise<Result<{ shipId: ShipId; secret: string | null; crewLines: CrewLine[] | null }, FleetRefusal>>;
+  ): Promise<
+    Result<
+      {
+        shipId: ShipId;
+        prompt: string | null;
+        secret: string | null;
+        crewLines: CrewLine[] | null;
+      },
+      FleetRefusal
+    >
+  >;
   /** A ship of the fleet, retired ones included; needs fleet:read. */
-  getShip(crewToken: string, ship: { shipId: ShipId }): Promise<Result<FleetShip, FleetRefusal>>;
+  getShip(
+    crewToken: string,
+    ship: { shipId: ShipId },
+  ): Promise<Result<FleetShip, FleetRefusal>>;
   /** Ends this session's crew of its ship: the lease and the secret it claimed with. */
   deregister(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
   /** Releases a crewed ship (fleet:manage): its session's lease ends, and what it held in flight goes back to pending. */
-  release(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  release(
+    crewToken: string,
+    ship: { shipId: ShipId },
+  ): Promise<Result<undefined, FleetRefusal>>;
   /** A new starting prompt's secret and crew lines for a ship awaiting crew; the earlier secret stops working. */
-  getStartingPrompt(crewToken: string, ship: { shipId: ShipId }): Promise<Result<IssuedPrompt, FleetRefusal>>;
+  getStartingPrompt(
+    crewToken: string,
+    ship: { shipId: ShipId },
+  ): Promise<Result<IssuedPrompt, FleetRefusal>>;
   /** The fleet's ships that are not retired, by id and name (fleet:read). */
-  listShips(crewToken: string): Promise<Result<{ shipId: ShipId; name: string }[], FleetRefusal>>;
+  listShips(
+    crewToken: string,
+  ): Promise<Result<{ shipId: ShipId; name: string }[], FleetRefusal>>;
   /** Retires a ship as the crew token's ship (fleet:manage). */
-  retire(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  retire(
+    crewToken: string,
+    ship: { shipId: ShipId },
+  ): Promise<Result<undefined, FleetRefusal>>;
   /** Asks that a ship be kept crewed with these settings (fleet:manage, decision 0029), replacing a request it holds. */
-  requestCrew(crewToken: string, request: { shipId: ShipId; settings: CrewSettings }): Promise<Result<undefined, FleetRefusal>>;
+  requestCrew(
+    crewToken: string,
+    request: { shipId: ShipId; settings: CrewSettings },
+  ): Promise<Result<undefined, FleetRefusal>>;
   /** Removes a ship's crew request (fleet:manage): at once while no trierarch holds it, else once its crew is released. NOT_FOUND when it holds none. */
-  removeCrewRequest(crewToken: string, ship: { shipId: ShipId }): Promise<Result<undefined, FleetRefusal>>;
+  removeCrewRequest(
+    crewToken: string,
+    ship: { shipId: ShipId },
+  ): Promise<Result<undefined, FleetRefusal>>;
   /** The id of a machine label's value, by its key and value as a file writes them (fleet:read). NOT_FOUND when the fleet has none. */
-  findLabelValue(crewToken: string, label: { key: string; value: string }): Promise<Result<{ valueId: LabelValueId }, FleetRefusal>>;
+  findLabelValue(
+    crewToken: string,
+    label: { key: string; value: string },
+  ): Promise<Result<{ valueId: LabelValueId }, FleetRefusal>>;
   /** The crew token's next deliveries, waiting briefly when there are none. */
-  receive(crewToken: string, until?: { signal: AbortSignal }): Promise<Result<ReceivedMessage[], FleetRefusal>>;
-  ack(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
+  receive(
+    crewToken: string,
+    until?: { signal: AbortSignal },
+  ): Promise<Result<ReceivedMessage[], FleetRefusal>>;
+  ack(
+    crewToken: string,
+    deliveryId: DeliveryId,
+  ): Promise<Result<undefined, FleetRefusal>>;
   /** Answers a ping delivery: acknowledged, and the lease seen. */
-  pong(crewToken: string, deliveryId: DeliveryId): Promise<Result<undefined, FleetRefusal>>;
-  send(crewToken: string, message: OutgoingMessage): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
+  pong(
+    crewToken: string,
+    deliveryId: DeliveryId,
+  ): Promise<Result<undefined, FleetRefusal>>;
+  send(
+    crewToken: string,
+    message: OutgoingMessage,
+  ): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
 }
 
 /** A ship as `fleet.ship` shows it: what squadrons reads of it. */
 export interface FleetShip {
-  status: 'awaitingCrew' | 'crewed' | 'retired';
+  status: "awaitingCrew" | "crewed" | "retired";
   scopes: string[];
   /** When its session last called the fleet; null while no session crews it. */
   lastSeenAt: Date | null;
@@ -92,7 +156,10 @@ export interface ReceivedMessage {
 
 /** A message squadrons sends from one of its ships. */
 export interface OutgoingMessage {
-  selector: { kind: 'ship'; shipId: ShipId } | { kind: 'ship'; name: string } | { kind: 'type'; type: string };
+  selector:
+    | { kind: "ship"; shipId: ShipId }
+    | { kind: "ship"; name: string }
+    | { kind: "type"; type: string };
   payload: string;
   contentType: string;
   inReplyTo?: MessageId;
@@ -138,7 +205,7 @@ export interface ManagementCrewStore {
  * which ship, and the ship it was last connected as.
  */
 export interface ConnectionStatus {
-  state: 'not-connected' | 'connected';
+  state: "not-connected" | "connected";
   ship: { shipId: ShipId; name: string } | null;
   lastShipId: ShipId | null;
 }

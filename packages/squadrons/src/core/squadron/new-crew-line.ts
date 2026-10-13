@@ -29,8 +29,6 @@ export function createNewCrewLine(deps: {
   door: FleetDoor;
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
-  /** The fleet's MCP URL, which a member's chat crew line names. */
-  mcpUrl: string;
 }): NewCrewLine {
   return async ({ fleetId, squadronId, shipId }) => {
     const crew = await deps.management.find(fleetId);
@@ -63,6 +61,6 @@ export function createNewCrewLine(deps: {
       return refuse('FLEET_UNAVAILABLE', `The fleet gave ${member.name} no starting prompt: ${prompt.error.message}`);
     }
     const template = templateOf(squadron, member);
-    return ok({ crewLines: memberCrewLines(prompt.value, { shipId, role: member.role, squadronId, mcpUrl: deps.mcpUrl }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
+    return ok({ crewLines: memberCrewLines(prompt.value, { role: member.role, squadronId }), launchNote: template?.launchNote ?? null, model: template?.model ?? null });
   };
 }
