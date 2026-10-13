@@ -298,6 +298,10 @@ describe('aeolus-trierarch', () => {
   });
 });
 
+// Init spawns fresh shell stand-ins: their first execution on macOS can take
+// hundreds of milliseconds each, especially while a full test run shares the machine.
+const INIT_TIMEOUT_MS = 15_000;
+
 /** `codex debug models` cut to what detection reads: two models it shows, both confirmed by a probe. */
 const CODEX_CATALOG = JSON.stringify({ models: [{ slug: 'gpt-6.1-sol', visibility: 'list' }, { slug: 'gpt-6-luna', visibility: 'list' }] });
 
@@ -355,7 +359,7 @@ describe('aeolus-trierarch with CLAUDE_CONFIG_DIR and CODEX_HOME set (#521)', ()
     expect(output).toContain(`(hasCompletedOnboarding in ${claudeJson})`);
     expect(output).toContain(`(skipDangerousModePermissionPrompt in ${settings})`);
     expect(output).not.toContain('~/.claude');
-  });
+  }, INIT_TIMEOUT_MS);
 
   it('init detects the default Codex model from config.toml in CODEX_HOME', async () => {
     await aSetUpMachine({ isServiceInstalled: true });
@@ -363,7 +367,7 @@ describe('aeolus-trierarch with CLAUDE_CONFIG_DIR and CODEX_HOME set (#521)', ()
     const { output } = await main(['init', '--yes'], machine(both()));
 
     expect(output).toContain('codex 0.160.1: model gpt-6.1-sol, gpt-6-luna (default);');
-  });
+  }, INIT_TIMEOUT_MS);
 
   it('add trusts a place in .claude.json under CLAUDE_CONFIG_DIR, leaving ~/.claude.json alone', async () => {
     await aSetUpMachine({ isServiceInstalled: false });
