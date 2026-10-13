@@ -2,7 +2,7 @@ import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Ellipsis, Plus } from 'lucide-react';
 import { useState, type ComponentProps } from 'react';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../lib/fleet-filter';
 import { Button } from '../../../components/atoms/button';
@@ -304,3 +304,70 @@ export const PhoneLabelsFiltered: Story = { ...LabelsFiltered, globals: { viewpo
 export const PluginShips: Story = {
   args: { ships: [...FLEET, ...ownerShips(argo)], pluginShipIds: new Set(ownerShips(argo).map((each) => each.id)) },
 };
+
+/** A real-sized fleet: membership and labels must never compete with the ship name. */
+const SQUADRON_ID = 'launch-a1b2';
+const SQUADRON_LABEL = {
+  ...BLUEPRINT,
+  key: 'squadron',
+  values: BLUEPRINT.values.map((value) => ({ ...value, value: SQUADRON_ID })),
+};
+const ROLE_LABEL = { ...COST, key: 'squadron-role', values: COST.values.map((value) => ({ ...value, value: 'implementer' })) };
+const IMPLEMENTER = ship('h2aa', {
+  name: 'launch-implementer',
+  harness: 'codex',
+  model: { id: 'gpt-6.1-sol', statedAt: NOW.toISOString() },
+  labels: [carried(SQUADRON_LABEL, SQUADRON_ID), carried(ROLE_LABEL, 'implementer'), carried(PROJECT, 'aeolus'), carried(OS, 'linux')],
+  report: { state: 'working', note: 'Building the registry adapter', reportedAt: NOW.toISOString(), detailsVersion: 0 },
+});
+const CLEAN_FLEET = [argo, IMPLEMENTER, ship('h2ab', { name: 'harbour-ios', model: null }), FLEET[2] ?? argo, FLEET[7] ?? argo];
+const CLEAN_ARGS = {
+  ships: CLEAN_FLEET,
+  labels: { ...labelContext(CLEAN_FLEET), labels: [...labelContext(CLEAN_FLEET).labels, SQUADRON_LABEL, ROLE_LABEL] },
+  squadronsOf: new Map([[IMPLEMENTER.id, { squadronId: SQUADRON_ID, role: 'implementer' }]]),
+  view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true } },
+};
+
+export const CleanOverview: Story = {
+  args: CLEAN_ARGS,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const table = canvas.getByRole('table', { name: 'Ships' });
+    const headings = within(table).getAllByRole('columnheader').map((heading) => heading.textContent);
+    await expect(headings).toEqual(['Ship', 'Status', 'Report', 'Squadron and labels', 'Runs on', 'Seen', 'Actions']);
+    const row = canvas.getByTestId('fleet-row-launch-implementer');
+    const cells = within(row).getAllByRole('cell');
+    await expect(cells[0]).toHaveTextContent('launch-implementer');
+    await expect(cells[0]).not.toHaveTextContent(SQUADRON_ID);
+    await expect(cells[3]).toHaveTextContent(SQUADRON_ID);
+    await expect(cells[3]).not.toHaveTextContent('squadron=');
+    await expect(cells[3]).not.toHaveTextContent('squadron-role=');
+    await expect(cells[4]).toHaveTextContent('Codex');
+    await expect(cells[4]).toHaveTextContent('gpt-6.1-sol');
+    await expect(row.getBoundingClientRect().height).toBe(48);
+    await expect(within(row).getByRole('link', { name: 'launch-implementer' }).scrollWidth).toBeLessThanOrEqual(within(row).getByRole('link', { name: 'launch-implementer' }).clientWidth);
+    await expect(within(table).queryByText('Not stated yet')).not.toBeInTheDocument();
+    await expect(within(canvas.getByTestId('fleet-row-builder-web')).queryByText(/Prompt issued/)).not.toBeInTheDocument();
+    await expect(within(canvas.getByTestId('fleet-row-old-scout')).queryByText(/Retired \d/)).not.toBeInTheDocument();
+  },
+};
+
+export const CleanOverviewDark: Story = { ...CleanOverview, globals: { theme: 'dark' } };
+
+export const CleanOverviewPhone: Story = {
+  args: CLEAN_ARGS,
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = canvas.getByTestId('fleet-card-launch-implementer');
+    const name = within(row).getByRole('link', { name: 'launch-implementer' });
+    const membership = within(row).getByRole('link', { name: SQUADRON_ID });
+    await expect(membership.getBoundingClientRect().top).toBeGreaterThan(name.getBoundingClientRect().bottom);
+    await expect(within(row).getByTestId('fleet-model-hint')).toHaveTextContent('gpt-6.1-sol');
+    await expect(within(row).queryByText(/squadron=/)).not.toBeInTheDocument();
+    await expect(within(canvas.getByTestId('fleet-card-builder-web')).queryByText(/Prompt issued/)).not.toBeInTheDocument();
+    await expect(within(canvas.getByTestId('fleet-card-harbour-ios')).queryByText('Not stated yet')).not.toBeInTheDocument();
+  },
+};
+
+export const CleanOverviewPhoneDark: Story = { ...CleanOverviewPhone, globals: { ...CleanOverviewPhone.globals, theme: 'dark' } };
