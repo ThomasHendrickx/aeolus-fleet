@@ -97,6 +97,10 @@ async function seedTraffic({ fleetId, from, copies }: { fleetId: FleetId; from: 
     SELECT ${idOf('dlv')}, d.fleet_id, ${idOf('msg')}, d.recipient_ship_id, d.recipient_type, d.state, d.attempts, d.created_at
     FROM deliveries d, generate_series(1, ${copies}) AS n
     WHERE d.fleet_id = ${fleetId} AND d.message_id = ${from}`;
+  // Thousands of rows in one statement leave the planner's statistics behind,
+  // so the events' foreign key checks would plan for tiny tables; autovacuum
+  // analyzes a real fleet's tables as they grow.
+  await database.$executeRaw`ANALYZE messages, deliveries`;
   await database.$executeRaw`
     INSERT INTO events (id, fleet_id, type, occurred_at, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
     SELECT 'evt_7zzz' || lpad((n * ${EVENTS_PER_MESSAGE} + e)::text, 22, '0'), m.fleet_id, 'MessageAccepted', m.created_at,
