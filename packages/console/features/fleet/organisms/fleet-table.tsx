@@ -174,23 +174,24 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
 
 /** Membership has its own space; the matching labels stay available on the ship page and in filters. */
 function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: ShipInSquadron | undefined; labels?: LabelContext }) {
+  const membership = squadron?.role === null ? undefined : squadron;
   const chips = labels === undefined ? [] : chipsOf(ship, labels).filter((chip) => !(
-    squadron !== undefined && (
-      (chip.key === 'squadron' && chip.value === squadron.squadronId) ||
-      (chip.key === 'squadron-role' && chip.value === squadron.role)
+    membership !== undefined && (
+      (chip.key === 'squadron' && chip.value === membership.squadronId) ||
+      (chip.key === 'squadron-role' && chip.value === membership.role)
     )
   ));
-  if (squadron === undefined && chips.length === 0) {
+  if (membership === undefined && chips.length === 0) {
     return null;
   }
   return (
     <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-      {squadron === undefined ? null : (
-        <span className="min-w-0 shrink" title={squadron.role === null ? squadron.squadronId : `${squadron.squadronId} · ${squadron.role}`}>
-          <SquadronTag squadronId={squadron.squadronId} size="sm" />
+      {membership === undefined ? null : (
+        <span className="min-w-0 shrink" title={membership.role === null ? membership.squadronId : `${membership.squadronId} · ${membership.role}`}>
+          <SquadronTag squadronId={membership.squadronId} size="sm" />
         </span>
       )}
-      <LabelChips chips={chips} width={squadron === undefined ? ROW_LABELS_WIDTH : 0} testId="fleet-labels" href={`/ships/${ship.id}`} />
+      <LabelChips chips={chips} width={membership === undefined ? ROW_LABELS_WIDTH : 0} testId="fleet-labels" href={`/ships/${ship.id}`} />
     </span>
   );
 }
@@ -204,8 +205,8 @@ function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: 
 function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
   const isReporting = ship.kind === 'agent' && ship.status === 'crewed';
   return (
-    <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch">
-      {isReporting && next == null ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
+    <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch [&:has(button)>[data-testid=fleet-report]]:hidden">
+      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
       {next}
     </span>
   );

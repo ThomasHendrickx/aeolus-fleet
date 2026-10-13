@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page, WebSocketRoute } from 'playwright';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';

@@ -141,7 +141,7 @@ describe('commissioning a ship in the console', () => {
     await row.getByRole('link', { name: 'scout' }).click();
     await page.getByTestId('ship-header').getByText(/^Prompt issued .*, not claimed yet$/).waitFor();
     await page.reload();
-    await shipRow(page, 'scout').waitFor();
+    await page.getByTestId('ship-header').getByText('Awaiting crew').waitFor();
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
   });
 
