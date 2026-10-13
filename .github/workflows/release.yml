@@ -4,7 +4,7 @@
 # holds the plugin of that version (aeolus-trierarch upgrade installs it from
 # there). Then creates the GitHub Release for the tag, with notes from the merged
 # pull requests carrying the label <version>, and sets the aeolus plugin to that
-# version on main, where the plugin marketplaces install from by default.
+# version on main for main releases, where the plugin marketplaces install from by default.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -86,12 +86,12 @@ jobs:
       - run: npm ci
 
       # No second test run (ADR 0011): CI's own result for this exact commit on
-      # main is the gate, read before anything is built or published.
-      - name: Check the commit is on main and passed CI
+      # the release branch is the gate, read before anything is built or published.
+      - name: Check the commit is on a release branch and passed CI
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch main --event push --json status,conclusion,url \
+          gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --event push --json status,conclusion,url \
             | node scripts/release-gate.ts "$GITHUB_REF" "$GITHUB_SHA"
 
       - name: Set the version on all seven packages
@@ -234,6 +234,7 @@ jobs:
       # this step fails, the release is whole; set it by hand with
       # npm run set-version -- --plugin-only <version>, commit and push.
       - name: Set the aeolus plugin to ${{ inputs.version }} on main
+        if: github.ref == 'refs/heads/main'
         env:
           VERSION: ${{ inputs.version }}
         run: |

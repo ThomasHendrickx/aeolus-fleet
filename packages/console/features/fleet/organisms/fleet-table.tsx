@@ -1,7 +1,7 @@
 'use client';
 
 import type { CrewStatus, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Eye, Flag, KeyRound, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../lib/console-constants';
@@ -18,10 +18,8 @@ import {
   type FleetView,
 } from '../lib/fleet-filter';
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../lib/labels';
-import { dayMonth, fullDateTime, relativeTime } from '../../../lib/relative-time';
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
-import { crewRequestStage } from '../../../lib/crew-request';
-import { crewRequestCell, crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
+import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '../../../components/atoms/button';
 import { Input } from '../../../components/atoms/input';
@@ -37,8 +35,7 @@ import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
 import { LocationTag } from '../../../components/molecules/location-tag';
-import { ModelTag } from '../molecules/model-tag';
-import { CrewRequestCell } from '../molecules/crew-request-cell';
+import { ModelHint } from '../molecules/model-hint';
 import { ReportLine } from '../../../components/molecules/report-line';
 import { SquadronTag } from '../../../components/molecules/squadron-tag';
 import { ShipName } from '../../../components/molecules/ship-name';
@@ -73,7 +70,7 @@ export interface FleetTableProps {
   pluginShipIds?: ReadonlySet<string>;
 }
 
-/** How much of a row's labels fit beside its name column, in characters, before the rest fold into "+n" (canvas Labels, Q2). */
+/** The labels cell's character budget before the rest fold into a link to the ship page. */
 const ROW_LABELS_WIDTH = 22;
 
 /** The view with one more label value picked, one taken out, or none. */
@@ -152,67 +149,50 @@ function NameChip({ ship, squadron, isPluginShip }: { ship: ListedShip; squadron
       </Badge>
     );
   }
-  if (squadron) {
-    return <SquadronTag squadronId={squadron.squadronId} role={squadron.role} size="sm" />;
-  }
   return null;
 }
 
-/** An awaiting ship's starting prompt status, where a crewed ship shows where its session runs. */
-function PromptStatus({ ship, now }: { ship: ListedShip; now: Date }) {
-  const prompt = ship.startingPrompt;
-  const frame = 'inline-flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0';
-  if (prompt === null) {
-    return (
-      <span className={frame}>
-        <KeyRound aria-hidden />
-        No starting prompt issued
-      </span>
-    );
+/** Only the current session's harness, location and stated model belong in Runs on. */
+function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
+  if (ship.status !== 'crewed' || ship.kind === 'viewer') {
+    return null;
   }
-  const issuedAt = new Date(prompt.issuedAt);
   return (
-    <span className={frame}>
-      <KeyRound aria-hidden />
-      <span className="truncate">
-        Prompt issued{' '}
-        <time dateTime={prompt.issuedAt} title={fullDateTime(issuedAt)}>
-          {relativeTime(issuedAt, now)}
-        </time>
-        {prompt.isClaimed ? ', claimed' : ', not claimed yet'}
-      </span>
+    <span data-testid="fleet-runs-on" className="flex min-w-0 items-center gap-3 max-sm:flex-wrap max-sm:gap-y-1">
+      <LocationTag
+        // argo's signed-in console names its device, never a model.
+        kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
+        description={ship.location?.description}
+        harness={ship.kind === 'operator' ? 'console' : ship.harness}
+        size="sm"
+        className="shrink-0"
+      />
+      {ship.kind === 'agent' && ship.model !== null ? <ModelHint model={ship.model} now={now} /> : null}
     </span>
   );
 }
 
-/**
- * Runs on: the harness and location kind of a crewed ship's session (argo: its
- * console), an awaiting ship's prompt status, or the day a retired ship was
- * retired (canvas, OverviewVaried). The viewer ship shows none: its many
- * sessions hold no lease and name no device (decision 0022).
- */
-function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
-  if (ship.status === 'retired') {
-    return ship.retiredAt === null ? null : (
-      <span className="truncate text-meta text-muted-foreground" data-testid="fleet-retired-on" title={fullDateTime(new Date(ship.retiredAt))}>
-        Retired {dayMonth(new Date(ship.retiredAt))}
-      </span>
-    );
-  }
-  if (ship.kind === 'viewer') {
+/** Membership has its own space; the matching labels stay available on the ship page and in filters. */
+function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: ShipInSquadron | undefined; labels?: LabelContext }) {
+  const membership = squadron?.role === null ? undefined : squadron;
+  const chips = labels === undefined ? [] : chipsOf(ship, labels).filter((chip) => !(
+    membership !== undefined && (
+      (chip.key === 'squadron' && chip.value === membership.squadronId) ||
+      (chip.key === 'squadron-role' && chip.value === membership.role)
+    )
+  ));
+  if (membership === undefined && chips.length === 0) {
     return null;
   }
-  if (ship.status === 'awaitingCrew') {
-    return <PromptStatus ship={ship} now={now} />;
-  }
   return (
-    <LocationTag
-      // argo runs on "Console · Device" (docs/design/conventions.md); its location's words name the device signed in from.
-      kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
-      description={ship.location?.description}
-      harness={ship.kind === 'operator' ? 'console' : ship.harness}
-      size="sm"
-    />
+    <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+      {membership === undefined ? null : (
+        <span className="min-w-0 shrink" title={membership.role === null ? membership.squadronId : `${membership.squadronId} · ${membership.role}`}>
+          <SquadronTag squadronId={membership.squadronId} size="sm" />
+        </span>
+      )}
+      <LabelChips chips={chips} width={membership === undefined ? ROW_LABELS_WIDTH : 0} testId="fleet-labels" href={`/ships/${ship.id}`} />
+    </span>
   );
 }
 
@@ -225,7 +205,7 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
 function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
   const isReporting = ship.kind === 'agent' && ship.status === 'crewed';
   return (
-    <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+    <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch [&:has(button)>[data-testid=fleet-report]]:hidden">
       {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
       {next}
     </span>
@@ -638,7 +618,7 @@ function Toolbar({
 
 function ShipNameCell({ ship }: { ship: ListedShip }) {
   return (
-    <ShipName name={ship.name} shipId={ship.id} isSuffixShown={ship.status === 'retired'} href={`/ships/${ship.id}`} />
+    <ShipName name={ship.name} shipId={ship.id} isSuffixShown={ship.status === 'retired'} href={ship.kind === 'operator' ? '/inbox' : `/ships/${ship.id}`} className="[&_a]:max-sm:whitespace-normal [&_a]:max-sm:break-all [&_a]:max-sm:text-body-touch" />
   );
 }
 
@@ -653,15 +633,23 @@ function DesktopTable({
 }: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
   return (
     <div className="max-sm:hidden">
-      <Table aria-label="Ships">
+      <Table aria-label="Ships" className="min-w-320 table-fixed">
+        <colgroup>
+          <col className="w-56" />
+          <col className="w-40" />
+          <col className="w-64" />
+          <col className="w-56" />
+          <col className="w-80" />
+          <col className="w-12" />
+          <col className="w-12" />
+        </colgroup>
         <TableHeader>
           <TableRow>
-            <TableHead>{labels === undefined || labels.labels.length === 0 ? 'Name' : 'Name and labels'}</TableHead>
+            <TableHead>Ship</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Crew request</TableHead>
             <TableHead>Report</TableHead>
+            <TableHead>Squadron and labels</TableHead>
             <TableHead>Runs on</TableHead>
-            <TableHead>Model</TableHead>
             <TableHead>Seen</TableHead>
             <TableHead>
               <span className="sr-only">Actions</span>
@@ -676,29 +664,23 @@ function DesktopTable({
               data-new={highlightedShipIds?.has(ship.id) ? '' : undefined}
               className="h-12"
             >
-              <TableCell className="max-w-64">
-                <span className="flex min-w-0 flex-col gap-1">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <ShipNameCell ship={ship} />
-                    <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
-                  </span>
-                  {labels === undefined ? null : <LabelChips chips={chipsOf(ship, labels)} width={ROW_LABELS_WIDTH} testId="fleet-labels" />}
+              <TableCell>
+                <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                  <ShipNameCell ship={ship} />
+                  <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
                 </span>
               </TableCell>
               <TableCell>
                 <StatusBadge status={ship.status} />
               </TableCell>
               <TableCell>
-                <CrewRequestCell cell={crewRequestCell(crewRequestStage(ship))} testId="fleet-crew-request" />
-              </TableCell>
-              <TableCell className="max-w-72">
                 <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
               </TableCell>
-              <TableCell className="max-w-56">
-                <RunsOn ship={ship} now={now} />
+              <TableCell>
+                <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} labels={labels} />
               </TableCell>
               <TableCell>
-                {ship.kind !== 'agent' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} testId="fleet-model" />}
+                <RunsOn ship={ship} now={now} />
               </TableCell>
               <TableCell>
                 <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
@@ -730,18 +712,17 @@ function PhoneList({
           className="flex items-start gap-2 border-b border-border px-3.5 py-3 last:border-0 data-new:animate-highlight"
         >
           <div className="flex min-w-0 grow flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-3 text-body-touch">
-              <span className="flex min-w-0 items-center gap-2">
-                <ShipNameCell ship={ship} />
-                <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
-              </span>
-              <StatusBadge status={ship.status} />
+            <div className="text-body-touch">
+              <ShipNameCell ship={ship} />
             </div>
-            {ship.crewRequest === null ? null : <CrewRequestCell cell={crewRequestCell(crewRequestStage(ship))} />}
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={ship.status} />
+              <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
+            </div>
+            <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} />
             <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
-              {ship.kind !== 'agent' ? null : <ModelTag model={ship.model} isCrewed={ship.status === 'crewed'} now={now} />}
               <LastSeen seenAt={ship.lastSeenAt} now={now} />
             </div>
           </div>
@@ -753,16 +734,11 @@ function PhoneList({
 }
 
 /**
- * The fleet overview list (docs/design/png/FleetTable.png): one calm 48 px
- * line per ship, with its labels on a second line once the fleet's labels are
- * read (canvas Labels, Q2; none on phone, Q3). Columns name (with the operator chip, flagship chip or
- * SquadronTag), status, crew request (a tone dot and a word; #245), report, runs on (harness and location kind; an
- * awaiting ship's prompt status), model and last seen (an icon). argo sorts
- * first and never reports; search and filters apply to it like any ship.
- * Every action lives in the row menu; the Report cell shows at most one next
- * step. On phone each ship becomes a row of up to three lines with its
- * actions in a bottom Sheet, and the filters move into a bottom Sheet too. Rows update in place and never reorder under the
- * pointer; ships that just appeared are highlighted.
+ * FleetTable reserves the name and shows metadata once in a separate cell.
+ * Desktop rows stay 48 px: ship, status, report, squadron and labels, runs on
+ * (harness, location, muted model hint), seen and the existing row menu.
+ * Phone separates the name, status, membership and session metadata; labels
+ * remain on the ship page. Filters, actions and live ordering are unchanged.
  */
 export function FleetTable({
   ships,

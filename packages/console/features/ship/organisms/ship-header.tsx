@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { classNames } from '../../../lib/class-names';
-import { clockTime, dayDate, duration, fullDateTime, lastSeen, shortDateTime } from '../../../lib/relative-time';
+import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../lib/relative-time';
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '../../../components/atoms/button';
 import { CopyButton } from '../../../components/atoms/copy-button';
@@ -208,6 +208,18 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
               <span className="inline-flex items-center gap-1.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm)">
                 <KeyRound aria-hidden />
                 No starting prompt issued
+              </span>
+            ) : null}
+            {ship.status === 'awaitingCrew' && ship.startingPrompt !== null ? (
+              <span className="inline-flex items-center gap-1.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm)">
+                <KeyRound aria-hidden />
+                <span>
+                  Prompt issued{' '}
+                  <time dateTime={ship.startingPrompt.issuedAt} title={fullDateTime(new Date(ship.startingPrompt.issuedAt))}>
+                    {relativeTime(new Date(ship.startingPrompt.issuedAt), now)}
+                  </time>
+                  {ship.startingPrompt.isClaimed ? ', claimed' : ', not claimed yet'}
+                </span>
               </span>
             ) : null}
           </div>

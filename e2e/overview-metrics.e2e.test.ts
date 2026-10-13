@@ -17,7 +17,7 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 
 // The overview, end to end: a fleet with one ship crewed, one awaiting crew
 // and one retired; the metric cards count them and open what they count, the
-// crewed ship's model has its tooltip and the retired one its day.
+// crewed ship's model has its tooltip and the retired one's ship page keeps its retirement time.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 
@@ -100,17 +100,21 @@ describe('the overview rows', () => {
   it("shows the crewed ship's model, what it is and when it was stated, in a tooltip", async () => {
     const page = await signedIn();
 
-    await page.getByRole('row', { name: /builder/ }).getByTestId('fleet-model').hover();
+    await page.getByRole('row', { name: /builder/ }).getByTestId('fleet-runs-on').getByTestId('fleet-model-hint').hover();
 
     await page.locator('[data-slot="tooltip-content"]').getByText(/^Model, stated /).waitFor();
   });
 
-  it('shows the day a retired ship was retired in Runs on', async () => {
+  it('keeps retired rows free of session metadata and shows their retirement time on the ship page', async () => {
     const page = await signedIn();
 
     await page.getByTestId('fleet-show-retired').click();
 
-    await page.getByRole('row', { name: /old/ }).getByTestId('fleet-retired-on').getByText(/^Retired \d+ [A-Z][a-z]{2}$/).waitFor();
+    const row = page.getByRole('row', { name: /old/ });
+    await row.getByText('Retired', { exact: true }).waitFor();
+    await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
+    await row.getByRole('link', { name: 'old', exact: true }).click();
+    await page.getByTestId('ship-header').getByText(/^Retired on .* Read-only\.$/).waitFor();
   });
 });
 

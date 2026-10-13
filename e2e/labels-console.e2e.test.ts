@@ -132,7 +132,9 @@ describe('Labels in the console', () => {
     const page = await signedIn();
     // Yours by key: area first; project=hemma folds into "+1", whose title names it.
     await expect.poll(() => page.getByTestId('fleet-row-hemma-api').getByTestId('fleet-labels').textContent(), WITHIN).toContain('area=backend');
-    await expect(page.getByTestId('fleet-row-hemma-api').getByTitle('project=hemma').count()).resolves.toBe(1);
+    const overflow = page.getByTestId('fleet-row-hemma-api').getByRole('link', { name: 'View 1 more labels' });
+    await expect(overflow.getAttribute('title')).resolves.toBe('project=hemma, by you');
+    await expect(overflow.getAttribute('href')).resolves.toBe(`/ships/${shipIdOf('hemma-api')}`);
 
     await page.getByTestId('fleet-filter-labels').click();
     await pick(page, { key: 'project', value: 'hemma' });
