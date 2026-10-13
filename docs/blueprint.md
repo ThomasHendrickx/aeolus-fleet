@@ -288,7 +288,7 @@ A hosting service such as pagasae drives the installation with its token (docs/a
 
    Beside them: its messages today and per UTC day of the last 7 days (each day 00:00 to 24:00 UTC, every message row counted), and the limits that apply to it.
 
-   And its health, where its deliveries wait, read from their states and times, never their payloads:
+   And its health (decision 0041), where its deliveries wait, read from their states and times, never their payloads:
    - **Oldest pending:** when its oldest pending delivery was sent; none when nothing is pending.
    - **Oldest in flight:** since when its oldest received or handed delivery is in that state, as the overdue clocks count it (decision 0040); none when nothing is in flight.
    - **No ship can take:** its pending deliveries to a type with no active ship that may claim them: none of the type is left, or none of the ships the network rules let it reach (decision 0034).
