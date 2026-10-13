@@ -1,5 +1,7 @@
 # Aeolus: product and domain architecture (v0)
 
+**Release status:** the pushed delivery protocol (decision 0040) is **unreleased, next version**, and is not available in npm 0.24.0. See the [core API release note](../packages/core/README.md#ships). Container sessions are also **unreleased, next version**; see [Session runtime](trierarch.md#session-runtime).
+
 Owner: Thomas Hendrickx. Last updated 2026-10-07.
 
 ## Purpose
