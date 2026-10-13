@@ -352,6 +352,25 @@ export interface InstallationFleetFacts {
   messagesPerUtcDay: { date: string; count: number }[];
   /** How its limits are set. */
   limitSettings: FleetLimitSettings;
+  /** Whether its deliveries reach their ships. */
+  health: FleetHealth;
+}
+
+/**
+ * A fleet's health as the installation reads it (#304): where its deliveries
+ * wait, read from their states and times, never their payloads.
+ */
+export interface FleetHealth {
+  /** When its oldest pending delivery was sent; null when none is pending. */
+  oldestPendingAt: Date | null;
+  /** Since when its oldest delivery in flight (received or handed) is in its state, as the overdue clocks read it; null when none is. */
+  oldestInFlightAt: Date | null;
+  /** Its pending deliveries to a type no active ship can take: none of the type, or none of the reachable ones (decision 0034). */
+  noShipCanTake: number;
+  /** Its undeliverable and not handled deliveries: what Needs attention lists for Resend or Dismiss. */
+  needsAttention: number;
+  /** The overdue deliveries argo was told of that still stand: what Needs attention shows as overdue. */
+  overdue: number;
 }
 
 /** What a read of the installation's fleets counts messages over: since a moment, and per UTC day from a first day. */

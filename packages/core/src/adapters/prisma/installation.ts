@@ -72,12 +72,18 @@ const factsRow = z.object({
   shipLimit: z.number().int().nullable(),
   dailyMessageLimitSet: z.boolean(),
   dailyMessageLimit: z.number().int().nullable(),
+  oldestPendingAt: z.date().nullable(),
+  oldestInFlightAt: z.date().nullable(),
+  noShipCanTake: z.bigint(),
+  needsAttention: z.bigint(),
+  overdue: z.bigint(),
 });
 
 function toFacts(row: unknown): InstallationFleetFacts {
-  const { shipLimitSet, shipLimit, dailyMessageLimitSet, dailyMessageLimit, ...facts } = factsRow.parse(row);
+  const { shipLimitSet, shipLimit, dailyMessageLimitSet, dailyMessageLimit, oldestPendingAt, oldestInFlightAt, noShipCanTake, needsAttention, overdue, ...facts } = factsRow.parse(row);
   return {
     ...facts,
+    health: { oldestPendingAt, oldestInFlightAt, noShipCanTake: Number(noShipCanTake), needsAttention: Number(needsAttention), overdue: Number(overdue) },
     operatorEmail: facts.operatorEmail ?? '',
     shipCount: Number(facts.shipCount),
     messagesSince: Number(facts.messagesSince),
@@ -104,6 +110,29 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
           (SELECT coalesce(json_agg(json_build_object('date', d.day, 'count', d.count) ORDER BY d.day), '[]'::json)
            FROM (SELECT to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)::int AS count
                  FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.firstDay} GROUP BY 1) d) AS "messagesPerUtcDay",
+          -- Health (#304): where its deliveries wait, from their states and times only.
+          (SELECT min(d.created_at) FROM deliveries d WHERE d.fleet_id = f.id AND d.state = 'pending') AS "oldestPendingAt",
+          -- In flight since its state began, as the overdue clocks read it (overdue.ts).
+          (SELECT min(COALESCE((
+             SELECT max(e.occurred_at) FROM events e
+             WHERE e.fleet_id = d.fleet_id AND e.delivery_id = d.id
+               AND (e.type = 'DeliveryReturned'
+                 OR (e.type = 'DeliveryReceived' AND e.details->>'again' IS DISTINCT FROM 'true')
+                 OR (e.type = 'DeliveryHanded' AND e.details->>'onceMore' IS DISTINCT FROM 'true'))
+           ), d.created_at))
+           FROM deliveries d WHERE d.fleet_id = f.id AND d.state IN ('received', 'handed')) AS "oldestInFlightAt",
+          -- Pending to a type with no active ship that may claim it (decision 0034).
+          (SELECT count(*) FROM deliveries d
+           WHERE d.fleet_id = f.id AND d.state = 'pending' AND d.recipient_type IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM ships s
+                             WHERE s.fleet_id = d.fleet_id AND s.type = d.recipient_type AND s.retired_at IS NULL
+                               AND (cardinality(d.reachable_ship_ids) = 0 OR s.id = ANY(d.reachable_ship_ids)))) AS "noShipCanTake",
+          (SELECT count(*) FROM deliveries d WHERE d.fleet_id = f.id AND d.state IN ('undeliverable', 'notHandled')) AS "needsAttention",
+          -- Told on a lease that has not ended, its delivery still in the told state, held by that lease when in flight (history.ts).
+          (SELECT count(*) FROM overdue_deliveries o
+           JOIN leases l ON l.fleet_id = o.fleet_id AND l.id = o.lease_id AND l.ended_at IS NULL
+           JOIN deliveries d ON d.fleet_id = o.fleet_id AND d.id = o.delivery_id AND d.state = o.state
+           WHERE o.fleet_id = f.id AND (o.state = 'pending' OR d.claimed_by_lease_id = o.lease_id)) AS "overdue",
           f.ship_limit_set AS "shipLimitSet", f.ship_limit AS "shipLimit",
           f.daily_message_limit_set AS "dailyMessageLimitSet", f.daily_message_limit AS "dailyMessageLimit"
         FROM fleets f

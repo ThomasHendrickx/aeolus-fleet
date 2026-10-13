@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import { fleetLimitsOf, type FleetLimit, type InstallationSettings } from './limits.js';
-import type { InstallationFleetFacts, InstallationFleetWindow } from './ports.js';
+import type { FleetHealth, InstallationFleetFacts, InstallationFleetWindow } from './ports.js';
 
 /** How far back an installation's fleet counts its messages, and over how many UTC days. */
 export const MESSAGE_WINDOW_DAYS = 7;
@@ -11,7 +11,7 @@ export const MESSAGE_WINDOW_MS = MESSAGE_WINDOW_DAYS * DAY_MS;
 /**
  * A fleet as the installation describes it (docs/blueprint.md,
  * "Installation"): its facts and measures, its messages today and per UTC day
- * of the last 7 days, today last, and the limits that apply to it.
+ * of the last 7 days, today last, the limits that apply to it and its health.
  */
 export interface InstallationFleet {
   fleetId: FleetId;
@@ -25,6 +25,7 @@ export interface InstallationFleet {
   messagesToday: number;
   messagesPerDay: { date: string; count: number }[];
   limits: { ships: FleetLimit; dailyMessages: FleetLimit };
+  health: FleetHealth;
 }
 
 /** The UTC days a read at `now` counts messages over: the last 7, today last, as YYYY-MM-DD. */

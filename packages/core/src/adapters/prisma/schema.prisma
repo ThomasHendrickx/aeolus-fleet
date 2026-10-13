@@ -530,6 +530,8 @@ model Delivery {
   @@unique([messageId, recipientType])
   @@index([fleetId, recipientShipId, state])
   @@index([fleetId, recipientType, state])
+  /// The installation's health figures scan a fleet's deliveries by state (#304).
+  @@index([fleetId, state, createdAt])
   /// A crew's own deliveries in flight, which its next receive returns first.
   @@index([fleetId, claimedByLeaseId, state])
   /// Every foreign key has an index leading with its columns, so deleting a
