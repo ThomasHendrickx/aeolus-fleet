@@ -1412,7 +1412,7 @@ describe('the Codex wake bridge', () => {
   const queued = (calls: string) => (statSync(calls, { throwIfNoEntry: false }) ? readFileSync(calls, 'utf8') : '');
 
   it("logs arming for the Codex task in the plugin's log, and keeps no log of its own", async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const codex = aCodex();
@@ -1429,7 +1429,7 @@ describe('the Codex wake bridge', () => {
     const hold = new Promise<void>((resolve) => {
       release = resolve;
     });
-    fleet = await startStubFleet([inbox(0), { ...inbox(1), hold }]);
+    fleet = await aWakingFleet([inbox(0), { ...inbox(1), hold }]);
     crew(fleet.url);
     aTurnEnded();
     const codex = aCodex();
@@ -1449,14 +1449,14 @@ describe('the Codex wake bridge', () => {
   });
 
   it('logs the wake it queues to the Codex task', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const codex = aCodex();
 
     await start('aeolus-codex-wake.sh', { args: ['run', THREAD_ID], env: codex.env }).exited;
 
-    expect(actions().at(-1)).toEqual({ ...scout, action: 'wakeBridge', outcome: `queued a wake to Codex task ${THREAD_ID}: 1 delivery waits` });
+    expect(actions().at(-1)).toEqual({ ...scout, action: 'wakeBridge', outcome: `queued a hand-over of ${DELIVERY_ID} to Codex task ${THREAD_ID}` });
   });
 
   it('logs a watcher that stopped without a wake as a failure, with what it said', async () => {
@@ -1479,7 +1479,7 @@ describe('the Codex wake bridge', () => {
   });
 
   it('logs a wake codex refused to queue as a failure, with what codex said', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const codex = aCodex();
@@ -1490,7 +1490,7 @@ describe('the Codex wake bridge', () => {
     expect(actions().at(-1)).toEqual({
       ...scout,
       action: 'wakeBridge',
-      outcome: `failed: codex did not queue the wake to Codex task ${THREAD_ID}: no such thread`,
+      outcome: `failed: codex did not queue the hand-over to Codex task ${THREAD_ID}: no such thread`,
       next: 'the session arms it again before it ends its turn',
     });
   });
@@ -1527,7 +1527,7 @@ describe('the Codex wake bridge', () => {
   });
 
   it('waits without model tokens, then queues one message to the exact Codex task', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const bin = join(data, 'bin');
@@ -1544,12 +1544,12 @@ describe('the Codex wake bridge', () => {
     }).exited;
 
     expect(result.status).toBe(0);
-    expect(readFileSync(calls, 'utf8')).toContain(`queue --thread ${threadId} --message Aeolus has 1 delivery waiting for scout.`);
+    expect(readFileSync(calls, 'utf8')).toContain(`queue --thread ${threadId} --message Aeolus handed a message for scout to this task:`);
     expect(readFileSync(calls, 'utf8')).not.toContain(CREW_TOKEN);
   });
 
   it('detaches from SessionStart and still queues the task when a delivery arrives', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const bin = join(data, 'bin');
@@ -1573,7 +1573,7 @@ describe('the Codex wake bridge', () => {
   });
 
   it('replaces a stale same-task pid instead of trusting an unrelated live process', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
     const unrelated = spawn('sleep', ['30']);
@@ -1928,7 +1928,7 @@ describe('the Stop hook', () => {
   });
 
   it('re-arms the Codex wake bridge for the task by itself at the end of every turn', async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url, AS_CODEX);
     aTurnEnded();
     const bin = join(data, 'bin');
@@ -3053,7 +3053,7 @@ describe('no plugin script prints a shell error for a file that vanishes between
   });
 
   it("the wake bridge's pid, when the bridge ends", async () => {
-    fleet = await startStubFleet([inbox(1)]);
+    fleet = await aWakingFleet([inbox(1)]);
     crew(fleet.url);
     aTurnEnded();
 
