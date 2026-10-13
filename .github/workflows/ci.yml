@@ -3,14 +3,14 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'hotfix/**']
 
 permissions:
   contents: read
 
-# A later push to a pull request cancels its earlier run. A push to main never
-# cancels another: every commit on main needs its own CI result for the release
-# gate (#574). Each main run gets a group of its own, since a shared group
+# A later push to a pull request cancels its earlier run. A push to a release branch never
+# cancels another: every commit on a release branch needs its own CI result for the release
+# gate (#574). Each push run gets a group of its own, since a shared group
 # would still cancel a pending run when a third push arrives.
 concurrency:
   group: ci-${{ github.event_name == 'push' && github.run_id || github.ref }}
@@ -38,7 +38,7 @@ jobs:
 
   trierarch-macos:
     # The trierarch runs on macOS too, where Linux CI misses its regressions
-    # (#559). On pushes to main only: a macOS runner costs about 10 times the
+    # (#559). On pushes only: a macOS runner costs about 10 times the
     # minutes (#566). The unit layer only: the runner has no Docker for the
     # integration layer's Testcontainers.
     name: Trierarch unit tests on macOS
