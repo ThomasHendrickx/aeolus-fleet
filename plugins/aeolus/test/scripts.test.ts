@@ -1459,6 +1459,18 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       });
     });
 
+    it('tells a task on a pushed lease at session start that the message comes into the turn through the hooks, not to receive what waits', async () => {
+      await aCodexHandOver({});
+
+      const started = await aCodexHook('aeolus-session-start.sh', { hook_event_name: 'SessionStart', source: 'resume' });
+
+      const context = hookOutputSchema.parse(JSON.parse(started.stdout)).hookSpecificOutput.additionalContext;
+      expect(context).toContain(
+        "Go on as the aeolus-crew skill says: fetch the protocol. Receive and ack nothing: this ship is pushed, so the wake bridge hands each message over and it comes into the turn through the plugin's hooks. Then end the turn.",
+      );
+      expect(context).not.toContain('receive and handle what waits');
+    });
+
     describe('an interrupted turn (Interrupt): a died turn (3.7, D3)', () => {
       const ONCE_MORE = 'aeolus: handed before: the turn that took this message ended before it did, so it comes in once more.\n\n';
       const anInterrupt = () => aCodexHook('aeolus-turn-died.sh', { hook_event_name: 'Interrupt', permission_mode: 'default', transcript_path: null });
@@ -1502,6 +1514,41 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
         expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
         expect(store()).toEqual([]);
       });
+    });
+  });
+
+  describe('what a session on a pushed lease is told: the message comes into the turn through the hooks, never by its own receive', () => {
+    const PUSHED =
+      'Go on as the aeolus crew-a-ship skill says: fetch the protocol. Receive and ack nothing: this ship is pushed, so the watcher hands each message over and it comes into the turn through the plugin\'s hooks.';
+    const contextAt = async (source: string) =>
+      hookOutputSchema.parse(JSON.parse((await aHook('aeolus-session-start.sh', { payload: { hook_event_name: 'SessionStart', source } })).stdout)).hookSpecificOutput.additionalContext;
+
+    it('says so at session start, and not to receive what waits', async () => {
+      await aHandOver({});
+
+      const context = await contextAt('clear');
+
+      expect(context).toContain(PUSHED);
+      expect(context).not.toContain('receive and handle what waits');
+    });
+
+    it('still says to receive what waits on a lease the watcher has not pushed: it pulls', async () => {
+      fleet = await startRoutedStubFleet({});
+      crew(fleet.url);
+
+      expect(await contextAt('clear')).toContain('receive and handle what waits');
+    });
+
+    it('shows the lease pushed', async () => {
+      await aHandOver({});
+
+      expect(run('aeolus-identity.sh', { args: ['show'] }).stdout).toContain('\ndelivery: pushed\n');
+    });
+
+    it('shows nothing pushed for a lease the watcher has not pushed', () => {
+      crew();
+
+      expect(run('aeolus-identity.sh', { args: ['show'] }).stdout).not.toContain('delivery:');
     });
   });
 
