@@ -162,12 +162,12 @@ describe('Trierarchs in the console', () => {
     await card.getByTestId('crew-request-trierarch').getByText('trierarch-mac').waitFor({ timeout: 30_000 });
     await expect(card.getByTestId('crew-request-trierarch').getAttribute('href')).resolves.toBe(`/trierarchs/${shipId}`);
 
-    // Crewing is not running yet: the request is on Needs crew, and the overview shows where it stands.
+    // Crewing is not running yet: the request is on Needs crew, and its ship page shows where the request stands.
     await expect.poll(() => page.getByTestId('nav-needs-crew-count').textContent(), { timeout: 30_000 }).toContain('1');
     await page.getByTestId('nav-needs-crew').click();
     await page.getByTestId('needs-crew-row').getByText('scout').waitFor();
-    await page.getByTestId('nav-overview').click();
-    await expect.poll(() => page.getByTestId('fleet-row-scout').getByTestId('fleet-crew-request').textContent(), { timeout: 30_000 }).toBe('Crewing');
+    await page.goto(`/ships/${scout.shipId}`);
+    await expect.poll(() => page.getByTestId('crew-request-state').textContent(), { timeout: 30_000 }).toBe('Crewing');
 
     // Its machine's page shows the ship with the workspace its settings name, and Trierarchs the plugin's version.
     await page.goto(`/trierarchs/${shipId}`);
