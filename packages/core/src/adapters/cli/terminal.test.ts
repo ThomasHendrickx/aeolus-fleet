@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { terminalIo } from './terminal.js';
 
@@ -15,6 +15,23 @@ function streams(options: { isTerminal: boolean }) {
 }
 
 describe('the terminal of a server command', () => {
+  let previousTerm: string | undefined;
+
+  beforeEach(() => {
+    previousTerm = process.env.TERM;
+    // Readline treats TERM=dumb as a pipe even with terminal input. These tests
+    // exercise an interactive terminal, independently of the invoking shell.
+    process.env.TERM = 'xterm';
+  });
+
+  afterEach(() => {
+    if (previousTerm === undefined) {
+      delete process.env.TERM;
+    } else {
+      process.env.TERM = previousTerm;
+    }
+  });
+
   it('reads piped answers a line at a time, and nothing once the input ends', async () => {
     const terminal = streams({ isTerminal: false });
     const io = terminalIo(terminal);
