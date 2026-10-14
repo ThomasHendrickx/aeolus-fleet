@@ -141,6 +141,94 @@ describe('the history reads on Postgres', () => {
     ]);
   });
 
+  it("give a pushed delivery's way through on a session its trierarch crewed: the trierarch on its computer, the overdue clock, the crew it runs and the replies", async () => {
+    const { shipId: trierarchId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+    );
+    const { shipId: pluginId } = unwrap(
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+    );
+    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const { shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: builderId }));
+    core.clock.advance(1_000);
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: builderId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const builder = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: builderId, status: 'running', attempt: 1 }));
+
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: builderId } });
+    core.clock.advance(1_000);
+    const [received] = unwrap(await core.useCases.pushReceiveDeliveries(builder, {})).deliveries;
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.pushReceiveDeliveries(builder, {}));
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.handOverDelivery(builder, { deliveryId: idSchema('delivery').parse(received?.deliveryId), handOverNumber: 1 }));
+    const handedAt = core.clock.now();
+    core.clock.advance(10 * 60_000);
+    await core.useCases.tellOverdueDeliveries();
+    await send(builder, { to: { kind: 'ship', shipId: planner.shipId }, inReplyTo: messageId });
+
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
+
+    const atMacMini = { kind: 'trierarch', trierarch: { id: trierarchId, name: 'mac-mini' } };
+    expect(message.delivery.history.map((step) => [step.type, step.by, step.handOverNumber, step.isAgain, step.overdue])).toEqual([
+      ['DeliveryOverdue', null, null, false, { clock: 'notConfirmed', minutes: 10 }],
+      ['DeliveryHanded', atMacMini, 1, false, null],
+      ['DeliveryReceived', atMacMini, null, true, null],
+      ['DeliveryReceived', atMacMini, null, false, null],
+      ['MessageAccepted', null, null, false, null],
+    ]);
+    expect(message.delivery.way).toEqual({
+      holder: { kind: 'agent' },
+      since: handedAt,
+      isPulled: false,
+      overdue: { clock: 'notConfirmed', minutes: 10, toldAt: core.clock.now() },
+      lease: { by: atMacMini, isEnded: false, turn: null },
+      crew: { status: 'running', attempt: 1, startedAt: null },
+    });
+    expect(message.replies).toEqual([{ id: expect.any(String), sender: { id: builderId, name: 'builder' }, sentAt: core.clock.now() }]);
+  });
+
+  it("give a delivery's way on a session crewed by hand: the plugin watcher, the turn it waits through, and the lease end that returned it", async () => {
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+    const busyAt = core.clock.now();
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: busyAt }));
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+
+    const pending = unwrap(await core.useCases.readMessage(argo, { messageId }));
+    expect(pending.delivery.way).toMatchObject({
+      holder: { kind: 'fleet' },
+      lease: { by: { kind: 'pluginWatcher' }, isEnded: false, turn: { state: 'busy', at: busyAt } },
+      crew: null,
+    });
+
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+
+    const returned = unwrap(await core.useCases.readMessage(argo, { messageId }));
+    expect(returned.delivery.history.slice(0, 2)).toMatchObject([
+      { type: 'DeliveryReturned', leaseEnd: 'released' },
+      { type: 'DeliveryReceived', by: { kind: 'pluginWatcher' } },
+    ]);
+    expect(returned.delivery.way).toMatchObject({ holder: { kind: 'fleet' }, lease: null });
+  });
+
+  it('give an acknowledged delivery whose lease ended, pulled by a plain receive', async () => {
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const [deliveryId] = await receive(scout);
+    await ack(scout, deliveryId);
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
+
+    expect(message.delivery.way).toMatchObject({ holder: { kind: 'agent' }, isPulled: true, lease: { by: null, isEnded: true } });
+  });
+
   it('know no ship or message of another fleet', async () => {
     const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     const elsewhere = { ...argo, fleetId: idSchema('fleet').parse(`flt_${'0'.repeat(26)}`) };

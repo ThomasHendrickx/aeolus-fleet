@@ -163,6 +163,8 @@ describe('messageInputSchema', () => {
 });
 
 describe('messageOutputSchema', () => {
+  const trierarch = { id: newId('ship'), name: 'mac-mini' };
+  const step = { location: null, harness: null, attempts: null, by: null, handOverNumber: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null };
   const message = {
     id: newId('message'),
     sender: scout,
@@ -172,44 +174,77 @@ describe('messageOutputSchema', () => {
     contentType: 'application/json',
     model: null,
     payload: '{"pr":48}',
+    replies: [{ id: newId('message'), sender: planner, sentAt: AT }],
     delivery: {
       id: newId('delivery'),
       state: 'handed',
       attempts: 2,
       claimedBy: planner,
+      way: {
+        holder: { kind: 'agent' },
+        since: AT,
+        isPulled: false,
+        overdue: { clock: 'notConfirmed', minutes: 10, toldAt: AT },
+        lease: { by: { kind: 'trierarch', trierarch }, isEnded: false, turn: { turn: 'busy', at: AT } },
+        crew: { status: 'running', attempt: 1, startedAt: AT },
+      },
       history: [
-        { seq: 3, type: 'DeliveryHanded', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2 },
-        { seq: 2, type: 'DeliveryReturned', occurredAt: AT, ship: planner, location: null, harness: null, attempts: 1 },
-        { seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null, location: null, harness: null, attempts: null },
+        { ...step, seq: 6, type: 'DeliveryOverdue', occurredAt: AT, ship: planner, overdue: { clock: 'notConfirmed', minutes: 10 } },
+        { ...step, seq: 5, type: 'DeliveryHanded', occurredAt: AT, ship: planner, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2, by: { kind: 'trierarch', trierarch }, handOverNumber: 2 },
+        { ...step, seq: 4, type: 'DeliveryReceived', occurredAt: AT, ship: planner, by: { kind: 'pluginWatcher' }, isAgain: true },
+        { ...step, seq: 3, type: 'DeliveryReturned', occurredAt: AT, ship: planner, attempts: 1, leaseEnd: 'released' },
+        { ...step, seq: 2, type: 'DeliveryHanded', occurredAt: AT, ship: planner, attempts: 1 },
+        { ...step, seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null },
       ],
     },
   };
 
-  it('accepts the envelope, the payload and the delivery with its history, newest first', () => {
+  it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
     expect(messageOutputSchema.parse(message)).toEqual(message);
   });
 
-  it('accepts an abandoned delivery in the history', () => {
-    const history = [{ seq: 4, type: 'DeliveryAbandoned', occurredAt: AT, ship: scout, location: null, harness: null, attempts: null }];
+  it.each([
+    ['the fleet', { kind: 'fleet' }],
+    ['the trierarch on its computer', { kind: 'trierarch', trierarch }],
+    ['the plugin watcher', { kind: 'pluginWatcher' }],
+    ['nobody', null],
+  ])('accepts a delivery held by %s', (_, holder) => {
+    const way = { ...message.delivery.way, holder };
 
-    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'abandoned', history } }).success).toBe(
-      true,
-    );
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, way } }).success).toBe(true);
   });
 
-  it('accepts a dismissed delivery in the history', () => {
-    const history = [{ seq: 6, type: 'DeliveryDismissed', occurredAt: AT, ship: null, location: null, harness: null, attempts: null }];
+  it('accepts a delivery waiting for no lease, with no crew and not overdue', () => {
+    const way = { ...message.delivery.way, holder: { kind: 'fleet' }, overdue: null, lease: null, crew: null };
 
-    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, state: 'dismissed', history } }).success).toBe(
-      true,
-    );
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, way } }).success).toBe(true);
+  });
+
+  it.each(['DeliveryHandled', 'DeliveryNotHandled', 'DeliveryAbandoned', 'DeliveryDismissed'])('accepts %s in the history', (type) => {
+    const history = [{ ...step, seq: 7, type, occurredAt: AT, ship: scout }];
+
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, history } }).success).toBe(true);
   });
 
   it('rejects a history entry of a type that is no delivery change', () => {
-    const history = [{ ...message.delivery.history[0], type: 'ShipClaimed' }];
+    const history = [{ ...message.delivery.history[1], type: 'ShipClaimed' }];
 
     expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, history } }).success).toBe(
       false,
     );
+  });
+
+  it('rejects a hand-over number below 1', () => {
+    const history = [{ ...message.delivery.history[1], handOverNumber: 0 }];
+
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, history } }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects a holder of an unknown kind', () => {
+    const way = { ...message.delivery.way, holder: { kind: 'session' } };
+
+    expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, way } }).success).toBe(false);
   });
 });
