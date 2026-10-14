@@ -2,7 +2,9 @@ import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
@@ -82,6 +84,15 @@ describe('requesting a crew for a ship', () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings: exact })).resolves.toMatchObject({ isOk: true });
   });
 
+  it('takes machine labels that are label values of the fleet', async () => {
+    const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['labels:define'] });
+    unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+    const machineLabels = [valueIdOf(core, { key: 'os', value: 'macos' }), valueIdOf(core, { key: 'os', value: 'linux' })];
+
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, machineLabels } })).resolves.toMatchObject({ isOk: true });
+    expect(crewRequestOf(scoutId)?.settings).toEqual({ ...settings, machineLabels });
+  });
+
   it('takes a first prompt of exactly 8 KB', async () => {
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, firstPrompt: 'x'.repeat(8 * 1024) } })).resolves.toMatchObject({ isOk: true });
   });
@@ -141,6 +152,42 @@ describe('a crew request refused', () => {
 
   it('refuses settings without a workspace (#809)', async () => {
     await expectRefused({ shipId: scoutId, settings: { harness: 'codex', options: {} } }, { kind: 'CREW_REQUEST_SETTINGS_INVALID' });
+  });
+
+  it('refuses a machine label that is no label value of the fleet, naming it, before storing anything (#811)', async () => {
+    const unknown = core.ids('labelValue');
+
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, machineLabels: [unknown] } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${unknown}` },
+    );
+  });
+
+  it('refuses a value its label no longer has, among values it has (#811)', async () => {
+    const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['labels:define'] });
+    const { labelId } = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
+    const macos = valueIdOf(core, { key: 'os', value: 'macos' });
+    const linux = valueIdOf(core, { key: 'os', value: 'linux' });
+    unwrap(await registry.changeLabelValues(plugin, { labelId, values: ['macos'] }));
+    core.state.events.length = 0;
+
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, machineLabels: [macos, linux] } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: `settings are not valid crew settings: machineLabels.1: The fleet has no label value ${linux}` },
+    );
+  });
+
+  it("refuses a label value of another fleet: the caller's fleet scopes the labels (#811)", async () => {
+    const other = await hostedFleetWithViewer(core);
+    const otherArgo: Caller = { shipId: other.operatorShipId, fleetId: other.fleetId, kind: 'operator', scopes: [...SCOPES] };
+    unwrap(await registry.defineLabel(otherArgo, { key: 'os', values: ['macos'] }));
+    const foreign = valueIdOf(core, { key: 'os', value: 'macos' });
+    core.state.events.length = 0;
+
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, machineLabels: [foreign] } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${foreign}` },
+    );
   });
 
   it('refuses argo: the console crews it', async () => {
