@@ -1,4 +1,5 @@
-import type { ComponentProps } from 'react';
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
@@ -54,6 +55,34 @@ function TableHead({ className, ...props }: ComponentProps<'th'>) {
   );
 }
 
+/**
+ * A header that sorts its column: the whole label is a button, aria-sort on
+ * the header says how the column is sorted, and an arrow shows it (both ways,
+ * muted, while unsorted). The table owns the order; this only asks for it.
+ */
+function TableSortHead({
+  direction,
+  onSort,
+  children,
+  className,
+  ...props
+}: Omit<ComponentProps<'th'>, 'children' | 'aria-sort'> & { direction: 'ascending' | 'descending' | null; onSort: () => void; children: ReactNode }) {
+  const Icon = direction === 'ascending' ? ArrowUp : direction === 'descending' ? ArrowDown : ChevronsUpDown;
+  return (
+    <TableHead aria-sort={direction ?? 'none'} className={classNames('px-2', className)} {...props}>
+      <button
+        type="button"
+        onClick={onSort}
+        className="inline-flex h-7 items-center gap-1 rounded-sm px-2 font-medium hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-sorted:text-foreground"
+        data-sorted={direction === null ? undefined : ''}
+      >
+        {children}
+        <Icon aria-hidden className={classNames('size-3.5 shrink-0', direction === null ? 'opacity-50' : undefined)} />
+      </button>
+    </TableHead>
+  );
+}
+
 function TableCell({ className, ...props }: ComponentProps<'td'>) {
   return <td data-slot="table-cell" className={classNames('px-4 align-middle', className)} {...props} />;
 }
@@ -68,4 +97,4 @@ function TableCaption({ className, ...props }: ComponentProps<'caption'>) {
   );
 }
 
-export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow };
+export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortHead };

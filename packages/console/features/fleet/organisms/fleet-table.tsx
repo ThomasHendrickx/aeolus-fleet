@@ -17,6 +17,8 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../lib/fleet-filter';
+import { AGENT_KIND_WORDS, isAgentKind } from '../lib/agent-kind';
+import { nextSort, type FleetSort, type SortColumn } from '../lib/fleet-sort';
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../lib/labels';
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
 import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
@@ -27,7 +29,7 @@ import { Label } from '../../../components/atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/atoms/select';
 import { Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
 import { Switch } from '../../../components/atoms/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/atoms/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../components/atoms/table';
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LabelChip } from '../../../components/molecules/label-chip';
@@ -86,6 +88,13 @@ const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
 
 function isStatusFilter(value: string): value is FleetFilters['status'] {
   return Object.hasOwn(STATUS_ITEMS, value);
+}
+
+/** The Kind filter's choices: every kind, always, so the filter reads the same whatever the fleet holds. */
+const KIND_ITEMS: Record<FleetFilters['kind'], string> = { all: 'All', ...AGENT_KIND_WORDS };
+
+function isKindFilter(value: string): value is FleetFilters['kind'] {
+  return value === 'all' || isAgentKind(value);
 }
 
 /** The crew request filter's choices, in the order of a request's life. */
@@ -279,6 +288,29 @@ function FilterControls({
         </SelectContent>
       </Select>
       <Select
+        items={KIND_ITEMS}
+        value={filters.kind}
+        onValueChange={(value) => {
+          if (value !== null && isKindFilter(value)) {
+            change({ kind: value });
+          }
+        }}
+      >
+        <SelectTrigger size={size} aria-label="Kind" data-testid={isTouch ? undefined : 'fleet-filter-kind'}>
+          <span className="flex gap-1.5">
+            <span className="text-muted-foreground">Kind</span>
+            <SelectValue className="font-medium" />
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(KIND_ITEMS).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
         items={typeItems}
         value={filters.type}
         onValueChange={(value) => {
@@ -386,7 +418,7 @@ function FilterOption({ label, isOn, kind, onPick }: { label: string; isOn: bool
 
 /**
  * The phone's filters in a bottom Sheet (canvas, MOverviewFilters): Status as
- * segments, Type and Squadron as chips, Show retired ships, and Show N ships
+ * segments, Crew request, Kind, Type and Squadron as chips, Show retired ships, and Show N ships
  * to close it. Reset puts every filter back; the search stays.
  */
 function PhoneFilters({
@@ -469,6 +501,26 @@ function PhoneFilters({
                   onPick={() => {
                     if (isCrewRequestFilter(value, crewRequestItems)) {
                       change({ crewRequest: value });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span id="fleet-filter-kind-label" className="text-meta font-medium text-muted-foreground">
+              Kind
+            </span>
+            <div role="radiogroup" aria-labelledby="fleet-filter-kind-label" data-testid="fleet-filter-kind-touch" className="flex flex-wrap gap-1.5">
+              {Object.entries(KIND_ITEMS).map(([value, label]) => (
+                <FilterOption
+                  key={value}
+                  label={label}
+                  kind="radio"
+                  isOn={filters.kind === value}
+                  onPick={() => {
+                    if (isKindFilter(value)) {
+                      change({ kind: value });
                     }
                   }}
                 />
@@ -622,6 +674,16 @@ function ShipNameCell({ ship }: { ship: ListedShip }) {
   );
 }
 
+/** The desktop columns that sort, with their headers, in table order. */
+const SORTED_HEADS: readonly { column: SortColumn; head: string }[] = [
+  { column: 'ship', head: 'Ship' },
+  { column: 'status', head: 'Status' },
+  { column: 'report', head: 'Report' },
+  { column: 'squadronAndLabels', head: 'Squadron and labels' },
+  { column: 'runsOn', head: 'Runs on' },
+  { column: 'seen', head: 'Seen' },
+];
+
 function DesktopTable({
   ships,
   highlightedShipIds,
@@ -630,7 +692,14 @@ function DesktopTable({
   squadronsOf,
   labels,
   pluginShipIds,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
+  sort,
+  onSort,
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
+  ships: readonly ListedShip[];
+  /** The column the rows are sorted by; with no `onSort`, the headers are plain. */
+  sort?: FleetSort | null;
+  onSort?: (column: SortColumn) => void;
+}) {
   return (
     <div className="max-sm:hidden">
       <Table aria-label="Ships" className="min-w-320 table-fixed">
@@ -645,12 +714,22 @@ function DesktopTable({
         </colgroup>
         <TableHeader>
           <TableRow>
-            <TableHead>Ship</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Report</TableHead>
-            <TableHead>Squadron and labels</TableHead>
-            <TableHead>Runs on</TableHead>
-            <TableHead>Seen</TableHead>
+            {SORTED_HEADS.map(({ column, head }) =>
+              onSort === undefined ? (
+                <TableHead key={column}>{head}</TableHead>
+              ) : (
+                <TableSortHead
+                  key={column}
+                  data-testid={`fleet-sort-${column}`}
+                  direction={sort?.column === column ? sort.direction : null}
+                  onSort={() => {
+                    onSort(column);
+                  }}
+                >
+                  {head}
+                </TableSortHead>
+              ),
+            )}
             <TableHead>
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -738,7 +817,9 @@ function PhoneList({
  * Desktop rows stay 48 px: ship, status, report, squadron and labels, runs on
  * (harness, location, muted model hint), seen and the existing row menu.
  * Phone separates the name, status, membership and session metadata; labels
- * remain on the ship page. Filters, actions and live ordering are unchanged.
+ * remain on the ship page. A header sorts by its column, A to Z, Z to A,
+ * then back to the default order (argo first, then by name); the phone list
+ * follows the same order.
  */
 export function FleetTable({
   ships,
@@ -792,7 +873,7 @@ export function FleetTable({
     );
   }
 
-  const shown = filterFleet(ships, { ...view, squadronsOf });
+  const shown = filterFleet(ships, { ...view, squadronsOf, pluginShipIds });
   const query = view.query.trim();
   return (
     <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">
@@ -821,7 +902,7 @@ export function FleetTable({
               size="xs"
               data-testid="fleet-clear-filters"
               onClick={() => {
-                onViewChange(DEFAULT_FLEET_VIEW);
+                onViewChange({ ...DEFAULT_FLEET_VIEW, sort: view.sort });
               }}
             >
               {clearLabel(query, view.filters)}
@@ -830,7 +911,15 @@ export function FleetTable({
         />
       ) : (
         <>
-          <DesktopTable ships={shown} labels={labels} {...rows} />
+          <DesktopTable
+            ships={shown}
+            labels={labels}
+            sort={view.sort}
+            onSort={(column) => {
+              onViewChange({ ...view, sort: nextSort(view.sort, column) });
+            }}
+            {...rows}
+          />
           <PhoneList ships={shown} {...rows} />
         </>
       )}
