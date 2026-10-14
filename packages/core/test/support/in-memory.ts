@@ -1531,6 +1531,31 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             };
           }),
       ),
+    noShipCanTake: (fleetId) =>
+      Promise.resolve(
+        state.deliveries
+          .filter((delivery) => delivery.fleetId === fleetId && delivery.state === 'pending')
+          .flatMap((delivery) => {
+            const { recipient } = delivery;
+            if (recipient.kind !== 'type') {
+              return [];
+            }
+            const canTake = state.ships.some(
+              (held) =>
+                held.fleetId === fleetId &&
+                held.type === recipient.type &&
+                held.retiredAt === null &&
+                (delivery.reachableShipIds === undefined || delivery.reachableShipIds.length === 0 || delivery.reachableShipIds.includes(held.id)),
+            );
+            const message = messageOf(fleetId, delivery.messageId);
+            if (canTake || !message) {
+              return [];
+            }
+            const { id, sender, recipient: addressed, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
+            return [{ deliveryId: delivery.id, type: recipient.type, message: { id, sender, recipient: addressed, inReplyTo, sentAt, contentType, model, payload } }];
+          })
+          .toSorted((first, second) => first.message.sentAt.getTime() - second.message.sentAt.getTime() || first.deliveryId.localeCompare(second.deliveryId)),
+      ),
   };
 
   const notices: NoticeRepository = {

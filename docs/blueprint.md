@@ -350,6 +350,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. The operator resends it or dismisses it. Either way the delivery becomes dismissed and stays in the timelines.
 3. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 4. An overdue delivery shows there too, apart from the undeliverable and not handled ones: the ship, the clock that ran out and when argo was told, oldest told first. It offers no action and clears by itself once the delivery leaves the state it was told in (received, handed, confirmed, undeliverable or returned) or its lease ends.
+5. A pending delivery no ship can take shows there too, in its own group, No ship can take it (decision 0041): sent to a type with no active ship that may claim it, because the last ship of the type retired or none of the ships its sender may reach is left (decision 0034). Each shows its type, its message, who sent it and how long it waits, and opens the message. It offers no action: once a ship of the type that may take it is commissioned, it clears by itself and that ship takes it. The navigation counts it with the rest of Needs attention.
 
 ### Ping a ship
 

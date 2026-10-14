@@ -96,6 +96,7 @@ import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
+import { createReadNoShipCanTake } from '../../src/domain/shared/read-no-ship-can-take.js';
 import { createReadOverdue } from '../../src/domain/shared/read-overdue.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
@@ -225,6 +226,7 @@ export function historyUseCases(core: InMemoryCore) {
     readMessage: createReadMessage({ history: core.history }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
     readOverdue: createReadOverdue({ history: core.history }),
+    readNoShipCanTake: createReadNoShipCanTake({ history: core.history }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships }),
   };
 }

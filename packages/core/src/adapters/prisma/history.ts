@@ -31,6 +31,9 @@ import type { Db } from './client.js';
 import type { Location } from '../../domain/registry/public.js';
 import { toMessage, toSequencedEvent } from './rows.js';
 
+/** A pending delivery no ship can take, as the query finds it. */
+const noShipCanTakeRow = z.object({ deliveryId: idSchema('delivery'), type: z.string(), messageId: idSchema('message') });
+
 /** What argo was told is overdue, as the clocks stored it (overdue.ts). */
 const overdueRow = z.object({
   deliveryId: idSchema('delivery'),
@@ -355,6 +358,48 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           payload: message.payload,
         },
       }));
+    },
+
+    noShipCanTake: async (fleetId) => {
+      // Pending to a type with no active ship that may claim it: any of the
+      // type, or one of the reachable ones under network rules (decision 0034).
+      const found = z.array(noShipCanTakeRow).parse(
+        await db.$queryRaw`
+          SELECT d.id AS "deliveryId", d.recipient_type AS "type", d.message_id AS "messageId"
+          FROM deliveries d
+          WHERE d.fleet_id = ${fleetId} AND d.state = 'pending' AND d.recipient_type IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM ships s
+                            WHERE s.fleet_id = d.fleet_id AND s.type = d.recipient_type AND s.retired_at IS NULL
+                              AND (cardinality(d.reachable_ship_ids) = 0 OR s.id = ANY(d.reachable_ship_ids)))
+          ORDER BY d.created_at, d.id`,
+      );
+      const messages = new Map(
+        (await db.message.findMany({ where: { fleetId, id: { in: found.map((row) => row.messageId) } } })).map((row) => {
+          const message = toMessage(row);
+          return [message.id, message];
+        }),
+      );
+      const party = await partiesOf(db, { fleetId, shipIds: [...messages.values()].flatMap(shipsNamedBy) });
+      return found.map(({ deliveryId, type, messageId }) => {
+        const message = messages.get(messageId);
+        if (!message) {
+          throw new Error(`Delivery ${deliveryId} no ship can take has no message ${messageId}`);
+        }
+        return {
+          deliveryId,
+          type,
+          message: {
+            id: message.id,
+            sender: party(message.senderShipId),
+            recipient: recipientOf(message.selector, party),
+            inReplyTo: message.inReplyToMessageId,
+            sentAt: message.createdAt,
+            contentType: message.contentType,
+            model: message.model,
+            payload: message.payload,
+          },
+        };
+      });
     },
   };
 }

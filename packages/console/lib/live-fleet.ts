@@ -138,6 +138,8 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
             reload(QUESTIONS_KEY);
+            // A send to a type, or a ship taking one, changes what no ship can take.
+            reload(trpc.fleet.noShipCanTake.queryKey());
           }
           if (isAttentionChange(event.type)) {
             reload(trpc.fleet.needsAttention.queryKey());
@@ -152,6 +154,8 @@ export function useLiveFleet(): LiveFleet {
             return;
           }
           reloadSnapshot();
+          // A commission or a retire changes which types an active ship has.
+          reload(trpc.fleet.noShipCanTake.queryKey());
           const { shipId } = event;
           if (event.type === 'ShipCommissioned' && shipId !== null) {
             setNewShipIds((shown) => new Set([...shown, shipId]));
