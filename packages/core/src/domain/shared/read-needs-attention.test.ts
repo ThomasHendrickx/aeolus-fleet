@@ -57,6 +57,7 @@ describe('reading Needs attention', () => {
         deliveryId: deliveryOf(messageId)?.id,
         state: 'undeliverable',
         attempts: UNDELIVERABLE_AT_ATTEMPT,
+        isPushed: false,
         since,
         message: {
           id: messageId,
@@ -110,6 +111,19 @@ describe('reading Needs attention', () => {
     unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.lookout.shipId }));
 
     await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([]);
+  });
+
+  it('tells an undeliverable delivery a pushed crew handed over again and again, by its hand-over numbers', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const deliveryId = deliveryIdOf(scene.core, messageId);
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, {}));
+    for (let handOverNumber = 1; handOverNumber <= UNDELIVERABLE_AT_ATTEMPT; handOverNumber += 1) {
+      unwrap(await scene.messaging.handOverDelivery(scene.scout, { deliveryId, handOverNumber }));
+    }
+
+    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(entry).toMatchObject({ deliveryId, state: 'undeliverable', attempts: UNDELIVERABLE_AT_ATTEMPT, isPushed: true });
   });
 
   it('lists a delivery not handled, with its attempts and since when it was not handled', async () => {

@@ -19,6 +19,7 @@ describe('needsAttentionOutputSchema', () => {
     deliveryId: newId('delivery'),
     state: 'undeliverable',
     attempts: 5,
+    isPushed: false,
     since: AT,
     message: {
       id: newId('message'),
@@ -40,6 +41,12 @@ describe('needsAttentionOutputSchema', () => {
     const toType = { ...undeliverable, message: { ...undeliverable.message, recipient: { kind: 'type', type: 'tester' } } };
 
     expect(needsAttentionOutputSchema.safeParse([toType]).success).toBe(true);
+  });
+
+  it('takes one a pushed crew handed over, told by its hand-over numbers', () => {
+    const pushed = { ...undeliverable, isPushed: true };
+
+    expect(needsAttentionOutputSchema.parse([pushed])).toEqual([pushed]);
   });
 
   it('takes a delivery not handled', () => {

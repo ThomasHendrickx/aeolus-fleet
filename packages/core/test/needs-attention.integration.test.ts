@@ -110,6 +110,7 @@ describe('Needs attention on Postgres', () => {
       deliveryId: first.deliveryId,
       state: 'undeliverable',
       attempts: UNDELIVERABLE_AT_ATTEMPT,
+      isPushed: false,
       since,
       message: {
         id: first.messageId,
@@ -124,6 +125,17 @@ describe('Needs attention on Postgres', () => {
       },
     });
     await expect(core.useCases.readNeedsAttention({ ...argo, fleetId: newId('fleet') })).resolves.toEqual([]);
+  });
+
+  it('tells an undeliverable delivery a pushed crew handed over again and again', async () => {
+    const messageId = await sendTo({ kind: 'ship', shipId: scout.shipId });
+    const deliveryId = await deliveryOf(messageId);
+    unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+    for (let handOverNumber = 1; handOverNumber <= UNDELIVERABLE_AT_ATTEMPT; handOverNumber += 1) {
+      unwrap(await core.useCases.handOverDelivery(scout, { deliveryId, handOverNumber }));
+    }
+
+    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([{ deliveryId, state: 'undeliverable', isPushed: true }]);
   });
 
   it('lists a delivery not handled with the undeliverable ones, by since when, and dismisses and resends it as one', async () => {
