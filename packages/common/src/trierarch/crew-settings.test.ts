@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { crewSettingsSchema } from './crew-settings.js';
+import { crewSettingsRefusal, crewSettingsSchema } from './crew-settings.js';
 
 /** The example in docs/trierarch.md, "The crew request". */
 function documentedSettings(): Record<string, unknown> {
@@ -60,5 +60,32 @@ describe('crewSettingsSchema (decision 0027)', () => {
 
   it('takes a first prompt of exactly 8 KB', () => {
     expect(crewSettingsSchema.safeParse({ ...documentedSettings(), firstPrompt: 'x'.repeat(8 * 1024) }).success).toBe(true);
+  });
+});
+
+describe('crewSettingsRefusal: why settings are not crew settings, as every writer and reader words it (#809)', () => {
+  it('is none for valid crew settings', () => {
+    expect(crewSettingsRefusal(documentedSettings())).toBeUndefined();
+  });
+
+  it('names a first prompt over 8 KB, in the field it is in', () => {
+    expect(crewSettingsRefusal({ ...documentedSettings(), firstPrompt: 'x'.repeat(8 * 1024 + 1) })).toEqual({
+      field: 'firstPrompt',
+      reason: 'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes',
+    });
+  });
+
+  it('names the path of a nested issue', () => {
+    expect(crewSettingsRefusal({ ...documentedSettings(), workspace: { kind: 'worktree', repository: '/etc' } })).toMatchObject({
+      field: 'workspace',
+      reason: expect.stringMatching(/^settings are not valid crew settings: workspace\.repository: /),
+    });
+  });
+
+  it('names an unknown field, which has no path, under settings', () => {
+    expect(crewSettingsRefusal({ ...documentedSettings(), flags: ['--yolo'] })).toEqual({
+      field: 'settings',
+      reason: 'settings are not valid crew settings: Unrecognized key: "flags"',
+    });
   });
 });
