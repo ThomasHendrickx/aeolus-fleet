@@ -19,6 +19,7 @@ const fromArgo: NeedsAttentionDelivery = {
   deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0002'),
   state: 'undeliverable',
   attempts: 5,
+  isPushed: false,
   since: ago(165),
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0002'),
@@ -36,6 +37,7 @@ const fromBuilder: NeedsAttentionDelivery = {
   deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0001'),
   state: 'undeliverable',
   attempts: 5,
+  isPushed: false,
   since: ago(80),
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0001'),
@@ -54,6 +56,7 @@ const notHandled: NeedsAttentionDelivery = {
   deliveryId: idSchema('delivery').parse('dlv_01m3tbfspe96yf1rnr4ank0003'),
   state: 'notHandled',
   attempts: 1,
+  isPushed: true,
   since: ago(30),
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0003'),
@@ -111,6 +114,15 @@ export const NotHandled: Story = {
     ).toBeInTheDocument();
   },
 };
+
+/** A pushed ship's computer side handed it four times, never confirmed: the fifth hand-over was refused (3.18). */
+export const UndeliverablePushed: Story = {
+  args: { deliveries: [{ ...fromBuilder, isPushed: true }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByText('Handed 4 times, never confirmed; fifth refused: undeliverable.', { exact: false })[0]).toBeInTheDocument();
+  },
+};
+export const UndeliverablePushedDark: Story = { ...UndeliverablePushed, globals: { theme: 'dark' } };
 
 export const Empty: Story = { args: { deliveries: [] } };
 

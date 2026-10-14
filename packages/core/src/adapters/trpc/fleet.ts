@@ -672,17 +672,29 @@ export const fleetRouter = router({
       })),
     ),
 
-  /** One message: envelope, payload, and its delivery with every change, newest first. */
+  /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
   message: scopedProcedure('fleet:read')
     .input(messageInputSchema)
     .output(messageOutputSchema)
     .query(async ({ ctx, input }) => {
       const message = okOrThrow(await ctx.useCases.readMessage(ctx.caller, input));
+      const { way } = message.delivery;
       return {
         ...message,
         sentAt: message.sentAt.toISOString(),
+        replies: message.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         delivery: {
           ...message.delivery,
+          way: {
+            ...way,
+            since: way.since.toISOString(),
+            overdue: way.overdue && { ...way.overdue, toldAt: way.overdue.toldAt.toISOString() },
+            lease: way.lease && {
+              ...way.lease,
+              turn: way.lease.turn && { turn: way.lease.turn.state, at: way.lease.turn.at.toISOString() },
+            },
+            crew: way.crew && { ...way.crew, startedAt: way.crew.startedAt?.toISOString() ?? null },
+          },
           history: message.delivery.history.map((change) => ({ ...change, occurredAt: change.occurredAt.toISOString() })),
         },
       };

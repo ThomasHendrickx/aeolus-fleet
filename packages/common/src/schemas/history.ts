@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { listedShipSchema } from './fleet.js';
-import { crewRequestSchema } from './crew-request.js';
+import { crewRequestSchema, crewStatusSchema } from './crew-request.js';
 import { reportSchema } from './report.js';
+import { turnStateSchema } from './turn.js';
 
 /**
  * Inputs and outputs of the history procedures, for the ship page: one ship,
@@ -111,42 +112,121 @@ export const shipMessagesOutputSchema = z.array(listedMessageSchema);
 /** Input of `fleet.message`. */
 export const messageInputSchema = z.object({ messageId: idSchema('message') });
 
-/** The event types that change a delivery: its history. */
+/** The event types of a delivery's way through: its history. */
 export const DELIVERY_HISTORY_TYPES = [
   'MessageAccepted',
+  'DeliveryReceived',
   'DeliveryHanded',
   'DeliveryReturned',
   'DeliveryAcknowledged',
+  'DeliveryHandled',
+  'DeliveryNotHandled',
+  'DeliveryOverdue',
   'DeliveryUndeliverable',
   'DeliveryAbandoned',
   'DeliveryDismissed',
 ] as const;
 
-/** One change to a delivery: when, which ship held it and where its session ran, and the claims counted by then. */
+/** The 10 and 60 minute clocks (decision 0040): handed and not confirmed, or waiting while the session is idle or busy. */
+export const OVERDUE_CLOCKS = ['notConfirmed', 'idle', 'busy'] as const;
+export const overdueClockSchema = z.enum(OVERDUE_CLOCKS);
+export type OverdueClock = z.infer<typeof overdueClockSchema>;
+
+/** Why a lease ended, as its LeaseRevoked says. */
+export const LEASE_END_REASONS = ['released', 'retired', 'deregistered', 'takenOver', 'signedOut', 'passwordReset'] as const;
+export const leaseEndReasonSchema = z.enum(LEASE_END_REASONS);
+export type LeaseEndReason = z.infer<typeof leaseEndReasonSchema>;
+
+/**
+ * The computer side of a pushed lease, which receives and hands over for its
+ * session (decision 0040): the trierarch that crewed it, named by its ship,
+ * which is named for its computer, or the plugin watcher of a session crewed
+ * by hand.
+ */
+export const computerSideSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('trierarch'), trierarch: partySchema }),
+  z.object({ kind: z.literal('pluginWatcher') }),
+]);
+
+export type ComputerSide = z.infer<typeof computerSideSchema>;
+
+/** Who holds a delivery now: the fleet, a computer side, or the agent. */
+export const deliveryHolderSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('fleet') }),
+  ...computerSideSchema.options,
+  z.object({ kind: z.literal('agent') }),
+]);
+
+export type DeliveryHolder = z.infer<typeof deliveryHolderSchema>;
+
+/** One step of a delivery's way: when, which ship held it and where its session ran, and what the step says of itself. */
 export const deliveryHistoryEntrySchema = z.object({
   seq: z.number().int().positive(),
   type: z.enum(DELIVERY_HISTORY_TYPES),
   occurredAt: isoTime,
-  /** The ship that claimed, returned or acknowledged it; null when it was stored. */
+  /** The ship that received, was handed, returned or acknowledged it; null when it was stored. */
   ship: partySchema.nullable(),
-  /** Where the claiming session ran, for a claim. */
+  /** Where the claiming session ran, for a hand-over. */
   location: z.object({ kind: locationKindSchema, description: z.string().nullable() }).nullable(),
-  /** The harness the claiming session ran in, for a claim. */
+  /** The harness the claiming session ran in, for a hand-over. */
   harness: z.string().nullable(),
-  /** The claims counted so far, where the event records them. */
+  /** The attempts counted so far, where the event records them. */
   attempts: z.number().int().nonnegative().nullable(),
+  /** The computer side that received it or handed it over, on a pushed lease; null otherwise. */
+  by: computerSideSchema.nullable(),
+  /** The number of a pushed hand-over; null for a plain receive's (pulled). */
+  handOverNumber: z.int().min(1).nullable(),
+  /** A push receive of a delivery its crew already held: nothing changed. */
+  isAgain: z.boolean(),
+  /** A confirmed message handed once more after its turn died. */
+  isOnceMore: z.boolean(),
+  /** Which clock ran out and after how long, for DeliveryOverdue. */
+  overdue: z.object({ clock: overdueClockSchema, minutes: z.int().min(1) }).nullable(),
+  /** Why the lease ended, for DeliveryReturned. */
+  leaseEnd: leaseEndReasonSchema.nullable(),
 });
 
 export type DeliveryHistoryEntry = z.infer<typeof deliveryHistoryEntrySchema>;
 
-/** Output of `fleet.message`: the envelope, the payload and the delivery with its history, newest first. */
+/**
+ * Where a delivery stands on its way: who holds it, since when its state
+ * holds, whether a plain receive handed it (pulled), the overdue clock argo
+ * was told of that still stands, the lease that holds it or waits for it with
+ * its computer side and its turn, and the crew its trierarch runs.
+ */
+export const deliveryWaySchema = z.object({
+  holder: deliveryHolderSchema.nullable(),
+  since: isoTime,
+  isPulled: z.boolean(),
+  overdue: z.object({ clock: overdueClockSchema, minutes: z.int().min(1), toldAt: isoTime }).nullable(),
+  lease: z
+    .object({
+      /** Null on a pull lease. */
+      by: computerSideSchema.nullable(),
+      isEnded: z.boolean(),
+      turn: z.object({ turn: turnStateSchema, at: isoTime }).nullable(),
+    })
+    .nullable(),
+  crew: z.object({ status: crewStatusSchema, attempt: z.int().min(0), startedAt: isoTime.nullable() }).nullable(),
+});
+
+export type DeliveryWay = z.infer<typeof deliveryWaySchema>;
+
+/** A reply to a message: the message that answers it, oldest first. */
+export const messageReplySchema = z.object({ id: idSchema('message'), sender: partySchema, sentAt: isoTime });
+
+export type MessageReply = z.infer<typeof messageReplySchema>;
+
+/** Output of `fleet.message`: the envelope, the payload, its replies and the delivery with its way and its history, newest first. */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
   payload: z.string(),
+  replies: z.array(messageReplySchema),
   delivery: z.object({
     id: idSchema('delivery'),
     state: deliveryStateSchema,
     attempts: z.number().int().nonnegative(),
     claimedBy: partySchema.nullable(),
+    way: deliveryWaySchema,
     history: z.array(deliveryHistoryEntrySchema),
   }),
 });

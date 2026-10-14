@@ -34,6 +34,7 @@ function anUndeliverable(since: string): NeedsAttentionDelivery {
     deliveryId: newId('delivery'),
     state: 'undeliverable',
     attempts: 5,
+    isPushed: false,
     since,
     message: { id: newId('message'), sender: party, recipient: { kind: 'ship', ship: party }, inReplyTo: null, sentAt: since, contentType: 'text/plain', isPing: false, payload: 'Run 71' },
   };

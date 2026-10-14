@@ -5,21 +5,23 @@
  * current names, so a renamed ship goes by its new name.
  */
 import {
+  crewStatusSchema,
   DELIVERY_HISTORY_TYPES,
   DELIVERY_STATES,
   deliveryStateSchema,
   idSchema,
+  leaseEndReasonSchema,
   locationKindSchema,
+  turnStateSchema,
   type FleetId,
+  type LeaseId,
   type ShipId,
 } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import type { SequencedEvent } from '../../domain/shared/events.js';
+import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
 import {
-  isDeliveryChangeType,
   isKeptBy,
-  type DeliveryChange,
   type HistoryMessage,
   type HistoryParty,
   type HistoryRecipient,
@@ -28,7 +30,7 @@ import {
 import type { Message } from '../../domain/messaging/message.js';
 import type { Recipient } from '../../domain/shared/selector.js';
 import type { Db } from './client.js';
-import type { Location } from '../../domain/registry/public.js';
+import { Prisma } from './generated/client.js';
 import { toMessage, toSequencedEvent } from './rows.js';
 
 /** A pending delivery no ship can take, as the query finds it. */
@@ -200,7 +202,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     message: async (fleetId, messageId) => {
       const row = await db.message.findFirst({
         where: { fleetId, id: messageId },
-        include: { deliveries: { select: DELIVERY_SELECT } },
+        include: { deliveries: { select: { ...DELIVERY_SELECT, claimedByLeaseId: true, recipientShipId: true } } },
       });
       if (!row) {
         return undefined;
@@ -213,18 +215,34 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           orderBy: { seq: 'desc' },
         })
       ).map(toSequencedEvent);
-      const leases = await claimingLeases(db, { fleetId, events });
+      const leaseId = await leaseOfDelivery(db, { fleetId, delivery: deliveryLeaseRow.parse(row.deliveries[0]) });
+      const leases = await wayLeases(db, {
+        fleetId,
+        leaseIds: [
+          ...events.flatMap((event) => (typeof event.details.leaseId === 'string' ? [event.details.leaseId] : [])),
+          ...(leaseId === null ? [] : [leaseId]),
+        ],
+      });
+      const replies = (
+        await db.message.findMany({ where: { fleetId, inReplyToMessageId: message.id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+      ).map(toMessage);
       const party = await partiesOf(db, {
         fleetId,
         shipIds: [
           ...shipsNamedBy(message),
           ...(delivery.claimedByShipId === null ? [] : [delivery.claimedByShipId]),
           ...events.flatMap((event) => (event.shipId === undefined ? [] : [event.shipId])),
+          ...replies.map((reply) => reply.senderShipId),
+          ...[...leases.values()].flatMap(({ trierarch }) => (trierarch ? [trierarch.id] : [])),
         ],
       });
       return {
         ...historyMessageOf({ message, delivery }, party),
-        history: events.flatMap((event) => changeOf(event, { party, leases })),
+        history: events.flatMap((event) => deliveryStepOf(event, { party, leases })),
+        replies: replies.map((reply) => ({ id: reply.id, sender: party(reply.senderShipId), sentAt: reply.createdAt })),
+        lease: (leaseId === null ? undefined : leases.get(leaseId)) ?? null,
+        overdue: await standingOverdue(db, { fleetId, deliveryId: delivery.id }),
+        crew: leaseId === null ? null : await crewOfLease(db, { fleetId, leaseId }),
       };
     },
 
@@ -287,7 +305,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     needsAttention: async (fleetId) => {
       const rows = await db.delivery.findMany({
         where: { fleetId, state: { in: ['undeliverable', 'notHandled'] } },
-        select: { id: true, state: true, attempts: true, message: true },
+        select: { id: true, state: true, attempts: true, handOverNumber: true, message: true },
       });
       // Since when each needs attention: its last DeliveryUndeliverable or
       // DeliveryNotHandled, whose place in the stream also orders the list,
@@ -305,15 +323,16 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         if (!event || (row.state !== 'undeliverable' && row.state !== 'notHandled')) {
           throw new Error(`Delivery ${deliveryId} in Needs attention has no DeliveryUndeliverable or DeliveryNotHandled`);
         }
-        return { deliveryId, state: row.state, attempts: row.attempts, message: toMessage(row.message), event };
+        return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message }) => shipsNamedBy(message)) });
       return found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, state, attempts, message, event }) => ({
+        .map(({ deliveryId, state, attempts, isPushed, message, event }) => ({
           deliveryId,
           state,
           attempts,
+          isPushed,
           since: event.occurredAt,
           message: {
             id: message.id,
@@ -404,44 +423,107 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
   };
 }
 
-/** The leases of the claims among the events, for where each claiming session ran. */
-async function claimingLeases(db: Db, of: { fleetId: FleetId; events: SequencedEvent[] }) {
-  const leaseIds = of.events.flatMap((event) => {
-    const { leaseId } = event.details;
-    return event.type === 'DeliveryHanded' && typeof leaseId === 'string' ? [leaseId] : [];
-  });
-  const leases = await db.lease.findMany({
-    where: { fleetId: of.fleetId, id: { in: leaseIds } },
-    select: { id: true, location: true, locationDescription: true, harness: true },
-  });
+/** What a message read takes of its delivery to find its lease. */
+const deliveryLeaseRow = z.object({
+  id: idSchema('delivery'),
+  state: deliveryStateSchema,
+  claimedByLeaseId: idSchema('lease').nullable(),
+  recipientShipId: idSchema('ship').nullable(),
+});
+
+/** The lease that holds the delivery, or the open lease of the one ship a pending delivery waits for. */
+async function leaseOfDelivery(db: Db, of: { fleetId: FleetId; delivery: z.infer<typeof deliveryLeaseRow> }): Promise<LeaseId | null> {
+  const { fleetId, delivery } = of;
+  if (delivery.claimedByLeaseId !== null) {
+    return delivery.claimedByLeaseId;
+  }
+  if (delivery.state !== 'pending' || delivery.recipientShipId === null) {
+    return null;
+  }
+  const open = await db.lease.findFirst({ where: { fleetId, shipId: delivery.recipientShipId, endedAt: null }, select: { id: true } });
+  return open ? idSchema('lease').parse(open.id) : null;
+}
+
+const wayLeaseRow = z.object({
+  id: idSchema('lease'),
+  location: locationKindSchema,
+  locationDescription: z.string().nullable(),
+  harness: z.string().nullable(),
+  isPushed: z.boolean(),
+  isEnded: z.boolean(),
+  turn: turnStateSchema.nullable(),
+  turnAt: z.date().nullable(),
+  crewedById: idSchema('ship').nullable(),
+  crewedByName: z.string().nullable(),
+  crewedByKind: z.string().nullable(),
+  endReason: z.string().nullable(),
+});
+
+/**
+ * The leases a delivery's way names: where each session ran, its trierarch
+ * (the ship other than argo whose starting prompt its crew claimed with),
+ * whether it was pushed, its turn, and why it ended.
+ */
+async function wayLeases(db: Db, of: { fleetId: FleetId; leaseIds: string[] }): Promise<Map<string, WayLease>> {
+  const leaseIds = [...new Set(of.leaseIds)];
+  if (leaseIds.length === 0) {
+    return new Map();
+  }
+  const rows = z.array(wayLeaseRow).parse(
+    await db.$queryRaw`
+      SELECT l.id, l.location::text AS location, l.location_description AS "locationDescription", l.harness,
+             l.pushed_at IS NOT NULL AS "isPushed", l.ended_at IS NOT NULL AS "isEnded",
+             l.turn::text AS turn, l.turn_at AS "turnAt",
+             cb.id AS "crewedById", cb.name AS "crewedByName", cb.kind AS "crewedByKind",
+             (SELECT r.details->>'reason' FROM events r
+              WHERE r.fleet_id = l.fleet_id AND r.ship_id = l.ship_id AND r.type = 'LeaseRevoked' AND r.details->>'leaseId' = l.id
+              ORDER BY r.seq DESC LIMIT 1) AS "endReason"
+      FROM leases l
+      LEFT JOIN LATERAL (
+        SELECT a.id, a.name, a.kind::text AS kind
+        FROM events e
+        JOIN ships a ON a.fleet_id = e.fleet_id AND a.id = e.actor_ship_id
+        WHERE e.fleet_id = l.fleet_id AND e.ship_id = l.ship_id
+          AND e.type = 'StartingPromptIssued' AND e.occurred_at <= l.started_at
+        ORDER BY e.seq DESC
+        LIMIT 1) cb ON true
+      WHERE l.fleet_id = ${of.fleetId} AND l.id IN (${Prisma.join(leaseIds)})`,
+  );
   return new Map(
-    leases.map((lease): [string, { location: Location; harness: string | null }] => [
-      lease.id,
-      { location: { kind: locationKindSchema.parse(lease.location), description: lease.locationDescription }, harness: lease.harness },
+    rows.map((row): [string, WayLease] => [
+      row.id,
+      {
+        location: { kind: row.location, description: row.locationDescription },
+        harness: row.harness,
+        trierarch:
+          row.crewedById !== null && row.crewedByName !== null && row.crewedByKind !== 'operator' ? { id: row.crewedById, name: row.crewedByName } : null,
+        isPushed: row.isPushed,
+        isEnded: row.isEnded,
+        endReason: leaseEndReasonSchema.nullable().catch(null).parse(row.endReason),
+        turn: row.turn !== null && row.turnAt !== null ? { state: row.turn, at: row.turnAt } : null,
+      },
     ]),
   );
 }
 
-function changeOf(
-  event: SequencedEvent,
-  read: { party: (id: ShipId) => HistoryParty; leases: Map<string, { location: Location; harness: string | null }> },
-): DeliveryChange[] {
-  const { type } = event;
-  if (!isDeliveryChangeType(type)) {
-    return [];
+/** The newest overdue clock argo was told of that still stands for the delivery: still in that state, on that open lease. */
+async function standingOverdue(db: Db, of: { fleetId: FleetId; deliveryId: string }): Promise<StandingOverdue | null> {
+  const told = await db.overdueDelivery.findMany({
+    where: { fleetId: of.fleetId, deliveryId: of.deliveryId, lease: { endedAt: null } },
+    include: { delivery: { select: { state: true, claimedByLeaseId: true } } },
+    orderBy: { toldAt: 'desc' },
+  });
+  const standing = told.find((row) => row.delivery.state === row.state && (row.state === 'pending' || row.delivery.claimedByLeaseId === row.leaseId));
+  if (!standing) {
+    return null;
   }
-  const { leaseId, attempts } = event.details;
-  const claiming = event.type === 'DeliveryHanded' && typeof leaseId === 'string' ? read.leases.get(leaseId) : undefined;
-  return [
-    {
-      seq: event.seq,
-      type,
-      occurredAt: event.occurredAt,
-      ship: type === 'MessageAccepted' || event.shipId === undefined ? null : read.party(event.shipId),
-      location: claiming?.location ?? null,
-      harness: claiming?.harness ?? null,
-      attempts: typeof attempts === 'number' ? attempts : null,
-    },
-  ];
+  const { clock, minutes, toldAt } = overdueRow.parse(standing);
+  return { clock, minutes, toldAt };
 }
 
+/** How the trierarch says the crew of the lease's ship stands, once it says. */
+async function crewOfLease(db: Db, of: { fleetId: FleetId; leaseId: LeaseId }): Promise<WayCrew | null> {
+  const lease = await db.lease.findFirst({ where: { fleetId: of.fleetId, id: of.leaseId }, select: { shipId: true } });
+  const request = lease && (await db.crewRequest.findFirst({ where: { fleetId: of.fleetId, shipId: lease.shipId } }));
+  return request?.status ? { status: crewStatusSchema.parse(request.status), attempt: request.attempt, startedAt: request.sessionStartedAt } : null;
+}
