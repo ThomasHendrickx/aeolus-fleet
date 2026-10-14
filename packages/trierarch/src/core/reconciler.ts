@@ -234,7 +234,6 @@ function entryOf(checked: CheckedSettings, at: { shipId: ShipId; settingsVersion
     since: at.now.toISOString(),
     exits: [],
     hasStarted: false,
-    wake: { waiting: 0, isPending: false },
   };
 }
 
