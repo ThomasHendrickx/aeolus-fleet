@@ -248,6 +248,31 @@ describe('the history reads on Postgres', () => {
     expect(message.delivery.way).toMatchObject({ holder: { kind: 'agent' }, isPulled: true, lease: { by: null, isEnded: true } });
   });
 
+  it("give a ship's side of the way: its plugin watcher, its turn, and its oldest delivery waiting among those for its type", async () => {
+    const oldest = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+    const idleAt = core.clock.now();
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'idle', at: idleAt }));
+    await send(planner, { to: { kind: 'type', type: 'reviewer' } });
+    await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
+
+    const way = unwrap(await core.useCases.readShipWay(argo, { shipId: scout.shipId }));
+
+    expect(way).toMatchObject({
+      lease: { by: { kind: 'pluginWatcher' }, turn: { state: 'idle', at: idleAt } },
+      waiting: 2,
+      oldest: { messageId: oldest, delivery: { state: 'received', way: { holder: { kind: 'pluginWatcher' } } } },
+    });
+  });
+
+  it("give no side of the way for a ship no session crews, and a pull lease's none", async () => {
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+
+    await expect(core.useCases.readShipWay(argo, { shipId: scout.shipId })).resolves.toMatchObject({ value: { lease: null, waiting: 0, oldest: null } });
+    await expect(core.useCases.readShipWay(argo, { shipId: lookout.shipId })).resolves.toMatchObject({ value: { lease: { by: null, turn: null } } });
+  });
+
   it('know no ship or message of another fleet', async () => {
     const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     const elsewhere = { ...argo, fleetId: idSchema('fleet').parse(`flt_${'0'.repeat(26)}`) };
