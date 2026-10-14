@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { showToast } from '../../../components/atoms/toast';
 import { NeedsAttentionList } from '../../../features/needs-attention/organisms/needs-attention-list';
 import { NoShipCanTake } from '../../../features/needs-attention/organisms/no-ship-can-take';
+import { OverdueDeliveries } from '../../../features/needs-attention/organisms/overdue-deliveries';
 import { GetNewCrewLine } from '../../../features/squadrons/organisms/get-new-crew-line';
 import { SilentMembers } from '../../../features/needs-attention/organisms/silent-members';
 import { ListPage } from '../../../components/organisms/list-page';
@@ -17,10 +18,12 @@ import {
   deliveryWithId,
   DISMISSED_TOAST,
   messagePathOf,
+  overduePathOf,
   resentToast,
   useDismissDelivery,
   useNeedsAttention,
   useNoShipCanTake,
+  useOverdue,
   useResendDelivery,
 } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -31,11 +34,13 @@ import { useSquadrons } from '../../../lib/squadrons-api';
 import { silentMembers } from '../../../lib/squadrons-view';
 
 /**
- * Needs attention, live: every undeliverable delivery, oldest first. Resend
- * sends it again as a new message from its sender; Dismiss lets it go. Either
- * removes it from the list, with a toast. Beside them, the deliveries no ship
- * can take, which clear by themselves once a ship of their type is
- * commissioned, and the silent squadron members. Without a session it sends
+ * Needs attention, live: every undeliverable or not handled delivery,
+ * oldest first. Resend sends it again as a new message from its sender;
+ * Dismiss lets it go. Either removes it from the list, with a toast. Beside
+ * them, the overdue deliveries argo was told of, which clear by themselves
+ * once they move on, the deliveries no ship can take, which clear by
+ * themselves once a ship of their type is commissioned, and the silent
+ * squadron members. Without a session it sends
  * the operator to sign in.
  */
 export default function NeedsAttentionPage() {
@@ -43,6 +48,7 @@ export default function NeedsAttentionPage() {
   const now = useNow();
   const attention = useNeedsAttention();
   const noShipCanTake = useNoShipCanTake().data ?? [];
+  const overdue = useOverdue().data ?? [];
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const liveFleet = useLiveFleet();
@@ -111,10 +117,10 @@ export default function NeedsAttentionPage() {
     <ListPage
       {...frame}
       title="Needs attention"
-      description="Deliveries no ship acknowledged after five tries, oldest first. Resend or dismiss each one."
+      description="Deliveries no ship acknowledged after five tries, or not handled, oldest first. Resend or dismiss each one."
       live={liveFleet.live}
     >
-      {silent.length > 0 || noShipCanTake.length > 0 ? (
+      {silent.length > 0 || overdue.length > 0 || noShipCanTake.length > 0 ? (
         <div className="flex flex-col gap-6">
           <section aria-labelledby="attention-undeliverable" className="flex flex-col gap-2">
             <h2 id="attention-undeliverable" className="text-body font-semibold">
@@ -122,6 +128,23 @@ export default function NeedsAttentionPage() {
             </h2>
             {attention.data?.length === 0 ? <p className="text-meta text-muted-foreground">None.</p> : deliveriesList}
           </section>
+          {overdue.length > 0 ? (
+            <section aria-labelledby="attention-overdue" className="flex flex-col gap-2">
+              <h2 id="attention-overdue" className="text-body font-semibold">
+                Overdue ({overdue.length})
+              </h2>
+              <OverdueDeliveries
+                deliveries={overdue}
+                onOpen={(delivery) => {
+                  router.push(overduePathOf(delivery));
+                }}
+                now={now}
+              />
+              <p className="text-meta text-muted-foreground">
+                Handed and not confirmed for 10 min, or waiting 10 min while the session is idle or 60 while it is busy. They clear by themselves once they move on.
+              </p>
+            </section>
+          ) : null}
           {noShipCanTake.length > 0 ? (
             <section aria-labelledby="attention-no-ship-can-take" className="flex flex-col gap-2">
               <h2 id="attention-no-ship-can-take" className="text-body font-semibold">

@@ -101,6 +101,8 @@ export const listedMessageSchema = z.object({
     state: deliveryStateSchema,
     /** The ship holding or having acknowledged it; null while pending. */
     claimedBy: partySchema.nullable(),
+    /** Handed by a plain receive, with no hand-over number: it reads handed (pulled). False in every other state. */
+    isPulled: z.boolean(),
   }),
 });
 
@@ -232,3 +234,30 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;
+
+/**
+ * Output of `fleet.shipWay`: a ship's side of the way (#756). The open
+ * lease's computer side (null: a pull lease, which no trierarch or plugin
+ * serves) and its turn as the hooks reported it, then how many deliveries
+ * wait for it and the oldest of them, sent first, with its way. No lease while
+ * no session crews the ship.
+ */
+export const shipWayOutputSchema = z.object({
+  lease: z
+    .object({
+      by: computerSideSchema.nullable(),
+      turn: z.object({ turn: turnStateSchema, at: isoTime }).nullable(),
+    })
+    .nullable(),
+  waiting: z.int().min(0),
+  oldest: z
+    .object({
+      messageId: idSchema('message'),
+      sentAt: isoTime,
+      contentType: z.string(),
+      delivery: z.object({ id: idSchema('delivery'), state: deliveryStateSchema, attempts: z.int().min(0), way: deliveryWaySchema }),
+    })
+    .nullable(),
+});
+
+export type ShipWay = z.infer<typeof shipWayOutputSchema>;

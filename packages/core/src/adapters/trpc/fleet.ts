@@ -23,6 +23,7 @@ import {
   shipDetailOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
+  shipWayOutputSchema,
   shipTimelineOutputSchema,
   type FleetStreamItem,
   getStartingPromptInputSchema,
@@ -87,6 +88,7 @@ import type {} from '@trpc/server/unstable-core-do-not-import';
 
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
+import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
@@ -106,6 +108,20 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 }
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
+/** A delivery's way as the API answers it: its times in ISO 8601. */
+function wayOutputOf(way: DeliveryWay) {
+  return {
+    ...way,
+    since: way.since.toISOString(),
+    overdue: way.overdue && { ...way.overdue, toldAt: way.overdue.toldAt.toISOString() },
+    lease: way.lease && {
+      ...way.lease,
+      turn: way.lease.turn && { turn: way.lease.turn.state, at: way.lease.turn.at.toISOString() },
+    },
+    crew: way.crew && { ...way.crew, startedAt: way.crew.startedAt?.toISOString() ?? null },
+  };
+}
+
 function pingOutputOf(ping: PingStatus | null) {
   return ping && { state: ping.state, sentAt: ping.sentAt.toISOString(), answeredAt: ping.answeredAt?.toISOString() ?? null };
 }
@@ -678,24 +694,31 @@ export const fleetRouter = router({
     .output(messageOutputSchema)
     .query(async ({ ctx, input }) => {
       const message = okOrThrow(await ctx.useCases.readMessage(ctx.caller, input));
-      const { way } = message.delivery;
       return {
         ...message,
         sentAt: message.sentAt.toISOString(),
         replies: message.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         delivery: {
           ...message.delivery,
-          way: {
-            ...way,
-            since: way.since.toISOString(),
-            overdue: way.overdue && { ...way.overdue, toldAt: way.overdue.toldAt.toISOString() },
-            lease: way.lease && {
-              ...way.lease,
-              turn: way.lease.turn && { turn: way.lease.turn.state, at: way.lease.turn.at.toISOString() },
-            },
-            crew: way.crew && { ...way.crew, startedAt: way.crew.startedAt?.toISOString() ?? null },
-          },
+          way: wayOutputOf(message.delivery.way),
           history: message.delivery.history.map((change) => ({ ...change, occurredAt: change.occurredAt.toISOString() })),
+        },
+      };
+    }),
+
+  /** A ship's side of the way: the part that serves its lease, its turn, and its oldest delivery waiting with its way. */
+  shipWay: scopedProcedure('fleet:read')
+    .input(shipInputSchema)
+    .output(shipWayOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { lease, waiting, oldest } = okOrThrow(await ctx.useCases.readShipWay(ctx.caller, input));
+      return {
+        lease: lease && { by: lease.by, turn: lease.turn && { turn: lease.turn.state, at: lease.turn.at.toISOString() } },
+        waiting,
+        oldest: oldest && {
+          ...oldest,
+          sentAt: oldest.sentAt.toISOString(),
+          delivery: { ...oldest.delivery, way: wayOutputOf(oldest.delivery.way) },
         },
       };
     }),

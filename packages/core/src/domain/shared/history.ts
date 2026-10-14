@@ -78,7 +78,14 @@ export interface HistoryMessage {
   /** The model the sender's session stated; none from argo and on messages from before models were stated. */
   model: string | null;
   payload: string;
-  delivery: { id: DeliveryId; state: DeliveryState; attempts: number; claimedBy: HistoryParty | null };
+  delivery: {
+    id: DeliveryId;
+    state: DeliveryState;
+    attempts: number;
+    claimedBy: HistoryParty | null;
+    /** The number of its last hand-over by a pushed crew's computer side; null when a plain receive or a push receive took it last, or before any. */
+    handOverNumber: number | null;
+  };
 }
 
 /** The events of a delivery's way: stored, received, handed, returned, acknowledged, handled or not, overdue, and its dead ends. */
@@ -135,6 +142,18 @@ export type MessageRead = HistoryMessage & {
   overdue: StandingOverdue | null;
   crew: WayCrew | null;
 };
+
+/**
+ * What a ship's side of the way is read from (#756): the open lease of the
+ * session crewing it, and the messages whose deliveries wait for it, oldest
+ * sent first. A delivery waits for it as the clocks count it: pending for the
+ * ship or for a type it may take, or received or handed with its open lease.
+ * Nothing waits while no session crews it.
+ */
+export interface ShipWayRead {
+  lease: WayLease | null;
+  waiting: MessageId[];
+}
 
 /**
  * A delivery in Needs attention: undeliverable, or not handled after its turn
@@ -238,6 +257,8 @@ export interface ShipHistory {
   overdue(fleetId: FleetId): Promise<OverdueEntry[]>;
   /** Every pending delivery to a type no active ship can take, oldest sent first. */
   noShipCanTake(fleetId: FleetId): Promise<NoShipCanTakeEntry[]>;
+  /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
+  shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }

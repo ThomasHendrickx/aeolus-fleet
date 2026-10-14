@@ -1,4 +1,4 @@
-import { isPingContentType, type DeliveryHolder, type MessageDetail } from '@aeolus-fleet/common';
+import { isPingContentType, type DeliveryHolder, type DeliveryState, type MessageDetail } from '@aeolus-fleet/common';
 
 import type { Machine } from '../../../lib/trierarch-plugin-schemas';
 import { duration, relativeTime, sinceTime } from '../../../lib/relative-time';
@@ -11,7 +11,7 @@ import type { DeliveryStepState } from './delivery-history';
  */
 
 /** What a way line's icon shows; the molecule maps it to a Lucide icon. */
-export type WayIcon = 'fleet' | 'computer' | 'watcher' | 'agent' | 'time' | 'clock' | 'busy' | 'restart' | 'silent' | 'died' | 'ping' | 'unknown';
+export type WayIcon = 'fleet' | 'computer' | 'watcher' | 'pull' | 'agent' | 'time' | 'clock' | 'busy' | 'idle' | 'restart' | 'silent' | 'died' | 'ping' | 'unknown';
 
 /** The tone family of a way line (docs/design/conventions.md, "Colour"). */
 export type WayTone = 'neutral' | 'waiting' | 'active' | 'attention';
@@ -134,10 +134,14 @@ function pingLine(message: MessageDetail, now: Date): WayLine {
 /** What the way needs of a machine: its trierarch's ship and whether it answers. */
 export type WayMachine = Pick<Machine, 'shipId' | 'isSilent' | 'lastSeenAt'>;
 
-/** The state a delivery shows as, from its newest step: a pushed hand-over reads "Handed", not "Handed (pulled)". */
+/** The state a delivery shows as: a pushed hand-over reads "Handed", a plain receive's "Handed (pulled)". */
+export function deliveryStatus(delivery: { state: DeliveryState; isPulled: boolean }): DeliveryStepState {
+  return delivery.state === 'handed' && !delivery.isPulled ? 'handedPushed' : delivery.state;
+}
+
 function wayStatus(message: MessageDetail): DeliveryStepState {
   const { state, way } = message.delivery;
-  return state === 'handed' && !way.isPulled ? 'handedPushed' : state;
+  return deliveryStatus({ state, isPulled: way.isPulled });
 }
 
 /**

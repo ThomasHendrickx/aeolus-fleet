@@ -5,6 +5,7 @@ import {
   type MessageDetail,
   type Party,
   type ShipDetail,
+  type ShipWay,
   type TimelineEntry,
 } from '@aeolus-fleet/common';
 
@@ -147,9 +148,12 @@ export const TIMELINE: TimelineEntry[] = [
   }),
 ];
 
-function listed(suffix: string, message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null }): ListedMessage {
-  const { state, claimedBy, ...rest } = message;
-  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy } };
+function listed(
+  suffix: string,
+  message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
+): ListedMessage {
+  const { state, claimedBy, isPulled = false, ...rest } = message;
+  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
 }
 
 /** reviewer-01's messages: a question and its answer, and a task from builder-core to its type. */
@@ -183,7 +187,23 @@ export const MESSAGES: ListedMessage[] = [
     preview: '{"task":"review","repo":"web","pr":321}',
     state: 'handed',
     claimedBy: REVIEWER,
+    isPulled: true,
   }),
+];
+
+/** A message reviewer-01's plugin watcher handed to its agent, and one a plain receive handed (pulled). */
+export const HANDED_MESSAGES: ListedMessage[] = [
+  listed('0007', {
+    sender: PLANNER,
+    recipient: { kind: 'ship', ship: REVIEWER },
+    inReplyTo: null,
+    sentAt: minutesAgo(3),
+    contentType: 'text/plain', model: null,
+    preview: 'Review the store entry rename.',
+    state: 'handed',
+    claimedBy: REVIEWER,
+  }),
+  ...MESSAGES.filter((message) => message.delivery.state === 'handed'),
 ];
 
 /** A squadron member's check-in at its flagship, and the role the flagship answers with (docs/squadrons.md, "Check-in"). */
@@ -447,3 +467,38 @@ export const PING_WAITING_MESSAGE: MessageDetail = {
 
 export const UNKNOWN_MESSAGE_ID = messageId('9999');
 export const UNKNOWN_SHIP_ID = shipId('zzzz');
+
+/** A ship's side of the way, its oldest delivery waiting taken from a message's way. */
+function shipWay(lease: ShipWay['lease'], waiting: { count: number; oldest?: MessageDetail }): ShipWay {
+  const { count, oldest } = waiting;
+  return {
+    lease,
+    waiting: count,
+    oldest: oldest
+      ? {
+          messageId: oldest.id,
+          sentAt: oldest.sentAt,
+          contentType: oldest.contentType,
+          delivery: { id: oldest.delivery.id, state: oldest.delivery.state, attempts: oldest.delivery.attempts, way: oldest.delivery.way },
+        }
+      : null,
+  };
+}
+
+/** Served by the plugin watcher of a session crewed by hand, busy, its oldest pending past 60 min: argo told (3.4). */
+export const WATCHER_BUSY_WAY: ShipWay = shipWay({ by: WATCHER, turn: { turn: 'busy', at: minutesAgo(70) } }, { count: 1, oldest: PENDING_BUSY_MESSAGE });
+
+/** Served by the plugin watcher, idle, its oldest of three handed and never confirmed: argo told at 10 min (3.8). */
+export const HANDED_OVERDUE_WAY: ShipWay = shipWay({ by: WATCHER, turn: { turn: 'idle', at: minutesAgo(13) } }, { count: 3, oldest: HANDED_NOT_CONFIRMED_MESSAGE });
+
+/** Served by the trierarch on mac-mini, idle, its oldest received while the session restarts (3.5). */
+export const TRIERARCH_WAY: ShipWay = shipWay({ by: AT_MAC_MINI, turn: { turn: 'idle', at: minutesAgo(20) } }, { count: 1, oldest: RECEIVED_RESTARTING_MESSAGE });
+
+/** Served by the trierarch on mac-mini, idle, nothing waiting. */
+export const NOTHING_WAITING_WAY: ShipWay = shipWay({ by: AT_MAC_MINI, turn: { turn: 'idle', at: minutesAgo(4) } }, { count: 0 });
+
+/** A pull lease, no trierarch and no plugin, its oldest handed (pulled) and not acknowledged (4.4). */
+export const PULL_WAY: ShipWay = shipWay({ by: null, turn: null }, { count: 1, oldest: TYPE_MESSAGE });
+
+/** No session crews the ship. */
+export const NOT_CREWED_WAY: ShipWay = { lease: null, waiting: 0, oldest: null };

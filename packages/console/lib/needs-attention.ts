@@ -1,4 +1,4 @@
-import type { DeliveryId, NeedsAttentionDelivery } from '@aeolus-fleet/common';
+import type { DeliveryId, NeedsAttentionDelivery, OverdueDelivery } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSquadrons } from './squadrons-api';
@@ -51,16 +51,39 @@ export function useNoShipCanTake() {
   return useQuery(trpc.fleet.noShipCanTake.queryOptions());
 }
 
+/** Needs attention: the overdue deliveries argo was told of by the 10 and 60 minute clocks, oldest told first (decision 0040). */
+export function useOverdue() {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.overdue.queryOptions());
+}
+
+const STATE_WORDS: Record<OverdueDelivery['state'], string> = { pending: 'Pending', received: 'Received', handed: 'Handed' };
+const CLOCK_WORDS: Record<OverdueDelivery['clock'], string> = { notConfirmed: 'not confirmed', idle: 'session idle', busy: 'session busy' };
+
+/** Which clock ran out, in the state it was told in: "Handed, not confirmed", "Pending, session busy". */
+export function overdueReason(delivery: Pick<OverdueDelivery, 'state' | 'clock'>): string {
+  return `${STATE_WORDS[delivery.state]}, ${CLOCK_WORDS[delivery.clock]}`;
+}
+
+/** Where an overdue delivery's message opens: on the page of the ship it is overdue on, in the Messages tab. */
+export function overduePathOf(delivery: Pick<OverdueDelivery, 'ship' | 'message'>): string {
+  return `/ships/${delivery.ship.id}?tab=messages&message=${delivery.message.id}`;
+}
+
 /**
  * How many things need attention, for the navigation: the undeliverable
- * and not handled deliveries, the deliveries no ship can take and, with
- * squadrons on, the silent members. Undefined until the deliveries are known.
+ * and not handled deliveries, the overdue ones, the deliveries no ship can
+ * take and, with squadrons on, the silent members. Undefined until the
+ * deliveries are known.
  */
 export function useAttentionCount(): number | undefined {
   const deliveries = useNeedsAttention().data?.length;
+  const overdue = useOverdue().data?.length;
   const noShipCanTake = useNoShipCanTake().data?.length;
   const squadrons = useSquadrons();
-  return deliveries === undefined || noShipCanTake === undefined ? undefined : deliveries + noShipCanTake + silentMembers(squadrons.data ?? []).length;
+  return deliveries === undefined || overdue === undefined || noShipCanTake === undefined
+    ? undefined
+    : deliveries + overdue + noShipCanTake + silentMembers(squadrons.data ?? []).length;
 }
 
 /** Refreshes Needs attention, and every ship page read, after a resend or a dismiss. */

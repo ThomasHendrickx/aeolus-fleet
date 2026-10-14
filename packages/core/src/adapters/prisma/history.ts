@@ -51,6 +51,7 @@ const deliveryRow = z.object({
   state: deliveryStateSchema,
   attempts: z.number().int(),
   claimedByShipId: idSchema('ship').nullable(),
+  handOverNumber: z.number().int().nullable(),
 });
 
 type DeliveryNow = z.infer<typeof deliveryRow>;
@@ -98,6 +99,7 @@ function historyMessageOf(
       state: delivery.state,
       attempts: delivery.attempts,
       claimedBy: delivery.claimedByShipId === null ? null : party(delivery.claimedByShipId),
+      handOverNumber: delivery.handOverNumber,
     },
   };
 }
@@ -111,7 +113,7 @@ function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
   return deliveryRow.parse(delivery);
 }
 
-const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true } as const;
+const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true, handOverNumber: true } as const;
 
 async function shipExists(db: Db, at: { fleetId: FleetId; shipId: ShipId }): Promise<boolean> {
   return (await db.ship.count({ where: { fleetId: at.fleetId, id: at.shipId } })) === 1;
@@ -419,6 +421,34 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           },
         };
       });
+    },
+
+    shipWay: async (fleetId, shipId) => {
+      const ship = await db.ship.findFirst({ where: { fleetId, id: shipId }, select: { id: true } });
+      if (!ship) {
+        return undefined;
+      }
+      const open = await db.lease.findFirst({ where: { fleetId, shipId, endedAt: null }, select: { id: true } });
+      if (!open) {
+        return { lease: null, waiting: [] };
+      }
+      const leaseId = idSchema('lease').parse(open.id);
+      // What waits for it as the clocks count it (overdue.ts): in flight with
+      // its open lease, or pending for it or, reachable, for its type.
+      const waiting = z.array(z.object({ messageId: idSchema('message') })).parse(
+        await db.$queryRaw`
+          SELECT d.message_id AS "messageId"
+          FROM deliveries d
+          JOIN ships s ON s.fleet_id = d.fleet_id AND s.id = ${shipId}
+          WHERE d.fleet_id = ${fleetId} AND (
+            (d.state IN ('received', 'handed') AND d.claimed_by_lease_id = ${leaseId})
+            OR (d.state = 'pending' AND (
+              d.recipient_ship_id = s.id
+              OR (d.recipient_type = s.type AND (cardinality(d.reachable_ship_ids) = 0 OR s.id = ANY(d.reachable_ship_ids))))))
+          ORDER BY d.created_at, d.message_id`,
+      );
+      const lease = (await wayLeases(db, { fleetId, leaseIds: [leaseId] })).get(leaseId) ?? null;
+      return { lease, waiting: waiting.map((row) => row.messageId) };
     },
   };
 }

@@ -39,6 +39,8 @@ interface ShipHeaderProps {
   labels?: ReactNode;
   /** The ship one of the console's plugins runs as: it shows a plugin chip (#368). */
   isPluginShip?: boolean;
+  /** Its side of the way (#756): the part that serves it, its turn and its oldest delivery waiting; no Delivery row without it. */
+  way?: ReactNode;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -56,7 +58,7 @@ function crewedSince(since: Date, now: Date): string {
   return `${when} · ${duration(since, now)}`;
 }
 
-function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels: ReactNode }) {
+function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; labels: ReactNode; way: ReactNode }) {
   const isOperator = ship.kind === 'operator';
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
@@ -98,6 +100,12 @@ function MetaStrip({ ship, now, labels }: { ship: ShipDetail; now: Date; labels:
         <span className="truncate font-mono text-id">{ship.id}</span>
         <CopyButton value={ship.id} label="Copy ship id" />
       </MetaCell>
+      {way === undefined ? null : (
+        <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5" data-testid="ship-delivery">
+          <dt className="shrink-0 text-meta text-muted-foreground">Delivery</dt>
+          <dd className="min-w-0 flex-1">{way}</dd>
+        </div>
+      )}
       {labels === undefined ? null : (
         <div className="col-span-4 flex min-w-0 items-center gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5" data-testid="ship-labels">
           <dt className="shrink-0 text-meta text-muted-foreground">Labels</dt>
@@ -121,10 +129,10 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id, with its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
+ * id, with its side of the way (#756) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way }: ShipHeaderProps) {
   const { fleetScopes } = useConsoleConstants();
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
@@ -241,7 +249,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
         </Notice>
       ) : null}
       {crewRequest}
-      <MetaStrip ship={ship} now={now} labels={labels} />
+      <MetaStrip ship={ship} now={now} labels={labels} way={way} />
       {ship.kind === 'agent' && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

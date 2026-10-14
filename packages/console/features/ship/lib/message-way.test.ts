@@ -16,11 +16,19 @@ import {
   minutesAgo,
 } from '../../../lib/fixtures/ship-page.fixtures';
 import { clockTime } from '../../../lib/relative-time';
-import { messageWay } from './message-way';
+import { deliveryStatus, messageWay } from './message-way';
 
 function linesOf(message: MessageDetail, machines?: Parameters<typeof messageWay>[1]['machines']): string[] {
   return messageWay(message, { now: NOW, ...(machines === undefined ? {} : { machines }) }).lines.map((line) => line.text);
 }
+
+describe('deliveryStatus', () => {
+  it('reads a pushed hand-over as handed, a plain receive as handed (pulled), and every other state as itself', () => {
+    expect(deliveryStatus({ state: 'handed', isPulled: false })).toBe('handedPushed');
+    expect(deliveryStatus({ state: 'handed', isPulled: true })).toBe('handed');
+    expect(deliveryStatus({ state: 'acknowledged', isPulled: false })).toBe('acknowledged');
+  });
+});
 
 describe('messageWay', () => {
   it('reads a pushed hand-over as handed, a pulled one as handed (pulled)', () => {

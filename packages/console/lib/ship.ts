@@ -49,3 +49,9 @@ export function useMessage(messageId: MessageId | undefined) {
   const trpc = useTRPC();
   return useQuery(trpc.fleet.message.queryOptions(messageId === undefined ? skipToken : { messageId }));
 }
+
+/** A ship's side of the way: the part that serves it, its turn and its oldest delivery waiting (#756). */
+export function useShipWay(shipId: ShipId) {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.shipWay.queryOptions({ shipId }, { refetchInterval: LAST_SEEN_REFRESH_MS }));
+}

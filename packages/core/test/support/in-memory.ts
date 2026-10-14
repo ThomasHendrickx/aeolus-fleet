@@ -1362,6 +1362,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state: delivery.state,
         attempts: delivery.attempts,
         claimedBy: delivery.claimedByShipId === null ? null : partyOf(message.fleetId, delivery.claimedByShipId),
+        handOverNumber: delivery.handOverNumber,
       },
     };
   };
@@ -1597,6 +1598,37 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           })
           .toSorted((first, second) => first.message.sentAt.getTime() - second.message.sentAt.getTime() || first.deliveryId.localeCompare(second.deliveryId)),
       ),
+    shipWay: (fleetId, shipId) => {
+      const crewed = ship(fleetId, shipId);
+      if (!crewed) {
+        return Promise.resolve(undefined);
+      }
+      const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+      if (!lease) {
+        return Promise.resolve({ lease: null, waiting: [] });
+      }
+      const waitsForIt = (delivery: Delivery): boolean => {
+        if (delivery.state === 'received' || delivery.state === 'handed') {
+          return delivery.claimedByLeaseId === lease.id;
+        }
+        const { recipient, reachableShipIds = [] } = delivery;
+        return (
+          delivery.state === 'pending' &&
+          (recipient.kind === 'ship'
+            ? recipient.shipId === shipId
+            : recipient.type === crewed.type && (reachableShipIds.length === 0 || reachableShipIds.includes(shipId)))
+        );
+      };
+      const waiting = state.deliveries
+        .filter((delivery) => delivery.fleetId === fleetId && waitsForIt(delivery))
+        .flatMap((delivery) => {
+          const message = messageOf(fleetId, delivery.messageId);
+          return message ? [message] : [];
+        })
+        .toSorted((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id))
+        .map((message) => message.id);
+      return Promise.resolve({ lease: wayLeaseOf(lease), waiting });
+    },
   };
 
   const notices: NoticeRepository = {
