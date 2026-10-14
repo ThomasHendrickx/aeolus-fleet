@@ -17,6 +17,7 @@ import {
   type FleetFilters,
   type FleetView,
 } from '../lib/fleet-filter';
+import { AGENT_KIND_WORDS, isAgentKind } from '../lib/agent-kind';
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../lib/labels';
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
 import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
@@ -86,6 +87,13 @@ const STATUS_ITEMS: Record<FleetFilters['status'], string> = {
 
 function isStatusFilter(value: string): value is FleetFilters['status'] {
   return Object.hasOwn(STATUS_ITEMS, value);
+}
+
+/** The Kind filter's choices: every kind, always, so the filter reads the same whatever the fleet holds. */
+const KIND_ITEMS: Record<FleetFilters['kind'], string> = { all: 'All', ...AGENT_KIND_WORDS };
+
+function isKindFilter(value: string): value is FleetFilters['kind'] {
+  return value === 'all' || isAgentKind(value);
 }
 
 /** The crew request filter's choices, in the order of a request's life. */
@@ -279,6 +287,29 @@ function FilterControls({
         </SelectContent>
       </Select>
       <Select
+        items={KIND_ITEMS}
+        value={filters.kind}
+        onValueChange={(value) => {
+          if (value !== null && isKindFilter(value)) {
+            change({ kind: value });
+          }
+        }}
+      >
+        <SelectTrigger size={size} aria-label="Kind" data-testid={isTouch ? undefined : 'fleet-filter-kind'}>
+          <span className="flex gap-1.5">
+            <span className="text-muted-foreground">Kind</span>
+            <SelectValue className="font-medium" />
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(KIND_ITEMS).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
         items={typeItems}
         value={filters.type}
         onValueChange={(value) => {
@@ -386,7 +417,7 @@ function FilterOption({ label, isOn, kind, onPick }: { label: string; isOn: bool
 
 /**
  * The phone's filters in a bottom Sheet (canvas, MOverviewFilters): Status as
- * segments, Type and Squadron as chips, Show retired ships, and Show N ships
+ * segments, Crew request, Kind, Type and Squadron as chips, Show retired ships, and Show N ships
  * to close it. Reset puts every filter back; the search stays.
  */
 function PhoneFilters({
@@ -469,6 +500,26 @@ function PhoneFilters({
                   onPick={() => {
                     if (isCrewRequestFilter(value, crewRequestItems)) {
                       change({ crewRequest: value });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span id="fleet-filter-kind-label" className="text-meta font-medium text-muted-foreground">
+              Kind
+            </span>
+            <div role="radiogroup" aria-labelledby="fleet-filter-kind-label" data-testid="fleet-filter-kind-touch" className="flex flex-wrap gap-1.5">
+              {Object.entries(KIND_ITEMS).map(([value, label]) => (
+                <FilterOption
+                  key={value}
+                  label={label}
+                  kind="radio"
+                  isOn={filters.kind === value}
+                  onPick={() => {
+                    if (isKindFilter(value)) {
+                      change({ kind: value });
                     }
                   }}
                 />
@@ -792,7 +843,7 @@ export function FleetTable({
     );
   }
 
-  const shown = filterFleet(ships, { ...view, squadronsOf });
+  const shown = filterFleet(ships, { ...view, squadronsOf, pluginShipIds });
   const query = view.query.trim();
   return (
     <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">

@@ -1,15 +1,18 @@
 import type { LabelValueId, ListedShip, ShipStatus } from '@aeolus-fleet/common';
 
+import { agentKindOf, AGENT_KIND_WORDS, type AgentKind } from './agent-kind';
 import { crewRequestStage } from '../../../lib/crew-request';
 import { carriesEvery } from '../../../lib/labels';
 import { crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from '../../../lib/needs-crew';
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
 
-/** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), type, squadron (with squadrons on), labels (#102) and Show retired. */
+/** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), kind (#401), type, squadron (with squadrons on), labels (#102) and Show retired. */
 export interface FleetFilters {
   status: Exclude<ShipStatus, 'retired'> | 'all';
   /** Where a ship's crew request stands, or `all`. */
   crewRequest: CrewRequestKey | 'all';
+  /** What sort of agent crews a shown ship, or `all`. */
+  kind: AgentKind | 'all';
   /** A ship type, or `all`. */
   type: string;
   /** A squadron's id: its flagship and members only; or `all`. */
@@ -27,14 +30,14 @@ export interface FleetView {
 
 export const DEFAULT_FLEET_VIEW: FleetView = {
   query: '',
-  filters: { status: 'all', crewRequest: 'all', type: 'all', squadron: 'all', isRetiredShown: false, labelValueIds: [] },
+  filters: { status: 'all', crewRequest: 'all', kind: 'all', type: 'all', squadron: 'all', isRetiredShown: false, labelValueIds: [] },
 };
 
-/** The view as filtering reads it: with squadrons on, which squadron each ship belongs to. */
-export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron> };
+/** The view as filtering reads it: with squadrons on, which squadron each ship belongs to; and the ships the console's plugins run as. */
+export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron>; pluginShipIds?: ReadonlySet<string> };
 
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
+export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', kind: 'kind', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
 export const RETIRED_SHOWN = '1';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
@@ -42,8 +45,10 @@ function matchesQuery(ship: ListedShip, query: string): boolean {
   return needle === '' || ship.name.toLowerCase().includes(needle) || ship.type.toLowerCase().includes(needle);
 }
 
-function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | 'squadronsOf'>): boolean {
-  const { filters, squadronsOf } = view;
+const NO_PLUGIN_SHIPS: ReadonlySet<string> = new Set();
+
+function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | 'squadronsOf' | 'pluginShipIds'>): boolean {
+  const { filters, squadronsOf, pluginShipIds = NO_PLUGIN_SHIPS } = view;
   if (ship.status === 'retired' && !filters.isRetiredShown) {
     return false;
   }
@@ -54,6 +59,9 @@ function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | '
     return false;
   }
   if (filters.crewRequest !== 'all' && crewRequestKey(crewRequestStage(ship)) !== filters.crewRequest) {
+    return false;
+  }
+  if (filters.kind !== 'all' && agentKindOf(ship, pluginShipIds) !== filters.kind) {
     return false;
   }
   if (!carriesEvery(ship, filters.labelValueIds)) {
@@ -114,6 +122,9 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
   if (view.filters.crewRequest !== 'all') {
     params.set(PARAMS.crewRequest, view.filters.crewRequest);
   }
+  if (view.filters.kind !== 'all') {
+    params.set(PARAMS.kind, view.filters.kind);
+  }
   if (view.filters.type !== 'all') {
     params.set(PARAMS.type, view.filters.type);
   }
@@ -143,7 +154,7 @@ export function activeFilterCount(filters: FleetFilters): number {
 
 /**
  * The filters in force, in words, for the phone's chips under the search
- * (canvas, MOverviewFilters): "Status: Crewed", "Crew request: Needs crew", "Type: reviewer",
+ * (canvas, MOverviewFilters): "Status: Crewed", "Crew request: Needs crew", "Kind: Codex", "Type: reviewer",
  * "Squadron: <id>", "Retired shown". None for the defaults. Label values
  * picked show as their own chips.
  */
@@ -151,6 +162,7 @@ export function activeFilterLabels(filters: FleetFilters): string[] {
   return [
     filters.status === 'all' ? undefined : `Status: ${STATUS_WORDS[filters.status]}`,
     filters.crewRequest === 'all' ? undefined : `Crew request: ${crewRequestKeyWord(filters.crewRequest)}`,
+    filters.kind === 'all' ? undefined : `Kind: ${AGENT_KIND_WORDS[filters.kind]}`,
     filters.type === 'all' ? undefined : `Type: ${filters.type}`,
     filters.squadron === 'all' ? undefined : `Squadron: ${filters.squadron}`,
     filters.isRetiredShown ? 'Retired shown' : undefined,
