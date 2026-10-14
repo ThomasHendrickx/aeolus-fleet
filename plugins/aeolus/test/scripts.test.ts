@@ -1494,6 +1494,70 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     });
   });
 
+  describe('a folder a trierarch crews, on a lease pushed: the hooks report as they do for a session crewed by hand (slice 8)', () => {
+    const aPrompt = () => aHook('aeolus-turn.sh', { payload: { hook_event_name: 'UserPromptSubmit', prompt: 'go on' } });
+    const aTurnFails = () => aHook('aeolus-turn-died.sh', { payload: { hook_event_name: 'StopFailure', error: 'rate_limit' } });
+    const PUSHED_UNDER_A_TRIERARCH =
+      "fetch the protocol. Receive and ack nothing: this ship is pushed, so the trierarch hands each message over and it comes into the turn through the plugin's hooks.";
+
+    /** A message handed over on a pushed lease, in a folder a trierarch crews. */
+    async function handedUnderATrierarch(routes: Record<string, readonly StubAnswer[]>): Promise<StubFleet> {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/turn': [taken], ...routes });
+      writeFileSync(identityFile(), `${readFileSync(identityFile(), 'utf8')}wakeBy=trierarch\n`);
+      stub.calls.length = 0;
+      return stub;
+    }
+
+    it('reports the turn busy at the prompt that starts it', async () => {
+      const stub = await handedUnderATrierarch({});
+
+      await aPrompt();
+
+      const [, at] = turn().stdout.trim().split(' ');
+      expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body)).toEqual([`{"turn":"busy","at":"${at ?? ''}"}`]);
+    });
+
+    it('reports the message the turn took handled when the turn ends, and the turn idle', async () => {
+      const stub = await handedUnderATrierarch({});
+      await aPrompt();
+
+      await aTurnEnds();
+
+      const [, at] = turn().stdout.trim().split(' ');
+      expect(callsTo(stub, '/api/v1/ship/handled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+      expect(callsTo(stub, '/api/v1/ship/turn').map((call) => call.body).at(-1)).toBe(`{"turn":"idle","at":"${at ?? ''}"}`);
+      expect(store()).toEqual([]);
+    });
+
+    it('keeps a confirmed message to hand once more when its turn fails, and the next prompt reports it handed once more and puts it in (D3)', async () => {
+      const stub = await handedUnderATrierarch({ '/api/v1/ship/handed': [handedAs('acknowledged')] });
+      await aPrompt();
+      await aTurnFails();
+
+      const prompted = await aPrompt();
+
+      expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}","handOverNumber":2,"isOnceMore":true}`]);
+      expect(prompted.stdout).toContain('aeolus: handed before');
+    });
+
+    it('shows the lease pushed', async () => {
+      await handedUnderATrierarch({});
+
+      expect(run('aeolus-identity.sh', { args: ['show'] }).stdout).toContain('\ndelivery: pushed\n');
+    });
+
+    it('tells a Claude Code session at its start to receive nothing, since the trierarch hands each message over', async () => {
+      await handedUnderATrierarch({});
+
+      const context = hookOutputSchema.parse(JSON.parse((await aHook('aeolus-session-start.sh', { payload: { hook_event_name: 'SessionStart', source: 'startup' } })).stdout))
+        .hookSpecificOutput.additionalContext;
+
+      expect(context).toContain(PUSHED_UNDER_A_TRIERARCH);
+      expect(context).toContain('The trierarch wakes this session when work arrives: start no watcher.');
+      expect(context).not.toContain('receive and handle what waits');
+    });
+  });
+
   describe('what a session on a pushed lease is told: the message comes into the turn through the hooks, never by its own receive', () => {
     const PUSHED =
       'Go on as the aeolus crew-a-ship skill says: fetch the protocol. Receive and ack nothing: this ship is pushed, so the watcher hands each message over and it comes into the turn through the plugin\'s hooks.';
