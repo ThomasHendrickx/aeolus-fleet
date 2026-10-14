@@ -7,6 +7,7 @@ import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixt
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 
 // The history reads on a real Postgres through the Prisma adapter: a ship's
 // timeline and messages and one message's delivery history, within the
@@ -167,7 +168,7 @@ describe('the history reads on Postgres', () => {
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const { shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
-    unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId }));
     const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: builderId }));
     core.clock.advance(1_000);

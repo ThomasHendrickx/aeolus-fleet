@@ -14,7 +14,7 @@ let argo: Caller;
 let argoId: ShipId;
 let scoutId: ShipId;
 
-const settings = { harness: 'claude-code', workspace: { repository: 'hemma' } };
+const settings = { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'hemma' }, options: {} };
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-06T15:00:00.000Z');
@@ -56,10 +56,10 @@ describe('requesting a crew for a ship', () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
     core.clock.advance(60_000);
 
-    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, harness: 'codex' } }));
 
     expect(core.state.crewRequests.filter((request) => request.shipId === scoutId)).toEqual([
-      { fleetId, shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] },
+      { fleetId, shipId: scoutId, settings: { ...settings, harness: 'codex' }, settingsVersion: 2, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, attempt: 0, sessionStartedAt: null, isFinal: false, givenBack: [] },
     ]);
   });
 
@@ -77,9 +77,13 @@ describe('requesting a crew for a ship', () => {
   });
 
   it('takes settings of exactly 16 KB', async () => {
-    const exact = { x: 'x'.repeat(16 * 1024 - '{"x":""}'.length) };
+    const exact = { ...settings, options: { note: 'x'.repeat(16 * 1024 - JSON.stringify({ ...settings, options: { note: '' } }).length) } };
 
     await expect(registry.requestCrew(argo, { shipId: scoutId, settings: exact })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('takes a first prompt of exactly 8 KB', async () => {
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: { ...settings, firstPrompt: 'x'.repeat(8 * 1024) } })).resolves.toMatchObject({ isOk: true });
   });
 });
 
@@ -119,6 +123,24 @@ describe('a crew request refused', () => {
       { shipId: scoutId, settings: { x: 'x'.repeat(16 * 1024 - '{"x":""}'.length + 1) } },
       { kind: 'CREW_REQUEST_SETTINGS_TOO_LARGE', message: 'settings is 16385 bytes, the limit is 16384 (decision 0029)' },
     );
+  });
+
+  it('refuses a first prompt over 8 KB, with the reason placement would give, before storing anything (#809)', async () => {
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, firstPrompt: 'x'.repeat(8 * 1024 + 1) } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes' },
+    );
+  });
+
+  it('refuses settings that are not crew settings: an unknown field (#809)', async () => {
+    await expectRefused(
+      { shipId: scoutId, settings: { ...settings, flags: ['--yolo'] } },
+      { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: Unrecognized key: "flags"' },
+    );
+  });
+
+  it('refuses settings without a workspace (#809)', async () => {
+    await expectRefused({ shipId: scoutId, settings: { harness: 'codex', options: {} } }, { kind: 'CREW_REQUEST_SETTINGS_INVALID' });
   });
 
   it('refuses argo: the console crews it', async () => {

@@ -15,6 +15,7 @@ import { createMigratedDatabase } from './support/database.js';
 import { newKey } from './support/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 
 // The installation API from HTTP to Postgres and back: a hosting service such
 // as pagasae creates, describes and deletes fleets with the installation token.
@@ -240,7 +241,7 @@ describe('the installation procedures on a hosting server', () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'doomed', operatorEmail: 'doomed@example.com' });
     const argo = argoOf(created);
     const scout = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-    unwrap(await core.requestCrew(argo, { shipId: scout.shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.requestCrew(argo, { shipId: scout.shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     const machine = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }));
     unwrap(await core.requestWorktreeClear(argo, { trierarchShipId: machine.shipId, shipId: scout.shipId, repository: 'aeolus-fleet' }));
     const os = unwrap(await core.defineLabel(argo, { key: 'os', values: ['macos'] }));

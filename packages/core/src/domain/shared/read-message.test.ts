@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { MessageId } from '@aeolus-fleet/common';
 
 import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -91,7 +91,7 @@ describe("reading a message's way through", () => {
     const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
-    unwrap(await registry.requestCrew(argo, { shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await registry.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
     const { secret } = unwrap(await registry.getStartingPrompt(trierarch, { shipId }));
     core.clock.advance(1_000);

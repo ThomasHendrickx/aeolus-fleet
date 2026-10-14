@@ -212,8 +212,9 @@ enum CrewStatus {
 }
 
 /// A standing request that a ship be kept crewed (decision 0029): at most one per
-/// ship, so the ship's id is its key. Its settings are stored without meaning, at
-/// most 16 KB; each request replaces them and moves their version by one.
+/// ship, so the ship's id is its key. Its settings are crew settings of at most
+/// 16 KB, checked but never acted on; each request replaces them and moves their
+/// version by one.
 model CrewRequest {
   shipId          String      @id @map("ship_id")
   fleetId         String      @map("fleet_id")

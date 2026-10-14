@@ -13,6 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fi
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 
 // The ship contract as REST under /api/v1, from plain HTTP requests (as curl
 // makes them) to Postgres and back: register with the ship's id and secret,
@@ -479,23 +480,36 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
     const scout = await commissioned();
 
-    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: { harness: 'claude-code' } } }), z.object({ settingsVersion: z.literal(1) }));
-    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: { harness: 'codex' } } }), z.object({ settingsVersion: z.literal(2) }));
+    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings({ harness: 'claude-code' }) } }), z.object({ settingsVersion: z.literal(1) }));
+    await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings({ harness: 'codex' }) } }), z.object({ settingsVersion: z.literal(2) }));
     const ship = await ok(request('fleet/ship', { crewToken: manager.crewToken, body: { shipId: scout.shipId } }), z.object({ crewRequest: z.unknown() }));
     await ok(request('fleet/removeCrewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId } }), z.strictObject({}));
 
-    expect(ship.crewRequest).toMatchObject({ settings: { harness: 'codex' }, settingsVersion: 2 });
+    expect(ship.crewRequest).toMatchObject({ settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 2 });
     await expect(request('fleet/removeCrewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId } })).resolves.toMatchObject({
       status: 404,
       body: { code: 'NOT_FOUND' },
     });
   });
 
+  it('refuse a crew request whose settings no trierarch could take, with the reason, and store nothing (#809)', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const scout = await commissioned();
+
+    await expect(
+      request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings({ firstPrompt: 'x'.repeat(8 * 1024 + 1) }) } }),
+    ).resolves.toMatchObject({
+      status: 400,
+      body: { code: 'BAD_REQUEST', message: 'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes' },
+    });
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
   it('refuse a crew request to a ship without fleet:manage', async () => {
     const reader = await crewedWithFleetScopes(['fleet:read']);
     const scout = await commissioned();
 
-    await expect(request('fleet/crewRequest', { crewToken: reader.crewToken, body: { shipId: scout.shipId, settings: {} } })).resolves.toMatchObject({
+    await expect(request('fleet/crewRequest', { crewToken: reader.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings() } })).resolves.toMatchObject({
       status: 403,
       body: { code: 'FORBIDDEN' },
     });
@@ -523,7 +537,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const trierarch = await crewedWithFleetScopes(['crew:run']);
     const trierarchId = trierarch.shipId;
     const scout = await commissioned();
-    unwrap(await createUseCases({ prisma: database }).requestCrew(argo, { shipId: scout.shipId, settings: { harness: 'codex' } }));
+    unwrap(await createUseCases({ prisma: database }).requestCrew(argo, { shipId: scout.shipId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     await ok(request('fleet/assignCrew', { crewToken: plugin.crewToken, body: { shipId: scout.shipId, trierarchShipId: trierarchId } }), z.strictObject({}));
     const assigned = await ok(
@@ -536,7 +550,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     unwrap(await createUseCases({ prisma: database }).removeCrewRequest(argo, { shipId: scout.shipId }));
     await ok(request('fleet/confirmCrewRelease', { crewToken: trierarch.crewToken, body: { shipId: scout.shipId } }), z.strictObject({}));
 
-    expect(assigned).toMatchObject([{ shipId: scout.shipId, settings: { harness: 'codex' }, settingsVersion: 1, status: null, isFinal: false }]);
+    expect(assigned).toMatchObject([{ shipId: scout.shipId, settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, status: null, isFinal: false }]);
     expect(assigned).toHaveLength(1);
     expect(read.id).toBe(scout.shipId);
     await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);

@@ -2,6 +2,7 @@ import {
   CREW_REQUEST_REASON_MAX_LENGTH,
   CREW_REQUEST_SETTINGS_MAX_BYTES,
   isOneLine,
+  readCrewSettings,
   crewRequestSettingsBytes,
   type CrewStatus,
   type FleetId,
@@ -19,8 +20,8 @@ import { checkCanBeRequestedCrew, type CrewRequestShipRefusal, type Ship } from 
 /**
  * A standing request that a ship be kept crewed (docs/blueprint.md, "Crew
  * request"; decision 0029): at most one per ship, in three parts with one
- * writer each. The settings, which the server stores without meaning, by a
- * requester with fleet:manage; the assignment, the trierarch ship that crews
+ * writer each. The settings, crew settings (decision 0027) the server checks but
+ * never acts on, by a requester with fleet:manage; the assignment, the trierarch ship that crews
  * it, by a ship with crew:assign; the status, by the assigned trierarch.
  * Removing an assigned request marks it releasing; it goes once its
  * trierarch confirms.
@@ -64,7 +65,7 @@ type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
 type Releasing = DomainError<'CREW_REQUEST_RELEASING'>;
 type NotTheCallers = DomainError<'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>;
 
-export type RequestCrewRefusal = CrewRequestShipRefusal | Releasing | DomainError<'CREW_REQUEST_SETTINGS_TOO_LARGE'>;
+export type RequestCrewRefusal = CrewRequestShipRefusal | Releasing | DomainError<'CREW_REQUEST_SETTINGS_TOO_LARGE'> | DomainError<'CREW_REQUEST_SETTINGS_INVALID'>;
 
 function notFound(ship: Ship): Result<never, NotFound> {
   return refuse('CREW_REQUEST_NOT_FOUND', `${ship.name} has no crew request`);
@@ -81,7 +82,8 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  * assignment and status, its crew not final until the new settings run, and
  * CrewRequested with the settings version, never
  * the settings. Never argo, the viewer ship or a retired ship; settings of at
- * most 16 KB; never while the request is releasing.
+ * most 16 KB that are crew settings (decision 0027), as placement reads
+ * them; never while the request is releasing.
  */
 export function requestCrew(
   { ship, current }: { ship: Ship; current: CrewRequest | undefined },
@@ -100,6 +102,11 @@ export function requestCrew(
       'CREW_REQUEST_SETTINGS_TOO_LARGE',
       `settings is ${String(bytes)} bytes, the limit is ${String(CREW_REQUEST_SETTINGS_MAX_BYTES)} (decision 0029)`,
     );
+  }
+  // Read as placement reads them, so a request is never stored that no trierarch could take (#809).
+  const read = readCrewSettings(input.settings);
+  if ('refusal' in read) {
+    return refuse('CREW_REQUEST_SETTINGS_INVALID', read.refusal.reason);
   }
   const request: CrewRequest = {
     fleetId: ship.fleetId,

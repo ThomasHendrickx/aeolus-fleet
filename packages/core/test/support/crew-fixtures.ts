@@ -1,5 +1,6 @@
 import type { FleetId, FleetScope, Scope, ShipId } from '@aeolus-fleet/common';
 
+import type { JsonObject } from '../../src/domain/registry/report-details.js';
 import type { Caller } from '../../src/domain/shared/caller.js';
 import { newKey } from './keys.js';
 import type { registryUseCases } from './core-fixtures.js';
@@ -28,4 +29,13 @@ function isFleetScope(scope: Scope): scope is FleetScope {
 
 function callerOf(ship: { fleetId: FleetId; shipId: ShipId }, scopes: Scope[]): Caller {
   return { ...ship, kind: 'agent', scopes };
+}
+
+/**
+ * Crew settings the fleet takes (decision 0027): a folder workspace and no
+ * options, with the change over them. Every crew request a test makes goes
+ * through it, as the fleet refuses settings that are not crew settings (#809).
+ */
+export function aCrewSettings(change: JsonObject = {}): JsonObject {
+  return { workspace: { kind: 'folder', name: 'notes' }, options: {}, ...change };
 }

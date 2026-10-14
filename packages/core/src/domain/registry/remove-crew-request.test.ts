@@ -6,6 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { aCrewSettings } from '../../../test/support/crew-fixtures.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -21,7 +22,7 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
-  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });
@@ -44,7 +45,7 @@ describe('removing a crew request', () => {
   it('starts the settings version again at 1 for a new request', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
 
-    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: {} })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() })).resolves.toEqual({ isOk: true, value: { settingsVersion: 1 } });
   });
 
   it('refuses a ship without a crew request, and changes nothing', async () => {

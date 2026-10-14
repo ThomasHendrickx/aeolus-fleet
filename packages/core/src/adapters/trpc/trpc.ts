@@ -73,6 +73,8 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   CREW_REQUEST_RELEASING: 'CONFLICT',
   CREW_REQUEST_FINAL: 'CONFLICT',
   CREW_REQUEST_SETTINGS_CHANGED: 'CONFLICT',
+  // Settings that are not crew settings would never be placed (#809): a bad request, as the input itself.
+  CREW_REQUEST_SETTINGS_INVALID: 'BAD_REQUEST',
   // BAD_REQUEST, as for a payload or report details over their limit.
   CREW_REQUEST_SETTINGS_TOO_LARGE: 'BAD_REQUEST',
   DELIVERY_NOT_IN_FLIGHT: 'CONFLICT',
