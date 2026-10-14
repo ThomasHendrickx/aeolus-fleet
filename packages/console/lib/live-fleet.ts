@@ -131,10 +131,15 @@ export function useLiveFleet(): LiveFleet {
             if (concerned !== null) {
               reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
               reload(trpc.fleet.shipTimeline.queryKey({ shipId: concerned }));
+              // A turn report, a push receive or a lease end changes its side of the way.
+              reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
             }
           }
           if (event.messageId !== null) {
             reload(trpc.fleet.shipMessages.pathKey());
+            // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
+            reload(trpc.fleet.shipWay.pathKey());
+            reload(trpc.fleet.overdue.queryKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
             reload(QUESTIONS_KEY);

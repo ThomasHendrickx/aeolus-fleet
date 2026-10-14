@@ -1,6 +1,8 @@
 import {
   AlarmClock,
+  ArrowDownToLine,
   Bot,
+  CirclePause,
   CircleQuestionMark,
   Clock,
   Eye,
@@ -23,10 +25,12 @@ const ICONS: Record<WayIcon, LucideIcon> = {
   fleet: Server,
   computer: Monitor,
   watcher: Eye,
+  pull: ArrowDownToLine,
   agent: Bot,
   time: Clock,
   clock: AlarmClock,
   busy: Loader,
+  idle: CirclePause,
   restart: RotateCcw,
   silent: WifiOff,
   died: HeartCrack,
@@ -41,6 +45,17 @@ const TONES: Record<WayTone, string> = {
   attention: 'text-tone-attention-fg',
 };
 
+/** One way line: its icon and its words, in its tone. */
+export function WayLineItem({ line, testId }: { line: WayLine; testId: string }) {
+  const Icon = ICONS[line.icon];
+  return (
+    <li data-testid={testId} className={classNames('flex items-center gap-1.5 text-meta max-sm:text-body-touch', TONES[line.tone])}>
+      <Icon aria-hidden className="size-3.5 shrink-0" />
+      <span>{line.text}</span>
+    </li>
+  );
+}
+
 /**
  * Where a message stands on its way (#756): its StatusBadge, then short
  * lines, each an icon and a few words in its tone: who holds it and since
@@ -54,15 +69,9 @@ export function WayLines({ status, lines }: { status: DeliveryStepState; lines: 
         <StatusBadge status={status} />
       </div>
       <ul aria-label="Where it stands" className="flex flex-col gap-1">
-        {lines.map((line) => {
-          const Icon = ICONS[line.icon];
-          return (
-            <li key={line.text} data-testid="message-way-line" className={classNames('flex items-center gap-1.5 text-meta max-sm:text-body-touch', TONES[line.tone])}>
-              <Icon aria-hidden className="size-3.5 shrink-0" />
-              <span>{line.text}</span>
-            </li>
-          );
-        })}
+        {lines.map((line) => (
+          <WayLineItem key={line.text} line={line} testId="message-way-line" />
+        ))}
       </ul>
     </div>
   );

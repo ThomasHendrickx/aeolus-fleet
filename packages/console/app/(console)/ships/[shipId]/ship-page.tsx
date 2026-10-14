@@ -12,6 +12,8 @@ import { ShipSquadron } from '../../../../features/ship/organisms/ship-squadron'
 import { ShipActions } from '../../../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../../../features/squadrons/organisms/get-new-crew-line';
 import { ShipHeader } from '../../../../features/ship/organisms/ship-header';
+import { ShipWayLines } from '../../../../features/ship/molecules/ship-way-lines';
+import { shipWayView } from '../../../../features/ship/lib/ship-way';
 import { ShipPageLabels } from '../../../../features/ship/organisms/ship-page-labels';
 import { ShipTimeline } from '../../../../features/ship/organisms/ship-timeline';
 import { DetailPage } from '../../../../components/organisms/detail-page';
@@ -23,7 +25,7 @@ import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useNow } from '../../../../lib/now';
 import { usePluginShipIds } from '../../../../lib/plugin-ships';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
-import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../../lib/ship';
+import { useMessage, useShip, useShipMessages, useShipTimeline, useShipWay } from '../../../../lib/ship';
 import { useSquadrons } from '../../../../lib/squadrons-api';
 import { useMachines } from '../../../../lib/trierarch-plugin';
 import { shipsInSquadrons } from '../../../../lib/squadrons-view';
@@ -60,6 +62,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const timeline = useShipTimeline(shipId);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
+  const way = useShipWay(shipId);
   const machines = useMachines();
   const liveFleet = useLiveFleet();
   const frame = useConsoleFrame();
@@ -76,6 +79,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   };
 
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND';
+  // argo's own side is this console; a ship no session crews has none.
+  const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
   const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
 
@@ -105,6 +110,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
           isPluginShip={pluginShipIds.has(shipId)}
+          way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
         </>

@@ -11,7 +11,7 @@ import type { DeliveryStepState } from './delivery-history';
  */
 
 /** What a way line's icon shows; the molecule maps it to a Lucide icon. */
-export type WayIcon = 'fleet' | 'computer' | 'watcher' | 'agent' | 'time' | 'clock' | 'busy' | 'restart' | 'silent' | 'died' | 'ping' | 'unknown';
+export type WayIcon = 'fleet' | 'computer' | 'watcher' | 'pull' | 'agent' | 'time' | 'clock' | 'busy' | 'idle' | 'restart' | 'silent' | 'died' | 'ping' | 'unknown';
 
 /** The tone family of a way line (docs/design/conventions.md, "Colour"). */
 export type WayTone = 'neutral' | 'waiting' | 'active' | 'attention';

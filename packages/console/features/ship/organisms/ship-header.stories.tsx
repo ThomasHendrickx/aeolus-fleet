@@ -1,7 +1,7 @@
 import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
-import { fn } from 'storybook/test';
+import { expect, fn } from 'storybook/test';
 
 import { SQUADRONS_SHIP } from '../../../lib/connect-plugin';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../../lib/labels';
@@ -10,7 +10,9 @@ import { ShipLabels } from '../../../components/molecules/ship-labels';
 import { ShipHeader } from './ship-header';
 import { AREA, carried, labelContext, labelledFleet, PROJECT } from '../../../lib/fixtures/labels.fixtures';
 import { ShipLabelsEdit } from './ship-labels-edit';
-import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, RETIRED_SHIP, UNKNOWN_SHIP_ID } from '../../../lib/fixtures/ship-page.fixtures';
+import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, PULL_WAY, RETIRED_SHIP, UNKNOWN_SHIP_ID, WATCHER_BUSY_WAY } from '../../../lib/fixtures/ship-page.fixtures';
+import { shipWayView } from '../lib/ship-way';
+import { ShipWayLines } from '../molecules/ship-way-lines';
 
 const meta = {
   title: 'Organisms/ShipHeader',
@@ -110,3 +112,17 @@ export const PluginShip: Story = {
     isPluginShip: true,
   },
 };
+
+/** Its side of the way in the Delivery row (#756): the plugin watcher, busy, its oldest pending past 60 min. */
+export const WithDelivery: Story = {
+  args: { way: <ShipWayLines view={shipWayView(WATCHER_BUSY_WAY, { now: NOW })} onOpenMessage={fn()} /> },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByTestId('ship-delivery')).toHaveTextContent('Plugin watcher');
+  },
+};
+
+/** A pull lease: no trierarch, no plugin. */
+export const WithPullDelivery: Story = { args: { way: <ShipWayLines view={shipWayView(PULL_WAY, { now: NOW })} onOpenMessage={fn()} /> } };
+
+export const WithDeliveryDark: Story = { ...WithDelivery, globals: { theme: 'dark' } };
+export const WithDeliveryPhone: Story = { ...WithDelivery, globals: { viewport: { value: 'mobile1' } } };
