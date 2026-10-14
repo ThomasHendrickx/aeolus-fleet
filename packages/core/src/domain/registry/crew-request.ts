@@ -6,6 +6,7 @@ import {
   crewRequestSettingsBytes,
   type CrewStatus,
   type FleetId,
+  type LabelValueId,
   type Scope,
   type ShipId,
 } from '@aeolus-fleet/common';
@@ -83,10 +84,12 @@ function event(ship: Ship, change: Pick<NewEvent, 'type' | 'details'> & { at: Da
  * CrewRequested with the settings version, never
  * the settings. Never argo, the viewer ship or a retired ship; settings of at
  * most 16 KB that are crew settings (decision 0027), as placement reads
- * them; never while the request is releasing.
+ * them, each machine label one of the fleet's label values (#811), so a
+ * request never waits for a machine no label lets match; never while the
+ * request is releasing.
  */
 export function requestCrew(
-  { ship, current }: { ship: Ship; current: CrewRequest | undefined },
+  { ship, current, labelValues }: { ship: Ship; current: CrewRequest | undefined; labelValues: ReadonlySet<LabelValueId> },
   input: { settings: JsonObject; at: Date; actor: Actor },
 ): Result<{ request: CrewRequest; events: NewEvent[] }, RequestCrewRefusal> {
   const requestable = checkCanBeRequestedCrew(ship);
@@ -108,6 +111,11 @@ export function requestCrew(
   if ('refusal' in read) {
     return refuse('CREW_REQUEST_SETTINGS_INVALID', read.refusal.reason);
   }
+  for (const [index, valueId] of (read.settings.machineLabels ?? []).entries()) {
+    if (!labelValues.has(valueId)) {
+      return refuse('CREW_REQUEST_SETTINGS_INVALID', `settings are not valid crew settings: machineLabels.${String(index)}: The fleet has no label value ${valueId}`);
+    }
+  }
   const request: CrewRequest = {
     fleetId: ship.fleetId,
     shipId: ship.id,
@@ -125,6 +133,12 @@ export function requestCrew(
     givenBack: [],
   };
   return ok({ request, events: [event(ship, { at: input.at, actor: input.actor, type: 'CrewRequested', details: { settingsVersion: request.settingsVersion } })] });
+}
+
+/** The machine labels the settings name, to look up among the fleet's label values; none when they are not crew settings. */
+export function machineLabelsOf(settings: JsonObject): readonly LabelValueId[] {
+  const read = readCrewSettings(settings);
+  return 'settings' in read ? (read.settings.machineLabels ?? []) : [];
 }
 
 /**
