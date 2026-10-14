@@ -55,7 +55,13 @@ const installationProcedure = publicProcedure.use(({ ctx, next }) => {
 });
 
 function described(fleet: InstallationFleet) {
-  return { ...fleet, createdAt: fleet.createdAt.toISOString(), lastActivityAt: fleet.lastActivityAt?.toISOString() ?? null };
+  const { oldestPendingAt, oldestInFlightAt } = fleet.health;
+  return {
+    ...fleet,
+    createdAt: fleet.createdAt.toISOString(),
+    lastActivityAt: fleet.lastActivityAt?.toISOString() ?? null,
+    health: { ...fleet.health, oldestPendingAt: oldestPendingAt?.toISOString() ?? null, oldestInFlightAt: oldestInFlightAt?.toISOString() ?? null },
+  };
 }
 
 /** A guide's steps as the API answers them. */

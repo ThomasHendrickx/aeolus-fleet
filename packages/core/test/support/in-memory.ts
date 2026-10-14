@@ -38,6 +38,7 @@ import type {
   ShipFacts,
   FleetRepository,
   InFlightDeliveries,
+  FleetHealth,
   InstallationFleetFacts,
   InstallationFleets,
   InstallationFleetWindow,
@@ -1165,6 +1166,36 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
     };
   };
+  /** The oldest time of the given ones; null for none. */
+  const oldestOf = (times: Date[]): Date | null => (times.length === 0 ? null : new Date(Math.min(...times.map((time) => time.getTime()))));
+  const healthOf = (fleetId: FleetId): FleetHealth => {
+    const deliveries = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
+    const pending = deliveries.filter((delivery) => delivery.state === 'pending');
+    const canTake = (delivery: Delivery): boolean => {
+      const { recipient } = delivery;
+      if (recipient.kind === 'ship') {
+        return true;
+      }
+      return state.ships.some(
+        (held) =>
+          held.fleetId === fleetId &&
+          held.type === recipient.type &&
+          held.retiredAt === null &&
+          (delivery.reachableShipIds === undefined || delivery.reachableShipIds.length === 0 || delivery.reachableShipIds.includes(held.id)),
+      );
+    };
+    return {
+      oldestPendingAt: oldestOf(pending.map((delivery) => delivery.createdAt)),
+      oldestInFlightAt: oldestOf(deliveries.filter(isInFlight).map(stateSince)),
+      noShipCanTake: pending.filter((delivery) => !canTake(delivery)).length,
+      needsAttention: deliveries.filter((delivery) => delivery.state === 'undeliverable' || delivery.state === 'notHandled').length,
+      overdue: state.overdueDeliveries.filter((told) => {
+        const delivery = deliveries.find((held) => held.id === told.deliveryId);
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === told.leaseId);
+        return told.fleetId === fleetId && lease?.endedAt === null && delivery?.state === told.state && (told.state === 'pending' || delivery.claimedByLeaseId === told.leaseId);
+      }).length,
+    };
+  };
   const installationFactsOf = (fleet: Fleet, window: InstallationFleetWindow): InstallationFleetFacts => {
     const times = state.events.filter((event) => event.fleetId === fleet.id).map((event) => event.occurredAt.getTime());
     return {
@@ -1183,6 +1214,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         ),
       ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
       limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
+      health: healthOf(fleet.id),
     };
   };
   const installationFleets: InstallationFleets = {

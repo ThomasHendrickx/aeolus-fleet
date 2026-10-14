@@ -530,6 +530,8 @@ model Delivery {
   @@unique([messageId, recipientType])
   @@index([fleetId, recipientShipId, state])
   @@index([fleetId, recipientType, state])
+  /// The installation's health figures scan a fleet's open deliveries by state (decision 0041). Partial, so a foreign key check never picks it.
+  @@index([fleetId, state, createdAt], map: "deliveries_open_fleet_id_state_created_at_idx", where: raw("(state = ANY (ARRAY['pending'::delivery_state, 'received'::delivery_state, 'handed'::delivery_state, 'undeliverable'::delivery_state, 'notHandled'::delivery_state]))"))
   /// A crew's own deliveries in flight, which its next receive returns first.
   @@index([fleetId, claimedByLeaseId, state])
   /// Every foreign key has an index leading with its columns, so deleting a

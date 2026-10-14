@@ -75,9 +75,10 @@ describe('installationFleetSchema', () => {
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
     },
+    health: { oldestPendingAt: '2026-10-04T11:00:00.000Z', oldestInFlightAt: null, noShipCanTake: 1, needsAttention: 0, overdue: 0 },
   };
 
-  it('describes a fleet: its measures, its messages today and per UTC day of the last 7 days, and the limits that apply', () => {
+  it('describes a fleet: its measures, its messages today and per UTC day of the last 7 days, the limits that apply and its health', () => {
     expect(installationFleetSchema.parse(fleet)).toEqual(fleet);
   });
 
@@ -92,6 +93,8 @@ describe('installationFleetSchema', () => {
     ['a negative storage', { ...fleet, storage: -1 }],
     ['a day that is no date', { ...fleet, messagesPerDay: [{ date: 'yesterday', count: 1 }] }],
     ['missing limits', { ...fleet, limits: undefined }],
+    ['missing health', { ...fleet, health: undefined }],
+    ['a negative count no ship can take', { ...fleet, health: { ...fleet.health, noShipCanTake: -1 } }],
   ])('refuses %s', (_case, input) => {
     expect(installationFleetSchema.safeParse(input).success).toBe(false);
   });

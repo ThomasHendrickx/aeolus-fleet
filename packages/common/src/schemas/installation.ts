@@ -60,6 +60,19 @@ export const installationFleetSchema = z.object({
   messagesPerDay: z.array(z.object({ date: z.iso.date(), count: z.int().min(0) })),
   /** How each limit is set and the limit that applies (null: none). */
   limits: z.object({ ships: fleetLimitSchema, dailyMessages: fleetLimitSchema }),
+  /** Whether its deliveries reach their ships (#304). */
+  health: z.object({
+    /** When its oldest pending delivery was sent; null when none is pending. */
+    oldestPendingAt: z.iso.datetime().nullable(),
+    /** Since when its oldest delivery in flight (received or handed) is in its state; null when none is. */
+    oldestInFlightAt: z.iso.datetime().nullable(),
+    /** Pending deliveries to a type no active ship can take. */
+    noShipCanTake: z.int().min(0),
+    /** Undeliverable and not handled deliveries, as Needs attention lists them. */
+    needsAttention: z.int().min(0),
+    /** Overdue deliveries argo was told of that still stand. */
+    overdue: z.int().min(0),
+  }),
 });
 
 export type InstallationFleet = z.infer<typeof installationFleetSchema>;
