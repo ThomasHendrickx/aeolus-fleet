@@ -116,6 +116,22 @@ describe('the history reads on Postgres', () => {
     ]);
   });
 
+  it("give a ship's messages telling a pushed hand-over from a plain receive's (pulled)", async () => {
+    const pushed = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    core.clock.advance(1_000);
+    const [received] = unwrap(await core.useCases.pushReceiveDeliveries(scout, {})).deliveries;
+    unwrap(await core.useCases.handOverDelivery(scout, { deliveryId: idSchema('delivery').parse(received?.deliveryId), handOverNumber: 1, isOnceMore: false }));
+    const pulled = await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
+    await receive(lookout);
+
+    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId }));
+
+    expect(listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled])).toEqual([
+      [pulled, 'handed', true],
+      [pushed, 'handed', false],
+    ]);
+  });
+
   it("give one message with its delivery's history: stored, claimed where the session ran, returned and claimed again", async () => {
     const messageId = await send(planner, { to: { kind: 'type', type: 'reviewer' }, payload: '{"pr":48}' });
     await receive(scout);

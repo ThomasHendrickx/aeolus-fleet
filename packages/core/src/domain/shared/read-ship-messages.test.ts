@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import { PREVIEW_LENGTH } from './read-ship-messages.js';
@@ -68,6 +69,23 @@ describe("reading a ship's messages", () => {
     const [message] = await messagesOf();
 
     expect(message?.preview).toBe(`Review the pull request ${'x'.repeat(PREVIEW_LENGTH)}`.slice(0, PREVIEW_LENGTH));
+  });
+
+  it("tells a delivery a pushed crew's computer side handed over from one a plain receive handed (pulled)", async () => {
+    const pushed = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, {}));
+    unwrap(await scene.messaging.handOverDelivery(scene.scout, { deliveryId: deliveryIdOf(scene.core, pushed), handOverNumber: 1, isOnceMore: false }));
+    const pulled = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
+    await scene.receive(scene.lookout);
+    const waiting = await scene.send(scene.lookout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
+
+    const listed = await messagesOf(scene.planner.shipId);
+
+    expect(listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled])).toEqual([
+      [waiting, 'pending', false],
+      [pulled, 'handed', true],
+      [pushed, 'handed', false],
+    ]);
   });
 
   it('knows no ship of another fleet', async () => {
