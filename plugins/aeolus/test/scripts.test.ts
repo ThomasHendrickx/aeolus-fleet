@@ -1510,6 +1510,9 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
 
     it('reports the turn busy at the prompt that starts it', async () => {
       const stub = await handedUnderATrierarch({});
+      await aPrompt();
+      await aTurnEnds();
+      stub.calls.length = 0;
 
       await aPrompt();
 
