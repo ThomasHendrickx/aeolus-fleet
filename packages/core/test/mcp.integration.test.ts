@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +19,8 @@ import { newKey } from './support/keys.js';
 // Postgres and back. A conversation registers with its ship's id and secret
 // and passes the crew token to every other tool: the connection carries no
 // ship (ADR 0015), so conversations sharing it crew different ships.
+
+const newId = createIdGenerator();
 
 /** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
 const RECEIVE_WAIT_MS = 500;
@@ -246,6 +248,20 @@ describe('the ship tools at /mcp', () => {
 
     await expect(refusalOf(session, { name: 'fleet_crewRequest', arguments: { crewToken, shipId: scout.shipId, settings } })).resolves.toContain(
       'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes',
+    );
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
+  it('refuses through fleet_crewRequest a machine label that is no label value of the fleet, with the reason, and stores nothing (#811)', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const scout = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, manager);
+    const unknown = newId('labelValue');
+    const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, machineLabels: [unknown] };
+
+    await expect(refusalOf(session, { name: 'fleet_crewRequest', arguments: { crewToken, shipId: scout.shipId, settings } })).resolves.toContain(
+      `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${unknown}`,
     );
     await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
   });
