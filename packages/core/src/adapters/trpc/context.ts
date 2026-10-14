@@ -86,6 +86,7 @@ import type { ReadMessage } from '../../domain/shared/read-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
 import type { ReadNoShipCanTake } from '../../domain/shared/read-no-ship-can-take.js';
 import type { ReadOverdue } from '../../domain/shared/read-overdue.js';
+import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
 import type { ReadShipMessages } from '../../domain/shared/read-ship-messages.js';
 import type { ReadShipTimeline } from '../../domain/shared/read-ship-timeline.js';
 
@@ -164,6 +165,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readOverdue: ReadOverdue;
   readNoShipCanTake: ReadNoShipCanTake;

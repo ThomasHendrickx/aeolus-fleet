@@ -144,6 +144,18 @@ export type MessageRead = HistoryMessage & {
 };
 
 /**
+ * What a ship's side of the way is read from (#756): the open lease of the
+ * session crewing it, and the messages whose deliveries wait for it, oldest
+ * sent first. A delivery waits for it as the clocks count it: pending for the
+ * ship or for a type it may take, or received or handed with its open lease.
+ * Nothing waits while no session crews it.
+ */
+export interface ShipWayRead {
+  lease: WayLease | null;
+  waiting: MessageId[];
+}
+
+/**
  * A delivery in Needs attention: undeliverable, or not handled after its turn
  * died twice (decision 0040). Its claims, since when, and its whole message.
  */
@@ -245,6 +257,8 @@ export interface ShipHistory {
   overdue(fleetId: FleetId): Promise<OverdueEntry[]>;
   /** Every pending delivery to a type no active ship can take, oldest sent first. */
   noShipCanTake(fleetId: FleetId): Promise<NoShipCanTakeEntry[]>;
+  /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
+  shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
 }

@@ -117,6 +117,7 @@ import { createGetInstallationFleet, type GetInstallationFleet } from './domain/
 import { createListInstallationFleets, type ListInstallationFleets } from './domain/registry/list-installation-fleets.js';
 import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
+import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
 import { createReadNoShipCanTake, type ReadNoShipCanTake } from './domain/shared/read-no-ship-can-take.js';
 import { createReadOverdue, type ReadOverdue } from './domain/shared/read-overdue.js';
@@ -188,6 +189,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readOverdue: ReadOverdue;
   readNoShipCanTake: ReadNoShipCanTake;
@@ -351,6 +353,7 @@ export function createUseCases(options: {
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
+    readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma) }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
     readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
     readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma) }),
