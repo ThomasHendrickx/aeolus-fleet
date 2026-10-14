@@ -14,7 +14,10 @@ export const PREVIEW_LENGTH = 120;
 /** A message as the ship page lists it: its payload cut to a preview. */
 export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
   preview: string;
-  delivery: Omit<HistoryMessage['delivery'], 'attempts'>;
+  delivery: Omit<HistoryMessage['delivery'], 'attempts' | 'handOverNumber'> & {
+    /** Handed by a plain receive, with no hand-over number: it reads handed (pulled). False in every other state. */
+    isPulled: boolean;
+  };
 };
 
 export type ReadShipMessages = (
@@ -43,7 +46,12 @@ export function createReadShipMessages(deps: { history: ShipHistory }): ReadShip
       messages.map(({ payload, delivery, ...message }) => ({
         ...message,
         preview: previewOf(payload),
-        delivery: { id: delivery.id, state: delivery.state, claimedBy: delivery.claimedBy },
+        delivery: {
+          id: delivery.id,
+          state: delivery.state,
+          claimedBy: delivery.claimedBy,
+          isPulled: delivery.state === 'handed' && delivery.handOverNumber === null,
+        },
       })),
     );
   };

@@ -101,6 +101,8 @@ export const listedMessageSchema = z.object({
     state: deliveryStateSchema,
     /** The ship holding or having acknowledged it; null while pending. */
     claimedBy: partySchema.nullable(),
+    /** Handed by a plain receive, with no hand-over number: it reads handed (pulled). False in every other state. */
+    isPulled: z.boolean(),
   }),
 });
 

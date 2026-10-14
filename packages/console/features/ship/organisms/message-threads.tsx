@@ -3,6 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
 
 import { classNames } from '../../../lib/class-names';
 import { messageLine } from '../lib/message-line';
+import { deliveryStatus } from '../lib/message-way';
 import { fullDateTime, relativeTime } from '../../../lib/relative-time';
 import { ship, text, type SentencePart } from '../../../lib/sentence';
 import { threadsOf } from '../lib/threads';
@@ -66,7 +67,7 @@ function MessageRow({
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex flex-wrap items-center justify-between gap-2">
             <Sentence parts={counterparty(message, isSent)} className="text-body text-foreground max-sm:text-body-touch" />
-            <StatusBadge status={message.delivery.state} />
+            <StatusBadge status={deliveryStatus(message.delivery)} />
           </span>
           <span data-testid="message-line" className={classNames('truncate text-muted-foreground', line.isCode ? 'font-mono text-id' : 'text-meta')}>
             {line.text}

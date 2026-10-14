@@ -1362,6 +1362,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state: delivery.state,
         attempts: delivery.attempts,
         claimedBy: delivery.claimedByShipId === null ? null : partyOf(message.fleetId, delivery.claimedByShipId),
+        handOverNumber: delivery.handOverNumber,
       },
     };
   };

@@ -140,7 +140,7 @@ describe('shipMessagesOutputSchema', () => {
     contentType: 'text/plain',
     model: 'claude-opus-5-5',
     preview: 'Review PR 48',
-    delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner },
+    delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner, isPulled: false },
   };
 
   it('accepts a message with its parties, its thread link, a preview and its delivery', () => {

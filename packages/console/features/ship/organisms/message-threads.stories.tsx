@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn } from 'storybook/test';
 
 import { MessageThreads } from './message-threads';
-import { MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from '../../../lib/fixtures/ship-page.fixtures';
+import { HANDED_MESSAGES, MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from '../../../lib/fixtures/ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/MessageThreads',
@@ -27,3 +27,13 @@ export const Error: Story = { args: { state: 'error' } };
 /** A member's check-in and role: each in words, its raw payload in the message sheet. */
 export const SquadronCheckIn: Story = { args: { messages: SQUADRON_MESSAGES } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** A row reads its state word as the MessageSheet does (#796): a pushed hand-over "Handed", a plain receive's "Handed (pulled)". */
+export const HandedPushedAndPulled: Story = {
+  args: { messages: HANDED_MESSAGES },
+  play: async ({ canvas }) => {
+    const rows = canvas.getAllByTestId('message-row');
+    await expect(rows[0]).toHaveTextContent(/Handed(?! \(pulled\))/);
+    await expect(rows[1]).toHaveTextContent('Handed (pulled)');
+  },
+};

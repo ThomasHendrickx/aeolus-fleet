@@ -78,7 +78,14 @@ export interface HistoryMessage {
   /** The model the sender's session stated; none from argo and on messages from before models were stated. */
   model: string | null;
   payload: string;
-  delivery: { id: DeliveryId; state: DeliveryState; attempts: number; claimedBy: HistoryParty | null };
+  delivery: {
+    id: DeliveryId;
+    state: DeliveryState;
+    attempts: number;
+    claimedBy: HistoryParty | null;
+    /** The number of its last hand-over by a pushed crew's computer side; null when a plain receive or a push receive took it last, or before any. */
+    handOverNumber: number | null;
+  };
 }
 
 /** The events of a delivery's way: stored, received, handed, returned, acknowledged, handled or not, overdue, and its dead ends. */

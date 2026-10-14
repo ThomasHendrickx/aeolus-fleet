@@ -147,9 +147,12 @@ export const TIMELINE: TimelineEntry[] = [
   }),
 ];
 
-function listed(suffix: string, message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null }): ListedMessage {
-  const { state, claimedBy, ...rest } = message;
-  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy } };
+function listed(
+  suffix: string,
+  message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
+): ListedMessage {
+  const { state, claimedBy, isPulled = false, ...rest } = message;
+  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
 }
 
 /** reviewer-01's messages: a question and its answer, and a task from builder-core to its type. */
@@ -183,7 +186,23 @@ export const MESSAGES: ListedMessage[] = [
     preview: '{"task":"review","repo":"web","pr":321}',
     state: 'handed',
     claimedBy: REVIEWER,
+    isPulled: true,
   }),
+];
+
+/** A message reviewer-01's plugin watcher handed to its agent, and one a plain receive handed (pulled). */
+export const HANDED_MESSAGES: ListedMessage[] = [
+  listed('0007', {
+    sender: PLANNER,
+    recipient: { kind: 'ship', ship: REVIEWER },
+    inReplyTo: null,
+    sentAt: minutesAgo(3),
+    contentType: 'text/plain', model: null,
+    preview: 'Review the store entry rename.',
+    state: 'handed',
+    claimedBy: REVIEWER,
+  }),
+  ...MESSAGES.filter((message) => message.delivery.state === 'handed'),
 ];
 
 /** A squadron member's check-in at its flagship, and the role the flagship answers with (docs/squadrons.md, "Check-in"). */

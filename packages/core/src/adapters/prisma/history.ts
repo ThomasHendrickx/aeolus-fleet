@@ -51,6 +51,7 @@ const deliveryRow = z.object({
   state: deliveryStateSchema,
   attempts: z.number().int(),
   claimedByShipId: idSchema('ship').nullable(),
+  handOverNumber: z.number().int().nullable(),
 });
 
 type DeliveryNow = z.infer<typeof deliveryRow>;
@@ -98,6 +99,7 @@ function historyMessageOf(
       state: delivery.state,
       attempts: delivery.attempts,
       claimedBy: delivery.claimedByShipId === null ? null : party(delivery.claimedByShipId),
+      handOverNumber: delivery.handOverNumber,
     },
   };
 }
@@ -111,7 +113,7 @@ function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
   return deliveryRow.parse(delivery);
 }
 
-const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true } as const;
+const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true, handOverNumber: true } as const;
 
 async function shipExists(db: Db, at: { fleetId: FleetId; shipId: ShipId }): Promise<boolean> {
   return (await db.ship.count({ where: { fleetId: at.fleetId, id: at.shipId } })) === 1;
