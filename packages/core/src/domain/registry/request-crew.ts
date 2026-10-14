@@ -1,4 +1,4 @@
-import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -6,13 +6,14 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { requestCrew, type RequestCrewRefusal } from './crew-request.js';
-import type { CrewRequestRepository, ShipRepository } from './ports.js';
+import { machineLabelsOf, requestCrew, type RequestCrewRefusal } from './crew-request.js';
+import type { CrewRequestRepository, LabelRepository, ShipRepository } from './ports.js';
 import type { JsonObject } from './report-details.js';
 
 export interface RequestCrewTx {
   ships: Pick<ShipRepository, 'findForUpdate'>;
   crewRequests: CrewRequestRepository;
+  labels: Pick<LabelRepository, 'findByValueForShare'>;
   events: EventLog;
 }
 
@@ -25,7 +26,10 @@ export type RequestCrew = (
  * Use case: a requester asks that a ship be kept crewed, with these settings,
  * replacing any request the ship holds. Its scope (fleet:manage) is checked
  * before this runs. In one unit of work, locking the ship first, as a retire
- * does, so a retire and a request never cross: the request and CrewRequested.
+ * does, so a retire and a request never cross; then holding the label of
+ * each machine label, as an assignment does, so a change of its values waits
+ * and the request never names a value it removed: the request and
+ * CrewRequested.
  */
 export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock: Clock; ids: IdGenerator }): RequestCrew {
   return (caller, input) =>
@@ -35,7 +39,15 @@ export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock:
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
       const current = await tx.crewRequests.find(caller.fleetId, ship.id);
-      const requested = requestCrew({ ship, current }, { settings: input.settings, at: deps.clock.now(), actor: shipActor(caller.shipId) });
+      const labelValues = new Set<LabelValueId>();
+      for (const valueId of machineLabelsOf(input.settings)) {
+        const label = await tx.labels.findByValueForShare(caller.fleetId, valueId);
+        // Read after the lock: a change of values that came first may have removed the value.
+        if (label?.values.some((value) => value.id === valueId)) {
+          labelValues.add(valueId);
+        }
+      }
+      const requested = requestCrew({ ship, current, labelValues }, { settings: input.settings, at: deps.clock.now(), actor: shipActor(caller.shipId) });
       if (!requested.isOk) {
         return requested;
       }

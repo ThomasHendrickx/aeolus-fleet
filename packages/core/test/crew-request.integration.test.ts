@@ -1,14 +1,18 @@
+import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 
 // Crew requests on a real Postgres: one per ship, replaced in place, removed
 // by its requester or with a retire, each change with its event.
+
+const newId = createIdGenerator();
 
 let core: PostgresCore;
 let argo: Caller;
@@ -66,6 +70,49 @@ describe('a crew request on Postgres', () => {
     });
     await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1 })]);
     await expect(core.prisma.event.count({ where: { type: 'CrewRequested', shipId: scoutId } })).resolves.toBe(1);
+  });
+
+  it('takes machine labels that are label values of the fleet (#811)', async () => {
+    const os = unwrap(await core.useCases.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
+    const machineLabels = os.values.map((value) => value.id);
+
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ machineLabels }) }));
+
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ settings: aCrewSettings({ machineLabels }) })]);
+  });
+
+  it('is refused with a machine label that is no label value of the fleet, storing no request and no event (#811)', async () => {
+    const unknown = newId('labelValue');
+
+    await expect(core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ machineLabels: [unknown] }) })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${unknown}` },
+    });
+    await expect(crewRequests()).resolves.toEqual([]);
+    await expect(core.prisma.event.count({ where: { type: 'CrewRequested', shipId: scoutId } })).resolves.toBe(0);
+  });
+
+  it('waits for a change of values that locked the label first, then is refused: the value is gone (#811)', async () => {
+    const os = unwrap(await core.useCases.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
+    const linux = os.values[1]?.id ?? newId('labelValue');
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      labels: {
+        ...tx.labels,
+        carriersOf: async (fleetId, labelId) => {
+          await hold();
+          return tx.labels.carriersOf(fleetId, labelId);
+        },
+      },
+    }));
+    const change = createChangeLabelValues({ uow, clock: core.clock, ids: newId })(argo, { labelId: os.labelId, values: ['macos'] });
+    await reached;
+
+    const request = core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ machineLabels: [linux] }) });
+
+    await expect(change).resolves.toMatchObject({ isOk: true });
+    await expect(request).resolves.toMatchObject({ isOk: false, error: { kind: 'CREW_REQUEST_SETTINGS_INVALID' } });
+    await expect(crewRequests()).resolves.toEqual([]);
   });
 
   it('is removed by its requester, with CrewRequestRemoved', async () => {

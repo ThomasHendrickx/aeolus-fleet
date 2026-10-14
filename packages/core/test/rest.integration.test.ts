@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -18,6 +18,8 @@ import { aCrewSettings } from './support/crew-fixtures.js';
 // The ship contract as REST under /api/v1, from plain HTTP requests (as curl
 // makes them) to Postgres and back: register with the ship's id and secret,
 // then every call with the crew token as a bearer.
+
+const newId = createIdGenerator();
 
 /** How long a receive waits on an empty inbox at this server: short, so an empty receive costs little. */
 const RECEIVE_WAIT_MS = 500;
@@ -501,6 +503,20 @@ describe('the fleet actions at /api/v1/fleet', () => {
     ).resolves.toMatchObject({
       status: 400,
       body: { code: 'BAD_REQUEST', message: 'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes' },
+    });
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
+  it('refuse a crew request with a machine label that is no label value of the fleet, with the reason, and store nothing (#811)', async () => {
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const scout = await commissioned();
+    const unknown = newId('labelValue');
+
+    await expect(
+      request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings({ machineLabels: [unknown] }) } }),
+    ).resolves.toMatchObject({
+      status: 400,
+      body: { code: 'BAD_REQUEST', message: `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${unknown}` },
     });
     await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
   });
