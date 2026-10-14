@@ -1,6 +1,6 @@
 import type { DeliveryHistoryEntry, MessageRecipient } from '@aeolus-fleet/common';
 
-import { deliveryHistorySentence, deliveryHistoryState } from '../lib/delivery-history';
+import { deliveryHistorySentence, deliveryHistoryState, offsetTime } from '../lib/delivery-history';
 import { fullDateTime, secondsTime } from '../../../lib/relative-time';
 import { Badge } from '../../../components/atoms/badge';
 import { Sentence } from '../molecules/sentence';
@@ -14,12 +14,15 @@ interface DeliveryHistoryProps {
 }
 
 /**
- * The state changes of one delivery, newest first
+ * The steps of one delivery's way, newest first
  * (docs/design/png/DeliveryHistory.png): StatusBadge, the time to the second
- * and one sentence naming who held it. A type-addressed delivery shows its
+ * with how long after the store it came ("+2 s"), and one sentence naming who
+ * held it and the part that took it. A type-addressed delivery shows its
  * claims and returns to the queue. Width is fluid; the same on phone.
  */
 export function DeliveryHistory({ entries, recipient }: DeliveryHistoryProps) {
+  const stored = entries.at(-1);
+  const storedAt = stored ? new Date(stored.occurredAt) : undefined;
   return (
     <ol data-testid="delivery-history" aria-label="Delivery history" className="flex flex-col">
       {entries.map((entry, position) => {
@@ -44,9 +47,14 @@ export function DeliveryHistory({ entries, recipient }: DeliveryHistoryProps) {
                 <time dateTime={entry.occurredAt} title={fullDateTime(at)} className="font-mono text-id text-muted-foreground tabular-nums">
                   {secondsTime(at)}
                 </time>
+                {storedAt && position < entries.length - 1 ? (
+                  <span data-testid="delivery-history-offset" className="font-mono text-id text-muted-foreground tabular-nums">
+                    {offsetTime(storedAt, at)}
+                  </span>
+                ) : null}
                 {isCurrent ? <Badge variant="outline">Current</Badge> : null}
               </div>
-              <Sentence parts={deliveryHistorySentence(entry, recipient)} className="text-meta text-muted-foreground max-sm:text-body-touch" />
+              <Sentence parts={deliveryHistorySentence(entry, { recipient, older: entries[position + 1] })} className="text-meta text-muted-foreground max-sm:text-body-touch" />
             </div>
           </li>
         );

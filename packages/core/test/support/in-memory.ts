@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -64,10 +64,9 @@ import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
 import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/domain/shared/events.js';
+import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../src/domain/shared/delivery-way.js';
 import {
-  isDeliveryChangeType,
   isKeptBy,
-  type DeliveryChange,
   type HistoryMessage,
   type HistoryParty,
   type HistoryRecipient,
@@ -1366,25 +1365,53 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     };
   };
-  const changeOf = (event: SequencedEvent): DeliveryChange[] => {
-    const { type } = event;
-    if (!isDeliveryChangeType(type)) {
-      return [];
+  /** What the history reads of a lease: its trierarch by the starting prompt its crew claimed with, push, turn and end. */
+  const wayLeaseOf = (lease: Lease): WayLease => {
+    const crewShip = ship(lease.fleetId, lease.shipId);
+    const crewedBy = crewShip ? crewedByOf(crewShip, lease) : null;
+    const isOperator = state.ships.some((held) => held.fleetId === lease.fleetId && held.id === crewedBy?.id && held.kind === 'operator');
+    const revoked = state.events.find((event) => event.fleetId === lease.fleetId && event.type === 'LeaseRevoked' && event.details.leaseId === lease.id);
+    const reason = revoked?.details.reason;
+    const turn = state.leaseTurns.find((held) => held.fleetId === lease.fleetId && held.leaseId === lease.id)?.turn ?? null;
+    return {
+      location: { ...lease.location },
+      harness: lease.harness,
+      trierarch: crewedBy && !isOperator ? crewedBy : null,
+      isPushed: state.pushedLeases.some((held) => held.fleetId === lease.fleetId && held.leaseId === lease.id),
+      isEnded: lease.endedAt !== null,
+      endReason: LEASE_END_REASONS.find((known) => known === reason) ?? null,
+      turn: turn && { ...turn },
+    };
+  };
+  const wayLeases = (fleetId: FleetId): Map<string, WayLease> =>
+    new Map(state.leases.filter((lease) => lease.fleetId === fleetId).map((lease) => [lease.id, wayLeaseOf(lease)]));
+  /** The lease that holds the delivery, or the open lease of the one ship a pending delivery waits for. */
+  const leaseOfDelivery = (delivery: Delivery): Lease | undefined => {
+    if (delivery.claimedByLeaseId !== null) {
+      return state.leases.find((lease) => lease.fleetId === delivery.fleetId && lease.id === delivery.claimedByLeaseId);
     }
-    const lease =
-      event.type === 'DeliveryHanded' ? state.leases.find((held) => held.id === event.details.leaseId) : undefined;
-    const { attempts } = event.details;
-    return [
-      {
-        seq: event.seq,
-        type,
-        occurredAt: event.occurredAt,
-        ship: type === 'MessageAccepted' || event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
-        location: lease ? { ...lease.location } : null,
-        harness: lease?.harness ?? null,
-        attempts: typeof attempts === 'number' ? attempts : null,
-      },
-    ];
+    const { recipient } = delivery;
+    return delivery.state === 'pending' && recipient.kind === 'ship'
+      ? state.leases.find((lease) => lease.fleetId === delivery.fleetId && lease.shipId === recipient.shipId && lease.endedAt === null)
+      : undefined;
+  };
+  /** The newest overdue clock argo was told of that still stands for the delivery. */
+  const standingOverdueOf = (delivery: Delivery): StandingOverdue | null => {
+    const told = state.overdueDeliveries
+      .filter(
+        (held) =>
+          held.fleetId === delivery.fleetId &&
+          held.deliveryId === delivery.id &&
+          held.state === delivery.state &&
+          state.leases.some((lease) => lease.id === held.leaseId && lease.endedAt === null) &&
+          (held.state === 'pending' || delivery.claimedByLeaseId === held.leaseId),
+      )
+      .at(-1);
+    return told ? { clock: told.clock, minutes: told.minutes, toldAt: told.at } : null;
+  };
+  const crewOf = (lease: Lease | undefined): WayCrew | null => {
+    const request = lease && state.crewRequests.find((held) => held.fleetId === lease.fleetId && held.shipId === lease.shipId);
+    return request?.status ? { status: request.status, attempt: request.attempt, startedAt: request.sessionStartedAt } : null;
   };
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
@@ -1427,11 +1454,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(undefined);
       }
       const delivery = deliveryOfMessage(message);
+      const leases = wayLeases(fleetId);
       const changes = numbered(fleetId)
         .filter((event) => event.deliveryId === delivery.id)
         .reverse()
-        .flatMap(changeOf);
-      return Promise.resolve({ ...historyMessageOf(message), history: changes });
+        .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases }));
+      const replies = state.messages
+        .filter((held) => held.fleetId === fleetId && held.inReplyToMessageId === message.id)
+        .toSorted((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id))
+        .map((reply) => ({ id: reply.id, sender: partyOf(fleetId, reply.senderShipId), sentAt: reply.createdAt }));
+      const lease = leaseOfDelivery(delivery);
+      return Promise.resolve({
+        ...historyMessageOf(message),
+        history: changes,
+        replies,
+        lease: lease ? wayLeaseOf(lease) : null,
+        overdue: standingOverdueOf(delivery),
+        crew: crewOf(lease),
+      });
     },
     inbox: (fleetId, { shipId, filter }) =>
       Promise.resolve(

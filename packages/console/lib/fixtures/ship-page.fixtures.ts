@@ -210,9 +210,24 @@ export const SQUADRON_MESSAGES: ListedMessage[] = [
   }),
 ];
 
-function history(seq: number, entry: Omit<DeliveryHistoryEntry, 'seq'>): DeliveryHistoryEntry {
-  return { seq, ...entry };
+/** What a step says of itself beyond who and when: nothing, unless the example sets it. */
+const PLAIN_STEP = { by: null, handOverNumber: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null } as const;
+
+type StepFields = Pick<DeliveryHistoryEntry, 'type' | 'occurredAt' | 'ship' | 'location' | 'harness' | 'attempts'>;
+
+function history(seq: number, entry: StepFields & Partial<DeliveryHistoryEntry>): DeliveryHistoryEntry {
+  return { seq, ...PLAIN_STEP, ...entry };
 }
+
+/** The way of a delivery a plain receive handed and that stands on an open pull lease. */
+const PULLED_WAY: MessageDetail['delivery']['way'] = {
+  holder: { kind: 'agent' },
+  since: '2026-09-28T14:20:31Z',
+  isPulled: true,
+  overdue: null,
+  lease: { by: null, isEnded: false, turn: null },
+  crew: null,
+};
 
 /** A type-addressed delivery: queued, claimed, returned when its crew was released, claimed again. */
 export const TYPE_HISTORY: DeliveryHistoryEntry[] = [
@@ -245,7 +260,8 @@ export const TYPE_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:05:51Z',
   contentType: 'application/json', model: null,
   payload: '{"task":"review","repo":"web","pr":321}',
-  delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, history: TYPE_HISTORY },
+  replies: [],
+  delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
 };
 
 /** planner's answer to reviewer-01, acknowledged. */
@@ -257,7 +273,176 @@ export const DIRECT_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:26:03Z',
   contentType: 'text/plain', model: null,
   payload: 'Start with claude/slice-12-ship-page.',
-  delivery: { id: deliveryId('0001'), state: 'acknowledged', attempts: 1, claimedBy: REVIEWER, history: DIRECT_HISTORY },
+  replies: [],
+  delivery: {
+    id: deliveryId('0001'),
+    state: 'acknowledged',
+    attempts: 1,
+    claimedBy: REVIEWER,
+    way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
+    history: DIRECT_HISTORY,
+  },
+};
+
+/** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
+export const MAC_MINI: Party = { id: shipId('mm01'), name: 'mac-mini' };
+const AT_MAC_MINI = { kind: 'trierarch', trierarch: MAC_MINI } as const;
+const WATCHER = { kind: 'pluginWatcher' } as const;
+
+/** An ISO time this many seconds after another. */
+function secondsAfter(iso: string, seconds: number): string {
+  return new Date(new Date(iso).getTime() + seconds * 1_000).toISOString();
+}
+
+/** A pushed message's way through at its happy path (2b): stored, received, handed, acknowledged, handled, with its reply. */
+const STORED_AT = minutesAgo(9);
+export const PUSHED_HANDLED_HISTORY: DeliveryHistoryEntry[] = [
+  history(46, { type: 'DeliveryHandled', occurredAt: secondsAfter(STORED_AT, 364), ship: REVIEWER, location: null, harness: null, attempts: null }),
+  history(45, { type: 'DeliveryAcknowledged', occurredAt: secondsAfter(STORED_AT, 4), ship: REVIEWER, location: null, harness: null, attempts: null }),
+  history(44, {
+    type: 'DeliveryHanded',
+    occurredAt: secondsAfter(STORED_AT, 2),
+    ship: REVIEWER,
+    location: { kind: 'DEVICE', description: 'mac-mini' },
+    harness: 'claude-code',
+    attempts: 1,
+    by: AT_MAC_MINI,
+    handOverNumber: 1,
+  }),
+  history(43, { type: 'DeliveryReceived', occurredAt: secondsAfter(STORED_AT, 2), ship: REVIEWER, location: null, harness: null, attempts: null, by: AT_MAC_MINI }),
+  history(42, { type: 'MessageAccepted', occurredAt: STORED_AT, ship: null, location: null, harness: null, attempts: null }),
+];
+
+/** A pushed message from planner to reviewer-01, its way through as the fleet saw it. */
+function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state' | 'attempts' | 'way' | 'history'>): MessageDetail {
+  return {
+    id: messageId(suffix),
+    sender: PLANNER,
+    recipient: { kind: 'ship', ship: REVIEWER },
+    inReplyTo: null,
+    sentAt: delivery.history.at(-1)?.occurredAt ?? STORED_AT,
+    contentType: 'text/plain',
+    model: 'claude-opus-5-5',
+    payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
+    replies: [],
+    delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
+  };
+}
+
+const PUSHED_LEASE = { by: AT_MAC_MINI, isEnded: false, turn: null };
+
+/** Handled on a session its trierarch crewed, the reply beneath it. */
+export const PUSHED_HANDLED_MESSAGE: MessageDetail = {
+  ...pushed('0101', {
+    state: 'handled',
+    attempts: 1,
+    way: { holder: null, since: secondsAfter(STORED_AT, 364), isPulled: false, overdue: null, lease: PUSHED_LEASE, crew: { status: 'running', attempt: 0, startedAt: minutesAgo(40) } },
+    history: PUSHED_HANDLED_HISTORY,
+  }),
+  replies: [{ id: messageId('0102'), sender: REVIEWER, sentAt: secondsAfter(STORED_AT, 300) }],
+};
+
+/** Received by the trierarch, not handed yet, while its session restarts (3.5). */
+export const RECEIVED_RESTARTING_MESSAGE: MessageDetail = pushed('0103', {
+  state: 'received',
+  attempts: 0,
+  way: { holder: AT_MAC_MINI, since: minutesAgo(3), isPulled: false, overdue: null, lease: PUSHED_LEASE, crew: { status: 'restarting', attempt: 2, startedAt: null } },
+  history: [
+    history(52, { type: 'DeliveryReceived', occurredAt: minutesAgo(1), ship: REVIEWER, location: null, harness: null, attempts: null, by: AT_MAC_MINI, isAgain: true }),
+    history(51, { type: 'DeliveryReceived', occurredAt: minutesAgo(3), ship: REVIEWER, location: null, harness: null, attempts: null, by: AT_MAC_MINI }),
+    history(50, { type: 'MessageAccepted', occurredAt: minutesAgo(4), ship: null, location: null, harness: null, attempts: null }),
+  ],
+});
+
+/** Pending while the session is busy, argo told at 60 min (3.4), on a session crewed by hand. */
+export const PENDING_BUSY_MESSAGE: MessageDetail = pushed('0104', {
+  state: 'pending',
+  attempts: 0,
+  way: {
+    holder: { kind: 'fleet' },
+    since: minutesAgo(61),
+    isPulled: false,
+    overdue: { clock: 'busy', minutes: 60, toldAt: minutesAgo(1) },
+    lease: { by: WATCHER, isEnded: false, turn: { turn: 'busy', at: minutesAgo(70) } },
+    crew: null,
+  },
+  history: [
+    history(61, { type: 'DeliveryOverdue', occurredAt: minutesAgo(1), ship: REVIEWER, location: null, harness: null, attempts: null, overdue: { clock: 'busy', minutes: 60 } }),
+    history(60, { type: 'MessageAccepted', occurredAt: minutesAgo(61), ship: null, location: null, harness: null, attempts: null }),
+  ],
+});
+
+/** Handed twice by the plugin watcher, never confirmed: argo told at 10 min (3.8, 3.9). */
+export const HANDED_NOT_CONFIRMED_MESSAGE: MessageDetail = pushed('0105', {
+  state: 'handed',
+  attempts: 2,
+  way: {
+    holder: { kind: 'agent' },
+    since: minutesAgo(12),
+    isPulled: false,
+    overdue: { clock: 'notConfirmed', minutes: 10, toldAt: minutesAgo(2) },
+    lease: { by: WATCHER, isEnded: false, turn: null },
+    crew: null,
+  },
+  history: [
+    history(75, { type: 'DeliveryOverdue', occurredAt: minutesAgo(2), ship: REVIEWER, location: null, harness: null, attempts: null, overdue: { clock: 'notConfirmed', minutes: 10 } }),
+    history(74, { type: 'DeliveryHanded', occurredAt: minutesAgo(12), ship: REVIEWER, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 2, by: WATCHER, handOverNumber: 2 }),
+    history(73, { type: 'DeliveryHanded', occurredAt: minutesAgo(14), ship: REVIEWER, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1, by: WATCHER, handOverNumber: 1 }),
+    history(72, { type: 'DeliveryReceived', occurredAt: minutesAgo(14), ship: REVIEWER, location: null, harness: null, attempts: null, by: WATCHER }),
+    history(71, { type: 'MessageAccepted', occurredAt: minutesAgo(15), ship: null, location: null, harness: null, attempts: null }),
+  ],
+});
+
+/** Acknowledged, its turn died, handed once more, and that turn died too: not handled (3.7). */
+export const NOT_HANDLED_MESSAGE: MessageDetail = pushed('0106', {
+  state: 'notHandled',
+  attempts: 1,
+  way: { holder: null, since: minutesAgo(5), isPulled: false, overdue: null, lease: PUSHED_LEASE, crew: { status: 'running', attempt: 1, startedAt: minutesAgo(6) } },
+  history: [
+    history(85, { type: 'DeliveryNotHandled', occurredAt: minutesAgo(5), ship: REVIEWER, location: null, harness: null, attempts: null }),
+    history(84, { type: 'DeliveryHanded', occurredAt: minutesAgo(6), ship: REVIEWER, location: { kind: 'DEVICE', description: 'mac-mini' }, harness: 'claude-code', attempts: 1, by: AT_MAC_MINI, handOverNumber: 2, isOnceMore: true }),
+    history(83, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(9), ship: REVIEWER, location: null, harness: null, attempts: null }),
+    history(82, { type: 'DeliveryHanded', occurredAt: minutesAgo(9), ship: REVIEWER, location: { kind: 'DEVICE', description: 'mac-mini' }, harness: 'claude-code', attempts: 1, by: AT_MAC_MINI, handOverNumber: 1 }),
+    history(81, { type: 'DeliveryReceived', occurredAt: minutesAgo(9), ship: REVIEWER, location: null, harness: null, attempts: null, by: AT_MAC_MINI }),
+    history(80, { type: 'MessageAccepted', occurredAt: minutesAgo(10), ship: null, location: null, harness: null, attempts: null }),
+  ],
+});
+
+/** Acknowledged, then the ship was released before its turn ended: handled unknown (3.11). */
+export const LEASE_ENDED_MESSAGE: MessageDetail = pushed('0107', {
+  state: 'acknowledged',
+  attempts: 1,
+  way: { holder: { kind: 'agent' }, since: minutesAgo(20), isPulled: false, overdue: null, lease: { ...PUSHED_LEASE, isEnded: true }, crew: null },
+  history: [
+    history(93, { type: 'DeliveryAcknowledged', occurredAt: minutesAgo(20), ship: REVIEWER, location: null, harness: null, attempts: null }),
+    history(92, { type: 'DeliveryHanded', occurredAt: minutesAgo(20), ship: REVIEWER, location: { kind: 'DEVICE', description: 'mac-mini' }, harness: 'claude-code', attempts: 1, by: AT_MAC_MINI, handOverNumber: 1 }),
+    history(91, { type: 'DeliveryReceived', occurredAt: minutesAgo(21), ship: REVIEWER, location: null, harness: null, attempts: null, by: AT_MAC_MINI }),
+    history(90, { type: 'MessageAccepted', occurredAt: minutesAgo(21), ship: null, location: null, harness: null, attempts: null }),
+  ],
+});
+
+/** Back to pending when the ship was released while it was handed (3.11). */
+export const RETURNED_HISTORY: DeliveryHistoryEntry[] = [
+  history(103, { type: 'DeliveryReturned', occurredAt: minutesAgo(2), ship: REVIEWER, location: null, harness: null, attempts: 1, leaseEnd: 'released' }),
+  history(102, { type: 'DeliveryHanded', occurredAt: minutesAgo(4), ship: REVIEWER, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1, by: WATCHER, handOverNumber: 1 }),
+  history(101, { type: 'DeliveryReceived', occurredAt: minutesAgo(4), ship: REVIEWER, location: null, harness: null, attempts: null, by: WATCHER }),
+  history(100, { type: 'MessageAccepted', occurredAt: minutesAgo(5), ship: null, location: null, harness: null, attempts: null }),
+];
+
+/** A ping from argo, handed, not answered yet (3.17). */
+export const PING_WAITING_MESSAGE: MessageDetail = {
+  ...pushed('0108', {
+    state: 'handed',
+    attempts: 1,
+    way: { holder: { kind: 'agent' }, since: minutesAgo(1), isPulled: false, overdue: null, lease: PUSHED_LEASE, crew: null },
+    history: [
+      history(112, { type: 'DeliveryHanded', occurredAt: minutesAgo(1), ship: REVIEWER, location: null, harness: null, attempts: 1, by: AT_MAC_MINI, handOverNumber: 1 }),
+      history(111, { type: 'MessageAccepted', occurredAt: minutesAgo(3), ship: null, location: null, harness: null, attempts: null }),
+    ],
+  }),
+  sender: ARGO,
+  contentType: 'application/vnd.aeolus.ping',
+  payload: '',
 };
 
 export const UNKNOWN_MESSAGE_ID = messageId('9999');

@@ -1,6 +1,8 @@
 import {
   DELIVERY_HISTORY_TYPES,
   isPingContentType,
+  type ComputerSide,
+  type LeaseEndReason,
   type InboxFilter,
   type DeliveryId,
   type DeliveryState,
@@ -13,6 +15,7 @@ import {
 
 import type { OverdueClock, WaitingState } from '../messaging/public.js';
 import type { Location } from '../registry/public.js';
+import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 
 /**
@@ -78,27 +81,60 @@ export interface HistoryMessage {
   delivery: { id: DeliveryId; state: DeliveryState; attempts: number; claimedBy: HistoryParty | null };
 }
 
-/** The events that change a delivery: stored, claimed, returned, acknowledged or undeliverable. */
+/** The events of a delivery's way: stored, received, handed, returned, acknowledged, handled or not, overdue, and its dead ends. */
 export type DeliveryChangeType = (typeof DELIVERY_HISTORY_TYPES)[number];
 
 export function isDeliveryChangeType(type: EventType): type is DeliveryChangeType {
   return DELIVERY_HISTORY_TYPES.some((change) => change === type);
 }
 
-/** One change to a delivery. */
+/** One step of a delivery's way. */
 export interface DeliveryChange {
   seq: number;
   type: DeliveryChangeType;
   occurredAt: Date;
-  /** The ship that claimed, returned or acknowledged it; null when it was stored. */
+  /** The ship that received, was handed, returned or acknowledged it; null when it was stored. */
   ship: HistoryParty | null;
-  /** Where the claiming session ran, for a claim. */
+  /** Where the claiming session ran, for a hand-over. */
   location: Location | null;
-  /** The harness the claiming session ran in, for a claim. */
+  /** The harness the claiming session ran in, for a hand-over. */
   harness: string | null;
-  /** The claims counted by then, where the event records them. */
+  /** The attempts counted by then, where the event records them. */
   attempts: number | null;
+  /** The computer side that received it or handed it over, on a pushed lease. */
+  by: ComputerSide | null;
+  /** The number of a pushed hand-over; none for a plain receive's. */
+  handOverNumber: number | null;
+  /** A push receive of a delivery its crew already held. */
+  isAgain: boolean;
+  /** A confirmed message handed once more after its turn died. */
+  isOnceMore: boolean;
+  /** Which clock ran out and after how long, for DeliveryOverdue. */
+  overdue: { clock: OverdueClock; minutes: number } | null;
+  /** Why its lease ended, for DeliveryReturned. */
+  leaseEnd: LeaseEndReason | null;
 }
+
+/** A reply to a message. */
+export interface HistoryReply {
+  id: MessageId;
+  sender: HistoryParty;
+  sentAt: Date;
+}
+
+/**
+ * One message as the history reads it: its delivery's steps newest first,
+ * its replies oldest first, and what its way is read from: the lease that
+ * holds it or that a pending delivery to one ship waits for, the overdue
+ * clock that stands, and the crew request of that lease's ship.
+ */
+export type MessageRead = HistoryMessage & {
+  history: DeliveryChange[];
+  replies: HistoryReply[];
+  lease: WayLease | null;
+  overdue: StandingOverdue | null;
+  crew: WayCrew | null;
+};
 
 /**
  * A delivery in Needs attention: undeliverable, or not handled after its turn
@@ -188,11 +224,8 @@ export interface ShipHistory {
   timeline(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<TimelineEntry[] | undefined>;
   /** Newest first, at most `limit`. */
   messages(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<HistoryMessage[] | undefined>;
-  /** The message, with its delivery's changes newest first. */
-  message(
-    fleetId: FleetId,
-    messageId: MessageId,
-  ): Promise<(HistoryMessage & { history: DeliveryChange[] }) | undefined>;
+  /** The message, with its delivery's steps newest first and what its way is read from. */
+  message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
   /** Every undeliverable or not handled delivery, oldest first by since when. */
   needsAttention(fleetId: FleetId): Promise<NeedsAttentionEntry[]>;
   /**

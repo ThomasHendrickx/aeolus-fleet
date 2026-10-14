@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
-import { messageRecipientSchema, partySchema } from './history.js';
+import { messageRecipientSchema, overdueClockSchema, partySchema } from './history.js';
 
 /**
  * Inputs and outputs of Needs attention (docs/blueprint.md, 'Domain events'):
@@ -51,7 +51,7 @@ export const overdueDeliverySchema = z.object({
   ship: partySchema,
   state: z.enum(['pending', 'received', 'handed']),
   /** Handed and not confirmed, or waiting while the session is idle or busy. */
-  clock: z.enum(['notConfirmed', 'idle', 'busy']),
+  clock: overdueClockSchema,
   /** After how long it ran out: 10 or 60. */
   minutes: z.int().min(1),
   toldAt: isoTime,

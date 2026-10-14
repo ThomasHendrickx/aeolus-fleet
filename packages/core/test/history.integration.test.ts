@@ -169,6 +169,7 @@ describe('the history reads on Postgres', () => {
     const handedAt = core.clock.now();
     core.clock.advance(10 * 60_000);
     await core.useCases.tellOverdueDeliveries();
+    const toldAt = core.clock.now();
     await send(builder, { to: { kind: 'ship', shipId: planner.shipId }, inReplyTo: messageId });
 
     const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
@@ -185,14 +186,16 @@ describe('the history reads on Postgres', () => {
       holder: { kind: 'agent' },
       since: handedAt,
       isPulled: false,
-      overdue: { clock: 'notConfirmed', minutes: 10, toldAt: core.clock.now() },
+      overdue: { clock: 'notConfirmed', minutes: 10, toldAt },
       lease: { by: atMacMini, isEnded: false, turn: null },
       crew: { status: 'running', attempt: 1, startedAt: null },
     });
-    expect(message.replies).toEqual([{ id: expect.any(String), sender: { id: builderId, name: 'builder' }, sentAt: core.clock.now() }]);
+    expect(message.replies).toMatchObject([{ sender: { id: builderId, name: 'builder' }, sentAt: core.clock.now() }]);
   });
 
   it("give a delivery's way on a session crewed by hand: the plugin watcher, the turn it waits through, and the lease end that returned it", async () => {
+    // A first push receive takes a message, so the lease is pushed without waiting on an empty inbox.
+    await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
     unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
     const busyAt = core.clock.now();
@@ -207,7 +210,7 @@ describe('the history reads on Postgres', () => {
     });
 
     core.clock.advance(1_000);
-    unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await core.useCases.pushReceiveDeliveries(scout, { max: 2 }));
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
 
     const returned = unwrap(await core.useCases.readMessage(argo, { messageId }));

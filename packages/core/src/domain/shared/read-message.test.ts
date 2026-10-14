@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { MessageId } from '@aeolus-fleet/common';
 
-import { agentCaller, deliveryIdOf } from '../../../test/support/core-fixtures.js';
+import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
-import type { Crew } from './caller.js';
+import type { Caller, Crew } from './caller.js';
 
 let scene: HistoryScenario;
 
@@ -78,14 +78,15 @@ describe("reading a message's way through", () => {
     scene.core.clock.advance(1_000);
     unwrap(await scene.messaging.pushReceiveDeliveries(crew, {}));
   };
-  const handOver = async (crew: Crew, messageId: MessageId, handOverNumber: number, isOnceMore = false) => {
+  const handOver = async (crew: Crew, handing: { messageId: MessageId; handOverNumber: number; isOnceMore?: boolean }) => {
     scene.core.clock.advance(1_000);
+    const { messageId, handOverNumber, isOnceMore = false } = handing;
     unwrap(await scene.messaging.handOverDelivery(crew, { deliveryId: deliveryOf(messageId), handOverNumber, isOnceMore }));
   };
   const toScout = () => scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
 
   /** The trierarch on mac-mini, and builder crewed by it from the starting prompt it got. */
-  async function crewedByTrierarch(): Promise<{ trierarch: Crew; builder: Crew }> {
+  async function crewedByTrierarch(): Promise<{ trierarch: Caller; builder: Crew }> {
     const { registry, argo, core } = scene;
     const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
@@ -94,19 +95,16 @@ describe("reading a message's way through", () => {
     unwrap(await registry.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
     const { secret } = unwrap(await registry.getStartingPrompt(trierarch, { shipId }));
     core.clock.advance(1_000);
-    unwrap(await registry.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
-    const lease = core.state.leases.find((held) => held.shipId === shipId && held.endedAt === null);
-    if (!lease) {
-      throw new Error('builder was not crewed');
-    }
-    return { trierarch: { ...trierarch, leaseId: lease.id }, builder: { ...agentCaller({ fleetId: scene.fleetId, shipId }), leaseId: lease.id } };
+    const { crewToken } = unwrap(await registry.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const builder = await crewOfToken(core, crewToken);
+    return { trierarch, builder };
   }
 
   it('names the plugin watcher that received it and handed it over on a session crewed by hand, each step with its number', async () => {
     const messageId = await toScout();
     await pushReceive(scene.scout);
     await pushReceive(scene.scout);
-    await handOver(scene.scout, messageId, 1);
+    await handOver(scene.scout, { messageId, handOverNumber: 1 });
     await scene.ack(scene.scout, messageId);
     unwrap(await scene.messaging.reportHandled(scene.scout, { deliveryId: deliveryOf(messageId) }));
 
@@ -130,7 +128,7 @@ describe("reading a message's way through", () => {
 
     const { delivery } = await read(messageId);
 
-    expect(delivery.way.holder).toEqual({ kind: 'trierarch', trierarch: { id: expect.any(String), name: 'mac-mini' } });
+    expect(delivery.way.holder).toMatchObject({ kind: 'trierarch', trierarch: { name: 'mac-mini' } });
     expect(delivery.history[0]).toMatchObject({ type: 'DeliveryReceived', by: { kind: 'trierarch', trierarch: { name: 'mac-mini' } } });
   });
 
@@ -172,7 +170,7 @@ describe("reading a message's way through", () => {
   it('gives the overdue clock argo was told of while it stands, and the step it was told at', async () => {
     const messageId = await toScout();
     await pushReceive(scene.scout);
-    await handOver(scene.scout, messageId, 1);
+    await handOver(scene.scout, { messageId, handOverNumber: 1 });
     scene.core.clock.advance(TEN_MINUTES);
     await scene.messaging.tellOverdueDeliveries();
 
@@ -185,7 +183,7 @@ describe("reading a message's way through", () => {
   it('gives no overdue clock once the delivery moved on', async () => {
     const messageId = await toScout();
     await pushReceive(scene.scout);
-    await handOver(scene.scout, messageId, 1);
+    await handOver(scene.scout, { messageId, handOverNumber: 1 });
     scene.core.clock.advance(TEN_MINUTES);
     await scene.messaging.tellOverdueDeliveries();
     await scene.ack(scene.scout, messageId);
@@ -204,7 +202,7 @@ describe("reading a message's way through", () => {
   it('tells an acknowledged delivery whose lease ended', async () => {
     const messageId = await toScout();
     await pushReceive(scene.scout);
-    await handOver(scene.scout, messageId, 1);
+    await handOver(scene.scout, { messageId, handOverNumber: 1 });
     await scene.ack(scene.scout, messageId);
     unwrap(await scene.registry.releaseShip(scene.argo, { shipId: scene.scout.shipId }));
 
@@ -225,9 +223,9 @@ describe("reading a message's way through", () => {
   it('tells the hand-over once more after its turn died, and not handled after a second death', async () => {
     const messageId = await toScout();
     await pushReceive(scene.scout);
-    await handOver(scene.scout, messageId, 1);
+    await handOver(scene.scout, { messageId, handOverNumber: 1 });
     await scene.ack(scene.scout, messageId);
-    await handOver(scene.scout, messageId, 2, true);
+    await handOver(scene.scout, { messageId, handOverNumber: 2, isOnceMore: true });
     unwrap(await scene.messaging.reportNotHandled(scene.scout, { deliveryId: deliveryOf(messageId) }));
 
     const { delivery } = await read(messageId);

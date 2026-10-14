@@ -1,11 +1,11 @@
 'use client';
 
 import type { MessageDetail, MessageId } from '@aeolus-fleet/common';
-import { MailQuestion, Reply } from 'lucide-react';
+import { CornerDownRight, MailQuestion, Reply } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { formattedPayload, payloadLabel } from '../../../lib/payload';
-import { fullDateTime } from '../../../lib/relative-time';
+import { fullDateTime, relativeTime } from '../../../lib/relative-time';
 import { OPERATOR_NAME, ship, text, type SentencePart } from '../../../lib/sentence';
 import { CodeBlock } from '../../../components/atoms/code-block';
 import { Button } from '../../../components/atoms/button';
@@ -17,6 +17,8 @@ import { EmptyState } from '../../../components/molecules/empty-state';
 import { Sentence } from '../molecules/sentence';
 import { ShipName } from '../../../components/molecules/ship-name';
 import { statusLabel } from '../../../components/molecules/status-badge';
+import { messageWay, type WayMachine } from '../lib/message-way';
+import { WayLines } from '../molecules/way-lines';
 import { DeliveryHistory } from './delivery-history';
 
 interface MessageSheetProps {
@@ -29,6 +31,11 @@ interface MessageSheetProps {
   onOpenChange: (isOpen: boolean) => void;
   /** Replies to the message as argo, to its sender; offered when someone other than argo sent it. */
   onReply?: (message: MessageDetail) => void;
+  /** Opens another message in the sheet: a reply beneath this one. */
+  onOpenMessage?: (messageId: MessageId) => void;
+  now: Date;
+  /** The trierarch plugin's machines, when it is on: a silent trierarch shows on the way. */
+  machines?: readonly WayMachine[];
 }
 
 const SECTION_TITLE = 'text-section font-semibold text-foreground';
@@ -128,12 +135,49 @@ function Payload({ message }: { message: MessageDetail }) {
   );
 }
 
-function Delivery({ message }: { message: MessageDetail }) {
+function Replies({ message, now, onOpenMessage }: { message: MessageDetail; now: Date; onOpenMessage?: (messageId: MessageId) => void }) {
+  if (message.replies.length === 0) {
+    return null;
+  }
+  return (
+    <ul aria-label="Replies" data-testid="message-replies" className="flex flex-col gap-1 border-t border-border pt-3">
+      {message.replies.map((reply) => (
+        <li key={reply.id} className="flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground max-sm:text-body-touch">
+          <CornerDownRight aria-hidden className="size-3.5 shrink-0" />
+          <span>Reply from</span>
+          <ShipName name={reply.sender.name} shipId={reply.sender.id} isSuffixShown={reply.sender.name !== OPERATOR_NAME} />
+          <time dateTime={reply.sentAt} title={fullDateTime(new Date(reply.sentAt))}>
+            {relativeTime(new Date(reply.sentAt), now)}
+          </time>
+          {onOpenMessage ? (
+            <Button
+              size="xs"
+              variant="ghost"
+              data-testid="message-reply-open"
+              onClick={() => {
+                onOpenMessage(reply.id);
+              }}
+            >
+              Open
+            </Button>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Delivery({ message, now, machines, onOpenMessage }: { message: MessageDetail; now: Date; machines: readonly WayMachine[]; onOpenMessage?: (messageId: MessageId) => void }) {
+  const way = messageWay(message, { now, machines });
   return (
     <section aria-label="Delivery" className="flex flex-col gap-2 max-sm:order-first">
       <h3 className={SECTION_TITLE}>Delivery</h3>
-      <div className="rounded-lg border border-border bg-card p-3">
-        <DeliveryHistory entries={message.delivery.history} recipient={message.recipient} />
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+        <WayLines status={way.status} lines={way.lines} />
+        <div className="border-t border-border pt-3">
+          <DeliveryHistory entries={message.delivery.history} recipient={message.recipient} />
+        </div>
+        <Replies message={message} now={now} {...(onOpenMessage ? { onOpenMessage } : {})} />
       </div>
     </section>
   );
@@ -152,12 +196,13 @@ function Loading() {
 
 /**
  * One message without leaving the page (docs/design/png/MessageSheet.png):
- * envelope, payload (Formatted for JSON, or Raw) and its DeliveryHistory. A
+ * envelope, payload (Formatted for JSON, or Raw) and its delivery: where it
+ * stands on its way, its DeliveryHistory and the replies beneath it. A
  * 560 px side sheet on desktop; full width on phone, where the delivery comes
  * first. Reply answers its sender as argo, through Compose with the
  * recipient and the reply already set.
  */
-export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, onReply }: MessageSheetProps) {
+export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, onReply, onOpenMessage, now, machines = [] }: MessageSheetProps) {
   const isReady = state === 'ready' && message !== undefined;
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -175,7 +220,7 @@ export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, 
                 />
               </SheetTitle>
               <SheetDescription>
-                <Sentence parts={recipientParts(message)} />. {statusLabel(message.delivery.state)}.
+                <Sentence parts={recipientParts(message)} />. {statusLabel(messageWay(message, { now, machines }).status)}.
               </SheetDescription>
               {onReply && message.sender.name !== OPERATOR_NAME ? (
                 <div>
@@ -218,7 +263,7 @@ export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, 
             <>
               <Envelope message={message} />
               <Payload message={message} />
-              <Delivery message={message} />
+              <Delivery message={message} now={now} machines={machines} {...(onOpenMessage ? { onOpenMessage } : {})} />
             </>
           ) : null}
         </SheetBody>

@@ -25,6 +25,7 @@ import { usePluginShipIds } from '../../../../lib/plugin-ships';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline } from '../../../../lib/ship';
 import { useSquadrons } from '../../../../lib/squadrons-api';
+import { useMachines } from '../../../../lib/trierarch-plugin';
 import { shipsInSquadrons } from '../../../../lib/squadrons-view';
 import { SHIP_TABS, type ShipTab } from '../../../../features/ship/lib/ship-tab';
 
@@ -59,6 +60,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const timeline = useShipTimeline(shipId);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
+  const machines = useMachines();
   const liveFleet = useLiveFleet();
   const frame = useConsoleFrame();
   const squadrons = useSquadrons();
@@ -113,6 +115,9 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           messageId={messageId}
           state={trpcErrorCode(message.error) === 'NOT_FOUND' ? 'not-found' : message.data ? 'ready' : 'loading'}
           isOpen={messageId !== undefined}
+          now={now}
+          machines={machines.data ?? []}
+          onOpenMessage={openMessageAt}
           onOpenChange={(isOpen) => {
             if (!isOpen) {
               show({ tab });

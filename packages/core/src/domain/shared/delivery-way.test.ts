@@ -16,6 +16,7 @@ function aLease(overrides: Partial<WayLease> = {}): WayLease {
     trierarch: null,
     isPushed: true,
     isEnded: false,
+    endReason: null,
     turn: null,
     ...overrides,
   };

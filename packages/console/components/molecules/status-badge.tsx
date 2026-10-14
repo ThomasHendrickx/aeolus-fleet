@@ -1,5 +1,6 @@
 import type { CrewStatus, DeliveryState, ShipStatus } from '@aeolus-fleet/common';
 import {
+  AlarmClock,
   Anchor,
   Archive,
   Ban,
@@ -33,7 +34,9 @@ import type { SquadronState } from '../../lib/squadron-states';
 export type LimitState = 'at-limit' | 'over-limit';
 /** A crew request with no trierarch: on the operator's to-do, or crewed by hand. */
 export type UnassignedCrewState = 'needsCrew' | 'crewedByHand';
-type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState;
+/** A step of a pushed delivery's way: handed to its agent by the computer side, or overdue by the 10 or 60 minute clock (decision 0040). */
+export type PushedStepState = 'handedPushed' | 'overdue';
+type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -50,7 +53,9 @@ const TONE_CLASSES: Record<Tone, string> = {
  * Every ship status, delivery state, squadron state, limit state and crew request state with its tone, icon
  * and label (docs/design/conventions.md, "Colour"). A handed delivery is in
  * flight: a receive handed it to a crew, which has not acknowledged it yet. A
- * receive is all a pull ship does, so handed reads "Handed (pulled)". A
+ * receive is all a pull ship does, so handed reads "Handed (pulled)"; a
+ * pushed ship's computer side hands it to its agent, which reads "Handed". A
+ * step is overdue when the 10 or 60 minute clock told argo. A
  * received delivery is in flight with a pushed ship's computer side, not yet
  * handed to its agent. Handled and not handled say how the turn that took
  * an acknowledged delivery ended: by itself, or died twice.
@@ -62,6 +67,8 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   pending: { tone: 'waiting', Icon: Hourglass, label: 'Pending' },
   received: { tone: 'active', Icon: Inbox, label: 'Received' },
   handed: { tone: 'active', Icon: CircleArrowRight, label: 'Handed (pulled)' },
+  handedPushed: { tone: 'active', Icon: CircleArrowRight, label: 'Handed' },
+  overdue: { tone: 'attention', Icon: AlarmClock, label: 'Overdue' },
   acknowledged: { tone: 'ok', Icon: CircleCheck, label: 'Acknowledged' },
   handled: { tone: 'ok', Icon: CircleCheckBig, label: 'Handled' },
   notHandled: { tone: 'attention', Icon: CircleAlert, label: 'Not handled' },

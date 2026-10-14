@@ -267,7 +267,7 @@ stateDiagram-v2
   handled --> [*]
 ```
 
-`handed` means the agent has it: a plain receive handed it to a crew at once, or a pushed crew's computer side handed it to the agent. Either way it is in flight with that ship and its lease. Every plain receive of it is one attempt, and so is every `handed` with a higher hand-over number; the fifth attempt is refused: it becomes undeliverable and is handed to no one. The console shows a handed delivery as handed (pulled).
+`handed` means the agent has it: a plain receive handed it to a crew at once, or a pushed crew's computer side handed it to the agent. Either way it is in flight with that ship and its lease. Every plain receive of it is one attempt, and so is every `handed` with a higher hand-over number; the fifth attempt is refused: it becomes undeliverable and is handed to no one. The console shows a delivery a plain receive handed as handed (pulled), and one a pushed crew's computer side handed as handed.
 
 `received` means a push receive took it for the crew's computer side, the trierarch or the plugin watcher, which has not handed it to the agent yet (decision 0040): in flight with that ship and its lease, no attempt counted. A push receive returns its own received and handed deliveries again, changing nothing, so a restart of the computer side loses nothing. From its first push receive until it ends, the lease is pushed: the agent's plain receive answers nothing, and the hook's `ack` when the message comes into the agent's turn is the agent's confirmation.
 
