@@ -22,7 +22,7 @@ export type TrierarchWorkspace = z.infer<typeof trierarchWorkspaceSchema>;
  * A crew request's settings as a trierarch reads them (decision 0027): the
  * fixed core of an optional harness, workspace, an optional squadron, an
  * optional first prompt and options. Without a harness, the trierarch it
- * goes to crews it with its default: the first in its configuration. The server stores them without meaning; the trierarch
+ * goes to crews it with its default: the first in its configuration. The server refuses a request whose settings this schema refuses (#809) but never acts on them; the trierarch
  * plugin and the trierarch parse them with this schema. Never a path or a
  * command-line flag: a workspace names a repository or folder, options pick
  * named settings, and a first prompt never starts with `-`.

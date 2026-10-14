@@ -222,14 +222,14 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
 
   /**
-   * Asks that a ship be kept crewed, with settings stored without meaning,
+   * Asks that a ship be kept crewed, with crew settings it checks but never acts on,
    * replacing any request it holds (decision 0029).
    */
   crewRequest: scopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. Asks that a ship be kept crewed, with settings: one JSON object of at most 16 KB (harness, workspace, options,',
-        'an optional first prompt and squadron), stored without meaning. Replaces the settings of a request the ship holds.',
+        'an optional first prompt and squadron), refused with the reason unless they are crew settings. Replaces the settings of a request the ship holds.',
         'Never argo, the viewer or a retired ship. Answers the settings version, one more on every request.',
       ].join(' '),
     })

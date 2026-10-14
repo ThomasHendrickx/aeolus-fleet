@@ -4,8 +4,8 @@ import { idSchema } from '../ids/index.js';
 
 /**
  * Inputs and outputs of the crew request procedures (decision 0029): a
- * standing request that a ship be kept crewed, with settings the server
- * stores without meaning. A requester with fleet:manage sets and removes it.
+ * standing request that a ship be kept crewed, with crew settings the
+ * server checks but never acts on. A requester with fleet:manage sets and removes it.
  */
 
 /**
@@ -23,8 +23,8 @@ export function crewRequestSettingsBytes(settings: CrewRequestSettings): number 
 
 /**
  * A crew request's settings: one JSON object (harness, workspace, options, an
- * optional first prompt, an optional squadron). Their shape is the trierarch
- * plugin's to check, not the server's.
+ * optional first prompt, an optional squadron). The server reads their shape
+ * as crew settings (`readCrewSettings`) once their size fits.
  */
 export const crewRequestSettingsSchema = z.record(z.string(), z.json());
 
