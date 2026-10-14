@@ -2,7 +2,7 @@ import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Ellipsis, Plus } from 'lucide-react';
 import { useState, type ComponentProps } from 'react';
-import { expect, fn, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../lib/fleet-filter';
 import { Button } from '../../../components/atoms/button';
@@ -193,7 +193,7 @@ export const PhoneFiltered: Story = {
 
 /** Filters and a search with nothing left: one action clears both. */
 export const NoResultsFiltered: Story = {
-  args: { view: { query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'awaitingCrew' } } },
+  args: { view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'awaitingCrew' } } },
 };
 
 /** Crewed ships with when each last called: one live, one whose session went quiet. */
@@ -433,3 +433,99 @@ export const ReportWithEmptyNextStep: Story = {
     await expect(within(canvas.getByTestId('fleet-row-implementer-01')).getByTestId('fleet-report')).toBeVisible();
   },
 };
+
+/** One ship of every kind (#401): the console's two, a plugin's, a machine's trierarch, Claude Code, Codex, and a ship no session crews. */
+const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: { id: '@aeolus-fleet/trierarch-plugin@0.24.0', statedAt: NOW.toISOString() } });
+const KIND_FLEET = [
+  argo,
+  ship('h3ab', { name: 'viewer', type: 'viewer', kind: 'viewer', harness: null, model: null }),
+  PLUGIN_SHIP,
+  ship('h3ac', { name: 'trierarch-mac', type: 'trierarch', harness: 'aeolus-trierarch', model: null }),
+  ship('h3ad', { name: 'harbour-ios', report: { state: 'working', note: 'Writing the login screen', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  IMPLEMENTER,
+  FLEET[2] ?? argo,
+];
+const KIND_ARGS = { ships: KIND_FLEET, pluginShipIds: new Set([PLUGIN_SHIP.id]) };
+
+/** The Kind filter on Codex: only the ships whose session runs in Codex. */
+export const KindFiltered: Story = {
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: 'codex' } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Codex');
+    await expect(within(canvas.getByRole('table', { name: 'Ships' })).getAllByRole('row')).toHaveLength(2);
+    await expect(canvas.getByTestId('fleet-row-launch-implementer')).toBeVisible();
+  },
+};
+
+export const KindFilteredDark: Story = { ...KindFiltered, globals: { theme: 'dark' } };
+
+/** The phone's filter Sheet with Kind on Plugin: its chips beside the other filters, and the filter in force as a chip. */
+export const PhoneKindFilter: Story = {
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: 'plugin' } } },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('Kind: Plugin');
+    await userEvent.click(canvas.getByTestId('fleet-filters-open'));
+    const sheet = within(canvasElement.ownerDocument.body);
+    const kinds = sheet.getByRole('radiogroup', { name: 'Kind' });
+    await expect(within(kinds).getAllByRole('radio').map((option) => option.textContent)).toEqual(['All', 'Console', 'Claude Code', 'Codex', 'Trierarch', 'Plugin', 'Other']);
+    await expect(within(kinds).getByRole('radio', { name: 'Plugin' })).toHaveAttribute('aria-checked', 'true');
+    await expect(sheet.getByTestId('fleet-filters-apply')).toHaveTextContent('Show 1 ship');
+  },
+};
+
+export const PhoneKindFilterDark: Story = { ...PhoneKindFilter, globals: { ...PhoneKindFilter.globals, theme: 'dark' } };
+
+function shownNames(canvasElement: HTMLElement): string[] {
+  return within(within(canvasElement).getByRole('table', { name: 'Ships' }))
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) => row.dataset.testid?.replace('fleet-row-', '') ?? '');
+}
+
+/** No column sorted: argo first, then by name, every header offering to sort. */
+export const Unsorted: Story = {
+  args: KIND_ARGS,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(shownNames(canvasElement)[0]).toBe('argo');
+    for (const header of within(canvas.getByRole('table', { name: 'Ships' })).getAllByRole('columnheader').slice(0, 6)) {
+      await expect(header).toHaveAttribute('aria-sort', 'none');
+    }
+  },
+};
+
+export const UnsortedDark: Story = { ...Unsorted, globals: { theme: 'dark' } };
+
+/** Sorted by Ship, A to Z: argo among the rest; a keyboard press on the header turns it Z to A. */
+export const SortedAscending: Story = {
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, sort: { column: 'ship', direction: 'ascending' } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-sort-ship')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(shownNames(canvasElement)).toEqual(['argo', 'builder-web', 'harbour-ios', 'launch-implementer', 'trierarch-mac', 'trierarch-plugin', 'viewer']);
+    within(canvas.getByTestId('fleet-sort-ship')).getByRole('button').focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(canvas.getByTestId('fleet-sort-ship')).toHaveAttribute('aria-sort', 'descending');
+    await expect(shownNames(canvasElement)[0]).toBe('viewer');
+  },
+};
+
+export const SortedAscendingDark: Story = { ...SortedAscending, globals: { theme: 'dark' } };
+
+/** Sorted by Report, Z to A: ships without a report stay last; a third click puts the default order back. */
+export const SortedDescending: Story = {
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, sort: { column: 'report', direction: 'descending' } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-sort-report')).toHaveAttribute('aria-sort', 'descending');
+    await expect(shownNames(canvasElement).slice(0, 2)).toEqual(['harbour-ios', 'launch-implementer']);
+    await userEvent.click(within(canvas.getByTestId('fleet-sort-report')).getByRole('button'));
+    await expect(canvas.getByTestId('fleet-sort-report')).toHaveAttribute('aria-sort', 'none');
+    await expect(shownNames(canvasElement)[0]).toBe('argo');
+  },
+};
+
+export const SortedDescendingDark: Story = { ...SortedDescending, globals: { theme: 'dark' } };

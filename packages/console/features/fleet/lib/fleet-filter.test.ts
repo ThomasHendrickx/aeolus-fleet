@@ -43,7 +43,7 @@ const fleet = [reviewer, retired, builder, argo];
 
 function view(changes: Partial<FleetView['filters']> & { query?: string }): FleetView {
   const { query = '', ...filters } = changes;
-  return { query, filters: { ...DEFAULT_FLEET_VIEW.filters, ...filters } };
+  return { query, filters: { ...DEFAULT_FLEET_VIEW.filters, ...filters }, sort: null };
 }
 
 function names(ships: readonly ListedShip[]): string[] {

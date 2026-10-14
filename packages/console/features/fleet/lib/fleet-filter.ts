@@ -1,6 +1,7 @@
 import type { LabelValueId, ListedShip, ShipStatus } from '@aeolus-fleet/common';
 
 import { agentKindOf, AGENT_KIND_WORDS, type AgentKind } from './agent-kind';
+import { compareBySort, type FleetSort } from './fleet-sort';
 import { crewRequestStage } from '../../../lib/crew-request';
 import { carriesEvery } from '../../../lib/labels';
 import { crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from '../../../lib/needs-crew';
@@ -22,23 +23,28 @@ export interface FleetFilters {
   labelValueIds: readonly LabelValueId[];
 }
 
-/** What the overview shows: the search text and the filters. Kept in the URL. */
+/** What the overview shows: the search text, the filters and the column it is sorted by, if any. Kept in the URL. */
 export interface FleetView {
   query: string;
   filters: FleetFilters;
+  /** The column the operator sorted by; null keeps the default order. */
+  sort: FleetSort | null;
 }
 
 export const DEFAULT_FLEET_VIEW: FleetView = {
   query: '',
   filters: { status: 'all', crewRequest: 'all', kind: 'all', type: 'all', squadron: 'all', isRetiredShown: false, labelValueIds: [] },
+  sort: null,
 };
 
 /** The view as filtering reads it: with squadrons on, which squadron each ship belongs to; and the ships the console's plugins run as. */
 export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron>; pluginShipIds?: ReadonlySet<string> };
 
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. */
-export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', kind: 'kind', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label' } as const;
+export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', kind: 'kind', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label', sort: 'sort', order: 'order' } as const;
 export const RETIRED_SHOWN = '1';
+/** The `order` value for Z to A; A to Z is the default and left out. */
+export const DESCENDING = 'desc';
 
 function matchesQuery(ship: ListedShip, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -70,22 +76,31 @@ function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | '
   return filters.type === 'all' || ship.type === filters.type;
 }
 
+/** The default order: argo first, then by name. */
+function compareByDefault(first: ListedShip, second: ListedShip): number {
+  if (first.kind !== second.kind) {
+    return first.kind === 'operator' ? -1 : second.kind === 'operator' ? 1 : 0;
+  }
+  return 0;
+}
+
+function compareByName(first: ListedShip, second: ListedShip): number {
+  return first.name.localeCompare(second.name) || first.id.localeCompare(second.id);
+}
+
 /**
- * The ships the overview shows, in its order: argo first, then by name. The
- * order depends on the ships alone, so a live update changes a row in place
- * and never reorders the rows under the pointer. Search and filters apply to
- * argo like any ship. The squadron filter keeps a squadron's flagship and
- * members, as `squadronsOf` names them.
+ * The ships the overview shows, in its order: argo first, then by name; or by
+ * the column the operator sorted, argo among the rest. The order depends on
+ * the ships alone, so a live update changes a row in place and never
+ * reorders the rows under the pointer while unsorted. Search and filters
+ * apply to argo like any ship. The squadron filter keeps a squadron's
+ * flagship and members, as `squadronsOf` names them.
  */
 export function filterFleet(ships: readonly ListedShip[], view: FilteredView): ListedShip[] {
+  const compare = view.sort === null ? compareByDefault : compareBySort(view.sort, view.squadronsOf);
   return ships
     .filter((ship) => matchesQuery(ship, view.query) && matchesFilters(ship, view))
-    .toSorted((first, second) => {
-      if (first.kind !== second.kind) {
-        return first.kind === 'operator' ? -1 : 1;
-      }
-      return first.name.localeCompare(second.name) || first.id.localeCompare(second.id);
-    });
+    .toSorted((first, second) => compare(first, second) || compareByName(first, second));
 }
 
 /** The types in the fleet, for the type filter, sorted. Retired ships count only while shown. */
@@ -136,6 +151,12 @@ export function fleetViewParams(view: FleetView): URLSearchParams {
   }
   for (const valueId of view.filters.labelValueIds) {
     params.append(PARAMS.labelValueIds, valueId);
+  }
+  if (view.sort !== null) {
+    params.set(PARAMS.sort, view.sort.column);
+    if (view.sort.direction === 'descending') {
+      params.set(PARAMS.order, DESCENDING);
+    }
   }
   return params;
 }

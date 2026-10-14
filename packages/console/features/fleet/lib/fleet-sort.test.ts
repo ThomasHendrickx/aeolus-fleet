@@ -1,7 +1,7 @@
 import { idSchema, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_FLEET_VIEW, filterFleet, fleetViewParams, type FleetView } from './fleet-filter';
+import { DEFAULT_FLEET_VIEW, filterFleet, fleetViewParams, type FilteredView, type FleetView } from './fleet-filter';
 import { nextSort, type FleetSort } from './fleet-sort';
 import { readFleetView } from './read-fleet-view';
 
@@ -33,8 +33,8 @@ function names(ships: readonly ListedShip[]): string[] {
   return ships.map((ship) => ship.name);
 }
 
-function sortedBy(ships: readonly ListedShip[], sort: FleetSort, extra: Partial<Parameters<typeof filterFleet>[1]> = {}): string[] {
-  return names(filterFleet(ships, { ...DEFAULT_FLEET_VIEW, sort, ...extra }));
+function sortedBy(ships: readonly ListedShip[], view: Partial<FilteredView> & { sort: FleetSort }): string[] {
+  return names(filterFleet(ships, { ...DEFAULT_FLEET_VIEW, ...view }));
 }
 
 const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator', harness: null });
@@ -47,22 +47,22 @@ describe('sorting the overview by a column', () => {
   });
 
   it('sorts by ship name from A to Z, argo among them, ignoring case', () => {
-    expect(sortedBy(ships, { column: 'ship', direction: 'ascending' })).toEqual(['Alpha', 'argo', 'beta', 'gamma']);
+    expect(sortedBy(ships, { sort: { column: 'ship', direction: 'ascending' } })).toEqual(['Alpha', 'argo', 'beta', 'gamma']);
   });
 
   it('sorts by ship name from Z to A', () => {
-    expect(sortedBy(ships, { column: 'ship', direction: 'descending' })).toEqual(['gamma', 'beta', 'argo', 'Alpha']);
+    expect(sortedBy(ships, { sort: { column: 'ship', direction: 'descending' } })).toEqual(['gamma', 'beta', 'argo', 'Alpha']);
   });
 
   it('sorts by status as it reads: Awaiting crew, Crewed, Retired', () => {
     const fleet = [aShip({ name: 'a', status: 'retired' }), aShip({ name: 'b' }), aShip({ name: 'c', status: 'awaitingCrew' })];
-    expect(sortedBy(fleet, { column: 'status', direction: 'ascending' }, { filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true } })).toEqual(['c', 'b', 'a']);
+    expect(sortedBy(fleet, { sort: { column: 'status', direction: 'ascending' }, filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true } })).toEqual(['c', 'b', 'a']);
   });
 
   it('sorts by report note, ships without a report last in both directions', () => {
     const fleet = [aShip({ name: 'quiet' }), aShip({ name: 'late', report: aReport('Writing tests') }), aShip({ name: 'early', report: aReport('Asking argo') })];
-    expect(sortedBy(fleet, { column: 'report', direction: 'ascending' })).toEqual(['early', 'late', 'quiet']);
-    expect(sortedBy(fleet, { column: 'report', direction: 'descending' })).toEqual(['late', 'early', 'quiet']);
+    expect(sortedBy(fleet, { sort: { column: 'report', direction: 'ascending' } })).toEqual(['early', 'late', 'quiet']);
+    expect(sortedBy(fleet, { sort: { column: 'report', direction: 'descending' } })).toEqual(['late', 'early', 'quiet']);
   });
 
   it('sorts by squadron, then by the first label carried', () => {
@@ -71,23 +71,23 @@ describe('sorting the overview by a column', () => {
     const labelled = aShip({ name: 'labelled', labels: [LABEL] });
     const bare = aShip({ name: 'bare' });
     const squadronsOf = new Map([[member.id, { squadronId: 'docs-x7q2w9', role: 'writer' }]]);
-    expect(sortedBy([bare, labelled, member], { column: 'squadronAndLabels', direction: 'ascending' }, { squadronsOf })).toEqual(['member', 'labelled', 'bare']);
+    expect(sortedBy([bare, labelled, member], { sort: { column: 'squadronAndLabels', direction: 'ascending' }, squadronsOf })).toEqual(['member', 'labelled', 'bare']);
   });
 
   it('sorts by what a ship runs on: its harness, argo as the console', () => {
     const fleet = [aShip({ name: 'codex-bot', harness: 'codex' }), argo, aShip({ name: 'claude-bot', harness: 'claude-code' }), aShip({ name: 'idle', status: 'awaitingCrew', location: null })];
-    expect(sortedBy(fleet, { column: 'runsOn', direction: 'ascending' })).toEqual(['claude-bot', 'codex-bot', 'argo', 'idle']);
+    expect(sortedBy(fleet, { sort: { column: 'runsOn', direction: 'ascending' } })).toEqual(['claude-bot', 'codex-bot', 'argo', 'idle']);
   });
 
   it('sorts by when a ship was last seen, the most recent first, never seen last', () => {
     const fleet = [aShip({ name: 'old', lastSeenAt: '2026-10-13T08:00:00.000Z' }), aShip({ name: 'never' }), aShip({ name: 'new', lastSeenAt: '2026-10-14T08:00:00.000Z' })];
-    expect(sortedBy(fleet, { column: 'seen', direction: 'ascending' })).toEqual(['new', 'old', 'never']);
-    expect(sortedBy(fleet, { column: 'seen', direction: 'descending' })).toEqual(['old', 'new', 'never']);
+    expect(sortedBy(fleet, { sort: { column: 'seen', direction: 'ascending' } })).toEqual(['new', 'old', 'never']);
+    expect(sortedBy(fleet, { sort: { column: 'seen', direction: 'descending' } })).toEqual(['old', 'new', 'never']);
   });
 
   it('breaks a tie by name', () => {
     const fleet = [aShip({ name: 'b', harness: 'codex' }), aShip({ name: 'a', harness: 'codex' })];
-    expect(sortedBy(fleet, { column: 'runsOn', direction: 'descending' })).toEqual(['a', 'b']);
+    expect(sortedBy(fleet, { sort: { column: 'runsOn', direction: 'descending' } })).toEqual(['a', 'b']);
   });
 });
 
