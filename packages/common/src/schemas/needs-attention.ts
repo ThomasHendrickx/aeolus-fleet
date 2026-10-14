@@ -20,6 +20,8 @@ export const needsAttentionDeliverySchema = z.object({
   state: z.enum(['undeliverable', 'notHandled']),
   /** The claims counted. */
   attempts: z.int().min(0),
+  /** A pushed crew's computer side handed it over, with numbers; false when plain receives handed it (pulled). */
+  isPushed: z.boolean(),
   /** When it became undeliverable, or was reported not handled. */
   since: isoTime,
   message: z.object({

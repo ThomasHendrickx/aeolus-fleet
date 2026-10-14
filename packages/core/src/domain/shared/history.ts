@@ -144,6 +144,8 @@ export interface NeedsAttentionEntry {
   deliveryId: DeliveryId;
   state: NeedsAttentionState;
   attempts: number;
+  /** A pushed crew's computer side handed it over, with numbers; false when plain receives handed it. */
+  isPushed: boolean;
   /** When it became undeliverable, or was reported not handled. */
   since: Date;
   message: Omit<HistoryMessage, 'delivery'>;

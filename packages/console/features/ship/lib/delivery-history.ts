@@ -131,9 +131,7 @@ function undeliverable(entry: DeliveryHistoryEntry): string {
   if (entry.attempts === null) {
     return 'Never acknowledged: no ship takes it automatically any more.';
   }
-  return entry.handOverNumber === null
-    ? undeliverableReason(entry.attempts)
-    : `Handed ${String(entry.attempts - 1)} times, never confirmed; fifth refused: undeliverable.`;
+  return undeliverableReason({ attempts: entry.attempts, isPushed: entry.handOverNumber !== null });
 }
 
 /**

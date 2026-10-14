@@ -1530,6 +1530,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                 deliveryId: delivery.id,
                 state: attentionState,
                 attempts: delivery.attempts,
+                isPushed: delivery.handOverNumber !== null,
                 since: since.occurredAt,
                 message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
               },

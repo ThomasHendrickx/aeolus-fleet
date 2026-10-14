@@ -15,20 +15,25 @@ export function canResend(delivery: NeedsAttentionDelivery): boolean {
 
 /**
  * Why a delivery is undeliverable, from its attempts: on a pull ship each
- * receive hands it over once, and the fifth receive is refused instead.
+ * receive hands it over once, and the fifth receive is refused instead; on a
+ * pushed ship its computer side hands it to the agent, and the fifth
+ * hand-over is refused (decision 0040).
  */
-export function undeliverableReason(attempts: number): string {
-  return `Handed (pulled) ${String(attempts - 1)} times, never acknowledged; fifth receive refused: undeliverable.`;
+export function undeliverableReason(delivery: Pick<NeedsAttentionDelivery, 'attempts' | 'isPushed'>): string {
+  const times = String(delivery.attempts - 1);
+  return delivery.isPushed
+    ? `Handed ${times} times, never confirmed; fifth refused: undeliverable.`
+    : `Handed (pulled) ${times} times, never acknowledged; fifth receive refused: undeliverable.`;
 }
 
 /**
  * Why a delivery is in Needs attention: undeliverable after its attempts, or
  * not handled, when the turn it was handed once more to died too.
  */
-export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' | 'attempts'>): string {
+export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' | 'attempts' | 'isPushed'>): string {
   switch (delivery.state) {
     case 'undeliverable':
-      return undeliverableReason(delivery.attempts);
+      return undeliverableReason(delivery);
     case 'notHandled':
       return 'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.';
   }

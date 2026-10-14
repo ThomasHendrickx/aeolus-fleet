@@ -12,6 +12,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     deliveryId: newId('delivery'),
     state: 'undeliverable',
     attempts: 5,
+    isPushed: false,
     since: '2026-10-01T13:12:00.000Z',
     message: {
       id: newId('message'),
@@ -79,17 +80,21 @@ describe('canResend', () => {
 
 describe('undeliverableReason', () => {
   it('counts the hand-overs before the refused fifth receive of a pull ship', () => {
-    expect(undeliverableReason(5)).toBe('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.');
+    expect(undeliverableReason({ attempts: 5, isPushed: false })).toBe('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.');
+  });
+
+  it('counts the hand-overs of a pushed ship, never confirmed, before the refused fifth', () => {
+    expect(undeliverableReason({ attempts: 5, isPushed: true })).toBe('Handed 4 times, never confirmed; fifth refused: undeliverable.');
   });
 });
 
 describe('attentionReason', () => {
   it('says why an undeliverable delivery is there, from its attempts', () => {
-    expect(attentionReason({ state: 'undeliverable', attempts: 5 })).toBe(undeliverableReason(5));
+    expect(attentionReason({ state: 'undeliverable', attempts: 5, isPushed: true })).toBe(undeliverableReason({ attempts: 5, isPushed: true }));
   });
 
   it('says a delivery not handled was confirmed, and its turn died twice', () => {
-    expect(attentionReason({ state: 'notHandled', attempts: 1 })).toBe(
+    expect(attentionReason({ state: 'notHandled', attempts: 1, isPushed: true })).toBe(
       'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.',
     );
   });

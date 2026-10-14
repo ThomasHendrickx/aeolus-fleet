@@ -305,7 +305,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     needsAttention: async (fleetId) => {
       const rows = await db.delivery.findMany({
         where: { fleetId, state: { in: ['undeliverable', 'notHandled'] } },
-        select: { id: true, state: true, attempts: true, message: true },
+        select: { id: true, state: true, attempts: true, handOverNumber: true, message: true },
       });
       // Since when each needs attention: its last DeliveryUndeliverable or
       // DeliveryNotHandled, whose place in the stream also orders the list,
@@ -323,15 +323,16 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         if (!event || (row.state !== 'undeliverable' && row.state !== 'notHandled')) {
           throw new Error(`Delivery ${deliveryId} in Needs attention has no DeliveryUndeliverable or DeliveryNotHandled`);
         }
-        return { deliveryId, state: row.state, attempts: row.attempts, message: toMessage(row.message), event };
+        return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message }) => shipsNamedBy(message)) });
       return found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, state, attempts, message, event }) => ({
+        .map(({ deliveryId, state, attempts, isPushed, message, event }) => ({
           deliveryId,
           state,
           attempts,
+          isPushed,
           since: event.occurredAt,
           message: {
             id: message.id,
