@@ -76,10 +76,9 @@ describe('crewSettingsRefusal: why settings are not crew settings, as every writ
   });
 
   it('names the path of a nested issue', () => {
-    expect(crewSettingsRefusal({ ...documentedSettings(), workspace: { kind: 'worktree', repository: '/etc' } })).toMatchObject({
-      field: 'workspace',
-      reason: expect.stringMatching(/^settings are not valid crew settings: workspace\.repository: /),
-    });
+    const refusal = crewSettingsRefusal({ ...documentedSettings(), workspace: { kind: 'worktree', repository: '/etc' } });
+
+    expect([refusal?.field, refusal?.reason.startsWith('settings are not valid crew settings: workspace.repository: ')]).toEqual(['workspace', true]);
   });
 
   it('names an unknown field, which has no path, under settings', () => {

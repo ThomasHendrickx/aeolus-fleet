@@ -56,3 +56,35 @@ export const crewSettingsSchema = z.strictObject({
 export const NO_MACHINE_MATCHES_REASON = 'no machine matches its labels';
 
 export type CrewSettings = z.infer<typeof crewSettingsSchema>;
+
+/** Why settings are not crew settings: the settings field at fault, or `settings` when the issue has no field, and the reason as one line. */
+export interface CrewSettingsRefusal {
+  field: string;
+  reason: string;
+}
+
+/**
+ * Settings read as crew settings, or why they are not: the first issue, as
+ * one line with its path. The one reading for the fleet, which refuses a
+ * request whose settings are not crew settings, and the trierarch plugin,
+ * which places them (#809).
+ */
+export function readCrewSettings(settings: unknown): { settings: CrewSettings } | { refusal: CrewSettingsRefusal } {
+  const result = crewSettingsSchema.safeParse(settings);
+  if (result.success) {
+    return { settings: result.data };
+  }
+  const [issue] = result.error.issues;
+  if (issue === undefined) {
+    return { refusal: { field: 'settings', reason: 'settings are not valid crew settings: unreadable' } };
+  }
+  const path = issue.path.map(String);
+  const line = path.length === 0 ? issue.message : `${path.join('.')}: ${issue.message}`;
+  return { refusal: { field: path[0] ?? 'settings', reason: `settings are not valid crew settings: ${line}` } };
+}
+
+/** Why settings are not crew settings, or undefined when they are. */
+export function crewSettingsRefusal(settings: unknown): CrewSettingsRefusal | undefined {
+  const read = readCrewSettings(settings);
+  return 'refusal' in read ? read.refusal : undefined;
+}
