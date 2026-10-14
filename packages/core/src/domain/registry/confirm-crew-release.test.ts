@@ -2,7 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -24,7 +24,7 @@ beforeEach(async () => {
   const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
-  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
   unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
   unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
   core.clock.advance(60_000);
@@ -56,7 +56,7 @@ describe('removing an assigned crew request', () => {
   it('refuses new settings while it is releasing: request again after the trierarch confirms', async () => {
     unwrap(await registry.removeCrewRequest(argo, { shipId: scoutId }));
 
-    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: {} })).resolves.toMatchObject({ isOk: false, error: { kind: 'CREW_REQUEST_RELEASING' } });
+    await expect(registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() })).resolves.toMatchObject({ isOk: false, error: { kind: 'CREW_REQUEST_RELEASING' } });
   });
 });
 

@@ -2,7 +2,7 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -25,7 +25,7 @@ beforeEach(async () => {
 
 async function requested(name: string): Promise<ShipId> {
   const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
-  unwrap(await registry.requestCrew(argo, { shipId, settings: { harness: 'claude-code' } }));
+  unwrap(await registry.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
   return shipId;
 }
 
@@ -39,8 +39,8 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
-      { shipId: lookoutId, settings: { harness: 'claude-code' }, settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false },
+      { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
+      { shipId: lookoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false },
     ]);
   });
 
@@ -59,7 +59,7 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
-    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
   });

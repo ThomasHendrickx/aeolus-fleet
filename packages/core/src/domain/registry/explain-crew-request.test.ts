@@ -2,7 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
@@ -25,7 +25,7 @@ beforeEach(async () => {
   registry = registryUseCases(core);
   plugin = await shipWithScopes({ registry, argo }, { name: 'navarch', type: 'navarch', scopes: ['crew:assign'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
-  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
   core.clock.advance(60_000);
   core.state.events.length = 0;
 });

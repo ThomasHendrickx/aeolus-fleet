@@ -5,6 +5,7 @@ import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 
 // Crew requests on a real Postgres: one per ship, replaced in place, removed
 // by its requester or with a retire, each change with its event.
@@ -30,15 +31,15 @@ async function crewRequests() {
 
 describe('a crew request on Postgres', () => {
   it('is stored once per ship, its settings as JSON, replaced in place with the next settings version', async () => {
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     core.clock.advance(60_000);
 
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex', options: { sandbox: true } } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex', options: { sandbox: true } }) }));
 
     await expect(crewRequests()).resolves.toEqual([
       expect.objectContaining({
         shipId: scoutId,
-        settings: { harness: 'codex', options: { sandbox: true } },
+        settings: aCrewSettings({ harness: 'codex', options: { sandbox: true } }),
         settingsVersion: 2,
         requestedAt: core.clock.now(),
       }),
@@ -47,17 +48,28 @@ describe('a crew request on Postgres', () => {
   });
 
   it('is read with the ship: its settings version in the fleet list, its settings with the one ship', async () => {
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
     expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
-      value: { crewRequest: { settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now() } },
+      value: { crewRequest: { settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now() } },
     });
   });
 
+  it('is refused with settings that are not crew settings, storing no request and no event, and keeps the request the ship holds (#809)', async () => {
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
+
+    await expect(core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ firstPrompt: 'x'.repeat(8 * 1024 + 1) }) })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_SETTINGS_INVALID', message: 'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes' },
+    });
+    await expect(crewRequests()).resolves.toEqual([expect.objectContaining({ settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1 })]);
+    await expect(core.prisma.event.count({ where: { type: 'CrewRequested', shipId: scoutId } })).resolves.toBe(1);
+  });
+
   it('is removed by its requester, with CrewRequestRemoved', async () => {
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: {} }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
 
     unwrap(await core.useCases.removeCrewRequest(argo, { shipId: scoutId }));
 
@@ -66,7 +78,7 @@ describe('a crew request on Postgres', () => {
   });
 
   it('goes with a retire', async () => {
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: {} }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings() }));
 
     unwrap(await core.useCases.retireShip(argo, { shipId: scoutId }));
 
@@ -82,7 +94,7 @@ describe('a crew request on Postgres', () => {
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     await expect(core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId })).resolves.toMatchObject({
@@ -96,7 +108,7 @@ describe('a crew request on Postgres', () => {
       sessionStartedAt: new Date('2026-10-06T17:00:30.000Z'),
     });
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: { harness: 'codex' }, settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
+      { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
     ]);
     await expect(core.useCases.getShip(trierarch, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { assignedTo: { id: trierarchId, name: 'mac-mini' }, status: 'running' } },
@@ -117,7 +129,7 @@ describe('a crew request on Postgres', () => {
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'navarch', type: 'navarch', fleetScopes: ['crew:assign'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     unwrap(await core.useCases.explainCrewRequest(plugin, { shipId: scoutId, reason: 'no trierarch offers codex' }));
     const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: scoutId }));
@@ -138,7 +150,7 @@ describe('a crew request on Postgres', () => {
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code', options: { model: 'claude-opus-5-5' } } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code', options: { model: 'claude-opus-5-5' } }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
     const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: scoutId }));
@@ -158,7 +170,7 @@ describe('a crew request on Postgres', () => {
     await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewRequestGivenBack' } })).resolves.toBe(1);
     await expect(core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason })).resolves.toEqual({ isOk: true, value: undefined });
 
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     await expect(core.useCases.listFleet(argo).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest?.givenBack)).resolves.toEqual([]);
   });
   it('keeps its crew final once its trierarch saw it working, so a give-back is refused after a crewing status (#472)', async () => {
@@ -170,7 +182,7 @@ describe('a crew request on Postgres', () => {
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
@@ -192,13 +204,13 @@ describe('a crew request on Postgres', () => {
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
 
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, status: 'crewing', isFinal: true }]);
-    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
   });
 });

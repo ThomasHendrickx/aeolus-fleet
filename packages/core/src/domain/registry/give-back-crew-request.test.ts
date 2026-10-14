@@ -2,7 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -31,7 +31,7 @@ beforeEach(async () => {
   plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
   trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   ({ shipId: scoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
-  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code', options: { model: 'claude-opus-5-5' } } }));
+  unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code', options: { model: 'claude-opus-5-5' } }) }));
   unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
   unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
   core.clock.advance(60_000);
@@ -67,7 +67,7 @@ describe('a trierarch giving back a crew request', () => {
 
   it('gives back a request it has not written a status for yet', async () => {
     const lookout = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
-    unwrap(await registry.requestCrew(argo, { shipId: lookout.shipId, settings: {} }));
+    unwrap(await registry.requestCrew(argo, { shipId: lookout.shipId, settings: aCrewSettings() }));
     unwrap(await registry.assignCrew(plugin, { shipId: lookout.shipId, trierarchShipId: trierarch.shipId }));
 
     await expect(registry.giveBackCrewRequest(trierarch, { shipId: lookout.shipId, settingsVersion: 1, reason: REASON })).resolves.toEqual({ isOk: true, value: undefined });
@@ -110,7 +110,7 @@ describe('a trierarch giving back a crew request', () => {
 
   it('gives back a request whose crew was final before a new settings version: the new settings are a new request, not final until they run (#472)', async () => {
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
-    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
 
     await expect(giveBack(trierarch, { settingsVersion: 2 })).resolves.toEqual({ isOk: true, value: undefined });
@@ -119,7 +119,7 @@ describe('a trierarch giving back a crew request', () => {
   it('clears what was given back on a new settings version, so every trierarch may take it again', async () => {
     unwrap(await giveBack(trierarch));
 
-    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'claude-code' } }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
 
     expect(crewRequestOf(scoutId)?.givenBack).toEqual([]);
   });
@@ -154,7 +154,7 @@ describe('a give-back refused', () => {
   });
 
   it('refuses a settings version that is no longer the request: an edit moved it on', async () => {
-    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: { harness: 'codex' } }));
+    unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     await expect(giveBack(trierarch, { settingsVersion: 1 })).resolves.toMatchObject({ isOk: false, error: { kind: 'CREW_REQUEST_SETTINGS_CHANGED' } });
   });

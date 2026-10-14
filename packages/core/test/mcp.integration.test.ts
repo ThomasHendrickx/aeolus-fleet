@@ -237,6 +237,19 @@ describe('the ship tools at /mcp', () => {
     expect(shipId).toMatch(/^shp_/);
   });
 
+  it('refuses through fleet_crewRequest settings no trierarch could take, with the reason, and stores nothing (#809)', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const scout = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, manager);
+    const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, firstPrompt: 'x'.repeat(8 * 1024 + 1) };
+
+    await expect(refusalOf(session, { name: 'fleet_crewRequest', arguments: { crewToken, shipId: scout.shipId, settings } })).resolves.toContain(
+      'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes',
+    );
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
+  });
+
   it('lets a ship with fleet:read follow the fleet through fleet_follow', async () => {
     const reader = await commissionedWithFleetScopes(['fleet:read']);
     const session = await connect();

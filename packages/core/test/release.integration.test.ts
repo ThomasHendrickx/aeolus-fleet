@@ -21,6 +21,7 @@ import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
 import { waitingWakeups } from './support/waiting-wakeups.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -309,7 +310,7 @@ describe('a session its trierarch stops before it acks (#536)', () => {
     const plugin: Caller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
-    unwrap(await useCases.requestCrew(argo, { shipId, settings: { harness: 'claude-code' } }));
+    unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
     const stopped = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
     const deliveryId = await sendTo({ kind: 'ship', shipId });
