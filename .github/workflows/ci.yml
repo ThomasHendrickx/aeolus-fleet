@@ -189,6 +189,8 @@ jobs:
       # 0.0.0 is already on npm, and npm requires a tag for a prerelease.
       - run: npm run set-version -- "0.0.0-ci.${{ github.run_id }}"
       - run: npm run build
+      # The console ships bundled third-party code: its tarball must carry their licence notices.
+      - run: node packages/console/scripts/check-third-party-notices.ts
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/core
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/console
