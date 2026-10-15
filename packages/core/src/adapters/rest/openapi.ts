@@ -18,7 +18,7 @@ const ERROR_SCHEMA = {
   properties: {
     code: {
       type: 'string',
-      description: "The refusal's code, such as UNAUTHORIZED, LEASE_ENDED, FORBIDDEN, NOT_FOUND or CONFLICT.",
+      description: "The refusal's code, such as UNAUTHORIZED, LEASE_ENDED, FORBIDDEN, NOT_FOUND or CONFLICT, or a delivery's own code, such as DELIVERY_NOT_IN_FLIGHT, for a refusal about that delivery.",
     },
     message: { type: 'string', description: 'What was refused, or what the input must be, for the caller to read.' },
     requestId: {

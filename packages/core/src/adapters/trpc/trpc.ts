@@ -166,16 +166,41 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
 };
 
 /**
- * The code a ship reads for a refusal whose tRPC code would hide it: a crew
- * whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so it can tell a
- * released ship from a wrong crew token. The HTTP status stays the tRPC
- * code's. The ship doors read it from the tRPC error's cause.
+ * The refusals a ship reads by their own code, which their tRPC code would
+ * hide: a crew whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so
+ * it can tell a released ship from a wrong crew token; a refusal about a
+ * delivery reads its delivery code, not CONFLICT or FORBIDDEN, so a crew can
+ * tell what became of that delivery, and that its crew token still holds (#832).
+ */
+const SHIP_REFUSAL_CODES = [
+  'LEASE_ENDED',
+  'DELIVERY_HANDED_ONCE_MORE',
+  'DELIVERY_HELD_BY_ANOTHER_SHIP',
+  'DELIVERY_NOT_FOUND',
+  'DELIVERY_NOT_A_PING',
+  'DELIVERY_NOT_ACKNOWLEDGED',
+  'DELIVERY_NOT_HANDED_ONCE_MORE',
+  'DELIVERY_NOT_IN_FLIGHT',
+  'DELIVERY_NOT_OPEN',
+  'DELIVERY_NOT_UNDELIVERABLE',
+] as const satisfies readonly DomainErrorKind[];
+
+type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];
+
+function isShipRefusalCode(kind: DomainErrorKind): kind is ShipRefusalCodeKind {
+  return SHIP_REFUSAL_CODES.some((code) => code === kind);
+}
+
+/**
+ * The code a ship reads for a refusal whose tRPC code would hide it (see
+ * SHIP_REFUSAL_CODES). The HTTP status stays the tRPC code's. The ship doors
+ * read it from the tRPC error's cause.
  */
 export class ShipRefusalCode extends Error {
   override name = 'ShipRefusalCode';
-  readonly code: 'LEASE_ENDED';
+  readonly code: ShipRefusalCodeKind;
 
-  constructor(code: 'LEASE_ENDED') {
+  constructor(code: ShipRefusalCodeKind) {
     super(code);
     this.code = code;
   }
@@ -184,7 +209,7 @@ export class ShipRefusalCode extends Error {
 /** A refusal as the matching tRPC error, keeping its message: the one place domain error kinds meet API errors. */
 function apiErrorOf(error: DomainError): TRPCError {
   const { kind, message } = error;
-  const cause = kind === 'LEASE_ENDED' ? new ShipRefusalCode(kind) : undefined;
+  const cause = isShipRefusalCode(kind) ? new ShipRefusalCode(kind) : undefined;
   return new TRPCError({ code: ERROR_CODES[kind], message, cause });
 }
 
