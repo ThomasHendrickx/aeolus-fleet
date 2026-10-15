@@ -3,7 +3,7 @@
  * every package Next.js traced into `.next/standalone/node_modules`
  * (vendored ones under `next/dist/compiled` too), and every package the
  * console's bundles hold, which is each package it builds with but its
- * tooling, and what those depend on. Their licences (MIT, ISC, Apache-2.0
+ * tooling, and what those depend on, and the fonts it self-hosts. Their licences (MIT, ISC, Apache-2.0
  * and the like) ask for the notice to travel with every copy, so the package
  * carries it as `THIRD_PARTY_NOTICES` in the standalone output, which an
  * image may copy alone.
@@ -25,7 +25,10 @@ const TOOLING = [/^@aeolus-fleet\/core$/, /^@types\//, /^@storybook\//, /^storyb
 /** Its own packages' scope: shipped under the console's own LICENSE, but what they depend on is third party. */
 const OWN_SCOPE = '@aeolus-fleet/';
 
-const LICENCE_FILE = /^(licen[cs]e|copying|notice)(\..*)?$/i;
+/** The fonts the console self-hosts from app/fonts, which the browser's files carry (the console README, Design system). */
+const FONTS = { name: 'Geist and Geist Mono fonts', version: 'self-hosted', license: 'OFL-1.1', folder: join('app', 'fonts') };
+
+const LICENCE_FILE = /^(licen[cs]e|copying|notice|ofl)(\..*)?$/i;
 
 const packageJsonSchema = z.object({
   name: z.string().optional(),
@@ -141,6 +144,11 @@ export function noticedPackages(places: { consoleRoot: string; repositoryRoot: s
     for (const dependency of Object.keys(json.dependencies ?? {})) {
       pending.push({ name: dependency, from: directory });
     }
+  }
+
+  const fonts = join(consoleRoot, FONTS.folder);
+  if (existsSync(fonts)) {
+    add({ name: FONTS.name, version: FONTS.version, license: FONTS.license, licenceTexts: licenceTextsIn(fonts) });
   }
 
   return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
