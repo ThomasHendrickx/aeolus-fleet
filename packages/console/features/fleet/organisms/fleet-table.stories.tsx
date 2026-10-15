@@ -188,12 +188,12 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {
   globals: { viewport: { value: 'mobile1' } },
-  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'crewed', isRetiredShown: true } } },
+  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['crewed'], isRetiredShown: true } } },
 };
 
 /** Filters and a search with nothing left: one action clears both. */
 export const NoResultsFiltered: Story = {
-  args: { view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: 'awaitingCrew' } } },
+  args: { view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['awaitingCrew'] } } },
 };
 
 /** Crewed ships with when each last called: one live, one whose session went quiet. */
@@ -449,7 +449,7 @@ const KIND_ARGS = { ships: KIND_FLEET, pluginShipIds: new Set([PLUGIN_SHIP.id]) 
 
 /** The Kind filter on Codex: only the ships whose session runs in Codex. */
 export const KindFiltered: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: 'codex' } } },
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['codex'] } } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Codex');
@@ -462,21 +462,86 @@ export const KindFilteredDark: Story = { ...KindFiltered, globals: { theme: 'dar
 
 /** The phone's filter Sheet with Kind on Plugin: its chips beside the other filters, and the filter in force as a chip. */
 export const PhoneKindFilter: Story = {
-  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: 'plugin' } } },
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['plugin'] } } },
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('Kind: Plugin');
     await userEvent.click(canvas.getByTestId('fleet-filters-open'));
     const sheet = within(canvasElement.ownerDocument.body);
-    const kinds = sheet.getByRole('radiogroup', { name: 'Kind' });
-    await expect(within(kinds).getAllByRole('radio').map((option) => option.textContent)).toEqual(['All', 'Console', 'Claude Code', 'Codex', 'Trierarch', 'Plugin', 'Other']);
-    await expect(within(kinds).getByRole('radio', { name: 'Plugin' })).toHaveAttribute('aria-checked', 'true');
+    const kinds = sheet.getByRole('group', { name: 'Kind' });
+    await expect(within(kinds).getAllByRole('button').map((option) => option.textContent)).toEqual(['All', 'Console', 'Claude Code', 'Codex', 'Trierarch', 'Plugin', 'Other']);
+    await expect(within(kinds).getByRole('button', { name: 'Plugin' })).toHaveAttribute('aria-pressed', 'true');
     await expect(sheet.getByTestId('fleet-filters-apply')).toHaveTextContent('Show 1 ship');
   },
 };
 
 export const PhoneKindFilterDark: Story = { ...PhoneKindFilter, globals: { ...PhoneKindFilter.globals, theme: 'dark' } };
+
+const CLAUDE_CODE_AND_CODEX: FleetView = { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['claudeCode', 'codex'] } };
+
+/** The Kind filter on Claude Code and Codex (#815): the ships of either, the trigger counting the two picked. */
+export const KindSeveralPicked: Story = {
+  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Kind2 picked');
+    await expect(canvas.getByTestId('fleet-row-launch-implementer')).toBeVisible();
+    await expect(canvas.getByTestId('fleet-row-harbour-ios')).toBeVisible();
+    await expect(canvas.queryByTestId('fleet-row-trierarch-mac')).toBeNull();
+    await expect(canvas.queryByTestId('fleet-row-argo')).toBeNull();
+  },
+};
+
+export const KindSeveralPickedDark: Story = { ...KindSeveralPicked, globals: { theme: 'dark' } };
+
+/** The Kind filter open with Claude Code and Codex picked: both checked, All not; picking Trierarch adds it and keeps the list open. */
+export const KindSeveralPickedOpen: Story = {
+  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(canvas.getByTestId('fleet-filter-kind'));
+    await expect(await page.findByRole('option', { name: 'Claude Code' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('option', { name: 'Codex' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('option', { name: 'All' })).toHaveAttribute('aria-selected', 'false');
+    await userEvent.click(page.getByRole('option', { name: 'Trierarch' }));
+    await expect(page.getByRole('option', { name: 'Trierarch' })).toHaveAttribute('aria-selected', 'true');
+    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('Kind3 picked');
+    await expect(canvas.getByTestId('fleet-row-trierarch-mac')).toBeVisible();
+  },
+};
+
+/** One value picked: the trigger names it. Picking All in the open list takes every value out. */
+export const KindOnePickedThenAll: Story = {
+  args: { ...KIND_ARGS, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, kind: ['trierarch'] } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('KindTrierarch');
+    await userEvent.click(canvas.getByTestId('fleet-filter-kind'));
+    await userEvent.click(await page.findByRole('option', { name: 'All' }));
+    await expect(canvas.getByTestId('fleet-filter-kind')).toHaveTextContent('KindAll');
+    await expect(canvas.getByTestId('fleet-row-argo')).toBeVisible();
+  },
+};
+
+/** The phone's Sheet with Claude Code and Codex picked: both chips on, All off, and the filter as one chip naming both. */
+export const PhoneKindSeveralPicked: Story = {
+  args: { ...KIND_ARGS, view: CLAUDE_CODE_AND_CODEX },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('Kind: Claude Code, Codex');
+    await userEvent.click(canvas.getByTestId('fleet-filters-open'));
+    const kinds = within(within(canvasElement.ownerDocument.body).getByRole('group', { name: 'Kind' }));
+    await expect(kinds.getByRole('button', { name: 'Claude Code' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(kinds.getByRole('button', { name: 'Codex' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(kinds.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+  },
+};
+
+export const PhoneKindSeveralPickedDark: Story = { ...PhoneKindSeveralPicked, globals: { ...PhoneKindSeveralPicked.globals, theme: 'dark' } };
 
 function shownNames(canvasElement: HTMLElement): string[] {
   return within(within(canvasElement).getByRole('table', { name: 'Ships' }))
