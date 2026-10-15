@@ -10,11 +10,13 @@ import { classNames } from '../../../lib/class-names';
 import { useSignIn } from '../hooks/console';
 import { retryAtOf, trpcErrorCode } from '../../../lib/errors';
 import { useHasPassed } from '../hooks/has-passed';
+import { useIsSecureContext } from '../hooks/is-secure-context';
 import { clockTime } from '../../../lib/relative-time';
 import { signInRefusal } from '../lib/sign-in';
 import { Button } from '../../../components/atoms/button';
 import { Input } from '../../../components/atoms/input';
 import { Label } from '../../../components/atoms/label';
+import { InsecureContextNotice } from '../molecules/insecure-context-notice';
 import { SignedInElsewhereNotice } from '../molecules/signed-in-elsewhere-notice';
 
 const noSubscription = () => () => undefined;
@@ -36,13 +38,16 @@ const FIELD_ERROR = 'text-meta text-destructive-text';
  * the fleet; a refusal shows one notice above the fields and keeps what was
  * typed. Over the rate limit the button waits until the server's retryAt.
  * A console session that ended because the operator signed in on another
- * device arrives here with a calm notice: nothing went wrong.
+ * device arrives here with a calm notice: nothing went wrong. A page that is
+ * no secure context says first that sign-in needs https: the browser would
+ * drop the session cookie and stay here without a word.
  */
 export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewhere?: boolean }) {
   const signIn = useSignIn();
   const router = useRouter();
   // Before hydration a native submit would send the form itself; the button waits for React.
   const isHydrated = useHydrated();
+  const isSecureContext = useIsSecureContext();
   const {
     register,
     handleSubmit,
@@ -70,7 +75,9 @@ export function SignInForm({ isSignedInElsewhere = false }: { isSignedInElsewher
         <h1 className="text-heading font-semibold max-sm:text-title-touch">Sign in to Aeolus</h1>
         <p className="text-meta text-muted-foreground">Use your operator account.</p>
       </div>
-      {signIn.isError ? (
+      {!isSecureContext ? (
+        <InsecureContextNotice />
+      ) : signIn.isError ? (
         <div
           className={classNames(
             'flex gap-2.5 rounded-lg border px-3.5 py-3 text-meta',
