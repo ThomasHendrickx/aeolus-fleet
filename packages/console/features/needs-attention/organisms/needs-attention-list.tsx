@@ -147,7 +147,7 @@ function Actions({
 function DesktopTable({ deliveries, onOpen, now, ...actions }: Omit<NeedsAttentionListProps, 'state' | 'onRetry'>) {
   return (
     <div className="flex flex-col gap-2 max-sm:hidden">
-      <Table aria-label="Undeliverable deliveries">
+      <Table aria-label="Undeliverable and not handled deliveries">
         <TableHeader>
           <TableRow>
             <TableHead>State</TableHead>
@@ -207,7 +207,7 @@ function DesktopTable({ deliveries, onOpen, now, ...actions }: Omit<NeedsAttenti
 
 function PhoneCards({ deliveries, onOpen, now, ...actions }: Omit<NeedsAttentionListProps, 'state' | 'onRetry'>) {
   return (
-    <ul aria-label="Undeliverable deliveries" className="flex flex-col gap-3 sm:hidden">
+    <ul aria-label="Undeliverable and not handled deliveries" className="flex flex-col gap-3 sm:hidden">
       {deliveries.map((delivery) => {
         const since = new Date(delivery.since);
         const sinceWords = now.getTime() - since.getTime() < DAY_MS ? clockTime(since) : shortDateTime(since);

@@ -124,7 +124,7 @@ export default function NeedsAttentionPage() {
         <div className="flex flex-col gap-6">
           <section aria-labelledby="attention-undeliverable" className="flex flex-col gap-2">
             <h2 id="attention-undeliverable" className="text-body font-semibold">
-              Undeliverable deliveries ({attention.data?.length ?? 0})
+              Undeliverable and not handled deliveries ({attention.data?.length ?? 0})
             </h2>
             {attention.data?.length === 0 ? <p className="text-meta text-muted-foreground">None.</p> : deliveriesList}
           </section>
