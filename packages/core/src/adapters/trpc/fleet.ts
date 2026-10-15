@@ -232,6 +232,7 @@ export const fleetRouter = router({
         'an optional first prompt, squadron and machine labels), refused with the reason unless they are crew settings whose machine labels are label',
         'value ids of the fleet. Replaces the settings of a request the ship holds.',
         'Never argo, the viewer or a retired ship. Answers the settings version, one more on every request.',
+        'It answers so even for settings no trierarch takes (harness, workspace, options): read the crew request status and reason on fleet_ship afterwards.',
       ].join(' '),
     })
     .input(crewRequestInputSchema)
