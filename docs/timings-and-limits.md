@@ -34,6 +34,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 256 characters | An idempotency key | [schemas/idempotency-key.ts](../packages/common/src/schemas/idempotency-key.ts) `IDEMPOTENCY_KEY_MAX_LENGTH` | none recorded |
 | 254 characters | An operator email | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_EMAIL_MAX_LENGTH` | none recorded |
 | 1024 characters | An operator password | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_PASSWORD_MAX_LENGTH` | [0016](decisions/0016-no-policy.md) |
+| 12 characters | A new operator password, at least: `fleet:init` and `operator:reset-password` (sign-in checks no minimum) | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_PASSWORD_MIN_LENGTH` | #824 |
 | 256 characters | A sign-in ticket | [schemas/console.ts](../packages/common/src/schemas/console.ts) `SIGN_IN_TICKET_MAX_LENGTH` | none recorded |
 | 100 characters | A trierarch repository, folder, option or value name | [trierarch/names.ts](../packages/common/src/trierarch/names.ts) `TRIERARCH_NAME_MAX_LENGTH` | none recorded |
 | 300 characters | A notice's text | [schemas/notice.ts](../packages/common/src/schemas/notice.ts) `NOTICE_TEXT_MAX` | [0023](decisions/0023-notices.md) |
