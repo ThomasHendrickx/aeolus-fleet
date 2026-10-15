@@ -39,7 +39,7 @@ export interface PluginHandOver {
  * data folder goes along, so the script moves an identity an older plugin
  * kept there.
  */
-export function createPluginIdentity(plugin: AeolusPlugin): Pick<HarnessPort, 'prepareIdentity' | 'crewTokenOf' | 'removeIdentity' | 'turnOf' | 'isHolding' | 'sessionDied'> & PluginHandOver {
+export function createPluginIdentity(plugin: AeolusPlugin): Pick<HarnessPort, 'prepareIdentity' | 'crewTokenOf' | 'removeIdentity' | 'turnOf' | 'isHolding' | 'sessionDied' | 'startProblem'> & PluginHandOver {
   const identity = (folder: string, args: readonly string[]) => runIdentity(plugin, { folder, args });
 
   return {
@@ -79,6 +79,7 @@ export function createPluginIdentity(plugin: AeolusPlugin): Pick<HarnessPort, 'p
       const line = handed.stdout.trim();
       return handed.status === 0 && line !== '' ? line : undefined;
     },
+    startProblem: () => Promise.resolve(undefined),
     sessionDied: async ({ folder }) => {
       const died = await runPush(plugin, { folder, args: ['died'] });
       if (died.status !== 0) {

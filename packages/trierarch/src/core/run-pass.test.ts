@@ -1694,6 +1694,7 @@ describe('what the loop logs (aeolus-trierarch logs)', () => {
       {
         time: trierarch.clock.now(),
         shipId,
+        shipName: 'scout',
         action: 'crew',
         outcome: 'failed: the register reply was lost',
         next: 'the next pass tries again; aeolus-trierarch status and list show where it stands',
