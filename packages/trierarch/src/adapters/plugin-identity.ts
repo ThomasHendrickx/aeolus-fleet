@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import type { ShipId } from '@aeolus-fleet/common';
 
@@ -79,7 +80,14 @@ export function createPluginIdentity(plugin: AeolusPlugin): Pick<HarnessPort, 'p
       const line = handed.stdout.trim();
       return handed.status === 0 && line !== '' ? line : undefined;
     },
-    startProblem: () => Promise.resolve(undefined),
+    // The identity script stands for the scripts: a session cannot start without them (#827).
+    startProblem: async () => {
+      const scripts = join(await plugin.root(), 'scripts');
+      return access(join(scripts, 'aeolus-identity.sh')).then(
+        () => undefined,
+        () => `the aeolus plugin's scripts are not at ${scripts}`,
+      );
+    },
     sessionDied: async ({ folder }) => {
       const died = await runPush(plugin, { folder, args: ['died'] });
       if (died.status !== 0) {
