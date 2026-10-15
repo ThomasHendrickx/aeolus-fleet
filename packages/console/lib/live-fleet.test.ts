@@ -54,11 +54,23 @@ describe('isLabelChange', () => {
 });
 
 describe('isAttentionChange', () => {
-  it.each(['DeliveryUndeliverable', 'DeliveryDismissed'] as const)('reloads Needs attention for %s', (type) => {
+  it.each(['DeliveryUndeliverable', 'DeliveryNotHandled', 'DeliveryDismissed'] as const)('reloads Needs attention for %s', (type) => {
     expect(isAttentionChange(type)).toBe(true);
   });
 
-  it.each(['MessageAccepted', 'DeliveryHanded', 'DeliveryAcknowledged', 'DeliveryAbandoned', 'ShipRetired'] as const)(
+  it.each([
+    'MessageAccepted',
+    'LeasePushed',
+    'DeliveryReceived',
+    'DeliveryHanded',
+    'DeliveryAcknowledged',
+    'DeliveryHandled',
+    'DeliveryOverdue',
+    'DeliveryReturned',
+    'TurnReported',
+    'DeliveryAbandoned',
+    'ShipRetired',
+  ] as const)(
     'leaves Needs attention alone for %s',
     (type) => {
       expect(isAttentionChange(type)).toBe(false);
