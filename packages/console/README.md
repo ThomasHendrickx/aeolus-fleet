@@ -23,7 +23,7 @@ npm install @aeolus-fleet/console
 AEOLUS_SERVER_URL=https://fleet.example.com PORT=3000 npx aeolus-console start
 ```
 
-`aeolus-console start` runs the standalone server (`.next/standalone/packages/console/server.js`), without Next.js telemetry, until `SIGINT` or `SIGTERM`. An image can copy `.next/standalone` alone and run that `server.js` with `node`, setting `PORT` and `HOSTNAME`.
+`aeolus-console start` runs the standalone server (`.next/standalone/packages/console/server.js`), without Next.js telemetry, until `SIGINT` or `SIGTERM`. An image can copy `.next/standalone` alone and run that `server.js` with `node`, setting `PORT` and `HOSTNAME`. The licence notices of the third-party code and fonts the console ships travel with it, in `.next/standalone/THIRD_PARTY_NOTICES`.
 
 ## Configuration
 
