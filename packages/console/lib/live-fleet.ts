@@ -62,8 +62,8 @@ export function isLabelChange(type: EventType): boolean {
   return LABEL_EVENTS.has(type);
 }
 
-/** The events that change Needs attention: a delivery becomes undeliverable, or the operator lets one go. */
-const ATTENTION_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['DeliveryUndeliverable', 'DeliveryDismissed']);
+/** The events that change Needs attention: a delivery becomes undeliverable or not handled, or the operator lets one go. */
+const ATTENTION_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['DeliveryUndeliverable', 'DeliveryNotHandled', 'DeliveryDismissed']);
 
 export function isAttentionChange(type: EventType): boolean {
   return ATTENTION_EVENTS.has(type);
@@ -101,7 +101,7 @@ export interface LiveFleet {
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message, the ships' message lists and
  * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * is dismissed reloads Needs attention, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
+ * not handled, or is dismissed, reloads Needs attention, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */

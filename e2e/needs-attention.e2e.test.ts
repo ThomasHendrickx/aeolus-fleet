@@ -1,3 +1,4 @@
+import { idSchema, type DeliveryId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -5,7 +6,7 @@ import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { Caller, Crew } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/test/support/database.js';
@@ -18,7 +19,8 @@ import { newKey } from '../packages/core/test/support/keys.js';
 // Needs attention, end to end: a ship's session receives a message five
 // times over the REST API without acknowledging it, the delivery shows in
 // Needs attention live with its count in the navigation, and the operator
-// resends one (a new message reaches the ship) and dismisses another.
+// resends one (a new message reaches the ship) and dismisses another. A
+// delivery a pushed crew reports not handled shows there live too.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** A live change shows within this. */
@@ -114,6 +116,30 @@ async function undeliverable(message: { from: Session; to: Session; payload: str
   return deliveryId;
 }
 
+/** A ship crewed on the core, as its pushed crew's computer side calls it. */
+async function crewedOverCore(ship: { name: string; type: string }): Promise<Crew> {
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  return unwrap(await useCases.authenticate.byCrewToken(crewToken));
+}
+
+/**
+ * argo's message to the crew, which its computer side takes, hands over and
+ * confirms, hands once more after the turn died, and reports not handled when
+ * that turn died too.
+ */
+async function notHandled(message: { to: Crew; payload: string }): Promise<DeliveryId> {
+  const { to, payload } = message;
+  const { messageId } = unwrap(await useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: to.shipId }, payload, idempotencyKey: newKey() }));
+  const deliveryId = idSchema('delivery').parse((await database.delivery.findFirstOrThrow({ where: { messageId } })).id);
+  unwrap(await useCases.pushReceiveDeliveries(to, {}));
+  unwrap(await useCases.handOverDelivery(to, { deliveryId, handOverNumber: 1 }));
+  unwrap(await useCases.acknowledgeDelivery(to, { deliveryId }));
+  unwrap(await useCases.handOverDelivery(to, { deliveryId, handOverNumber: 2, isOnceMore: true }));
+  unwrap(await useCases.reportNotHandled(to, { deliveryId }));
+  return deliveryId;
+}
+
 async function signedInPage(): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
   const context = await browser.newContext({ baseURL: web.url });
@@ -190,5 +216,20 @@ describe('Needs attention', () => {
 
     await row.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
     await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({ state: 'pending' });
+  });
+
+  it('shows a not handled delivery live under Undeliverable and not handled deliveries, beside one no ship can take', async () => {
+    const charter = unwrap(await useCases.commissionShip(argo, { name: 'charter-01', type: 'charter', idempotencyKey: newKey() }));
+    unwrap(await useCases.sendMessage(argo, { selector: { kind: 'type', type: 'charter' }, payload: 'Chart the reef.', idempotencyKey: newKey() }));
+    unwrap(await useCases.retireShip(argo, { shipId: charter.shipId }));
+    const surveyor = await crewedOverCore({ name: 'surveyor-01', type: 'surveyor' });
+    const page = await signedInPage();
+    await page.goto('/needs-attention');
+    await page.getByRole('heading', { name: 'No ship can take it (1)' }).waitFor();
+
+    const deliveryId = await notHandled({ to: surveyor, payload: 'Survey the bay.' });
+
+    await page.getByRole('heading', { name: 'Undeliverable and not handled deliveries (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await attentionRow(page, deliveryId).getByText('Survey the bay.').waitFor();
   });
 });
