@@ -129,6 +129,7 @@ export default defineConfig({
           name: 'plugin:unit',
           root: 'plugins/aeolus',
           include: ['test/**/*.test.ts'],
+          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
           setupFiles: ['test/foreign-harness.setup.ts'],
           testTimeout: 30_000,
         },
@@ -141,6 +142,19 @@ export default defineConfig({
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['test/postgres.global-setup.ts'],
           testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The aeolus plugin's bash scripts against a real fleet server, in the shared container (#819).
+          name: 'plugin:integration',
+          root: 'plugins/aeolus',
+          include: ['test/**/*.integration.test.ts'],
+          setupFiles: ['test/foreign-harness.setup.ts'],
+          globalSetup: ['../../packages/core/test/postgres.global-setup.ts'],
+          testTimeout: 60_000,
           hookTimeout: 180_000,
         },
       },
