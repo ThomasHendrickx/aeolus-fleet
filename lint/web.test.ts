@@ -4,8 +4,10 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 
 // The console (web-frontend skill): vertical by feature, atomic design inside
 // each; shared components take props only and import downward; shared code
-// never imports a feature or app/, and no feature imports another; no browser
-// storage, no manual memoisation, stable keys and accessible markup.
+// never imports a feature or app/, and no feature imports another; a new
+// feature uses ui/, state/, hooks/ and services/, while a feature not yet moved
+// keeps its atoms/, molecules/, organisms/ and lib/; no browser storage, no
+// manual memoisation, stable keys and accessible markup.
 
 const probes = {
   atom: 'packages/console/components/atoms/layer-probe.tsx',
@@ -15,6 +17,17 @@ const probes = {
   featureMolecule: 'packages/console/features/probe/molecules/layer-probe.tsx',
   featureOrganism: 'packages/console/features/probe/organisms/layer-probe.tsx',
   featureHook: 'packages/console/features/probe/hooks/hook-probe.ts',
+  uiAtom: 'packages/console/features/probe/ui/atoms/layer-probe.tsx',
+  uiMolecule: 'packages/console/features/probe/ui/molecules/layer-probe.tsx',
+  uiOrganism: 'packages/console/features/probe/ui/organisms/layer-probe.tsx',
+  state: 'packages/console/features/probe/state/state-probe.tsx',
+  service: 'packages/console/features/probe/services/service-probe.ts',
+  newFeatureRoot: 'packages/console/features/probe/root-probe.ts',
+  newFeatureUiRoot: 'packages/console/features/probe/ui/ui-probe.tsx',
+  newFeatureOrganism: 'packages/console/features/probe/organisms/organism-probe.tsx',
+  newFeatureLib: 'packages/console/features/probe/lib/lib-probe.ts',
+  oldFeatureOrganism: 'packages/console/features/fleet/organisms/organism-probe.tsx',
+  oldFeatureLib: 'packages/console/features/fleet/lib/lib-probe.ts',
   page: 'packages/console/app/probe/page.tsx',
   lib: 'packages/console/lib/web-probe.ts',
 };
@@ -65,6 +78,72 @@ describe("a feature's atoms and molecules take props only", () => {
   });
 });
 
+describe('a new feature uses ui/, state/, hooks/ and services/', () => {
+  const placement = async (path: string) => reportsOf(await lint('export const probe = 1;\n', path), 'check-file/folder-match-with-fex');
+
+  it.each([
+    { label: 'its organisms/', path: probes.newFeatureOrganism },
+    { label: 'its lib/', path: probes.newFeatureLib },
+    { label: 'its root', path: probes.newFeatureRoot },
+    { label: 'ui/ itself, outside an atomic layer', path: probes.newFeatureUiRoot },
+  ])('refuses a file in $label', async ({ path }) => {
+    await expect(placement(path)).resolves.toEqual([expect.stringContaining('A new feature uses ui/')]);
+  });
+
+  it.each([
+    { label: 'ui/atoms/', path: probes.uiAtom },
+    { label: 'ui/molecules/', path: probes.uiMolecule },
+    { label: 'ui/organisms/', path: probes.uiOrganism },
+    { label: 'state/', path: probes.state },
+    { label: 'hooks/', path: probes.featureHook },
+    { label: 'services/', path: probes.service },
+  ])('allows a file in $label', async ({ path }) => {
+    await expect(placement(path)).resolves.toEqual([]);
+  });
+
+  it.each([
+    { label: 'its organisms/', path: probes.oldFeatureOrganism },
+    { label: 'its lib/', path: probes.oldFeatureLib },
+  ])('allows a feature not yet moved a file in $label', async ({ path }) => {
+    await expect(placement(path)).resolves.toEqual([]);
+  });
+});
+
+describe("a feature's ui/ takes props only", () => {
+  it.each(tRPC)('refuses $label', async ({ from }) => {
+    const relative = from.replace('../../lib/', '../../../../lib/');
+    for (const path of [probes.uiAtom, probes.uiMolecule, probes.uiOrganism]) {
+      await expect(importViolations(`import { anything } from '${relative}';`, path)).resolves.toEqual([
+        expect.stringContaining('take props only'),
+      ]);
+    }
+  });
+
+  it.each([
+    { label: "the feature's hooks", code: "import { useProbe } from '../../hooks/hook-probe';" },
+    { label: "the feature's state", code: "import { ProbeContainer } from '../../state/state-probe';" },
+  ])('refuses $label', async ({ code }) => {
+    for (const path of [probes.uiAtom, probes.uiMolecule, probes.uiOrganism]) {
+      await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('take props only')]);
+    }
+  });
+
+  it.each([
+    { label: "the feature's services", code: "import { format } from '../../services/service-probe';" },
+    { label: 'a shared atom', code: "import { Button } from '../../../../components/atoms/button';" },
+  ])('allows $label', async ({ code }) => {
+    await expect(importViolations(code, probes.uiOrganism)).resolves.toEqual([]);
+  });
+});
+
+describe("a feature's state/ composes its hooks and ui/", () => {
+  it('allows its hooks and ui/', async () => {
+    const code = "import { useProbe } from '../hooks/hook-probe';\nimport { List } from '../ui/organisms/list';";
+
+    await expect(importViolations(code, probes.state)).resolves.toEqual([]);
+  });
+});
+
 describe('atomic design imports downward only', () => {
   it.each([
     { label: 'a shared atom imports a molecule', path: probes.atom, code: "import { StatusBadge } from '../molecules/status-badge';" },
@@ -73,6 +152,8 @@ describe('atomic design imports downward only', () => {
     { label: "a feature's atom imports its molecule", path: probes.featureAtom, code: "import { Row } from '../molecules/row';" },
     { label: "a feature's atom imports its organism", path: probes.featureAtom, code: "import { List } from '../organisms/list';" },
     { label: "a feature's molecule imports its organism", path: probes.featureMolecule, code: "import { List } from '../organisms/list';" },
+    { label: "a feature's ui atom imports its ui molecule", path: probes.uiAtom, code: "import { Row } from '../molecules/row';" },
+    { label: "a feature's ui molecule imports its ui organism", path: probes.uiMolecule, code: "import { List } from '../organisms/list';" },
   ])('refuses: $label', async ({ code, path }) => {
     await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('atomic design imports downward only')]);
   });
@@ -83,6 +164,7 @@ describe('atomic design imports downward only', () => {
     { label: "a feature's molecule imports its atom", path: probes.featureMolecule, code: "import { Dot } from '../atoms/dot';" },
     { label: "a feature's organism imports its molecule", path: probes.featureOrganism, code: "import { Row } from '../molecules/row';" },
     { label: "a feature's organism imports a shared organism", path: probes.featureOrganism, code: "import { Header } from '../../../components/organisms/header';" },
+    { label: "a feature's ui organism imports its ui molecule", path: probes.uiOrganism, code: "import { Row } from '../molecules/row';" },
   ])('allows: $label', async ({ code, path }) => {
     await expect(importViolations(code, path)).resolves.toEqual([]);
   });
@@ -104,6 +186,8 @@ describe('no feature imports another', () => {
   it.each([
     { label: "an organism imports another feature's organism", path: probes.featureOrganism, code: "import { ShipActions } from '../../ship-actions/organisms/ship-actions';" },
     { label: "a hook imports another feature's hook", path: probes.featureHook, code: "import { useSendMessage } from '../../compose/hooks/compose';" },
+    { label: "a ui organism imports another feature's ui", path: probes.uiOrganism, code: "import { Row } from '../../../compose/ui/molecules/row';" },
+    { label: "a state container imports another feature's state", path: probes.state, code: "import { Compose } from '../../compose/state/compose';" },
   ])('refuses: $label', async ({ code, path }) => {
     await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('A feature never imports another')]);
   });
