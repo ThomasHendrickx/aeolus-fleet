@@ -228,7 +228,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     }
   });
 
-  it("describes send's body with the schema the router parses it with, and its answer", async () => {
+  it("describes send's body with the schema the router parses it with, model required, and its answer", async () => {
     start();
 
     const send = await operation('/ship/send', 'post');
@@ -236,7 +236,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(send.requestBody?.required).toBe(true);
     expect(send.requestBody?.content['application/json'].schema).toMatchObject({
       type: 'object',
-      required: ['selector', 'payload', 'idempotencyKey'],
+      required: ['selector', 'payload', 'model', 'idempotencyKey'],
       properties: { inReplyTo: { type: 'string', pattern: `^msg_${ID_BODY}$` } },
     });
     expect(send.responses['200']?.content['application/json'].schema).toMatchObject({

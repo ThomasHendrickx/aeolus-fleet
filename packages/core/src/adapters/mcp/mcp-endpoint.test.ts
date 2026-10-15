@@ -228,12 +228,12 @@ describe('the ship tools at /mcp', () => {
     expect(inputSchema.properties).not.toHaveProperty('crewToken');
   });
 
-  it("describe send's input with the schema the router parses it with: inReplyTo a message id", async () => {
+  it("describe send's input with the schema the router parses it with: model required, inReplyTo a message id", async () => {
     await start();
 
     const { inputSchema } = await tool('send');
 
-    expect(inputSchema.required).toEqual(['crewToken', 'selector', 'payload', 'idempotencyKey']);
+    expect(inputSchema.required).toEqual(['crewToken', 'selector', 'payload', 'model', 'idempotencyKey']);
     expect(Object.keys(inputSchema.properties)).toEqual([
       'crewToken',
       'selector',
