@@ -59,7 +59,11 @@ const objectSchema = z.looseObject({
   required: z.array(z.string()).default([]),
 });
 
-const metaSchema: z.ZodType<ProcedureMeta> = z.object({ description: z.string().min(1), example: z.record(z.string(), z.string()).optional() });
+const metaSchema: z.ZodType<ProcedureMeta> = z.object({
+  description: z.string().min(1),
+  example: z.record(z.string(), z.string()).optional(),
+  requiredOfCrews: z.array(z.string()).optional(),
+});
 
 /** A procedure's parser, which must be Zod so its JSON Schema can be generated. */
 function zodParser(parser: unknown): z.ZodType {
@@ -77,13 +81,19 @@ function jsonSchemaOf(parser: z.ZodType, io: 'input' | 'output'): ObjectSchema {
   return objectSchema.parse(schema);
 }
 
-/** What a procedure takes: none without an input parser; optional when its parser takes nothing at all. */
-function inputOf(parser: unknown): ShipCall['input'] {
+/**
+ * What a procedure takes: none without an input parser; optional when its
+ * parser takes nothing at all. The fields it requires of crews are required
+ * too, in the order of its properties.
+ */
+function inputOf(parser: unknown, requiredOfCrews: readonly string[]): ShipCall['input'] {
   if (parser === undefined) {
     return undefined;
   }
   const input = zodParser(parser);
-  return { schema: jsonSchemaOf(input, 'input'), isRequired: !input.safeParse(undefined).success };
+  const schema = jsonSchemaOf(input, 'input');
+  const required = Object.keys(schema.properties).filter((field) => schema.required.includes(field) || requiredOfCrews.includes(field));
+  return { schema: { ...schema, required }, isRequired: !input.safeParse(undefined).success };
 }
 
 /** What a procedure answers, as a JSON Schema of any shape. */
@@ -140,8 +150,8 @@ function callOf(procedure: Procedure, at: { name: string; route: string; path: s
   const { type, inputs, meta } = procedure._def;
   // The output parser is on the procedure at runtime, though tRPC's types leave it out.
   const output = 'output' in procedure._def ? procedure._def.output : undefined;
-  const input = inputOf(inputs[0]);
-  const { description, example } = metaSchema.parse(meta);
+  const { description, example, requiredOfCrews = [] } = metaSchema.parse(meta);
+  const input = inputOf(inputs[0], requiredOfCrews);
   const exampleJson = example === undefined ? undefined : JSON.stringify(example);
   return {
     ...at,

@@ -23,6 +23,12 @@ export interface ProcedureMeta {
   description: string;
   /** Arguments the call takes as they stand, shown with the description and with a refusal of arguments that do not parse. */
   example?: Readonly<Record<string, string>>;
+  /**
+   * Input fields the parser leaves optional only for argo's console session,
+   * which never comes through REST or MCP: there every caller is a crew, so
+   * the doors' schemas mark them required.
+   */
+  requiredOfCrews?: readonly string[];
 }
 
 // Never development mode, whatever NODE_ENV says: in it tRPC puts the stack
