@@ -114,9 +114,11 @@ export const shipRouter = router({
         'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
         'model is the exact model id you run now, such as claude-opus-5-5: state it on every send, as it is now, even after a switch. A send without it is refused (BAD_REQUEST); only argo, the operator, states none.',
+        'Code that runs no model, such as a script, states its package or name and the version it runs, such as nightly-report@1.4.0.',
         'idempotencyKey is a new unique string for every message. Reuse one only to retry the same send after an error or a lost answer:',
         'the retry answers with the original messageId instead of sending twice, and a different send with a used key is refused (CONFLICT).',
       ].join(' '),
+      requiredOfCrews: ['model'],
     })
     .input(sendInputSchema)
     .output(sendOutputSchema)
