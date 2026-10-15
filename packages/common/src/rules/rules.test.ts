@@ -13,6 +13,7 @@ import {
   OPERATOR_PASSWORD_MIN_LENGTH,
   PAYLOAD_MAX_BYTES,
   payloadBytes,
+  plainHttpWarning,
   SHIP_HANDLE_MAX_LENGTH,
   signInEmailProblem,
   signInPasswordProblem,
@@ -110,5 +111,31 @@ describe('the new operator password check, for fleet:init and operator:reset-pas
 
   it('leaves sign-in alone: a shorter password set before still signs in', () => {
     expect(signInPasswordProblem('x')).toBeUndefined();
+  });
+});
+
+describe('the plain http warning, for a setting a browser reaches', () => {
+  it('warns of plain http on a host beyond localhost: the Secure cookie is dropped and secrets travel in clear text', () => {
+    expect(plainHttpWarning('PUBLIC_URL', 'http://fleet.example.com:4000')).toBe(
+      'PUBLIC_URL is plain http on fleet.example.com: browsers drop the Secure session cookie, so console sign-in fails, and passwords and crew tokens travel in clear text. Put a TLS proxy in front and use https (README, "Beyond localhost").',
+    );
+  });
+
+  it.each([
+    ['an address on the network', 'http://192.168.1.20:4000'],
+    ['a machine name', 'http://fleet-box'],
+  ])('warns of %s', (_label, url) => {
+    expect(plainHttpWarning('PUBLIC_URL', url)).toContain('PUBLIC_URL is plain http on ');
+  });
+
+  it.each([
+    ['https', 'https://fleet.example.com'],
+    ['localhost', 'http://localhost:4000'],
+    ['a name under localhost', 'http://fleet.localhost:4000'],
+    ['127.0.0.1', 'http://127.0.0.1:4000'],
+    ['another loopback address', 'http://127.0.0.2:4000'],
+    ['IPv6 loopback', 'http://[::1]:4000'],
+  ])('finds nothing to warn of with %s, which a browser treats as secure', (_label, url) => {
+    expect(plainHttpWarning('PUBLIC_URL', url)).toBeUndefined();
   });
 });

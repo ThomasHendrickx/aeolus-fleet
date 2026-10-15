@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConfigError, loadConfig } from './config.js';
+import { ConfigError, loadConfig, startupWarnings } from './config.js';
 
 const databaseUrl = 'postgresql://aeolus:s3cret@localhost:5432/aeolus';
 const publicUrl = 'https://fleet.example.com';
@@ -132,3 +132,30 @@ function errorMessageOf(action: () => unknown): string {
   }
   throw new Error('expected the action to throw');
 }
+
+describe('startupWarnings', () => {
+  it('is none with https, or on localhost', () => {
+    expect(startupWarnings(loadConfig(required))).toEqual([]);
+    expect(startupWarnings(loadConfig({ ...required, PUBLIC_URL: 'http://localhost:4000', CONSOLE_ORIGIN: 'http://localhost:3000' }))).toEqual([]);
+  });
+
+  it('warns once of a plain http PUBLIC_URL beyond localhost, which the console origin defaults to', () => {
+    expect(startupWarnings(loadConfig({ ...required, PUBLIC_URL: 'http://fleet.example.com' }))).toEqual([
+      expect.stringMatching(/^PUBLIC_URL is plain http on fleet\.example\.com: /),
+    ]);
+  });
+
+  it('warns of a plain http CONSOLE_ORIGIN beyond localhost', () => {
+    expect(startupWarnings(loadConfig({ ...required, CONSOLE_ORIGIN: 'http://console.example.com' }))).toEqual([
+      expect.stringMatching(/^CONSOLE_ORIGIN is plain http on console\.example\.com: /),
+    ]);
+  });
+
+  it('warns of both, one line each', () => {
+    const warnings = startupWarnings(loadConfig({ ...required, PUBLIC_URL: 'http://fleet.example.com', CONSOLE_ORIGIN: 'http://console.example.com' }));
+
+    expect(warnings).toHaveLength(2);
+    expect(warnings.every((warning) => !warning.includes('\n'))).toBe(true);
+  });
+});
+
