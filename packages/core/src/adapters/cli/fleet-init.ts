@@ -1,5 +1,7 @@
 import { parseArgs } from 'node:util';
 
+import { newOperatorPasswordProblem } from '@aeolus-fleet/common';
+
 import type { InitialiseFleet } from '../../domain/registry/initialise-fleet.js';
 import type { ListFleets } from '../../domain/registry/list-fleets.js';
 import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
@@ -61,6 +63,11 @@ export async function fleetInit(
   );
   if (answerRefusal !== undefined) {
     io.err(answerRefusal);
+    return 1;
+  }
+  const passwordProblem = newOperatorPasswordProblem(password.password);
+  if (passwordProblem !== undefined) {
+    io.err(`${passwordProblem}. ${NOTHING_CREATED}`);
     return 1;
   }
 

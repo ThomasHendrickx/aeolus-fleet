@@ -1,7 +1,7 @@
 import {
   OPERATOR_EMAIL_MAX_LENGTH,
   OPERATOR_EMAIL_PATTERN,
-  OPERATOR_PASSWORD_MAX_LENGTH,
+  newOperatorPasswordProblem,
   type FleetId,
   type OperatorId,
   type Theme,
@@ -46,9 +46,8 @@ export function operatorEmail(raw: string): Result<string, DomainError<'INVALID_
       );
 }
 
-/** Any password of 1 to 1024 characters, kept exactly as typed: no strength rules (ADR 0016). */
+/** A new password of 12 to 1024 characters, kept exactly as typed: common's one rule for every path. */
 export function operatorPassword(raw: string): Result<string, DomainError<'INVALID_PASSWORD'>> {
-  return raw.length > 0 && raw.length <= OPERATOR_PASSWORD_MAX_LENGTH
-    ? ok(raw)
-    : refuse('INVALID_PASSWORD', `A password is 1 to ${String(OPERATOR_PASSWORD_MAX_LENGTH)} characters`);
+  const problem = newOperatorPasswordProblem(raw);
+  return problem === undefined ? ok(raw) : refuse('INVALID_PASSWORD', problem);
 }
