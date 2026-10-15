@@ -1,3 +1,4 @@
+import { plainHttpWarning } from '@aeolus-fleet/common/rules';
 import { z } from 'zod';
 
 /** A domain name alone, such as example.com: no scheme, port, path or leading dot. */
@@ -108,3 +109,17 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     installationToken: INSTALLATION_TOKEN,
   };
 }
+
+/**
+ * What the server warns of when it starts, one line each: a plain http
+ * PUBLIC_URL or CONSOLE_ORIGIN beyond localhost. The console origin is named
+ * only when it is not the public URL's own.
+ */
+export function startupWarnings(config: Pick<Config, 'publicUrl' | 'consoleOrigin'>): string[] {
+  const isOwnOrigin = config.consoleOrigin === new URL(config.publicUrl).origin;
+  return [
+    plainHttpWarning('PUBLIC_URL', config.publicUrl),
+    isOwnOrigin ? undefined : plainHttpWarning('CONSOLE_ORIGIN', config.consoleOrigin),
+  ].filter((warning) => warning !== undefined);
+}
+
