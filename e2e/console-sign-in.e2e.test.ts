@@ -102,6 +102,24 @@ describe('the console sign-in', () => {
     await expect(page.evaluate('document.cookie')).resolves.toBe('');
   });
 
+  it('says sign-in needs https on a page the browser does not treat as a secure context', async () => {
+    const page = await newPage();
+    // As over plain http on a host beyond localhost, where the browser would drop the Secure cookie without a word.
+    await page.addInitScript("Object.defineProperty(window, 'isSecureContext', { value: false });");
+
+    await page.goto('/sign-in');
+
+    await page.getByTestId('sign-in-insecure-context').getByText('Sign-in needs https').waitFor();
+  });
+
+  it('says nothing of https on a secure context, such as localhost', async () => {
+    const page = await newPage();
+    await page.goto('/sign-in');
+
+    await page.getByRole('button', { name: 'Sign in' }).and(page.locator(':enabled')).waitFor();
+    await expect(page.getByTestId('sign-in-insecure-context').count()).resolves.toBe(0);
+  });
+
   it('asks for an email and a password, and never for a secret', async () => {
     const page = await newPage();
     await page.goto('/sign-in');
