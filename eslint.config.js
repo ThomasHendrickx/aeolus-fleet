@@ -119,10 +119,37 @@ const coreFromTheRouterDoors = {
 
 /**
  * The console's atomic design layers, lowest first, in components/ (shared)
- * and in each features/<feature>/ (web-frontend skill). Pages and their route
- * layouts in app/ compose them.
+ * and in each features/<feature>/ui/ (web-frontend skill). Pages and their
+ * route layouts in app/ compose them.
  */
 const webLayers = ['atoms', 'molecules', 'organisms'];
+
+/**
+ * Features still in the old layout: atoms/, molecules/, organisms/ and lib/ at
+ * the feature root. A feature leaves this list when a change touching it moves
+ * it to ui/, state/, hooks/ and services/; a new feature never joins it.
+ */
+const featuresInTheOldLayout = [
+  'commands',
+  'compose',
+  'fleet',
+  'guide',
+  'inbox',
+  'labels',
+  'needs-attention',
+  'needs-crew',
+  'network',
+  'notices',
+  'questions',
+  'settings',
+  'ship',
+  'ship-actions',
+  'sign-in',
+  'squadrons',
+  'trierarchs',
+];
+
+const newFeatureLayout = 'packages/console/features/*/@(ui/@(atoms|molecules|organisms)|state|hooks|services)/**';
 
 /**
  * @param {string} layer
@@ -141,17 +168,25 @@ const sharedImportsAFeature = {
   message: 'Shared code (components/, lib/) never imports a feature or app/: what a second feature needs moves to shared, props only.',
 };
 
+const featureImportsAnotherMessage = 'A feature never imports another: app/ composes them, passing one into another as a slot or props.';
+
 /** @type {ImportRestriction} */
-const featureImportsAnother = {
-  regex: '^\\.\\./\\.\\./[^./][^/]*(/|$)',
-  message: 'A feature never imports another: app/ composes them, passing one into another as a slot or props.',
-};
+const featureImportsAnother = { regex: '^\\.\\./\\.\\./[^./][^/]*(/|$)', message: featureImportsAnotherMessage };
+
+/**
+ * The same, seen from a feature's ui/<layer>/, one folder deeper.
+ * @type {ImportRestriction}
+ */
+const uiImportsAnotherFeature = { regex: '^\\.\\./\\.\\./\\.\\./[^./][^/]*(/|$)', message: featureImportsAnotherMessage };
 
 const propsOnlyMessage =
-  "Shared components and a feature's atoms and molecules take props only: no tRPC and no hooks. Data arrives through a feature organism's hooks.";
+  "Shared components, a feature's ui/ and, in the old layout, its atoms and molecules take props only: no tRPC and no hooks. Data arrives through the feature's state/ containers, or in the old layout its organisms' hooks.";
 
 /** @type {ImportRestriction} */
 const featureHooks = { regex: '^\\.\\./hooks(/|$)', message: propsOnlyMessage };
+
+/** @type {ImportRestriction} */
+const uiHooksAndState = { regex: '^\\.\\./\\.\\./(hooks|state)(/|$)', message: propsOnlyMessage };
 
 /** @type {ImportRestriction[]} */
 const trpcInPresentationalLayers = [
@@ -423,4 +458,33 @@ export default defineConfig(
       paths: reactManualMemo,
     }),
   })),
+  ...webLayers.map((layer) => ({
+    name: `aeolus/web-feature-ui-${layer}`,
+    files: [`packages/console/features/*/ui/${layer}/**/*.{ts,tsx}`],
+    rules: importRules({
+      patterns: [
+        ...prismaOutsideItsAdapter,
+        ...upwardImports(layer),
+        uiImportsAnotherFeature,
+        ...trpcInPresentationalLayers,
+        uiHooksAndState,
+      ],
+      paths: reactManualMemo,
+    }),
+  })),
+  {
+    name: 'aeolus/web-feature-layout',
+    files: ['packages/console/features/**/*.{ts,tsx}'],
+    ignores: featuresInTheOldLayout.map((feature) => `packages/console/features/${feature}/**`),
+    rules: {
+      'check-file/folder-match-with-fex': [
+        'error',
+        { '*.{ts,tsx}': newFeatureLayout },
+        {
+          errorMessage:
+            'A new feature uses ui/atoms, ui/molecules, ui/organisms, state/, hooks/ and services/ (web-frontend skill). The old layout stays only in featuresInTheOldLayout.',
+        },
+      ],
+    },
+  },
 );
