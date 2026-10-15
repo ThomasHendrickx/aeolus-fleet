@@ -6,11 +6,13 @@ import { z } from 'zod';
 import {
   addAgentShip,
   crewShip,
+  deliveryInFlight,
   FLEET_URL,
   historyUseCases,
   identityUseCases,
   initialiseFleet,
   messagingUseCases,
+  openLeaseOf,
   OPERATOR,
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
@@ -447,6 +449,35 @@ describe('a ship call at /api/v1', () => {
     expect(deregistered.statusCode).toBe(200);
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' });
+  });
+
+  it("refuses an ack of a delivery another ship holds with 403 and its delivery code, DELIVERY_HELD_BY_ANOTHER_SHIP, so a ship can tell it from a refused crew token (#832)", async () => {
+    start();
+    const crewToken = crewedShip('scout');
+    const { shipId: otherShipId } = addAgentShip(core, { fleetId, name: 'lookout' });
+    crewShip(core, { fleetId, shipId: otherShipId });
+    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId: otherShipId, leaseId: openLeaseOf(core, otherShipId) });
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/ship/ack', headers: { authorization: `Bearer ${crewToken}` }, payload: { deliveryId } });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: 'DELIVERY_HELD_BY_ANOTHER_SHIP', message: `Delivery ${deliveryId} is held by another ship: only the ship that received it acknowledges it` });
+  });
+
+  it('refuses a hand-over of an acknowledged delivery at a higher number with 409 and its delivery code, DELIVERY_NOT_IN_FLIGHT (#832)', async () => {
+    start();
+    const { shipId } = addAgentShip(core, { fleetId, name: 'scout' });
+    const crewToken = crewShip(core, { fleetId, shipId });
+    const { deliveryId } = deliveryInFlight(core, { fleetId, shipId, leaseId: openLeaseOf(core, shipId) });
+    const authorization = `Bearer ${crewToken}`;
+    const handed = await server.inject({ method: 'POST', url: '/api/v1/ship/handed', headers: { authorization }, payload: { deliveryId, handOverNumber: 1 } });
+    const acknowledged = await server.inject({ method: 'POST', url: '/api/v1/ship/ack', headers: { authorization }, payload: { deliveryId } });
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/ship/handed', headers: { authorization }, payload: { deliveryId, handOverNumber: 2 } });
+
+    expect([handed.statusCode, acknowledged.statusCode]).toEqual([200, 200]);
+    expect(response.statusCode).toBe(409);
+    expect(z.object({ code: z.string() }).parse(response.json()).code).toBe('DELIVERY_NOT_IN_FLIGHT');
   });
 
   it('refuses input that does not parse with 400, naming the field and what it must be', async () => {
