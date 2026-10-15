@@ -306,7 +306,7 @@ describe('the first squadron in the console', () => {
 
     await expect.poll(() => page.locator('[data-testid^="fleet-row-"]').count()).toBe(2);
     await page.getByTestId(`fleet-row-${flagship.name}`).waitFor();
-    expect(page.url()).toContain(`squadron=${flagship.name}`);
+    await page.waitForURL(new RegExp(`squadron=${flagship.name}`));
   });
 
   it('searches and filters the Squadrons list, keeping the view in the URL', async () => {
