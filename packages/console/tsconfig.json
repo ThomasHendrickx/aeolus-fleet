@@ -6,6 +6,8 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "noEmit": true,
+    // The build scripts run under plain Node.js, which imports a script by its .ts name.
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "plugins": [{ "name": "next" }]
   },
