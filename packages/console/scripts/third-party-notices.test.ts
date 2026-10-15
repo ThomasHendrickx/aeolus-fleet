@@ -77,6 +77,22 @@ describe('the third-party notices of the console package', () => {
     expect(names(noticedPackages(places))).toEqual(['react']);
   });
 
+  it('give notice of the fonts the console self-hosts, with their licence', () => {
+    const places = aRepository({
+      'packages/console/package.json': { devDependencies: {} },
+      'packages/console/app/fonts/OFL.txt': 'Copyright (c) 2023 Vercel, in collaboration with basement.studio',
+    });
+
+    expect(noticedPackages(places)).toEqual([
+      {
+        name: 'Geist and Geist Mono fonts',
+        version: 'self-hosted',
+        license: 'OFL-1.1',
+        licenceTexts: ['Copyright (c) 2023 Vercel, in collaboration with basement.studio'],
+      },
+    ]);
+  });
+
   it('name each package with its version and licence, then its licence texts, or say it ships none', () => {
     const text = noticesText([
       { name: 'next', version: '16.3.8', license: 'MIT', licenceTexts: [MIT_TEXT] },
