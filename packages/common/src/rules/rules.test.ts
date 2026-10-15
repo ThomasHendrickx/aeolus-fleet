@@ -9,6 +9,8 @@ import {
   isLabelHandle,
   isShipHandle,
   LABEL_HANDLE_MAX_LENGTH,
+  newOperatorPasswordProblem,
+  OPERATOR_PASSWORD_MIN_LENGTH,
   PAYLOAD_MAX_BYTES,
   payloadBytes,
   SHIP_HANDLE_MAX_LENGTH,
@@ -79,5 +81,34 @@ describe('the sign-in checks', () => {
         expect(problems).toContain(issue.message);
       }
     }
+  });
+});
+
+describe('the new operator password check, for fleet:init and operator:reset-password', () => {
+  it('is 12 characters at least', () => {
+    expect(OPERATOR_PASSWORD_MIN_LENGTH).toBe(12);
+  });
+
+  it.each([
+    ['exactly 12 characters', 'p'.repeat(12)],
+    ['1024 characters', 'p'.repeat(1024)],
+  ])('finds nothing wrong with %s', (_label, password) => {
+    expect(newOperatorPasswordProblem(password)).toBeUndefined();
+  });
+
+  it.each([
+    ['an empty password', ''],
+    ['one character', 'x'],
+    ['11 characters', 'p'.repeat(11)],
+  ])('refuses %s as too short', (_label, password) => {
+    expect(newOperatorPasswordProblem(password)).toBe('Use a password of at least 12 characters');
+  });
+
+  it('refuses 1025 characters as too long', () => {
+    expect(newOperatorPasswordProblem('p'.repeat(1025))).toBe('Use a password of at most 1024 characters');
+  });
+
+  it('leaves sign-in alone: a shorter password set before still signs in', () => {
+    expect(signInPasswordProblem('x')).toBeUndefined();
   });
 });

@@ -159,6 +159,25 @@ describe('fleet:init', () => {
     expect(initialiseFleet).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was created.']);
   });
+
+  it('refuses a password shorter than 12 characters and creates nothing', async () => {
+    const io = scriptedIo(['thomas@example.com', 'eleven char', 'eleven char']);
+    const initialiseFleet = vi.fn(initialised);
+
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(1);
+
+    expect(initialiseFleet).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['Use a password of at least 12 characters. Nothing was created.']);
+  });
+
+  it('takes a password of exactly 12 characters', async () => {
+    const io = scriptedIo(['thomas@example.com', 'twelve chars', 'twelve chars']);
+    const initialiseFleet = vi.fn(initialised);
+
+    await expect(fleetInit(['--name', 'home fleet'], { initialiseFleet, listFleets: noFleets, io })).resolves.toBe(0);
+
+    expect(initialiseFleet).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('fleet:init with a fleet already there', () => {

@@ -152,4 +152,27 @@ describe('operator:reset-password', () => {
     expect(resetOperatorPassword).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was changed.']);
   });
+
+  it('refuses a new password shorter than 12 characters and changes nothing', async () => {
+    const io = scriptedIo(['eleven char', 'eleven char']);
+    const resetOperatorPassword = vi.fn(reset);
+
+    await expect(
+      operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword, io }),
+    ).resolves.toBe(1);
+
+    expect(resetOperatorPassword).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['Use a password of at least 12 characters. Nothing was changed.']);
+  });
+
+  it('takes a new password of exactly 12 characters', async () => {
+    const io = scriptedIo(['twelve chars', 'twelve chars']);
+    const resetOperatorPassword = vi.fn(reset);
+
+    await expect(
+      operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword, io }),
+    ).resolves.toBe(0);
+
+    expect(resetOperatorPassword).toHaveBeenCalledTimes(1);
+  });
 });

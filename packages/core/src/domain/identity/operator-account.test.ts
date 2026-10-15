@@ -42,20 +42,28 @@ describe('normaliseEmail', () => {
 
 describe('operatorPassword', () => {
   it.each([
-    ['one character', 'x'],
+    ['exactly 12 characters', 'p'.repeat(12)],
     ['spaces, kept as typed', '  correct horse battery staple  '],
     ['1024 characters', 'p'.repeat(1024)],
-  ])('takes any password: %s', (_label, raw) => {
+  ])('takes a password of 12 to 1024 characters: %s', (_label, raw) => {
     expect(operatorPassword(raw)).toEqual({ isOk: true, value: raw });
   });
 
   it.each([
     ['an empty password', ''],
-    ['1025 characters', 'p'.repeat(1025)],
-  ])('refuses %s', (_label, raw) => {
+    ['one character', 'x'],
+    ['11 characters', 'p'.repeat(11)],
+  ])('refuses a password shorter than 12 characters: %s', (_label, raw) => {
     expect(operatorPassword(raw)).toEqual({
       isOk: false,
-      error: { kind: 'INVALID_PASSWORD', message: 'A password is 1 to 1024 characters' },
+      error: { kind: 'INVALID_PASSWORD', message: 'Use a password of at least 12 characters' },
+    });
+  });
+
+  it('refuses 1025 characters', () => {
+    expect(operatorPassword('p'.repeat(1025))).toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_PASSWORD', message: 'Use a password of at most 1024 characters' },
     });
   });
 });
