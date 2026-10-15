@@ -3,7 +3,7 @@
 import { Tag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { startTransition, useOptimistic, useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
@@ -31,8 +31,10 @@ import { usePluginNav } from '../../lib/plugin-nav';
 /**
  * The fleet overview, live: every ship with its status, where it runs and its
  * actions, updated as the fleet changes, without a reload. Search and filters
- * live in the URL, read on the web app's server (page.tsx). Without a session
- * it sends the operator to sign in.
+ * live in the URL, read on the web app's server (page.tsx); while the URL
+ * changes, the view shows what was picked already, so a second pick right
+ * after the first adds to it (#815). Without a session it sends the operator
+ * to sign in.
  */
 export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isCommissionAsked: boolean }) {
   const router = useRouter();
@@ -44,11 +46,15 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
   const access = useAccess();
   const pluginNav = usePluginNav();
   const [isCommissioning, setIsCommissioning] = useState(false);
+  const [shownView, setShownView] = useOptimistic(view);
   useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
 
   const changeView = (next: FleetView) => {
     const params = fleetViewParams(next).toString();
-    router.replace(params === '' ? '/' : `/?${params}`, { scroll: false });
+    startTransition(() => {
+      setShownView(next);
+      router.replace(params === '' ? '/' : `/?${params}`, { scroll: false });
+    });
   };
 
   return (
@@ -81,7 +87,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
       <FleetLimits />
       <OverviewMetrics />
       <FleetOverview
-        view={view}
+        view={shownView}
         onViewChange={changeView}
         newShipIds={liveFleet.newShipIds}
         renderRowActions={(ship, layout) => (

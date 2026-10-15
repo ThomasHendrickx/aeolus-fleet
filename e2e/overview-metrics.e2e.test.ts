@@ -124,7 +124,7 @@ describe('the phone filters', () => {
     await page.getByTestId('fleet-card-builder').waitFor();
 
     await page.getByRole('button', { name: 'Filter ships' }).click();
-    await page.getByRole('radio', { name: 'Awaiting crew' }).click();
+    await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Awaiting crew' }).click();
     await page.getByRole('button', { name: 'Show 1 ship' }).click();
 
     await page.getByTestId('fleet-filter-chips').getByText('Status: Awaiting crew').waitFor();

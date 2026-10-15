@@ -17,7 +17,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 
 // The overview's Kind filter and sortable headers, end to end: a ship crewed
 // from Claude Code, one from Codex and a trierarch's; the filter keeps one
-// kind, on desktop and in the phone's Sheet, and a header sorts the rows.
+// kind or several (#815), on desktop and in the phone's Sheet, and a header
+// sorts the rows.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 
@@ -89,16 +90,47 @@ describe('the Kind filter', () => {
     await expect(rowNames(page)).resolves.toEqual(['reviewer']);
   });
 
+  it('keeps the ships crewed from Claude Code or Codex when both are picked, and keeps both in the URL', async () => {
+    const page = await signedIn();
+    await page.getByTestId('fleet-row-trierarch-mac').waitFor();
+
+    await page.getByTestId('fleet-filter-kind').click();
+    await page.getByRole('option', { name: 'Claude Code' }).click();
+    await page.getByRole('option', { name: 'Codex' }).click();
+    await page.waitForURL(/kind=claudeCode&kind=codex/);
+    await page.keyboard.press('Escape');
+
+    await expect(rowNames(page)).resolves.toEqual(['builder', 'reviewer']);
+    await page.reload();
+    await page.getByTestId('fleet-row-builder').waitFor();
+    await expect(rowNames(page)).resolves.toEqual(['builder', 'reviewer']);
+    await expect(page.getByTestId('fleet-filter-kind').textContent()).resolves.toBe('Kind2 picked');
+  });
+
   it('keeps only the trierarchs from the phone Sheet', async () => {
     const page = await signedIn(PHONE);
     await page.getByTestId('fleet-card-builder').waitFor();
 
     await page.getByTestId('fleet-filters-open').click();
-    await page.getByRole('radiogroup', { name: 'Kind' }).getByRole('radio', { name: 'Trierarch' }).click();
+    await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Trierarch' }).click();
     await page.getByTestId('fleet-filters-apply').click();
     await page.getByTestId('fleet-filter-chips').getByText('Kind: Trierarch').waitFor();
 
     await expect(page.getByRole('list', { name: 'Ships' }).getByRole('listitem').count()).resolves.toBe(1);
+  });
+
+  it('keeps the ships crewed from Claude Code or Codex when both are picked in the phone Sheet', async () => {
+    const page = await signedIn(PHONE);
+    await page.getByTestId('fleet-card-builder').waitFor();
+
+    await page.getByTestId('fleet-filters-open').click();
+    const kinds = page.getByRole('group', { name: 'Kind' });
+    await kinds.getByRole('button', { name: 'Claude Code' }).click();
+    await kinds.getByRole('button', { name: 'Codex' }).click();
+    await page.getByTestId('fleet-filters-apply').click();
+    await page.getByTestId('fleet-filter-chips').getByText('Kind: Claude Code, Codex').waitFor();
+
+    await expect(page.getByRole('list', { name: 'Ships' }).getByRole('listitem').count()).resolves.toBe(2);
   });
 });
 

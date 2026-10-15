@@ -49,7 +49,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Toast: confirms a finished action or offers one follow-up (View, Try again, Copy id). Never validation, never the only record. Must act, or state persists → inline instead.
 - DropdownMenu: desktop only; phone opens the same items in a bottom Sheet. Items that open a dialog end with "…".
 - Tooltip: extra detail only, never the sole place for information; none on phone.
-- Select: short closed list. Combobox: search helps (ships, types). Tabs segmented: views of one list. Tabs line: page sections (Squadrons, Blueprints, Templates). Switch: instant setting. Checkbox: multi-select and FleetScopes only.
+- Select: short closed list; an overview filter's Select picks several values. Combobox: search helps (ships, types). Tabs segmented: views of one list. Tabs line: page sections (Squadrons, Blueprints, Templates). Switch: instant setting. Checkbox: multi-select in forms and FleetScopes only.
 - Buttons: max one primary per view (page, Dialog, Sheet); others secondary; tertiary ghost. Destructive variant only for the final confirm of an irreversible action, never in a page toolbar.
 - Button order: desktop footers right-aligned, Cancel left of the action; phone stacked full width, action on top, Cancel last.
 - AccountMenu is the only home for the signed-in person: identity, this session, Account settings, Theme, Sign out. Future account features go here, never into page chrome. Desktop: Sidebar foot, DropdownMenu opening upwards. Phone: Avatar last in TopBar on every root page, bottom Sheet.
