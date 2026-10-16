@@ -27,27 +27,27 @@ describe('answerLabelOf', () => {
 
 describe('neighbourOf', () => {
   it('moves to the next row', () => {
-    expect(neighbourOf(ORDER, first, 'next')).toBe(second);
+    expect(neighbourOf(ORDER, { current: first, direction: 'next' })).toBe(second);
   });
 
   it('moves to the previous row', () => {
-    expect(neighbourOf(ORDER, second, 'previous')).toBe(first);
+    expect(neighbourOf(ORDER, { current: second, direction: 'previous' })).toBe(first);
   });
 
   it('stays at the last row going on', () => {
-    expect(neighbourOf(ORDER, third, 'next')).toBe(third);
+    expect(neighbourOf(ORDER, { current: third, direction: 'next' })).toBe(third);
   });
 
   it('stays at the first row going back', () => {
-    expect(neighbourOf(ORDER, first, 'previous')).toBe(first);
+    expect(neighbourOf(ORDER, { current: first, direction: 'previous' })).toBe(first);
   });
 
   it('starts at the first row with none open', () => {
-    expect(neighbourOf(ORDER, undefined, 'next')).toBe(first);
+    expect(neighbourOf(ORDER, { current: undefined, direction: 'next' })).toBe(first);
   });
 
   it('is undefined in an empty list', () => {
-    expect(neighbourOf([], undefined, 'next')).toBeUndefined();
+    expect(neighbourOf([], { current: undefined, direction: 'next' })).toBeUndefined();
   });
 });
 

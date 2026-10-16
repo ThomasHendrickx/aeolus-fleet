@@ -4,7 +4,7 @@ import { useSubscription } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
 import type { LiveState } from '../components/molecules/live-status';
-import { QUESTIONS_KEY } from './questions';
+import { INBOX_KEY } from './inbox';
 import { useTRPC } from './trpc';
 
 /**
@@ -124,6 +124,7 @@ export function useLiveFleet(): LiveFleet {
         onData: ({ data: item }) => {
           if (item.kind === 'resync') {
             reload(trpc.fleet.pathKey());
+            reload(INBOX_KEY);
             return;
           }
           const { event } = item;
@@ -142,7 +143,7 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.overdue.queryKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
-            reload(QUESTIONS_KEY);
+            reload(INBOX_KEY);
             // A send to a type, or a ship taking one, changes what no ship can take.
             reload(trpc.fleet.noShipCanTake.queryKey());
           }

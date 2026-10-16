@@ -13,7 +13,6 @@ describe('the navigation marks where the operator is', () => {
     { path: '/squadrons/blueprints/review', destination: 'squadrons' },
     { path: '/trierarchs', destination: 'trierarchs' },
     { path: '/trierarchs/shp_02', destination: 'trierarchs' },
-    { path: '/questions', destination: 'questions' },
     { path: '/inbox', destination: 'inbox' },
     { path: '/needs-attention', destination: 'attention' },
     { path: '/network', destination: 'network' },

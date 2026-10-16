@@ -15,7 +15,7 @@ export function answerLabelOf({ option, hasNote }: { option: string | undefined;
 }
 
 /** The row before or after the open one, staying at either end; the first row when none is open. */
-export function neighbourOf(order: readonly DeliveryId[], current: DeliveryId | undefined, direction: 'next' | 'previous'): DeliveryId | undefined {
+export function neighbourOf(order: readonly DeliveryId[], { current, direction }: { current: DeliveryId | undefined; direction: 'next' | 'previous' }): DeliveryId | undefined {
   const at = current === undefined ? -1 : order.indexOf(current);
   if (at === -1) {
     return order[0];

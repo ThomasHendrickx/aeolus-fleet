@@ -7,7 +7,7 @@ import type { Staleness } from './questions';
  * One entry of argo's inbox as the web app's server reads it (#849, decisions
  * 0033 and 0038): a question with its answer and staleness, or a message laid
  * out for reading. Withdrawals that made a question stale are left out. The
- * browser imports only these types.
+ * browser imports only these types, and what is open.
  */
 
 export interface InboxSender {
@@ -49,3 +49,11 @@ export interface MessageEntry extends EntryBase {
 }
 
 export type InboxEntry = QuestionEntry | MessageEntry;
+
+/**
+ * What waits on the operator: a question until it is answered or stale,
+ * whatever its delivery's state (decision 0038); a message until it is done.
+ */
+export function isOpenEntry(entry: InboxEntry): boolean {
+  return entry.kind === 'question' ? entry.question.answer === null && entry.stale === null : entry.state !== 'acknowledged';
+}

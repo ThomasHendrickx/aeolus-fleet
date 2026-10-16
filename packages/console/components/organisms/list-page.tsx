@@ -26,6 +26,8 @@ interface ListPageProps {
   account: AccountMenuProps;
   /** The installation's notices for this session, above the page on desktop and phone. */
   banner?: ReactNode;
+  /** A TopBar of the page's own on phone, in place of the root one: an open inbox message's, in detail mode. */
+  phoneTopBar?: ReactNode;
   children: ReactNode;
 }
 
@@ -36,11 +38,12 @@ interface ListPageProps {
  * toolbar sits under it and the list fills the rest. On phone the TopBar
  * carries the title, and the TabBar's height is kept free at the bottom.
  */
-export function ListPage({ title, description, titleMeta, primaryAction, toolbar, live, onCompose, onSearch, account, banner, children }: ListPageProps) {
+export function ListPage({ title, description, titleMeta, primaryAction, toolbar, live, onCompose, onSearch, account, banner, phoneTopBar, children }: ListPageProps) {
   return (
     <>
       <Header breadcrumb={title} live={live} onCompose={onCompose} onSearch={onSearch} />
       {banner}
+      {phoneTopBar ?? (
       <TopBar
         title={title}
         live={live}
@@ -61,6 +64,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, toolbar
           ) : undefined
         }
       />
+      )}
       <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
         <div className="flex flex-wrap items-start justify-between gap-4 max-sm:gap-3">
           <div className="flex min-w-0 flex-col gap-1">

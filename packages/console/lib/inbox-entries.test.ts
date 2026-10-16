@@ -1,7 +1,8 @@
-import { createIdGenerator, QUESTION_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type InboxMessage, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type InboxMessage, type ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { inboxEntriesOf } from './inbox-entries';
+import { isOpenEntry } from './inbox-entry';
 
 const newId = createIdGenerator();
 const AT = '2026-10-16T09:00:00.000Z';
@@ -95,5 +96,21 @@ describe('inboxEntriesOf', () => {
     const [entry] = inboxEntriesOf([message], SHIPS);
 
     expect(entry?.kind === 'message' ? entry.replies.map(({ text }) => text.headline) : []).toEqual(['Go.']);
+  });
+
+  it('counts neither a stale question nor its withdrawal as open, though their deliveries stay pending; the replacement is open', () => {
+    const replaced = { ...QUESTION, id: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e', title: 'Rename the inbox filter?' };
+    const replacement = { ...QUESTION, id: '9b2e4d6f-1a3c-4e5b-8d7f-0c2a4e6b8d1f', title: 'Rename the inbox filter, now that core moved?' };
+    const inbox = [
+      aMessage({ payload: 'Deployed.' }),
+      aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION) }),
+      aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(replaced) }),
+      aMessage({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id }) }),
+      aMessage({ contentType: REPLACEMENT_CONTENT_TYPE, payload: JSON.stringify({ questionId: replaced.id, question: replacement }) }),
+    ];
+
+    const open = inboxEntriesOf(inbox, SHIPS).filter(isOpenEntry);
+
+    expect(open.map((entry) => (entry.kind === 'question' ? entry.question.title : entry.text.headline))).toEqual(['Deployed.', 'Rename the inbox filter, now that core moved?']);
   });
 });

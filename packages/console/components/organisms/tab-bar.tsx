@@ -1,18 +1,16 @@
-import { CircleHelp, Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'questions' | 'inbox' | 'attention';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
   active: TabBarDestination | undefined;
-  /** Open questions to argo; hidden until known, and when there are none. */
-  questionsCount?: number;
-  /** Open messages to argo, questions left out; hidden until known, and when there are none. */
+  /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
@@ -67,20 +65,22 @@ function Tab({
 
 /**
  * Phone navigation (docs/design/png/TabBar.png): 68 px including the safe
- * area, the same destinations and counts as Sidebar: Fleet; Questions with
- * the open questions to argo and Inbox with its other open messages, each
- * counted on its icon in --primary; and Attention with
+ * area, the same destinations and counts as Sidebar: Fleet; Inbox with its
+ * open questions and open messages counted on its icon in --primary; and
+ * Attention with
  * the undeliverable deliveries counted in the attention tone. With squadrons
  * on, Squadrons is the second tab; with the trierarch plugin on, Trierarchs
  * follows it. Settings and Network have no tab: the account sheet offers them.
- * The active tab uses --primary for icon and label.
+ * The active tab uses --primary for icon and label. It hides while a page
+ * pins its own bar to the bottom, marked data-hides-tab-bar (an open inbox
+ * question or message).
  */
-export function TabBar({ active, questionsCount, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
+export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
       data-slot="tab-bar"
-      className="fixed inset-x-0 bottom-0 z-40 flex min-h-(--size-tabbar) border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex min-h-(--size-tabbar) border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden [body:has([data-hides-tab-bar])_&]:hidden"
     >
       <Tab href="/" label="Fleet" icon={<Ship aria-hidden />} isActive={active === 'fleet'} testId="tab-fleet" />
       {hasSquadrons && <Tab href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="tab-squadrons" />}
@@ -94,14 +94,6 @@ export function TabBar({ active, questionsCount, inboxCount, attentionCount, has
           count={{ value: trierarchsCount, tone: 'attention', words: 'silent' }}
         />
       )}
-      <Tab
-        href="/questions"
-        label="Questions"
-        icon={<CircleHelp aria-hidden />}
-        isActive={active === 'questions'}
-        testId="tab-questions"
-        count={{ value: questionsCount, tone: 'primary', words: 'open' }}
-      />
       <Tab
         href="/inbox"
         label="Inbox"

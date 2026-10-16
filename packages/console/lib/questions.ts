@@ -1,20 +1,10 @@
-'use client';
-
-import type { AnswerChoice, DeliveryId, InboxMessage, InboxQuestion } from '@aeolus-fleet/common';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-
-import { useConsoleRead } from './console-read-query';
-import { fetchConsoleRead } from './fetch-console-read';
-import { dataOf } from './plugin-answer';
-import { answerQuestion } from './questions-actions';
-import { useTRPC } from './trpc';
+import type { DeliveryId, InboxMessage, InboxQuestion } from '@aeolus-fleet/common';
 
 /**
- * Questions to argo as the browser reads them (decision 0038): the messages
- * in argo's inbox that the web app's server read as questions, through a
- * console read (lib/questions-reads.ts); answers go through a server function
- * (lib/questions-actions.ts). A question is open until argo answered it,
- * whatever its delivery's state; the inbox page leaves them out.
+ * Questions to argo (decision 0038) as the web app's server reads them from
+ * argo's inbox (lib/question-answer.ts): each with its answer, why it is
+ * stale and the question a replacement replaces. The inbox shows them on top
+ * (#849); answers go through a server function (lib/questions-actions.ts).
  */
 
 /**
@@ -36,88 +26,7 @@ export type QuestionMessage = Omit<InboxMessage, 'replies'> & {
   replaces: { deliveryId: DeliveryId; title: string } | null;
 };
 
-/** The questions read's key, which a live inbox change reloads (lib/live-fleet.ts). */
-export const QUESTIONS_KEY = ['questions'];
-
-/** Open: not answered and not stale. Answered: argo sent its answer. Stale: withdrawn or replaced. All: every question. */
-export const QUESTION_FILTERS = ['open', 'answered', 'stale', 'all'] as const;
-export type QuestionFilter = (typeof QUESTION_FILTERS)[number];
-
-/** The questions a filter keeps, in the server's order. */
-export function questionsFor<T extends Pick<QuestionMessage, 'question'> & { stale: unknown }>(questions: readonly T[], filter: QuestionFilter): T[] {
-  switch (filter) {
-    case 'open':
-      return questions.filter((message) => message.question.answer === null && message.stale === null);
-    case 'answered':
-      return questions.filter((message) => message.question.answer !== null);
-    case 'stale':
-      return questions.filter((message) => message.stale !== null);
-    case 'all':
-      return [...questions];
-  }
-}
-
-/** The count beside each filter. */
-export function questionFilterCounts(questions: readonly (Pick<QuestionMessage, 'question'> & { stale: unknown })[]): Record<QuestionFilter, number> {
-  return {
-    open: questionsFor(questions, 'open').length,
-    answered: questionsFor(questions, 'answered').length,
-    stale: questionsFor(questions, 'stale').length,
-    all: questions.length,
-  };
-}
-
-/** The questions filter in the URL; Open unless it says otherwise. */
-export function readQuestionFilter(value: string | undefined): QuestionFilter {
-  return value === 'answered' || value === 'stale' || value === 'all' ? value : 'open';
-}
-
-/** The questions page's path for a filter and an open question. */
-export function questionsPathOf(view: { filter: QuestionFilter; deliveryId?: DeliveryId }): string {
-  const params = new URLSearchParams();
-  if (view.filter !== 'open') {
-    params.set('filter', view.filter);
-  }
-  if (view.deliveryId !== undefined) {
-    params.set('question', view.deliveryId);
-  }
-  const query = params.toString();
-  return query === '' ? '/questions' : `/questions?${query}`;
-}
-
-/** Every question to argo, newest first, as the web app's server read them. */
-export function useQuestions() {
-  return useConsoleRead({ queryKey: QUESTIONS_KEY, queryFn: () => fetchConsoleRead({ read: 'questions' }) });
-}
-
-/** The deliveries that carry questions, and the withdrawals that made one stale: the inbox leaves them out. */
+/** The deliveries that carry questions, and the withdrawals that made one stale: the inbox shows no message for them. */
 export function questionDeliveryIdsOf(questions: readonly { deliveryId: DeliveryId; stale: { kind: Staleness['kind']; deliveryId: DeliveryId } | null }[]): ReadonlySet<DeliveryId> {
   return new Set(questions.flatMap(({ deliveryId, stale }) => (stale?.kind === 'withdrawn' ? [deliveryId, stale.deliveryId] : [deliveryId])));
-}
-
-/** The deliveries the questions page shows, which the inbox leaves out; undefined until known. */
-export function useQuestionDeliveryIds(): ReadonlySet<DeliveryId> | undefined {
-  const questions = useQuestions().data;
-  return questions === undefined ? undefined : questionDeliveryIdsOf(questions);
-}
-
-/** How many questions to argo are open, for the navigation; undefined until known. */
-export function useOpenQuestionCount(): number | undefined {
-  const questions = useQuestions().data;
-  return questions === undefined ? undefined : questionsFor(questions, 'open').length;
-}
-
-/** Answers a question to argo, which also marks its message done. */
-export function useAnswer() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { deliveryId: DeliveryId; answer: AnswerChoice; idempotencyKey: string }) => dataOf(await answerQuestion(input)),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUESTIONS_KEY }),
-        queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() }),
-      ]);
-    },
-  });
 }

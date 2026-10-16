@@ -1,6 +1,6 @@
 import type { InboxFilter } from '@aeolus-fleet/common';
 
-import type { InboxEntry, MessageEntry, QuestionEntry } from '../../../lib/inbox-entry';
+import { isOpenEntry as isOpen, type InboxEntry, type MessageEntry, type QuestionEntry } from '../../../lib/inbox-entry';
 import { duration } from '../../../lib/relative-time';
 
 /**
@@ -15,10 +15,6 @@ export interface InboxView {
   questions: QuestionEntry[];
   messages: MessageEntry[];
   pluginMessages: MessageEntry[];
-}
-
-export function isOpen(entry: InboxEntry): boolean {
-  return entry.kind === 'question' ? entry.question.answer === null && entry.stale === null : entry.state !== 'acknowledged';
 }
 
 function oldestFirst<T extends InboxEntry>(entries: readonly T[]): T[] {
