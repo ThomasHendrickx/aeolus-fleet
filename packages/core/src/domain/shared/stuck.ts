@@ -5,9 +5,10 @@
  * days count alike. Facts only: no thresholds of its own beyond the clocks the
  * pushed leases already run (decision 0040).
  */
-import type { DeliveryId, DeliveryState, LeaseId, ShipId, TurnState } from '@aeolus-fleet/common';
+import { isId, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type ShipId, type TurnState } from '@aeolus-fleet/common';
 
 import { hasClockRunOut, NOT_CONFIRMED_MINUTES } from '../messaging/public.js';
+import type { FleetEvent } from './events.js';
 import type { Recipient } from './selector.js';
 
 const MINUTE_MS = 60_000;
@@ -68,6 +69,29 @@ export interface DeliveryStep {
   at: Date;
   shipId: ShipId | null;
   leaseId: LeaseId | null;
+}
+
+/** The state each delivery event puts its delivery in. */
+const STEP_STATES: Partial<Record<EventType, DeliveryState>> = {
+  DeliveryReceived: 'received',
+  DeliveryHanded: 'handed',
+  DeliveryReturned: 'pending',
+  DeliveryAcknowledged: 'acknowledged',
+  DeliveryHandled: 'handled',
+  DeliveryNotHandled: 'notHandled',
+  DeliveryUndeliverable: 'undeliverable',
+  DeliveryDismissed: 'dismissed',
+  DeliveryAbandoned: 'abandoned',
+};
+
+/** The step a delivery event is, or none for an event that changes no state: a receipt again, a hand-over once more, or no delivery event at all. */
+export function deliveryStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shipId' | 'details'>): DeliveryStep | undefined {
+  const state = STEP_STATES[event.type];
+  if (state === undefined || event.details.again === true || event.details.onceMore === true) {
+    return undefined;
+  }
+  const { leaseId } = event.details;
+  return { state, at: event.occurredAt, shipId: event.shipId ?? null, leaseId: isId(leaseId, 'lease') ? leaseId : null };
 }
 
 /** A delivery, pending from when it was sent, then through its steps oldest first. */
