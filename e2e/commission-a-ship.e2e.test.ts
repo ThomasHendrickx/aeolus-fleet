@@ -173,6 +173,7 @@ describe('commissioning a ship in the console', () => {
     const page = await signedInPage();
     await fillCommission(page, { name: 'squad-manager', type: 'squadron' });
     const dialog = page.getByTestId('commission-dialog');
+    await dialog.getByText('Read the fleet, every message included').waitFor();
     await dialog.getByTestId('commission-fleet-read').click();
     await dialog.getByTestId('commission-fleet-manage').click();
 

@@ -41,6 +41,12 @@ export const Commissioning: Story = { args: { isPending: true } };
 export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
 /** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
 export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
+/** Fleet access: reading the fleet includes every message's payload, so its switch says so. */
+export const FleetAccess: Story = {
+  play: async () => {
+    await expect(await screen.findByText('Read the fleet, every message included')).toBeVisible();
+  },
+};
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** With the trierarch plugin on: Request a crew carries the crew request's settings. */
