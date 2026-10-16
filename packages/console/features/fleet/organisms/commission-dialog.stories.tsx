@@ -44,7 +44,10 @@ export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://
 /** Fleet access: reading the fleet includes every message's payload, so its switch says so. */
 export const FleetAccess: Story = {
   play: async () => {
-    await expect(await screen.findByText('Read the fleet, every message included')).toBeVisible();
+    const label = await screen.findByText('Read the fleet, every message included');
+    await waitFor(async () => {
+      await expect(label).toBeVisible();
+    });
   },
 };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
