@@ -76,6 +76,16 @@ describe('inboxEntriesOf', () => {
     expect(entries.map(({ deliveryId }) => deliveryId)).toEqual([question.deliveryId]);
   });
 
+  it('reads a question whose options have no detail as a question, and leaves out its withdrawal (#854)', () => {
+    const bare = { ...QUESTION, options: [{ key: 1, label: 'Keep 3000' }, { key: 2, label: 'Move to 4000' }] };
+    const question = aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(bare, null, 2) });
+    const withdrawal = aMessage({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: bare.id }) });
+
+    const entries = inboxEntriesOf([withdrawal, question], SHIPS);
+
+    expect(entries.map(({ kind, deliveryId }) => [kind, deliveryId])).toEqual([['question', question.deliveryId]]);
+  });
+
   it('says a sender name is shared when another ship of the fleet has it', () => {
     const retiredNamesake = { id: newId('ship'), name: 'orchestrator-2', type: 'orchestrator' };
 
