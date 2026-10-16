@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import type { PluginAnswer } from './plugin-answer';
 import { answerReplyOf } from './question-answer';
-import { callFleet, readArgoInbox } from './questions-reads';
+import { callFleet, readArgoInbox } from './inbox-reads';
 
 /**
  * Answering a question to argo as the browser reaches it (decisions 0033,

@@ -1,65 +1,40 @@
-import type { DeliveryId, InboxFilter, InboxMessage } from '@aeolus-fleet/common';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+'use client';
 
-import { useQuestionDeliveryIds } from './questions';
+import type { AnswerChoice, DeliveryId, InboxFilter } from '@aeolus-fleet/common';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useConsoleRead } from './console-read-query';
+import { fetchConsoleRead } from './fetch-console-read';
+import { isOpenEntry } from './inbox-entry';
+import { dataOf } from './plugin-answer';
+import { answerQuestion } from './questions-actions';
 import { useTRPC } from './trpc';
 
 /**
- * argo's inbox, every message to it: one live query, which the page filters
- * and the navigation counts, so a change reloads it once.
+ * argo's one inbox as the browser reads it (#849): the questions and messages
+ * the web app's server laid out (lib/inbox-reads.ts), one live read that the
+ * page shows and the navigation counts, and what acts on them.
  */
-export function useInbox() {
-  const trpc = useTRPC();
-  return useQuery(trpc.fleet.inbox.queryOptions({ filter: 'all' }));
+
+/** The inbox read's key, which a live message change reloads (lib/live-fleet.ts). */
+export const INBOX_KEY = ['inbox'];
+
+/** Every question and message to argo, as the web app's server laid them out. */
+export function useInboxEntries() {
+  return useConsoleRead({ queryKey: INBOX_KEY, queryFn: () => fetchConsoleRead({ read: 'inbox' }) });
 }
 
-/** How many messages to argo are open, questions left out, for the navigation; undefined until known. */
+/** What waits on the operator, open questions and open messages together, for the navigation; undefined until known. */
 export function useOpenInboxCount(): number | undefined {
-  const messages = useInbox().data;
-  const questionIds = useQuestionDeliveryIds();
-  return messages === undefined || questionIds === undefined ? undefined : isOpenCount(plainMessagesOf(messages, questionIds));
+  return useInboxEntries().data?.filter(isOpenEntry).length;
 }
 
-/** The messages to argo that carry no question: the inbox page's; questions have their own (decision 0038). */
-export function plainMessagesOf<T extends Pick<InboxMessage, 'deliveryId'>>(messages: readonly T[], questionIds: ReadonlySet<DeliveryId>): T[] {
-  return messages.filter((message) => !questionIds.has(message.deliveryId));
-}
-
-function isOpen(message: Pick<InboxMessage, 'state'>): boolean {
-  return message.state === 'pending' || message.state === 'handed';
-}
-
-function isOpenCount(messages: readonly Pick<InboxMessage, 'state'>[]): number {
-  return messages.filter(isOpen).length;
-}
-
-/** The messages a filter keeps, in the server's order: open is not done yet, done is acknowledged. */
-export function messagesFor<T extends Pick<InboxMessage, 'state'>>(messages: readonly T[], filter: InboxFilter): T[] {
-  switch (filter) {
-    case 'open':
-      return messages.filter(isOpen);
-    case 'done':
-      return messages.filter((message) => message.state === 'acknowledged');
-    case 'all':
-      return [...messages];
-  }
-}
-
-/** The count beside each filter. */
-export function filterCounts(messages: readonly Pick<InboxMessage, 'state'>[]): Record<InboxFilter, number> {
-  return {
-    open: messagesFor(messages, 'open').length,
-    done: messagesFor(messages, 'done').length,
-    all: messages.length,
-  };
-}
-
-/** The inbox filter in the URL; Open unless it says otherwise. */
+/** The inbox segment in the URL; Open unless it says otherwise. */
 export function readInboxFilter(value: string | undefined): InboxFilter {
   return value === 'done' || value === 'all' ? value : 'open';
 }
 
-/** The inbox page's path for a filter and an open message. */
+/** The inbox page's path for a segment and an open question or message. */
 export function inboxPathOf(view: { filter: InboxFilter; deliveryId?: DeliveryId }): string {
   const params = new URLSearchParams();
   if (view.filter !== 'open') {
@@ -73,29 +48,40 @@ export function inboxPathOf(view: { filter: InboxFilter; deliveryId?: DeliveryId
 }
 
 /** Refreshes the inbox, and every ship page read, after an inbox action. */
-function useRefreshFleet(): () => Promise<void> {
+function useRefreshInbox(): () => Promise<void> {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() });
+  return async () => {
+    await Promise.all([queryClient.invalidateQueries({ queryKey: INBOX_KEY }), queryClient.invalidateQueries({ queryKey: trpc.fleet.pathKey() })]);
+  };
 }
 
 /** Marks a message to argo read or unread. */
 export function useMarkRead() {
   const trpc = useTRPC();
-  const refresh = useRefreshFleet();
+  const refresh = useRefreshInbox();
   return useMutation(trpc.fleet.markRead.mutationOptions({ onSuccess: refresh }));
 }
 
 /** Marks a message to argo done. */
 export function useMarkDone() {
   const trpc = useTRPC();
-  const refresh = useRefreshFleet();
+  const refresh = useRefreshInbox();
   return useMutation(trpc.fleet.markDone.mutationOptions({ onSuccess: refresh }));
 }
 
 /** Replies to a message to argo, which also marks it done. */
 export function useReply() {
   const trpc = useTRPC();
-  const refresh = useRefreshFleet();
+  const refresh = useRefreshInbox();
   return useMutation(trpc.fleet.reply.mutationOptions({ onSuccess: refresh }));
+}
+
+/** Answers a question to argo, which also marks its message done. */
+export function useAnswer() {
+  const refresh = useRefreshInbox();
+  return useMutation({
+    mutationFn: async (input: { deliveryId: DeliveryId; answer: AnswerChoice; idempotencyKey: string }) => dataOf(await answerQuestion(input)),
+    onSuccess: refresh,
+  });
 }

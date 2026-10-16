@@ -14,7 +14,6 @@ import { ConsoleFrameContext, destinationOf } from '../../lib/console-frame';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useAttentionCount } from '../../lib/needs-attention';
 import { useNow } from '../../lib/now';
-import { useOpenQuestionCount } from '../../lib/questions';
 import { usePluginNav } from '../../lib/plugin-nav';
 
 /**
@@ -27,7 +26,6 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   const now = useNow();
   const account = useAccountMenu(now);
   const access = useAccess();
-  const questionsCount = useOpenQuestionCount();
   const inboxCount = useOpenInboxCount();
   const attentionCount = useAttentionCount();
   const pluginNav = usePluginNav();
@@ -54,7 +52,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, questionsCount, inboxCount, attentionCount, ...pluginNav }} account={account}>
+      <ConsoleFrame nav={{ active, inboxCount, attentionCount, ...pluginNav }} account={account}>
         {children}
       </ConsoleFrame>
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />

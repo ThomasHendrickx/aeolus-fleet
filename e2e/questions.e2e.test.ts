@@ -22,10 +22,11 @@ import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/test/support/keys.js';
 
-// Questions to argo, end to end (decision 0038): a ship's session asks argo a
-// question over the REST API, it shows live on Questions with its count and
-// not in the inbox, the operator picks an option with a note, and the asking
-// ship receives the answer as a reply to its question, which shows answered.
+// Questions to argo, end to end (decision 0038, #849): a ship's session asks
+// argo a question over the REST API, it shows live on top of the inbox with
+// its count, the asker's pick chosen, the operator answers it with a note, and
+// the asking ship receives the answer as a reply to its question, which shows
+// answered under Done.
 // The asking ship withdraws or replaces a question by its uuid; it shows
 // stale, can't be answered, and links to its replacement. A ship crewed with
 // the aeolus plugin does all of it with aeolus-ask.sh (#684).
@@ -178,14 +179,14 @@ function visible(page: Page, testId: string) {
 }
 
 function questionRow(page: Page, title: string) {
-  return page.locator('[data-testid="questions-row"]:visible').filter({ hasText: title });
+  return page.locator('[data-testid="inbox-question-row"]:visible').filter({ hasText: title });
 }
 
 describe('questions to argo', () => {
-  it('shows a question live with its count, apart from the inbox; the answer reaches the asking ship as a reply, and it shows answered', async () => {
+  it('shows a question live on top of the inbox with its count and the pick chosen; the answer reaches the asking ship as a reply, and it shows answered', async () => {
     const implementer = await crewedOverRest({ name: 'implementer-b', type: 'implementer' });
     const page = await signedInPage();
-    const navigation = page.getByTestId('nav-questions');
+    const navigation = page.getByTestId('nav-inbox');
     await navigation.waitFor();
 
     const asked = sentSchema.parse(
@@ -198,29 +199,30 @@ describe('questions to argo', () => {
     ).messageId;
 
     await navigation.getByText('1').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await expect(page.getByTestId('nav-inbox-count').count()).resolves.toBe(0);
     await navigation.click();
-    await page.waitForURL(`${web.url}/questions`);
+    await page.waitForURL(`${web.url}/inbox`);
     await questionRow(page, QUESTION.title).click();
-    const question = visible(page, 'questions-question');
-    await question.getByText('Why: Fewest changes.').waitFor();
-    await question.getByTestId('questions-option-2').getByText('2. Move to 4000').click();
-    await visible(page, 'questions-note').fill('Tell core first.');
-    await visible(page, 'questions-send').click();
+    const question = visible(page, 'inbox-question');
+    await question.getByText('Fewest changes.').waitFor();
+    await expect.poll(() => visible(page, 'inbox-answer').textContent()).toContain('Answer: Move to 4000');
+    await visible(page, 'inbox-note').fill('Tell core first.');
+    await expect.poll(() => visible(page, 'inbox-answer').textContent()).toContain('Answer: Move to 4000, with note');
+    await visible(page, 'inbox-answer').click();
 
     await questionRow(page, QUESTION.title).waitFor({ state: 'detached' });
-    await page.goto('/questions?filter=answered');
-    await questionRow(page, QUESTION.title).click();
-    await visible(page, 'questions-answered').getByText('2. Move to 4000', { exact: false }).waitFor();
+    await visible(page, 'inbox-answered').getByText('2. Move to 4000', { exact: false }).waitFor();
     const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
     expect(deliveries).toEqual([expect.objectContaining({ contentType: ANSWER_CONTENT_TYPE, inReplyTo: asked })]);
     expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: QUESTION.id, option: 2, note: 'Tell core first.' });
-    await expect(page.getByTestId('nav-questions-count').count()).resolves.toBe(0);
-    await page.goto('/inbox?filter=all');
+    await expect(page.getByTestId('nav-inbox-count').count()).resolves.toBe(0);
+    await page.goto('/inbox?filter=done');
+    await questionRow(page, QUESTION.title).click();
+    await visible(page, 'inbox-answered').waitFor();
+    await page.goto('/inbox');
     await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
   });
 
-  it('answers with a note alone, asking for more context', async () => {
+  it('answers with a note alone once the pick is taken back, asking for more context', async () => {
     const implementer = await crewedOverRest({ name: 'implementer-c', type: 'implementer' });
     const question = { ...QUESTION, id: '0a7d3c1e-2b4f-4c6a-8e9d-1f3b5a7c9e2d', title: 'Drop legacy_runs in migration 0042?' };
     await implementer.call('send', {
@@ -230,21 +232,20 @@ describe('questions to argo', () => {
       idempotencyKey: 'ask-migration',
     });
     const page = await signedInPage();
-    await page.goto('/questions');
+    await page.goto('/inbox');
     await questionRow(page, question.title).click();
 
-    await visible(page, 'questions-note').fill('Who still reads it?');
-    await visible(page, 'questions-send').click();
+    await visible(page, 'inbox-question').getByTestId('inbox-option-2').getByText('Move to 4000').click();
+    await visible(page, 'inbox-note').fill('Who still reads it?');
+    await expect.poll(() => visible(page, 'inbox-answer').textContent()).toContain('Send note');
+    await visible(page, 'inbox-answer').click();
 
-    await questionRow(page, question.title).waitFor({ state: 'detached' });
-    await page.goto('/questions?filter=answered');
-    await questionRow(page, question.title).click();
-    await visible(page, 'questions-answered').getByText('Who still reads it?').waitFor();
+    await visible(page, 'inbox-answered').getByText('Who still reads it?').waitFor();
     const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
     expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: question.id, note: 'Who still reads it?' });
   });
 
-  it('shows a question the asker withdrew or replaced as stale, not answerable, with the replacement linked and answerable', async () => {
+  it('shows a question the asker withdrew or replaced as stale under Done, not answerable, with the replacement linked and answerable', async () => {
     const implementer = await crewedOverRest({ name: 'implementer-d', type: 'implementer' });
     const withdrawn = { ...QUESTION, id: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e', title: 'Rename the inbox filter?' };
     const replaced = { ...QUESTION, id: '7e2a4c6b-8d0f-4a1c-b3e5-6f8a0c2e4b7d', title: 'Which port for the preview server?' };
@@ -254,7 +255,7 @@ describe('questions to argo', () => {
       await implementer.call('send', { selector: toArgo, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(question), idempotencyKey: `ask-${question.id}` });
     }
     const page = await signedInPage();
-    await page.goto('/questions');
+    await page.goto('/inbox');
     await questionRow(page, withdrawn.title).waitFor();
     await questionRow(page, replaced.title).waitFor();
 
@@ -274,26 +275,26 @@ describe('questions to argo', () => {
     await questionRow(page, withdrawn.title).waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
     await questionRow(page, replaced.title).waitFor({ state: 'detached' });
     await questionRow(page, replacement.title).waitFor();
-    await page.goto('/questions?filter=stale');
+    await expect(page.locator('[data-testid="inbox-row"]:visible').count()).resolves.toBe(0);
+    await page.goto('/inbox?filter=done');
     await questionRow(page, withdrawn.title).click();
-    await visible(page, 'questions-stale').getByText('Withdrawn by implementer-d', { exact: false }).waitFor();
-    await expect(visible(page, 'questions-send').count()).resolves.toBe(0);
+    await visible(page, 'inbox-stale').getByText('Withdrawn by implementer-d', { exact: false }).waitFor();
+    await expect(visible(page, 'inbox-answer').count()).resolves.toBe(0);
 
     await questionRow(page, replaced.title).click();
-    await visible(page, 'questions-stale').getByText('Replaced by implementer-d', { exact: false }).waitFor();
-    await expect(visible(page, 'questions-send').count()).resolves.toBe(0);
-    await visible(page, 'questions-replacement').getByText(replacement.title).click();
-    await page.waitForURL(/filter=all/);
-    const opened = visible(page, 'questions-question');
+    await visible(page, 'inbox-stale').getByText('Replaced by implementer-d', { exact: false }).waitFor();
+    await expect(visible(page, 'inbox-answer').count()).resolves.toBe(0);
+    await visible(page, 'inbox-replacement').getByText(replacement.title).click();
+    const opened = visible(page, 'inbox-question');
     await opened.getByRole('heading', { name: replacement.title }).waitFor();
-    await visible(page, 'questions-replaces').getByText(replaced.title).waitFor();
+    await visible(page, 'inbox-replaces').getByText(replaced.title).waitFor();
 
-    await opened.getByTestId('questions-option-1').getByText('1. Keep 3000').click();
-    await visible(page, 'questions-send').click();
-    await visible(page, 'questions-answered').waitFor();
+    await opened.getByTestId('inbox-option-1').getByText('Keep 3000').click();
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answered').waitFor();
     const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
     expect(deliveries.map(({ payload }): unknown => JSON.parse(payload))).toEqual([{ questionId: replacement.id, option: 1 }]);
-    await page.goto('/inbox?filter=all');
+    await page.goto('/inbox');
     await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
   });
 
@@ -309,31 +310,29 @@ describe('questions to argo', () => {
       ...model,
     ];
     const page = await signedInPage();
-    await page.goto('/questions');
+    await page.goto('/inbox');
 
     const withdrawn = asked(await implementer('aeolus-ask.sh', ['ask', ...aQuestion('Rename the plugin helper?')]));
     const replaced = asked(await implementer('aeolus-ask.sh', ['ask', ...aQuestion('Which port for the docs server?')]));
     await questionRow(page, 'Rename the plugin helper?').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await questionRow(page, 'Which port for the docs server?').click();
-    await visible(page, 'questions-question').getByText('Why: Fewest changes.').waitFor();
-    await visible(page, 'questions-question').getByTestId('questions-option-2').getByText('2. Move to 4000').waitFor();
+    await visible(page, 'inbox-question').getByText('Fewest changes.').waitFor();
+    await visible(page, 'inbox-question').getByTestId('inbox-option-2').getByText('Move to 4000').waitFor();
 
     await implementer('aeolus-ask.sh', ['withdraw', withdrawn.questionId, ...model]);
     const replacement = asked(await implementer('aeolus-ask.sh', ['replace', replaced.questionId, ...aQuestion('Which port for the docs server, now that core moved?')]));
 
     await questionRow(page, 'Rename the plugin helper?').waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
     await questionRow(page, 'Which port for the docs server?').waitFor({ state: 'detached' });
-    await page.goto('/questions?filter=stale');
+    await page.goto('/inbox?filter=done');
     await questionRow(page, 'Rename the plugin helper?').click();
-    await visible(page, 'questions-stale').getByText('Withdrawn by implementer-e', { exact: false }).waitFor();
+    await visible(page, 'inbox-stale').getByText('Withdrawn by implementer-e', { exact: false }).waitFor();
     await questionRow(page, 'Which port for the docs server?').click();
-    await visible(page, 'questions-stale').getByText('Replaced by implementer-e', { exact: false }).waitFor();
-    await visible(page, 'questions-replacement').getByText('Which port for the docs server, now that core moved?').click();
-    await page.waitForURL(/filter=all/);
-    await visible(page, 'questions-question').getByRole('heading', { name: 'Which port for the docs server, now that core moved?' }).waitFor();
-    await visible(page, 'questions-question').getByTestId('questions-option-2').getByText('2. Move to 4000').click();
-    await visible(page, 'questions-send').click();
-    await visible(page, 'questions-answered').waitFor();
+    await visible(page, 'inbox-stale').getByText('Replaced by implementer-e', { exact: false }).waitFor();
+    await visible(page, 'inbox-replacement').getByText('Which port for the docs server, now that core moved?').click();
+    await visible(page, 'inbox-question').getByRole('heading', { name: 'Which port for the docs server, now that core moved?' }).waitFor();
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answered').waitFor();
 
     const { deliveries } = receivedSchema.parse(JSON.parse(await implementer('aeolus-fleet.sh', ['receive'])));
     expect(deliveries).toEqual([expect.objectContaining({ contentType: ANSWER_CONTENT_TYPE, inReplyTo: replacement.messageId })]);

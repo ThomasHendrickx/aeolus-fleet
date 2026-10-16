@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleHelp, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,14 +10,12 @@ import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'questions' | 'inbox' | 'attention' | 'network' | 'settings';
+export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'network' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
   active: SidebarDestination;
-  /** Open questions to argo; hidden until known, and when there are none. */
-  questionsCount?: number;
-  /** Open messages to argo, questions left out; hidden until known, and when there are none. */
+  /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
   inboxCount?: number;
   /** Undeliverable deliveries; hidden until known, and when there are none. */
   attentionCount?: number;
@@ -123,8 +121,7 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
  * Needs crew, which counts the ships on it (#245);
- * Questions, which counts the open questions to argo in --primary;
- * Operator inbox, which counts its other open messages in --primary; and
+ * Inbox, which counts its open questions and open messages in --primary; and
  * Needs attention, which counts the undeliverable deliveries in the attention
  * tone. A count simply hides until it is known. With squadrons on, Squadrons
  * comes second; with the trierarch plugin on, Trierarchs follows, counting its
@@ -132,7 +129,7 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * plugins, sits with the link to the source on GitHub above the account menu,
  * after Network, the networking plugin's rules, for argo while it is connected.
  */
-export function Sidebar({ active, questionsCount, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -175,16 +172,8 @@ export function Sidebar({ active, questionsCount, inboxCount, attentionCount, ne
           />
         )}
         <NavItem
-          href="/questions"
-          label="Questions"
-          icon={<CircleHelp aria-hidden />}
-          isActive={active === 'questions'}
-          testId="nav-questions"
-          count={<InboxCount count={questionsCount} testId="nav-questions-count" />}
-        />
-        <NavItem
           href="/inbox"
-          label="Operator inbox"
+          label="Inbox"
           icon={<Inbox aria-hidden />}
           isActive={active === 'inbox'}
           testId="nav-inbox"
