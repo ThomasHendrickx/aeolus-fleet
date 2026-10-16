@@ -1,28 +1,27 @@
 'use client';
 
-import { CircleDashed, TriangleAlert, UserCheck } from 'lucide-react';
+import { CircleDashed, OctagonAlert, UserCheck } from 'lucide-react';
 
 import { MetricCard } from '../ui/molecules/metric-card';
 import { useFleetSnapshot } from '../../../lib/fleet';
-import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attention';
+import { stuckCountOf, useFleetHealth } from '../../../lib/fleet-health';
 import { useNow } from '../../../lib/now';
 import { overviewMetrics } from '../services/overview-metrics';
 
 /**
  * The overview's counts above the fleet (canvas, OverviewVaried): ships
- * crewed, awaiting crew with the longest wait, and what needs attention with
- * the oldest undeliverable delivery. Each card opens what it counts. None
+ * crewed, awaiting crew with the longest wait, and the stuck deliveries with
+ * since when the oldest waits. Each card opens what it counts. None
  * until the fleet is known, and none while argo is alone.
  */
 export function OverviewMetrics() {
   const fleet = useFleetSnapshot();
-  const attention = useNeedsAttention();
-  const attentionCount = useAttentionCount();
+  const health = useFleetHealth();
   const now = useNow();
   if (!fleet.data) {
     return null;
   }
-  const metrics = overviewMetrics({ ships: fleet.data, undeliverable: attention.data ?? [], now });
+  const metrics = overviewMetrics({ ships: fleet.data, stuck: health.data?.stuck ?? [], now });
   if (metrics.activeCount === 0) {
     return null;
   }
@@ -48,13 +47,13 @@ export function OverviewMetrics() {
         testId="overview-awaiting"
       />
       <MetricCard
-        label="Needs attention"
-        value={attentionCount ?? 0}
-        detail={metrics.oldestUndeliverable ? `Undeliverable deliveries, oldest ${metrics.oldestUndeliverable}` : 'Nothing needs you'}
-        href="/needs-attention"
-        icon={TriangleAlert}
+        label="Stuck"
+        value={stuckCountOf(health.data) ?? 0}
+        detail={metrics.oldestStuck ? `Deliveries stuck, oldest ${metrics.oldestStuck}` : 'Delivering'}
+        href="/fleet-health"
+        icon={OctagonAlert}
         tone="attention"
-        testId="overview-attention"
+        testId="overview-stuck"
       />
     </div>
   );

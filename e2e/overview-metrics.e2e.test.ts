@@ -82,7 +82,7 @@ describe("the overview's metric cards", () => {
     await page.getByTestId('overview-awaiting').getByText(/Longest wait: reviewer-1, \d+ min/).first().waitFor();
     await page.getByText('2 active ships and argo, 1 retired. Changes appear as they happen.').first().waitFor();
 
-    await expect(page.getByTestId('overview-attention').getByText('Nothing needs you').count()).resolves.toBeGreaterThan(0);
+    await expect(page.getByTestId('overview-stuck').getByText('Delivering').count()).resolves.toBeGreaterThan(0);
   });
 
   it('opens the ships awaiting crew from its card', async () => {

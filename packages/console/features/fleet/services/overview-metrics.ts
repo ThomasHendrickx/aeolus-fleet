@@ -1,4 +1,4 @@
-import type { ListedShip, NeedsAttentionDelivery } from '@aeolus-fleet/common';
+import type { ListedShip } from '@aeolus-fleet/common';
 
 import { duration } from '../../../lib/relative-time';
 
@@ -10,30 +10,30 @@ export interface OverviewMetrics {
   awaitingCount: number;
   /** The ship that has awaited crew longest, and for how long; none while every active ship is crewed. */
   longestWait: { name: string; wait: string } | undefined;
-  /** How long the oldest undeliverable delivery has been undeliverable; none without one. */
-  oldestUndeliverable: string | undefined;
+  /** Since how long the oldest stuck delivery waits (decision 0042); none while nothing is stuck. */
+  oldestStuck: string | undefined;
 }
 
 function activeShipsOf(ships: readonly ListedShip[]): ListedShip[] {
   return ships.filter((ship) => ship.kind === 'agent' && ship.status !== 'retired');
 }
 
-/** The overview's metrics from the fleet snapshot and Needs attention, at `now`. */
-export function overviewMetrics(input: { ships: readonly ListedShip[]; undeliverable: readonly NeedsAttentionDelivery[]; now: Date }): OverviewMetrics {
+/** The overview's metrics from the fleet snapshot and the places where deliveries are stuck, at `now`. */
+export function overviewMetrics(input: { ships: readonly ListedShip[]; stuck: readonly { oldestSince: string }[]; now: Date }): OverviewMetrics {
   const active = activeShipsOf(input.ships);
   const awaiting = active.filter((ship) => ship.status === 'awaitingCrew');
   const longest = awaiting
     .flatMap((ship) => (ship.awaitingCrewSince === null ? [] : [{ name: ship.name, since: new Date(ship.awaitingCrewSince) }]))
     .sort((first, second) => first.since.getTime() - second.since.getTime())[0];
-  const oldest = input.undeliverable
-    .map((delivery) => new Date(delivery.since))
+  const oldest = input.stuck
+    .map((place) => new Date(place.oldestSince))
     .sort((first, second) => first.getTime() - second.getTime())[0];
   return {
     activeCount: active.length,
     crewedCount: active.filter((ship) => ship.status === 'crewed').length,
     awaitingCount: awaiting.length,
     longestWait: longest && { name: longest.name, wait: duration(longest.since, input.now) },
-    oldestUndeliverable: oldest && duration(oldest, input.now),
+    oldestStuck: oldest && duration(oldest, input.now),
   };
 }
 

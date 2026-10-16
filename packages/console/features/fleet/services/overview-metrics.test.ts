@@ -1,4 +1,4 @@
-import { createIdGenerator, type ListedShip, type NeedsAttentionDelivery } from '@aeolus-fleet/common';
+import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { overviewMetrics, overviewSubtitle } from './overview-metrics';
@@ -28,20 +28,6 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
   };
 }
 
-function anUndeliverable(since: string): NeedsAttentionDelivery {
-  const party = { id: newId('ship'), name: 'scout' };
-  return {
-    deliveryId: newId('delivery'),
-    state: 'undeliverable',
-    attempts: 5,
-    isPushed: false,
-    since,
-    reason: null,
-    ship: party,
-    message: { id: newId('message'), sender: party, recipient: { kind: 'ship', ship: party }, inReplyTo: null, sentAt: since, contentType: 'text/plain', isPing: false, payload: 'Run 71' },
-  };
-}
-
 const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
 const viewer = aShip({ name: 'viewer', type: 'viewer', kind: 'viewer' });
 
@@ -55,7 +41,7 @@ describe('overviewMetrics', () => {
       aShip({ name: 'old', status: 'retired' }),
     ];
 
-    expect(overviewMetrics({ ships, undeliverable: [], now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
+    expect(overviewMetrics({ ships, stuck: [], now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
   });
 
   it('names the ship that has awaited crew longest, and for how long', () => {
@@ -64,21 +50,21 @@ describe('overviewMetrics', () => {
       aShip({ name: 'planner', status: 'awaitingCrew', awaitingCrewSince: minutesAgo(95) }),
     ];
 
-    expect(overviewMetrics({ ships, undeliverable: [], now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
+    expect(overviewMetrics({ ships, stuck: [], now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
   });
 
   it('names no longest wait while every active ship is crewed', () => {
-    expect(overviewMetrics({ ships: [aShip({})], undeliverable: [], now: NOW }).longestWait).toBeUndefined();
+    expect(overviewMetrics({ ships: [aShip({})], stuck: [], now: NOW }).longestWait).toBeUndefined();
   });
 
-  it('says how long the oldest undeliverable delivery has been undeliverable', () => {
-    const undeliverable = [anUndeliverable(minutesAgo(30)), anUndeliverable(minutesAgo(165))];
+  it('says since how long the oldest stuck delivery waits', () => {
+    const stuck = [{ oldestSince: minutesAgo(30) }, { oldestSince: minutesAgo(165) }];
 
-    expect(overviewMetrics({ ships: [], undeliverable, now: NOW }).oldestUndeliverable).toBe('2 h 45 min');
+    expect(overviewMetrics({ ships: [], stuck, now: NOW }).oldestStuck).toBe('2 h 45 min');
   });
 
-  it('says no oldest undeliverable without one', () => {
-    expect(overviewMetrics({ ships: [], undeliverable: [], now: NOW }).oldestUndeliverable).toBeUndefined();
+  it('says no oldest stuck while nothing is stuck', () => {
+    expect(overviewMetrics({ ships: [], stuck: [], now: NOW }).oldestStuck).toBeUndefined();
   });
 });
 
