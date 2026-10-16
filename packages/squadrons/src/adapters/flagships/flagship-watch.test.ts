@@ -325,7 +325,7 @@ describe('the flagship of a squadron standing down', () => {
       isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
-          told.push(notice.text);
+          told.push(notice.headline);
           return Promise.resolve();
         },
       },

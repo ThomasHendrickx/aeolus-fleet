@@ -66,8 +66,10 @@ export function createLabelSquadrons(deps: {
     if (!LABEL_SCOPES.every((scope) => own.value.scopes.includes(scope))) {
       await deps.operator.tell({
         fleetId,
-        text:
-          `squadrons' management ship ${crew.name} holds no ${LABEL_SCOPES.join(' or ')}: it was connected before squadrons labelled squadrons, and scopes never change. ` +
+        headline: 'squadrons labels no squadron: its management ship lacks label scopes',
+        body:
+          `- Management ship: ${crew.name}\n- Needs: ${LABEL_SCOPES.join(' and ')}\n\n` +
+          'It was connected before squadrons labelled squadrons, and scopes never change. ' +
           'Retire it and connect squadrons again in the console, Settings: until then squadrons labels no squadron and declares no network rules for their reach.',
         // One key per management ship tells argo once; a ship connected again sends its own.
         key: 'no-label-scopes',
@@ -89,8 +91,9 @@ export function createLabelSquadrons(deps: {
     for (const squadronId of done.value.unlabelled) {
       await deps.operator.tell({
         fleetId,
-        text:
-          `The squadron ${squadronId} carries no squadron label: the label holds at most ${String(LABEL_VALUES_MAX)} values, one per squadron. ` +
+        headline: 'A squadron carries no squadron label',
+        body:
+          `- Squadron: \`${squadronId}\`\n\nThe label holds at most ${String(LABEL_VALUES_MAX)} values, one per squadron. ` +
           'Once network rules are in force its ships do not reach each other by squadrons\' declared rules; a value frees once a disbanded squadron\'s ships are retired.',
         // One key per squadron tells argo once, across restarts too.
         key: `unlabelled-${squadronId}`,

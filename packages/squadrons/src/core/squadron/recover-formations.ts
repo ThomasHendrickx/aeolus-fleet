@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { argoMessage, MARKDOWN_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { ok, type Result } from '../shared/result.js';
@@ -28,14 +28,17 @@ export type RecoverFormations = (fleetId: FleetId, which: RecoveredAttempts) => 
  * ship retired already is fine. Then the attempt is finished, unless the
  * fleet refused one of its retires: it stays unfinished, so the next
  * recovery retires that ship (#738). After five refused recovery passes,
- * retiring stops and argo gets one plain notice (#740). The notice keeps the
+ * retiring stops and argo gets one notice (#740). The notice keeps the
  * same key across retries and restarts; finishing waits for its durable send.
  */
 export function createRecoverFormations(deps: { door: FleetDoor; management: ManagementCrewStore; attempts: FormationAttempts }): RecoverFormations {
   const tellArgo = async (attempt: FormationAttempt, crewToken: string) => deps.door.send(crewToken, {
     selector: { kind: 'ship', name: 'argo' },
-    contentType: 'text/plain',
-    payload: `Formation recovery stopped in fleet ${attempt.fleetId} after ${String(RECOVERY_REFUSAL_LIMIT)} refused retire passes. Ships: ${attempt.ships.map((ship) => ship.name).join(', ')}. Check and retire the ships still active.`,
+    contentType: MARKDOWN_CONTENT_TYPE,
+    payload: argoMessage({
+      headline: `Formation recovery stopped after ${String(RECOVERY_REFUSAL_LIMIT)} refused retire passes`,
+      body: `- Fleet: \`${attempt.fleetId}\`\n- Ships: ${attempt.ships.map((ship) => ship.name).join(', ')}\n\nCheck and retire the ships still active.`,
+    }),
     idempotencyKey: `formation-recovery-stopped-${attempt.id}`,
   });
 

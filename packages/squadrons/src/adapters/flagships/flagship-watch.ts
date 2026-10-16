@@ -104,7 +104,8 @@ export function watchFlagships(deps: {
             ended.add(keyOf(fleetId, squadronId));
             await deps.operator.tell({
               fleetId,
-              text: `The flagship of the squadron ${squadronId} was released: squadrons no longer receives on it, so check-ins to it go unanswered.`,
+              headline: "A squadron's flagship was released",
+              body: `- Squadron: \`${squadronId}\`\n\nsquadrons no longer receives on it, so check-ins to it go unanswered.`,
               // A released flagship is never crewed again, so one key per squadron tells argo once, across restarts too.
               key: `released-${squadronId}`,
             });
