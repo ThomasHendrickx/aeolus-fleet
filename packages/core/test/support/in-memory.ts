@@ -1533,6 +1533,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                 attempts: delivery.attempts,
                 isPushed: delivery.handOverNumber !== null,
                 since: since.occurredAt,
+                reason: typeof since.details.reason === 'string' ? since.details.reason : null,
                 message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
               },
             };

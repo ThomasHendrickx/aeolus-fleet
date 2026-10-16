@@ -336,6 +336,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           attempts,
           isPushed,
           since: event.occurredAt,
+          reason: typeof event.details.reason === 'string' ? event.details.reason : null,
           message: {
             id: message.id,
             sender: party(message.senderShipId),

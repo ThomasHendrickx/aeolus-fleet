@@ -14,6 +14,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     attempts: 5,
     isPushed: false,
     since: '2026-10-01T13:12:00.000Z',
+    reason: null,
     message: {
       id: newId('message'),
       sender: builder,

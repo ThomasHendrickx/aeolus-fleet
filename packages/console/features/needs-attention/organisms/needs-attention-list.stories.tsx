@@ -21,6 +21,7 @@ const fromArgo: NeedsAttentionDelivery = {
   attempts: 5,
   isPushed: false,
   since: ago(165),
+  reason: null,
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0002'),
     sender: argo,
@@ -39,6 +40,7 @@ const fromBuilder: NeedsAttentionDelivery = {
   attempts: 5,
   isPushed: false,
   since: ago(80),
+  reason: null,
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0001'),
     sender: builder,
@@ -58,6 +60,7 @@ const notHandled: NeedsAttentionDelivery = {
   attempts: 1,
   isPushed: true,
   since: ago(30),
+  reason: null,
   message: {
     id: idSchema('message').parse('msg_01m3tbfspe96yf1rnr4ank0003'),
     sender: builder,

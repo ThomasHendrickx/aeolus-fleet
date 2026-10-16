@@ -24,10 +24,10 @@ export type ReportTurnEndRefusal = DomainError<'DELIVERY_NOT_FOUND'> | TurnEndRe
  */
 export async function reportTurnEnd(
   deps: { tx: ReportTurnEndTx; clock: Clock; ids: IdGenerator },
-  report: { crew: Crew; deliveryId: DeliveryId; end: TurnEnd },
+  report: { crew: Crew; deliveryId: DeliveryId; end: TurnEnd; reason?: string },
 ): Promise<Result<undefined, ReportTurnEndRefusal>> {
   const { tx } = deps;
-  const { crew, deliveryId, end } = report;
+  const { crew, deliveryId, ...ending } = report;
   const held = await holdLease(tx, crew);
   if (!held.isOk) {
     return held;
@@ -36,7 +36,7 @@ export async function reportTurnEnd(
   if (!delivery) {
     return refuse('DELIVERY_NOT_FOUND', `Delivery ${deliveryId} does not exist`);
   }
-  const ended = endTurn(delivery, { crew, end, at: deps.clock.now() });
+  const ended = endTurn(delivery, { crew, ...ending, at: deps.clock.now() });
   if (!ended.isOk) {
     return ended;
   }
