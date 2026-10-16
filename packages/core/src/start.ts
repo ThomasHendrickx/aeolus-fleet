@@ -1,6 +1,6 @@
 import { migrateDatabase } from './adapters/prisma/migrate.js';
 import { createApp } from './app.js';
-import { loadConfig } from './config.js';
+import { loadConfig, startupWarnings } from './config.js';
 
 /**
  * `aeolus-core start`: migrates the database, then serves the fleet until
@@ -19,6 +19,9 @@ export async function start(): Promise<void> {
     consoleOrigin: config.consoleOrigin,
     installationToken: config.installationToken,
   });
+  for (const warning of startupWarnings(config)) {
+    server.log.warn(warning);
+  }
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

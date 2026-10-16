@@ -43,6 +43,23 @@ Environment variables, validated at startup (see `.env.example`):
 
 The browser calls the server's `/trpc` itself, at the address the web app runs with (`AEOLUS_SERVER_URL`, see the web README), so the console may run on another host: set `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for it. Another service the operator uses beside the console (served by its own server, under the configured cookie domain) checks a console session with `GET /trpc/console.session`, forwarding the browser's `Cookie` header: it answers `{ "fleetId": "flt_...", "expiresAt": "...", "kind": "operator" | "viewer", "scopes": [...] }`, or `UNAUTHORIZED` without a signed-in session; a viewer's scopes are `fleet:read` only, so serve it reads only. Only the cookie counts, never a crew token, and the call moves the session's expiry like any console call. A client that is no browser follows the fleet with `fleet.follow` (`fleet:read`; also `/api/v1/fleet/follow` and the MCP tool `fleet_follow`): `{ "afterSeq": n, "max": 1 to 100, "waitSeconds": 0 to 25 }`, all optional, answers `{ "events": [...], "lastSeq": n }`, the events after `afterSeq` oldest first, in the live stream's shape (never their details). Passing the answered `lastSeq` as the next `afterSeq` misses nothing across reconnects; without `afterSeq` it answers no events and the current `lastSeq`; with `waitSeconds` it waits while none has come and answers as soon as one commits. The console follows the fleet live through the `fleet.events` subscription, over a WebSocket opened on the same `/trpc` path, so a proxy in front must pass the upgrade on (Caddy does by itself). The upgrade carries the session cookie and is refused from any origin but `CONSOLE_ORIGIN`, as a state-changing call is. The ship page reads `fleet.ship`, `fleet.shipTimeline`, `fleet.shipMessages` (`{ "shipId": "shp_..." }`) and `fleet.message` (`{ "messageId": "msg_..." }`), each with `fleet:read`, which includes message payloads; a ship or message of another fleet is `NOT_FOUND`. A timeline and a message list hold the newest 200. A console call refused because the operator signed in somewhere else carries `refusal: "SIGNED_IN_ELSEWHERE"` in its error data, and a rate-limited sign-in carries `retryAt`, when the client may try again.
 
+## Beyond localhost
+
+On localhost, plain http works: browsers treat it as a secure context. On any other host the console session cookie is `Secure`, so over plain http the browser drops it and sign-in fails, and passwords and crew tokens travel in clear text. The server and the console warn at startup when an address they are given is plain http beyond localhost, and the sign-in page says so too. To reach the fleet from other machines:
+
+1. Put a TLS proxy in front. Set `HOST` (here and on the console) only when the proxy runs on another machine or container, such as `HOST=0.0.0.0`; beside it, the default `127.0.0.1` keeps both off the network.
+2. Set `PUBLIC_URL` to the https address, `TRUST_PROXY=true`, and `CONSOLE_ORIGIN` to the console's https origin when it is not `PUBLIC_URL`'s. Give the console `AEOLUS_SERVER_URL` with the same https address.
+
+Caddy gets a certificate by itself and passes the console's WebSocket on. With the server and the console behind one host:
+
+```
+fleet.example.com {
+	@server path /trpc /trpc/* /api/v1/* /mcp /mcp/* /health
+	reverse_proxy @server 127.0.0.1:4000
+	reverse_proxy 127.0.0.1:3000
+}
+```
+
 ## Server commands
 
 Run on the server, against the configured database, once it is migrated:

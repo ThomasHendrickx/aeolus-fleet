@@ -46,6 +46,10 @@ Environment variables, read when the app runs, never when it is built:
 
 `npm run dev` builds `@aeolus-fleet/common` first: the console bundles the built package, its schemas on the web app's server and only `@aeolus-fleet/common/rules` (no zod) in the browser, for live form hints (decision 0033).
 
+## Beyond localhost
+
+On localhost, plain http works. On any other host, serve the console over https: over plain http the browser drops the `Secure` session cookie, so sign-in fails (the sign-in page says sign-in needs https), and the password travels in clear text. Put a TLS proxy in front, set `AEOLUS_SERVER_URL` to the server's https address (the console warns at startup when it is plain http beyond localhost), and `HOST` only when the proxy runs on another machine or container. The server README's "Beyond localhost" has the server's settings and a Caddy example for both behind one host.
+
 ## Design system
 
 The console is themed from `app/tokens.css`, the single copy of the design tokens (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` by atomic design level, the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
