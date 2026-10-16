@@ -5,7 +5,7 @@ import { TabBar } from './tab-bar';
 const meta = {
   title: 'Organisms/TabBar',
   component: TabBar,
-  args: { active: 'fleet', inboxCount: 3, attentionCount: 2 },
+  args: { active: 'fleet', inboxCount: 3, stuckCount: 2 },
   globals: { viewport: { value: 'mobile1' } },
 } satisfies Meta<typeof TabBar>;
 
@@ -17,8 +17,8 @@ export const FleetActive: Story = {};
 
 export const InboxActive: Story = { args: { active: 'inbox' } };
 
-export const AttentionActiveNoCounts: Story = {
-  args: { active: 'attention', inboxCount: undefined, attentionCount: undefined },
+export const HealthActiveNoCounts: Story = {
+  args: { active: 'health', inboxCount: undefined, stuckCount: undefined },
 };
 
 /** With squadrons and the trierarch plugin on: Trierarchs follows Squadrons, counting its silent machines. */

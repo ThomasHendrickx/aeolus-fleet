@@ -26,8 +26,8 @@ const probes = {
   newFeatureUiRoot: 'packages/console/features/probe/ui/ui-probe.tsx',
   newFeatureOrganism: 'packages/console/features/probe/organisms/organism-probe.tsx',
   newFeatureLib: 'packages/console/features/probe/lib/lib-probe.ts',
-  oldFeatureOrganism: 'packages/console/features/fleet/organisms/organism-probe.tsx',
-  oldFeatureLib: 'packages/console/features/fleet/lib/lib-probe.ts',
+  oldFeatureOrganism: 'packages/console/features/compose/organisms/organism-probe.tsx',
+  oldFeatureLib: 'packages/console/features/compose/lib/lib-probe.ts',
   page: 'packages/console/app/probe/page.tsx',
   lib: 'packages/console/lib/web-probe.ts',
 };
@@ -172,8 +172,8 @@ describe('atomic design imports downward only', () => {
 
 describe('shared code never imports a feature or app/', () => {
   it.each([
-    { label: 'a shared atom imports a feature', path: probes.atom, code: "import { FleetTable } from '../../features/fleet/organisms/fleet-table';" },
-    { label: 'a shared organism imports a feature', path: probes.organism, code: "import { FleetTable } from '../../features/fleet/organisms/fleet-table';" },
+    { label: 'a shared atom imports a feature', path: probes.atom, code: "import { FleetTable } from '../../features/fleet/ui/organisms/fleet-table';" },
+    { label: 'a shared organism imports a feature', path: probes.organism, code: "import { FleetTable } from '../../features/fleet/ui/organisms/fleet-table';" },
     { label: 'a shared organism imports a page', path: probes.organism, code: "import Page from '../../app/page';" },
     { label: 'lib imports a feature', path: probes.lib, code: "import { useProbe } from '../features/probe/hooks/hook-probe';" },
     { label: 'lib imports a page', path: probes.lib, code: "import Page from '../app/page';" },

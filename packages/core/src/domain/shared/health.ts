@@ -4,26 +4,31 @@
  * each hour of the last 7 days, and how many were acknowledged in the last 24
  * hours. Facts read from the fleet's records, never stored.
  */
-import { STUCK_TREND_HOURS, type FleetId, type ShipId, type StuckCause } from '@aeolus-fleet/common';
+import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { HistoryParty } from './history.js';
-import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords } from './stuck.js';
+import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckPlaceCount } from './stuck.js';
 
 const HOUR_MS = 60 * 60 * 1000;
-
-/** How far back the acknowledged deliveries are counted. */
-export const ACKNOWLEDGED_WINDOW_HOURS = 24;
 
 /** A machine: the trierarch a ship's crew request is assigned to, and when its crew last called. */
 export interface Machine extends HistoryParty {
   lastSeenAt: Date | null;
 }
 
-/** The deliveries acknowledged in a window, and the median from send to acknowledgement. */
+/** A delivery acknowledged in the window: when its message was sent and when it was acknowledged. */
+export interface AcknowledgedDelivery {
+  sentAt: Date;
+  acknowledgedAt: Date;
+}
+
+/** The deliveries acknowledged in the last 24 hours, the median from send to acknowledgement, and how many in each hour. */
 export interface Acknowledged {
   count: number;
   /** None when nothing was acknowledged. */
   medianMs: number | null;
+  /** Oldest first, each hour ending at `at`, the last one now. */
+  perHour: { at: Date; count: number }[];
 }
 
 /** What the health reads: the stuck rule's records, with the machine behind each ship whose crew request is assigned. */
@@ -38,18 +43,15 @@ export interface HealthRecords {
    * open now or with a step since then, each with every step it took.
    */
   read(fleetId: FleetId, since: Date): Promise<HealthFacts>;
-  /** The fleet's deliveries acknowledged at or after `since`. */
-  acknowledged(fleetId: FleetId, since: Date): Promise<Acknowledged>;
+  /** The fleet's deliveries acknowledged after `since`. */
+  acknowledged(fleetId: FleetId, since: Date): Promise<AcknowledgedDelivery[]>;
 }
 
 /** Where deliveries are stuck: a ship, by name, with its machine if any, or a type. */
 export type ShownStuckPlace = { kind: 'ship'; ship: HistoryParty; machine: Machine | null } | { kind: 'type'; type: string };
 
-export interface StuckPlaceHealth {
-  cause: StuckCause;
+export interface StuckPlaceHealth extends Omit<StuckPlaceCount, 'place'> {
   place: ShownStuckPlace;
-  count: number;
-  oldestSince: Date;
 }
 
 export interface Health {
@@ -68,13 +70,36 @@ export function healthSince(now: Date): Date {
 
 /** Since when it counts the acknowledged deliveries for a read at `now`. */
 export function acknowledgedSince(now: Date): Date {
-  return new Date(now.getTime() - ACKNOWLEDGED_WINDOW_HOURS * HOUR_MS);
+  return new Date(now.getTime() - ACKNOWLEDGED_HOURS * HOUR_MS);
+}
+
+/** The middle wait, or the mean of the two middle ones; none of none. */
+function medianOf(waits: readonly number[]): number | null {
+  const sorted = waits.toSorted((first, second) => first - second);
+  const middle = Math.floor(sorted.length / 2);
+  const upper = sorted[middle];
+  if (upper === undefined) {
+    return null;
+  }
+  const lower = sorted[middle - 1];
+  return sorted.length % 2 === 1 || lower === undefined ? upper : (lower + upper) / 2;
+}
+
+/** Counts the deliveries acknowledged in the 24 hours up to `now`, with their median wait and how many in each hour. */
+export function acknowledgedOf(deliveries: readonly AcknowledgedDelivery[], now: Date): Acknowledged {
+  const inWindow = deliveries.filter((delivery) => delivery.acknowledgedAt > acknowledgedSince(now) && delivery.acknowledgedAt <= now);
+  const perHour = Array.from({ length: ACKNOWLEDGED_HOURS }, (_unused, index) => {
+    const at = new Date(now.getTime() - (ACKNOWLEDGED_HOURS - 1 - index) * HOUR_MS);
+    const from = at.getTime() - HOUR_MS;
+    return { at, count: inWindow.filter((delivery) => delivery.acknowledgedAt.getTime() > from && delivery.acknowledgedAt <= at).length };
+  });
+  return { count: inWindow.length, medianMs: medianOf(inWindow.map((delivery) => delivery.acknowledgedAt.getTime() - delivery.sentAt.getTime())), perHour };
 }
 
 /** Reads the fleet's health at `now`: its records over the trend's hours and its acknowledged in the last 24. */
 export async function readHealthOf(records: HealthRecords, read: { fleetId: FleetId; now: Date }): Promise<Health> {
   const [facts, acknowledged] = await Promise.all([records.read(read.fleetId, healthSince(read.now)), records.acknowledged(read.fleetId, acknowledgedSince(read.now))]);
-  return healthOf(facts, { acknowledged, now: read.now });
+  return healthOf(facts, { acknowledged: acknowledgedOf(acknowledged, read.now), now: read.now });
 }
 
 export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {

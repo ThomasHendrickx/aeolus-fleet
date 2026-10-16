@@ -8,7 +8,7 @@ const meta = {
   title: 'Organisms/ConsoleFrame',
   component: ConsoleFrame,
   args: {
-    nav: { active: 'overview', inboxCount: 3, attentionCount: 2 },
+    nav: { active: 'overview', inboxCount: 3, stuckCount: 2 },
     account: {
       account: {
         kind: 'operator',
@@ -44,6 +44,6 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** With squadrons and the trierarch plugin, which add them to the navigation. */
 export const WithPlugins: Story = {
-  args: { nav: { active: 'trierarchs', inboxCount: 3, attentionCount: 2, hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 2, hasNetwork: true, hasSettings: true } },
+  args: { nav: { active: 'trierarchs', inboxCount: 3, stuckCount: 2, hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 2, hasNetwork: true, hasSettings: true } },
 };
 export const WithPluginsPhone: Story = { ...WithPlugins, globals: { viewport: { value: 'mobile1' } } };

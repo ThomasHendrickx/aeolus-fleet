@@ -80,7 +80,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
 | 25 s | How long a receive waits on an empty inbox before it answers empty (long poll) | [messaging/receive-deliveries.ts](../packages/core/src/domain/messaging/receive-deliveries.ts) `RECEIVE_WAIT_MS` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
-| 5th attempt | A delivery received this often without an ack is refused, handed to no one: it becomes undeliverable and shows in needs attention | [messaging/delivery.ts](../packages/core/src/domain/messaging/delivery.ts) `UNDELIVERABLE_AT_ATTEMPT` | [blueprint.md](blueprint.md), [architecture.md](architecture.md) |
+| 5th attempt | A delivery received this often without an ack is refused, handed to no one: it becomes undeliverable and is stuck on Health | [messaging/delivery.ts](../packages/core/src/domain/messaging/delivery.ts) `UNDELIVERABLE_AT_ATTEMPT` | [blueprint.md](blueprint.md), [architecture.md](architecture.md) |
 | 10 min | A delivery handed on a pushed ship and not confirmed this long is overdue: argo is told once per lease and oldest delivery, whatever the turn | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `NOT_CONFIRMED_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
 | 10 min | A delivery pending or received for a pushed ship this long while its session is idle is overdue | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `IDLE_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
 | 60 min | The same while its session is busy | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `BUSY_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
@@ -167,12 +167,12 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/lib/last-seen.ts](../packages/console/features/fleet/lib/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
+| under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/services/last-seen.ts](../packages/console/features/fleet/services/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
 | late after 1 interval, silent after 3 | A squadron member's check-in, as squadrons judges it (below) | [lib/squadrons-view.ts](../packages/console/lib/squadrons-view.ts) `LATE_AFTER_INTERVALS`, `SILENT_AFTER_INTERVALS` | [squadrons.md](squadrons.md) |
 | from 15 labels | A ship page shows "n of 20" | [lib/labels.ts](../packages/console/lib/labels.ts) `SHOWN_COUNT_FROM` | [0031](decisions/0031-labels.md) |
 | 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/organisms/ship-labels-edit.tsx](../packages/console/features/ship/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
-| 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/organisms/fleet-table.tsx](../packages/console/features/fleet/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
-| 8 ships | Ships the command palette lists before anything is typed | [features/commands/lib/command-palette.ts](../packages/console/features/commands/lib/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
+| 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/ui/organisms/fleet-table.tsx](../packages/console/features/fleet/ui/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
+| 8 ships | Ships the command palette lists before anything is typed | [features/commands/services/command-palette.ts](../packages/console/features/commands/services/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
 | 1.5 s | A copy button shows its check | [components/atoms/copy-button.tsx](../packages/console/components/atoms/copy-button.tsx) `COPIED_FOR_MS` | [design/README.md](design/README.md) |
 | 500 ms | A tooltip opens after hovering | [components/atoms/tooltip.tsx](../packages/console/components/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
 | 5 s; errors until dismissed | A toast closes by itself | [components/atoms/toast.tsx](../packages/console/components/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |

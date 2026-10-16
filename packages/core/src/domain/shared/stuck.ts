@@ -5,7 +5,7 @@
  * days count alike. Facts only: no thresholds of its own beyond the clocks the
  * pushed leases already run (decision 0040).
  */
-import { isId, STUCK_TREND_HOURS, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type ShipId, type StuckCause, type TurnState } from '@aeolus-fleet/common';
+import { isId, STUCK_TREND_HOURS, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type MessageId, type ShipId, type StuckCause, type StuckState, type TurnState } from '@aeolus-fleet/common';
 
 import { hasClockRunOut, NOT_CONFIRMED_MINUTES } from '../messaging/public.js';
 import type { FleetEvent } from './events.js';
@@ -20,6 +20,8 @@ export type StuckPlace = { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type
 
 export interface StuckDelivery {
   deliveryId: DeliveryId;
+  messageId: MessageId;
+  state: StuckState;
   cause: StuckCause;
   place: StuckPlace;
   /** When it entered the state it is stuck in. */
@@ -92,6 +94,7 @@ export function stateStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shi
 /** A delivery, pending from when it was sent, then through its steps oldest first. */
 export interface DeliveryRecord {
   deliveryId: DeliveryId;
+  messageId: MessageId;
   recipient: Recipient;
   /** The ships of its type its sender could reach at send time; empty is every ship of the type (decision 0034). */
   reachableShipIds: readonly ShipId[];
@@ -187,18 +190,19 @@ class FleetAt {
       return undefined;
     }
     const why = this.whyStuck(delivery, now);
-    return why === undefined ? undefined : { deliveryId: delivery.deliveryId, ...why, since: now.since };
+    return why === undefined ? undefined : { deliveryId: delivery.deliveryId, messageId: delivery.messageId, ...why, since: now.since };
   }
 
-  private whyStuck(delivery: DeliveryRecord, now: StateAt): { cause: StuckCause; place: StuckPlace } | undefined {
+  private whyStuck(delivery: DeliveryRecord, now: StateAt): { state: StuckState; cause: StuckCause; place: StuckPlace } | undefined {
+    const inState = (state: StuckState, why: { cause: StuckCause; place: StuckPlace } | undefined) => (why === undefined ? undefined : { state, ...why });
     switch (now.state) {
       case 'undeliverable':
-        return { cause: 'undeliverable', place: now.shipId === null ? placeOf(delivery.recipient) : { kind: 'ship', shipId: now.shipId } };
+        return inState('undeliverable', { cause: 'undeliverable', place: now.shipId === null ? placeOf(delivery.recipient) : { kind: 'ship', shipId: now.shipId } });
       case 'pending':
-        return this.whyPendingStuck(delivery, now.since);
+        return inState('pending', this.whyPendingStuck(delivery, now.since));
       case 'received':
       case 'handed':
-        return this.whyInFlightStuck({ state: now.state, since: now.since, leaseId: now.leaseId });
+        return inState(now.state, this.whyInFlightStuck({ state: now.state, since: now.since, leaseId: now.leaseId }));
       case 'acknowledged':
       case 'handled':
       case 'notHandled':
@@ -275,6 +279,8 @@ export interface StuckPlaceCount {
   place: StuckPlace;
   count: number;
   oldestSince: Date;
+  /** Each one, oldest first. */
+  deliveries: { deliveryId: DeliveryId; messageId: MessageId; state: StuckState; since: Date }[];
 }
 
 function isSamePlace(first: StuckPlace, second: StuckPlace): boolean {
@@ -287,10 +293,11 @@ export function stuckPlaces(stuck: readonly StuckDelivery[]): StuckPlaceCount[] 
   for (const delivery of stuck.toSorted(bySince)) {
     const index = places.findIndex((counted) => counted.cause === delivery.cause && isSamePlace(counted.place, delivery.place));
     const counted = places[index];
+    const one = { deliveryId: delivery.deliveryId, messageId: delivery.messageId, state: delivery.state, since: delivery.since };
     if (counted === undefined) {
-      places.push({ cause: delivery.cause, place: delivery.place, count: 1, oldestSince: delivery.since });
+      places.push({ cause: delivery.cause, place: delivery.place, count: 1, oldestSince: delivery.since, deliveries: [one] });
     } else {
-      places[index] = { ...counted, count: counted.count + 1 };
+      places[index] = { ...counted, count: counted.count + 1, deliveries: [...counted.deliveries, one] };
     }
   }
   return places;

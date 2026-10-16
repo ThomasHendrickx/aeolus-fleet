@@ -49,3 +49,15 @@ export const CrewStates: Story = {
     </div>
   ),
 };
+
+/** The fleet's health (decision 0042): the verdict, then each cause a delivery is stuck by. */
+export const HealthStates: Story = {
+  args: { status: 'stuck' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      {(['stuck', 'delivering', 'noShipCanTake', 'waitingForCrew', 'stalledInFlight', 'undeliverable'] as const).map((status) => (
+        <StatusBadge key={status} status={status} />
+      ))}
+    </div>
+  ),
+};

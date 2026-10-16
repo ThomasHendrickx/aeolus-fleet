@@ -89,7 +89,7 @@ describe('the CommandPalette', () => {
 
   it('opens from the Header and runs Commission ship: the CommissionDialog opens', async () => {
     const page = await signedInPage();
-    await page.goto('/needs-attention');
+    await page.goto('/fleet-health');
 
     await page.getByTestId('header-search').click();
     await palette(page).getByTestId('command-palette-input').fill('commission');
@@ -105,9 +105,9 @@ describe('the CommandPalette', () => {
     const page = await signedInPage({ isPhone: true });
 
     await page.getByTestId('top-bar-search').click();
-    await palette(page).getByTestId('command-palette-input').fill('attention');
-    await palette(page).locator('[data-testid="command-palette-item"][data-item-id="attention"]').click();
+    await palette(page).getByTestId('command-palette-input').fill('health');
+    await palette(page).locator('[data-testid="command-palette-item"][data-item-id="health"]').click();
 
-    await page.waitForURL(`${web.url}/needs-attention`);
+    await page.waitForURL(`${web.url}/fleet-health`);
   });
 });

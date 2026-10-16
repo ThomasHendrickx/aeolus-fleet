@@ -27,6 +27,7 @@ import { usePluginShipIds } from '../../../../lib/plugin-ships';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useMessage, useShip, useShipMessages, useShipTimeline, useShipWay } from '../../../../lib/ship';
 import { useSquadrons } from '../../../../lib/squadrons-api';
+import { NotHandled } from './not-handled';
 import { useMachines } from '../../../../lib/trierarch-plugin';
 import { shipsInSquadrons } from '../../../../lib/squadrons-view';
 import { SHIP_TABS, type ShipTab } from '../../../../features/ship/lib/ship-tab';
@@ -113,6 +114,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
+        {isNotFound ? null : <NotHandled shipId={shipId} />}
         </>
       }
       sheet={

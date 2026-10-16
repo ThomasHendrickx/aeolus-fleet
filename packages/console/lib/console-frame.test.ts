@@ -14,7 +14,9 @@ describe('the navigation marks where the operator is', () => {
     { path: '/trierarchs', destination: 'trierarchs' },
     { path: '/trierarchs/shp_02', destination: 'trierarchs' },
     { path: '/inbox', destination: 'inbox' },
-    { path: '/needs-attention', destination: 'attention' },
+    { path: '/fleet-health', destination: 'health' },
+    { path: '/fleet-health/stalledInFlight', destination: 'health' },
+    { path: '/needs-attention', destination: 'health' },
     { path: '/network', destination: 'network' },
     { path: '/settings', destination: 'settings' },
   ])('$path is under $destination', ({ path, destination }) => {

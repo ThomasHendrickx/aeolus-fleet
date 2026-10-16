@@ -60,14 +60,16 @@ const toScout = (): Selector => ({ kind: 'ship', shipId: scout.shipId });
 
 describe('the fleet health on Postgres', () => {
   it('places a delivery to a type whose last ship retired at the type, and replays it into the trend', async () => {
-    await sendTo({ kind: 'type', type: 'planner' });
+    const messageId = await sendTo({ kind: 'type', type: 'planner' });
     const sentAt = core.clock.now();
     unwrap(await core.useCases.retireShip(argo, { shipId: planner.shipId }));
     core.clock.advance(2 * HOUR_MS);
 
     const health = await core.useCases.readHealth(argo);
 
-    expect(health.stuck).toEqual([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'planner' }, count: 1, oldestSince: sentAt }]);
+    expect(health.stuck).toEqual([
+      { cause: 'noShipCanTake', place: { kind: 'type', type: 'planner' }, count: 1, oldestSince: sentAt, deliveries: [{ deliveryId: await deliveryOf(messageId), messageId, state: 'pending', since: sentAt }] },
+    ]);
     expect(health.stuckPerHour).toHaveLength(168);
     expect(health.stuckPerHour.slice(-4).map((hour) => hour.count)).toEqual([0, 1, 1, 1]);
   });

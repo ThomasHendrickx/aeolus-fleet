@@ -1,7 +1,7 @@
 import { createIdGenerator, type NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { attentionReason, canResend, deliveryWithId, DISMISSED_TOAST, messagePathOf, overduePathOf, overdueReason, resentToast, undeliverableReason } from './needs-attention';
+import { attentionReason, canResend, deliveryWithId, DISMISSED_TOAST, resentToast, undeliverableReason } from './needs-attention';
 
 const newId = createIdGenerator();
 const builder = { id: newId('ship'), name: 'builder-core' };
@@ -15,6 +15,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     isPushed: false,
     since: '2026-10-01T13:12:00.000Z',
     reason: null,
+    ship: tester,
     message: {
       id: newId('message'),
       sender: builder,
@@ -27,14 +28,6 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     },
   };
 }
-
-describe('messagePathOf', () => {
-  it("opens the message on its sender's page, in the Messages tab", () => {
-    const delivery = anUndeliverable({ kind: 'ship', ship: tester });
-
-    expect(messagePathOf(delivery)).toBe(`/ships/${builder.id}?tab=messages&message=${delivery.message.id}`);
-  });
-});
 
 describe('resentToast', () => {
   it('names the ship the new message went to', () => {
@@ -104,21 +97,5 @@ describe('attentionReason', () => {
     expect(attentionReason({ state: 'notHandled', attempts: 1, isPushed: true, reason: 'the turn it was handed once more to died too' })).toBe(
       'Acknowledged, then its turn died; handed once more, and that turn died too: not handled. Its crew said: the turn it was handed once more to died too.',
     );
-  });
-});
-
-describe('overdueReason', () => {
-  it('names the state it was told in and the clock that ran out', () => {
-    expect(overdueReason({ state: 'handed', clock: 'notConfirmed' })).toBe('Handed, not confirmed');
-    expect(overdueReason({ state: 'pending', clock: 'idle' })).toBe('Pending, session idle');
-    expect(overdueReason({ state: 'received', clock: 'busy' })).toBe('Received, session busy');
-  });
-});
-
-describe('overduePathOf', () => {
-  it('opens the message on the page of the ship it is overdue on, in the Messages tab', () => {
-    const { message } = anUndeliverable({ kind: 'ship', ship: tester });
-
-    expect(overduePathOf({ ship: tester, message })).toBe(`/ships/${tester.id}?tab=messages&message=${message.id}`);
   });
 });

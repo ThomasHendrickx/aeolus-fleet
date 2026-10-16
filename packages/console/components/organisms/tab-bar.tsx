@@ -1,19 +1,19 @@
-import { Inbox, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { Activity, Inbox, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '../../lib/class-names';
 
 /** The console's destinations on phone so far. */
-export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention';
+export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'health';
 
 interface TabBarProps {
   /** The page the operator is on: its tab is marked current; none on a page no tab leads to, such as Settings. */
   active: TabBarDestination | undefined;
   /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
   inboxCount?: number;
-  /** Undeliverable deliveries; hidden until known, and when there are none. */
-  attentionCount?: number;
+  /** Stuck deliveries (decision 0042); hidden until known, and when there are none. */
+  stuckCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
   /** Whether the trierarch plugin is on: Trierarchs then follows Squadrons, counting its silent machines (#245, decision 6). */
@@ -75,7 +75,7 @@ function Tab({
  * pins its own bar to the bottom, marked data-hides-tab-bar (an open inbox
  * question or message).
  */
-export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
+export function TabBar({ active, inboxCount, stuckCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount }: TabBarProps) {
   return (
     <nav
       aria-label="Console"
@@ -83,6 +83,14 @@ export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = fals
       className="fixed inset-x-0 bottom-0 z-40 flex min-h-(--size-tabbar) border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden [body:has([data-hides-tab-bar])_&]:hidden"
     >
       <Tab href="/" label="Fleet" icon={<Ship aria-hidden />} isActive={active === 'fleet'} testId="tab-fleet" />
+      <Tab
+        href="/fleet-health"
+        label="Health"
+        icon={<Activity aria-hidden />}
+        isActive={active === 'health'}
+        testId="tab-health"
+        count={{ value: stuckCount, tone: 'attention', words: 'stuck' }}
+      />
       {hasSquadrons && <Tab href="/squadrons" label="Squadrons" icon={<Shapes aria-hidden />} isActive={active === 'squadrons'} testId="tab-squadrons" />}
       {hasTrierarchs && (
         <Tab
@@ -101,14 +109,6 @@ export function TabBar({ active, inboxCount, attentionCount, hasSquadrons = fals
         isActive={active === 'inbox'}
         testId="tab-inbox"
         count={{ value: inboxCount, tone: 'primary', words: 'open' }}
-      />
-      <Tab
-        href="/needs-attention"
-        label="Attention"
-        icon={<TriangleAlert aria-hidden />}
-        isActive={active === 'attention'}
-        testId="tab-attention"
-        count={{ value: attentionCount, tone: 'attention', words: 'need attention' }}
       />
     </nav>
   );

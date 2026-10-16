@@ -57,6 +57,7 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
         .map(
           ({ delivery, events: its }): DeliveryRecord => ({
             deliveryId: delivery.id,
+            messageId: delivery.messageId,
             recipient: delivery.recipient,
             reachableShipIds: delivery.reachableShipIds ?? [],
             sentAt: delivery.createdAt,
@@ -74,16 +75,13 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
       return Promise.resolve({ ships, leases, deliveries, machines });
     },
     acknowledged: (fleetId, since) => {
-      const waits = eventsOf(fleetId)
-        .filter((event) => event.type === 'DeliveryAcknowledged' && event.occurredAt >= since)
+      const acknowledged = eventsOf(fleetId)
+        .filter((event) => event.type === 'DeliveryAcknowledged' && event.occurredAt > since)
         .flatMap((event) => {
           const delivery = state.deliveries.find((held) => held.fleetId === fleetId && held.id === event.deliveryId);
-          return delivery === undefined ? [] : [event.occurredAt.getTime() - delivery.createdAt.getTime()];
-        })
-        .toSorted((first, second) => first - second);
-      const middle = Math.floor(waits.length / 2);
-      const median = waits.length % 2 === 1 ? waits[middle] : ((waits[middle - 1] ?? 0) + (waits[middle] ?? 0)) / 2;
-      return Promise.resolve({ count: waits.length, medianMs: waits.length === 0 ? null : (median ?? null) });
+          return delivery === undefined ? [] : [{ sentAt: delivery.createdAt, acknowledgedAt: event.occurredAt }];
+        });
+      return Promise.resolve(acknowledged);
     },
   };
 }

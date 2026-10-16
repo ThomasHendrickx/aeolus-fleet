@@ -22,6 +22,7 @@ describe('needsAttentionOutputSchema', () => {
     isPushed: false,
     since: AT,
     reason: null,
+    ship: tester,
     message: {
       id: newId('message'),
       sender: builder,
@@ -36,6 +37,10 @@ describe('needsAttentionOutputSchema', () => {
 
   it('takes undeliverable deliveries with their message, claims and since when', () => {
     expect(needsAttentionOutputSchema.parse([undeliverable])).toEqual([undeliverable]);
+  });
+
+  it('refuses an entry without the ship that held it', () => {
+    expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, ship: undefined }]).success).toBe(false);
   });
 
   it('takes one addressed to a type', () => {

@@ -1,4 +1,4 @@
-import type { CrewStatus, DeliveryState, ShipStatus } from '@aeolus-fleet/common';
+import type { CrewStatus, DeliveryState, ShipStatus, StuckCause } from '@aeolus-fleet/common';
 import {
   AlarmClock,
   Anchor,
@@ -7,7 +7,9 @@ import {
   CircleAlert,
   CircleArrowRight,
   CircleCheckBig,
+  CirclePause,
   CirclePlay,
+  CircleSlash,
   Clock,
   CircleCheck,
   CircleDashed,
@@ -19,11 +21,14 @@ import {
   Hourglass,
   Inbox,
   LoaderCircle,
+  MailCheck,
+  OctagonAlert,
   Power,
   RotateCcw,
   Sailboat,
   TriangleAlert,
   UserCheck,
+  UserRoundSearch,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -36,7 +41,9 @@ export type LimitState = 'at-limit' | 'over-limit';
 export type UnassignedCrewState = 'needsCrew' | 'crewedByHand';
 /** A step of a pushed delivery's way: handed to its agent by the computer side, or overdue by the 10 or 60 minute clock (decision 0040). */
 export type PushedStepState = 'handedPushed' | 'overdue';
-type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState;
+/** The fleet's health (decision 0042): its verdict, stuck or delivering, and why a delivery is stuck. */
+export type HealthState = 'stuck' | 'delivering' | StuckCause;
+type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -88,6 +95,11 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   restarting: { tone: 'waiting', Icon: RotateCcw, label: 'Restarting' },
   crashed: { tone: 'attention', Icon: CircleX, label: 'Crashed' },
   releasing: { tone: 'active', Icon: Power, label: 'Releasing' },
+  stuck: { tone: 'attention', Icon: OctagonAlert, label: 'Stuck' },
+  delivering: { tone: 'ok', Icon: MailCheck, label: 'Delivering' },
+  noShipCanTake: { tone: 'attention', Icon: CircleSlash, label: 'No ship can take' },
+  waitingForCrew: { tone: 'waiting', Icon: UserRoundSearch, label: 'Waiting for crew' },
+  stalledInFlight: { tone: 'waiting', Icon: CirclePause, label: 'Stalled in flight' },
 };
 
 /**

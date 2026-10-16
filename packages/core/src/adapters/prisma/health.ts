@@ -1,7 +1,7 @@
 /**
  * The health records on Postgres (decision 0042): the ships, leases and
  * deliveries the stuck rule replays, read from their tables and the delivery
- * events, and the deliveries acknowledged in a window with their median. No
+ * events, and the deliveries acknowledged in a window. No
  * table of its own: a read, never stored.
  */
 import { idSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
@@ -34,6 +34,7 @@ const turnRow = z.object({ lease_id: z.string(), turn: turnStateSchema, occurred
 
 const deliveryRow = z.object({
   id: idSchema('delivery'),
+  message_id: idSchema('message'),
   recipient_ship_id: idSchema('ship').nullable(),
   recipient_type: z.string().nullable(),
   reachable_ship_ids: z.array(idSchema('ship')),
@@ -42,7 +43,7 @@ const deliveryRow = z.object({
 
 const machineRow = z.object({ ship_id: idSchema('ship'), machine_id: idSchema('ship'), machine_name: z.string(), last_seen_at: z.date().nullable() });
 
-const acknowledgedRow = z.object({ count: z.bigint(), median_ms: z.number().nullable() });
+const acknowledgedRow = z.object({ sent_at: z.date(), acknowledged_at: z.date() });
 
 function recipientOf(row: z.infer<typeof deliveryRow>): DeliveryRecord['recipient'] {
   if (row.recipient_ship_id !== null) {
@@ -79,7 +80,7 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
       // stuck state since then has the event that took it out.
       const deliveries = z.array(deliveryRow).parse(
         await db.$queryRaw`
-          SELECT d.id, d.recipient_ship_id, d.recipient_type, d.reachable_ship_ids, d.created_at FROM deliveries d
+          SELECT d.id, d.message_id, d.recipient_ship_id, d.recipient_type, d.reachable_ship_ids, d.created_at FROM deliveries d
           WHERE d.fleet_id = ${fleetId}
             AND (d.state IN ('pending', 'received', 'handed', 'undeliverable')
               OR d.id IN (SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL))`,
@@ -120,6 +121,7 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
         })),
         deliveries: deliveries.map((delivery) => ({
           deliveryId: delivery.id,
+          messageId: delivery.message_id,
           recipient: recipientOf(delivery),
           reachableShipIds: delivery.reachable_ship_ids,
           sentAt: delivery.created_at,
@@ -130,15 +132,14 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
     },
 
     acknowledged: async (fleetId, since) => {
-      const [row] = z.array(acknowledgedRow).parse(
+      const rows = z.array(acknowledgedRow).parse(
         await db.$queryRaw`
-          SELECT count(*) AS count,
-                 (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM e.occurred_at - d.created_at) * 1000))::float8 AS median_ms
+          SELECT d.created_at AS sent_at, e.occurred_at AS acknowledged_at
           FROM events e
           JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.id = e.delivery_id
-          WHERE e.fleet_id = ${fleetId} AND e.type = 'DeliveryAcknowledged' AND e.occurred_at >= ${since}`,
+          WHERE e.fleet_id = ${fleetId} AND e.type = 'DeliveryAcknowledged' AND e.occurred_at > ${since}`,
       );
-      return { count: Number(row?.count ?? 0n), medianMs: row?.median_ms ?? null };
+      return rows.map((row) => ({ sentAt: row.sent_at, acknowledgedAt: row.acknowledged_at }));
     },
   };
 }

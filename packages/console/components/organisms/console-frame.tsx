@@ -13,7 +13,7 @@ import { TabBar } from './tab-bar';
 export interface ConsoleNav {
   active: SidebarDestination;
   inboxCount?: number;
-  attentionCount?: number;
+  stuckCount?: number;
   needsCrewCount?: number;
   hasSquadrons?: boolean;
   hasTrierarchs?: boolean;
@@ -34,7 +34,7 @@ export function ConsoleFrame({ nav, account, children }: { nav: ConsoleNav; acco
       <Sidebar
         active={nav.active}
         inboxCount={nav.inboxCount}
-        attentionCount={nav.attentionCount}
+        stuckCount={nav.stuckCount}
         needsCrewCount={nav.needsCrewCount}
         hasSquadrons={nav.hasSquadrons}
         hasTrierarchs={nav.hasTrierarchs}
@@ -50,7 +50,7 @@ export function ConsoleFrame({ nav, account, children }: { nav: ConsoleNav; acco
         hasTrierarchs={nav.hasTrierarchs}
         trierarchsCount={nav.trierarchsCount}
         inboxCount={nav.inboxCount}
-        attentionCount={nav.attentionCount}
+        stuckCount={nav.stuckCount}
       />
     </div>
   );

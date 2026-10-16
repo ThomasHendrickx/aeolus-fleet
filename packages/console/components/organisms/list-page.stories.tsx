@@ -49,7 +49,7 @@ const meta = {
   },
   // Shown in the ConsoleFrame, as the signed-in route layout shows it.
   render: (args) => (
-    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, attentionCount: 2 }} account={args.account}>
+    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, stuckCount: 2 }} account={args.account}>
       <ListPage {...args} />
     </ConsoleFrame>
   ),

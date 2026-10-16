@@ -113,6 +113,7 @@ describe('Needs attention on Postgres', () => {
       isPushed: false,
       since,
       reason: null,
+      ship: { id: scout.shipId, name: 'scout' },
       message: {
         id: first.messageId,
         sender: { id: planner.shipId, name: 'planner' },

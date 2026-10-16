@@ -1421,7 +1421,7 @@ describe('the fleet health at the API', () => {
 
     const health = await asArgo.fleet.health.query();
 
-    expect(health.stuck.find((place) => place.place.kind === 'type' && place.place.type === type)).toEqual({
+    expect(health.stuck.find((place) => place.place.kind === 'type' && place.place.type === type)).toMatchObject({
       cause: 'noShipCanTake',
       place: { kind: 'type', type },
       count: 1,

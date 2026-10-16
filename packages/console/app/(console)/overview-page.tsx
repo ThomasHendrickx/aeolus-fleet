@@ -7,10 +7,10 @@ import { startTransition, useOptimistic, useState } from 'react';
 
 import { Button } from '../../components/atoms/button';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
-import { OverviewMetrics } from '../../features/fleet/organisms/overview-metrics';
-import { CommissionShip } from '../../features/fleet/organisms/commission-ship';
-import { FleetLimits } from '../../features/fleet/organisms/fleet-limits';
-import { FleetOverview } from '../../features/fleet/organisms/fleet-overview';
+import { OverviewMetrics } from '../../features/fleet/state/overview-metrics';
+import { CommissionShip } from '../../features/fleet/state/commission-ship';
+import { FleetLimits } from '../../features/fleet/state/fleet-limits';
+import { FleetOverview } from '../../features/fleet/state/fleet-overview';
 import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../features/squadrons/organisms/get-new-crew-line';
 import { LimitNotice } from '../../components/molecules/limit-notice';
@@ -22,9 +22,9 @@ import { useFleetLimits } from '../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../lib/hosted-account';
 import { messageLimitNotice, messageLimitReached } from '../../lib/limits';
 import { useFleetSnapshot } from '../../lib/fleet';
-import { fleetViewParams, type FleetView } from '../../features/fleet/lib/fleet-filter';
+import { fleetViewParams, type FleetView } from '../../features/fleet/services/fleet-filter';
 import { useLiveFleet } from '../../lib/live-fleet';
-import { overviewSubtitle } from '../../features/fleet/lib/overview-metrics';
+import { overviewSubtitle } from '../../features/fleet/services/overview-metrics';
 import { useSignInWhenSessionEnds } from '../../lib/session';
 import { usePluginNav } from '../../lib/plugin-nav';
 

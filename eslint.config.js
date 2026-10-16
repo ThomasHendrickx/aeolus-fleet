@@ -130,9 +130,7 @@ const webLayers = ['atoms', 'molecules', 'organisms'];
  * it to ui/, state/, hooks/ and services/; a new feature never joins it.
  */
 const featuresInTheOldLayout = [
-  'commands',
   'compose',
-  'fleet',
   'guide',
   'labels',
   'needs-crew',
