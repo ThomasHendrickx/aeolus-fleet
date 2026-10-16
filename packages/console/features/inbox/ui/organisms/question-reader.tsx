@@ -1,7 +1,7 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
-import { ChevronRight, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
+import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../../../lib/class-names';
@@ -30,6 +30,8 @@ export interface QuestionReaderProps {
   now: Date;
   /** A session that may not receive (a viewer's): no answer, and a note that says so. */
   isReadOnly?: boolean;
+  /** The answer that was not sent and why (#870): the form holds it again, so Answer sends it again. */
+  failure?: { answer: AnswerChoice; message: string };
 }
 
 type Option = QuestionEntry['question']['options'][number];
@@ -142,13 +144,28 @@ function OptionList({ question }: { question: QuestionEntry }) {
   );
 }
 
-function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionReaderProps, 'question' | 'isPhone' | 'onAnswer' | 'isPending'>) {
+/** "Your answer was not sent: the fleet did not answer." */
+function FailedNotice({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      data-testid="inbox-answer-failed"
+      className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg px-3.5 py-2.5 text-meta text-tone-attention-fg max-sm:text-body [&_svg]:mt-0.5 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+    >
+      <CircleAlert aria-hidden />
+      <span>Your answer was not sent: {message}. Answer again to send it.</span>
+    </p>
+  );
+}
+
+function AnswerForm({ question, isPhone, onAnswer, isPending, failure }: Pick<QuestionReaderProps, 'question' | 'isPhone' | 'onAnswer' | 'isPending' | 'failure'>) {
   const id = useId();
   const noteId = `${id}-note`;
   const { options, pick } = question.question;
-  const [option, setOption] = useState<number | undefined>(pick.option);
-  const [note, setNote] = useState('');
-  const [isNoteOpen, setIsNoteOpen] = useState(!isPhone);
+  const failed = failure?.answer;
+  const [option, setOption] = useState<number | undefined>(failed === undefined ? pick.option : 'option' in failed ? failed.option : undefined);
+  const [note, setNote] = useState(failed?.note ?? '');
+  const [isNoteOpen, setIsNoteOpen] = useState(!isPhone || note !== '');
   const platform = useShortcutPlatform();
   const asker = question.sender.name;
   const trimmed = note.trim();
@@ -166,6 +183,7 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
       }}
     >
       <div className="flex flex-col gap-4 px-5 pb-5 max-sm:px-0">
+        {failure === undefined ? null : <FailedNotice message={failure.message} />}
         <RadioGroup<number>
           aria-label="Options"
           value={option ?? NO_OPTION}
@@ -307,11 +325,12 @@ function NextBar({ position, onSelect, isPhone }: { position: QuestionPosition; 
  * An open question to argo (#849, decision 0038): how long it has waited, the
  * title, who asks, the context and the options as large targets, with the
  * asker's pick chosen and its why under it. Answer names what it sends; a
- * second tap on the chosen option takes it back, so a note goes alone. After
- * the answer, the question says what was sent and offers the next question.
+ * second tap on the chosen option takes it back, so a note goes alone. An
+ * answer that was not sent says why and holds the option and note to send
+ * again. After the answer, the question says what was sent and offers the next question.
  * A stale question says why it can't be answered.
  */
-export function QuestionReader({ question, position, isPhone, onAnswer, onSelect, isPending, now, isReadOnly = false }: QuestionReaderProps) {
+export function QuestionReader({ question, position, isPhone, onAnswer, onSelect, isPending, now, isReadOnly = false, failure }: QuestionReaderProps) {
   const sentAt = new Date(question.sentAt);
   const { title, context, answer } = question.question;
   const isAnswerable = answer === null && question.stale === null;
@@ -348,7 +367,7 @@ export function QuestionReader({ question, position, isPhone, onAnswer, onSelect
           {context === '' ? null : <p className="text-body whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch">{context}</p>}
           {!isAnswerable || isReadOnly ? <OptionList question={question} /> : null}
         </div>
-        {isAnswerable && !isReadOnly ? <AnswerForm key={question.deliveryId} question={question} isPhone={isPhone} onAnswer={onAnswer} isPending={isPending} /> : null}
+        {isAnswerable && !isReadOnly ? <AnswerForm key={question.deliveryId} question={question} isPhone={isPhone} onAnswer={onAnswer} isPending={isPending} failure={failure} /> : null}
       </div>
       {isReadOnly && isAnswerable ? (
         <p data-testid="inbox-read-only" className="border-t border-border px-5 py-3 text-meta text-muted-foreground">

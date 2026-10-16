@@ -27,7 +27,8 @@ export const Open: Story = {
   play: async ({ args, canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('inbox-answer'));
 
-    await expect(args.onAnswer).toHaveBeenCalledExactlyOnceWith({ option: 2 });
+    await expect(args.onAnswer).toHaveBeenCalledTimes(1);
+    await expect(args.onAnswer).toHaveBeenCalledWith({ option: 2 });
   },
 };
 
@@ -38,7 +39,8 @@ export const WithNote: Story = {
     await userEvent.type(canvas.getByTestId('inbox-note'), 'Tell core first.');
     await userEvent.click(canvas.getByTestId('inbox-answer'));
 
-    await expect(args.onAnswer).toHaveBeenCalledExactlyOnceWith({ option: 2, note: 'Tell core first.' });
+    await expect(args.onAnswer).toHaveBeenCalledTimes(1);
+    await expect(args.onAnswer).toHaveBeenCalledWith({ option: 2, note: 'Tell core first.' });
   },
 };
 
@@ -50,7 +52,8 @@ export const NoteAlone: Story = {
     await userEvent.type(canvas.getByTestId('inbox-note'), 'Which stations?');
     await userEvent.click(canvas.getByTestId('inbox-answer'));
 
-    await expect(args.onAnswer).toHaveBeenCalledExactlyOnceWith({ note: 'Which stations?' });
+    await expect(args.onAnswer).toHaveBeenCalledTimes(1);
+    await expect(args.onAnswer).toHaveBeenCalledWith({ note: 'Which stations?' });
   },
 };
 
@@ -81,7 +84,8 @@ export const Failed: Story = {
     await expect(canvas.getByTestId('inbox-note')).toHaveValue('Three stations at most.');
     await userEvent.click(canvas.getByTestId('inbox-answer'));
 
-    await expect(args.onAnswer).toHaveBeenCalledExactlyOnceWith({ option: 3, note: 'Three stations at most.' });
+    await expect(args.onAnswer).toHaveBeenCalledTimes(1);
+    await expect(args.onAnswer).toHaveBeenCalledWith({ option: 3, note: 'Three stations at most.' });
   },
 };
 
