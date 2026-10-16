@@ -85,7 +85,7 @@ function stored(deliveryId: DeliveryId) {
  * hands once more after the turn died, and reports not handled when that turn
  * died too. Answers when it was reported not handled.
  */
-async function notHandled(): Promise<{ messageId: MessageId; deliveryId: DeliveryId; at: Date }> {
+async function notHandled(reason?: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId; at: Date }> {
   const messageId = await sendTo({ kind: 'ship', shipId: scout.shipId });
   const deliveryId = await deliveryOf(messageId);
   unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
@@ -93,7 +93,7 @@ async function notHandled(): Promise<{ messageId: MessageId; deliveryId: Deliver
   unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId }));
   unwrap(await core.useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true }));
   core.clock.advance(1_000);
-  unwrap(await core.useCases.reportNotHandled(scout, { deliveryId }));
+  unwrap(await core.useCases.reportNotHandled(scout, reason === undefined ? { deliveryId } : { deliveryId, reason }));
   return { messageId, deliveryId, at: core.clock.now() };
 }
 
@@ -112,6 +112,7 @@ describe('Needs attention on Postgres', () => {
       attempts: UNDELIVERABLE_AT_ATTEMPT,
       isPushed: false,
       since,
+      reason: null,
       message: {
         id: first.messageId,
         sender: { id: planner.shipId, name: 'planner' },
@@ -136,6 +137,14 @@ describe('Needs attention on Postgres', () => {
     }
 
     await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([{ deliveryId, state: 'undeliverable', isPushed: true }]);
+  });
+
+  it('lists a delivery not handled with the reason its crew gave, stored with DeliveryNotHandled (#847)', async () => {
+    const { deliveryId } = await notHandled('the turn it was handed once more to died too');
+
+    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([
+      { deliveryId, state: 'notHandled', reason: 'the turn it was handed once more to died too' },
+    ]);
   });
 
   it('lists a delivery not handled with the undeliverable ones, by since when, and dismisses and resends it as one', async () => {

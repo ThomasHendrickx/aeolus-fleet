@@ -14,6 +14,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     attempts: 5,
     isPushed: false,
     since: '2026-10-01T13:12:00.000Z',
+    reason: null,
     message: {
       id: newId('message'),
       sender: builder,
@@ -90,12 +91,18 @@ describe('undeliverableReason', () => {
 
 describe('attentionReason', () => {
   it('says why an undeliverable delivery is there, from its attempts', () => {
-    expect(attentionReason({ state: 'undeliverable', attempts: 5, isPushed: true })).toBe(undeliverableReason({ attempts: 5, isPushed: true }));
+    expect(attentionReason({ state: 'undeliverable', attempts: 5, isPushed: true, reason: null })).toBe(undeliverableReason({ attempts: 5, isPushed: true }));
   });
 
   it('says a delivery not handled was confirmed, and its turn died twice', () => {
-    expect(attentionReason({ state: 'notHandled', attempts: 1, isPushed: true })).toBe(
+    expect(attentionReason({ state: 'notHandled', attempts: 1, isPushed: true, reason: null })).toBe(
       'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.',
+    );
+  });
+
+  it('says why its crew reported a delivery not handled, as the crew said it (#847)', () => {
+    expect(attentionReason({ state: 'notHandled', attempts: 1, isPushed: true, reason: 'the turn it was handed once more to died too' })).toBe(
+      'Acknowledged, then its turn died; handed once more, and that turn died too: not handled. Its crew said: the turn it was handed once more to died too.',
     );
   });
 });

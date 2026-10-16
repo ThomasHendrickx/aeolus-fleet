@@ -26,16 +26,19 @@ export function undeliverableReason(delivery: Pick<NeedsAttentionDelivery, 'atte
     : `Handed (pulled) ${times} times, never acknowledged; fifth receive refused: undeliverable.`;
 }
 
+const NOT_HANDLED_REASON = 'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.';
+
 /**
  * Why a delivery is in Needs attention: undeliverable after its attempts, or
- * not handled, when the turn it was handed once more to died too.
+ * not handled, when the turn it was handed once more to died too, with the
+ * reason its crew gave, when it gave one (#847).
  */
-export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' | 'attempts' | 'isPushed'>): string {
+export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' | 'attempts' | 'isPushed' | 'reason'>): string {
   switch (delivery.state) {
     case 'undeliverable':
       return undeliverableReason(delivery);
     case 'notHandled':
-      return 'Acknowledged, then its turn died; handed once more, and that turn died too: not handled.';
+      return delivery.reason === null ? NOT_HANDLED_REASON : `${NOT_HANDLED_REASON} Its crew said: ${delivery.reason}.`;
   }
 }
 

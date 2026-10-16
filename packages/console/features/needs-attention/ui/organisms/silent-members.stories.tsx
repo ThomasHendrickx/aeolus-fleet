@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { CREWED_SHIP, NOW } from '../../../lib/fixtures/ship-page.fixtures';
+import { CREWED_SHIP, NOW } from '../../../../lib/fixtures/ship-page.fixtures';
 import { SilentMembers } from './silent-members';
-import { forming } from '../../../lib/fixtures/squadrons.fixtures';
+import { forming } from '../../../../lib/fixtures/squadrons.fixtures';
 
 const tester = forming.members[3];
 

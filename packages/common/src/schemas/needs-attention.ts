@@ -24,6 +24,8 @@ export const needsAttentionDeliverySchema = z.object({
   isPushed: z.boolean(),
   /** When it became undeliverable, or was reported not handled. */
   since: isoTime,
+  /** Why its crew reported it not handled, as the crew said (#847); null when undeliverable, or when the crew gave none. */
+  reason: z.string().nullable(),
   message: z.object({
     id: idSchema('message'),
     sender: partySchema,

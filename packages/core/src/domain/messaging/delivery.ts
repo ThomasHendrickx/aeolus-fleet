@@ -231,7 +231,8 @@ export type TurnEnd = 'handled' | 'notHandled';
  * A pushed crew reports how the turn that took an acknowledged delivery
  * ended (decision 0040): handled when it ended by itself, not handled when
  * the turn it was handed once more to died too. Either writes its event,
- * DeliveryHandled or DeliveryNotHandled, and keeps who it was handed to.
+ * DeliveryHandled or DeliveryNotHandled, and keeps who it was handed to;
+ * the reason the crew gave goes with the event (#847).
  * The same report again is harmless: OK, and nothing changes. A delivery not
  * acknowledged yet, or that ended the other way, is refused, so a ping not
  * answered with pong stays handed. Not handled needs the once more first.
@@ -239,9 +240,9 @@ export type TurnEnd = 'handled' | 'notHandled';
  */
 export function endTurn(
   delivery: Delivery,
-  report: { crew: CrewOfShip; end: TurnEnd; at: Date },
+  report: { crew: CrewOfShip; end: TurnEnd; at: Date; reason?: string },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, TurnEndRefusal> {
-  const { crew, end, at } = report;
+  const { crew, end, at, reason } = report;
   switch (delivery.state) {
     case 'received':
     case 'handed':
@@ -280,7 +281,7 @@ export function endTurn(
             shipId: crew.shipId,
             messageId: delivery.messageId,
             deliveryId: delivery.id,
-            details: { leaseId: crew.leaseId },
+            details: { leaseId: crew.leaseId, ...(reason === undefined ? {} : { reason }) },
           },
         ],
       });

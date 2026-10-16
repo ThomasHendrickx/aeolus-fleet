@@ -1,12 +1,12 @@
 import type { NoShipCanTakeDelivery } from '@aeolus-fleet/common';
 import { ChevronRight } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { isJson } from '../../../lib/payload';
-import { duration, fullDateTime } from '../../../lib/relative-time';
-import { OPERATOR_NAME } from '../../../lib/sentence';
-import { Badge } from '../../../components/atoms/badge';
-import { ShipName } from '../../../components/molecules/ship-name';
+import { classNames } from '../../../../lib/class-names';
+import { isJson } from '../../../../lib/payload';
+import { duration, fullDateTime } from '../../../../lib/relative-time';
+import { OPERATOR_NAME } from '../../../../lib/sentence';
+import { Badge } from '../../../../components/atoms/badge';
+import { ShipName } from '../../../../components/molecules/ship-name';
 
 interface NoShipCanTakeProps {
   /** Oldest sent first, as the server lists them. */

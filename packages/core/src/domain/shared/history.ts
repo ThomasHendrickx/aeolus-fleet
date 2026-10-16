@@ -167,6 +167,8 @@ export interface NeedsAttentionEntry {
   isPushed: boolean;
   /** When it became undeliverable, or was reported not handled. */
   since: Date;
+  /** Why its crew reported it not handled, kept with DeliveryNotHandled (#847); null when undeliverable, or when the crew gave none. */
+  reason: string | null;
   message: Omit<HistoryMessage, 'delivery'>;
 }
 

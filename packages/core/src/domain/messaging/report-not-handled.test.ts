@@ -133,6 +133,17 @@ describe('not handled', () => {
     ]);
   });
 
+  it('keeps the reason the crew gave with DeliveryNotHandled (#847)', async () => {
+    const deliveryId = await handedOnceMore();
+    core.state.events.length = 0;
+
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId, reason: 'the turn it was handed once more to died too' }));
+
+    expect(eventsOf('DeliveryNotHandled').map((event) => event.details)).toEqual([
+      { leaseId: scout.leaseId, reason: 'the turn it was handed once more to died too' },
+    ]);
+  });
+
   it('again is harmless: OK, and nothing changes', async () => {
     const deliveryId = await handedOnceMore();
     unwrap(await reportNotHandled(deliveryId));

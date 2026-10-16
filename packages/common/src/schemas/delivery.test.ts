@@ -11,6 +11,7 @@ import {
   INBOX_WAIT_MAX_SECONDS,
   inboxInputSchema,
   inboxOutputSchema,
+  NOT_HANDLED_REASON_MAX_LENGTH,
   notHandledInputSchema,
   notHandledOutputSchema,
   pushReceiveOutputSchema,
@@ -247,6 +248,29 @@ describe('handledInputSchema and notHandledInputSchema', () => {
   ])('%s answers nothing: the OK is the answer', (_name, schema) => {
     expect(schema.safeParse({}).success).toBe(true);
     expect(schema.safeParse({ state: 'handled' }).success).toBe(false);
+  });
+});
+
+describe('notHandledInputSchema: the reason the plugin gives (#847)', () => {
+  const deliveryId = newId('delivery');
+
+  it('takes the reason the crew judged it not handled for', () => {
+    const input = { deliveryId, reason: 'the turn it was handed once more to died too' };
+
+    expect(notHandledInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('takes a reason of exactly the longest length, and refuses one character more', () => {
+    expect(notHandledInputSchema.safeParse({ deliveryId, reason: 'x'.repeat(NOT_HANDLED_REASON_MAX_LENGTH) }).success).toBe(true);
+    expect(notHandledInputSchema.safeParse({ deliveryId, reason: 'x'.repeat(NOT_HANDLED_REASON_MAX_LENGTH + 1) }).success).toBe(false);
+  });
+
+  it('refuses an empty reason', () => {
+    expect(notHandledInputSchema.safeParse({ deliveryId, reason: '  ' }).success).toBe(false);
+  });
+
+  it('refuses a reason of more than one line', () => {
+    expect(notHandledInputSchema.safeParse({ deliveryId, reason: 'died\nagain' }).success).toBe(false);
   });
 });
 

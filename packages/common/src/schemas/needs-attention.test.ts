@@ -21,6 +21,7 @@ describe('needsAttentionOutputSchema', () => {
     attempts: 5,
     isPushed: false,
     since: AT,
+    reason: null,
     message: {
       id: newId('message'),
       sender: builder,
@@ -53,6 +54,16 @@ describe('needsAttentionOutputSchema', () => {
     const notHandled = { ...undeliverable, state: 'notHandled', attempts: 1 };
 
     expect(needsAttentionOutputSchema.parse([notHandled])).toEqual([notHandled]);
+  });
+
+  it('takes a delivery not handled with the reason its crew gave (#847)', () => {
+    const notHandled = { ...undeliverable, state: 'notHandled', attempts: 1, reason: 'the turn it was handed once more to died too' };
+
+    expect(needsAttentionOutputSchema.parse([notHandled])).toEqual([notHandled]);
+  });
+
+  it('refuses an entry that does not say its reason, or that it has none (#847)', () => {
+    expect(needsAttentionOutputSchema.safeParse([{ ...undeliverable, reason: undefined }]).success).toBe(false);
   });
 
   it('refuses a delivery in any other state', () => {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
+import { isOneLine } from './report.js';
 
 /**
  * Inputs and outputs of receiving and acknowledging deliveries (`ship.receive`
@@ -119,8 +120,20 @@ export const handledOutputSchema = z.strictObject({});
 
 export type HandledOutput = z.infer<typeof handledOutputSchema>;
 
-/** Input of `ship.notHandled`: the delivery handed once more whose turn died too. */
-export const notHandledInputSchema = z.object({ deliveryId: idSchema('delivery') });
+/** The longest reason a Not handled report may give. */
+export const NOT_HANDLED_REASON_MAX_LENGTH = 200;
+
+const REASON_MESSAGE = `A reason is one line of at most ${String(NOT_HANDLED_REASON_MAX_LENGTH)} characters`;
+
+/**
+ * Input of `ship.notHandled`: the delivery handed once more whose turn died
+ * too, and why the crew's computer side judged so (#847), which Needs
+ * attention shows with the entry.
+ */
+export const notHandledInputSchema = z.object({
+  deliveryId: idSchema('delivery'),
+  reason: z.string().trim().min(1, REASON_MESSAGE).max(NOT_HANDLED_REASON_MAX_LENGTH, REASON_MESSAGE).refine(isOneLine, REASON_MESSAGE).optional(),
+});
 
 export type NotHandledInput = z.infer<typeof notHandledInputSchema>;
 
