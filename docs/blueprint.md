@@ -336,7 +336,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Questions to argo
 
-1. Any ship asks the operator by sending `argo` a message of the question content type (decision 0038): its own uuid, a title, the context, numbered options with label and detail, and its pick and why. Its prompt says when to ask.
+1. Any ship asks the operator by sending `argo` a message of the question content type (decision 0038): its own uuid, a title, the context, numbered options with a label and an optional detail, and its pick and why. Its prompt says when to ask.
 2. The console shows it on Questions, Open, with the count of open questions in the navigation; the inbox leaves it out. A message of the question type whose payload is no question stays in the inbox as a plain message.
 3. The operator picks one option, with an optional note, or sends a note alone (more context needed, or none of the options fits). The console checks it against the question and sends it with Reply, of the answer content type, which marks the message done. The fleet never reads either payload.
 4. A question is open until argo has sent an answer naming it, whatever its delivery's state: Mark done does not answer it. Answered, it shows its answer under Answered. The asking ship receives the answer like any reply.

@@ -46,7 +46,8 @@ const optionKeySchema = z.int().min(FIRST_OPTION);
 
 const textSchema = z.string().min(1);
 
-const optionSchema = z.object({ key: optionKeySchema, label: textSchema, detail: z.string() });
+/** An option: its number, a label, and a detail, empty when the asker sent none (#854): a question is its type, not a perfect format. */
+const optionSchema = z.object({ key: optionKeySchema, label: textSchema, detail: z.string().default('') });
 
 /** A question: its own uuid, a title, the context to answer from, numbered options, and the asker's pick and why. */
 export const questionSchema = z
