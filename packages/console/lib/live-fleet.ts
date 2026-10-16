@@ -101,7 +101,7 @@ export interface LiveFleet {
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message, the ships' message lists and
  * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * not handled, or is dismissed, reloads Needs attention, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
+ * not handled, or is dismissed, reloads Needs attention, a message's or a ship's event the fleet's health, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
@@ -146,6 +146,8 @@ export function useLiveFleet(): LiveFleet {
             reload(INBOX_KEY);
             // A send to a type, or a ship taking one, changes what no ship can take.
             reload(trpc.fleet.noShipCanTake.queryKey());
+            // A delivery that moves, or a new one, changes what is stuck.
+            reload(trpc.fleet.health.queryKey());
           }
           if (isAttentionChange(event.type)) {
             reload(trpc.fleet.needsAttention.queryKey());
@@ -162,6 +164,8 @@ export function useLiveFleet(): LiveFleet {
           reloadSnapshot();
           // A commission or a retire changes which types an active ship has.
           reload(trpc.fleet.noShipCanTake.queryKey());
+          // A commission, a crew or a release changes why a delivery waits.
+          reload(trpc.fleet.health.queryKey());
           const { shipId } = event;
           if (event.type === 'ShipCommissioned' && shipId !== null) {
             setNewShipIds((shown) => new Set([...shown, shipId]));
