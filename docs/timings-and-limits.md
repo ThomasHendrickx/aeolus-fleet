@@ -167,11 +167,11 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/lib/last-seen.ts](../packages/console/features/fleet/lib/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
+| under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/services/last-seen.ts](../packages/console/features/fleet/services/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
 | late after 1 interval, silent after 3 | A squadron member's check-in, as squadrons judges it (below) | [lib/squadrons-view.ts](../packages/console/lib/squadrons-view.ts) `LATE_AFTER_INTERVALS`, `SILENT_AFTER_INTERVALS` | [squadrons.md](squadrons.md) |
 | from 15 labels | A ship page shows "n of 20" | [lib/labels.ts](../packages/console/lib/labels.ts) `SHOWN_COUNT_FROM` | [0031](decisions/0031-labels.md) |
 | 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/organisms/ship-labels-edit.tsx](../packages/console/features/ship/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
-| 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/organisms/fleet-table.tsx](../packages/console/features/fleet/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
+| 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/ui/organisms/fleet-table.tsx](../packages/console/features/fleet/ui/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
 | 8 ships | Ships the command palette lists before anything is typed | [features/commands/services/command-palette.ts](../packages/console/features/commands/services/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
 | 1.5 s | A copy button shows its check | [components/atoms/copy-button.tsx](../packages/console/components/atoms/copy-button.tsx) `COPIED_FOR_MS` | [design/README.md](design/README.md) |
 | 500 ms | A tooltip opens after hovering | [components/atoms/tooltip.tsx](../packages/console/components/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |

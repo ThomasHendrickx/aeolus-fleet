@@ -1,8 +1,8 @@
 'use client';
 
-import { Select, SelectContent, SelectItem, SelectTrigger } from '../../../components/atoms/select';
-import { classNames } from '../../../lib/class-names';
-import { ALL, pickedAfter, pickedSummary, shownPicks } from '../lib/filter-pick';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '../../../../components/atoms/select';
+import { classNames } from '../../../../lib/class-names';
+import { ALL, pickedAfter, pickedSummary, shownPicks } from '../../services/filter-pick';
 
 export interface FilterSelectProps {
   /** The filter's name, muted before what is picked: "Kind". */

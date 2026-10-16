@@ -4,11 +4,11 @@ import type { ShipId } from '@aeolus-fleet/common';
 
 import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { usePluginShipIds } from '../../../lib/plugin-ships';
-import type { FleetView } from '../lib/fleet-filter';
+import type { FleetView } from '../services/fleet-filter';
 import { useNow } from '../../../lib/now';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
-import { FleetTable, type FleetTableProps } from './fleet-table';
+import { FleetTable, type FleetTableProps } from '../ui/organisms/fleet-table';
 
 /**
  * The fleet overview: the live snapshot in FleetTable, each ship with its

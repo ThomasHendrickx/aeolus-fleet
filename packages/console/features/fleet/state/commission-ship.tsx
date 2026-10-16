@@ -19,7 +19,7 @@ import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
-const CommissionDialog = lazyDialog(() => import('./commission-dialog').then((module) => module.CommissionDialog), (props) => props.isOpen);
+const CommissionDialog = lazyDialog(() => import('../ui/organisms/commission-dialog').then((module) => module.CommissionDialog), (props) => props.isOpen);
 const StartingPromptDialog = lazyDialog(() => import('../../../components/organisms/starting-prompt-dialog').then((module) => module.StartingPromptDialog), (props) => props.isOpen);
 
 /**

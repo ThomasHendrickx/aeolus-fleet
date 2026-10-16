@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import { chipTitleOf, rowChips, type LabelChip as LabelChipData } from '../../../lib/labels';
-import { LabelChip } from '../../../components/molecules/label-chip';
+import { chipTitleOf, rowChips, type LabelChip as LabelChipData } from '../../../../lib/labels';
+import { LabelChip } from '../../../../components/molecules/label-chip';
 
 interface LabelChipsProps {
   chips: readonly LabelChipData[];

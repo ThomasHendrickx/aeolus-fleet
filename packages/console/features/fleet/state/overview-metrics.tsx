@@ -2,11 +2,11 @@
 
 import { CircleDashed, TriangleAlert, UserCheck } from 'lucide-react';
 
-import { MetricCard } from '../molecules/metric-card';
+import { MetricCard } from '../ui/molecules/metric-card';
 import { useFleetSnapshot } from '../../../lib/fleet';
 import { useAttentionCount, useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
-import { overviewMetrics } from '../lib/overview-metrics';
+import { overviewMetrics } from '../services/overview-metrics';
 
 /**
  * The overview's counts above the fleet (canvas, OverviewVaried): ships

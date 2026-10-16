@@ -4,8 +4,8 @@ import type { CrewStatus, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet
 import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { classNames } from '../../../lib/class-names';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { classNames } from '../../../../lib/class-names';
 import {
   activeFilterCount,
   activeFilterLabels,
@@ -18,31 +18,31 @@ import {
   type FleetFilters,
   type FleetView,
   type StatusFilter,
-} from '../lib/fleet-filter';
-import { AGENT_KIND_WORDS, isAgentKind } from '../lib/agent-kind';
-import { nextSort, type FleetSort, type SortColumn } from '../lib/fleet-sort';
-import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../lib/labels';
-import type { ShipInSquadron } from '../../../lib/squadrons-view';
-import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../lib/needs-crew';
-import { Badge } from '../../../components/atoms/badge';
-import { Button } from '../../../components/atoms/button';
-import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
-import { Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
-import { Switch } from '../../../components/atoms/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../components/atoms/table';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LabelChip } from '../../../components/molecules/label-chip';
+} from '../../services/fleet-filter';
+import { AGENT_KIND_WORDS, isAgentKind } from '../../services/agent-kind';
+import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-sort';
+import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
+import type { ShipInSquadron } from '../../../../lib/squadrons-view';
+import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../../lib/needs-crew';
+import { Badge } from '../../../../components/atoms/badge';
+import { Button } from '../../../../components/atoms/button';
+import { Input } from '../../../../components/atoms/input';
+import { Label } from '../../../../components/atoms/label';
+import { Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../../components/atoms/sheet';
+import { Switch } from '../../../../components/atoms/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LabelChips } from '../molecules/label-chips';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
-import { LocationTag } from '../../../components/molecules/location-tag';
+import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelHint } from '../molecules/model-hint';
-import { ReportLine } from '../../../components/molecules/report-line';
-import { SquadronTag } from '../../../components/molecules/squadron-tag';
-import { ShipName } from '../../../components/molecules/ship-name';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { ReportLine } from '../../../../components/molecules/report-line';
+import { SquadronTag } from '../../../../components/molecules/squadron-tag';
+import { ShipName } from '../../../../components/molecules/ship-name';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { FilterSelect } from '../molecules/filter-select';
 import { FilterToggles } from '../molecules/filter-toggles';
 import { LabelFilterButton, PhoneLabelFilter, PickedLabels } from './label-filter';

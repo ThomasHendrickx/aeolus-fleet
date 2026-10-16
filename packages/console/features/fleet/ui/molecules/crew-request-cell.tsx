@@ -1,5 +1,5 @@
-import { classNames } from '../../../lib/class-names';
-import type { CrewRequestCell as Cell } from '../../../lib/needs-crew';
+import { classNames } from '../../../../lib/class-names';
+import type { CrewRequestCell as Cell } from '../../../../lib/needs-crew';
 
 const DOT_TONES = {
   waiting: 'bg-tone-waiting-fg',

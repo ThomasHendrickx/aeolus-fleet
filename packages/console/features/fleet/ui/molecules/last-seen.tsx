@@ -1,9 +1,9 @@
 import { Signal, SignalLow, SignalMedium } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { seenSignal, type SeenSignal } from '../lib/last-seen';
-import { lastSeen } from '../../../lib/relative-time';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/atoms/tooltip';
+import { classNames } from '../../../../lib/class-names';
+import { seenSignal, type SeenSignal } from '../../services/last-seen';
+import { lastSeen } from '../../../../lib/relative-time';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/atoms/tooltip';
 
 const SIGNALS: Record<SeenSignal, { Icon: typeof Signal; tone: string }> = {
   fresh: { Icon: Signal, tone: 'text-tone-ok-fg' },

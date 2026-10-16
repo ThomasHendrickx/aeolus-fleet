@@ -6,13 +6,13 @@ import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 
-import type { FilterGroup, LabelChip as LabelChipData } from '../../../lib/labels';
-import { Button } from '../../../components/atoms/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/atoms/popover';
-import { LabelChip } from '../../../components/molecules/label-chip';
+import type { FilterGroup, LabelChip as LabelChipData } from '../../../../lib/labels';
+import { Button } from '../../../../components/atoms/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
+import { LabelChip } from '../../../../components/molecules/label-chip';
 
 // Loads when its popover first opens, not with the page.
-const LabelPicker = dynamic(() => import('../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
+const LabelPicker = dynamic(() => import('../../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface LabelFilterProps {
   groups: readonly FilterGroup[];

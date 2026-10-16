@@ -1,8 +1,8 @@
 import { Infinity as NoLimit, Send, Ship, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { meterCaption, meterCount, meterState, resetTime, type MeterState } from '../../../lib/limits';
-import { StatusBadge, type LimitState } from '../../../components/molecules/status-badge';
+import { classNames } from '../../../../lib/class-names';
+import { meterCaption, meterCount, meterState, resetTime, type MeterState } from '../../../../lib/limits';
+import { StatusBadge, type LimitState } from '../../../../components/molecules/status-badge';
 
 const KINDS: Record<'ships' | 'messages', { label: string; unit: string; Icon: LucideIcon }> = {
   ships: { label: 'Ships', unit: 'ships', Icon: Ship },

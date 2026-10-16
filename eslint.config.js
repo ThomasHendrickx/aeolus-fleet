@@ -131,7 +131,6 @@ const webLayers = ['atoms', 'molecules', 'organisms'];
  */
 const featuresInTheOldLayout = [
   'compose',
-  'fleet',
   'guide',
   'labels',
   'needs-crew',

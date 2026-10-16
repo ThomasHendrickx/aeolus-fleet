@@ -3,7 +3,7 @@
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
 import { hasLimits } from '../../../lib/limits';
-import { LimitMeter } from '../molecules/limit-meter';
+import { LimitMeter } from '../ui/molecules/limit-meter';
 
 /**
  * The fleet's limits on the overview, when any applies (fleet.limits): ships

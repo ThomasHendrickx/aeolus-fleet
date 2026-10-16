@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import type { LabelChip } from '../../../lib/labels';
+import type { LabelChip } from '../../../../lib/labels';
 import { LabelChips } from './label-chips';
 
 const chip = (text: `${string}=${string}`, mark: LabelChip['mark'] = 'none'): LabelChip => {

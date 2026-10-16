@@ -5,14 +5,14 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { classNames } from '../../../lib/class-names';
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../lib/crew-settings-form';
-import type { MachineLabelsInput } from '../../../lib/machine-labels';
-import type { SettingsCheck } from '../../../lib/trierarch-plugin-schemas';
-import { asHandle, checkShipName, typeHint } from '../../../lib/ship-name';
-import { Button } from '../../../components/atoms/button';
-import { Combobox } from '../../../components/atoms/combobox';
+import { classNames } from '../../../../lib/class-names';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import type { MachineLabelsInput } from '../../../../lib/machine-labels';
+import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
+import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
+import { Button } from '../../../../components/atoms/button';
+import { Combobox } from '../../../../components/atoms/combobox';
 import {
   Dialog,
   DialogClose,
@@ -21,16 +21,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
-import { Switch } from '../../../components/atoms/switch';
-import { Textarea } from '../../../components/atoms/textarea';
-import { CrewSettingsFields } from '../../../components/molecules/crew-settings-fields';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LimitNotice } from '../../../components/molecules/limit-notice';
-import { shipLimitNotice } from '../../../lib/limits';
+} from '../../../../components/atoms/dialog';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Input } from '../../../../components/atoms/input';
+import { Label } from '../../../../components/atoms/label';
+import { Switch } from '../../../../components/atoms/switch';
+import { Textarea } from '../../../../components/atoms/textarea';
+import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LimitNotice } from '../../../../components/molecules/limit-notice';
+import { shipLimitNotice } from '../../../../lib/limits';
 
 interface CommissionDialogProps {
   /** The fleet's active ships: their names are taken, their types suggested. */

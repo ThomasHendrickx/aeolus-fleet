@@ -1,8 +1,8 @@
 import { Package, Sparkles } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { isSoftwareModel, modelStatedWords } from '../lib/model-tag';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/atoms/tooltip';
+import { classNames } from '../../../../lib/class-names';
+import { isSoftwareModel, modelStatedWords } from '../../services/model-tag';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/atoms/tooltip';
 
 /**
  * What a ship's session last stated it runs on, exactly as stated

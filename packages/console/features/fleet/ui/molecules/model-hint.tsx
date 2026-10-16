@@ -1,7 +1,7 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 
-import { modelStatedWords } from '../lib/model-tag';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/atoms/tooltip';
+import { modelStatedWords } from '../../services/model-tag';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/atoms/tooltip';
 
 /** The overview's quiet model hint; the full ModelTag remains on the ship page. */
 export function ModelHint({ model, now }: { model: NonNullable<ListedShip['model']>; now: Date }) {

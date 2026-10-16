@@ -4,10 +4,10 @@ import { Ellipsis, Plus } from 'lucide-react';
 import { useState, type ComponentProps } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { DEFAULT_FLEET_VIEW, type FleetView } from '../lib/fleet-filter';
-import { Button } from '../../../components/atoms/button';
+import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter';
+import { Button } from '../../../../components/atoms/button';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
-import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;

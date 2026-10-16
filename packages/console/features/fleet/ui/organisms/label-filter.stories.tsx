@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { filterGroupsOf, pickedChips } from '../../../lib/labels';
+import { filterGroupsOf, pickedChips } from '../../../../lib/labels';
 import { PickedLabels } from './label-filter';
-import { AREA, carried, labelContext, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, carried, labelContext, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 
 const CONTEXT = labelContext([]);
 const PICKED = pickedChips([carried(PROJECT, 'hemma').valueId, carried(AREA, 'backend').valueId], CONTEXT);

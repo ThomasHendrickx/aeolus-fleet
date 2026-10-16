@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
-import { MACHINE_LABELS, OFFERS } from '../../../lib/fixtures/machines.fixtures';
+import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
 
 const newId = createIdGenerator();
 
