@@ -141,3 +141,12 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
 /** A viewer session (decision 0022): the deliveries, read-only, with no Resend or Dismiss. */
 export const ReadOnly: Story = { args: { onResend: undefined, onDismiss: undefined } };
+
+/** Not handled with the reason its crew gave, shown with the entry (#847). */
+export const NotHandledWithItsReason: Story = {
+  args: { deliveries: [{ ...notHandled, reason: 'the turn it was handed once more to died too' }] },
+  play: async ({ canvas }) => {
+    // The table and the phone cards both hold the row; one of them shows.
+    await expect(canvas.getAllByText('Its crew said: the turn it was handed once more to died too.', { exact: false })[0]).toBeInTheDocument();
+  },
+};
