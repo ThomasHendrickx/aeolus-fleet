@@ -117,15 +117,15 @@ describe('operator:reset-password', () => {
   });
 
   it('reports a refusal from the domain and exits 1', async () => {
-    const io = scriptedIo(['', '']);
+    const io = scriptedIo(answers);
     const refused: ResetOperatorPassword = () =>
-      Promise.resolve(refuse('INVALID_PASSWORD', 'A password is 1 to 1024 characters'));
+      Promise.resolve(refuse('OPERATOR_HAS_NO_PASSWORD', 'This operator has no password: they sign in only through the hosting service'));
 
     await expect(
       operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword: refused, io }),
     ).resolves.toBe(1);
 
-    expect(io.stderr).toEqual(['A password is 1 to 1024 characters']);
+    expect(io.stderr).toEqual(['This operator has no password: they sign in only through the hosting service']);
     expect(io.stdout).toEqual([]);
   });
 
@@ -151,5 +151,28 @@ describe('operator:reset-password', () => {
 
     expect(resetOperatorPassword).not.toHaveBeenCalled();
     expect(io.stderr).toEqual(['The operator password cannot hold the character U+0000 (NUL). Nothing was changed.']);
+  });
+
+  it('refuses a new password shorter than 12 characters and changes nothing', async () => {
+    const io = scriptedIo(['eleven char', 'eleven char']);
+    const resetOperatorPassword = vi.fn(reset);
+
+    await expect(
+      operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword, io }),
+    ).resolves.toBe(1);
+
+    expect(resetOperatorPassword).not.toHaveBeenCalled();
+    expect(io.stderr).toEqual(['Use a password of at least 12 characters. Nothing was changed.']);
+  });
+
+  it('takes a new password of exactly 12 characters', async () => {
+    const io = scriptedIo(['twelve chars', 'twelve chars']);
+    const resetOperatorPassword = vi.fn(reset);
+
+    await expect(
+      operatorResetPassword([], { listFleets: () => Promise.resolve([fleet()]), resetOperatorPassword, io }),
+    ).resolves.toBe(0);
+
+    expect(resetOperatorPassword).toHaveBeenCalledTimes(1);
   });
 });

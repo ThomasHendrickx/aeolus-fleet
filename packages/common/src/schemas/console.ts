@@ -6,7 +6,7 @@ import { EMAIL_REQUIRED, EMAIL_TOO_LONG, OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PAS
 
 /** One @ with something on each side, and no whitespace. */
 export const OPERATOR_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
-export { OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH } from '../rules/sign-in.js';
+export { newOperatorPasswordProblem, OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH } from '../rules/sign-in.js';
 
 /**
  * Input of `console.signIn`: the operator's email and password. Whitespace

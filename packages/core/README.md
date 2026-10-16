@@ -49,8 +49,8 @@ Run on the server, against the configured database, once it is migrated:
 
 | Command | Does |
 | --- | --- |
-| `aeolus-core fleet:init --name "<fleet name>"` | Asks for the operator email and password (twice, not shown), then creates the fleet, its operator ship `argo` and the operator account. Refuses when a fleet already exists |
-| `aeolus-core operator:reset-password` | Asks for a new operator password (twice, not shown) and sets it. The old one stops working and every console session ends. An operator a hosting installation created has no password and is refused: they sign in only through the hosting service |
+| `aeolus-core fleet:init --name "<fleet name>"` | Asks for the operator email and password (twice, not shown, at least 12 characters), then creates the fleet, its operator ship `argo` and the operator account. Refuses when a fleet already exists |
+| `aeolus-core operator:reset-password` | Asks for a new operator password (twice, not shown, at least 12 characters) and sets it. The old one stops working and every console session ends. An operator a hosting installation created has no password and is refused: they sign in only through the hosting service |
 
 Both commands read their answers a line at a time from standard input, so a script can pipe them in. Like the API, they refuse any answer holding the character U+0000, naming what holds it, and change nothing. In this repository they run as `npm run fleet:init -w @aeolus-fleet/core -- --name "<fleet name>"` and `npm run operator:reset-password -w @aeolus-fleet/core`, and `npm run db:migrate -w @aeolus-fleet/core` migrates.
 

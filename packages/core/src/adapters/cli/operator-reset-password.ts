@@ -1,5 +1,7 @@
 import { parseArgs } from 'node:util';
 
+import { newOperatorPasswordProblem } from '@aeolus-fleet/common';
+
 import type { ResetOperatorPassword } from '../../domain/identity/reset-operator-password.js';
 import type { ListFleets } from '../../domain/registry/list-fleets.js';
 import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
@@ -46,6 +48,11 @@ export async function operatorResetPassword(
   const refusal = nulRefusal([{ name: 'operator password', text: password.password }], 'Nothing was changed.');
   if (refusal !== undefined) {
     io.err(refusal);
+    return 1;
+  }
+  const passwordProblem = newOperatorPasswordProblem(password.password);
+  if (passwordProblem !== undefined) {
+    io.err(`${passwordProblem}. Nothing was changed.`);
     return 1;
   }
 
