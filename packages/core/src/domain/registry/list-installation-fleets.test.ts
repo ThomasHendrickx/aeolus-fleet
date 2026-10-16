@@ -20,7 +20,7 @@ let hemmaArgo: ShipId;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-01T12:00:00.000Z');
-  listFleets = createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock });
+  listFleets = createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock });
   ({ fleetId: first } = await initialiseFleet(core));
   core.clock.advance(DAY_MS);
   ({ fleetId: hemma, operatorShipId: hemmaArgo } = unwrap(
@@ -151,7 +151,15 @@ async function healthOf(fleetId: FleetId): Promise<unknown> {
 
 describe('the health of each fleet of the installation', () => {
   it('gives a fleet with nothing waiting nothing pending, nothing in flight and nothing to count', async () => {
-    await expect(healthOf(hemma)).resolves.toEqual({ oldestPendingAt: null, oldestInFlightAt: null, noShipCanTake: 0, needsAttention: 0, overdue: 0 });
+    await expect(healthOf(hemma)).resolves.toMatchObject({
+      oldestPendingAt: null,
+      oldestInFlightAt: null,
+      noShipCanTake: 0,
+      needsAttention: 0,
+      overdue: 0,
+      stuck: [],
+      acknowledged: { count: 0, medianMs: null },
+    });
   });
 
   it('gives when its oldest pending delivery was sent', async () => {
@@ -188,12 +196,31 @@ describe('the health of each fleet of the installation', () => {
     await expect(healthOf(hemma)).resolves.toMatchObject({ noShipCanTake: 1 });
   });
 
-  it('counts the undeliverable and not handled deliveries as needing attention, and no dismissed one', async () => {
+  it('counts the undeliverable deliveries as needing attention, and no not handled or dismissed one: not handled is execution', async () => {
     deliveryIn(hemma, { state: 'undeliverable' });
     deliveryIn(hemma, { state: 'notHandled' });
     deliveryIn(hemma, { state: 'dismissed' });
 
-    await expect(healthOf(hemma)).resolves.toMatchObject({ needsAttention: 2 });
+    await expect(healthOf(hemma)).resolves.toMatchObject({ needsAttention: 1 });
+  });
+
+  it('describes where its deliveries are stuck, by cause and place, and how many were stuck at each hour', async () => {
+    addAgentShip(core, { fleetId: hemma, type: 'gone', retiredAt: core.clock.now() });
+    const sentAt = core.clock.now();
+    deliveryIn(hemma, { state: 'pending', recipient: { kind: 'type', type: 'gone' } });
+
+    const health = (await listFleets()).find((fleet) => fleet.fleetId === hemma)?.health;
+
+    expect(health?.stuck).toEqual([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'gone' }, count: 1, oldestSince: sentAt }]);
+    expect(health?.stuckPerHour).toHaveLength(168);
+    expect(health?.stuckPerHour.at(-1)).toEqual({ at: core.clock.now(), count: 1 });
+  });
+
+  it('reads the stuck deliveries of each fleet from its own records only', async () => {
+    addAgentShip(core, { fleetId: first, type: 'gone', retiredAt: core.clock.now() });
+    deliveryIn(first, { state: 'pending', recipient: { kind: 'type', type: 'gone' } });
+
+    await expect(healthOf(hemma)).resolves.toMatchObject({ stuck: [] });
   });
 
   it('counts the overdue deliveries argo was told of that still stand, and none that left the state it was told in', async () => {
