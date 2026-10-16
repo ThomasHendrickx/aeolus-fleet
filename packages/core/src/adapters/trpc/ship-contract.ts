@@ -180,7 +180,8 @@ export const SHIP_CALLS: readonly ShipCall[] = [
 /**
  * What a caller learns of a call that did not succeed: the code, its HTTP
  * status and a message it may read. The code is tRPC's, or LEASE_ENDED for a
- * crew whose ship was released.
+ * crew whose ship was released, or a delivery's own code for a refusal about
+ * that delivery (#832).
  */
 export interface ShipCallRefusal {
   code: TRPC_ERROR_CODE_KEY | ShipRefusalCode['code'];
