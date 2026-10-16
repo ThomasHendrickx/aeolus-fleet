@@ -1578,6 +1578,28 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
         expect(store()).toEqual([]);
       });
 
+      it('keeps the message a task that died without Interrupt took to hand once more at resume, and the first prompt puts it in as handed before (#846)', async () => {
+        const stub = await aConfirmedMessage({});
+
+        await aCodexHook('aeolus-session-start.sh', { hook_event_name: 'SessionStart', source: 'resume' });
+
+        expect(store()).toEqual([`${DELIVERY_ID} onceMore`]);
+        const prompted = await aPrompt();
+        expect(callsTo(stub, '/api/v1/ship/handed').map((call) => call.body).at(-1)).toBe(`{"deliveryId":"${DELIVERY_ID}","handOverNumber":2,"isOnceMore":true}`);
+        expect(JSON.parse(prompted.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: ONCE_MORE + MESSAGE } });
+      });
+
+      it('reports a message handed once more not handled when its task died too and resumes, and drops it (#846)', async () => {
+        const stub = await aConfirmedMessage({ '/api/v1/ship/notHandled': [taken] });
+        await anInterrupt();
+        await aPrompt();
+
+        await aCodexHook('aeolus-session-start.sh', { hook_event_name: 'SessionStart', source: 'resume' });
+
+        expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+        expect(store()).toEqual([]);
+      });
+
       it('reports the message not handled when the turn it was handed once more to is interrupted too, and drops it', async () => {
         const stub = await aConfirmedMessage({ '/api/v1/ship/notHandled': [taken] });
         await anInterrupt();
