@@ -5,6 +5,7 @@ export * from './delivery.js';
 export * from './fleet.js';
 export * from './follow.js';
 export * from './guide.js';
+export * from './health.js';
 export * from './history.js';
 export * from './idempotency-key.js';
 export * from './installation.js';

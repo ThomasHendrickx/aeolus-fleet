@@ -5,7 +5,7 @@
  * days count alike. Facts only: no thresholds of its own beyond the clocks the
  * pushed leases already run (decision 0040).
  */
-import { isId, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type ShipId, type TurnState } from '@aeolus-fleet/common';
+import { isId, STUCK_TREND_HOURS, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type ShipId, type StuckCause, type TurnState } from '@aeolus-fleet/common';
 
 import { hasClockRunOut, NOT_CONFIRMED_MINUTES } from '../messaging/public.js';
 import type { FleetEvent } from './events.js';
@@ -14,11 +14,6 @@ import type { Recipient } from './selector.js';
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 
-/** How many hours the trend counts back, the last one now: 7 days. */
-export const STUCK_TREND_HOURS = 7 * 24;
-
-/** Why a delivery is stuck, one cause each. */
-export type StuckCause = 'undeliverable' | 'noShipCanTake' | 'waitingForCrew' | 'stalledInFlight';
 
 /** Where a delivery is stuck: at a ship, or at the type it was sent to. */
 export type StuckPlace = { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type: string };

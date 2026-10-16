@@ -4,10 +4,10 @@
  * each hour of the last 7 days, and how many were acknowledged in the last 24
  * hours. Facts read from the fleet's records, never stored.
  */
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { STUCK_TREND_HOURS, type FleetId, type ShipId, type StuckCause } from '@aeolus-fleet/common';
 
 import type { HistoryParty } from './history.js';
-import { STUCK_TREND_HOURS, stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckCause } from './stuck.js';
+import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords } from './stuck.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
