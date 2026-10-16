@@ -66,7 +66,7 @@ if [ -n "${PLUGIN_ROOT:-}" ]; then
     startup|resume)
       if ! aeolus_woken_by_trierarch "$identity_text" && aeolus_reports_here "$identity_text"; then
         aeolus_store_drop_older_leases
-        aeolus_store_died_turn "$identity"
+        aeolus_store_died_turn "$identity" "the session it was handed once more to died too (SessionStart: ${source_event})"
         aeolus_send_owed "$identity"
       fi
       ;;
