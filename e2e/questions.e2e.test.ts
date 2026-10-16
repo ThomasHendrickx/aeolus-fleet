@@ -245,6 +245,79 @@ describe('questions to argo', () => {
     expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: question.id, note: 'Who still reads it?' });
   });
 
+  it('keeps an answer that was not sent on its question, with why, and sends it once when answered again (#870)', async () => {
+    const implementer = await crewedOverRest({ name: 'planner-a', type: 'planner' });
+    const question = { ...QUESTION, id: '6d9f2b4a-8c1e-4a3d-9b5f-7e0c2a4d6f8b', title: 'Which port for the staging console?' };
+    const other = { ...QUESTION, id: '8a1c3e5b-7d9f-4b2a-8c4e-6f0a2c4e6a8c', title: 'Which port for the staging core?' };
+    for (const asked of [question, other]) {
+      await implementer.call('send', { selector: { kind: 'ship', shipId: argo.shipId }, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(asked), idempotencyKey: `ask-${asked.id}` });
+    }
+    const page = await signedInPage();
+    await page.goto('/inbox');
+    await questionRow(page, question.title).click();
+    await visible(page, 'inbox-question').getByRole('heading', { name: question.title }).waitFor();
+    let isFirstSend = true;
+    await page.route('**/inbox?**', async (route) => {
+      if (route.request().method() === 'POST' && isFirstSend) {
+        isFirstSend = false;
+        await route.abort('connectionreset');
+        return;
+      }
+      await route.continue();
+    });
+
+    await visible(page, 'inbox-note').fill('Staging only.');
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answer-failed').getByText('Your answer was not sent', { exact: false }).waitFor();
+    await questionRow(page, other.title).click();
+    await visible(page, 'inbox-question').getByRole('heading', { name: other.title }).waitFor();
+    await questionRow(page, question.title).click();
+    await visible(page, 'inbox-answer-failed').waitFor();
+    await expect.poll(() => visible(page, 'inbox-note').inputValue()).toBe('Staging only.');
+    await visible(page, 'inbox-answer').click();
+
+    await visible(page, 'inbox-answered').waitFor();
+    await expect(visible(page, 'inbox-answer-failed').count()).resolves.toBe(0);
+    const { deliveries } = receivedSchema.parse(await implementer.call('receive', { max: 10 }));
+    expect(deliveries.map(({ payload }): unknown => JSON.parse(payload))).toEqual([{ questionId: question.id, option: 2, note: 'Staging only.' }]);
+    await questionRow(page, other.title).click();
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answered').waitFor();
+  });
+
+  it('says so when the operator leaves a question with a choice or note not sent, and holds them on return (#870)', async () => {
+    const implementer = await crewedOverRest({ name: 'planner-b', type: 'planner' });
+    const question = { ...QUESTION, id: '2c4e6a8b-0d1f-4e3a-9c5b-7d9f1b3d5e7a', title: 'Which port for the preview console?' };
+    const other = { ...QUESTION, id: '4e6a8c0d-2f3b-4a5c-8e7d-9f1b3d5f7a9c', title: 'Which port for the preview core?' };
+    for (const asked of [question, other]) {
+      await implementer.call('send', { selector: { kind: 'ship', shipId: argo.shipId }, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(asked), idempotencyKey: `ask-${asked.id}` });
+    }
+    const page = await signedInPage();
+    await page.goto('/inbox');
+    await questionRow(page, question.title).click();
+    const opened = visible(page, 'inbox-question');
+    await opened.getByRole('heading', { name: question.title }).waitFor();
+    await opened.getByTestId('inbox-question-status').getByText('Not answered').waitFor();
+
+    await opened.getByTestId('inbox-option-1').getByText('Keep 3000').click();
+    await visible(page, 'inbox-note').fill('Preview only.');
+    await questionRow(page, other.title).click();
+    await visible(page, 'inbox-question').getByRole('heading', { name: other.title }).waitFor();
+    await page.getByText(`Your answer to “${question.title}” is not sent`).waitFor();
+
+    await questionRow(page, question.title).click();
+    await visible(page, 'inbox-question').getByRole('heading', { name: question.title }).waitFor();
+    await expect.poll(() => visible(page, 'inbox-note').inputValue()).toBe('Preview only.');
+    await expect.poll(() => visible(page, 'inbox-answer').textContent()).toContain('Answer: Keep 3000, with note');
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answered').waitFor();
+    const { deliveries } = receivedSchema.parse(await implementer.call('receive', { max: 10 }));
+    expect(deliveries.map(({ payload }): unknown => JSON.parse(payload))).toEqual([{ questionId: question.id, option: 1, note: 'Preview only.' }]);
+    await questionRow(page, other.title).click();
+    await visible(page, 'inbox-answer').click();
+    await visible(page, 'inbox-answered').waitFor();
+  });
+
   it('shows a question the asker withdrew or replaced as stale under Done, not answerable, with the replacement linked and answerable', async () => {
     const implementer = await crewedOverRest({ name: 'implementer-d', type: 'implementer' });
     const withdrawn = { ...QUESTION, id: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e', title: 'Rename the inbox filter?' };

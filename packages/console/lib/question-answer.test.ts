@@ -235,6 +235,15 @@ describe('answerReplyOf', () => {
     });
   });
 
+  it('refuses a question argo already answered, so an answer is sent once (#870)', () => {
+    const answered = { ...asked, replies: [anAnswerTo(QUESTION)] };
+
+    expect(answerReplyOf({ inbox: [answered], deliveryId: answered.deliveryId, answer: { option: 2 } })).toEqual({
+      kind: 'refused',
+      message: 'You already answered that question',
+    });
+  });
+
   it('answers a replacement, naming the new question', () => {
     const replacement = aReplacement();
 

@@ -1,7 +1,7 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
-import { ChevronRight, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
+import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { classNames } from '../../../../lib/class-names';
@@ -30,6 +30,18 @@ export interface QuestionReaderProps {
   now: Date;
   /** A session that may not receive (a viewer's): no answer, and a note that says so. */
   isReadOnly?: boolean;
+  /** The answer that was not sent and why (#870): the form holds it again, so Answer sends it again. */
+  failure?: { answer: AnswerChoice; message: string };
+  /** The choice and note the operator left unsent on this question, held again on return. */
+  draft?: AnswerDraft;
+  /** Tells the choice and note while they differ from the untouched suggestion; undefined once they are back to it. */
+  onDraftChange?: (draft: AnswerDraft | undefined) => void;
+}
+
+/** What the answer form holds and has not sent: an option (none for a note alone) and a note. */
+export interface AnswerDraft {
+  option: number | undefined;
+  note: string;
 }
 
 type Option = QuestionEntry['question']['options'][number];
@@ -101,14 +113,14 @@ function StaleNotice({ question, onSelect }: { question: QuestionEntry; onSelect
   );
 }
 
-function OptionText({ option, question, isChosen }: { option: Option; question: QuestionEntry; isChosen: boolean }) {
+function OptionText({ option, question, isChosen, isSuggested = false }: { option: Option; question: QuestionEntry; isChosen: boolean; isSuggested?: boolean }) {
   const { pick } = question.question;
   const isPicked = option.key === pick.option;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
       <span className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground max-sm:text-body-touch">
         {option.label}
-        {isPicked ? <Badge variant="outline">{question.sender.name}’s pick</Badge> : null}
+        {isPicked ? <Badge variant="outline">{isSuggested ? `${question.sender.name}’s pick, not sent` : `${question.sender.name}’s pick`}</Badge> : null}
       </span>
       {option.detail === '' ? null : <span className="text-meta text-muted-foreground max-sm:text-body">{option.detail}</span>}
       {isPicked && isChosen ? (
@@ -142,13 +154,56 @@ function OptionList({ question }: { question: QuestionEntry }) {
   );
 }
 
-function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionReaderProps, 'question' | 'isPhone' | 'onAnswer' | 'isPending'>) {
+/** "Your answer was not sent: the fleet did not answer." */
+function FailedNotice({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      data-testid="inbox-answer-failed"
+      className="flex gap-2 rounded-lg border border-tone-attention-border bg-tone-attention-bg px-3.5 py-2.5 text-meta text-tone-attention-fg max-sm:text-body [&_svg]:mt-0.5 [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+    >
+      <CircleAlert aria-hidden />
+      <span>Your answer was not sent: {message}. Answer again to send it.</span>
+    </p>
+  );
+}
+
+/** What the form holds first: the answer that was not sent, else the draft left on the question; undefined for the asker's pick as a suggestion. */
+function heldAnswerOf({ failure, draft }: Pick<QuestionReaderProps, 'failure' | 'draft'>): AnswerDraft | undefined {
+  const failed = failure?.answer;
+  if (failed !== undefined) {
+    return { option: 'option' in failed ? failed.option : undefined, note: failed.note ?? '' };
+  }
+  return draft;
+}
+
+function AnswerForm({
+  question,
+  isPhone,
+  onAnswer,
+  isPending,
+  failure,
+  draft,
+  onDraftChange,
+}: Pick<QuestionReaderProps, 'question' | 'isPhone' | 'onAnswer' | 'isPending' | 'failure' | 'draft' | 'onDraftChange'>) {
   const id = useId();
   const noteId = `${id}-note`;
   const { options, pick } = question.question;
-  const [option, setOption] = useState<number | undefined>(pick.option);
-  const [note, setNote] = useState('');
-  const [isNoteOpen, setIsNoteOpen] = useState(!isPhone);
+  const held = heldAnswerOf({ failure, draft });
+  const [option, setOption] = useState<number | undefined>(held === undefined ? pick.option : held.option);
+  const [note, setNote] = useState(held?.note ?? '');
+  // The pick stays a suggestion until the operator chooses an option themselves (#870).
+  const [hasChosen, setHasChosen] = useState(held !== undefined);
+  const [isNoteOpen, setIsNoteOpen] = useState(!isPhone || note !== '');
+  const change = (next: AnswerDraft) => {
+    setOption(next.option);
+    setNote(next.note);
+    onDraftChange?.(next.option === pick.option && next.note.trim() === '' ? undefined : next);
+  };
+  const choose = (next: number | undefined) => {
+    setHasChosen(true);
+    change({ option: next, note });
+  };
   const platform = useShortcutPlatform();
   const asker = question.sender.name;
   const trimmed = note.trim();
@@ -166,11 +221,12 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
       }}
     >
       <div className="flex flex-col gap-4 px-5 pb-5 max-sm:px-0">
+        {failure === undefined ? null : <FailedNotice message={failure.message} />}
         <RadioGroup<number>
           aria-label="Options"
           value={option ?? NO_OPTION}
           onValueChange={(next) => {
-            setOption(next);
+            choose(next);
           }}
           onClickCapture={(event) => {
             // A second tap on the chosen option takes it back, so a note can go alone.
@@ -178,7 +234,7 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
             if (tapped !== undefined && tapped !== null && Number(tapped) === option) {
               event.preventDefault();
               event.stopPropagation();
-              setOption(undefined);
+              choose(undefined);
             }
           }}
           className="flex flex-col gap-2"
@@ -186,12 +242,14 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
           {options.map((each) => {
             const itemId = `${id}-option-${String(each.key)}`;
             const isChosen = each.key === option;
+            const isSuggested = isChosen && !hasChosen;
             return (
               <div
                 key={each.key}
                 data-testid={`inbox-option-${String(each.key)}`}
                 data-option-key={each.key}
-                className={classNames(OPTION_CARD, 'bg-card', isChosen ? 'border-2 border-primary' : 'border-border')}
+                data-suggested={isSuggested ? 'true' : undefined}
+                className={classNames(OPTION_CARD, 'bg-card', isSuggested ? 'border-2 border-dashed border-primary' : isChosen ? 'border-2 border-primary' : 'border-border')}
               >
                 <RadioGroupItem
                   id={itemId}
@@ -199,7 +257,7 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
                   className="mt-0.5"
                 />
                 <label htmlFor={itemId} className="min-w-0 grow cursor-pointer">
-                  <OptionText option={each} question={question} isChosen={isChosen} />
+                  <OptionText option={each} question={question} isChosen={isChosen} isSuggested={isSuggested} />
                 </label>
               </div>
             );
@@ -214,7 +272,7 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
               size="touch"
               value={note}
               onChange={(event) => {
-                setNote(event.target.value);
+                change({ option, note: event.target.value });
               }}
               data-testid="inbox-note"
             />
@@ -245,7 +303,7 @@ function AnswerForm({ question, isPhone, onAnswer, isPending }: Pick<QuestionRea
             placeholder={`Add a note to ${asker} (optional)`}
             value={note}
             onChange={(event) => {
-              setNote(event.target.value);
+              change({ option, note: event.target.value });
             }}
             onKeyDown={(event) => {
               // Enter alone never sends an answer; the shortcut does, as in every message field.
@@ -304,14 +362,17 @@ function NextBar({ position, onSelect, isPhone }: { position: QuestionPosition; 
 }
 
 /**
- * An open question to argo (#849, decision 0038): how long it has waited, the
- * title, who asks, the context and the options as large targets, with the
- * asker's pick chosen and its why under it. Answer names what it sends; a
- * second tap on the chosen option takes it back, so a note goes alone. After
- * the answer, the question says what was sent and offers the next question.
- * A stale question says why it can't be answered.
+ * An open question to argo (#849, decision 0038): that it is not answered,
+ * how long it has waited, the title, who asks, the context and the options as
+ * large targets, with the asker's pick preselected as a suggestion, not sent,
+ * and its why under it. Answer names what it sends; a second tap on the
+ * chosen option takes it back, so a note goes alone. A choice or note not yet
+ * sent is a draft the question holds again on return; an answer that was not
+ * sent says why and holds the option and note to send again. After the
+ * answer, the question says what was sent and offers the next question. A
+ * stale question says why it can't be answered.
  */
-export function QuestionReader({ question, position, isPhone, onAnswer, onSelect, isPending, now, isReadOnly = false }: QuestionReaderProps) {
+export function QuestionReader({ question, position, isPhone, onAnswer, onSelect, isPending, now, isReadOnly = false, failure, draft, onDraftChange }: QuestionReaderProps) {
   const sentAt = new Date(question.sentAt);
   const { title, context, answer } = question.question;
   const isAnswerable = answer === null && question.stale === null;
@@ -328,7 +389,9 @@ export function QuestionReader({ question, position, isPhone, onAnswer, onSelect
                   <CircleHelp aria-hidden className="size-(--size-icon-sm)" />
                   Question
                 </Badge>
-                <span className="text-meta text-muted-foreground">waiting {duration(sentAt, now)}</span>
+                <span className="text-meta text-muted-foreground" data-testid="inbox-question-status">
+                  <span className="font-medium text-foreground">Not answered</span> · waiting {duration(sentAt, now)}
+                </span>
               </span>
             ) : null}
             <h2 className="text-heading font-semibold [overflow-wrap:anywhere] max-sm:text-title-touch">{title}</h2>
@@ -348,7 +411,7 @@ export function QuestionReader({ question, position, isPhone, onAnswer, onSelect
           {context === '' ? null : <p className="text-body whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch">{context}</p>}
           {!isAnswerable || isReadOnly ? <OptionList question={question} /> : null}
         </div>
-        {isAnswerable && !isReadOnly ? <AnswerForm key={question.deliveryId} question={question} isPhone={isPhone} onAnswer={onAnswer} isPending={isPending} /> : null}
+        {isAnswerable && !isReadOnly ? <AnswerForm key={question.deliveryId} question={question} isPhone={isPhone} onAnswer={onAnswer} isPending={isPending} failure={failure} draft={draft} onDraftChange={onDraftChange} /> : null}
       </div>
       {isReadOnly && isAnswerable ? (
         <p data-testid="inbox-read-only" className="border-t border-border px-5 py-3 text-meta text-muted-foreground">
