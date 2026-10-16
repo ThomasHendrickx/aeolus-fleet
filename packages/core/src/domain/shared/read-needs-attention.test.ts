@@ -31,7 +31,8 @@ function deliveryOf(messageId: MessageId) {
  * hook acknowledge it, hand it once more after its turn died, and report it
  * not handled when that turn died too. Answers the delivery's id.
  */
-async function notHandled(crew: Crew, messageId: MessageId): Promise<DeliveryId> {
+async function notHandled(crew: Crew, report: { messageId: MessageId; reason?: string }): Promise<DeliveryId> {
+  const { messageId, reason } = report;
   const deliveryId = deliveryIdOf(scene.core, messageId);
   const { messaging } = scene;
   unwrap(await messaging.pushReceiveDeliveries(crew, {}));
@@ -39,7 +40,7 @@ async function notHandled(crew: Crew, messageId: MessageId): Promise<DeliveryId>
   unwrap(await messaging.acknowledgeDelivery(crew, { deliveryId }));
   unwrap(await messaging.handOverDelivery(crew, { deliveryId, handOverNumber: 2, isOnceMore: true }));
   scene.core.clock.advance(1_000);
-  unwrap(await messaging.reportNotHandled(crew, { deliveryId }));
+  unwrap(await messaging.reportNotHandled(crew, reason === undefined ? { deliveryId } : { deliveryId, reason }));
   return deliveryId;
 }
 
@@ -59,6 +60,7 @@ describe('reading Needs attention', () => {
         attempts: UNDELIVERABLE_AT_ATTEMPT,
         isPushed: false,
         since,
+        reason: null,
         message: {
           id: messageId,
           sender: { id: scene.planner.shipId, name: 'planner' },
@@ -128,7 +130,7 @@ describe('reading Needs attention', () => {
 
   it('lists a delivery not handled, with its attempts and since when it was not handled', async () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
-    const deliveryId = await notHandled(scene.scout, messageId);
+    const deliveryId = await notHandled(scene.scout, { messageId });
 
     const [entry] = await scene.history.readNeedsAttention(scene.argo);
 
@@ -141,13 +143,31 @@ describe('reading Needs attention', () => {
     });
   });
 
+  it('lists a delivery not handled with the reason its crew gave (#847)', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await notHandled(scene.scout, { messageId, reason: 'the turn it was handed once more to died too' });
+
+    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(entry).toMatchObject({ state: 'notHandled', reason: 'the turn it was handed once more to died too' });
+  });
+
+  it('lists a delivery not handled without a reason when its crew gave none (#847)', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await notHandled(scene.scout, { messageId });
+
+    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(entry).toMatchObject({ state: 'notHandled', reason: null });
+  });
+
   it('lists undeliverable and not handled deliveries together, oldest first by since when', async () => {
     const undeliverable = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
     const notHandledFirst = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
-    await notHandled(scene.scout, notHandledFirst);
+    await notHandled(scene.scout, { messageId: notHandledFirst });
     await receiveUntilUndeliverable(scene.lookout);
     const notHandledLast = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
-    await notHandled(scene.scout, notHandledLast);
+    await notHandled(scene.scout, { messageId: notHandledLast });
 
     const listed = await scene.history.readNeedsAttention(scene.argo);
 
