@@ -3,7 +3,7 @@
 import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
 import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
@@ -17,6 +17,7 @@ import { showToast } from '../../../components/atoms/toast';
 import { ListPage } from '../../../components/organisms/list-page';
 import { TopBar } from '../../../components/organisms/top-bar';
 import { useThread } from '../hooks/use-thread';
+import { answerAttemptOf, type AnswerAttempt } from '../services/answer-attempt';
 import { neighbourOf, questionPositionOf } from '../services/inbox-moves';
 import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf, type InboxView } from '../services/inbox-view';
 import { MessageMenu } from '../ui/molecules/message-menu';
@@ -25,6 +26,17 @@ import { OperatorInbox } from '../ui/organisms/operator-inbox';
 /** The refusal's words, safe to show: the server's message. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'Try again in a moment.';
+}
+
+/** The answers that were not sent, by question, as the question page shows them. */
+function failuresOf(attempts: ReadonlyMap<DeliveryId, AnswerAttempt>): Map<DeliveryId, { answer: AnswerChoice; message: string }> {
+  const failures = new Map<DeliveryId, { answer: AnswerChoice; message: string }>();
+  for (const [deliveryId, { answer, failure }] of attempts) {
+    if (failure !== undefined) {
+      failures.set(deliveryId, { answer, message: failure });
+    }
+  }
+  return failures;
 }
 
 /** Every row in list order: questions, messages, then the plugin ships' messages. */
@@ -55,6 +67,10 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
   const [isPluginGroupExpanded, setIsPluginGroupExpanded] = useState(false);
   const [isPluginGroupPending, setIsPluginGroupPending] = useState(false);
+  // Each question's answer since it was last sent, kept until the fleet takes it, so a failed one stays on its question to send again (#870).
+  const [answerAttempts, setAnswerAttempts] = useState<ReadonlyMap<DeliveryId, AnswerAttempt>>(new Map());
+  // The one open now, for a send that settles after the operator moved on: its failure then needs a toast to be seen.
+  const openIdRef = useRef(selectedId);
 
   const entries = inbox.data ?? [];
   const view = inboxViewOf(entries, segment);
@@ -65,6 +81,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const thread = useThread(selected?.kind === 'message' ? selected.inReplyTo : undefined);
 
   const show = (next: { segment?: typeof segment; deliveryId?: DeliveryId }) => {
+    openIdRef.current = next.deliveryId;
     router.replace(inboxPathOf({ filter: next.segment ?? segment, deliveryId: next.deliveryId }), { scroll: false });
   };
   const open = (deliveryId: DeliveryId | undefined) => {
@@ -199,13 +216,42 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
           });
         }}
         onAnswer={({ deliveryId, answer: choice }: { deliveryId: DeliveryId; answer: AnswerChoice }) => {
-          act({
-            deliveryId,
-            run: () => answer.mutateAsync({ deliveryId, answer: choice, idempotencyKey: `answer-${deliveryId}-${crypto.randomUUID()}` }),
-            failure: 'Couldn’t send the answer',
-          });
+          const attempt = answerAttemptOf({ previous: answerAttempts.get(deliveryId), answer: choice, newKey: `answer-${deliveryId}-${crypto.randomUUID()}` });
+          const keep = (kept: AnswerAttempt | undefined) => {
+            setAnswerAttempts((attempts) => {
+              const next = new Map(attempts);
+              if (kept === undefined) {
+                next.delete(deliveryId);
+              } else {
+                next.set(deliveryId, kept);
+              }
+              return next;
+            });
+          };
+          keep(attempt);
+          const asked = entries.find((entry) => entry.deliveryId === deliveryId);
+          const title = asked?.kind === 'question' ? asked.question.title : 'the question';
+          setPendingIds((pending) => new Set([...pending, deliveryId]));
+          answer
+            .mutateAsync({ deliveryId, answer: choice, idempotencyKey: attempt.idempotencyKey })
+            .then(() => {
+              keep(undefined);
+            })
+            .catch((error: unknown) => {
+              keep({ ...attempt, failure: messageOf(error) });
+              // The question says why on its page; one the operator already left says it here too, so it is never lost unseen.
+              if (openIdRef.current !== deliveryId) {
+                showToast({ title: `Your answer to “${title}” was not sent`, description: messageOf(error), tone: 'error' });
+              }
+              // A send that reached the fleet before it failed shows answered.
+              void inbox.refetch();
+            })
+            .finally(() => {
+              setPendingIds((pending) => new Set([...pending].filter((id) => id !== deliveryId)));
+            });
         }}
         pendingIds={pendingIds}
+        answerFailures={failuresOf(answerAttempts)}
         now={now}
         isReadOnly={!access.canReceive}
       />
