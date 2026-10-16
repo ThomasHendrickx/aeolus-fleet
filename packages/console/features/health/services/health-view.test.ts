@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { BUILDER, DELIVERING_HEALTH, DOCS_WRITER, HEALTH_NOW, HETZNER, SCOUT, STUCK_HEALTH } from '../../../lib/fixtures/health.fixtures';
-import { causeGroupsOf, isStuckCause, marksOf, nextStepOf, stuckByMachine, stuckCount, verdictOf, waitMinutes, waitPosition, type StuckPlace } from './health-view';
+import {
+  causeGroupsOf,
+  isStuckCause,
+  marksOf,
+  medianText,
+  nextStepOf,
+  placeNote,
+  stuckByMachine,
+  stuckCount,
+  trendSentence,
+  verdictOf,
+  waitMinutes,
+  waitPosition,
+  type StuckPlace,
+} from './health-view';
 
 function placeOf(predicate: (place: StuckPlace) => boolean): StuckPlace {
   const place = STUCK_HEALTH.stuck.find(predicate);
@@ -91,5 +105,30 @@ describe('the wait scale', () => {
 describe('the machines', () => {
   it('counts the deliveries stuck on the ships each machine crews', () => {
     expect(stuckByMachine(STUCK_HEALTH)).toEqual(new Map([[HETZNER.id, 2]]));
+  });
+});
+
+describe('the words around the numbers', () => {
+  const fakeDuration = (from: Date, to: Date) => `${String((to.getTime() - from.getTime()) / 60_000)} min`;
+
+  it('says a median under a minute in seconds, else as a duration', () => {
+    expect(medianText(6_400, fakeDuration)).toBe('6 s');
+    expect(medianText(120_000, fakeDuration)).toBe('2 min');
+  });
+
+  it('says whether the stuck count rose or fell since a day ago', () => {
+    expect(trendSentence({ kind: 'stuck', count: 9, places: 5, since: '', dayAgo: 6 })).toBe('Up from 6 a day ago.');
+    expect(trendSentence({ kind: 'stuck', count: 2, places: 1, since: '', dayAgo: 6 })).toBe('Down from 6 a day ago.');
+    expect(trendSentence({ kind: 'stuck', count: 6, places: 1, since: '', dayAgo: 6 })).toBe('As many as a day ago.');
+  });
+
+  it('explains a stall by its state and when its session or machine was last seen', () => {
+    const since = (at: Date) => `at ${at.toISOString()}`;
+    const scout = placeOf((place) => place.place.kind === 'ship' && place.place.ship.id === SCOUT.id);
+    const builder = placeOf((place) => place.place.kind === 'ship' && place.place.ship.id === BUILDER.id);
+
+    expect(placeNote(scout, { facts: { lastSeenAt: '2026-10-14T07:31:00.000Z' }, since })).toBe('handed (pulled), session last seen at 2026-10-14T07:31:00.000Z');
+    expect(placeNote(builder, { facts: undefined, since })).toBe(`received, machine hetzner-01 last seen at ${HETZNER.lastSeenAt}`);
+    expect(placeNote(placeOf((place) => place.cause === 'noShipCanTake'), { facts: undefined, since })).toBeNull();
   });
 });

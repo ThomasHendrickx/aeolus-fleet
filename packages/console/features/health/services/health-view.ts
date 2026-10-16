@@ -168,3 +168,53 @@ export function stuckByMachine(health: Pick<Health, 'stuck'>): ReadonlyMap<strin
   }
   return counts;
 }
+
+const SECONDS_A_MINUTE = 60;
+
+/** A median wait as the delivering line says it: seconds under a minute, else the console's duration. */
+export function medianText(medianMs: number, duration: (from: Date, to: Date) => string): string {
+  const seconds = Math.round(medianMs / 1_000);
+  return seconds < SECONDS_A_MINUTE ? `${String(seconds)} s` : duration(new Date(0), new Date(medianMs));
+}
+
+/** Whether the stuck count rose or fell since a day ago: "Up from 6 a day ago." */
+export function trendSentence(verdict: Extract<Verdict, { kind: 'stuck' }>): string {
+  if (verdict.count > verdict.dayAgo) {
+    return `Up from ${String(verdict.dayAgo)} a day ago.`;
+  }
+  if (verdict.count < verdict.dayAgo) {
+    return `Down from ${String(verdict.dayAgo)} a day ago.`;
+  }
+  return 'As many as a day ago.';
+}
+
+/** What the console knows of a stuck ship besides the health read: when its session was last seen. */
+export interface PlaceFacts {
+  lastSeenAt: string | null;
+}
+
+const STATE_WORDS: Record<StuckPlace['deliveries'][number]['state'], string> = {
+  pending: 'pending',
+  received: 'received',
+  handed: 'handed (pulled)',
+  undeliverable: 'undeliverable',
+};
+
+/**
+ * One line under a place that explains its wait, from facts the console has:
+ * the state its deliveries wait in, and when the session or machine was last
+ * seen. None when there is nothing to add to the cause.
+ */
+export function placeNote(place: StuckPlace, read: { facts: PlaceFacts | undefined; since: (at: Date) => string }): string | null {
+  const where = place.place;
+  if (place.cause !== 'stalledInFlight' || where.kind !== 'ship') {
+    return null;
+  }
+  const states = [...new Set(place.deliveries.map((delivery) => STATE_WORDS[delivery.state]))].join(', ');
+  if (where.machine !== null) {
+    const seen = where.machine.lastSeenAt === null ? 'never seen' : `last seen ${read.since(new Date(where.machine.lastSeenAt))}`;
+    return `${states}, machine ${where.machine.name} ${seen}`;
+  }
+  const lastSeenAt = read.facts?.lastSeenAt ?? null;
+  return lastSeenAt === null ? states : `${states}, session last seen ${read.since(new Date(lastSeenAt))}`;
+}
