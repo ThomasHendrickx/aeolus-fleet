@@ -1256,6 +1256,20 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       expect(store()).toEqual([]);
     });
 
+    it('sends a reason the fleet takes: one line of at most 200 characters, however long the error of the failed turn (#847)', async () => {
+      const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], '/api/v1/ship/notHandled': [taken] });
+      const aLongFailure = () => aHook('aeolus-turn-died.sh', { payload: { hook_event_name: 'StopFailure', error: `overloaded\n${'x'.repeat(300)}` } });
+      await aFirstToolCall();
+      await aLongFailure();
+      await aPrompt();
+
+      await aLongFailure();
+
+      const [body] = callsTo(stub, '/api/v1/ship/notHandled').map((call) => z.object({ reason: z.string() }).parse(JSON.parse(call.body)));
+      expect(body?.reason).toHaveLength(200);
+      expect(body?.reason).toMatch(/^the turn it was handed once more to died too \(StopFailure: overloaded x+$/);
+    });
+
     it('sends a not handled report the fleet did not take again with the next call, with its reason (#847)', async () => {
       const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], '/api/v1/ship/notHandled': [busy, taken] });
       await aFirstToolCall();
