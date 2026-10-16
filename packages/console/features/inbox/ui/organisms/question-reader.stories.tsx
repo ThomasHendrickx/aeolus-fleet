@@ -13,6 +13,7 @@ const meta = {
     isPhone: false,
     onAnswer: fn(),
     onSelect: fn(),
+    onDraftChange: fn(),
     isPending: false,
     now: NOW,
   },
@@ -22,10 +23,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The asker's pick chosen with its why; Answer names it, and one tap sends it once. */
+/** Not answered: the asker's pick is preselected as a suggestion, with its why; Answer names it, and one tap sends it once. */
 export const Open: Story = {
   play: async ({ args, canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTestId('inbox-answer'));
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('inbox-question-status')).toHaveTextContent('Not answered');
+    await expect(canvas.getByTestId('inbox-option-2')).toHaveAttribute('data-suggested', 'true');
+    await expect(canvas.getByTestId('inbox-option-2')).toHaveTextContent('implementer-c’s pick, not sent');
+    await expect(args.onDraftChange).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByTestId('inbox-answer'));
 
     await expect(args.onAnswer).toHaveBeenCalledTimes(1);
     await expect(args.onAnswer).toHaveBeenCalledWith({ option: 2 });
@@ -41,6 +47,27 @@ export const WithNote: Story = {
 
     await expect(args.onAnswer).toHaveBeenCalledTimes(1);
     await expect(args.onAnswer).toHaveBeenCalledWith({ option: 2, note: 'Tell core first.' });
+  },
+};
+
+/** Another option chosen: no longer a suggestion, and the choice is a draft until it is sent. */
+export const OtherOption: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText('30 days'));
+
+    await expect(canvas.getByTestId('inbox-option-2')).not.toHaveAttribute('data-suggested');
+    await expect(args.onDraftChange).toHaveBeenLastCalledWith({ option: 3, note: '' });
+  },
+};
+
+/** Back on a question left with a draft: the choice and the note are as the operator left them. */
+export const Draft: Story = {
+  args: { draft: { option: 1, note: 'One week is enough.' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('inbox-note')).toHaveValue('One week is enough.');
+    await expect(canvas.getByTestId('inbox-answer')).toHaveTextContent('Answer: 7 days, with note');
   },
 };
 
