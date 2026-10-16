@@ -781,6 +781,16 @@ aeolus_store_end_turn() {
   done
 }
 
+# The longest reason the fleet's notHandled takes (#847).
+AEOLUS_REASON_MAX_CHARACTERS=200
+
+# A reason as the fleet takes it: one line, cut to its longest, so a long or
+# odd hook error never gets the report refused. <reason>
+aeolus_one_line_reason() {
+  local reason="${1//[$'\r\n']/ }"
+  printf '%s' "${reason:0:$AEOLUS_REASON_MAX_CHARACTERS}"
+}
+
 # A turn that took messages died, without Stop (#756, D3): a confirmed message
 # is to be handed once more, at the next prompt; one handed once more already,
 # whose turn died too, is not handled, kept with the reason given, which
@@ -799,7 +809,7 @@ aeolus_store_died_turn() {
       aeolus_log "$identity" handover "${id} to hand once more: the turn that took it died"
     elif [ "$state" = onceMore ] && [ -e "$dir/$id.shown" ]; then
       rm -f "$dir/$id.shown"
-      printf '%s\n' "$reason" > "$dir/$id.reason"
+      printf '%s\n' "$(aeolus_one_line_reason "$reason")" > "$dir/$id.reason"
       aeolus_store_mark "$id" notHandled
       aeolus_log "$identity" handover "not handled ${id}: ${reason}"
     fi
