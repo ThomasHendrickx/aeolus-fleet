@@ -5,7 +5,7 @@
 import type { FleetId, TurnState } from '@aeolus-fleet/common';
 
 import type { HealthRecords } from '../../src/domain/shared/health.js';
-import { deliveryStepOf, type DeliveryRecord, type LeaseRecord, type ShipRecord } from '../../src/domain/shared/stuck.js';
+import { stateStepOf, type DeliveryRecord, type LeaseRecord, type ShipRecord } from '../../src/domain/shared/stuck.js';
 import type { InMemoryState } from './in-memory.js';
 
 const OPEN_STATES = new Set(['pending', 'received', 'handed', 'undeliverable']);
@@ -60,7 +60,7 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
             recipient: delivery.recipient,
             reachableShipIds: delivery.reachableShipIds ?? [],
             sentAt: delivery.createdAt,
-            steps: its.flatMap((event) => deliveryStepOf(event) ?? []),
+            steps: its.flatMap((event) => stateStepOf(event) ?? []),
           }),
         );
       const machines = state.crewRequests.flatMap((request) => {

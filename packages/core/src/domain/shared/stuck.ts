@@ -85,7 +85,7 @@ const STEP_STATES: Partial<Record<EventType, DeliveryState>> = {
 };
 
 /** The step a delivery event is, or none for an event that changes no state: a receipt again, a hand-over once more, or no delivery event at all. */
-export function deliveryStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shipId' | 'details'>): DeliveryStep | undefined {
+export function stateStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shipId' | 'details'>): DeliveryStep | undefined {
   const state = STEP_STATES[event.type];
   if (state === undefined || event.details.again === true || event.details.onceMore === true) {
     return undefined;

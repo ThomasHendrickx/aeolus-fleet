@@ -6,6 +6,7 @@ import type { PrismaClient } from './adapters/prisma/client.js';
 import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaShipHistory } from './adapters/prisma/history.js';
+import { createPrismaHealthRecords } from './adapters/prisma/health.js';
 import { createPrismaPushedCrews } from './adapters/prisma/overdue.js';
 import {
   createPrismaFleetListing,
@@ -120,6 +121,7 @@ import { createReadMessage, type ReadMessage } from './domain/shared/read-messag
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
 import { createReadNoShipCanTake, type ReadNoShipCanTake } from './domain/shared/read-no-ship-can-take.js';
+import { createReadHealth, type ReadHealth } from './domain/shared/read-health.js';
 import { createReadOverdue, type ReadOverdue } from './domain/shared/read-overdue.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
@@ -193,6 +195,7 @@ export interface UseCases {
   readNeedsAttention: ReadNeedsAttention;
   readOverdue: ReadOverdue;
   readNoShipCanTake: ReadNoShipCanTake;
+  readHealth: ReadHealth;
   readInbox: ReadInbox;
   signIn: SignIn;
   signOut: SignOut;
@@ -357,6 +360,7 @@ export function createUseCases(options: {
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
     readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
     readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma) }),
+    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
     signIn: createSignIn({
       uow,
