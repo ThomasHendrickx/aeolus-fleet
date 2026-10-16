@@ -122,7 +122,7 @@ const squadrons: SquadronRepository = {
 };
 
 const kept: KeptMessage[] = [];
-const told: { fleetId: FleetId; text: string; key: string }[] = [];
+const told: { fleetId: FleetId; headline: string; body: string; key: string }[] = [];
 const messages: FlagshipMessageLog = {
   keep: (message) => {
     // As the port promises: keeping the same delivery again changes nothing.
@@ -397,11 +397,14 @@ describe('a delivery the flagship does not handle', () => {
     ]);
   });
 
-  it('tells argo, so a kept message is not left unseen', async () => {
+  it('tells argo, so a kept message is not left unseen, in a headline naming the sender and the squadron in the body (#849)', async () => {
     await handle(held, delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' }));
 
-    expect(told.map((notice) => notice.text)).toEqual([
-      'The flagship of the squadron team-a1b2c3 got a message it does not handle, from reviewer-01 (text/plain). squadrons keeps it for the squadron page; nothing was forwarded.',
+    expect(told.map(({ headline, body }) => ({ headline, body }))).toEqual([
+      {
+        headline: 'reviewer-01 sent a flagship a message it does not handle',
+        body: '- Squadron: `team-a1b2c3`\n- From: reviewer-01\n- Content type: `text/plain`\n\nsquadrons keeps it for the squadron page; nothing was forwarded.',
+      },
     ]);
   });
 

@@ -239,7 +239,7 @@ describe('a message the flagship does not handle', () => {
       .poll(async () => (await fleetDatabase.message.findMany({ where: { selectorShipId: argo.id } })).map((message) => message.payload).join('\n'), {
         timeout: LIVE_TIMEOUT_MS,
       })
-      .toContain('The flagship of the squadron team-two got a message it does not handle');
+      .toContain('sent a flagship a message it does not handle\n\n- Squadron: `team-two`');
   });
 });
 
