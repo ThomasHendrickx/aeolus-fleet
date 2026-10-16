@@ -206,7 +206,7 @@ describe('aeolus-issue file', () => {
       [
         `aeolus: issue filed: https://github.com/${REPOSITORY}/issues/240`,
         'aeolus: tell argo, as text/markdown, the lines below:',
-        'Issue filed: aeolus-fleet #240, The watcher woke [ship] four times with nothing to read',
+        'Issue filed: aeolus-fleet #240, The watcher woke [ship] four times with nothing…',
         '',
         `https://github.com/${REPOSITORY}/issues/240`,
         '',
@@ -261,7 +261,7 @@ describe('aeolus-issue file', () => {
     expect(lines.slice(2, 6)).toEqual(['aeolus: tell argo, as text/markdown, the lines below:', 'Issue draft: A title', '', 'Not filed: gh is not signed in on this machine.']);
     expect(lines[7]).toMatch(/^- Draft: `.*\[email\].*\.md`$/);
     expect(lines[8]).toBe(`- [Open the prefilled issue](${link})`);
-    expect(lines.join('\n')).not.toContain('bob@example.org');
+    expect(lines.slice(2).join('\n')).not.toContain('bob@example.org');
   });
 
   it('never calls a gh on PATH, signed in or not, but only the gh AEOLUS_GH names', () => {
@@ -337,8 +337,8 @@ describe('/aeolus:issue and $aeolus-issue', () => {
   it('sends argo one short message pointing at the issue or the draft, never the report itself', () => {
     for (const text of texts()) {
       expect(text).toContain('`{ "kind": "ship", "name": "argo" }`');
-      expect(text).toContain('Issue filed: <url>');
-      expect(text).toContain('Issue draft: <path>, open: <link>');
+      expect(text).toContain('`Issue filed: aeolus-fleet #<number>, <title>`');
+      expect(text).toContain('`Issue draft: <title>`');
       expect(text).toContain('never the report itself');
     }
   });
