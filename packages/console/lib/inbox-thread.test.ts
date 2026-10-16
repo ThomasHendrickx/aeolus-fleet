@@ -41,8 +41,8 @@ describe('threadBefore', () => {
   });
 
   it('reads at most ten messages back', async () => {
-    const chain = Array.from({ length: 12 }).reduce<ThreadSource[]>(
-      (messages, _, index) => [...messages, aMessage({ sender: ORCHESTRATOR, inReplyTo: messages.at(-1)?.id ?? null, payload: `message ${String(index)}` })],
+    const chain = Array.from({ length: 12 }, (_, index) => index).reduce<ThreadSource[]>(
+      (messages, index) => [...messages, aMessage({ sender: ORCHESTRATOR, inReplyTo: messages.at(-1)?.id ?? null, payload: `message ${String(index)}` })],
       [],
     );
 
