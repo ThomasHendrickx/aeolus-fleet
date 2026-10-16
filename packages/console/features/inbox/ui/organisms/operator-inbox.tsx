@@ -16,7 +16,7 @@ import type { QuestionPosition } from '../../services/inbox-moves';
 import type { InboxView } from '../../services/inbox-view';
 import { InboxList, type InboxListProps } from './inbox-list';
 import { MessageReader, REPLY_FIELD_SELECTOR } from './message-reader';
-import { QuestionReader } from './question-reader';
+import { QuestionReader, type AnswerDraft } from './question-reader';
 
 export interface OperatorInboxProps extends Omit<InboxListProps, 'onSelect' | 'selectedId'> {
   state: 'loading' | 'error' | 'ready';
@@ -41,6 +41,9 @@ export interface OperatorInboxProps extends Omit<InboxListProps, 'onSelect' | 's
   pendingIds: ReadonlySet<DeliveryId>;
   /** The answers that were not sent, by question, with why (#870). */
   answerFailures?: ReadonlyMap<DeliveryId, { answer: AnswerChoice; message: string }>;
+  /** The choices and notes left unsent, by question, held again when it opens (#870). */
+  answerDrafts?: ReadonlyMap<DeliveryId, AnswerDraft>;
+  onAnswerDraftChange?: (change: { deliveryId: DeliveryId; draft: AnswerDraft | undefined }) => void;
   isReadOnly?: boolean;
 }
 
@@ -111,6 +114,10 @@ function Reader({ selected, isPhone, ...props }: OperatorInboxProps & { selected
         now={props.now}
         isReadOnly={props.isReadOnly}
         failure={props.answerFailures?.get(selected.deliveryId)}
+        draft={props.answerDrafts?.get(selected.deliveryId)}
+        onDraftChange={(draft) => {
+          props.onAnswerDraftChange?.({ deliveryId: selected.deliveryId, draft });
+        }}
       />
     );
   }
