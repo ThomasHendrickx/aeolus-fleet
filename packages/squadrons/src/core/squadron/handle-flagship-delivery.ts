@@ -115,7 +115,8 @@ export function createHandleFlagshipDelivery(deps: {
       });
       await deps.operator.tell({
         fleetId: squadron.fleetId,
-        text: `The flagship of the squadron ${squadron.id} got a message it does not handle, from ${senderName} (${contentType}). squadrons keeps it for the squadron page; nothing was forwarded.`,
+        headline: `${senderName} sent a flagship a message it does not handle`,
+        body: `- Squadron: \`${squadron.id}\`\n- From: ${senderName}\n- Content type: \`${contentType}\`\n\nsquadrons keeps it for the squadron page; nothing was forwarded.`,
         key: `kept-${deliveryId}`,
       });
       return acked('kept');

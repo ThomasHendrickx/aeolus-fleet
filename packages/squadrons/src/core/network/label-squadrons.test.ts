@@ -39,7 +39,7 @@ const CREW_TOKEN = 'aeolus_ct_v1_squadrons';
 let management: ReturnType<typeof fakeManagementFleet>;
 let fleet: ReturnType<typeof fakeNetworkFleet>;
 let held: Squadron[];
-let told: { fleetId: FleetId; text: string; key: string }[];
+let told: { fleetId: FleetId; headline: string; body: string; key: string }[];
 let labelSquadrons: ReturnType<typeof createLabelSquadrons>;
 
 /** The fleet's ships: squadrons' own, and every ship of the squadrons held, not retired. */
@@ -223,7 +223,8 @@ describe('squadrons labelling its squadrons (#573)', () => {
 
     expect(carried(shipIdOf(100 * (LABEL_VALUES_MAX + 1)))).toEqual(['squadron-role=flagship']);
     expect(told.map(({ fleetId, key }) => ({ fleetId, key }))).toEqual([{ fleetId: FLEET_ID, key: `unlabelled-${last}` }]);
-    expect(told[0]?.text).toContain(last);
+    expect(told[0]?.headline).toBe('A squadron carries no squadron label');
+    expect(told[0]?.body).toContain(`- Squadron: \`${last}\``);
   });
 
   it('labels nothing without the label scopes, and says why', async () => {
@@ -242,7 +243,8 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(told.map(({ fleetId, key }) => ({ fleetId, key }))).toEqual([{ fleetId: FLEET_ID, key: 'no-label-scopes' }]);
-    expect(told[0]?.text).toContain('connect squadrons again');
+    expect(told[0]?.headline).toBe('squadrons labels no squadron: its management ship lacks label scopes');
+    expect(told[0]?.body).toContain('connect squadrons again');
   });
 
   it('is refused for a fleet it is not connected to', async () => {

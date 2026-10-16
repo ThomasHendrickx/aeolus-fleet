@@ -121,6 +121,7 @@ export const EVENT_TYPES = [
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
+export * from './argo-message.js';
 export * from './busy-wait.js';
 export * from './mcp-url.js';
 export * from './no-terminal-questions.js';

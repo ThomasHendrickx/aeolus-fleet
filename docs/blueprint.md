@@ -329,7 +329,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Operator inbox
 
-1. A ship sends a message to `argo`: it waits in the operator inbox, Open, unread.
+1. A ship sends a message to `argo`: it waits in the operator inbox, Open, unread. Its first line is its headline, at most 80 characters, naming ships and never their ids; then a blank line and the body, in `text/markdown` for lists and links (the ship protocol). The trierarch and squadrons send theirs so: a headline, short facts, and at most 5 paths. The console renders `text/markdown` and makes the URLs in `text/plain` clickable, on its server (decision 0033); the payload stays as sent.
 2. The operator opens it, which marks it read. Read is not done: the delivery stays pending, and no event is written. The operator can mark it unread again.
 3. Mark done acknowledges it: the console never receives, so the delivery is handed and acknowledged at once under the console session's lease (`DeliveryHanded`, then `DeliveryAcknowledged`). It moves to Done.
 4. Reply sends a message from `argo` to the sender, plain text unless the console gives another content type, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.

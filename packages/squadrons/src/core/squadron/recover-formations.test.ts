@@ -168,9 +168,10 @@ describe('bounded recovery of refused retires (#740)', () => {
     await recover('all');
     expect(retiresRefused.get('planner-k3x9')).toBe(5);
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toMatchObject({ selector: { kind: 'ship', name: 'argo' }, contentType: 'text/plain' });
-    expect(notices[0]?.payload).toContain(FLEET);
-    expect(notices[0]?.payload).toContain('planner-k3x9');
+    expect(notices[0]).toMatchObject({ selector: { kind: 'ship', name: 'argo' }, contentType: 'text/markdown' });
+    expect(notices[0]?.payload).toMatch(/^Formation recovery stopped after 5 refused retire passes\n\n/);
+    expect(notices[0]?.payload).toContain(`- Fleet: \`${FLEET}\``);
+    expect(notices[0]?.payload).toContain('- Ships: team-a1b2c3, planner-k3x9');
     expect(attempts.held[0]?.isFinished).toBe(true);
   });
 

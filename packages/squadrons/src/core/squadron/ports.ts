@@ -72,7 +72,7 @@ export interface FlagshipMessageLog {
 /** Outbound port: tells the operator, argo, when something goes wrong: the one party squadrons knows. */
 export interface OperatorNotices {
   /** The key makes telling again, for a delivery that came again, send no second notice. */
-  tell(notice: { fleetId: FleetId; text: string; key: string }): Promise<void>;
+  tell(notice: { fleetId: FleetId; headline: string; body: string; key: string }): Promise<void>;
 }
 
 /** Outbound port: random lowercase alphanumerics, for squadron ids and member names. */

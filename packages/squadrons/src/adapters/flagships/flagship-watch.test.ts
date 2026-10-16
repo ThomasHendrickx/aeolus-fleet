@@ -185,7 +185,7 @@ describe('a released flagship', () => {
     const store = memoryManagementStore();
     await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
     let receives = 0;
-    const told: { text: string; key: string }[] = [];
+    const told: { headline: string; body: string; key: string }[] = [];
     const watch = watchFlagships({
       door: {
         ...fakeManagementFleet().door,
@@ -219,7 +219,9 @@ describe('a released flagship', () => {
     await watch.stop();
 
     expect(receives).toBe(1);
-    expect(told).toHaveLength(1);
+    expect(told.map(({ headline, body }) => ({ headline, body }))).toEqual([
+      { headline: "A squadron's flagship was released", body: '- Squadron: `team-a1b2c3`\n\nsquadrons no longer receives on it, so check-ins to it go unanswered.' },
+    ]);
   });
 
   it('is told under a key of its squadron, so a restart of squadrons tells argo no second time', async () => {
@@ -323,7 +325,7 @@ describe('the flagship of a squadron standing down', () => {
       isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
-          told.push(notice.text);
+          told.push(notice.headline);
           return Promise.resolve();
         },
       },
