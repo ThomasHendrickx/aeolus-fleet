@@ -18,7 +18,7 @@ type Story = StoryObj<typeof meta>;
 export const OpenQuestion: Story = {
   play: async ({ canvasElement }) => {
     const row = within(canvasElement).getByTestId('inbox-question-row');
-    await expect(row).toHaveTextContent('Not answered, implementer-c’s pick: 2. 14 days');
+    await expect(row).toHaveTextContent('Not answered, pick: 2. 14 days');
     await expect(row.querySelector('[data-answered]')).toBeNull();
   },
 };

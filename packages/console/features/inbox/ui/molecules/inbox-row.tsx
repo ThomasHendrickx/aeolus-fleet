@@ -43,7 +43,7 @@ function QuestionLine({ entry, now }: { entry: Extract<InboxEntry, { kind: 'ques
       {/* A check would read as answered (#870): the pick is only a suggestion until argo answers. */}
       <CircleDashed aria-hidden />
       <span className="min-w-0 truncate">
-        Not answered, {entry.sender.name}’s pick: <span className="font-medium text-foreground">{pick === undefined ? String(question.pick.option) : `${String(pick.key)}. ${pick.label}`}</span>
+        Not answered, pick: <span className="font-medium text-foreground">{pick === undefined ? String(question.pick.option) : `${String(pick.key)}. ${pick.label}`}</span>
       </span>
       <Badge variant="outline" className="ml-auto shrink-0 tabular-nums" data-testid="inbox-row-waiting">
         {duration(new Date(entry.sentAt), now)}
