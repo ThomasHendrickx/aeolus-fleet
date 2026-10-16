@@ -137,7 +137,8 @@ describe('reading the fleet health', () => {
     const early = await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
     await scene.receive(scene.planner);
     await scene.ack(scene.planner, early);
-    scene.core.clock.advance(3 * HOUR_MS);
+    // Two and a half hours on: the early one falls in the third hour back.
+    scene.core.clock.advance(2.5 * HOUR_MS);
     const late = await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
     await scene.receive(scene.planner);
     await scene.ack(scene.planner, late);

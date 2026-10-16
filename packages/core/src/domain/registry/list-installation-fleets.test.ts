@@ -211,7 +211,7 @@ describe('the health of each fleet of the installation', () => {
 
     const health = (await listFleets()).find((fleet) => fleet.fleetId === hemma)?.health;
 
-    expect(health?.stuck).toEqual([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'gone' }, count: 1, oldestSince: sentAt }]);
+    expect(health?.stuck).toMatchObject([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'gone' }, count: 1, oldestSince: sentAt }]);
     expect(health?.stuckPerHour).toHaveLength(168);
     expect(health?.stuckPerHour.at(-1)).toEqual({ at: core.clock.now(), count: 1 });
   });

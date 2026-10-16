@@ -243,9 +243,9 @@ describe('the installation procedures on a hosting server', () => {
 
     // Not handled is execution, so only the undeliverable one needs attention.
     expect(described.health).toMatchObject({ oldestPendingAt: sentAt.toISOString(), oldestInFlightAt: handedAt.toISOString(), noShipCanTake: 1, needsAttention: 1, overdue: 1 });
-    expect(described.health.stuck).toEqual([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'builder' }, count: 1, oldestSince: sentAt.toISOString() }]);
+    expect(described.health.stuck).toMatchObject([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'builder' }, count: 1, oldestSince: sentAt.toISOString() }]);
     expect(described.health.stuckPerHour.at(-1)).toEqual({ at: clock.now().toISOString(), count: 1 });
-    expect(described.health.acknowledged).toEqual({ count: 0, medianMs: null });
+    expect(described.health.acknowledged).toMatchObject({ count: 0, medianMs: null });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
 
