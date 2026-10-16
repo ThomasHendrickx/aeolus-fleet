@@ -185,8 +185,9 @@ describe('the installation procedures on a hosting server', () => {
     unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review the pull request', idempotencyKey: newKey() }));
 
     const described = await installation().get.query({ fleetId: created.fleetId });
+    const { health, ...measured } = described;
 
-    expect(described).toEqual({
+    expect(measured).toEqual({
       fleetId: created.fleetId,
       name: 'busy',
       operatorEmail: 'busy@example.com',
@@ -199,13 +200,20 @@ describe('the installation procedures on a hosting server', () => {
       messagesToday: 1,
       messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-04' ? 1 : 0 })),
       limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
-      // Its one message waits pending for scout.
-      health: { oldestPendingAt: clock.now().toISOString(), oldestInFlightAt: null, noShipCanTake: 0, needsAttention: 0, overdue: 0 },
+    });
+    // Its one message waits pending for scout, which awaits crew.
+    expect(health).toMatchObject({
+      oldestPendingAt: clock.now().toISOString(),
+      oldestInFlightAt: null,
+      noShipCanTake: 0,
+      needsAttention: 0,
+      overdue: 0,
+      stuck: [{ cause: 'waitingForCrew', place: { kind: 'ship', ship: { id: shipId, name: 'scout' }, machine: null }, count: 1, oldestSince: clock.now().toISOString() }],
     });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
 
-  it('describe a fleet\'s health: its oldest pending and in flight, and the deliveries no ship can take, needing attention and overdue', async () => {
+  it('describe a fleet\'s health: its oldest pending and in flight, the deliveries no ship can take, needing attention and overdue, and where its deliveries are stuck', async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'stalled', operatorEmail: 'stalled@example.com' });
     const argo = argoOf(created);
     const scout = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -233,7 +241,11 @@ describe('the installation procedures on a hosting server', () => {
 
     const described = await installation().get.query({ fleetId: created.fleetId });
 
-    expect(described.health).toEqual({ oldestPendingAt: sentAt.toISOString(), oldestInFlightAt: handedAt.toISOString(), noShipCanTake: 1, needsAttention: 2, overdue: 1 });
+    // Not handled is execution, so only the undeliverable one needs attention.
+    expect(described.health).toMatchObject({ oldestPendingAt: sentAt.toISOString(), oldestInFlightAt: handedAt.toISOString(), noShipCanTake: 1, needsAttention: 1, overdue: 1 });
+    expect(described.health.stuck).toEqual([{ cause: 'noShipCanTake', place: { kind: 'type', type: 'builder' }, count: 1, oldestSince: sentAt.toISOString() }]);
+    expect(described.health.stuckPerHour.at(-1)).toEqual({ at: clock.now().toISOString(), count: 1 });
+    expect(described.health.acknowledged).toEqual({ count: 0, medianMs: null });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
 

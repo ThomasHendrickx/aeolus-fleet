@@ -98,6 +98,7 @@ import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
 import { createReadNoShipCanTake } from '../../src/domain/shared/read-no-ship-can-take.js';
+import { createReadHealth } from '../../src/domain/shared/read-health.js';
 import { createReadOverdue } from '../../src/domain/shared/read-overdue.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
@@ -200,13 +201,13 @@ export function registryUseCases(core: InMemoryCore) {
     deregister: createDeregister(deps),
     createFleet: createCreateFleet({ ...deps, hasher: core.hasher }),
     deleteFleet: createDeleteFleet({ ...deps, hasher: core.hasher }),
-    listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock }),
+    listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
     getInstallationSettings: createGetInstallationSettings({ settings: core.installationSettings }),
     setInstallationSettings: createSetInstallationSettings({ uow: core.uow }),
     getFleetLimits: createGetFleetLimits({ uow: core.uow }),
     setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
-    getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, clock: core.clock }),
+    getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing }),
     getShip: createGetShip({ listing: core.listing }),
     whoami: createWhoami({ ships: core.ships }),
@@ -229,6 +230,7 @@ export function historyUseCases(core: InMemoryCore) {
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
     readOverdue: createReadOverdue({ history: core.history }),
     readNoShipCanTake: createReadNoShipCanTake({ history: core.history }),
+    readHealth: createReadHealth({ health: core.health, clock: core.clock }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships }),
   };
 }

@@ -15,6 +15,7 @@ import {
   messageOutputSchema,
   needsAttentionOutputSchema,
   noShipCanTakeOutputSchema,
+  healthOutputSchema,
   overdueOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
@@ -90,6 +91,7 @@ import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
+import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
@@ -753,6 +755,11 @@ export const fleetRouter = router({
     .query(async ({ ctx }) =>
       (await ctx.useCases.readNoShipCanTake(ctx.caller)).map((entry) => ({ ...entry, message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
     ),
+
+  /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
+  health: scopedProcedure('fleet:read')
+    .output(healthOutputSchema)
+    .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
 
   /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */
   dismiss: scopedProcedure('fleet:manage')

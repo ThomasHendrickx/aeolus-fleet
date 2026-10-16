@@ -25,6 +25,7 @@ import type { Notice } from '../../domain/identity/notice.js';
 import type { InstallationFleet } from '../../domain/registry/installation-fleet.js';
 import type { InstallationCredential } from './context.js';
 import { okOrThrow, publicProcedure, router } from './trpc.js';
+import { describedHealth } from './health.js';
 
 /** The header a hosting service presents the installation token in: apart from a crew token and a console session. */
 export const INSTALLATION_TOKEN_HEADER = 'x-aeolus-installation-token';
@@ -55,12 +56,17 @@ const installationProcedure = publicProcedure.use(({ ctx, next }) => {
 });
 
 function described(fleet: InstallationFleet) {
-  const { oldestPendingAt, oldestInFlightAt } = fleet.health;
+  const { oldestPendingAt, oldestInFlightAt, stuck, stuckPerHour, acknowledged, ...figures } = fleet.health;
   return {
     ...fleet,
     createdAt: fleet.createdAt.toISOString(),
     lastActivityAt: fleet.lastActivityAt?.toISOString() ?? null,
-    health: { ...fleet.health, oldestPendingAt: oldestPendingAt?.toISOString() ?? null, oldestInFlightAt: oldestInFlightAt?.toISOString() ?? null },
+    health: {
+      ...figures,
+      oldestPendingAt: oldestPendingAt?.toISOString() ?? null,
+      oldestInFlightAt: oldestInFlightAt?.toISOString() ?? null,
+      ...describedHealth({ stuck, stuckPerHour, acknowledged }),
+    },
   };
 }
 

@@ -1410,6 +1410,34 @@ describe('the deliveries no ship can take at the API', () => {
   });
 });
 
+describe('the fleet health at the API', () => {
+  it('answer the stuck places, the trend and the acknowledged for fleet:read', async () => {
+    const asArgo = await signedInArgo();
+    const type = `mapper-${newId('ship').slice(-6)}`;
+    const mapper = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: type, type });
+    await asArgo.ship.send.mutate({ selector: { kind: 'type', type }, payload: 'Map the harbour.', idempotencyKey: newKey() });
+    const sentAt = clock.now().toISOString();
+    await asArgo.fleet.retire.mutate({ shipId: mapper.shipId });
+
+    const health = await asArgo.fleet.health.query();
+
+    expect(health.stuck.find((place) => place.place.kind === 'type' && place.place.type === type)).toEqual({
+      cause: 'noShipCanTake',
+      place: { kind: 'type', type },
+      count: 1,
+      oldestSince: sentAt,
+    });
+    expect(health.stuckPerHour).toHaveLength(168);
+    expect(health.stuckPerHour.at(-1)?.at).toBe(clock.now().toISOString());
+  });
+
+  it('refuse it without fleet:read', async () => {
+    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(codeOf(agent.fleet.health.query())).resolves.toBe('FORBIDDEN');
+  });
+});
+
 describe("argo's inbox at the API", () => {
   /** A message to argo from a crewed agent ship; answers its delivery and its sender's crew token. */
   async function toArgo(payload: string): Promise<{ deliveryId: string; messageId: string; crewToken: string }> {

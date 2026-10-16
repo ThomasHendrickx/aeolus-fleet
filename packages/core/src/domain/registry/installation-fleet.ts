@@ -1,5 +1,6 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
+import type { Health } from '../shared/health.js';
 import { fleetLimitsOf, type FleetLimit, type InstallationSettings } from './limits.js';
 import type { FleetHealth, InstallationFleetFacts, InstallationFleetWindow } from './ports.js';
 
@@ -25,7 +26,8 @@ export interface InstallationFleet {
   messagesToday: number;
   messagesPerDay: { date: string; count: number }[];
   limits: { ships: FleetLimit; dailyMessages: FleetLimit };
-  health: FleetHealth;
+  /** Its 0041 figures, and where its deliveries are stuck (decision 0042). */
+  health: FleetHealth & Health;
 }
 
 /** The UTC days a read at `now` counts messages over: the last 7, today last, as YYYY-MM-DD. */
@@ -40,9 +42,9 @@ export function messageWindow(now: Date): InstallationFleetWindow {
   return { since: new Date(now.getTime() - MESSAGE_WINDOW_MS), firstDay: new Date(`${firstDay}T00:00:00.000Z`) };
 }
 
-export function installationFleet(facts: InstallationFleetFacts, read: { now: Date; installation: InstallationSettings }): InstallationFleet {
-  const { messagesSince, messagesPerUtcDay, limitSettings, ...rest } = facts;
+export function installationFleet(facts: InstallationFleetFacts, read: { now: Date; installation: InstallationSettings; health: Health }): InstallationFleet {
+  const { messagesSince, messagesPerUtcDay, limitSettings, health, ...rest } = facts;
   const messagesPerDay = utcDays(read.now).map((date) => ({ date, count: messagesPerUtcDay.find((day) => day.date === date)?.count ?? 0 }));
   const { ships, dailyMessages } = fleetLimitsOf({ fleetId: facts.fleetId, settings: limitSettings, installation: read.installation });
-  return { ...rest, messagesLast7Days: messagesSince, messagesToday: messagesPerDay.at(-1)?.count ?? 0, messagesPerDay, limits: { ships, dailyMessages } };
+  return { ...rest, health: { ...health, ...read.health }, messagesLast7Days: messagesSince, messagesToday: messagesPerDay.at(-1)?.count ?? 0, messagesPerDay, limits: { ships, dailyMessages } };
 }

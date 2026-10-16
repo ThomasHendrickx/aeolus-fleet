@@ -75,7 +75,16 @@ describe('installationFleetSchema', () => {
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
     },
-    health: { oldestPendingAt: '2026-10-04T11:00:00.000Z', oldestInFlightAt: null, noShipCanTake: 1, needsAttention: 0, overdue: 0 },
+    health: {
+      oldestPendingAt: '2026-10-04T11:00:00.000Z',
+      oldestInFlightAt: null,
+      noShipCanTake: 1,
+      needsAttention: 0,
+      overdue: 0,
+      stuck: [{ cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, count: 1, oldestSince: '2026-10-04T11:00:00.000Z' }],
+      stuckPerHour: Array.from({ length: 168 }, () => ({ at: '2026-10-04T12:30:00.000Z', count: 1 })),
+      acknowledged: { count: 12, medianMs: 6000 },
+    },
   };
 
   it('describes a fleet: its measures, its messages today and per UTC day of the last 7 days, the limits that apply and its health', () => {
@@ -95,6 +104,8 @@ describe('installationFleetSchema', () => {
     ['missing limits', { ...fleet, limits: undefined }],
     ['missing health', { ...fleet, health: undefined }],
     ['a negative count no ship can take', { ...fleet, health: { ...fleet.health, noShipCanTake: -1 } }],
+    ['health without its stuck deliveries', { ...fleet, health: { ...fleet.health, stuck: undefined } }],
+    ['a trend one hour short', { ...fleet, health: { ...fleet.health, stuckPerHour: fleet.health.stuckPerHour.slice(1) } }],
   ])('refuses %s', (_case, input) => {
     expect(installationFleetSchema.safeParse(input).success).toBe(false);
   });
