@@ -102,7 +102,7 @@ describe('reading the fleet health', () => {
           place: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' } },
           count: 1,
           oldestSince: handedAt,
-          deliveries: [{ deliveryId: deliveryIdOf(scene.core, messageId), state: 'handed', since: handedAt }],
+          deliveries: [{ deliveryId: deliveryIdOf(scene.core, messageId), messageId, state: 'handed', since: handedAt }],
         },
       ],
     });

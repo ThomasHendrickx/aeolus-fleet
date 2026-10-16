@@ -18,11 +18,11 @@ const health = {
       count: 2,
       oldestSince: AT,
       deliveries: [
-        { deliveryId: newId('delivery'), state: 'received', since: AT },
-        { deliveryId: newId('delivery'), state: 'pending', since: AT },
+        { deliveryId: newId('delivery'), messageId: newId('message'), state: 'received', since: AT },
+        { deliveryId: newId('delivery'), messageId: newId('message'), state: 'pending', since: AT },
       ],
     },
-    { cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, count: 1, oldestSince: AT, deliveries: [{ deliveryId: newId('delivery'), state: 'pending', since: AT }] },
+    { cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, count: 1, oldestSince: AT, deliveries: [{ deliveryId: newId('delivery'), messageId: newId('message'), state: 'pending', since: AT }] },
   ],
   stuckPerHour: perHour(STUCK_TREND_HOURS),
   acknowledged: { count: 246, medianMs: 6000, perHour: perHour(ACKNOWLEDGED_HOURS) },
@@ -64,6 +64,6 @@ describe('healthOutputSchema', () => {
   it('refuses a stuck delivery in a state that is never stuck, such as acknowledged', () => {
     const [place] = health.stuck;
 
-    expect(healthOutputSchema.safeParse({ ...health, stuck: [{ ...place, deliveries: [{ deliveryId: newId('delivery'), state: 'acknowledged', since: AT }] }] }).success).toBe(false);
+    expect(healthOutputSchema.safeParse({ ...health, stuck: [{ ...place, deliveries: [{ deliveryId: newId('delivery'), messageId: newId('message'), state: 'acknowledged', since: AT }] }] }).success).toBe(false);
   });
 });
