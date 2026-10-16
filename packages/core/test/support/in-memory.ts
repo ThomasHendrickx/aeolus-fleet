@@ -79,6 +79,8 @@ import { appliedLimits } from '../../src/domain/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/domain/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domain/shared/secrets.js';
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
+import type { HealthRecords } from '../../src/domain/shared/health.js';
+import { createInMemoryHealthRecords } from './in-memory-health.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -212,6 +214,8 @@ export interface InMemoryCore {
   feed: FleetEventFeed;
   /** The history reads for the ship page, from the events, messages and deliveries held. */
   history: ShipHistory;
+  /** What the stuck rule reads (decision 0042), from the ships, leases, deliveries and events held. */
+  health: HealthRecords;
   /** The installation's notices and each console session's dismissals. */
   notices: NoticeRepository;
   noticeDismissals: NoticeDismissals;
@@ -1719,7 +1723,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
