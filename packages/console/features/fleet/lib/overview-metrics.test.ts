@@ -37,6 +37,7 @@ function anUndeliverable(since: string): NeedsAttentionDelivery {
     isPushed: false,
     since,
     reason: null,
+    ship: party,
     message: { id: newId('message'), sender: party, recipient: { kind: 'ship', ship: party }, inReplyTo: null, sentAt: since, contentType: 'text/plain', isPing: false, payload: 'Run 71' },
   };
 }

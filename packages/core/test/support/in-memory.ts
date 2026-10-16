@@ -1525,8 +1525,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               (event) =>
                 event.deliveryId === delivery.id && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'),
             );
-            if (!message || !since) {
-              throw new Error(`${attentionState} ${delivery.id} without its message or its event`);
+            if (!message || !since?.shipId) {
+              throw new Error(`${attentionState} ${delivery.id} without its message or its event by a ship`);
             }
             const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
             return {
@@ -1538,6 +1538,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                 isPushed: delivery.handOverNumber !== null,
                 since: since.occurredAt,
                 reason: typeof since.details.reason === 'string' ? since.details.reason : null,
+                ship: partyOf(fleetId, since.shipId),
                 message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
               },
             };

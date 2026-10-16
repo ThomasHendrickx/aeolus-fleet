@@ -169,6 +169,8 @@ export interface NeedsAttentionEntry {
   since: Date;
   /** Why its crew reported it not handled, kept with DeliveryNotHandled (#847); null when undeliverable, or when the crew gave none. */
   reason: string | null;
+  /** The ship whose attempt made it undeliverable, or whose turn did not handle it. */
+  ship: HistoryParty;
   message: Omit<HistoryMessage, 'delivery'>;
 }
 

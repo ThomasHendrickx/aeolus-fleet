@@ -322,21 +322,22 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const found = rows.map((row) => {
         const deliveryId = idSchema('delivery').parse(row.id);
         const event = since.get(deliveryId);
-        if (!event || (row.state !== 'undeliverable' && row.state !== 'notHandled')) {
-          throw new Error(`Delivery ${deliveryId} in Needs attention has no DeliveryUndeliverable or DeliveryNotHandled`);
+        if (!event?.shipId || (row.state !== 'undeliverable' && row.state !== 'notHandled')) {
+          throw new Error(`Delivery ${deliveryId} in Needs attention has no DeliveryUndeliverable or DeliveryNotHandled by a ship`);
         }
-        return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event };
+        return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event, shipId: event.shipId };
       });
-      const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message }) => shipsNamedBy(message)) });
+      const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message, shipId }) => [...shipsNamedBy(message), shipId]) });
       return found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, state, attempts, isPushed, message, event }) => ({
+        .map(({ deliveryId, state, attempts, isPushed, message, event, shipId }) => ({
           deliveryId,
           state,
           attempts,
           isPushed,
           since: event.occurredAt,
           reason: typeof event.details.reason === 'string' ? event.details.reason : null,
+          ship: party(shipId),
           message: {
             id: message.id,
             sender: party(message.senderShipId),

@@ -15,6 +15,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
     isPushed: false,
     since: '2026-10-01T13:12:00.000Z',
     reason: null,
+    ship: tester,
     message: {
       id: newId('message'),
       sender: builder,
