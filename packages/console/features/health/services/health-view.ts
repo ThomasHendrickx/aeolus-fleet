@@ -218,3 +218,13 @@ export function placeNote(place: StuckPlace, read: { facts: PlaceFacts | undefin
   const lastSeenAt = read.facts?.lastSeenAt ?? null;
   return lastSeenAt === null ? states : `${states}, session last seen ${read.since(new Date(lastSeenAt))}`;
 }
+
+/** A ship's page with one of its messages open, where the drill-down opens a stuck delivery. */
+export function messagePathOn(shipId: string, messageId: string): string {
+  return `/ships/${shipId}?tab=messages&message=${messageId}`;
+}
+
+/** The first line of a payload, as a row shows it. */
+export function previewOf(payload: string): string {
+  return payload.split('\n', 1)[0]?.trim() ?? '';
+}
