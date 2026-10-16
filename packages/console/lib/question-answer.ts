@@ -71,7 +71,8 @@ function refusalOf(stale: Staleness, asker: string): string {
 /**
  * The reply that answers a question in argo's inbox: its payload and content
  * type, or why there is none (the message is not there or asks no question,
- * its asker withdrew or replaced it, or the option is not one of its own).
+ * argo answered it already, its asker withdrew or replaced it, or the option
+ * is not one of its own).
  */
 export function answerReplyOf({
   inbox,
@@ -88,6 +89,9 @@ export function answerReplyOf({
   const asked = questionsIn(inbox).find((entry) => entry.deliveryId === deliveryId);
   if (asked === undefined) {
     return { kind: 'refused', message: 'That message asks no question' };
+  }
+  if (asked.question.answer !== null) {
+    return { kind: 'refused', message: 'You already answered that question' };
   }
   if (asked.stale !== null) {
     return { kind: 'refused', message: refusalOf(asked.stale, asked.message.sender.name) };
