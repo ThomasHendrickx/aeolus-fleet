@@ -53,8 +53,8 @@ export interface LeaseRecord {
   startedAt: Date;
   endedAt: Date | null;
   pushedAt: Date | null;
-  /** One column, not a history: the trend reads it as it is now. */
-  lastSeenAt: Date | null;
+  /** When its crew last called, else when it started: one column, not a history, so the trend reads it as it is now. */
+  lastSeenAt: Date;
   turns: readonly LeaseTurn[];
 }
 
@@ -223,7 +223,6 @@ function isQuietSinceHandOver(lease: LeaseRecord, read: { delivery: { state: 're
   const { delivery, at } = read;
   return (
     delivery.state === 'handed' &&
-    lease.lastSeenAt !== null &&
     lease.lastSeenAt <= delivery.since &&
     at.getTime() - delivery.since.getTime() >= NOT_CONFIRMED_MINUTES * MINUTE_MS
   );
