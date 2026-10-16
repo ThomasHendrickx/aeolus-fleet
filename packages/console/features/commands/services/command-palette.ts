@@ -13,7 +13,7 @@ import { blueprintPath, type BlueprintChoice } from '../../../lib/squadrons-view
  */
 export type PaletteItem =
   | { kind: 'action'; id: 'commission' | 'compose' | 'form-squadron'; label: string }
-  | { kind: 'page'; id: 'overview' | 'squadrons' | 'inbox' | 'attention'; label: string; href: string }
+  | { kind: 'page'; id: 'overview' | 'squadrons' | 'inbox' | 'health'; label: string; href: string }
   | { kind: 'ship'; id: ShipId; name: string; type: string; status: ShipStatus; href: string }
   | { kind: 'squadron'; id: string; blueprint: string; state: SquadronState; href: string }
   | { kind: 'squadron-action'; id: string; squadronId: string; action: SquadronPaletteAction; label: string; href: string }
@@ -124,6 +124,6 @@ export function paletteItemsOf(
     { kind: 'page', id: 'overview', label: 'Fleet overview', href: '/' },
     ...(squadrons ? [{ kind: 'page', id: 'squadrons', label: 'Squadrons', href: '/squadrons' } satisfies PaletteItem] : []),
     { kind: 'page', id: 'inbox', label: 'Operator inbox', href: '/inbox' },
-    { kind: 'page', id: 'attention', label: 'Needs attention', href: '/needs-attention' },
+    { kind: 'page', id: 'health', label: 'Health', href: '/fleet-health' },
   ];
 }

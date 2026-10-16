@@ -21,7 +21,7 @@ const ITEMS: PaletteItem[] = [
   aShip({ name: 'reviewer-02', type: 'reviewer', status: 'crewed' }),
   { kind: 'page', id: 'overview', label: 'Fleet overview', href: '/' },
   { kind: 'page', id: 'inbox', label: 'Operator inbox', href: '/inbox' },
-  { kind: 'page', id: 'attention', label: 'Needs attention', href: '/needs-attention' },
+  { kind: 'page', id: 'health', label: 'Health', href: '/fleet-health' },
 ];
 
 const meta = {

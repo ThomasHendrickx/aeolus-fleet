@@ -1,6 +1,6 @@
 'use client';
 
-import { CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel, TriangleAlert } from 'lucide-react';
+import { Activity, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,15 +10,15 @@ import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'attention' | 'network' | 'settings';
+export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'health' | 'network' | 'settings';
 
 interface SidebarProps extends AccountMenuProps {
   /** The page the operator is on: its item is marked current. */
   active: SidebarDestination;
   /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
   inboxCount?: number;
-  /** Undeliverable deliveries; hidden until known, and when there are none. */
-  attentionCount?: number;
+  /** Stuck deliveries (decision 0042); hidden until known, and when there are none. */
+  stuckCount?: number;
   /** Ships on Needs crew; hidden until known, and when there are none. */
   needsCrewCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
@@ -99,7 +99,7 @@ function NeedsCrewCount({ count }: { count: number | undefined }) {
  * The attention count: a pill in the attention tone from 1024 px, a dot on the
  * rail, the number kept for assistive technology either way.
  */
-function AttentionCount({ count, testId = 'nav-attention-count' }: { count: number | undefined; testId?: string }) {
+function AttentionCount({ count, testId, words }: { count: number | undefined; testId: string; words: string }) {
   if (count === undefined || count === 0) {
     return null;
   }
@@ -107,7 +107,7 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
     <>
       <Badge variant="count-attention" data-testid={testId} className="max-lg:sr-only">
         {count}
-        <span className="sr-only"> need attention</span>
+        <span className="sr-only"> {words}</span>
       </Badge>
       <span aria-hidden className="absolute top-1.5 right-4 size-1.5 rounded-full bg-tone-attention-fg lg:hidden" />
     </>
@@ -120,16 +120,16 @@ function AttentionCount({ count, testId = 'nav-attention-count' }: { count: numb
  * upwards. 256 px
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
- * Needs crew, which counts the ships on it (#245);
- * Inbox, which counts its open questions and open messages in --primary; and
- * Needs attention, which counts the undeliverable deliveries in the attention
- * tone. A count simply hides until it is known. With squadrons on, Squadrons
+ * Health, which counts the stuck deliveries in the attention tone (#304);
+ * Needs crew, which counts the ships on it (#245); and
+ * Inbox, which counts its open questions and open messages in --primary. A
+ * count simply hides until it is known. With squadrons on, Squadrons
  * comes second; with the trierarch plugin on, Trierarchs follows, counting its
  * silent machines in the attention tone (#245). Settings, which holds the
  * plugins, sits with the link to the source on GitHub above the account menu,
  * after Network, the networking plugin's rules, for argo while it is connected.
  */
-export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -151,6 +151,14 @@ export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, ha
           testId="nav-overview"
         />
         <NavItem
+          href="/fleet-health"
+          label="Health"
+          icon={<Activity aria-hidden />}
+          isActive={active === 'health'}
+          testId="nav-health"
+          count={<AttentionCount count={stuckCount} testId="nav-health-count" words="stuck" />}
+        />
+        <NavItem
           href="/needs-crew"
           label="Needs crew"
           icon={<ListChecks aria-hidden />}
@@ -168,7 +176,7 @@ export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, ha
             icon={<ShipWheel aria-hidden />}
             isActive={active === 'trierarchs'}
             testId="nav-trierarchs"
-            count={<AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" />}
+            count={<AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" words="silent" />}
           />
         )}
         <NavItem
@@ -178,14 +186,6 @@ export function Sidebar({ active, inboxCount, attentionCount, needsCrewCount, ha
           isActive={active === 'inbox'}
           testId="nav-inbox"
           count={<InboxCount count={inboxCount} />}
-        />
-        <NavItem
-          href="/needs-attention"
-          label="Needs attention"
-          icon={<TriangleAlert aria-hidden />}
-          isActive={active === 'attention'}
-          testId="nav-attention"
-          count={<AttentionCount count={attentionCount} />}
         />
       </nav>
       <div className="px-2.5 pb-2">

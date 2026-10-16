@@ -68,7 +68,7 @@ describe('paletteItemsOf', () => {
       'reviewer-01',
       'overview',
       'inbox',
-      'attention',
+      'health',
     ]);
   });
 
@@ -93,7 +93,7 @@ describe('paletteItemsOf', () => {
       'page:overview',
       'page:squadrons',
       'page:inbox',
-      'page:attention',
+      'page:health',
     ]);
   });
 
@@ -149,7 +149,7 @@ describe('the palette of a console session', () => {
     const allowed = allowedPaletteItems(items, { canManage: false, canSend: false });
 
     expect(allowed.filter((item) => item.kind === 'action')).toEqual([]);
-    expect(allowed.filter((item) => item.kind === 'page').map((item) => item.id)).toEqual(['overview', 'squadrons', 'inbox', 'attention']);
+    expect(allowed.filter((item) => item.kind === 'page').map((item) => item.id)).toEqual(['overview', 'squadrons', 'inbox', 'health']);
   });
 
   it('offers Compose to a session that sends but does not manage', () => {

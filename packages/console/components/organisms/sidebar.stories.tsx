@@ -10,7 +10,7 @@ const meta = {
   args: {
     active: 'overview',
     inboxCount: 3,
-    attentionCount: 2,
+    stuckCount: 2,
     account: {
       kind: 'operator',
       email: 'operator@example.com',
@@ -39,10 +39,10 @@ export const OverviewActive: Story = {};
 
 export const InboxActive: Story = { args: { active: 'inbox' } };
 
-export const AttentionActive: Story = { args: { active: 'attention' } };
+export const HealthActive: Story = { args: { active: 'health' } };
 
 /** Counts hide until they are known, and when nothing needs attention. */
-export const NoCounts: Story = { args: { inboxCount: undefined, attentionCount: undefined } };
+export const NoCounts: Story = { args: { inboxCount: undefined, stuckCount: undefined } };
 
 /** With the trierarch plugin on: Trierarchs after Squadrons, counting its silent machines. */
 export const WithTrierarchs: Story = { args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' } };

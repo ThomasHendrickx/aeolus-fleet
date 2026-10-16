@@ -1,6 +1,6 @@
 'use client';
 
-import { CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, TriangleAlert, UserPlus, Waves, type LucideIcon } from 'lucide-react';
+import { Activity, CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 import { useId, useState, type KeyboardEvent } from 'react';
 
 import { classNames } from '../../../../lib/class-names';
@@ -31,7 +31,7 @@ const ICONS: Record<Extract<PaletteItem, { kind: 'action' | 'page' }>['id'], Luc
   overview: Ship,
   squadrons: Shapes,
   inbox: Inbox,
-  attention: TriangleAlert,
+  health: Activity,
 };
 
 /** One option: an icon and label, or a ship by its name, type and status. */

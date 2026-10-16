@@ -12,7 +12,7 @@ import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
 import { ConsoleFrameContext, destinationOf } from '../../lib/console-frame';
 import { useOpenInboxCount } from '../../lib/inbox';
-import { useAttentionCount } from '../../lib/needs-attention';
+import { useStuckCount } from '../../lib/fleet-health';
 import { useNow } from '../../lib/now';
 import { usePluginNav } from '../../lib/plugin-nav';
 
@@ -27,7 +27,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   const account = useAccountMenu(now);
   const access = useAccess();
   const inboxCount = useOpenInboxCount();
-  const attentionCount = useAttentionCount();
+  const stuckCount = useStuckCount();
   const pluginNav = usePluginNav();
   const active = destinationOf(usePathname());
   const [isComposing, setIsComposing] = useState(false);
@@ -52,7 +52,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, attentionCount, ...pluginNav }} account={account}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account}>
         {children}
       </ConsoleFrame>
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />

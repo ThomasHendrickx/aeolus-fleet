@@ -357,18 +357,17 @@ describe('the first squadron in the console', () => {
   });
 
   // Last: it moves the clock past three check-in intervals.
-  it('sends a member silent for three check-in intervals to Needs attention, and counts it', async () => {
+  it('shows a member silent for three check-in intervals on Health', async () => {
     const THREE_INTERVALS_AND_MORE_MS = 2 * 60 * 60 * 1000;
     clock.advance(THREE_INTERVALS_AND_MORE_MS);
     const page = await squadronsPage();
     await page.getByTestId('squadrons-row').first().getByRole('link', { name: /team/ }).first().click();
     await page.getByTestId('member-row').locator('[data-slot="health-indicator"]').getByText('Silent').waitFor({ timeout: LIVE_TIMEOUT_MS });
 
-    await page.getByTestId('nav-attention').click();
+    await page.getByTestId('nav-health').click();
 
     await page.getByRole('heading', { name: 'Silent members (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.getByTestId('silent-member').textContent()).resolves.toMatch(/tester-[a-z0-9]{4}team-[a-z0-9]{6}· tester/);
-    await expect(page.getByTestId('nav-attention-count').textContent()).resolves.toMatch(/^1/);
   });
 
   it('stands the squadron down: the member stands down, retires, and the squadron is disbanded', async () => {

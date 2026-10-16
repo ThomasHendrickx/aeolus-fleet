@@ -39,8 +39,9 @@ export function destinationOf(pathname: string): SidebarDestination {
     case 'network':
     case 'settings':
       return top;
+    case 'fleet-health':
     case 'needs-attention':
-      return 'attention';
+      return 'health';
     default:
       return 'overview';
   }
