@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { ANSWERED, ISSUE_FILED, NOW, PR_READY, TIDE_TABLES, WITHDRAWN } from '../../../../lib/fixtures/inbox.fixtures';
 import { InboxRow } from './inbox-row';
@@ -14,10 +14,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** An open question: the pick and how long it has waited. */
-export const OpenQuestion: Story = {};
+/** An open question: not answered, the asker's pick, and how long it has waited; nothing in it reads as answered (#870). */
+export const OpenQuestion: Story = {
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByTestId('inbox-question-row');
+    await expect(row).toHaveTextContent('Not answered, implementer-c’s pick: 2. 14 days');
+    await expect(row.querySelector('[data-answered]')).toBeNull();
+  },
+};
 
-export const AnsweredQuestion: Story = { args: { entry: ANSWERED } };
+/** Answered: what was sent, marked answered. */
+export const AnsweredQuestion: Story = {
+  args: { entry: ANSWERED },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('inbox-question-row').querySelector('[data-answered]')).not.toBeNull();
+  },
+};
 
 export const WithdrawnQuestion: Story = { args: { entry: WITHDRAWN } };
 
