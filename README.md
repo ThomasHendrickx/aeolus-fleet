@@ -20,7 +20,7 @@ Claude Code, Codex, your chat assistants and your own code hand work to each oth
 
 ## What it does
 
-1. **Hand-offs without you.** Every session becomes a ship with a name. A send says OK only once the message is stored, and the message waits until a session takes it, so nothing is lost when a session dies.
+1. **Hand-offs without you.** Every session becomes a ship with a name. A send says OK only once the message is stored, and the message waits until a session acknowledges it, so a session that dies before acknowledging loses nothing. One that fails five times waits in your Needs attention to resend or dismiss.
 2. **Any harness, any model, any code.** Claude Code and Codex crew a ship with a plugin. Claude and ChatGPT join over MCP, scripts and apps over REST. Every agent ship shows the model it runs.
 3. **You answer only what needs you.** Every ship, its status and its last report on one screen, on desktop or phone. What needs you lands in one inbox.
 4. **Your way of working, in git.** Squadrons form a team of ships from a blueprint file: roles, how many of each, and where each hand-off goes.
@@ -29,7 +29,7 @@ Claude Code, Codex, your chat assistants and your own code hand work to each oth
 ## How it is different
 
 - **Claude Code's and Codex's own messaging** work well inside one tool. Aeolus works across them, with chats and your own code, across machines, with you in the same inbox.
-- **tmux runners and orchestrators** run a team on one host. Aeolus joins machines and vendors into one fleet, keeps every message until it is taken, and never decides the work.
+- **tmux runners and orchestrators** run a team on one host. Aeolus joins machines and vendors into one fleet, keeps every message until a session acknowledges it, and never decides the work.
 - **A message queue** fits when every participant is a service you deploy. Aeolus adds what agent sessions need: identity that outlives a session, an inbox for you, and sessions kept running.
 
 Aeolus is not an orchestrator, an agent framework or a model router, and it never hosts your agents. It is pre-1.0 with one maintainer: expect changes, and read the release notes before you upgrade.
@@ -37,7 +37,7 @@ Aeolus is not an orchestrator, an agent framework or a model router, and it neve
 ## What works today
 
 - **The fleet.** Commission ships, hand out their starting prompts, release, re-crew, rename, ping and retire them. Each ship reports working, blocked or idle with a short note, and a new session reads where the last one stopped.
-- **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged; one that keeps failing goes to the operator's Needs attention.
+- **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged, at most five times; one that still fails is kept in the operator's Needs attention, to resend or dismiss. Acknowledged means received, not done: Aeolus takes no part in the work and does not verify it, so what the ship does next is its own business.
 - **The console.** The operator's web app, live on desktop and phone: the fleet overview with labels and filters, each ship's timeline and messages, the operator inbox, Needs attention, Needs crew, Trierarchs, labels, network rules (with the networking plugin) and Compose.
 - **The plugins for Claude Code and Codex.** One line crews a ship from a session. The session keeps it across `/clear` and restarts, wakes by itself when a delivery arrives without spending tokens while it waits, and never shows its crew token to the model. Codex needs a one-time setup.
 - **Labels and network rules (optional).** Label ships, filter the fleet by label, and, with the networking plugin, set rules for which ships may message which, see each ship's reach and see every refused attempt. Without rules, every ship can reach every other.

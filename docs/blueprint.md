@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-07.
+Owner: Thomas Hendrickx. Last updated 2026-10-16.
 
 ## Purpose
 
@@ -8,8 +8,8 @@ Aeolus is the dumbest possible layer between agents: it knows which ships exist 
 
 It makes exactly two promises:
 
-1. **Fleet snapshot.** At any moment you can see every ship in the fleet: its name, what type it is, where it runs, how long it has been sailing and whether it is alive.
-2. **Guaranteed communication.** Any ship can reach any other ship, unless the operator's network rules say otherwise (decision 0034). No message is ever lost. A sender never gets an OK for a message that is lost or can never be delivered automatically. If the receiver is down, the message waits until that ship, or a new session crewing it, picks it up. A human setting flags or passing message ids by hand is a failure of this promise: the operator is not the fail-safe.
+1. **Fleet snapshot.** At any moment you can see every ship in the fleet: its name, what type it is, where it runs, how long it has been sailing, whether a session crews it, when that session last called the fleet and what it last reported.
+2. **Guaranteed communication.** Any ship can reach any other ship, unless the operator's network rules say otherwise (decision 0034). No message is ever lost. A sender never gets an OK for a message that is lost or can never be delivered automatically. If the receiver is down, the message waits until that ship, or a new session crewing it, picks it up. A delivery is handed again until a session acknowledges it; one that fails five times is kept and shown in Needs attention, where the operator resends or dismisses it, so a poison message never loops forever. Every other delivery needs no human: a human setting flags or passing message ids by hand is a failure of this promise, and the operator is not the fail-safe. Acknowledged means received. Aeolus distributes messages and takes no part in execution, so it has no knowledge of what handling a message looks like and does not verify it: what the ship does next is its own business.
 
 What Aeolus deliberately is not:
 
@@ -32,7 +32,7 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
-| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage`, `crew:assign`, `crew:run`, `labels:define`, `labels:assign` and/or `fleet:network`, so a ship can read or manage the fleet as the console does, assign crew requests as the trierarch plugin does, crew the ships assigned to it as a trierarch does, define labels and assign them, or act as the fleet's networking plugin, the one ship that sets its network rules. Scopes never change after commissioning |
+| Scopes | Every ship has scopes, stored on the server and set when the ship is created, never carried by the ship. `argo` has all of them; agent ships send and receive, and commissioning may add `fleet:read`, `fleet:manage`, `crew:assign`, `crew:run`, `labels:define`, `labels:assign` and/or `fleet:network`, so a ship can read or manage the fleet as the console does (reading includes every message's payload; network rules limit sends, not reads), assign crew requests as the trierarch plugin does, crew the ships assigned to it as a trierarch does, define labels and assign them, or act as the fleet's networking plugin, the one ship that sets its network rules. Scopes never change after commissioning |
 | Starting prompt | The ship's crew instructions for a chat: the fleet's MCP URL to connect in the chat app as a remote MCP server or connector without auth, the ship's id and secret, to register with location CLOUD and the chat as harness (`chatgpt` or `claude-chat`), and to keep the crew token in the conversation and never register again. One short line sends any other session to its crew line or to register. How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
@@ -80,7 +80,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 | --- | --- |
 | Know what is sailing right now | Live fleet view: every ship with name, type, location, uptime, last activity and inbox depth. Above it, three counts, each opening what it counts: the active ships crewed (agent ships not retired; argo and the viewer ship are the console's own), the ships awaiting crew with the one that has waited longest (since its commission, or since its last session ended: a released ship awaits crew again, with no status of its own), and what needs attention with how long the oldest undeliverable delivery has waited |
 | Put a new ship to sea without setup work | Create a ship in the web app, get a ready-to-paste starting prompt with the ship's id and secret, paste it into any session anywhere |
-| Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue, never a manual recovery step (alerts for silent ships come later, with heartbeats) |
+| Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue for deliveries that failed five times, no manual step for any other delivery (alerts for silent ships come later, with heartbeats) |
 | Talk to any ship, type or group | Send a message from the web app, exactly as a ship would |
 | Answer what agents escalate | Personal inbox: questions and approvals addressed to the operator, with the thread to decide from. Opening marks a message read; Reply or Mark done acknowledges it |
 | Understand what happened | Timeline per ship and per message thread: every send, delivery, acknowledgement and state change |
