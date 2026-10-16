@@ -73,7 +73,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Member: no Rename. Retire → Remove from squadron (RemoveMemberDialog). Get starting prompt → Get new crew line (CrewLineDialog). Silent: Get new crew line is the primary action.
 - Crew lines carry the secret: CrewLineBlock shows them once, with the template's launch note; afterwards only "Crew line issued … not claimed yet".
 - Forming: FormSquadronDialog (blueprint and version, then preview) → squadron page in Forming: StationProgress plus crew lines in MemberList rows. All on station: Sailing, Toast "<id> is sailing".
-- Health only on members: HealthIndicator, dot plus word. Silent = 3 missed check-ins; only silent members go to Needs attention (and its count). Late and Blocked stay on the squadron page.
+- Health only on members: HealthIndicator, dot plus word. Silent = 3 missed check-ins; only silent members go to Health, without a count. Late and Blocked stay on the squadron page.
 - Blueprints and templates are read-only (BlueprintTable, BlueprintView, TemplateTable, TemplateView): show source file and commit, never edit controls.
 - UpgradeBlueprintDialog lists every change per member and per hand-off.
 - Disbanded squadrons hide behind "Show disbanded (n)", like retired ships, and keep a read-only page.
