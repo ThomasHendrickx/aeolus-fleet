@@ -65,10 +65,9 @@ export interface Overdue {
  * lease with no turn reported is idle since it was pushed.
  */
 export function overdueDelivery(crew: PushedCrew, now: Date): Overdue | undefined {
-  const turn = crew.turn ?? { state: 'idle', at: crew.pushedAt };
   const oldestFirst = crew.waiting.toSorted((first, second) => first.sentAt.getTime() - second.sentAt.getTime() || first.deliveryId.localeCompare(second.deliveryId));
   for (const delivery of oldestFirst) {
-    const { clock, minutes, from } = clockOf(delivery, { turn, pushedAt: crew.pushedAt });
+    const { clock, minutes, from } = clockOf(delivery, crew);
     if (now.getTime() - from.getTime() >= minutes * MINUTE_MS) {
       return { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, delivery, clock, minutes };
     }
@@ -76,15 +75,22 @@ export function overdueDelivery(crew: PushedCrew, now: Date): Overdue | undefine
   return undefined;
 }
 
-function clockOf(
-  delivery: WaitingDelivery,
-  crew: { turn: { state: TurnState; at: Date }; pushedAt: Date },
-): { clock: OverdueClock; minutes: number; from: Date } {
+/** A pushed crew as its clocks read it: the turn its hooks last reported, and since when its lease is pushed. */
+export type ClockedCrew = Pick<PushedCrew, 'turn' | 'pushedAt'>;
+
+/** Whether the clock of a delivery waiting for a pushed crew ran out at `now`, by the rule `overdueDelivery` tells by. */
+export function hasClockRunOut(delivery: Pick<WaitingDelivery, 'state' | 'since'>, read: { crew: ClockedCrew; now: Date }): boolean {
+  const { minutes, from } = clockOf(delivery, read.crew);
+  return read.now.getTime() - from.getTime() >= minutes * MINUTE_MS;
+}
+
+function clockOf(delivery: Pick<WaitingDelivery, 'state' | 'since'>, crew: ClockedCrew): { clock: OverdueClock; minutes: number; from: Date } {
+  const turn: { state: TurnState; at: Date } = crew.turn ?? { state: 'idle', at: crew.pushedAt };
   if (delivery.state === 'handed') {
     return { clock: 'notConfirmed', minutes: NOT_CONFIRMED_MINUTES, from: delivery.since };
   }
-  const from = new Date(Math.max(delivery.since.getTime(), crew.turn.at.getTime(), crew.pushedAt.getTime()));
-  switch (crew.turn.state) {
+  const from = new Date(Math.max(delivery.since.getTime(), turn.at.getTime(), crew.pushedAt.getTime()));
+  switch (turn.state) {
     case 'idle':
       return { clock: 'idle', minutes: IDLE_MINUTES, from };
     case 'busy':
