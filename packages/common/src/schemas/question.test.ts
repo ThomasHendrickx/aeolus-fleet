@@ -123,6 +123,15 @@ describe('questionSchema', () => {
   it('refuses a pick that names no option', () => {
     expect(questionSchema.safeParse(aQuestion({ pick: { option: 3, why: 'Neither.' } })).success).toBe(false);
   });
+
+  it('takes an option without a detail, as an empty detail (#854)', () => {
+    const options = [{ key: 1, label: 'Keep 3000' }, { key: 2, label: 'Move to 4000', detail: 'Frees 3000 for core.' }];
+
+    expect(questionSchema.parse(aQuestion({ options })).options).toEqual([
+      { key: 1, label: 'Keep 3000', detail: '' },
+      { key: 2, label: 'Move to 4000', detail: 'Frees 3000 for core.' },
+    ]);
+  });
 });
 
 describe('answerSchema', () => {
@@ -233,6 +242,16 @@ describe('inboxQuestionOf', () => {
 
   it('is no question for a message of another type', () => {
     expect(inboxQuestionOf({ message: { ...asked, contentType: 'application/json' }, replies: [] })).toBeNull();
+  });
+
+  it('reads a question whose options have no detail, sent as pretty JSON (#854)', () => {
+    const question = aQuestion({ options: [{ key: 1, label: 'Keep 3000' }, { key: 2, label: 'Move to 4000' }] });
+    const message = { contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(question, null, 2) };
+
+    expect(inboxQuestionOf({ message, replies: [] })?.options).toEqual([
+      { key: 1, label: 'Keep 3000', detail: '' },
+      { key: 2, label: 'Move to 4000', detail: '' },
+    ]);
   });
 
   it('is no question when the payload is not JSON', () => {
