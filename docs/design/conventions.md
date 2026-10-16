@@ -93,7 +93,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.
 
 ## Destructive actions
-- No confirm: Ping, Mark done, Mark as unread, Resend, Dismiss, Get new prompt (the dialog states the old one stops working), Sign out.
+- No confirm: Ping, Mark done, Answer (its button names the option it sends), Mark as unread, Resend, Dismiss, Get new prompt (the dialog states the old one stops working), Sign out.
 - Normal confirm (Dialog, phone bottom Sheet): Get new crew line, always (it says what the new line ends: a session or an unclaimed line); Release; Retire or Remove from squadron with no open deliveries; Stand down; Force stand down with no open work; Upgrade blueprint (primary button); Rename (the dialog is the confirm).
 - TypedConfirm only when an irreversible action discards pending work: Retire with open deliveries (type the ship name); Remove from squadron with open deliveries (type the ship name); Force stand down with open work (type the squadron id).
 - Confirm title is the question ("Retire reviewer-01?"); body lists consequences as facts; the button names action and consequence ("Retire and abandon 3 deliveries"). Never "OK" or "Yes".
@@ -103,7 +103,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Plain, direct, present tense, "you" for the operator. Short sentences.
 - Sentence case everywhere: titles, buttons, menu items, tabs. Ship names, types and ids exactly as stored.
 - Terms (UI copy only; code keeps the blueprint terms): ship, commission, crew, crewed, awaiting crew, release, retire, starting prompt, crew line, re-crew, ping, report, harness, model, last seen, fleet scope, delivery, pending, handed (pulled), acknowledged, undeliverable, dismissed, abandoned, operator, argo. Squadrons: squadron, flagship, member, role, blueprint, template, charter, launch note, check-in, form, on station, sailing, stand down, disbanded, hand-off. Not: lease, revoke, rotate, user, agent (except "agent session"), team, deploy.
-- ShipName: add ` · XXXX` (last 4 id characters) in ShipTimeline, DeliveryHistory, retired ships and message parties. Never for argo.
+- ShipName: add ` · XXXX` (last 4 id characters) in ShipTimeline, DeliveryHistory, retired ships, and a message header's parties when another ship of the fleet had the same name. Never in inbox rows, never for argo.
 - Type address: Badge type chip in mono; prose "Any ship of type reviewer"; short "any reviewer".
 - Ids: mono, shortened in the middle (`shp_01J8XK4T…YB4C`), full value in `title`; CopyButton copies the full id.
 - Times: relative under 24 h ("6 min ago"); durations "1 d 2 h", "11 min"; otherwise "28 Sep, 14:21" (24 h clock); envelopes and meta strips "28 Sep 2026, 14:05:51"; seconds only in DeliveryHistory and envelopes; relative times carry the absolute in `title`.
