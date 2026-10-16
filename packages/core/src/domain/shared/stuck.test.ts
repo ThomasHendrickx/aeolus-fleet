@@ -54,7 +54,7 @@ describe('a stuck delivery', () => {
       const delivery = aDelivery(toType('reviewer'), { steps: [aStep('undeliverable', { at: hoursAgo(21), by: lease })] });
 
       expect(stuckAt(records({ ships: [scout], leases: [lease], deliveries: [delivery] }), NOW)).toEqual([
-        { deliveryId: delivery.deliveryId, cause: 'undeliverable', place: { kind: 'ship', shipId: scout.shipId }, since: hoursAgo(21) },
+        { deliveryId: delivery.deliveryId, state: 'undeliverable', cause: 'undeliverable', place: { kind: 'ship', shipId: scout.shipId }, since: hoursAgo(21) },
       ]);
     });
 
@@ -77,7 +77,7 @@ describe('a stuck delivery', () => {
       const delivery = aDelivery(toType('mapper'), { sentAt: hoursAgo(5) });
 
       expect(stuckAt(records({ ships: [mapper], deliveries: [delivery] }), NOW)).toEqual([
-        { deliveryId: delivery.deliveryId, cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, since: hoursAgo(5) },
+        { deliveryId: delivery.deliveryId, state: 'pending', cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, since: hoursAgo(5) },
       ]);
     });
 
@@ -108,7 +108,7 @@ describe('a stuck delivery', () => {
       const delivery = aDelivery(toShip(docsWriter), { sentAt: hoursAgo(33) });
 
       expect(stuckAt(records({ ships: [docsWriter], deliveries: [delivery] }), NOW)).toEqual([
-        { deliveryId: delivery.deliveryId, cause: 'waitingForCrew', place: { kind: 'ship', shipId: docsWriter.shipId }, since: hoursAgo(33) },
+        { deliveryId: delivery.deliveryId, state: 'pending', cause: 'waitingForCrew', place: { kind: 'ship', shipId: docsWriter.shipId }, since: hoursAgo(33) },
       ]);
     });
 
@@ -150,7 +150,7 @@ describe('a stuck delivery', () => {
       const delivery = aDelivery(toShip(scout), { steps: [aStep('handed', { at: minutesAgo(10), by: lease })] });
 
       expect(stuckAt(records({ ships: [scout], leases: [lease], deliveries: [delivery] }), NOW)).toEqual([
-        { deliveryId: delivery.deliveryId, cause: 'stalledInFlight', place: { kind: 'ship', shipId: scout.shipId }, since: minutesAgo(10) },
+        { deliveryId: delivery.deliveryId, state: 'handed', cause: 'stalledInFlight', place: { kind: 'ship', shipId: scout.shipId }, since: minutesAgo(10) },
       ]);
     });
 
@@ -286,22 +286,32 @@ describe('stuck deliveries per hour', () => {
 });
 
 describe('the places deliveries are stuck in', () => {
-  it('groups them by cause and place, with their count and oldest since, oldest first', () => {
+  it('groups them by cause and place, with their count, oldest since and each delivery, oldest first', () => {
     const scout = aShip();
     const scoutPlace = { kind: 'ship' as const, shipId: scout.shipId };
     const mapperPlace = { kind: 'type' as const, type: 'mapper' };
+    const [first, second, third, fourth] = [newId('delivery'), newId('delivery'), newId('delivery'), newId('delivery')];
 
     expect(
       stuckPlaces([
-        { deliveryId: newId('delivery'), cause: 'waitingForCrew', place: scoutPlace, since: hoursAgo(2) },
-        { deliveryId: newId('delivery'), cause: 'noShipCanTake', place: mapperPlace, since: hoursAgo(1) },
-        { deliveryId: newId('delivery'), cause: 'waitingForCrew', place: scoutPlace, since: hoursAgo(3) },
-        { deliveryId: newId('delivery'), cause: 'undeliverable', place: scoutPlace, since: hoursAgo(5) },
+        { deliveryId: first, state: 'pending', cause: 'waitingForCrew', place: scoutPlace, since: hoursAgo(2) },
+        { deliveryId: second, state: 'pending', cause: 'noShipCanTake', place: mapperPlace, since: hoursAgo(1) },
+        { deliveryId: third, state: 'pending', cause: 'waitingForCrew', place: scoutPlace, since: hoursAgo(3) },
+        { deliveryId: fourth, state: 'undeliverable', cause: 'undeliverable', place: scoutPlace, since: hoursAgo(5) },
       ]),
     ).toEqual([
-      { cause: 'undeliverable', place: scoutPlace, count: 1, oldestSince: hoursAgo(5) },
-      { cause: 'waitingForCrew', place: scoutPlace, count: 2, oldestSince: hoursAgo(3) },
-      { cause: 'noShipCanTake', place: mapperPlace, count: 1, oldestSince: hoursAgo(1) },
+      { cause: 'undeliverable', place: scoutPlace, count: 1, oldestSince: hoursAgo(5), deliveries: [{ deliveryId: fourth, state: 'undeliverable', since: hoursAgo(5) }] },
+      {
+        cause: 'waitingForCrew',
+        place: scoutPlace,
+        count: 2,
+        oldestSince: hoursAgo(3),
+        deliveries: [
+          { deliveryId: third, state: 'pending', since: hoursAgo(3) },
+          { deliveryId: first, state: 'pending', since: hoursAgo(2) },
+        ],
+      },
+      { cause: 'noShipCanTake', place: mapperPlace, count: 1, oldestSince: hoursAgo(1), deliveries: [{ deliveryId: second, state: 'pending', since: hoursAgo(1) }] },
     ]);
   });
 });

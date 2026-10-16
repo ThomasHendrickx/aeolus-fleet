@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import { healthOutputSchema, STUCK_TREND_HOURS } from './health.js';
+import { ACKNOWLEDGED_HOURS, healthOutputSchema, STUCK_TREND_HOURS } from './health.js';
 
 const newId = createIdGenerator();
 const AT = '2026-10-16T09:00:00.000Z';
@@ -17,11 +17,15 @@ const health = {
       place: { kind: 'ship', ship: { id: newId('ship'), name: 'builder-02' }, machine: { id: newId('ship'), name: 'hetzner-01', lastSeenAt: AT } },
       count: 2,
       oldestSince: AT,
+      deliveries: [
+        { deliveryId: newId('delivery'), state: 'received', since: AT },
+        { deliveryId: newId('delivery'), state: 'pending', since: AT },
+      ],
     },
-    { cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, count: 1, oldestSince: AT },
+    { cause: 'noShipCanTake', place: { kind: 'type', type: 'mapper' }, count: 1, oldestSince: AT, deliveries: [{ deliveryId: newId('delivery'), state: 'pending', since: AT }] },
   ],
   stuckPerHour: perHour(STUCK_TREND_HOURS),
-  acknowledged: { count: 246, medianMs: 6000 },
+  acknowledged: { count: 246, medianMs: 6000, perHour: perHour(ACKNOWLEDGED_HOURS) },
 };
 
 describe('healthOutputSchema', () => {
@@ -47,6 +51,19 @@ describe('healthOutputSchema', () => {
   });
 
   it('takes no median when nothing was acknowledged', () => {
-    expect(healthOutputSchema.parse({ ...health, acknowledged: { count: 0, medianMs: null } }).acknowledged).toEqual({ count: 0, medianMs: null });
+    const none = { count: 0, medianMs: null, perHour: perHour(ACKNOWLEDGED_HOURS) };
+
+    expect(healthOutputSchema.parse({ ...health, acknowledged: none }).acknowledged).toEqual(none);
+  });
+
+  it('counts the acknowledged over 24 hours, one hour short refused', () => {
+    expect(ACKNOWLEDGED_HOURS).toBe(24);
+    expect(healthOutputSchema.safeParse({ ...health, acknowledged: { ...health.acknowledged, perHour: perHour(ACKNOWLEDGED_HOURS - 1) } }).success).toBe(false);
+  });
+
+  it('refuses a stuck delivery in a state that is never stuck, such as acknowledged', () => {
+    const [place] = health.stuck;
+
+    expect(healthOutputSchema.safeParse({ ...health, stuck: [{ ...place, deliveries: [{ deliveryId: newId('delivery'), state: 'acknowledged', since: AT }] }] }).success).toBe(false);
   });
 });

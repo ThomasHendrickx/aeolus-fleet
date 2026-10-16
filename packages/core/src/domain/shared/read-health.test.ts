@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard } from '../../../test/support/core-fixtures.js';
+import { crewAboard, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -90,13 +90,21 @@ describe('reading the fleet health', () => {
   });
 
   it('places a delivery handed on a plain lease whose session went quiet for 10 minutes at its ship', async () => {
-    await scene.send(scene.lookout, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const messageId = await scene.send(scene.lookout, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await scene.receive(scene.scout);
     const handedAt = scene.core.clock.now();
     scene.core.clock.advance(10 * MINUTE_MS);
 
     await expect(readHealth()).resolves.toMatchObject({
-      stuck: [{ cause: 'stalledInFlight', place: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' } }, count: 1, oldestSince: handedAt }],
+      stuck: [
+        {
+          cause: 'stalledInFlight',
+          place: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' } },
+          count: 1,
+          oldestSince: handedAt,
+          deliveries: [{ deliveryId: deliveryIdOf(scene.core, messageId), state: 'handed', since: handedAt }],
+        },
+      ],
     });
   });
 
@@ -123,6 +131,22 @@ describe('reading the fleet health', () => {
     }
 
     await expect(readHealth()).resolves.toMatchObject({ acknowledged: { count: 3, medianMs: 10 * SECOND_MS } });
+  });
+
+  it('counts the deliveries acknowledged in each hour of the last 24, the last one ending now', async () => {
+    const early = await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+    await scene.receive(scene.planner);
+    await scene.ack(scene.planner, early);
+    scene.core.clock.advance(3 * HOUR_MS);
+    const late = await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+    await scene.receive(scene.planner);
+    await scene.ack(scene.planner, late);
+
+    const { perHour } = (await readHealth()).acknowledged;
+
+    expect(perHour).toHaveLength(24);
+    expect(perHour.at(-1)).toEqual({ at: scene.core.clock.now(), count: 1 });
+    expect(perHour.map((hour) => hour.count)).toEqual([...Array.from({ length: 21 }, () => 0), 1, 0, 1]);
   });
 
   it('answers no median when nothing was acknowledged in the last 24 hours', async () => {
