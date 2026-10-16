@@ -87,7 +87,7 @@ describe('installationFleetSchema', () => {
           place: { kind: 'type', type: 'mapper' },
           count: 1,
           oldestSince: '2026-10-04T11:00:00.000Z',
-          deliveries: [{ deliveryId: newId('delivery'), state: 'pending', since: '2026-10-04T11:00:00.000Z' }],
+          deliveries: [{ deliveryId: newId('delivery'), messageId: newId('message'), state: 'pending', since: '2026-10-04T11:00:00.000Z' }],
         },
       ],
       stuckPerHour: Array.from({ length: 168 }, () => ({ at: '2026-10-04T12:30:00.000Z', count: 1 })),

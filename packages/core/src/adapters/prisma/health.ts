@@ -34,6 +34,7 @@ const turnRow = z.object({ lease_id: z.string(), turn: turnStateSchema, occurred
 
 const deliveryRow = z.object({
   id: idSchema('delivery'),
+  message_id: idSchema('message'),
   recipient_ship_id: idSchema('ship').nullable(),
   recipient_type: z.string().nullable(),
   reachable_ship_ids: z.array(idSchema('ship')),
@@ -79,7 +80,7 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
       // stuck state since then has the event that took it out.
       const deliveries = z.array(deliveryRow).parse(
         await db.$queryRaw`
-          SELECT d.id, d.recipient_ship_id, d.recipient_type, d.reachable_ship_ids, d.created_at FROM deliveries d
+          SELECT d.id, d.message_id, d.recipient_ship_id, d.recipient_type, d.reachable_ship_ids, d.created_at FROM deliveries d
           WHERE d.fleet_id = ${fleetId}
             AND (d.state IN ('pending', 'received', 'handed', 'undeliverable')
               OR d.id IN (SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL))`,
@@ -120,6 +121,7 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
         })),
         deliveries: deliveries.map((delivery) => ({
           deliveryId: delivery.id,
+          messageId: delivery.message_id,
           recipient: recipientOf(delivery),
           reachableShipIds: delivery.reachable_ship_ids,
           sentAt: delivery.created_at,

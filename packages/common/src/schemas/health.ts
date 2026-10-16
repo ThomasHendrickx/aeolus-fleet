@@ -30,8 +30,8 @@ export const stuckPlaceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('type'), type: z.string() }),
 ]);
 
-/** One stuck delivery: its state and since when it is in it. */
-export const stuckDeliverySchema = z.object({ deliveryId: idSchema('delivery'), state: stuckStateSchema, since: z.iso.datetime() });
+/** One stuck delivery: its message, its state and since when it is in it. */
+export const stuckDeliverySchema = z.object({ deliveryId: idSchema('delivery'), messageId: idSchema('message'), state: stuckStateSchema, since: z.iso.datetime() });
 
 /** The deliveries stuck at one place for one cause: how many, since when the oldest waits, and each one, oldest first. */
 export const stuckPlaceHealthSchema = z.object({

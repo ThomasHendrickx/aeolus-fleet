@@ -68,7 +68,7 @@ describe('the fleet health on Postgres', () => {
     const health = await core.useCases.readHealth(argo);
 
     expect(health.stuck).toEqual([
-      { cause: 'noShipCanTake', place: { kind: 'type', type: 'planner' }, count: 1, oldestSince: sentAt, deliveries: [{ deliveryId: await deliveryOf(messageId), state: 'pending', since: sentAt }] },
+      { cause: 'noShipCanTake', place: { kind: 'type', type: 'planner' }, count: 1, oldestSince: sentAt, deliveries: [{ deliveryId: await deliveryOf(messageId), messageId, state: 'pending', since: sentAt }] },
     ]);
     expect(health.stuckPerHour).toHaveLength(168);
     expect(health.stuckPerHour.slice(-4).map((hour) => hour.count)).toEqual([0, 1, 1, 1]);

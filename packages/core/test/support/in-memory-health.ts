@@ -57,6 +57,7 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
         .map(
           ({ delivery, events: its }): DeliveryRecord => ({
             deliveryId: delivery.id,
+            messageId: delivery.messageId,
             recipient: delivery.recipient,
             reachableShipIds: delivery.reachableShipIds ?? [],
             sentAt: delivery.createdAt,
