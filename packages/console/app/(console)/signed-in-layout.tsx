@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 
 import { ConsoleFrame } from '../../components/organisms/console-frame';
-import { ConsoleCommands } from '../../features/commands/organisms/console-commands';
+import { ConsoleCommands } from '../../features/commands/state/console-commands';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
 import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
 import { ConsoleNotices } from '../../features/notices/organisms/console-notices';

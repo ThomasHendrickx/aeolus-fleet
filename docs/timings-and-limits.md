@@ -172,7 +172,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | from 15 labels | A ship page shows "n of 20" | [lib/labels.ts](../packages/console/lib/labels.ts) `SHOWN_COUNT_FROM` | [0031](decisions/0031-labels.md) |
 | 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/organisms/ship-labels-edit.tsx](../packages/console/features/ship/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
 | 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/organisms/fleet-table.tsx](../packages/console/features/fleet/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
-| 8 ships | Ships the command palette lists before anything is typed | [features/commands/lib/command-palette.ts](../packages/console/features/commands/lib/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
+| 8 ships | Ships the command palette lists before anything is typed | [features/commands/services/command-palette.ts](../packages/console/features/commands/services/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
 | 1.5 s | A copy button shows its check | [components/atoms/copy-button.tsx](../packages/console/components/atoms/copy-button.tsx) `COPIED_FOR_MS` | [design/README.md](design/README.md) |
 | 500 ms | A tooltip opens after hovering | [components/atoms/tooltip.tsx](../packages/console/components/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
 | 5 s; errors until dismissed | A toast closes by itself | [components/atoms/toast.tsx](../packages/console/components/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |

@@ -5,14 +5,14 @@ import { useEffect } from 'react';
 
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
-import { allowedPaletteItems, paletteItemsOf } from '../lib/command-palette';
+import { allowedPaletteItems, paletteItemsOf } from '../services/command-palette';
 import { useFleetSnapshot } from '../../../lib/fleet';
 import { useHasSquadrons } from '../../../lib/squadrons';
 import { useCatalogue, useSquadrons } from '../../../lib/squadrons-api';
 import { blueprintChoices } from '../../../lib/squadrons-view';
 
 // Loads when first opened, not with the page.
-const CommandPalette = lazyDialog(() => import('./command-palette').then((module) => module.CommandPalette), (props) => props.isOpen);
+const CommandPalette = lazyDialog(() => import('../ui/organisms/command-palette').then((module) => module.CommandPalette), (props) => props.isOpen);
 
 interface ConsoleCommandsProps {
   isOpen: boolean;

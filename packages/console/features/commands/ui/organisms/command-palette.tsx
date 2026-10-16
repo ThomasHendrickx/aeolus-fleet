@@ -3,16 +3,16 @@
 import { CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, TriangleAlert, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 import { useId, useState, type KeyboardEvent } from 'react';
 
-import { classNames } from '../../../lib/class-names';
-import { paletteGroups, paletteKeyOf, type PaletteItem } from '../lib/command-palette';
-import { Avatar } from '../../../components/atoms/avatar';
-import { Button } from '../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { Kbd } from '../../../components/atoms/kbd';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { classNames } from '../../../../lib/class-names';
+import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
+import { Avatar } from '../../../../components/atoms/avatar';
+import { Button } from '../../../../components/atoms/button';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '../../../../components/atoms/dialog';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Kbd } from '../../../../components/atoms/kbd';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
-export type { PaletteItem } from '../lib/command-palette';
+export type { PaletteItem } from '../../services/command-palette';
 
 interface CommandPaletteProps {
   isOpen: boolean;

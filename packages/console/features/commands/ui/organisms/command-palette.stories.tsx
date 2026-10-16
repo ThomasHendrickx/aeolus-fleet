@@ -2,7 +2,7 @@ import { createIdGenerator } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import type { PaletteItem } from '../lib/command-palette';
+import type { PaletteItem } from '../../services/command-palette';
 import { CommandPalette } from './command-palette';
 
 const newId = createIdGenerator();
