@@ -1,6 +1,6 @@
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
-import { acknowledgedSince, healthOf, healthSince, type Health, type HealthRecords } from './health.js';
+import { readHealthOf, type Health, type HealthRecords } from './health.js';
 
 export type ReadHealth = (caller: Caller) => Promise<Health>;
 
@@ -11,12 +11,5 @@ export type ReadHealth = (caller: Caller) => Promise<Health>;
  * scope (fleet:read) is checked before this runs.
  */
 export function createReadHealth(deps: { health: HealthRecords; clock: Clock }): ReadHealth {
-  return async (caller) => {
-    const now = deps.clock.now();
-    const [facts, acknowledged] = await Promise.all([
-      deps.health.read(caller.fleetId, healthSince(now)),
-      deps.health.acknowledged(caller.fleetId, acknowledgedSince(now)),
-    ]);
-    return healthOf(facts, { acknowledged, now });
-  };
+  return (caller) => readHealthOf(deps.health, { fleetId: caller.fleetId, now: deps.clock.now() });
 }

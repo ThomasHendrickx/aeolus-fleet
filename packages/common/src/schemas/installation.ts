@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { OPERATOR_EMAIL_MAX_LENGTH } from './console.js';
+import { healthOutputSchema } from './health.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
 
 /**
@@ -68,10 +69,11 @@ export const installationFleetSchema = z.object({
     oldestInFlightAt: z.iso.datetime().nullable(),
     /** Pending deliveries to a type no active ship can take. */
     noShipCanTake: z.int().min(0),
-    /** Undeliverable and not handled deliveries, as Needs attention lists them. */
+    /** Undeliverable deliveries; not handled is execution (decision 0042). */
     needsAttention: z.int().min(0),
     /** Overdue deliveries argo was told of that still stand. */
     overdue: z.int().min(0),
+    ...healthOutputSchema.shape,
   }),
 });
 

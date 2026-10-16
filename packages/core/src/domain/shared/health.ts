@@ -71,6 +71,12 @@ export function acknowledgedSince(now: Date): Date {
   return new Date(now.getTime() - ACKNOWLEDGED_WINDOW_HOURS * HOUR_MS);
 }
 
+/** Reads the fleet's health at `now`: its records over the trend's hours and its acknowledged in the last 24. */
+export async function readHealthOf(records: HealthRecords, read: { fleetId: FleetId; now: Date }): Promise<Health> {
+  const [facts, acknowledged] = await Promise.all([records.read(read.fleetId, healthSince(read.now)), records.acknowledged(read.fleetId, acknowledgedSince(read.now))]);
+  return healthOf(facts, { acknowledged, now: read.now });
+}
+
 export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
   const shown = (place: { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type: string }): ShownStuckPlace => {
     if (place.kind === 'type') {

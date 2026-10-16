@@ -127,7 +127,8 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
              AND NOT EXISTS (SELECT 1 FROM ships s
                              WHERE s.fleet_id = d.fleet_id AND s.type = d.recipient_type AND s.retired_at IS NULL
                                AND (cardinality(d.reachable_ship_ids) = 0 OR s.id = ANY(d.reachable_ship_ids)))) AS "noShipCanTake",
-          (SELECT count(*) FROM deliveries d WHERE d.fleet_id = f.id AND d.state IN ('undeliverable', 'notHandled')) AS "needsAttention",
+          -- Not handled is execution, not delivery (decision 0042).
+(SELECT count(*) FROM deliveries d WHERE d.fleet_id = f.id AND d.state = 'undeliverable') AS "needsAttention",
           -- Told on a lease that has not ended, its delivery still in the told state, held by that lease when in flight (history.ts).
           (SELECT count(*) FROM overdue_deliveries o
            JOIN leases l ON l.fleet_id = o.fleet_id AND l.id = o.lease_id AND l.ended_at IS NULL

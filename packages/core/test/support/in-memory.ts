@@ -1191,7 +1191,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       oldestPendingAt: oldestOf(pending.map((delivery) => delivery.createdAt)),
       oldestInFlightAt: oldestOf(deliveries.filter(isInFlight).map(stateSince)),
       noShipCanTake: pending.filter((delivery) => !canTake(delivery)).length,
-      needsAttention: deliveries.filter((delivery) => delivery.state === 'undeliverable' || delivery.state === 'notHandled').length,
+      needsAttention: deliveries.filter((delivery) => delivery.state === 'undeliverable').length,
       overdue: state.overdueDeliveries.filter((told) => {
         const delivery = deliveries.find((held) => held.id === told.deliveryId);
         const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === told.leaseId);

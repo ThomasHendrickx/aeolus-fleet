@@ -185,8 +185,9 @@ describe('the installation procedures on a hosting server', () => {
     unwrap(await core.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Review the pull request', idempotencyKey: newKey() }));
 
     const described = await installation().get.query({ fleetId: created.fleetId });
+    const { health, ...measured } = described;
 
-    expect(described).toEqual({
+    expect(measured).toEqual({
       fleetId: created.fleetId,
       name: 'busy',
       operatorEmail: 'busy@example.com',
@@ -199,8 +200,15 @@ describe('the installation procedures on a hosting server', () => {
       messagesToday: 1,
       messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-04' ? 1 : 0 })),
       limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
-      // Its one message waits pending for scout.
-      health: expect.objectContaining({ oldestPendingAt: clock.now().toISOString(), oldestInFlightAt: null, noShipCanTake: 0, needsAttention: 0, overdue: 0 }),
+    });
+    // Its one message waits pending for scout, which awaits crew.
+    expect(health).toMatchObject({
+      oldestPendingAt: clock.now().toISOString(),
+      oldestInFlightAt: null,
+      noShipCanTake: 0,
+      needsAttention: 0,
+      overdue: 0,
+      stuck: [{ cause: 'waitingForCrew', place: { kind: 'ship', ship: { id: shipId, name: 'scout' }, machine: null }, count: 1, oldestSince: clock.now().toISOString() }],
     });
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
