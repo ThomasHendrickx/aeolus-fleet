@@ -1348,6 +1348,7 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
     it('reports a message handed once more not handled when its session died too, and drops it', async () => {
       const stub = await aHandOver({ '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handed': [handedOk, handedAs('acknowledged')], '/api/v1/ship/notHandled': [taken] });
       await aFirstToolCall();
+      await aHook('aeolus-turn-died.sh', { payload: { hook_event_name: 'StopFailure', error: 'rate_limit' } });
       await aPrompt();
 
       await aSessionStart('startup');
