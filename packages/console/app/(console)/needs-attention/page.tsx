@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { showToast } from '../../../components/atoms/toast';
-import { NeedsAttentionList } from '../../../features/needs-attention/organisms/needs-attention-list';
-import { NoShipCanTake } from '../../../features/needs-attention/organisms/no-ship-can-take';
-import { OverdueDeliveries } from '../../../features/needs-attention/organisms/overdue-deliveries';
+import { NeedsAttentionList } from '../../../features/needs-attention/ui/organisms/needs-attention-list';
+import { NoShipCanTake } from '../../../features/needs-attention/ui/organisms/no-ship-can-take';
+import { OverdueDeliveries } from '../../../features/needs-attention/ui/organisms/overdue-deliveries';
 import { GetNewCrewLine } from '../../../features/squadrons/organisms/get-new-crew-line';
-import { SilentMembers } from '../../../features/needs-attention/organisms/silent-members';
+import { SilentMembers } from '../../../features/needs-attention/ui/organisms/silent-members';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useAccess } from '../../../lib/access';

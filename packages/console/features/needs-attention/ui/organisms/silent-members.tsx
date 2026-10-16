@@ -3,12 +3,12 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { duration } from '../../../lib/relative-time';
-import type { Squadron } from '../../../lib/squadrons-schemas';
-import { checkInText } from '../../../lib/squadrons-view';
-import { HealthIndicator } from '../../../components/molecules/health-indicator';
-import { ReportLine } from '../../../components/molecules/report-line';
-import { SquadronTag } from '../../../components/molecules/squadron-tag';
+import { duration } from '../../../../lib/relative-time';
+import type { Squadron } from '../../../../lib/squadrons-schemas';
+import { checkInText } from '../../../../lib/squadrons-view';
+import { HealthIndicator } from '../../../../components/molecules/health-indicator';
+import { ReportLine } from '../../../../components/molecules/report-line';
+import { SquadronTag } from '../../../../components/molecules/squadron-tag';
 
 interface SilentMembersProps {
   members: readonly { squadronId: string; member: Squadron['members'][number] }[];
