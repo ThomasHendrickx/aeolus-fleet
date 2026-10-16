@@ -16,11 +16,13 @@ import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/test/support/keys.js';
 
-// Needs attention, end to end: a ship's session receives a message five
-// times over the REST API without acknowledging it, the delivery shows in
-// Needs attention live with its count in the navigation, and the operator
-// resends one (a new message reaches the ship) and dismisses another. A
-// delivery a pushed crew reports not handled shows there live too.
+// Health, end to end (#304): a ship's session receives a message five times
+// over the REST API without acknowledging it, the delivery shows on Health
+// live with the stuck count in the navigation, and the operator opens the
+// cause and resends one (a new message reaches the ship) and dismisses
+// another. A delivery no ship can take clears live once a ship of its type
+// is commissioned, and one a pushed crew reports not handled shows on its
+// ship's page.
 
 const clock = createTestClock('2026-10-01T09:00:00.000Z');
 /** A live change shows within this. */
@@ -150,52 +152,55 @@ async function signedInPage(): Promise<Page> {
   return page;
 }
 
-function attentionRow(page: Page, deliveryId: string) {
-  return page.locator(`[data-testid="attention-row"][data-delivery-id="${deliveryId}"]:visible`);
+function stuckRow(page: Page, deliveryId: string) {
+  return page.locator(`[data-testid="drilldown-row"][data-delivery-id="${deliveryId}"]:visible`);
 }
 
-describe('Needs attention', () => {
-  it('shows an undeliverable delivery live with its count, and resends it: a new message reaches the ship', async () => {
+describe('Health', () => {
+  it('shows an undeliverable delivery live with the stuck count, and resends it from its cause: a new message reaches the ship', async () => {
     const builder = await crewedOverRest({ name: 'builder-core', type: 'builder' });
     const tester = await crewedOverRest({ name: 'tester-01', type: 'tester' });
     const page = await signedInPage();
-    const navigation = page.getByTestId('nav-attention');
+    const navigation = page.getByTestId('nav-health');
     await navigation.waitFor();
 
     const deliveryId = await undeliverable({ from: builder, to: tester, payload: '{"run":"e2e","ref":"pr-320"}' });
 
     await navigation.getByText('1').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await navigation.click();
-    await page.waitForURL(`${web.url}/needs-attention`);
-    await page.getByRole('heading', { name: 'Needs attention' }).waitFor();
-    const row = attentionRow(page, deliveryId);
+    await page.waitForURL(`${web.url}/fleet-health`);
+    await page.getByRole('heading', { name: 'Health' }).first().waitFor();
+    const cause = page.locator('[data-testid="health-cause"][data-cause="undeliverable"]');
+    await cause.getByText('tester-01').first().waitFor({ timeout: LIVE_TIMEOUT_MS });
+    await cause.getByTestId('health-cause-open').click();
+    await page.waitForURL(`${web.url}/fleet-health/undeliverable`);
+    const row = stuckRow(page, deliveryId);
     await row.getByText('{"run":"e2e","ref":"pr-320"}').waitFor();
-    await row.getByText('Handed (pulled) 4 times, never acknowledged; fifth receive refused: undeliverable.').waitFor();
 
-    await row.getByTestId('attention-resend').click();
+    await row.getByTestId('drilldown-resend').click();
 
     await page.getByText('Message resent').waitFor();
-    await row.waitFor({ state: 'detached' });
-    await page.getByTestId('attention-empty').waitFor();
+    await row.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
+    await page.getByText('No delivery is stuck for this cause now.').waitFor();
     const { deliveries } = receivedSchema.parse(await tester.call('receive', {}));
     const resent = await database.message.findFirstOrThrow({ where: { resendOfMessageId: { not: null } } });
     expect(deliveries.map((delivery) => delivery.messageId)).toEqual([resent.id]);
     expect(resent.senderShipId).toBe(builder.shipId);
   });
 
-  it('dismisses an undeliverable delivery: it leaves the list and stays in history as dismissed', async () => {
+  it('dismisses an undeliverable delivery from its cause: it leaves the list and stays in history as dismissed', async () => {
     const reviewer = await crewedOverRest({ name: 'reviewer-02', type: 'reviewer' });
     const planner = await crewedOverRest({ name: 'planner', type: 'planner' });
     const deliveryId = await undeliverable({ from: planner, to: reviewer, payload: 'Pause all reviews until 15:00.' });
     const page = await signedInPage();
-    await page.goto('/needs-attention');
-    const row = attentionRow(page, deliveryId);
+    await page.goto('/fleet-health/undeliverable');
+    const row = stuckRow(page, deliveryId);
     await row.getByText('Pause all reviews until 15:00.').waitFor();
 
-    await row.getByTestId('attention-dismiss').click();
+    await row.getByTestId('drilldown-dismiss').click();
 
     await page.getByText('Delivery dismissed').waitFor();
-    await row.waitFor({ state: 'detached' });
+    await row.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
     await expect(database.delivery.findUniqueOrThrow({ where: { id: deliveryId } })).resolves.toMatchObject({
       state: 'dismissed',
     });
@@ -206,30 +211,38 @@ describe('Needs attention', () => {
     const { messageId } = unwrap(await useCases.sendMessage(argo, { selector: { kind: 'type', type: 'mapper' }, payload: 'Map the harbour.', idempotencyKey: newKey() }));
     unwrap(await useCases.retireShip(argo, { shipId: mapper.shipId }));
     const page = await signedInPage();
-    await page.goto('/needs-attention');
-    await page.getByRole('heading', { name: 'No ship can take it (1)' }).waitFor();
-    const row = page.getByTestId('no-ship-can-take-row');
-    await row.getByText('Map the harbour.').waitFor();
-    await row.getByText('mapper', { exact: true }).waitFor();
+    await page.goto('/fleet-health');
+    const cause = page.locator('[data-testid="health-cause"][data-cause="noShipCanTake"]');
+    await cause.getByText('mapper', { exact: true }).first().waitFor();
+    await cause.getByTestId('health-next-step').getByText('Commission a mapper').waitFor();
 
     unwrap(await useCases.commissionShip(argo, { name: 'mapper-02', type: 'mapper', idempotencyKey: newKey() }));
 
-    await row.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
+    await cause.waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
     await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({ state: 'pending' });
   });
 
-  it('shows a not handled delivery live under Undeliverable and not handled deliveries, beside one no ship can take', async () => {
-    const charter = unwrap(await useCases.commissionShip(argo, { name: 'charter-01', type: 'charter', idempotencyKey: newKey() }));
-    unwrap(await useCases.sendMessage(argo, { selector: { kind: 'type', type: 'charter' }, payload: 'Chart the reef.', idempotencyKey: newKey() }));
-    unwrap(await useCases.retireShip(argo, { shipId: charter.shipId }));
+  it('shows a not handled delivery live on its ship page, not on Health', async () => {
     const surveyor = await crewedOverCore({ name: 'surveyor-01', type: 'surveyor' });
     const page = await signedInPage();
-    await page.goto('/needs-attention');
-    await page.getByRole('heading', { name: 'No ship can take it (1)' }).waitFor();
+    await page.goto(`/ships/${surveyor.shipId}`);
+    await page.getByRole('heading', { name: 'surveyor-01' }).first().waitFor();
 
     const deliveryId = await notHandled({ to: surveyor, payload: 'Survey the bay.' });
 
-    await page.getByRole('heading', { name: 'Undeliverable and not handled deliveries (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await attentionRow(page, deliveryId).getByText('Survey the bay.').waitFor();
+    const section = page.getByTestId('ship-not-handled');
+    await section.getByRole('heading', { name: 'Not handled (1)' }).waitFor({ timeout: LIVE_TIMEOUT_MS });
+    const row = section.locator(`[data-testid="attention-row"][data-delivery-id="${deliveryId}"]:visible`);
+    await row.getByText('Survey the bay.').waitFor();
+    await row.getByTestId('attention-resend').waitFor();
+    await row.getByTestId('attention-dismiss').waitFor();
+  });
+
+  it('opens Health from an old Needs attention link', async () => {
+    const page = await signedInPage();
+
+    await page.goto('/needs-attention');
+
+    await page.waitForURL(`${web.url}/fleet-health`);
   });
 });
