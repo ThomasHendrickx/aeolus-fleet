@@ -1596,7 +1596,9 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
 
         await aCodexHook('aeolus-session-start.sh', { hook_event_name: 'SessionStart', source: 'resume' });
 
-        expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([`{"deliveryId":"${DELIVERY_ID}"}`]);
+        expect(callsTo(stub, '/api/v1/ship/notHandled').map((call) => call.body)).toEqual([
+          `{"deliveryId":"${DELIVERY_ID}","reason":"the session it was handed once more to died too (SessionStart: resume)"}`,
+        ]);
         expect(store()).toEqual([]);
       });
 
