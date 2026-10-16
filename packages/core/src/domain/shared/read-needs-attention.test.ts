@@ -61,6 +61,7 @@ describe('reading Needs attention', () => {
         isPushed: false,
         since,
         reason: null,
+        ship: { id: scene.scout.shipId, name: 'scout' },
         message: {
           id: messageId,
           sender: { id: scene.planner.shipId, name: 'planner' },
@@ -126,6 +127,15 @@ describe('reading Needs attention', () => {
     const [entry] = await scene.history.readNeedsAttention(scene.argo);
 
     expect(entry).toMatchObject({ deliveryId, state: 'undeliverable', attempts: UNDELIVERABLE_AT_ATTEMPT, isPushed: true });
+  });
+
+  it('names the ship whose turn did not handle it, for its ship page', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
+    await notHandled(scene.lookout, { messageId });
+
+    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+
+    expect(entry).toMatchObject({ state: 'notHandled', ship: { id: scene.lookout.shipId, name: 'lookout' } });
   });
 
   it('lists a delivery not handled, with its attempts and since when it was not handled', async () => {
