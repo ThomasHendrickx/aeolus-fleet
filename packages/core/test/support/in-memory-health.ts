@@ -5,6 +5,7 @@
 import type { FleetId, TurnState } from '@aeolus-fleet/common';
 
 import type { HealthRecords } from '../../src/domain/shared/health.js';
+import { isConsoleShip } from '../../src/domain/registry/public.js';
 import { stateStepOf, type DeliveryRecord, type LeaseRecord, type ShipRecord } from '../../src/domain/shared/stuck.js';
 import type { InMemoryState } from './in-memory.js';
 
@@ -29,7 +30,8 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
             shipId: ship.id,
             name: ship.name,
             type: ship.type,
-            isAlwaysCrewed: ship.kind !== 'agent',
+            isAlwaysCrewed: isConsoleShip(ship),
+            isPerson: ship.kind === 'person',
             commissionedAt: ship.createdAt,
             retiredAt: ship.retiredAt,
           }),
