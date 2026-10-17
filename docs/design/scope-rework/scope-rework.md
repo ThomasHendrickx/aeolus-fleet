@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery, questions 37 to 47); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery and what a ship states, questions 37 to 54); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
@@ -291,7 +291,7 @@ It answers too the types the caller can send to now, each with how many of its s
     Options: (a) every ship with `messages:send`, no new scope; (b) a scope of its own; (c) every crewed ship, `messages:send` or not.
     Pick: (a). Knowing whom a send can reach is part of sending, as Thomas puts it "a normal call"; a ship that cannot send reaches no one.
 44. **What does it show of each ship?**
-    Options: (a) name, type and status (awaiting crew, crewed), and its description (question 47); (b) (a) plus its labels; (c) (a) plus its crew's report.
+    Options: (a) name, type and status (awaiting crew, crewed), and its statement (questions 47 and 50); (b) (a) plus its labels; (c) (a) plus its crew's report.
     Pick: (a). It matches what question 18 (b) shows outside read reach, so discovery never shows more than reading would. Labels are what the rules select on, so showing them beside the reach set maps the rules (0034); the report is work, which read reach governs (question 16).
 45. **Is a discovery call recorded?**
     Options: (a) no, as explainReach records nothing; (b) each call recorded for argo, beside reach refusals.
@@ -299,9 +299,80 @@ It answers too the types the caller can send to now, each with how many of its s
 46. **Discovery and read reach.**
     Options: (a) discovery answers send reach only; (b) it answers both, marking per ship whether the caller may send, read or both.
     Pick: (a). It answers Thomas's question, who is on the network and accessible, in one set. A second verb in its answer waits for question 16.
-47. **Can a ship say what it offers?** Today only the commissioner's note, the type and the crew's report say anything.
-    Options: (a) the commission note is the description: whoever commissions the ship (argo, a squadron template, a tech lead) writes what it is for, and discovery shows it; (b) the crew states what its ship offers, kept with the lease as the report is, so an app's adapter can name the content types it answers; (c) a description on the ship, which the commissioner and argo may change at any time; (d) nothing beyond the type's name.
-    Pick: (a). It needs no new field, and the one who decided the ship should exist knows what it is for; the receiving ship still decides what to do with any request (0001). (b) fits an app such as the CRM better, but is a second free text kept on every lease.
+
+**What a ship states: what it is and what it offers.** Thomas (17 Oct): "I do see potential in having a way that each ship can broadcast what it is. For example issue tracker ship gets crewed, it does a discovery call and the PA agent of Mathilde says he is the PA of the finance responsible and takes on any requests where a go is needed by Mathilde. The CRM application states the capabilities it exposes and how to use them (MCP like right?)." The earlier question 47 (the commission note as the description) is withdrawn by this direction.
+
+*Purpose.* A ship states what it is and what it offers, so a ship that just got crewed discovers not only who it can reach but who it can work with and how, with no list kept in a prompt and no human passing it along. In Thomas's example, an issue tracker ship is crewed and discovers; among the answers:
+
+- Mathilde's PA: "the PA of the finance responsible; takes on any requests where a go is needed by Mathilde";
+- the CRM: its capabilities, each with the message to send and what comes back.
+
+The issue tracker then sends the CRM a request in the shape the CRM stated, and sends Mathilde's PA a request for a go when finance must approve. Core stores and serves what each ship states; it acts on none of it (0001, 0016).
+
+*Who states it.* The one who knows best is the ship's own crew: the PA's session knows whom it serves, the CRM's adapter knows the capabilities it exposes and changes them with its own releases. The commissioner knows why the ship exists before any crew runs. A statement is a claim: core does not vouch that a ship is Mathilde's PA, so any ship that can state can claim it. Readers need to know who wrote what, and the gate on a claim like Mathilde's PA comes from elsewhere (question 53). Question 47.
+
+*Its shape, against what exists in the field:*
+
+| | MCP server's tool list (`tools/list`) | Agent2Agent agent card | What a ship's statement needs |
+| --- | --- | --- | --- |
+| Who it is | the server's name and instructions at initialize | `name`, `description`, `provider`, `version` | a short summary: who it is and what it takes on |
+| What it offers | tools: `name`, `description`, `inputSchema` (JSON Schema), optional `outputSchema` and `annotations` | `skills`: `id`, `name`, `description`, `tags`, `examples`, `inputModes` and `outputModes` (media types), no input schema | capabilities: name, description, the content type to send, the payload it expects (JSON Schema), and what comes back (content type, payload) |
+| How to reach it | a transport and its own auth | `url`, `securitySchemes`, `capabilities` (streaming, push notifications) | nothing: the fleet is the transport, the crew token the auth, the network the reach |
+| How it is found | configured in the client | a well-known URL | discovery |
+
+MCP gives each capability a JSON Schema for its input and output, which a ship needs to send a payload that fits. The agent card states who an agent is and names its media types per skill, which maps onto content types. Neither fits whole: the card's transport, auth and streaming are what the fleet already is, and an MCP tool is a call, while a ship answers a message (it may answer later or not at all, 0001). Question 48.
+
+*"Broadcast".* Read against the fleet's promises, broadcast can mean two things:
+
+- **Stated once, pulled by discovery.** The ship states what it is once; every ship that discovers it reads the statement in discovery's answer, with a version, so a ship asking again sees a change. Nothing is sent to anyone.
+- **Pushed on change.** Each change is a message to every ship that can reach it. That is a message per ship per change, each one a turn for an agent and a delivery the fleet must keep. Who receives it is itself a reach question: the ships that can send to it, or the ones it can send to? And the fleet would be speaking for a ship, which 0040 already declined for overdue deliveries.
+
+No policy (0016) says the fleet should not decide that a change matters to anyone; a ship that wants news asks again. Question 49.
+
+*Who sees it.* Discovery's set, turned around: a ship's statement is read by the ships that can send to it, and by argo. A ship outside that set cannot use what the statement offers anyway, and the statement can say much about the work (a CRM's capabilities name customer data). Beyond discovery, what `fleet:read` shows follows question 16. Question 50.
+
+*Limits.*
+
+- **Size.** 0006's 64 KB covers a payload. 0028's 16 KB covers report details, sized against rewriting a row on every report. A statement changes rarely and need not sit on a row that changes often. A CRM with twenty capabilities, each with a schema of a kilobyte or two, needs more than 16 KB and less than 64.
+- **How often it changes.** Limits are for speed, not policy (0037). An unchanged statement writes nothing, a change writes its event (every state change does), and the fleet's limits for speed bound the rest.
+- **Where it is kept.** If the crew states it, it belongs to the crew, as a report does (0028): kept with the lease, gone on release. Until the next crew states again, the ship shows its commission note; at re-crew the new crew states afresh, as the plugin or the app's adapter does when it starts.
+
+Questions 51 and 52.
+
+*Gating.* Mathilde's PA "takes on any requests where a go is needed by Mathilde". Question 26 picks (a): a ship asks the person it belongs to, found by question 20's ownership. A statement gives a second way to find the gate: the asker reads statements in discovery and picks the ship that says it gates for that person or that kind of approval. Core routes on neither: a statement is text the asker reads. The two can hold together:
+
+- ownership says whose a ship is;
+- a PA's statement says which ship answers for that person.
+
+But a statement is a claim, so a gate found by statement alone trusts whatever ship states it. Question 53 lists the ways; it follows question 26 and takes no pick here.
+
+*Core stores, never interprets.* Core keeps the statement, serves it in discovery to the ships that may see it, writes its event and bounds its size. It never routes, filters, ranks or acts on what a statement says (0001), and never checks that a ship does what it states. Whether core checks the statement's shape at write, as any procedure checks its input, or keeps it as opaque JSON as report details are kept (0028 rejected a typed schema enforced by the server), is question 54.
+
+**Questions on what a ship states:**
+
+47. **Who states what a ship is and offers?**
+    Options: (a) its own crew only (the PA's session, the CRM's adapter); (b) its commissioner only, through the commission note; (c) both: the commission note is the default, the crew's statement stands over it, and discovery shows who wrote each.
+    Pick: (c). The crew knows what it offers and changes it with its releases; the commission note covers a ship no crew has stated for yet. Showing who wrote each lets a reader weigh a crew's claim against the commissioner's.
+48. **The statement's shape.**
+    Options: (a) a short summary plus capabilities, each borrowing MCP's tool fields (name, description, input schema, output schema) with the content type to send and the content type that comes back; (b) the Agent2Agent agent card as it is; (c) free text only.
+    Pick: (a). A schema per payload is what lets a ship send a request that fits, which the agent card's skills do not carry; the card's transport, auth and streaming are what the fleet already is. Free text leaves every sender to guess.
+49. **What does "broadcast" mean?**
+    Options: (a) stated once and pulled by discovery, with a version so a ship asking again sees a change; (b) pushed to every ship that can reach it on each change; (c) pushed once, when a ship is crewed, to the ships that can reach it.
+    Pick: (a). No message goes to every ship, the fleet does not speak for a ship, and no reach question about who gets the push arises; (b) and (c) cost a turn and a delivery per ship per change.
+50. **Who sees a ship's statement?**
+    Options: (a) the ships that can send to it (discovery's set) and argo; (b) every ship; (c) the ships in its read reach (question 16).
+    Pick: (a). Only a ship that can send to it can use it, and a statement can say much about the work.
+51. **Where is it kept, and how large may it be?**
+    Options: (a) with the lease, at most 64 KB, apart from the report so a report does not rewrite it; gone on release, the commission note shown until the next crew states; (b) on the ship, kept across crews; (c) with the lease, at most 16 KB, as report details.
+    Pick: (a). It belongs to the crew that stated it, as a report does (0028); a ship crewed again by a new version of the CRM's adapter states its new capabilities. 64 KB is the fleet's payload limit and fits a capability list with schemas; 16 KB is sized for a row written on every report.
+52. **How often may a statement change?**
+    Options: (a) no limit of its own: an unchanged statement writes nothing, a change writes its event, and the fleet's limits for speed bound the rest; (b) a fixed cap per lease.
+    Pick: (a). A cap is policy (0016); the statement changes rarely by nature.
+53. **Statements and gating** (follows question 26, no pick here).
+    Options: (a) ownership alone finds the gate (question 20); a statement only tells; (b) a statement finds the gate: an asker picks the ship that says it gates for that person; (c) both: ownership says whose a ship is, and a PA's statement is trusted for a person only when the PA belongs to that person by ownership.
+54. **Does core check a statement's shape?**
+    Options: (a) yes, at write, against the shape in common, as every procedure checks its input; it never reads the meaning; (b) no, opaque JSON as report details (0028).
+    Pick: (a). Every ship and app must read every other's statement, so one shape in common is what makes discovery useful across harnesses; checking input is not acting on it.
 
 ---
 
