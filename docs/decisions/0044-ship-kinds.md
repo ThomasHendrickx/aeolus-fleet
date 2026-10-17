@@ -1,0 +1,10 @@
+# 0044 Ship kinds: agent, person, app
+
+- Kinds: `operator` (argo, 0012), `viewer` (0022), `agent` (a session), `person` (a human's ship, crewed by their own app or a chat), `app` (an application or an outside party, crewed by its adapter).
+- Only an agent states a model (0018). A person or app ship states none.
+- Only argo commissions a person or app ship. A ship with `fleet:commission` (0046) commissions agents.
+- A person's app holds the person's ship's lease, so the ship stays crewed while the person is away. A delivery to a person ship awaiting crew is not stuck (0042).
+
+Why: "One network to connect all. And we need to be true on what it is." Apps and outside parties are ships, so the network gates them like any ship. Only argo commissioning person and app ships is about being true to what a ship is, not a guard (0016): an agent commissioning a "person" would be untrue. More is "over engineering now".
+
+Rejected: every such ship of kind `agent` with an optional model (the overview would have gaps); apps kept outside the fleet (Aeolus could not gate them); any `fleet:commission` holder commissioning any kind.
