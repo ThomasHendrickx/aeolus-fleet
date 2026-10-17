@@ -240,7 +240,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
-| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated |
+| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040) |
 | `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease |
 | `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
 | `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one. Marked `onceMore`, it hands a confirmed message once more after its turn died: still acknowledged, no attempt counted |

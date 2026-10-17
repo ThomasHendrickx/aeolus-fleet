@@ -127,8 +127,9 @@ export const shipRouter = router({
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.sendMessage(ctx.caller, input))),
 
   /**
-   * Hands the crew up to `max` deliveries, 1 to 10, one by default: its own
-   * in flight first, then the oldest pending for its ship or its type. Waits
+   * Hands the crew up to `max` deliveries, 1 to 10, one by default: forced
+   * ones first (decision 0040), then its own in flight, then the oldest
+   * pending for its ship or its type. Waits
    * about 25 seconds when none is there, then answers with none. A mutation:
    * every delivery it returns is claimed.
    */
@@ -137,6 +138,7 @@ export const shipRouter = router({
       description: [
         'Hands you your next deliveries, up to max (1 to 10, one when left out), each with its message and its sender:',
         'senderShipId, senderName (the name to answer to) and senderType.',
+        'A forced message, one to act on now, comes before every other.',
         'With none there it waits about 25 seconds, then answers with none.',
         'Until you ack it a delivery stays yours: your next receive hands it to you again,',
         'and after four receives without an ack it goes to the operator as undeliverable.',
@@ -153,7 +155,8 @@ export const shipRouter = router({
   /**
    * The computer side's receive (decision 0040), for the trierarch or the
    * plugin watcher, never the agent: takes up to `max` deliveries as
-   * received, counting no attempt, its own in flight first, and makes the
+   * received, counting no attempt, forced ones first, then its own in
+   * flight, and makes the
    * lease pushed until it ends. Waits as receive does. A mutation: every
    * delivery it returns is the crew's.
    */
@@ -162,7 +165,7 @@ export const shipRouter = router({
       description: [
         'For the trierarch or the plugin watcher, not the agent: takes your next deliveries for the computer side, up to max (1 to 10, one when left out),',
         'each with its message, its sender, its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
-        'Your own received or handed ones come first again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
+        'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
         'Report each hand-over to the agent with handed.',
       ].join(' '),
