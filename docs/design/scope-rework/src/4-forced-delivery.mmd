@@ -1,0 +1,47 @@
+sequenceDiagram
+  autonumber
+  participant O as sender (holds messages:force)
+  participant F as fleet (core)
+  participant C as computer side (trierarch, or plugin watcher)
+  participant H as plugin hooks
+  participant A as agent session
+  O->>F: send force=true
+  alt sender lacks messages:force
+    F-->>O: FORBIDDEN, nothing stored, key unused
+  else reach refuses
+    F-->>O: NOT_REACHABLE, refusal recorded
+  else stored
+    F-->>O: OK messageId (committed first)
+  end
+  Note over F: a pull ship (no computer side): force changes nothing, its next receive gets it
+  C->>F: pushReceive
+  F-->>C: deliveries, forced ones first
+  alt turn idle
+    C->>F: handed n
+    C->>A: hand-over line as a prompt (as today)
+    A->>H: UserPromptSubmit: ack, message into the turn
+  else turn busy, trierarch session
+    C->>A: interrupt key: the turn stops
+    C->>C: marks the turn idle (it stopped it)
+    C->>F: handed n
+    C->>A: hand-over line as a new prompt
+    A->>H: UserPromptSubmit: ack, message into the turn
+  else turn busy, hand-crewed session (watcher cannot stop a turn)
+    C->>F: handed n, kept in the store
+    A->>H: next tool call (PreToolUse) or Stop
+    H->>F: ack
+    H-->>A: tool call denied with the message as reason, or turn kept open with it
+  end
+  alt the interrupt does not stop the turn within 10 s
+    C->>A: types the line anyway: queued, the next tool call confirms it
+  else ack refused or no answer
+    H-->>A: shows nothing, stays received
+    C->>F: handed n+1 at the next pass
+  else session dies before the ack
+    C->>F: died: handed again with the next number, the first prompt confirms
+  else compaction
+    Note over H,A: the store survives, the next prompt or tool call confirms, exactly once
+  else lease ends
+    F->>F: back to pending, attempts kept
+  end
+  Note over F: a forced delivery runs on the 10 minute clock, busy or not

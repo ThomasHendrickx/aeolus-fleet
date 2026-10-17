@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. No code, no decision taken: the picks below are proposals, and the numbered questions in part 5 are Thomas's to answer.
+Design proposal by designer-2. Thomas answered questions 1 to 10 (part 5); part 6 is the scope catalogue with those answers applied. Questions 11 to 14 are new and open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png` (sources in `src/`).
 
@@ -117,11 +117,11 @@ All three share two things: the send carries `force`, and a ship-formed squadron
 
 Scopes stay verbs. Add only what the issues need, and let the existing idea of ownership bound them.
 
-- **Forced delivery:** a new core scope `messages:force`. Without it a send with `force` is refused FORBIDDEN, nothing stored. With it, reach still applies.
+- **Forced delivery:** a new core scope `messages:force`. Without it a send with `force` is refused FORBIDDEN, nothing stored. With it, reach still applies. A forced message is handed over at once: a busy turn is stopped first (question 3).
 - **Labels:** `labels:assign` narrows to the owner's own ship and the ships it commissioned (core already stores the commissioning ship). Squadrons labels only ships it commissioned and itself; the trierarch plugin only trierarch ships it commissioned and itself; argo keeps any ship, as it commissioned none but holds the fleet. A plugin can no longer pull another ship into its reach.
-- **Squadron forming:** a scope squadrons declares, `squadrons:form`. Core stores it on a ship and shows it, as it shows any scope; only squadrons interprets it, reading the sender's scopes with `fleet.ship`. The squadron belongs to the ship that formed it: only it or argo stands it down.
-- **Grant and revoke:** argo grants and revokes any scope on a live ship (one event, effective at the next call). At commission, a ship grants only scopes it holds; a plugin may also grant the scopes it declared. Fixes G1, G2.
-- **Console:** the ship page lists scopes with the words already used in the Commission dialog, plus an Edit scopes action for argo; plugin scopes listed under the plugin that declared them. A forced message is marked forced in the timeline.
+- **Squadron forming:** squadrons declares its namespace `squadrons` and the scopes in it (part 6). Core stores them on ships and shows them; only squadrons interprets them, reading the sender's scopes with `fleet.ship`. The squadron belongs to the ship that formed it: only it or argo stands it down. A blueprint names the scopes each template's ships get, squadrons' own included, so a member may form in turn when its blueprint says so (question 8). The flagship is the forming ship's one contact with the squadron (question 10).
+- **Grant and revoke:** argo grants and revokes any scope on a live ship (one event, effective at the next call). At commission, a ship grants only scopes it holds; a plugin may also grant the scopes of its own namespace. Fixes G1, G2.
+- **Console:** the ship page lists scopes with the words already used in the Commission dialog, plus an Edit scopes action for argo; a plugin's scopes listed under its namespace and the plugin that declared it. A forced message is marked forced in the timeline.
 
 ### Model B: resource-scoped scopes (diagram `2-model-b.png`)
 
@@ -149,54 +149,116 @@ Core holds named sets of scopes (operator, plugin, orchestrator, agent, trierarc
 
 It answers all three issues with one new core scope, one narrowing that reuses ownership, and one generic way for a plugin's own scope to live on a ship. It fixes G1 and G2, which the other models need too. B can come later for one scope if a real case needs a resource; C solves nothing here.
 
-### The two backbone flows of the pick
+### The backbone flows of the pick
 
-**Forced delivery** (`4-forced-delivery.png`). Happy path: the sender holds `messages:force`, reach allows, the message is stored before OK. The computer side (trierarch or plugin watcher) takes it with a push receive, hands it first and whatever the turn, and reports `handed` with its number. The hooks confirm it at the next tool call (PreToolUse acks, then denies that tool call with the message as its reason, as a mid-turn hand-over already does today), or at Stop when the turn makes no tool call. Unhappy paths: no scope (FORBIDDEN, nothing stored); reach refuses (NOT_REACHABLE, recorded); a pull ship (force changes nothing, the next receive gets it); ack refused or unanswered (stays received, handed again with the next number); the session dies (handed again, first prompt confirms, then once more and not handled as 0040 says); compaction mid-turn (the store survives, the next tool call confirms, exactly once); lease ends (back to pending, attempts kept). The overdue clock for a forced delivery is the idle one (10 minutes) even while busy, since it should have been handed at once.
+**Forced delivery** (`4-forced-delivery.png`). Happy path: the sender holds `messages:force`, reach allows, the message is stored before OK. The computer side takes it with a push receive, forced deliveries first (question 4).
 
-**Squadron forming by a ship** (`5-squadron-forming.png`). The tech lead sends squadrons' ship a form request (blueprint, parameters, idempotency key); the fleet stores it like any message, under reach. Squadrons acks, reads the sender's scopes, checks its limits and the blueprint, commissions with its own `fleet:manage`, writes crew requests, and answers with the squadron id. Unhappy paths: no `squadrons:form`, limit reached, blueprint invalid (refused, nothing formed); repeat of a key (the first answer again); squadrons not connected or off (the message waits, as any delivery to a ship without crew); not the owner on stand down (refused). The tech lead never holds `fleet:manage`, and no secret travels in a message.
+- Turn idle: handed over as today; the prompt the line starts confirms it.
+- Turn busy, trierarch session (Claude Code or Codex): the trierarch sends the session its interrupt key, so the turn stops; it marks the turn idle itself, as it stopped it; then hands the message over with its number and types the line as a new prompt, which confirms it (question 3).
+- Turn busy, hand-crewed session: the watcher has no hold on the terminal and cannot stop a turn, so the hooks confirm at the next tool call (PreToolUse acks, then denies that call with the message as its reason) or at Stop, as a mid-turn hand-over does today. This is the most a hand-crewed session allows.
+
+Unhappy paths: no scope (FORBIDDEN, nothing stored, key unused); reach refuses (NOT_REACHABLE, recorded); a pull ship (force changes nothing, its next receive gets it); the interrupt does not stop the turn within 10 seconds (the line is typed anyway, queued, and the next tool call confirms it); ack refused or unanswered (stays received, handed again with the next number); the session dies (handed again, then once more and not handled, as 0040 says); compaction (the store survives, the next prompt or tool call confirms, exactly once); lease ends (back to pending, attempts kept). A forced delivery runs on the 10 minute clock, busy or not. What happens to the message the stopped turn was working on is question 11.
+
+**Squadron forming by a ship** (`5-squadron-forming.png`). The forming ship sends squadrons' ship `application/vnd.aeolus.squadron.form+json` (blueprint, parameters, idempotency key); the fleet stores it as any message, under reach. Squadrons acks, reads the sender's scopes with `fleet.ship`, checks its limits (configuration, unset is none, question 9) and the blueprint, commissions the flagship and members with the scopes each template names (question 8), writes labels, declared rules and a crew request per member, and answers with the squadron id and the flagship's name. Unhappy paths: no `squadrons:form`; a limit reached; a blueprint that is invalid or names a scope squadrons cannot grant (refused before anything is commissioned, as the existing template checks); a repeat of a key (the first answer again); squadrons off or not connected (the message waits, as any delivery). No secret travels in a message.
+
+**How the flagship proxies (question 10).** After forming, the flagship is the forming ship's one contact with its squadron, and the forming ship is the squadron's one contact outside it.
+
+1. Squadrons keeps with each squadron its forming ship: argo for a squadron formed from the console, otherwise the sender of the form request as the fleet gives it, never a name in the payload.
+2. A member never sends to the forming ship. It sends its flagship `application/vnd.aeolus.squadron.relay+json` with its payload. The flagship acks it and sends the forming ship a new message of the same content type: the squadron, the member's ship name and role, the member's message id, and the payload. A payload that does not fit 64 KB with that envelope is refused by the flagship in a reply, asking for a reference.
+3. The forming ship answers a relay with a reply to it; the flagship sends that answer to the member as a reply to the member's message. The forming ship may also send the flagship a relay naming a member or a role; the flagship sends it on to that member, or to one ship of the role.
+4. What a flagship tells argo today about its squadron (a member late or silent, standing down, stood down) goes to the forming ship instead. For a squadron argo formed nothing changes.
+5. Stand down, add member and remove member: the forming ship sends them to the flagship (`squadron.stand-down+json`, `squadron.add-member+json`, `squadron.remove-member+json`); the flagship refuses them from any ship but the forming ship and argo. The operator keeps every action in the console.
+6. Reach: flagship and argo always reach each other (0034). Between a flagship and a forming ship that is not argo, see question 12. A forming ship that is retired: question 13.
 
 ---
 
-## 5. Questions for Thomas
+## 5. Decisions and open questions
 
-1. **May argo change a live ship's scopes?** 0002 says scopes never change after commission, and the blueprint lists operator-editable scopes as later. Without it, every grant of `messages:force` or `squadrons:form` means retiring and commissioning the ship again.
-   Options: (a) argo grants and revokes on a live ship, effective at the next call, with an event; (b) keep scopes fixed, retire and commission again.
-   Pick: (a). Revoking at once is the security win; nothing else needs it to be fixed.
+Questions 1 to 10 carry Thomas's answer as the decision.
 
-2. **May a ship grant only the scopes it holds?** Today any `fleet:manage` ship grants any fleet scope (G1). The trierarch plugin grants `crew:run`, which it does not hold.
-   Options: (a) subset rule, plus a plugin may grant the scopes it declared; the trierarch plugin gets `crew:run` itself (it reads only requests assigned to its own ship, so it gains nothing); (b) keep 0016 as it stands.
-   Pick: (a). A scope that widens itself defeats every other scope.
+1. **argo changes a live ship's scopes.** Decided: (a) argo grants and revokes on a live ship, effective at the next call, with an event. Carried by `scopes:grant` (part 6).
+2. **A ship grants only the scopes it holds.** Decided: (a) subset rule; a plugin may also grant the scopes of its own namespace; the trierarch plugin gets `crew:run` itself.
+3. **How a forced message enters a busy turn.** Decided: (b) "it is force, it means it needs to act NOW": the trierarch stops the turn, then hands the message over as a new prompt. A hand-crewed session, which nothing can stop from outside, gets it at the next tool call or Stop. Flow above.
+4. **Forced before older messages.** Decided: (a) forced first.
+5. **`labels:assign` bound.** Decided: (a) the owner's own ship and the ships it commissioned; argo unbounded.
+6. **Where plugin scopes live.** Decided: (a), with Thomas's rule: core enforces only the scopes it imposes itself; the mechanism is open for plugins to declare their own; each plugin declares one namespace and can take up only that one (squadrons has `squadrons:<action>`), so it cannot spam namespaces. Format in part 6.
+7. **How a ship asks squadrons.** Decided: (a) messages to squadrons' ship, content types `application/vnd.aeolus.squadron.*`.
+8. **Members of a ship-formed squadron forming in turn.** Decided: (b) "no policy, the squadron blueprint decides. Else it would be us guessing and putting a security stamp on it." A template names the scopes its ships get; squadrons grants them at commission within the subset rule (scopes it holds, and its own namespace).
+9. **Limits on forming.** Decided: (a) "indeed no policy": squadrons' configuration (per fleet, per forming ship, members per squadron), unset is none.
+10. **The forming ship and its squadron.** Decided: (a) "scalable, but through the flagship, that ship is the proxy towards the forming ship. When the squadron was created by argo, it is a proxy to argo. If it was by another ship it is that ship." Mechanism above.
 
-3. **How does a forced message enter a busy turn?** The issue names two ways.
-   Options: (a) at the next tool call, through the hooks that confirm a mid-turn hand-over today, works for trierarch and hand-crewed sessions alike; (b) also stop the turn (the trierarch sends the interrupt key), which only a trierarch can do and which ends the agent's work mid-step; (c) the sender chooses per message between (a) and (b), with (b) needing a second scope.
-   Pick: (a). It needs no new mechanism, keeps Aeolus from stopping work, and a turn that makes no tool call ends soon anyway (Stop confirms).
+New, open:
 
-4. **Does a forced message go before older waiting messages of the same ship?** 
-   Options: (a) yes, forced first; (b) no, in order, only the turn no longer matters.
-   Pick: (a). "Read this now" behind three older messages is not now.
+11. **The message a stopped turn was working on.** A forced message stops a turn that took an earlier, acknowledged delivery. 0040 calls a delivery handled only when its turn ends by itself, and hands it once more only after a turn died.
+    Options: (a) handled when the next turn (the forced one) ends by itself: the session still holds the earlier message, and the agent decides whether to go back to it; (b) handed once more after the forced turn, as for a died turn; (c) not handled, shown in Needs attention for Resend or Dismiss.
+    Pick: (a). Stopping is not dying; (b) would hand the agent a message it already has, and (c) asks the operator about work the agent can resume.
+12. **Reach between a forming ship and its flagship while network rules are in force.** Question 5 keeps squadrons from labelling the forming ship, so squadrons cannot declare that reach itself.
+    Options: (a) argo writes it: argo labels the ships it lets form with a label of its own and adds a rule to and from flagships (`squadron-role=flagship`); a flagship is code run by squadrons, not a session, and relays only for its own forming ship, so reaching every flagship gives a forming ship nothing more; (b) core widens the `labels:assign` bound to ships that sent the owner's ship a message, so squadrons labels the forming ship and declares the rule; (c) only the answer exception of 0034: the forming ship always writes first, the flagship only answers.
+    Pick: (a). No new core rule, and reach stays argo's; without rules (all-to-all, the default) nothing is needed.
+13. **A forming ship that is retired.** A send to a retired ship is refused; a released one just waits for crew.
+    Options: (a) the flagship proxies to argo from then on, as for a squadron argo formed; (b) the squadron stands down.
+    Pick: (a). The work in flight is not lost, and argo decides.
+14. **`fleet:manage` bound** (gap G6, forced by the catalogue). Today it acts on any ship.
+    Options: (a) ships it commissioned, argo any; (b) any ship, as today.
+    Pick: (a). Squadrons releases, retires and requests crews only for ships it commissioned, and the trierarch plugin needs no `fleet:manage` at all once `fleet:commission` exists, so nothing breaks.
 
-5. **Is `labels:assign` bounded to the owner's own ship and the ships it commissioned?** This changes 0031 ("on any ship"), which Thomas set on #573 so a plugin's own ship belongs to its group: that still holds.
-   Options: (a) bounded, argo unbounded; (b) a separate `labels:assign` on any ship that only argo may grant; (c) keep 0031, close #600 with visibility only.
-   Pick: (a). It ends the spam with no new scope, and both plugins only label ships they commissioned.
+---
 
-6. **Where does `squadrons:form` live?** 0017: Aeolus knows nothing about squadrons.
-   Options: (a) a plugin declares the scopes it reads; core stores them on ships, shows them under that plugin and interprets none; (b) a core scope `squadrons:form`; (c) squadrons keeps its own list of ships that may form, edited on its pages.
-   Pick: (a). One place to see what a ship may do, and core stays ignorant of squadrons.
+## 6. The scope catalogue
 
-7. **How does a ship ask squadrons to form and stand down?**
-   Options: (a) a message to squadrons' ship (content types under `application/vnd.aeolus.squadron.*`), squadrons answering by reply; (b) a ship-facing squadrons API that checks crew tokens.
-   Pick: (a). Durable by the fleet's promise, sender known from the server, under reach, and no crew token leaves the fleet.
+### Format
 
-8. **May a ship-formed squadron's members form squadrons in turn?**
-   Options: (a) never: squadrons gives no member of a ship-formed squadron `squadrons:form`, so depth is one; (b) the blueprint decides, argo vetting the template repositories; (c) a depth limit as configuration.
-   Pick: (a). No spawning chains; argo can still grant a member the scope by hand.
+- A scope is `<namespace>:<action>`. Namespace and action: lowercase `a-z`, `0-9` and `-`, starting with a letter, 1 to 32 characters each.
+- **Core namespaces**, reserved: `messages`, `fleet`, `crew`, `labels`, `scopes`. Core enforces these, and only these.
+- **A plugin namespace**: a ship holding `scopes:declare` declares its namespace and its scopes with `fleet.declareScopes` (`{ namespace, scopes: [{ action, description }] }`), its whole list each time, as `declareNetworkRules` does (0037). Its first declaration takes up the namespace for good; it can never declare another. The description is one line of at most 200 characters, for the console.
+- Core stores a plugin's scopes on the ships granted them and answers them wherever it answers scopes (`fleet.list`, `fleet.ship`, `console.session`), so the plugin reads them from the fleet. It never checks them. `fleet.scopes` (`fleet:read`) lists every namespace with its declaring ship and its scopes.
+- Core refuses (each refusal named): a malformed scope; declaring a core namespace; a namespace another ship took (CONFLICT, naming it); a second namespace from the same ship; more than 20 scopes in a namespace; removing a scope ships hold (naming them, as label values, 0031); granting a scope nobody declared; granting a core scope the granter does not hold; granting a plugin scope by any ship but argo or that namespace's declarer.
+- Retiring the declaring ship retires its namespace: its scopes go from every ship, and the namespace is free again (as labels, 0031). Events: `ScopesDeclared` (declaring ship, namespace, the number of scopes) and `ScopesChanged` (ship, added, removed, by whom).
+- Granting: at commission, the commissioner grants scopes it holds and scopes of its own namespace. On a live ship, a ship with `scopes:grant` grants and revokes within the same rule; argo holds everything, so argo grants anything. Every agent ship gets `messages:send` and `messages:receive` at commission.
+- Not scopes, unchanged: `explainReach` and `reachRefusals` stay argo's by kind (0034).
 
-9. **Limits on forming?** Every member is a running session (#348 Q2, Q5).
-   Options: (a) squadrons' configuration: squadrons per fleet and per forming ship, members per squadron, unset is none, as fleet limits (0020); (b) none (0016).
-   Pick: (a). Configuration, not policy; argo sees each formed squadron with its owner.
+### Core scopes
 
-10. **Does every message a ship-formed squadron sends reach the tech lead?** Today squadrons declares `squadron=#` to `squadron=#` and flagship to and from itself.
-    Options: (a) squadrons also labels the forming ship with that squadron's value, so it reaches the flagship and the flagship reaches it; (b) only replies (the answer exception of 0034).
-    Pick: (a). The tech lead must be able to steer its squadron; this stays within labels squadrons owns, and the forming ship is not one it commissioned, so question 5 needs this one exception for the ship that formed it.
+| Scope | Allows | Guards | Bound | Held by default | Granted by |
+| --- | --- | --- | --- | --- | --- |
+| `messages:send` | send a message, answer one | `send`, `fleet.reply` | as its own ship; reach applies | argo, every agent ship | given with every agent ship |
+| `messages:receive` | receive, acknowledge, answer a ping, read its inbox; the computer side's push receive, handed, handled, not handled, turn; argo's read and done | `receive`, `ack`, `pong`, `inbox`, `pushReceive`, `handed`, `handled`, `notHandled`, `turn`, `fleet.markRead`, `fleet.markDone` | its own ship | argo, every agent ship | given with every agent ship |
+| `messages:force` | send a message forced: handed over first and at once, a busy turn stopped | `send` with `force` | ships it reaches | argo | argo; a commissioner holding it |
+| `messages:resend` | resend or dismiss an undeliverable or not handled delivery | `fleet.resend`, `fleet.dismiss` | any ship | argo | argo; a commissioner holding it |
+| `fleet:read` | read the fleet, every payload included | `fleet.list`, `ship`, `shipTimeline`, `shipMessages`, `message`, `shipWay`, `needsAttention`, `overdue`, `noShipCanTake`, `health`, `inbox`, `follow`, `events`, `labels`, `findLabelValue`, `limits`, `clearRequests`, `scopes` | any ship | argo, viewer, squadrons, trierarch plugin, networking plugin | argo; a commissioner holding it |
+| `fleet:commission` | commission an agent ship, granting it only scopes the caller may grant | `fleet.commission` | new ships, which count as commissioned by it | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
+| `fleet:manage` | rename, release, crew again, retire, get a starting prompt, ping, request crew and remove the request, clear a worktree | `fleet.rename`, `release`, `recrew`, `retire`, `getStartingPrompt`, `ping`, `crewRequest`, `removeCrewRequest`, `clearWorktree` | ships it commissioned; argo any (question 14) | argo, squadrons | argo; a commissioner holding it |
+| `crew:assign` | assign a crew request, say why none fits | `fleet.assignCrew`, `explainCrewRequest` | any crew request | argo, trierarch plugin | argo; a commissioner holding it |
+| `crew:run` | for the crew requests assigned to its ship: read them, get the starting prompt, release, write status, give back, confirm a release, read and confirm clear requests | `fleet.assignedCrewRequests`, `getStartingPrompt`, `release`, `reportCrewStatus`, `confirmCrewRelease`, `giveBackCrewRequest`, `clearRequests`, `confirmWorktreeCleared`, `ship` | ships whose request is assigned to its own ship | argo, trierarch ships, trierarch plugin (question 2) | argo; a commissioner holding it (the trierarch plugin) |
+| `labels:define` | define, change and delete its labels; declare network rules on them | `fleet.defineLabel`, `changeLabelValues`, `deleteLabel`, `declareNetworkRules` | labels it owns | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
+| `labels:assign` | assign and unassign values of labels it owns | `fleet.assignLabel`, `unassignLabel` | its own ship and ships it commissioned; argo any (question 5) | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
+| `fleet:network` | register as the networking plugin, set the rules (the registered plugin only), read declared rules | `fleet.registerNetworkPlugin`, `unregisterNetworkPlugin`, `setNetworkRules`, `declaredNetworkRules` | the fleet's rules | argo, networking plugin | argo; a commissioner holding it |
+| `scopes:declare` | take up one plugin namespace and declare its scopes | `fleet.declareScopes` | its own namespace | argo, squadrons | argo; a commissioner holding it |
+| `scopes:grant` | grant and revoke scopes on a live ship | `fleet.grantScopes` | scopes it may grant (above); argo any | argo | argo |
 
-Not done, noticed: `fleet:manage` lets a plugin release or retire any ship (G6); bounding it to ships the plugin commissioned would follow the same rule as question 5, and is worth its own issue.
+### Scopes squadrons declares (namespace `squadrons`, declared by the plugin, enforced by squadrons only)
+
+| Scope | Allows | Guards | Bound | Held by default | Granted by |
+| --- | --- | --- | --- | --- | --- |
+| `squadrons:form` | ask squadrons to form a squadron from a blueprint; it then owns it: stands it down, gets its relays | `squadron.form+json` to squadrons' ship; `squadron.stand-down+json` to the flagship | squadrons it formed | none (argo holds it) | argo; squadrons at commission when a template names it (question 8) |
+| `squadrons:scale` | add and remove members of a squadron it owns | `squadron.add-member+json`, `squadron.remove-member+json` to the flagship | squadrons it formed | none (argo holds it) | argo; squadrons at commission when a template names it |
+
+argo holds every scope, a plugin's too, and squadrons' console API keeps checking the operator's session as today.
+
+### From today's scopes to these
+
+No compatibility layer (0013): one migration sets every ship's scopes, and the old names stop existing.
+
+| Today | Becomes | Change |
+| --- | --- | --- |
+| `messages:send`, `messages:receive` | same | unchanged |
+| (none) | `messages:force` | new |
+| `fleet:manage` (resend, dismiss) | `messages:resend` | split out |
+| `fleet:read` | same | unchanged, also guards `fleet.scopes` |
+| `fleet:manage` (commission) | `fleet:commission` | split out; grants only what the caller may grant |
+| `fleet:manage` (the rest) | `fleet:manage` | narrowed to ships it commissioned |
+| `crew:assign`, `crew:run`, `labels:define`, `fleet:network` | same | unchanged |
+| `labels:assign` | same | narrowed to its own ship and ships it commissioned |
+| (none) | `scopes:declare`, `scopes:grant` | new |
+
+Holders after the migration: argo every core scope; a ship holding `fleet:manage` today also gets `fleet:commission` and `messages:resend`, so it keeps what it did, within the new bounds; squadrons gains `fleet:commission` and `scopes:declare`; the trierarch plugin swaps `fleet:manage` for `fleet:commission` and gains `crew:run`; the networking plugin, trierarch ships and the viewer are unchanged. The console's Connect sets these sets for a new connection.

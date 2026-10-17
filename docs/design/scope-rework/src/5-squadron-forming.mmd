@@ -1,0 +1,43 @@
+sequenceDiagram
+  autonumber
+  participant T as forming ship (or argo)
+  participant F as fleet (core)
+  participant Q as squadrons ship
+  participant G as flagship (run by squadrons)
+  participant M as member ships
+  T->>F: send to squadrons: squadron.form+json (blueprint, parameters, key)
+  alt reach refuses
+    F-->>T: NOT_REACHABLE
+  else stored
+    F-->>T: OK
+  end
+  Q->>F: receive, ack, fleet.ship of the sender: its scopes
+  alt lacks squadrons:form
+    Q->>F: reply refused: needs squadrons:form
+  else a squadrons limit reached
+    Q->>F: reply refused, naming the limit
+  else blueprint invalid, or names a scope squadrons cannot grant
+    Q->>F: reply refused, naming the problem, nothing commissioned
+  else repeat of the same key
+    Q->>F: the first answer again
+  else forms
+    Q->>F: commission flagship and members, each with the scopes its template names
+    Q->>F: labels, declared rules, a crew request per member
+    Q->>F: reply formed: squadron id, flagship name
+  end
+  M->>F: send flagship squadron.relay+json
+  G->>F: receive, ack
+  G->>F: send forming ship squadron.relay+json (squadron, member, its message id, payload)
+  alt forming ship retired or unreachable
+    G->>F: tells argo once, keeps the relay for the operator
+  else delivered
+    T->>F: reply to the relay
+    G->>F: send member, inReplyTo its original message
+  end
+  T->>F: send flagship squadron.stand-down+json
+  alt sender is not the forming ship or argo
+    G->>F: reply refused
+  else forming ship or argo
+    G->>M: stand down as today
+    G->>F: reply standing down
+  end
