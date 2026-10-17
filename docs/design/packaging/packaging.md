@@ -9,7 +9,11 @@ Design study by designer-4. Read only: it decides nothing. It takes up Thomas's 
 Thomas, 17 Oct:
 
 - **Versioning (question 2).** Release trains with a minimum-core-version check: "agreed we do need to split but after some rework." The split comes after the scope rework (question 4, step 2).
-- **Licensing (question 1).** "later, I am still alone so no issue yet." Parked until there is more than one contributor. Everything stays Apache-2.0 until then, and so does the one monorepo (question 3).
+- **Licensing (question 1).** "later, I am still alone so no issue yet." Parked until there is more than one contributor. Everything stays Apache-2.0 until then.
+
+Thomas, 18 Oct:
+
+- **Repositories (question 3).** "the split in trains also is split in repos. At least that is my current opinion." Each release train gets its own repository, whatever its licence. This replaces the pick in question 3. The split is the first slice of 0.28.0 (#875).
 
 ## Purpose
 
@@ -148,19 +152,32 @@ Options:
 - (b) **Core repo plus private repos**. The public repo keeps core, common, console, the aeolus plugin and the trierarch. Each closed part moves to a private repo, consuming `@aeolus-fleet/common` from npm.
 - (c) **A private monorepo for all closed parts**, beside the public one.
 
-Pick: (a) until question 1 closes any part, then (c). A repo split only earns its cost once a part's source is not open. Before that, independent versions (question 2) work inside one monorepo with per-package workflows. When a part closes, one private repo for all closed parts keeps one CI and one dependency update flow. It stops common's changes spreading over several repos, and fits a team of one. It also needs its own trusted publisher, or a private registry, for the closed packages.
+Decided (18 Oct, see Decided): one repository per release train, open as today. The pick below, made before that, is kept for its reasons only.
 
-What would move under (c):
-- the closed plugins' packages, their docs, their decisions (0017, 0021, 0030, 0036), and their workflows;
+Pick before: (a) until question 1 closes any part, then (c). A repo split only earns its cost once a part's source is not open. Before that, independent versions (question 2) work inside one monorepo with per-package workflows. When a part closes, one private repo for all closed parts keeps one CI and one dependency update flow. It stops common's changes spreading over several repos, and fits a team of one. It also needs its own trusted publisher, or a private registry, for the closed packages.
 
-The blueprint and decisions index in the public repo then point to them by name only.
+What moves, one repository per train (question 2 (c)):
+
+| Repository | Train | Takes along |
+| --- | --- | --- |
+| `aeolus-fleet` | core, common, console | The blueprint, architecture, decisions on core, `release.yml` for the three |
+| one for the plugin and trierarch | `plugins/aeolus`, `@aeolus-fleet/trierarch`, the session image | docs/trierarch.md, 0026, 0027, 0039, 0040's computer side, the marketplace manifests |
+| one per optional plugin | squadrons, the trierarch plugin, the networking plugin | Each its docs, its decisions (0017 and 0021, 0030, 0036), its own database migrations |
+| one for the gateway | the A2A gateway | The interop design, from its first commit |
+
+Each consumes `@aeolus-fleet/common` from npm at a stated version, and each repository needs its own trusted publisher in npm (0011). The blueprint and the decisions index in `aeolus-fleet` point to the others by name only. Which decisions move and which stay with core is part of #875.
 
 ### 4. The order, without blocking the scope rework or interop
 
 1. **Now, docs only.** Write the compatibility contract down: the ship contract version, and each plugin's calls and scopes, from what the plugins call today. This blocks nothing and is needed whatever is picked.
-2. **After the scope rework's catalogue lands.** Scopes are the largest part of what a plugin needs from core, so the contract is stated after them, not before. Then build the version check (core states its versions; each plugin checks the minimum) and split release.yml into trains (question 2). Through that release, the one version stays as today.
-3. **The gateway** (interop level 3) starts as its own package on its own train from its first release. Being new, it needs no move.
-4. **Only if Thomas closes a part** (question 1): choose its licence from a version on, create the private repo, move the package with its history, and publish it from there. Core and the open parts do not change.
+2. **First slice of 0.28.0, after the scope rework (#875).** Scopes are the largest part of what a plugin needs from core, so the contract is stated after them, not before. Then:
+   - build the version check: core states its versions, and each plugin checks the minimum;
+   - move each train to its own repository, with its history;
+   - give each repository its own release workflow and trusted publisher.
+
+   Through 0.27.0 the one version and the one repo stay as today.
+3. **The gateway** (interop level 3) starts in its own repository on its own train from its first commit. Being new, it needs no move.
+4. **Only if Thomas closes a part** (question 1): choose its licence from a version on, and make its repository private. The repositories already stand apart, so nothing else moves.
 5. **Before outside contributors arrive:** a CLA or DCO, if any open part feeds a commercial one.
 
-Steps 1 and 3 can run beside the scope rework and the interop work. Step 2 waits for the scope catalogue only for its contract text, not its code.
+Steps 1 and 3 can run beside the scope rework and the interop work. Step 2 waits for the scope rework to land.
