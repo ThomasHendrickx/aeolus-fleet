@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery and what a ship states, questions 37 to 54); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery and what a ship states, questions 37 to 55); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
@@ -313,12 +313,12 @@ The issue tracker then sends the CRM a request in the shape the CRM stated, and 
 
 *Its shape, against what exists in the field:*
 
-| | MCP server's tool list (`tools/list`) | Agent2Agent agent card | What a ship's statement needs |
+| | MCP 2026-07-28: `server/discover` and `tools/list` | A2A 1.0.0 agent card | What a ship's statement needs |
 | --- | --- | --- | --- |
-| Who it is | the server's name and instructions at initialize | `name`, `description`, `provider`, `version` | a short summary: who it is and what it takes on |
-| What it offers | tools: `name`, `description`, `inputSchema` (JSON Schema), optional `outputSchema` and `annotations` | `skills`: `id`, `name`, `description`, `tags`, `examples`, `inputModes` and `outputModes` (media types), no input schema | capabilities: name, description, the content type to send, the payload it expects (JSON Schema), and what comes back (content type, payload) |
-| How to reach it | a transport and its own auth | `url`, `securitySchemes`, `capabilities` (streaming, push notifications) | nothing: the fleet is the transport, the crew token the auth, the network the reach |
-| How it is found | configured in the client | a well-known URL | discovery |
+| Who it is | the server's info and instructions from `server/discover` | `name`, `description`, `provider`, `version` | a short summary: who it is and what it takes on |
+| What it offers | tools: `name`, `title`, `description`, `inputSchema` (JSON Schema), optional `outputSchema` and `annotations` | `skills`: `id`, `name`, `description`, `tags`, `examples`, `inputModes` and `outputModes` (media types), no input schema | capabilities: name, description, the content type to send, the payload it expects (JSON Schema), and what comes back (content type, payload) |
+| How to reach it | stdio or Streamable HTTP, OAuth 2.1 | `supportedInterfaces` (url, binding), `securitySchemes`, `capabilities` (streaming, push notifications) | nothing: the fleet is the transport, the crew token the auth, the network the reach |
+| How it is found | configured in the client, or a server card and AI catalog | `/.well-known/agent-card.json` | discovery |
 
 MCP gives each capability a JSON Schema for its input and output, which a ship needs to send a payload that fits. The agent card states who an agent is and names its media types per skill, which maps onto content types. Neither fits whole: the card's transport, auth and streaming are what the fleet already is, and an MCP tool is a call, while a ship answers a message (it may answer later or not at all, 0001). Question 48.
 
@@ -373,6 +373,50 @@ But a statement is a claim, so a gate found by statement alone trusts whatever s
 54. **Does core check a statement's shape?**
     Options: (a) yes, at write, against the shape in common, as every procedure checks its input; it never reads the meaning; (b) no, opaque JSON as report details (0028).
     Pick: (a). Every ship and app must read every other's statement, so one shape in common is what makes discovery useful across harnesses; checking input is not acting on it.
+
+**Leveraging MCP and A2A: borrowed shapes, spoken formats or spoken protocols.** Thomas (17 Oct): "it is like we are leveraging MCP and A2A then? If that is really fully using that I am excited!" "Leveraging" can mean three different depths, and the specs as they stand today decide what each costs.
+
+*What the specs say now* (read 17 Oct 2026):
+
+- **A2A 1.0.0**, the latest release (https://a2a-protocol.org/latest/specification/, https://a2a-protocol.org/latest/topics/agent-discovery/):
+  - *Agent card.* Served at `/.well-known/agent-card.json`. Required fields: `name`, `description`, `supportedInterfaces`, `version`, `capabilities`, `defaultInputModes`, `defaultOutputModes`, `skills`. Each interface names a `url`, a `protocolBinding` (JSON-RPC, gRPC or HTTP+JSON) and a version, with an optional `tenant` for many agents behind one endpoint. The card has optional JWS `signatures`, and an extended card for authenticated callers.
+  - *Skills.* A skill has `id`, `name`, `description`, `tags`, optional `examples` and `inputModes`/`outputModes` as media types, and no input or output schema: the spec calls skills "largely a descriptive concept".
+  - *Tasks.* Work is a Task with server-made ids and states: submitted, working, input-required, auth-required, completed, failed, canceled, rejected. Results come back as artifacts, and a `contextId` groups related tasks and messages. A send returns a Task or a direct Message. Long-running work goes on "in the background", followed by polling, an SSE stream or push notifications: webhooks delivered "at least once".
+  - *Registries.* The spec "does not prescribe a standard API for curated registries".
+- **MCP 2026-07-28**, the latest (https://modelcontextprotocol.io/specification/2026-07-28/server/tools, `/server/resources`, `/server/discover`, `/basic/transports`, `/basic/authorization`; https://modelcontextprotocol.io/extensions/tasks/overview; https://modelcontextprotocol.io/seps/2127-mcp-server-cards.md):
+  - *Stateless.* No initialize handshake and no session. `server/discover` answers versions, capabilities, server info and instructions.
+  - *Tools.* `name`, `title`, `description`, `icons`, `inputSchema` (JSON Schema), optional `outputSchema` and `annotations`, which clients treat as untrusted unless the server is trusted. Results may carry `structuredContent`; a list is paged and may announce changes. Resources list `uri`, `name`, `mimeType` and the like.
+  - *Calls.* A call is request and response. The Tasks extension adds a long-running call: the server returns a task, "durably created before the response is sent", which the client polls (`tasks/get`) through working, input_required, completed, failed or cancelled.
+  - *Transports and auth.* stdio or Streamable HTTP, with OAuth 2.1 on HTTP.
+  - *Server cards.* SEP-2127, final as an extension: a static card at `<url>/server-card` and an `/.well-known/ai-catalog.json`. They hold identity and endpoints, not tools.
+- **The fleet today** serves its ship procedures as a remote MCP server (`/mcp`, one tool per ship procedure, stateless, the crew token as an argument; `packages/core/src/adapters/mcp/mcp-endpoint.ts`). An MCP client already crews a ship this way. It does not call a CRM ship's capabilities as tools: it sends messages.
+
+*What maps cleanly and what does not:*
+
+| Aeolus | A2A | MCP | Fit |
+| --- | --- | --- | --- |
+| A ship's statement: summary and capabilities | agent card: `name`, `description`, `skills` | `server/discover` info; `tools/list` | Clean for who it is. A2A skills carry no schema, MCP tools do |
+| A capability: content type to send, payload schema, what comes back | a skill's `inputModes`/`outputModes` (media types) | a tool's `inputSchema`/`outputSchema` | Clean: a content type is a media type, a payload schema is an input schema |
+| A message, its content type, its payload (64 KB, 0006) | a Message with parts, each with `mediaType` | a `tools/call` with arguments | Clean for the message itself |
+| A reply naming its message (inReplyTo) | a direct Message answer, or a Task's status and artifacts | the call's result | Only when the answer comes at once. A ship answers when it does, or never (0001) |
+| Stored before OK, then delivered and acknowledged (0001, 0040) | a Task submitted | a task "durably created before the response is sent" | Partly: stored before OK matches. Acknowledged means received, not working |
+| What the ship does with it | working, input-required, completed, failed, canceled, rejected | working, input_required, completed, failed, cancelled | No counterpart. Aeolus does not follow work (0001); a task state would have to be inferred from replies, which is interpreting them |
+| A crew token per ship, scopes on the server (0002, 0012) | `securitySchemes`, an extended card per caller | OAuth 2.1 bearer | Each outside caller must be a ship. A token can map to a bearer; OAuth issuance is new |
+| Reach (0034) | none (selective disclosure by a registry is only mentioned) | the tool set may vary by authorization | Fits: what a caller sees can follow its reach |
+| Discovery (this section) | the well-known card; registries not standard | server cards, the AI catalog | One card per fleet, with a `tenant` or an interface per ship, could list ships |
+
+*What (c) would cost.*
+
+- **An A2A server.** At least one binding (JSON-RPC, gRPC or HTTP+JSON), SSE streams, push notification configs and webhooks out, and a task store. A send becomes a task, completed by some later reply. Which reply completes a task, and when a ship that never answers fails it, is a rule core does not have and would have to invent.
+- **MCP calls on ship capabilities.** Either calls held open until a reply comes, or the Tasks extension with polling.
+- **Identity.** Every outside agent and client gets a ship: commissioning and crew, an OAuth 2.1 server or a token mapping, reach rules covering them.
+- **Upkeep.** Both specs move: A2A went from 0.3 to 1.0 and MCP went stateless within a year. Each change is Aeolus's to follow.
+
+All of it is a bridge between task lifecycles and durable messaging. As a plugin ship holding the bridge, it would keep core distributing, not executing (0001), the way squadrons sits beside core (0017).
+
+55. **How far does Aeolus speak MCP and A2A?**
+    Options: (a) borrow the shapes only: a ship's statement uses the agent card's fields (name, description, skills with id, name, description, tags, examples, input and output modes as content types) and MCP's tool fields (name, title, description, inputSchema, outputSchema), carried as Aeolus data, not readable by outside tools; (b) speak the formats: each ship's statement is a valid A2A agent card, and an app ship's capabilities a valid MCP tool list, served by the fleet, so standard A2A and MCP clients can read them; (c) speak the protocols: outside A2A agents and MCP clients discover fleet ships and talk to them through the fleet (an A2A endpoint per fleet or ship; MCP is already served for ships), with the fleet's durable delivery underneath.
+    Pick: (a) now, with the same field names, so (b) later is a mapping and not a rewrite; (c) as a design of its own, as a plugin. (b) alone is mostly form: a valid agent card must name an interface URL and binding, and an MCP tool list implies a server to call, so without (c) the card points at nothing an outside client can use. (c) is where Thomas's "fully using" lives. But the task lifecycle is following work, which core does not do (0001, 0016), and both specs move fast, so it belongs beside core, as squadrons does.
 
 ---
 
