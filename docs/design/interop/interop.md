@@ -29,6 +29,7 @@ Thomas's decisions are recorded under Decided. Everything else is open, with opt
 | I-4 | **Federation for people through the company IdP; verified apart from stated for outside parties** | "indeed both" |
 | I-5 | **(b): the gateway commissions proxy ships once argo approves a party** | "makes most sense gateway does it, since it knows about the outside parties." |
 | I-6 | **One package** | "one package, we can always change later." Packaging and versioning are looked at separately, by another ship |
+| I-8 | **(a): one waiting `inbox` call per proxy ship** | "indeed a". A core call that waits on many ships at once is not built until real numbers demand it, and then only as a deliberate identity design (a crew of many ships), never as a shortcut |
 
 Still open:
 
@@ -36,7 +37,6 @@ Still open:
 | --- | --- | --- |
 | I-1 | How a ship learns that something waits for it | Taken wider in 5.1 |
 | I-7 | MCP out delivery | Challenged in 5.2 |
-| I-8 | One waiting inbox per proxy ship | Thomas asked for context |
 | I-9 | Synchronous waits | 5.3 |
 
 ## 1. Purpose
@@ -273,7 +273,7 @@ What could run in parallel: slice 1 needs only the statement and owner from P, s
 7. **MCP out: at most once.** (I-7, open: challenged in 5.2)
    - Options: (a) ack on receipt, then call, with `notHandled` on failure; (b) ack after the call returns.
    - Pick: (a). 0001 stands. A2A out is at least once only because A2A gives a stable `messageId` to dedupe on; MCP gives none.
-8. **Many proxy ships, one gateway.** (I-8, open) Each crewed ship waits on its own `inbox` call, as trierarch watchers do.
+8. **Many proxy ships, one gateway.** (I-8, decided: (a)) Each crewed ship waits on its own `inbox` call, as trierarch watchers do.
    - Options: (a) one waiting `inbox` per proxy ship; (b) a core call that waits on the inboxes of every ship the caller crews.
    - Pick: (a) until a fleet has hundreds of parties. (b) is a core change to justify with numbers.
 9. **The A2A blocking default and the MCP synchronous wait.** (I-9, open: 5.3)
