@@ -218,6 +218,10 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `TurnReported` | Registry | The hooks of a pushed ship reported its session's turn changed, idle or busy (decision 0040): kept with the lease, written at the time the hooks saw it; details hold the lease and the turn |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
+| `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (inherited, named by a plugin, argo by default) (decision 0045) |
+| `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
+| `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
+| `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
 | `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |
