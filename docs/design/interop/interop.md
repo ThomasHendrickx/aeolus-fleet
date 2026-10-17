@@ -18,26 +18,23 @@ Specs:
 | MCP | 2026-07-28 | Tasks is an extension (`io.modelcontextprotocol/tasks`) |
 | A2A | 1.0 | v1.0.1 tagged; the proto is normative where the text disagrees |
 
-Thomas's decisions are recorded under Decided. Everything else is open, with options and picks in parts 4 and 5.
+Thomas's decisions are recorded under Decided; parts 4 and 5 keep the options each one chose from.
 
 ### Decided (17 Oct)
 
 | # | Decision | Thomas's words |
 | --- | --- | --- |
+| I-1 | **One wake pattern for every kind (5.1 (a)):** the crew's computer side hands over through its actor's channel, the lease states who wakes it, `handed` names the channel, and the owner sets what a channel may carry | "agreed with the pick" |
 | I-2 | **Completion rule: (a)**, the rule in 3.4 | "agreed, might need changing later but we can only do that by trying it out." |
 | I-3 | **The gateway does not switch on without a networking plugin** | "yes it is mandatory and even another reason to make it a part of core. But for now let's assume yes and we rework network later into core." |
 | I-4 | **Federation for people through the company IdP; verified apart from stated for outside parties** | "indeed both" |
 | I-5 | **(b): the gateway commissions proxy ships once argo approves a party** | "makes most sense gateway does it, since it knows about the outside parties." |
 | I-6 | **One package** | "one package, we can always change later." Packaging and versioning are looked at separately, by another ship |
+| I-7 | **MCP and A2A out true to 0040 (5.2 (a)):** hand again only where repeating is safe, otherwise not handled with "the call may have run"; A2A agents repeatable by default, argo's mark per proxy ship | "agreed with the pick" |
 | I-8 | **(a): one waiting `inbox` call per proxy ship** | "indeed a". A core call that waits on many ships at once is not built until real numbers demand it, and then only as a deliberate identity design (a crew of many ships), never as a shortcut |
+| I-9 | **Async by default (5.3 (c)):** an opt-in `waitMs` per capability in the statement, 0 by default, capped by the gateway's configuration | "ok agreed by adding the flexibility. Here you kept me true to my no policy unless it breaks the promise rule." |
 
-Still open:
-
-| # | Question | Where |
-| --- | --- | --- |
-| I-1 | How a ship learns that something waits for it | Taken wider in 5.1 |
-| I-7 | MCP out delivery | Challenged in 5.2 |
-| I-9 | Synchronous waits | 5.3 |
+No question is open.
 
 ## 1. Purpose
 
@@ -234,7 +231,7 @@ What could run in parallel: slice 1 needs only the statement and owner from P, s
 
 ### Gaps from 17 Oct
 
-1. **How does a person's tool learn that a request for their go waits, when MCP cannot push?** (I-1, open: taken wider in 5.1) MCP 2026-07-28 has no server-initiated requests and no GET stream. `subscriptions/listen` streams list and resource changes only while the client holds the stream, and no client wakes a model on them.
+1. **How does a person's tool learn that a request for their go waits, when MCP cannot push?** (I-1, decided: 5.1 (a)) MCP 2026-07-28 has no server-initiated requests and no GET stream. `subscriptions/listen` streams list and resource changes only while the client holds the stream, and no client wakes a model on them.
    - Options:
      - (a) the gateway, as crew of the person's proxy ship, wakes the person through a channel their owner configures (email, web push, or a chat tool's incoming webhook), with no content, only "a request waits" and a link; the person then pulls in their MCP client;
      - (b) the person's inbox as an MCP resource, updated on `subscriptions/listen`, for clients that hold the stream;
@@ -270,13 +267,13 @@ What could run in parallel: slice 1 needs only the statement and owner from P, s
 6. **One gateway or two?** (I-6, decided: (a))
    - Options: (a) one, with two adapters; (b) two packages.
    - Pick: (a), for 3.1's reasons. It changes 0008 by one package either way.
-7. **MCP out: at most once.** (I-7, open: challenged in 5.2)
+7. **MCP out: at most once.** (I-7, decided: 5.2 (a))
    - Options: (a) ack on receipt, then call, with `notHandled` on failure; (b) ack after the call returns.
    - Pick: (a). 0001 stands. A2A out is at least once only because A2A gives a stable `messageId` to dedupe on; MCP gives none.
 8. **Many proxy ships, one gateway.** (I-8, decided: (a)) Each crewed ship waits on its own `inbox` call, as trierarch watchers do.
    - Options: (a) one waiting `inbox` per proxy ship; (b) a core call that waits on the inboxes of every ship the caller crews.
    - Pick: (a) until a fleet has hundreds of parties. (b) is a core change to justify with numbers.
-9. **The A2A blocking default and the MCP synchronous wait.** (I-9, open: 5.3)
+9. **The A2A blocking default and the MCP synchronous wait.** (I-9, decided: 5.3 (c))
    - Options: (a) one bounded wait in the gateway's configuration, then the task or handle; (b) always answer at once.
    - Pick: (a). Short app calls complete in one round trip.
 
