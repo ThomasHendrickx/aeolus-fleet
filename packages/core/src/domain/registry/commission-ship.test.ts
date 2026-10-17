@@ -162,6 +162,50 @@ describe('the scopes of a new ship', () => {
   });
 });
 
+describe('the kind of a new ship', () => {
+  function manager(): Caller {
+    return { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' };
+  }
+
+  beforeEach(async () => {
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+  });
+
+  it('is an agent when the commission states none', async () => {
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+
+    expect(shipsNamed('scout')[0]?.kind).toBe('agent');
+  });
+
+  it.each(['person', 'app'] as const)('lets argo commission a %s ship, awaiting crew with its starting prompt and the scopes every ship has', async (kind) => {
+    const commissioned = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind }));
+
+    expect(shipsNamed('thomas')[0]).toMatchObject({ kind, scopes: ['messages:send', 'messages:receive'] });
+    expect(commissioned.secret).toMatch(/^aeolus_sk_v1_./);
+    expect(core.state.events.find((event) => event.type === 'ShipCommissioned' && event.shipId === commissioned.shipId)?.details).toMatchObject({ kind });
+  });
+
+  it.each(['person', 'app'] as const)('refuses any other ship a %s ship, storing nothing', async (kind) => {
+    const refused = await commissionShip(manager(), { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('lets a ship with fleet:manage commission an agent ship by its kind', async () => {
+    unwrap(await commissionShip(manager(), { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', kind: 'agent' }));
+
+    expect(shipsNamed('deputy')[0]?.kind).toBe('agent');
+  });
+
+  it('refuses the same key for another kind', async () => {
+    const thomas = { idempotencyKey: 'commission-thomas', name: 'thomas', type: 'person' };
+    unwrap(await commissionShip(argo, { ...thomas, kind: 'person' }));
+
+    await expect(commissionShip(argo, { ...thomas, kind: 'app' })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
 describe('the name of a new ship', () => {
   it('is refused while an active ship holds it, and nothing changes', async () => {
     unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
