@@ -145,7 +145,6 @@ Pick: (a) until question 1 closes any part, then (c). A repo split only earns it
 
 What would move under (c):
 - the closed plugins' packages, their docs, their decisions (0017, 0021, 0030, 0036), and their workflows;
-- Thomas's own skills pin stays as it is.
 
 The blueprint and decisions index in the public repo then point to them by name only.
 
