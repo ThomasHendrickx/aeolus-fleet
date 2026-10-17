@@ -205,6 +205,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_overdue$/),
       expect.stringMatching(/^\d{14}_delivery_state_index$/),
       expect.stringMatching(/^\d{14}_force_scope$/),
+      expect.stringMatching(/^\d{14}_forced_delivery$/),
     ]);
   });
 });

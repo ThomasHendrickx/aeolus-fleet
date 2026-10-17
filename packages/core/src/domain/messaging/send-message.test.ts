@@ -95,6 +95,7 @@ describe('sending a message to a ship', () => {
         attempts: 0,
         handOverNumber: null,
         handedOnceMoreAt: null,
+        isForced: false,
         createdAt: core.clock.now(),
       },
     ]);
@@ -282,6 +283,7 @@ describe('an idempotent repeat', () => {
     { label: 'payload', change: () => ({ payload: 'something else' }) },
     { label: 'content type', change: () => ({ contentType: 'application/json; charset=utf-8' }) },
     { label: 'message it replies to', change: () => ({ inReplyTo: core.state.messages[0]?.id }) },
+    { label: 'force', change: () => ({ isForced: true }) },
   ])('refuses the same key with another $label, and stores nothing', async ({ change }) => {
     const original = aReview();
     await sent(argo, original);
@@ -513,5 +515,52 @@ describe('a send refused', () => {
       kind: 'INVALID_IDEMPOTENCY_KEY',
       message: 'An idempotency key is 1 to 256 characters',
     });
+  });
+});
+
+describe('a forced send (decision 0040)', () => {
+  it('stores its delivery as forced', async () => {
+    const messageId = await sent(argo, aReview({ isForced: true }));
+
+    expect(core.state.deliveries).toEqual([expect.objectContaining({ messageId, isForced: true })]);
+  });
+
+  it('says in MessageAccepted that it was forced', async () => {
+    await sent(argo, aReview({ isForced: true }));
+
+    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null, forced: true }]);
+  });
+
+  it('is a plain send when isForced is false', async () => {
+    await sent(argo, aReview({ isForced: false }));
+
+    expect(core.state.deliveries).toEqual([expect.objectContaining({ isForced: false })]);
+    expect(core.state.events.map((event) => event.details)).toEqual([{ selector: 'ship', recipientType: null, model: null }]);
+  });
+
+  it('is the same request with isForced false and without it', async () => {
+    const original = aReview();
+    const messageId = await sent(argo, original);
+
+    const repeated = await sendMessage(argo, { ...original, isForced: false });
+
+    expect(repeated).toEqual({ isOk: true, value: { messageId } });
+  });
+
+  it('is sent by an agent ship that holds messages:force', async () => {
+    const forcing: Caller = { ...scout, scopes: [...scout.scopes, 'messages:force'] };
+
+    await sent(forcing, aReview({ selector: { kind: 'ship', shipId: argoId }, model: SCOUT_MODEL, isForced: true }));
+
+    expect(core.state.deliveries).toEqual([expect.objectContaining({ isForced: true })]);
+  });
+
+  it('is refused from a ship without messages:force, and stores nothing', async () => {
+    const before = structuredClone(core.state);
+
+    const refused = await sendMessage(scout, aReview({ selector: { kind: 'ship', shipId: argoId }, model: SCOUT_MODEL, isForced: true }));
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'FORCE_NOT_ALLOWED', message: 'A forced send needs the messages:force scope' } });
+    expect(core.state).toEqual(before);
   });
 });

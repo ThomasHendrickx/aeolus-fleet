@@ -46,13 +46,14 @@ beforeEach(async () => {
 const toScout = (): Selector => ({ kind: 'ship', shipId: scoutId });
 const toReviewers: Selector = { kind: 'type', type: 'reviewer' };
 
-async function sendTo(selector: Selector): Promise<DeliveryId> {
+async function sendTo(selector: Selector, options: { isForced?: boolean } = {}): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(argo, {
       selector,
       payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
       contentType: 'text/plain',
       idempotencyKey: `review-${core.ids('message')}`,
+      ...options,
     }),
   );
   return deliveryIdOf(core, messageId);
@@ -343,5 +344,45 @@ describe('a ship retired holding received and handed deliveries', () => {
 
     expect(stored(toShip)?.state).toBe('abandoned');
     expect(stored(toType)).toMatchObject({ state: 'pending', claimedByShipId: null });
+  });
+});
+
+describe('a forced delivery (decision 0040)', () => {
+  it('comes first, before older pending deliveries', async () => {
+    const older = await sendTo(toScout());
+    const forced = await sendTo(toScout(), { isForced: true });
+
+    expect(await pushReceive(scout, 2)).toEqual([forced, older]);
+  });
+
+  it('comes first with one at a time: the older pending delivery waits', async () => {
+    const older = await sendTo(toScout());
+    const forced = await sendTo(toScout(), { isForced: true });
+
+    expect(await pushReceive(scout)).toEqual([forced]);
+    expect(stored(older)?.state).toBe('pending');
+  });
+
+  it("comes before the crew's own delivery in flight", async () => {
+    const inFlight = await sendTo(toScout());
+    expect(await pushReceive(scout)).toEqual([inFlight]);
+    const forced = await sendTo(toScout(), { isForced: true });
+
+    expect(await pushReceive(scout, 2)).toEqual([forced, inFlight]);
+  });
+
+  it('comes first to its type as well', async () => {
+    const older = await sendTo(toReviewers);
+    const forced = await sendTo(toReviewers, { isForced: true });
+
+    expect(await pushReceive(scout)).toEqual([forced]);
+    expect(stored(older)?.state).toBe('pending');
+  });
+
+  it('keeps the oldest first among forced deliveries', async () => {
+    const first = await sendTo(toScout(), { isForced: true });
+    const second = await sendTo(toScout(), { isForced: true });
+
+    expect(await pushReceive(scout, 2)).toEqual([first, second]);
   });
 });

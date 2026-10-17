@@ -59,13 +59,14 @@ async function crewedReviewer(name: string): Promise<Crew> {
 const toShip = (crew: Crew): Selector => ({ kind: 'ship', shipId: crew.shipId });
 const toReviewers: Selector = { kind: 'type', type: 'reviewer' };
 
-async function sendTo(selector: Selector): Promise<DeliveryId> {
+async function sendTo(selector: Selector, options: { isForced?: boolean } = {}): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(argo, {
       selector,
       payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
       contentType: 'text/plain',
       idempotencyKey: `review-${newId('message')}`,
+      ...options,
     }),
   );
   const { id } = await prisma.delivery.findFirstOrThrow({ where: { messageId } });
@@ -296,5 +297,60 @@ describe('a restart of the server', () => {
     } finally {
       await restarted.$disconnect();
     }
+  });
+});
+
+describe('forced deliveries on Postgres (decision 0040)', () => {
+  it("come first: before the crew's own in flight and older pending ones, oldest forced first", async () => {
+    const inFlight = await sendTo(toShip(scout));
+    expect(await pushReceive(scout)).toEqual([inFlight]);
+    const older = await sendTo(toShip(scout));
+    const firstForced = await sendTo(toShip(scout), { isForced: true });
+    const secondForced = await sendTo(toReviewers, { isForced: true });
+
+    expect(await pushReceive(scout, 4)).toEqual([firstForced, secondForced, inFlight, older]);
+  });
+
+  it('store that they were forced, with MessageAccepted saying so', async () => {
+    const forced = await sendTo(toShip(scout), { isForced: true });
+    const plain = await sendTo(toShip(scout));
+
+    await expect(stored(forced)).resolves.toMatchObject({ isForced: true });
+    await expect(stored(plain)).resolves.toMatchObject({ isForced: false });
+    await expect(prisma.event.findFirstOrThrow({ where: { type: 'MessageAccepted', deliveryId: forced } })).resolves.toMatchObject({
+      details: { forced: true },
+    });
+  });
+
+  it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {
+    const plain = [await sendTo(toReviewers), await sendTo(toReviewers)];
+    const forced = [await sendTo(toReviewers, { isForced: true }), await sendTo(toReviewers, { isForced: true })];
+    const racing = createPushReceiveDeliveries({
+      uow: racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
+        ...tx,
+        deliveries: {
+          ...tx.deliveries,
+          findClaimableForUpdate: async (query) => {
+            const found = await tx.deliveries.findClaimableForUpdate(query);
+            await allArrived();
+            return found;
+          },
+        },
+      })),
+      clock: systemClock,
+      ids: newId,
+      wakeups: createReceiverWakeups(),
+      waitMs: WAIT_MS,
+    });
+
+    const [byScout, byLookout] = await Promise.all([racing(scout, { max: 1 }), racing(lookout, { max: 1 })]);
+
+    const got = [...unwrap(byScout).deliveries, ...unwrap(byLookout).deliveries].map((delivery) => delivery.deliveryId);
+    expect(got.sort()).toEqual([...forced].sort());
+    await expect(prisma.delivery.findMany({ where: { id: { in: plain } }, select: { state: true } })).resolves.toEqual([
+      { state: 'pending' },
+      { state: 'pending' },
+    ]);
+    await expect(prisma.delivery.count({ where: { id: { in: forced }, state: 'received' } })).resolves.toBe(2);
   });
 });
