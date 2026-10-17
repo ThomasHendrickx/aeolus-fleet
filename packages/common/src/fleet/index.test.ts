@@ -30,8 +30,8 @@ describe('scopeSchema', () => {
 });
 
 describe('shipKindSchema', () => {
-  it('knows operator, agent and viewer, nothing else', () => {
-    expect(shipKindSchema.options).toEqual(['operator', 'agent', 'viewer']);
+  it('knows operator, agent, viewer, person and app, nothing else', () => {
+    expect(shipKindSchema.options).toEqual(['operator', 'agent', 'viewer', 'person', 'app']);
   });
 });
 

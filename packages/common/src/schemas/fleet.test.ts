@@ -85,6 +85,16 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.safeParse({ name: 'manager', type: 'squadron', fleetScopes }).success).toBe(false);
   });
 
+  it.each(['agent', 'person', 'app'])('accepts the kind %s', (kind) => {
+    const input = { name: 'thomas', type: 'person', kind, idempotencyKey: 'commission-thomas' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each(['operator', 'viewer', 'robot'])('rejects the kind %s, which no commission makes', (kind) => {
+    expect(commissionShipInputSchema.safeParse({ name: 'thomas', type: 'person', kind, idempotencyKey: 'commission-thomas' }).success).toBe(false);
+  });
+
   it('takes the note as optional', () => {
     expect(commissionShipInputSchema.parse({ name: 'scout', type: 'reviewer', idempotencyKey: 'commission-scout' })).toEqual({
       name: 'scout',
