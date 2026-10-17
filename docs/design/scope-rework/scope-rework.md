@@ -1,8 +1,116 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Thomas answered questions 1 to 10 (part 5); part 6 is the scope catalogue with those answers applied. Questions 11 to 14 are new and open.
+Design proposal by designer-2. Part 0 sets the product direction (one fleet, many people) and is open (questions 15 to 24); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png` (sources in `src/`).
+
+---
+
+## 0. One fleet, many people (product direction, before the catalogue)
+
+Thomas (17 Oct): "It is THE case we will support. ... one fleet, one network organisation, one company, many actors." And: "I thought scope is what a ship can do, network (e.g. done with labels) is where it can do it." The catalogue in part 6 is on hold until it fits this. This part takes no decisions; options and picks are only in its questions (15 onward).
+
+### 0.1 Purpose
+
+One fleet belongs to one organisation. Several people work in it, each with their own ships: Thomas, Charlotte and Burak each have a subfleet, a label value such as `subfleet=thomas`. Some ships serve everyone: squadrons, the trierarch plugin and its machines, the networking plugin, perhaps a shared reviewer.
+
+A good outcome, in plain words:
+
+- **Thomas** gives his PA ship `fleet:read` and it reads his subfleet: his ships, their timelines, their messages. It does not read a word of Charlotte's or Burak's.
+- **Charlotte** commissions and crews ships in her subfleet, sees them in the console, answers their questions and works their Needs attention, without seeing Thomas's.
+- **Burak** sends to the shared reviewer, and to Charlotte's ships where the organisation allows it; nothing else of hers reaches him.
+- **The organisation** (whoever runs the fleet) decides the subfleets and what crosses between them, connects the plugins once for everyone, and can still see the whole fleet.
+- A ship never widens its own where, and the fleet's promises (no message lost, OK only once stored) hold for every person alike.
+
+### 0.2 Scope says what, network says where: taken strictly
+
+Read strictly, a scope is a verb with no object, and every object comes from the network. The network today has one verb: send (0034). Every bound in part 6 re-read as a where:
+
+| Bound in part 6 | Scopes | Is it a where? | Could the network carry it? |
+| --- | --- | --- | --- |
+| its own ship | `messages:send` (as itself), `messages:receive` | No: it is who the caller is, not where it acts | No, stays identity |
+| ships it reaches | `messages:force` | Yes, already the network | Already does |
+| ships it commissioned | `fleet:manage`, `labels:assign` | Yes, a where by lineage | Yes, if a manage reach existed and a commissioned ship landed in its commissioner's subfleet |
+| any ship | `fleet:read`, `messages:resend`, `crew:assign` | Yes: the whole fleet | Yes, as a read reach, a resend reach |
+| argo any | argo on every bound; `explainReach`, `reachRefusals` | Yes: the whole fleet, by kind | Only if argo is subject to rules, which 0034 says it is not |
+| labels it owns, its own namespace, the fleet's rules | `labels:define`, `scopes:declare`, `fleet:network` | No: ownership of a thing, not of ships | No, stays ownership |
+| crew requests assigned to its ship | `crew:run` | Ownership by assignment | No, stays assignment |
+| new ships | `fleet:commission` | Where the new ship lands | Partly: which subfleet a new ship joins |
+
+**Reading** is the open hole. `fleet:read` today shows every ship and every payload, with no rule in the way:
+
+- payloads: `fleet.message`, `fleet.shipMessages`, `fleet.inbox` (argo's), `fleet.follow` and `fleet.events` (live changes and messages);
+- ship facts: `fleet.list`, `fleet.ship`, `fleet.shipTimeline`, `fleet.shipWay`, report details (0028), labels;
+- fleet facts: `fleet.needsAttention`, `overdue`, `noShipCanTake`, `health`, `limits`, `labels`, `clearRequests`.
+
+The squadrons and trierarch plugin APIs read through the same `fleet:read` and serve whoever holds a console session. Strictly applied, each of these answers only the ships the reader may read, and a message only when the reader may read its sender or its recipient (question 17).
+
+### 0.3 Single-operator assumptions this breaks
+
+| Assumption | Where |
+| --- | --- |
+| One operator ship `argo`, all scopes, one account, one console session; sign-in takes the lease over; "Better Auth if several human users ever come" | 0012, 0002 |
+| The viewer reads the whole fleet and argo's inbox | 0022 |
+| "Risk is the operator's call": one person weighs risk for all | 0016 |
+| argo sends to and receives from every ship past any rule; only argo reads refusals and explains reach; argo edits the network in the networking plugin | 0034, 0035, 0036, 0037 |
+| Questions go to argo; the operator inbox is one inbox | 0038, the ship protocol rule 4 |
+| Overdue deliveries, not handled, undeliverable and no ship can take go to one Needs attention | 0040, 0041, 0042 |
+| An unassigned crew request is the operator's to-do; a crashed crew is told to argo | 0029, 0026 |
+| Plugins are connected by the operator, and squadrons serves writes to the operator's session alone (`fleet:manage`) | 0017, 0021, 0030, 0036 |
+| Labels are argo's or a plugin's; a person's PA cannot label its new ship `subfleet=thomas` unless it owns that label (0031, question 5) | 0031 |
+| No rules is all-to-all, so a fleet without a networking plugin is fully open, reading included once reading follows the network | 0035 |
+| Notices and the guide address `operators` and `viewers` as one group each | 0023, 0024 |
+| Every caller is a ship, and a person in the console is argo | CLAUDE.md, 0012 |
+
+### 0.4 Lessons to check against
+
+- **Every caller is a ship** (0012, 0022): a person gets a ship, never a flag on argo's session; 0022 rejected "one caller with two rights".
+- **Scopes on the server, never in the request** (0002); revocation at once.
+- **Reach is the containment** (0034): rules select by labels only, never by type; only a label's owner assigns it, so a ship cannot widen its own reach; a refusal says nothing about the rules. The same must hold for reading.
+- **Owners declare their group's reach** (0037): an owner keeps its members labelled and its reach in place, so argo maintains no per-group rules. A subfleet is such a group.
+- **Labels are for selection, reach included** (0031), never for lifecycle, configuration or secrets.
+- **No policy** (0016): whatever the network and scopes allow is allowed; Aeolus adds no guard. The organisation sets the rules, not Aeolus.
+- **Limits are for speed, not policy** (0037: 200 rules, 20 per declarer): every send is checked; checking every read and every live event is many times more checks.
+- **Rules exist only through a plugin** (0035), and no plugin is all-to-all.
+- **No compatibility layers** (0013), and thin designs for few users: the case is now several people, still small.
+- **Tenancy** (0007): one fleet stays one tenant; a person is not a tenant. Several fleets per installation was parked (#61); one fleet per person is not this case.
+- **Console logic on the server** (0033): what a person may see is decided on the server, never hidden in the browser.
+- **Earlier rounds**: the network design on #260 and #573; questions 5, 12 and 14 here, which bound by lineage where the network might.
+
+### 0.5 Questions for Thomas
+
+15. **One operator, or one per person?**
+    Options: (a) argo stays the organisation's operator, and each person crews an operator ship of their own (kind `operator`, console login, one session each), operator of their subfleet; (b) one argo, every person a plain agent ship crewed from the console; (c) one argo with several logins (today's model, several sessions).
+    Pick: (a). Every caller stays a ship, each person signs in as themselves, and argo keeps the whole fleet.
+16. **Does reach govern reading as well as sending?**
+    Options: (a) no, reading stays fleet-wide; (b) the same rules govern both: whom a ship may send to, it may read; (c) each rule names its verb (send, read, manage), so the scope says what and the rule says where for that verb.
+    Pick: (c). Sending to a shared reviewer must not let a ship read the reviewer's every message; (b) cannot say that.
+17. **Reading a message: reach to which side?**
+    Options: (a) its sender or its recipient; (b) both; (c) its recipient only.
+    Pick: (a). A message Charlotte's ship sends into Thomas's subfleet is part of his ship's timeline.
+18. **Does a ship outside read reach show at all?**
+    Options: (a) not at all; (b) name, type and status only, no timeline, messages, details or labels; (c) everything but payloads.
+    Pick: (b). The fleet snapshot (which ships exist, who crews them) stays the organisation's shared picture, and no word of work leaks.
+19. **Who sets the network for a subfleet?**
+    Options: (a) argo alone, in the networking plugin, for the whole organisation; (b) each person's operator ship declares its own subfleet's rules (0037), argo setting what crosses between subfleets; (c) a networking plugin per subfleet.
+    Pick: (a) first, (b) when asked: one place for an organisation's rules, as one IT department sets them, and 0037 already gives the path to (b).
+20. **Where does a new ship land?** A PA cannot label its new ship `subfleet=thomas` unless it owns the label.
+    Options: (a) commission puts the new ship in its commissioner's subfleet: core copies the commissioner's values of the label argo names as the subfleet label; (b) the person's operator ship owns a label of its own and labels its ships with it (a label per person, since a label has one owner (0031), instead of one `subfleet` label with a value per person); (c) argo labels every new ship by hand.
+    Pick: (b). It uses labels as they are (0031): ownership answers for meaning, and question 5's bound already lets an owner label ships it commissioned. The cost: argo's rules name each person's label, and Thomas's `subfleet=thomas` becomes a label per person.
+21. **What does a person see in the console?**
+    Options: (a) only their read reach: the fleet page, their operator inbox, Needs attention, health and squadrons for their ships; (b) everything, as today; (c) their read reach plus counts for the rest.
+    Pick: (a). The console is a reader like any ship; the server answers what the reach allows (0033).
+22. **Who is told about a ship?** Questions, overdue, not handled, crashed, needs crew go to argo today.
+    Options: (a) the operator ship of the person whose subfleet the ship is in, argo for a ship in none; (b) argo always; (c) both.
+    Pick: (a). The person who owns the work answers for it; argo stays the fallback.
+23. **Shared plugins.** Squadrons, the trierarch plugin and the networking plugin serve every person.
+    Options: (a) they keep fleet-wide reach, as the organisation's own ships, and serve each person only what that person's read reach allows (squadrons checks the person's console session); (b) one plugin connection per person.
+    Pick: (a). One install, one connection (0021); the person's reach, not the plugin's, bounds what a person gets.
+24. **Does argo stay past every rule?**
+    Options: (a) yes, both ways and for reading (0034's exception widened to reading); (b) argo too is subject to rules.
+    Pick: (a). The organisation's operator must see the whole fleet to run it; privacy from the organisation is not this case.
+
+**Questions 1 to 14 this part could reopen** (answers unchanged until Thomas says so): 1 (argo alone grants: each person's operator ship?), 5 (labels bound by lineage: or by network?), 10 and 13 (the flagship proxies to argo: or to the person's operator ship?), 12 (argo writes reach for forming ships: or the person?), 14 (`fleet:manage` bound by lineage: or a manage reach?). Part 6's "Granted by argo" and every "argo any" depend on question 15.
 
 ---
 
