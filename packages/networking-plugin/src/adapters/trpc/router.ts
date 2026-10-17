@@ -10,7 +10,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
-import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, setNetworkRulesInputSchema, WHILE_UNAVAILABLE, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
+import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, setNetworkRulesInputSchema, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -141,7 +141,7 @@ const CONNECT_CODES = {
 
 /** What the network answers: the rules, none for all-to-all, and what the plugin declares for while it is unavailable. */
 const ruleListSchema = z.array(networkRuleSchema).nullable();
-const declarationSchema = z.object({ whileUnavailable: z.enum(WHILE_UNAVAILABLE), notRespondingAfterSeconds: z.int() });
+const declarationSchema = registerNetworkPluginInputSchema;
 
 /** A rule list as the API answers it: fresh arrays, none kept as none. */
 function listOf(rules: readonly NetworkRule[] | null): NetworkRule[] | null {
