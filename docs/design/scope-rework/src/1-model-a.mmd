@@ -1,0 +1,31 @@
+flowchart LR
+  subgraph G[Grant and revoke]
+    direction LR
+    G1[argo, or a ship granting a scope it holds] --> G2{grant a scope to a live ship}
+    G2 -- caller holds it, or is argo, or declared it --> G3[scopes stored on the ship, ScopesChanged event] --> G4[next call of its crew uses the new set]
+    G2 -- caller lacks it --> G5[FORBIDDEN, nothing stored]
+  end
+  subgraph S[Forced send]
+    direction LR
+    S1[ship sends with force] --> S2{holds messages:force}
+    S2 -- no --> S3[FORBIDDEN, nothing stored, key unused]
+    S2 -- yes --> S4{reach rules allow}
+    S4 -- no --> S5[NOT_REACHABLE, refusal recorded]
+    S4 -- yes --> S6[stored, delivery marked forced, OK]
+  end
+  subgraph L[Label assignment]
+    direction LR
+    L1[owner assigns its label value to a ship] --> L2{holds labels:assign and owns the label}
+    L2 -- no --> L3[FORBIDDEN]
+    L2 -- yes --> L4{target is the owner itself or a ship it commissioned}
+    L4 -- no --> L5[FORBIDDEN: not a ship you commissioned]
+    L4 -- yes --> L6[assigned, LabelAssigned]
+  end
+  subgraph F[Squadron forming by a ship]
+    direction LR
+    F1[tech lead sends squadrons a form request] --> F2{squadrons reads the sender's scopes from the fleet: squadrons:form}
+    F2 -- no --> F3[answers refused, forms nothing]
+    F2 -- yes --> F4{limits of squadrons hold}
+    F4 -- no --> F5[answers refused with the limit]
+    F4 -- yes --> F6[forms, owner = the tech lead, members by crew request]
+  end

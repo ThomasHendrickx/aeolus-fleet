@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph R[Roles]
+    direction LR
+    R0[core holds named roles: operator, plugin, orchestrator, agent, trierarch, each a set of scopes] --> R1[argo edits a role or a ship's role]
+    R1 --> R2[every ship of the role gets the change at its next call]
+  end
+  subgraph S[Forced send]
+    direction LR
+    S1[ship sends with force] --> S2{its role holds messages:force}
+    S2 -- no --> S3[FORBIDDEN]
+    S2 -- yes --> S4{reach} -- yes --> S6[stored, forced]
+    S4 -- no --> S5[NOT_REACHABLE]
+  end
+  subgraph L[Label assignment]
+    direction LR
+    L1[owner assigns] --> L2{role holds labels:assign} -- yes --> L6[assigned on any ship: the spam stays possible]
+    L2 -- no --> L3[FORBIDDEN]
+  end
+  subgraph F[Squadron forming]
+    direction LR
+    F1[tech lead asks squadrons] --> F2{role orchestrator} -- yes --> F6[forms]
+    F2 -- no --> F3[refused]
+  end

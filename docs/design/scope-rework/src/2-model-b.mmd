@@ -1,0 +1,26 @@
+flowchart LR
+  subgraph G[Grant and revoke]
+    direction LR
+    G1[argo grants a scope with its resource, such as labels:assign:squadron or messages:force:type=coder] --> G2{resource well formed}
+    G2 -- no --> G3[BAD_REQUEST]
+    G2 -- yes --> G4[stored per ship as scope plus resource]
+  end
+  subgraph S[Forced send]
+    direction LR
+    S1[ship sends with force to ship X] --> S2{a messages:force scope whose resource matches X or its type}
+    S2 -- no --> S3[FORBIDDEN, nothing stored]
+    S2 -- yes --> S4{reach} -- yes --> S6[stored, forced]
+    S4 -- no --> S5[NOT_REACHABLE]
+  end
+  subgraph L[Label assignment]
+    direction LR
+    L1[ship assigns value of key K to ship Y] --> L2{owns K and holds labels:assign:K}
+    L2 -- no --> L3[FORBIDDEN]
+    L2 -- yes --> L6[assigned on any ship]
+  end
+  subgraph F[Squadron forming]
+    direction LR
+    F1[tech lead asks squadrons to form blueprint B] --> F2{squadrons:form:B among its scopes}
+    F2 -- no --> F3[refused]
+    F2 -- yes --> F6[forms]
+  end
