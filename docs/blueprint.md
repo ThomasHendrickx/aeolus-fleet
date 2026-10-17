@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-16.
+Owner: Thomas Hendrickx. Last updated 2026-10-17.
 
 ## Purpose
 
@@ -14,13 +14,30 @@ It makes exactly two promises:
 What Aeolus deliberately is not:
 
 - **Not an orchestrator.** It never decides who does what. Coordination is done by ships.
-- **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's.
+- **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's (decision 0016): "else it would be us guessing and putting a security stamp on it." Organisation rules belong to the organisation.
 - **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them.
 - **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's class and the session crewing it.
 - **Harness-agnostic.** Claude Code, Codex or any other agent runtime can crew a ship, as long as it speaks the ship contract.
 - **Not tied to Tiphys or any other workload.** Zero dependencies on any ship type.
 
 Distribution: an open-source npm package plus configuration. Anyone can run their own fleet; each operator's infrastructure and data stay private.
+
+## Principles
+
+Thomas's direction of 17 Oct 2026, beside the promises above. A tag such as (0.A) points to part 0 of the scope rework design, `docs/design/scope-rework/scope-rework.md` on branch `design/scope-rework`, until a decision record holds it.
+
+- One organisation, one fleet, many actors: humans, apps and agents in one network. Not the solo developer space (0.1).
+- Remove the human as the glue: "humans still gate and steer on the critical points" (0.1).
+- Every caller is a ship, people, apps and outside parties included: "One network to connect all." (0012, 0.D)
+- Be true to what a ship is, of kind person, app or agent: "we need to be true on what it is." (0.D)
+- Core is the fleet server, its API and argo's admin console, nothing more. Human interfaces and plugin pages live outside core (0.A).
+- Level 3 MCP and A2A, both directions, is the end state, "soon rather than late" (0.I).
+- Scope is what, network is where, for every type of interaction (0.B, 0.E).
+- The network is as vital as scopes (0.N).
+- No hidden behaviour: "Hidden behaviour is a source of debugging nightmare." Every rule is visible, every change an event (0.S).
+- No rights travel with a message: "a receiver just receives" and "Scope logic is for core and the plugins to police." (0.J)
+- A human is always responsible: every ship has an owner who maintains it, like an application owner. "we don't introduce process due to process": it grows where needed (0.C, 0.F).
+- Force means act now (scope rework, part 5, decision 3).
 
 ## v1 scope
 
