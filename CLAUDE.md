@@ -25,7 +25,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - npm only (npm install, npm run, npm test). Never pnpm or yarn.
 - English for all code, names, comments, commits, paths and database fields.
 - No em dashes anywhere: code, docs, commits, PR text.
-- Use the ubiquitous language from the blueprint (ship, type, crew, lease, commission, release, retire, delivery). Do not invent synonyms.
+- Use the ubiquitous language from the blueprint (ship, type, crew, lease, commission, release, retire, delivery). Invent no synonyms or new terms: name the concrete parts, and split a block that covers two things.
 
 ## Architecture rules
 
@@ -37,7 +37,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Every table has fleet_id. Every query is scoped by it.
 - Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_, lbl_, lbv_, rfs_), from common/src/ids.
 - Every caller is a ship. The operator is the ship `argo` (decision 0012). Authorise every call by the caller's scopes, read from the server, never from the request.
-- Before 1.0.0 breaking changes are allowed (decision 0013). Keep designs minimal; do not build compatibility layers.
+- Before 1.0.0 breaking changes are allowed (decision 0013). Keep designs minimal: no compatibility layers, no backward-compatibility work and no paid-product polish for zero customers. Flag such a request as overengineering.
 - Every state change writes its event in the same transaction.
 - Payloads are at most 64 KB. A message is the travelling ticket; the reference is where the content lives.
 - Web follows the web-frontend skill: vertical by feature in its layout (features/<feature>/ with ui/, state/, hooks/, services/), shared props-only parts in components/, route layouts in app/. A feature still in the old layout (atoms/, molecules/, organisms/, lib/) moves when a change touches it; no migration PR. shadcn/ui on Base UI for atoms.
@@ -66,9 +66,11 @@ The `aeolus-fleet-*` skills live here. The others come from ThomasHendrickx/skil
 
 ## Working
 
-- Done means the acceptance criteria are met. A finding that does not block them is reported, not acted on.
-- One slice per session, one PR per slice. Keep the slice thin; list what you noticed but did not do.
-- Commit per logical step, not one catch-up commit.
+Do what the prompt and the docs ask, nothing more: done means the acceptance criteria are met, and earlier slices are not precedent.
+
+- One slice per session, one PR per slice, kept thin. Commit per logical step, not one catch-up commit.
+- A finding that does not block the criteria is not acted on: a real defect is filed as an issue, anything else goes in the PR.
+- New core fleet functionality is built only from a design Thomas approved. A design goes purpose first, then the lessons to check against, then questions, with no detailed decisions before the purpose is agreed. A backbone design has a full flow diagram, happy and unhappy paths. Foundational work goes structure first, approved, then one part at a time.
 - Repo text must serve the current commit. What git shows (what changed, the steps taken) lives in commits and the PR, never in files. Decisions go into the docs or an ADR as current state.
-- Earlier slices are not precedent. Do what the prompt and docs ask, nothing more. New rules, checks, exceptions or process steps come only from Thomas: propose, never add.
+- New rules, checks, exceptions or process steps come only from Thomas: propose, never add.
 - No self-review passes. The one review is a clean-room session after the PR.
