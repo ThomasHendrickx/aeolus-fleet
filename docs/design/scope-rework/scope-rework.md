@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) with the decisions of 17 Oct (0.A to 0.J) and 5 questions still open (listed at its end; 0.6 the console, 0.8 fleet access contained by default, 0.9 discovery and what a ship states, 0.10 the owner); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); 10 and 13 are reopened toward the owner, 11 and 12 are open, and 14 is folded into 56.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and records Thomas's decisions of 17 Oct (0.A to 0.R). Part 5 holds decisions 1 to 13. Part 6 is the scope catalogue fitted to all of them. Three questions are open (64 to 66, listed at the end of part 0).
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
@@ -8,11 +8,11 @@ Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-f
 
 ## 0. One organisation, one fleet (product direction, before the catalogue)
 
-Thomas (17 Oct): "one organisation where a symbiosis of humans, apps and agents are interconnected in a secure and managed way that removes the current human as the glue and maximises value through fast information flow where humans still gate and steer on the critical points." And: "scope is what a ship can do, network (e.g. done with labels) is where it can do it." The catalogue in part 6 is on hold until it fits this. Thomas decided the direction (below); what is still open has options and picks, in the questions (15 onward).
+Thomas (17 Oct): "one organisation where a symbiosis of humans, apps and agents are interconnected in a secure and managed way that removes the current human as the glue and maximises value through fast information flow where humans still gate and steer on the critical points." And: "scope is what a ship can do, network (e.g. done with labels) is where it can do it." Thomas decided the direction (below); the questions (15 onward) carry each decision in place, and the few still open have options.
 
 ### Decided (17 Oct)
 
-Thomas answered direction questions in three rounds. They are the frame for the rest of part 0; the questions they settle are marked in place.
+Thomas answered direction questions in four rounds. They are the frame for the rest of part 0; the questions they settle are marked in place.
 
 - **0.A Core's surface.** "A, indeed you read me correctly." Core Aeolus is the fleet server, its API and argo's admin console, nothing more. People reach their ships through their own app or a chat; plugins serve their own pages; the questions UI in the console is frozen and later moves out.
 - **0.B The where covers every interaction.** "A, indeed the what (scope) vs where (network) is an all type of interactions." The network decides reading as well as sending, one rule per verb, and discovery and statements follow the same reach. Where applies to every type of interaction, not only send and read (0.2).
@@ -27,6 +27,17 @@ Two more rounds (17 Oct):
 - **0.H Discovery and statements, as picked in 0.9.** "A". Questions 43, 45, 47, 48, 49, 51, 52 and 54 take their picks.
 - **0.I MCP and A2A: borrow now, speak the protocols as the end state.** "I agree with (a) for short term but the end state is level 3 for all. And I will be pushing hard on it to have it soon rather than late." In the short term, statements borrow the agent card's and MCP's field names. The end state is level 3, (c) of question 55, for both MCP and A2A, in both directions: outside agents and clients reach fleet ships, and fleet ships reach outside ones. The interop design starts now, not after the scope rework ships.
 - **0.J No rights travel with a message.** "scopes is for core, a receiver just receives and has no indication that it may receive the message. Receiving it is enough. Scope logic is for core and the plugins to police." A receiving ship is never a policy point. Core and the plugins enforce scopes and reach; a message that reached a ship was allowed, and the ship acts on its own scopes. This settles question 27.
+
+The last round (17 Oct), closing part 0:
+
+- **0.K Shared plugins** (question 23): "agreed". One connection each, fleet-wide reach, and each person served only what that person may read.
+- **0.L A person's ship stays crewed** (decision review B): "agreed". The person's app holds the lease, and an absent person is not counted as stuck.
+- **0.M Whose machine runs whose ship** (decision review C): "This is a rule the organisation needs to make and will probably become a ruleset on the trierarch plugin based on labels." No product default. Placement rules are the organisation's, a label-based ruleset in the trierarch plugin, not core.
+- **0.N The networking plugin at fleet create** (decision review D): "yes for now, I am even debating making networking just part of the core since it is so vital (same importance as scopes) and to not bother with network traffic between the plugin and core. But that is busy work and we have more important things to do now." The hosting service switches the networking plugin on at fleet create. Networking in core is considered and deferred: no work now.
+- **0.O The flagship stays the proxy** (question 10): "yes". The forming ship's owner gates through it.
+- **0.P A stopped turn's message** (question 11): "yes since the force message could say to stop doing that exact message." It is handled when the forced turn ends.
+- **0.Q Forming ship and flagship reach each other by the same-owner rule** (question 12): "yes same owner rule (labels will need to be set here for visibility and enforcing it)". How it holds for a squadron is question 64.
+- **0.R A retired forming ship** (question 13): "yes". The flagship proxies to its owner, argo as fallback.
 
 ### 0.1 Purpose
 
@@ -128,9 +139,7 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 20. **How does a ship belong to a person?** Decided by 0.C: an owner core knows, set by argo or inherited from the commissioner at commission, not a label; how rules see it is question 60.
 21. **Dropped** by 0.A: what a person sees is their own app's; the console is argo's, and for core the question is 16.
 22. **Who is told about a ship's trouble?** Decided by 0.C: the owner, by a message to the owner's ship; argo when no one else owns it, and argo keeps Needs attention as the admin's view.
-23. **Shared plugins.** Squadrons, the trierarch plugin and the networking plugin serve every person.
-    Options: (a) they keep fleet-wide reach, as the organisation's own ships, and serve each person only what that person may read (squadrons checks the person's session); (b) one plugin connection per person.
-    Pick: (a). One install, one connection (0021); the person's reach bounds what the person gets.
+23. **Shared plugins.** Decided by 0.K: (a), one connection each with fleet-wide reach, each person served only what that person may read (how: question 66).
 24. **Dropped**: argo past every rule. The purpose answers it: the operator manages the whole fleet, so 0034's exception stays and covers reading too.
 25. **How is an app such as the CRM in the fleet?** Decided by 0.D: (a), the app is a ship, of kind `app`; the network gates it like any ship.
 26. **Who gates?** Decided by 0.C: (a), the owner of the asking ship, argo as fallback.
@@ -418,19 +427,20 @@ Each can be added when the fleet shows the need, before 1.0.0 without a compatib
 61. **What happens to a retired owner's ships?** Decided by 0.F: (a), they fall to argo.
 62. **Who changes a ship's owner?** Decided by 0.F: (a), argo only.
 63. **Dropped** by 0.F: who owns a ship a plugin commissions for a requester. The commissioner's owner, argo for a plugin, is enough: the flagship already carries a squadron's questions and trouble to the forming ship, whose owner gates them. It comes back if a need shows.
+64. **The same-owner rule for a squadron** (0.Q against 60 and 63). Thomas: "labels will need to be set here for visibility and enforcing it". Question 60 gives visibility and enforcement without a label. The owner is a field on every ship, shown where labels are shown: the ship page, the fleet list, the reach graph. A rule term `owner=#` is matched in the same check as label terms, at every send, read and manage. The conflict is elsewhere. Under 0.F a squadron's ships inherit their commissioner's owner, and squadrons is argo's, so the flagship is argo's while the forming ship is Thomas's, and same owner never holds between them.
+    Options: (a) squadrons names the forming ship's owner on the squadron's ships at commission (question 63 back, for plugins only), so the same-owner rule holds and Thomas owns his squadron; (b) a label, as Thomas's note reads: squadrons labels its own ships, argo labels the forming ship (decision 5 keeps squadrons from labelling a ship it did not commission), and a rule names that label; (c) only the answer exception: the forming ship writes first, the flagship answers.
+    No pick: Thomas's note and decided questions 60 and 63 point different ways.
 
 ### Open questions after 17 Oct
 
-- **Decided** by 0.A to 0.J (39): 15, 16, 17, 18, 20, 22, 25 to 31, 37 to 62.
-- **Dropped** (5): 19, 21, 24, 14 (folded into 56), 63.
-- **Open** (5):
-  - 10, reopened toward the owner: does the flagship stay the proxy to the forming ship, with the owner gating through it (part 5)?
-  - 11: is the message a stopped turn was working on handled when the forced turn ends (part 5)?
-  - 12: how do a forming ship and its flagship reach each other while rules are in force (part 5)? Rules by owner (0.E) may answer it.
-  - 13, reopened toward the owner: when a forming ship is retired, does the flagship proxy to its owner (part 5)?
-  - 23: do the shared plugins keep fleet-wide reach and serve each person only what that person may read (0.5)?
+Part 0 is closed: every question is decided or dropped, but one.
 
-Part 6, the catalogue, stays on hold until these fit.
+- **Decided** (43): 10, 11, 12 (in principle), 13, 15 to 18, 20, 22, 23, 25 to 31, 37 to 62. Decision review A to D: 0.D, 0.L, 0.M, 0.N.
+- **Dropped** (5): 14 (folded into 56), 19, 21, 24, 63.
+- **Open** (3):
+  - 64: how the same-owner rule holds between a forming ship and squadrons' flagship (0.Q against 60 and 63), for Thomas.
+  - 65: who commissions a person or app ship (part 6).
+  - 66: how a shared plugin knows what a person may read (part 6).
 
 ---
 
@@ -602,7 +612,7 @@ Unhappy paths: no scope (FORBIDDEN, nothing stored, key unused); reach refuses (
 
 ## 5. Decisions and open questions
 
-Questions 1 to 10 carry Thomas's answer as the decision.
+Questions 1 to 13 carry Thomas's answer as the decision; 14 is folded into 56.
 
 1. **argo changes a live ship's scopes.** Decided: (a) argo grants and revokes on a live ship, effective at the next call, with an event. Carried by `scopes:grant` (part 6).
 2. **A ship grants only the scopes it holds.** Decided: (a) subset rule; a plugin may also grant the scopes of its own namespace; the trierarch plugin gets `crew:run` itself.
@@ -614,79 +624,111 @@ Questions 1 to 10 carry Thomas's answer as the decision.
 8. **Members of a ship-formed squadron forming in turn.** Decided: (b) "no policy, the squadron blueprint decides. Else it would be us guessing and putting a security stamp on it." A template names the scopes its ships get; squadrons grants them at commission within the subset rule (scopes it holds, and its own namespace).
 9. **Limits on forming.** Decided: (a) "indeed no policy": squadrons' configuration (per fleet, per forming ship, members per squadron), unset is none.
 10. **The forming ship and its squadron.** Decided: (a) "scalable, but through the flagship, that ship is the proxy towards the forming ship. When the squadron was created by argo, it is a proxy to argo. If it was by another ship it is that ship." Mechanism above.
-    Reopened by 0.C (0.10). Options: (a) the answer stands, the proxy stays the forming ship, and the forming ship's owner gates what the squadron starts and gets its trouble; (b) the proxy goes to the forming ship's owner.
-    Pick: (a). The forming ship holds the work's context; its owner gates through it (question 26).
+    Reopened by 0.C, decided by 0.O: the proxy stays the forming ship; its owner gates through it.
 
-New, open:
+Decided later (0.O to 0.R):
 
-11. **The message a stopped turn was working on.** A forced message stops a turn that took an earlier, acknowledged delivery. 0040 calls a delivery handled only when its turn ends by itself, and hands it once more only after a turn died.
-    Options: (a) handled when the next turn (the forced one) ends by itself: the session still holds the earlier message, and the agent decides whether to go back to it; (b) handed once more after the forced turn, as for a died turn; (c) not handled, shown in Needs attention for Resend or Dismiss.
-    Pick: (a). Stopping is not dying; (b) would hand the agent a message it already has, and (c) asks the operator about work the agent can resume.
-12. **Reach between a forming ship and its flagship while network rules are in force.** Question 5 keeps squadrons from labelling the forming ship, so squadrons cannot declare that reach itself.
-    Options: (a) argo writes it: argo labels the ships it lets form with a label of its own and adds a rule to and from flagships (`squadron-role=flagship`); a flagship is code run by squadrons, not a session, and relays only for its own forming ship, so reaching every flagship gives a forming ship nothing more; (b) core widens the `labels:assign` bound to ships that sent the owner's ship a message, so squadrons labels the forming ship and declares the rule; (c) only the answer exception of 0034: the forming ship always writes first, the flagship only answers.
-    Pick: (a). No new core rule, and reach stays argo's; without rules (all-to-all, the default) nothing is needed.
-13. **A forming ship that is retired.** Reopened by 0.C. A send to a retired ship is refused; a released one just waits for crew.
-    Options: (a) the flagship proxies to the forming ship's owner from then on, argo as fallback; (b) to argo, as for a squadron argo formed; (c) the squadron stands down.
-    Pick: (a). The work in flight is not lost, and the human responsible for it decides.
+11. **The message a stopped turn was working on.** Decided by 0.P: (a), handled when the forced turn ends, "since the force message could say to stop doing that exact message."
+12. **Reach between a forming ship and its flagship while network rules are in force.** Decided by 0.Q: the same-owner rule; how it holds for a squadron is question 64.
+13. **A forming ship that is retired.** Decided by 0.R: (a), the flagship proxies to the forming ship's owner, argo as fallback.
 14. **`fleet:manage` bound** (gap G6). Folded into question 56 (0.2): manage becomes a network verb, with the owner's ship reaching the ships it owns.
 
 ---
 
 ## 6. The scope catalogue
 
+Fitted to decisions 1 to 13 (part 5) and 0.A to 0.R (part 0). Scope says what; the where of every scope is a network verb (send, read, manage, 0.E), or identity, ownership or assignment (0.2). argo is past every rule. The owner's ship reaches the ships it owns for every verb. No rights travel with a message (0.J): core and the plugins check scopes and reach, never the receiving ship.
+
 ### Format
 
-- A scope is `<namespace>:<action>`. Namespace and action: lowercase `a-z`, `0-9` and `-`, starting with a letter, 1 to 32 characters each.
+- A scope is `<namespace>:<action>`, each part lowercase `a-z`, `0-9` and `-`, starting with a letter, 1 to 32 characters.
 - **Core namespaces**, reserved: `messages`, `fleet`, `crew`, `labels`, `scopes`. Core enforces these, and only these.
-- **A plugin namespace**: a ship holding `scopes:declare` declares its namespace and its scopes with `fleet.declareScopes` (`{ namespace, scopes: [{ action, description }] }`), its whole list each time, as `declareNetworkRules` does (0037). Its first declaration takes up the namespace for good; it can never declare another. The description is one line of at most 200 characters, for the console.
-- Core stores a plugin's scopes on the ships granted them and answers them wherever it answers scopes (`fleet.list`, `fleet.ship`, `console.session`), so the plugin reads them from the fleet. It never checks them. `fleet.scopes` (`fleet:read`) lists every namespace with its declaring ship and its scopes.
-- Core refuses (each refusal named): a malformed scope; declaring a core namespace; a namespace another ship took (CONFLICT, naming it); a second namespace from the same ship; more than 20 scopes in a namespace; removing a scope ships hold (naming them, as label values, 0031); granting a scope nobody declared; granting a core scope the granter does not hold; granting a plugin scope by any ship but argo or that namespace's declarer.
-- Retiring the declaring ship retires its namespace: its scopes go from every ship, and the namespace is free again (as labels, 0031). Events: `ScopesDeclared` (declaring ship, namespace, the number of scopes) and `ScopesChanged` (ship, added, removed, by whom).
-- Granting: at commission, the commissioner grants scopes it holds and scopes of its own namespace. On a live ship, a ship with `scopes:grant` grants and revokes within the same rule; argo holds everything, so argo grants anything. Every agent ship gets `messages:send` and `messages:receive` at commission.
-- Not scopes, unchanged: `explainReach` and `reachRefusals` stay argo's by kind (0034).
+- **A plugin namespace** (decision 6): a ship holding `scopes:declare` declares its one namespace and its scopes with `fleet.declareScopes` (`{ namespace, scopes: [{ action, description }] }`), its whole list each time (as 0037). The first declaration takes the namespace for good. Descriptions are one line of at most 200 characters.
+- Core stores plugin scopes on the ships granted them and answers them with a ship's scopes; the plugin enforces them. `fleet.scopes` (`fleet:read`) lists every namespace, its declaring ship and its scopes.
+- **Refused**, each by name:
+  - a malformed scope;
+  - a core namespace declared;
+  - a namespace already taken (CONFLICT);
+  - a second namespace from one ship;
+  - more than 20 scopes in a namespace;
+  - a scope removed that ships still hold;
+  - a grant of an undeclared scope;
+  - a core scope granted by a ship that lacks it;
+  - a plugin scope granted by anyone but argo or its declarer.
+- Retiring the declaring ship frees its namespace and removes its scopes from every ship (as 0031). Events: `ScopesDeclared`, `ScopesChanged`.
+- **Granting** (decisions 1, 2): at commission, scopes the commissioner holds and scopes of its own namespace; on a live ship, `scopes:grant` within the same rule, effective at the next call. argo grants anything.
+- **By kind, not scopes**: argo (operator) and the viewer are past every rule, the viewer read-only (0022, 0.A). `explainReach`, `reachRefusals` and changing a ship's owner (`fleet.setOwner`) are argo's alone.
+- **Kinds** (0.D): `agent`, `person`, `app`, beside `operator` and `viewer`. Only an agent states a model. Every agent, person and app ship gets `messages:send` and `messages:receive` at commission.
+- **Owner** (0.F): every ship but argo and the viewer has one, a person's ship, inherited from the commissioner, argo by default. Only argo changes it.
+- **No scope needed**: a ship's own `report`, `turn`, `reportLog`, `whoami`, and its own statement (0.9). These are identity.
 
 ### Core scopes
 
-| Scope | Allows | Guards | Bound | Held by default | Granted by |
-| --- | --- | --- | --- | --- | --- |
-| `messages:send` | send a message, answer one | `send`, `fleet.reply` | as its own ship; reach applies | argo, every agent ship | given with every agent ship |
-| `messages:receive` | receive, acknowledge, answer a ping, read its inbox; the computer side's push receive, handed, handled, not handled, turn; argo's read and done | `receive`, `ack`, `pong`, `inbox`, `pushReceive`, `handed`, `handled`, `notHandled`, `turn`, `fleet.markRead`, `fleet.markDone` | its own ship | argo, every agent ship | given with every agent ship |
-| `messages:force` | send a message forced: handed over first and at once, a busy turn stopped | `send` with `force` | ships it reaches | argo | argo; a commissioner holding it |
-| `messages:resend` | resend or dismiss an undeliverable or not handled delivery | `fleet.resend`, `fleet.dismiss` | any ship | argo | argo; a commissioner holding it |
-| `fleet:read` | read the fleet, every payload included | `fleet.list`, `ship`, `shipTimeline`, `shipMessages`, `message`, `shipWay`, `needsAttention`, `overdue`, `noShipCanTake`, `health`, `inbox`, `follow`, `events`, `labels`, `findLabelValue`, `limits`, `clearRequests`, `scopes` | any ship | argo, viewer, squadrons, trierarch plugin, networking plugin | argo; a commissioner holding it |
-| `fleet:commission` | commission an agent ship, granting it only scopes the caller may grant | `fleet.commission` | new ships, which count as commissioned by it | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
-| `fleet:manage` | rename, release, crew again, retire, get a starting prompt, ping, request crew and remove the request, clear a worktree | `fleet.rename`, `release`, `recrew`, `retire`, `getStartingPrompt`, `ping`, `crewRequest`, `removeCrewRequest`, `clearWorktree` | ships it commissioned; argo any (question 14) | argo, squadrons | argo; a commissioner holding it |
-| `crew:assign` | assign a crew request, say why none fits | `fleet.assignCrew`, `explainCrewRequest` | any crew request | argo, trierarch plugin | argo; a commissioner holding it |
-| `crew:run` | for the crew requests assigned to its ship: read them, get the starting prompt, release, write status, give back, confirm a release, read and confirm clear requests | `fleet.assignedCrewRequests`, `getStartingPrompt`, `release`, `reportCrewStatus`, `confirmCrewRelease`, `giveBackCrewRequest`, `clearRequests`, `confirmWorktreeCleared`, `ship` | ships whose request is assigned to its own ship | argo, trierarch ships, trierarch plugin (question 2) | argo; a commissioner holding it (the trierarch plugin) |
-| `labels:define` | define, change and delete its labels; declare network rules on them | `fleet.defineLabel`, `changeLabelValues`, `deleteLabel`, `declareNetworkRules` | labels it owns | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
-| `labels:assign` | assign and unassign values of labels it owns | `fleet.assignLabel`, `unassignLabel` | its own ship and ships it commissioned; argo any (question 5) | argo, squadrons, trierarch plugin | argo; a commissioner holding it |
-| `fleet:network` | register as the networking plugin, set the rules (the registered plugin only), read declared rules | `fleet.registerNetworkPlugin`, `unregisterNetworkPlugin`, `setNetworkRules`, `declaredNetworkRules` | the fleet's rules | argo, networking plugin | argo; a commissioner holding it |
-| `scopes:declare` | take up one plugin namespace and declare its scopes | `fleet.declareScopes` | its own namespace | argo, squadrons | argo; a commissioner holding it |
-| `scopes:grant` | grant and revoke scopes on a live ship | `fleet.grantScopes` | scopes it may grant (above); argo any | argo | argo |
+| Scope | Allows | Guards | Where |
+| --- | --- | --- | --- |
+| `messages:send` | send, answer, ask a question; discover | `send`, `fleet.reply`, discovery | **send** reach; an answer to its sender always (0034) |
+| `messages:receive` | receive and confirm; the computer side's calls; argo's read and done | `receive`, `ack`, `pong`, `inbox`, `pushReceive`, `handed`, `handled`, `notHandled`, `fleet.markRead`, `markDone` | its own ship |
+| `messages:force` | a forced send: handed over first, a busy turn stopped (decisions 3, 4, 11) | `send` with `force` | **send** reach |
+| `messages:resend` | resend or dismiss an undeliverable or not handled delivery | `fleet.resend`, `dismiss` | **read** reach of the message; the resend is checked as the original sender's send |
+| `fleet:read` | read ships, timelines, messages, labels, events; fleet-wide views reduced to what it reads | `fleet.list`, `ship`, `shipTimeline`, `shipWay`, `shipMessages`, `message`, `follow`, `events`, `labels`, `findLabelValue`, `needsAttention`, `overdue`, `noShipCanTake`, `health`, `limits`, `clearRequests`, `scopes` | **read** reach: a message by its sender or recipient; outside read reach, name, type and status only |
+| `fleet:commission` | commission a ship, granting only what it may grant | `fleet.commission` | the new ship gets the commissioner's owner and counts as commissioned by it |
+| `fleet:manage` | rename, release, crew again, retire, starting prompt, ping, crew request, clear a worktree | `fleet.rename`, `release`, `recrew`, `retire`, `getStartingPrompt`, `ping`, `crewRequest`, `removeCrewRequest`, `clearWorktree` | **manage** reach (replaces "ships it commissioned", question 14) |
+| `crew:assign` | place a crew request, say why none fits | `fleet.assignCrew`, `explainCrewRequest` | any crew request |
+| `crew:run` | work the crew requests assigned to its ship | `fleet.assignedCrewRequests`, `getStartingPrompt`, `release`, `reportCrewStatus`, `confirmCrewRelease`, `giveBackCrewRequest`, `clearRequests`, `confirmWorktreeCleared`, `ship` | assignment |
+| `labels:define` | define, change, delete its labels; declare rules on them (0037) | `fleet.defineLabel`, `changeLabelValues`, `deleteLabel`, `declareNetworkRules` | labels it owns |
+| `labels:assign` | assign values of labels it owns | `fleet.assignLabel`, `unassignLabel` | its own ship and ships it commissioned (decision 5) |
+| `fleet:network` | register as the networking plugin, set rules, read declared rules | `fleet.registerNetworkPlugin`, `unregisterNetworkPlugin`, `setNetworkRules`, `declaredNetworkRules` | the networking plugin's ship (0035) |
+| `scopes:declare` | take up one namespace, declare its scopes | `fleet.declareScopes` | its own namespace |
+| `scopes:grant` | grant and revoke on a live ship | `fleet.grantScopes` | what it may grant |
 
-### Scopes squadrons declares (namespace `squadrons`, declared by the plugin, enforced by squadrons only)
+**Rules** (0034, changed by 0.E): each rule names one verb (send, read or manage). A selector term is a label, or the owner, with `#` for the same value on both sides. `explainReach` answers per verb.
 
-| Scope | Allows | Guards | Bound | Held by default | Granted by |
-| --- | --- | --- | --- | --- | --- |
-| `squadrons:form` | ask squadrons to form a squadron from a blueprint; it then owns it: stands it down, gets its relays | `squadron.form+json` to squadrons' ship; `squadron.stand-down+json` to the flagship | squadrons it formed | none (argo holds it) | argo; squadrons at commission when a template names it (question 8) |
-| `squadrons:scale` | add and remove members of a squadron it owns | `squadron.add-member+json`, `squadron.remove-member+json` to the flagship | squadrons it formed | none (argo holds it) | argo; squadrons at commission when a template names it |
+### Who holds what
 
-argo holds every scope, a plugin's too, and squadrons' console API keeps checking the operator's session as today.
+| Ship | Scopes | Reach it needs |
+| --- | --- | --- |
+| argo | every scope, plugin scopes too | past every rule |
+| viewer | `fleet:read` | past every rule, read only |
+| agent, person or app ship | `messages:send`, `messages:receive`, and what argo or its commissioner grants | argo's rules; its owner's ship reaches it |
+| squadrons | `messages:*`, `fleet:read`, `fleet:commission`, `fleet:manage`, `labels:define`, `labels:assign`, `scopes:declare` | read fleet-wide (0.K); manage of its squadron ships, declared on its own label (0037) |
+| trierarch plugin | `messages:*`, `fleet:read`, `fleet:commission`, `crew:assign`, `crew:run`, `labels:define`, `labels:assign` | read fleet-wide (0.K) |
+| networking plugin | `messages:*`, `fleet:read`, `fleet:network` | read fleet-wide (0.K) |
+| trierarch ship | `messages:*`, `crew:run` | none beyond its requests |
+
+A plugin's fleet-wide read reach is one read rule of argo's per plugin, or none needed while the fleet has no rules. All plugin and trierarch ships are argo's (0.F).
+
+### Squadrons' namespace (declared by squadrons, enforced by squadrons)
+
+| Scope | Allows | Where |
+| --- | --- | --- |
+| `squadrons:form` | ask squadrons to form a squadron (`squadron.form+json`) and stand it down; the flagship proxies to the forming ship (decision 10, 0.O), and to its owner once it is retired (0.R) | squadrons it formed |
+| `squadrons:scale` | add and remove members (`squadron.add-member+json`, `squadron.remove-member+json` to the flagship) | squadrons it formed |
+
+A template names the scopes its ships get; squadrons grants them within the subset rule (decision 8). Limits are squadrons' configuration (decision 9).
+
+### What the other decisions add to no scope
+
+- **Contained access** (0.G): no scope changes. The trierarch forwards a session's calls with the ship's crew token and refuses `register` and `deregister`; the fleet checks scopes and reach as for any call.
+- **Discovery and statements** (0.H): discovery rides `messages:send` and send reach. A statement is written as identity and read by the ships that can send to it. Its shape borrows the agent card's and MCP's field names (0.I).
+- **Questions and gates** go to the owner's ship as messages (0.C). They need no scope beyond send.
 
 ### From today's scopes to these
 
-No compatibility layer (0013): one migration sets every ship's scopes, and the old names stop existing.
+One migration, no compatibility layer (0013):
 
-| Today | Becomes | Change |
-| --- | --- | --- |
-| `messages:send`, `messages:receive` | same | unchanged |
-| (none) | `messages:force` | new |
-| `fleet:manage` (resend, dismiss) | `messages:resend` | split out |
-| `fleet:read` | same | unchanged, also guards `fleet.scopes` |
-| `fleet:manage` (commission) | `fleet:commission` | split out; grants only what the caller may grant |
-| `fleet:manage` (the rest) | `fleet:manage` | narrowed to ships it commissioned |
-| `crew:assign`, `crew:run`, `labels:define`, `fleet:network` | same | unchanged |
-| `labels:assign` | same | narrowed to its own ship and ships it commissioned |
-| (none) | `scopes:declare`, `scopes:grant` | new |
+- `fleet:manage` splits into `fleet:commission`, `messages:resend` and `fleet:manage`, which is bounded by manage reach. Every holder today gets all three.
+- `messages:force`, `scopes:declare` and `scopes:grant` are new.
+- Squadrons gains `fleet:commission` and `scopes:declare`.
+- The trierarch plugin swaps `fleet:manage` for `fleet:commission` and gains `crew:run`.
+- Every ship gets an owner, argo's. Agent ships keep their kind; the kinds person and app are new.
+- Rules gain a verb. Existing rules become send rules, and argo adds read and manage rules.
+- Connect sets these scope sets for a new connection.
 
-Holders after the migration: argo every core scope; a ship holding `fleet:manage` today also gets `fleet:commission` and `messages:resend`, so it keeps what it did, within the new bounds; squadrons gains `fleet:commission` and `scopes:declare`; the trierarch plugin swaps `fleet:manage` for `fleet:commission` and gains `crew:run`; the networking plugin, trierarch ships and the viewer are unchanged. The console's Connect sets these sets for a new connection.
+**Questions the decisions leave open:**
+
+65. **Who commissions a person or app ship?**
+    Options: (a) argo only; an agent ship with `fleet:commission` commissions agents; (b) any `fleet:commission` holder, any kind.
+    Pick: (a). A person's or app's ship stands for something outside the fleet, which only the admin vouches for; an agent commissioning a "person" would be untrue to what it is (0.D).
+66. **How does a shared plugin know what a person may read?** (0.K) A person reaches the plugin through their own app, not a console session (0.A).
+    Options: (a) the person's app hands the plugin the person's crew token, and the plugin reads from core with it; (b) a plugin ship argo connected asks core to read for a named ship, and core answers under that ship's read reach.
+    Pick: (b). The crew token stays with the person's app, as 0.G keeps tokens where they belong, and core still decides what the person may read; (a) spreads a credential to every plugin a person uses.
