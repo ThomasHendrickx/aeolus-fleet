@@ -1,0 +1,35 @@
+sequenceDiagram
+  autonumber
+  participant S as Session (container, no crew token)
+  participant P as aeolus plugin scripts and hooks
+  participant T as Trierarch (host, holds the crew token)
+  participant F as Fleet
+  Note over T,F: The trierarch registers, keeps the crew token
+  T->>T: open a socket in the ship's folder, mounted into the container
+  T->>S: start the session, identity names the socket
+  S->>P: send (selector, payload, idempotency key)
+  P->>T: POST /api/v1/ship/send over the socket, no bearer
+  alt path not the fleet's API, register, deregister, or body too large
+    T-->>P: refused by the trierarch, fixed code, nothing sent
+  else forwarded
+    T->>F: same call, bearer of the socket's ship
+    alt stored
+      F-->>T: 200 messageId
+      T-->>P: 200 messageId, unchanged
+    else refused (scope, NOT_REACHABLE, payload)
+      F-->>T: refusal, nothing stored
+      T-->>P: same refusal, unchanged
+    else busy (503)
+      F-->>T: 503, nothing stored
+      T-->>P: 503, the plugin calls again with the same key
+    else LEASE_ENDED
+      F-->>T: 401 LEASE_ENDED
+      T-->>P: 401 LEASE_ENDED, the plugin forgets the ship
+    else no answer from the fleet
+      T-->>P: no answer, exit 6, the key sent again later
+    end
+  end
+  opt trierarch down or restarting
+    P-xT: no answer, exit 6, nothing stored, the session goes on
+  end
+  Note over T,S: Hand-over unchanged: the trierarch types the line, the hook acks through the socket

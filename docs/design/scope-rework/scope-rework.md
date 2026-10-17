@@ -1,8 +1,8 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery, questions 37 to 47); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
-Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png` (sources in `src/`).
+Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
 ---
 
@@ -175,6 +175,133 @@ Thomas (17 Oct): "our questions in console solution is the wrong direction. It c
 31. **What happens to the work on the console's questions now?** #849 (operator inbox and questions redesign) is open.
     Options: (a) hold it until questions 28 and 29 are answered; (b) finish it for argo's inbox only; (c) close it.
     Pick: (a). Building more of a surface that may move out of core is the cost this direction warns about.
+
+### 0.8 Fleet access contained by default
+
+Thomas (17 Oct): "I see benefits from containing aeolus access by default. The agent if ran by trierarch does not need the token." In his direction a session the trierarch crews holds no fleet credential. Its fleet calls go through the trierarch on its machine, which holds the crew token, so a container needs no route to the fleet. A session crewed by hand, or a chat with the fleet's connector, keeps its crew token as today (0015). Nothing below is decided.
+
+**Why it contains.** Today a container holds its ship's crew token in its home (0039: "its own home (the harness's config folder, the aeolus plugin, its ship's identity file)"). A breached session can copy that token out and act as its ship from anywhere until the lease ends, past the end of the session and from outside the network's view of where the ship runs. Without the token, the session acts as its ship only while it runs, only from its container, and only through the trierarch; a release, which stops the session (0026), ends that too. What its ship may do does not change: scopes stay on the server (0002) and reach stays the network's (0034).
+
+**Today, read in the code:**
+
+- `plugins/aeolus/scripts/aeolus-fleet.sh` is the one door for a session's fleet calls: it reads the crew token from the folder's identity file and calls the fleet's REST API with curl, the token as the bearer. Every hook and every model call goes through it.
+- The trierarch registers with the secret on the host (0026) and writes the identity, crew token included, through the host's aeolus plugin into the ship's home, `~/.aeolus/trierarch/homes/<shipId>` (`claude-code-home.ts`), mounted as the container's home (`container.ts`).
+- The trierarch's hand-over already runs on the host: it runs the host's `aeolus-push.sh hand` and `died` against that home (`plugin-identity.ts`), so push receive and handed are the host's calls today, with the token read on the host.
+- The container runs on the runtime's default network (`container.ts` names no network), so it reaches anything, the fleet included.
+
+**The calls that move** (the ones a session makes from inside its container):
+
+| Call | Made by | Moves to the trierarch |
+| --- | --- | --- |
+| `ack` | the PreToolUse and Stop hooks, confirming a hand-over (0040) | yes |
+| `turn`, `handled`, `notHandled` | the hooks (0040) | yes |
+| `send`, `report`, `inbox`, `whoami`, `reportLog`, `pong` | the model, through the plugin's scripts and skills, `aeolus-ask.sh` included | yes |
+| `protocol` (the fleet's OpenAPI text) | the model, at the start of crewing | yes |
+| a `fleet.*` procedure its scopes allow (an orchestrator ship with fleet scopes) | the model | question 38 |
+| `pushReceive`, `handed` | the trierarch, already on the host | no change |
+| `register` | the trierarch, already on the host | no change |
+| `deregister` | the model | question 38 |
+
+**How it would work.** The identity a trierarch writes for a session holds no crew token; it names the trierarch instead. `aeolus-fleet.sh` sends the same REST call to the trierarch over a Unix socket in a folder mounted into the container (curl's `--unix-socket`), with no bearer. The trierarch knows the ship by the socket the call came in on, one per ship, adds that ship's crew token and forwards the call to the fleet unchanged, then hands back the fleet's answer unchanged: status, code and body. The crew token stays in the trierarch's own state on the host, never in the ship's home. Diagram `6-contained-calls.png`.
+
+![Contained fleet calls](6-contained-calls.png)
+
+**What the trierarch adds or checks on the way.** Deterministic only, nothing that reads content: 0026 rejected an AI dispatcher, and the trierarch is a plain process. It adds the bearer. It checks that the path is one of the fleet's API (question 38) and that the body fits the payload limit plus its envelope (0006), refusing anything else itself with a fixed code that says the trierarch refused it. It logs one line per call (ship, path, status), never a body. The fleet still authorises every call by the ship's scopes and the network rules; the trierarch duplicates none of that. **Content moderation stays out of the trierarch.** If it is ever wanted, it is a server-side plugin hook that every ship's sends pass through, crewed by hand or not, never a check on one machine that a hand-crewed session skips.
+
+**The delivery guarantee.** A send is OK only once the server stored it, and the trierarch never answers OK itself: it holds no queue and buffers nothing, so the answer the session gets is the fleet's. The idempotency key goes through unchanged, so the plugin's busy retries keep their meaning. While the trierarch is down or restarting, a call gets no answer, exactly as when the fleet does not answer (`aeolus-fleet.sh` exit 6), and nothing is stored. A send whose answer was lost between the fleet and the trierarch is sent again with its key, as today.
+
+**How the turn and the hand-over keep working.** They do not change. The trierarch already types the hand-over line; the hooks' `ack`, `turn`, `handled` and `notHandled` reach the fleet through the socket, so the agent still confirms its own message (0040 rejected the computer side acking for the agent). LEASE_ENDED comes back as the fleet answered it, and the plugin forgets the ship as today. A ship crewed again gets a new crew token in the trierarch's state while the socket stays the same, which takes the place of the plugin's "crewed again during the call" retry for these sessions.
+
+**What a session crewed by hand or a chat keeps.** Its crew token, held as today: in the folder's identity file for a hand-crewed session with the aeolus plugin, in the conversation for the connector (0015). Nothing stands between it and the fleet, so it gains none of this containment. The plugin keeps both paths: the identity names either a crew token or the trierarch's socket.
+
+**Egress.** With no fleet route needed, a container's egress could be narrowed. But the model API and git are not all a session reaches today: the published image runs a repository's tests, npm installs and Testcontainers through Podman inside the container (0039), so it pulls packages and images. Rootless Podman's default network has no allowlist by name, so narrowing takes an egress proxy or firewall rules per container, and a list per repository. That is a cost of its own (question 41).
+
+**Cost.**
+
+- The trierarch gains a small server, one socket per ship, opened before the session starts and closed on release, and the crew tokens move into its own state.
+- The plugin gains a socket branch in `aeolus-fleet.sh` and in the identity it writes, and `aeolus-push.sh` and the hooks read the identity through it as now.
+- The container gains one mounted folder.
+- Each call takes one more local hop, a few milliseconds.
+- docs/trierarch.md (Session runtime) and 0039's "What it sees" change.
+- 0039 rejected "a credential proxy on the host, for now". That was the model login, on subscription terms that are unclear; the fleet is Aeolus's own API, so that reason does not carry over.
+
+**Questions:**
+
+37. **Which sessions hold no fleet credential?**
+    Options: (a) every session a trierarch crews, on the host or in a container; (b) only container sessions; (c) a machine's choice in its configuration.
+    Pick: (a). Thomas says "the agent if ran by trierarch does not need the token": one way for every session a trierarch crews. On the host a session runs as the trierarch's own user and could read its state, so only a container contains; the host still gains that no token lies in the session's folder.
+38. **What does the trierarch forward?**
+    Options: (a) any call to the fleet's API (ship and `fleet.*` procedures), except `register` and `deregister`, the fleet authorising each by the ship's scopes; (b) only the calls the aeolus plugin makes; (c) any call, `deregister` included.
+    Pick: (a). Scopes stay the server's (0002), so the trierarch does not re-decide them, and a ship with fleet scopes keeps them. `deregister` would end a crew the crew request keeps (0026): release is removing the request.
+39. **What does the trierarch add or check?**
+    Options: (a) the bearer, the path (question 38), the body size, and one log line without the body; (b) (a) plus a rate limit per session; (c) (a) plus checks of the content.
+    Pick: (a). (b) is policy (0016) where the fleet already has limits for speed; (c) is the AI or content judgement 0026 rejected, and moderation, if ever wanted, is a server-side plugin hook for every ship.
+40. **How does a session reach the trierarch?**
+    Options: (a) a Unix socket in a folder of its ship's own, mounted into the container, the ship known by the socket; (b) a port on the host the container reaches, with a secret per ship in the container; (c) the trierarch reads requests from files in the ship's home.
+    Pick: (a). The socket names the ship by where it is, so no secret goes back into the container. A mounted folder, not a mounted socket file, survives the trierarch opening the socket again after a restart.
+41. **Is the container's egress narrowed now?**
+    Options: (a) not in this step: the fleet credential goes, and narrowing egress is a later machine configuration with a list per repository; (b) narrow now to the model API, the repository's git remote and the registries a repository's configuration names; (c) no egress at all, everything through a proxy on the host.
+    Pick: (a). Taking the token out stops a breached session acting as its ship from elsewhere, at the cost of a socket. Narrowing egress guards against data leaving, needs a proxy and a list per repository, and breaks tests that pull images until the list is right.
+42. **What happens while the trierarch is down?**
+    Options: (a) a call gets no answer, as when the fleet is down, and the session goes on; nothing is queued; (b) the trierarch queues sends and answers OK.
+    Pick: (a). (b) answers OK before the server stored the message, which breaks the promise.
+
+### 0.9 Discovery
+
+Thomas (17 Oct): "I would like to add a discovery tool for ships. Now we are using networking, asking aeolus who is on the network and is accessible should be a normal call to make. Like a discovery call on an IP network." In his direction any ship asks the fleet which ships it can reach right now, as a normal call. Nothing below is decided.
+
+**Today:**
+
+- A ship sees other ships only with `fleet:read`, which shows every ship, timeline and payload with no rule in the way (the gap in 0.2).
+- Only argo asks whom a ship reaches (`fleet.explainReach`, 0034), answered with the ships, never the rules or why, and recorded nowhere.
+- A ship without `fleet:read` learns of others only from the messages it gets, its starting prompt, or a squadron's hand-offs (0017); or by sending and being refused (`NOT_REACHABLE`, one fixed message, each refusal recorded for argo).
+- What a ship carries that could say what it is for:
+  - its name;
+  - its type, a free text;
+  - the optional note the commissioner gives at commission (blueprint: "name, type, optional note"; `Ship.note`);
+  - its crew's report: state, note and details, kept with the lease, not the ship (0028).
+
+  No ship carries a description of what it offers, and nothing states the content types a ship answers.
+
+**How it would work.** A ship procedure, beside `whoami`, that every ship with `messages:send` may call. It answers with the ships the caller can send to now, checked as a send would be at that moment, the same matching `fleet.explainReach` uses (0034):
+
+- the rules in force, or all-to-all with none;
+- argo always, since every ship sends to argo;
+- never a retired ship, never the viewer ship.
+
+It answers too the types the caller can send to now, each with how many of its ships it reaches. As with explainReach, it answers the ships, never the rules or why, and records nothing. A refusal stays as 0034 has it: one fixed message, no reasons.
+
+**What it touches:**
+
+| Question | How discovery relates |
+| --- | --- |
+| 16 (does reach govern reading?) | Discovery answers send reach: who will take my message. If 16 picks (c), read reach is a second set, answered by the read procedures, not by discovery (question 46) |
+| 17 (reading a message, which side) | Untouched: discovery shows ships, never messages |
+| 18 (what shows outside read reach) | Discovery shows of each ship what 18 shows outside read reach, so it never shows more than reading would (question 44). If 18 picks (a), not at all, discovery is the one way a ship learns that another exists |
+| 25 (an app as a ship) | With 25 (a), the CRM is a ship. Charlotte's PRD ship discovers it with its note; Burak's ships do not, since no rule lets them send to it. Discovery is how a ship finds the apps it may use, with no list kept in a prompt |
+| 0034 (a refusal says nothing about the rules) | Holds. A ship learns the set it reaches, which it could learn by sending; it learns no rule and no reason. Unlike probing by sending, discovery leaves no refusal record for argo (question 45) |
+| Squadrons' hand-offs (0017) | Unchanged: a role still names its hand-offs; discovery adds a way to find ships outside them |
+| REST and MCP | The call maps onto the one tRPC procedure, as every ship call does (0004), so a chat with the connector discovers too |
+
+**Cost.** One reach check over the fleet's ships per call; core already does this check for argo's explainReach. With rules set, the cost grows with the ships and rules; limits are for speed (0037), so a call may be capped like the other reads. Common gains the answer's schema; the plugin and the protocol text gain a line on the call.
+
+**Questions:**
+
+43. **Who may discover?**
+    Options: (a) every ship with `messages:send`, no new scope; (b) a scope of its own; (c) every crewed ship, `messages:send` or not.
+    Pick: (a). Knowing whom a send can reach is part of sending, as Thomas puts it "a normal call"; a ship that cannot send reaches no one.
+44. **What does it show of each ship?**
+    Options: (a) name, type and status (awaiting crew, crewed), and its description (question 47); (b) (a) plus its labels; (c) (a) plus its crew's report.
+    Pick: (a). It matches what question 18 (b) shows outside read reach, so discovery never shows more than reading would. Labels are what the rules select on, so showing them beside the reach set maps the rules (0034); the report is work, which read reach governs (question 16).
+45. **Is a discovery call recorded?**
+    Options: (a) no, as explainReach records nothing; (b) each call recorded for argo, beside reach refusals.
+    Pick: (a). It reveals nothing a send would not, and recording every normal call buries the refusals argo reads.
+46. **Discovery and read reach.**
+    Options: (a) discovery answers send reach only; (b) it answers both, marking per ship whether the caller may send, read or both.
+    Pick: (a). It answers Thomas's question, who is on the network and accessible, in one set. A second verb in its answer waits for question 16.
+47. **Can a ship say what it offers?** Today only the commissioner's note, the type and the crew's report say anything.
+    Options: (a) the commission note is the description: whoever commissions the ship (argo, a squadron template, a tech lead) writes what it is for, and discovery shows it; (b) the crew states what its ship offers, kept with the lease as the report is, so an app's adapter can name the content types it answers; (c) a description on the ship, which the commissioner and argo may change at any time; (d) nothing beyond the type's name.
+    Pick: (a). It needs no new field, and the one who decided the ship should exist knows what it is for; the receiving ship still decides what to do with any request (0001). (b) fits an app such as the CRM better, but is a second free text kept on every lease.
 
 ---
 
