@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console; 0.8 fleet access contained by default and 0.9 discovery and what a ship states, questions 37 to 55); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) with three decisions of 17 Oct (0.A to 0.C) and 30 questions still open (listed at its end; 0.6 the console, 0.8 fleet access contained by default, 0.9 discovery and what a ship states, 0.10 the owner); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
@@ -8,7 +8,15 @@ Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-f
 
 ## 0. One organisation, one fleet (product direction, before the catalogue)
 
-Thomas (17 Oct): "one organisation where a symbiosis of humans, apps and agents are interconnected in a secure and managed way that removes the current human as the glue and maximises value through fast information flow where humans still gate and steer on the critical points." And: "scope is what a ship can do, network (e.g. done with labels) is where it can do it." The catalogue in part 6 is on hold until it fits this. This part takes no decisions; options and picks are only in its questions (15 onward).
+Thomas (17 Oct): "one organisation where a symbiosis of humans, apps and agents are interconnected in a secure and managed way that removes the current human as the glue and maximises value through fast information flow where humans still gate and steer on the critical points." And: "scope is what a ship can do, network (e.g. done with labels) is where it can do it." The catalogue in part 6 is on hold until it fits this. Thomas decided three things (below); everything else is open, with options and picks in the questions (15 onward).
+
+### Decided (17 Oct)
+
+Thomas answered three direction questions. They are the frame for the rest of part 0; the questions they settle are marked in place.
+
+- **0.A Core's surface.** "A, indeed you read me correctly." Core Aeolus is the fleet server, its API and argo's admin console, nothing more. People reach their ships through their own app or a chat; plugins serve their own pages; the questions UI in the console is frozen and later moves out.
+- **0.B The where covers every interaction.** "A, indeed the what (scope) vs where (network) is an all type of interactions." The network decides reading as well as sending, one rule per verb, and discovery and statements follow the same reach. Where applies to every type of interaction, not only send and read (0.2).
+- **0.C Every ship has an owner.** "A, and it follows the 'a human is always responsible'. Gates are clear, but every ship needs to be maintained. It's like application owners in current IT management." Every ship belongs to a person, a fact core knows, set by argo or inherited at commission. Questions, trouble and gates go to the owner, argo as fallback. A PA's statement is trusted for a person only when the PA belongs to that person. What the owner maintains is in 0.10.
 
 ### 0.1 Purpose
 
@@ -30,28 +38,42 @@ Worked scenario:
 
 argo (the operator) sets the network, grants scopes, connects the plugins and sees everything. A good outcome: Charlotte's PRD ship directs both tech leads with no human passing messages along; Burak's ships cannot get at the CRM; the PRD ship cannot start ships, it can only ask a tech lead, whose own scopes and whose person decide; each question lands with the person who owns the work.
 
-### 0.2 Scope says what, network says where: taken strictly
+### 0.2 Scope says what, network says where: every type of interaction
 
-Read strictly, a scope is a verb with no object, and every object comes from the network. The network today has one verb: send (0034). Every bound in part 6 re-read as a where:
+0.B: "the what (scope) vs where (network) is an all type of interactions." Every interaction a ship has with core gets a where. For some, the where is a network verb, so a rule names which ships may do it to which. For the others, it is who the caller is (identity), what it owns (a label, a namespace, its ships by 0.C) or what was assigned to it. Today the network has one verb, send (0034), and `fleet:read` reads every payload with no rule in the way. That is the gap 0.B closes.
 
-| Bound in part 6 | Scopes | Is it a where? | Could the network carry it? |
+Each interaction core has, with its procedures and scope today and its where under 0.B:
+
+| Interaction | Procedures today | Scope | Where |
 | --- | --- | --- | --- |
-| its own ship | `messages:send` (as itself), `messages:receive` | No: it is who the caller is | No, stays identity |
-| ships it reaches | `messages:force` | Yes, already the network | Already does |
-| ships it commissioned | `fleet:manage`, `labels:assign` | Yes, a where by lineage | Yes, with a manage reach |
-| any ship | `fleet:read`, `messages:resend`, `crew:assign` | Yes: the whole fleet | Yes, as a read reach, a resend reach |
-| argo any | argo on every bound; `explainReach`, `reachRefusals` | Yes: the whole fleet, by kind | No: the operator manages the whole fleet |
-| labels it owns, its own namespace, the fleet's rules | `labels:define`, `scopes:declare`, `fleet:network` | No: ownership of a thing | No, stays ownership |
-| crew requests assigned to its ship | `crew:run` | Ownership by assignment | No, stays assignment |
-| new ships | `fleet:commission` | Where the new ship lands | Partly: which person's ships it joins |
+| Send, ask a question | `send`, `fleet.reply` | `messages:send` | Network verb **send** (0034) |
+| Answer a message received | `send` with inReplyTo | `messages:send` | Fixed exception (0034): to that message's sender |
+| Force | new (decisions 3, 4) | `messages:force` | Rides **send**: a forced message is a send |
+| Receive and confirm | `receive`, `pushReceive`, `ack`, `pong`, `handed`, `handled`, `notHandled`, `markRead`, `markDone`, `inbox` | `messages:receive` | Identity: its own ship |
+| Say what it is doing | `report`, `turn`, `reportLog` | the crew | Identity: its own ship |
+| Read a ship and its messages | `fleet.list`, `ship`, `shipTimeline`, `shipWay`, `shipMessages`, `message`, `follow`, `events`, `labels`, `findLabelValue` | `fleet:read` | Network verb **read**, a message by its sender or recipient (question 17) |
+| Read fleet-wide views | `health`, `limits`, `needsAttention`, `overdue`, `noShipCanTake` | `fleet:read` | argo's administration (0.A); for any other ship, only the ships in its read reach |
+| Discover | new (0.9) | `messages:send` | Rides **send** (question 46) |
+| State what it is and offers | new (0.9) | its own ship | Identity for writing; read by the ships that can send to it (question 50) |
+| Manage a ship: release, retire, rename, recrew, crew request, ping, clear a worktree | `fleet.release`, `retire`, `rename`, `recrew`, `crewRequest`, `removeCrewRequest`, `ping`, `clearWorktree` | `fleet:manage` | Network verb **manage** (question 56; today any ship, gap G6) |
+| Resend, dismiss a stuck message | `fleet.resend`, `dismiss` | `fleet:manage` (`messages:resend` in part 6) | Resend is checked as the original sender's send (0034); who may resend rides **read** of the message |
+| Commission | `fleet.commission` | `fleet:manage` (`fleet:commission` in part 6) | Not a reach: the new ship lands with an owner (0.C, question 63) |
+| Define a label, declare rules on it | `defineLabel`, `changeLabelValues`, `deleteLabel`, `declareNetworkRules` | `labels:define` | Ownership of the label (0031, 0037) |
+| Assign a label | `assignLabel`, `unassignLabel` | `labels:assign` | Ownership (decision 5): a rule granting it would let the network widen reach |
+| Declare and grant scopes | new (decisions 1, 2, 6) | `scopes:declare`, `scopes:grant` | Ownership of a namespace; the subset rule |
+| Set the network | `setNetworkRules`, `registerNetworkPlugin`, `unregisterNetworkPlugin`, `declaredNetworkRules` | `fleet:network` | The networking plugin's ship only (0035) |
+| Crew a ship for a request | `assignedCrewRequests`, `reportCrewStatus`, `giveBackCrewRequest`, `confirmCrewRelease`, `confirmWorktreeCleared` | `crew:run` | Assignment: the requests assigned to it |
+| Place a crew request | `assignCrew`, `explainCrewRequest` | `crew:assign` | Any request (the trierarch plugin's ship) |
+| Explain reach, read refusals | `explainReach`, `reachRefusals` | `fleet:read` | argo only, by kind (0034) |
+| A plugin serving a person | squadrons' and the trierarch plugin's APIs, checked by `console.session` | `fleet:read`, `fleet:manage` | The person's own reach bounds what the plugin serves them (question 23) |
 
-In the scenario, sending is already carried by the network: CRM reach and the PRD path are send rules. What the network does not carry is **reading**. `fleet:read` shows every ship and every payload, with no rule in the way:
+So three verbs take a network rule (send, read, manage). Force, discover and resend ride one of them; the rest stay identity, ownership or assignment. argo stays past every rule (0034), now for every verb.
 
-- payloads: `fleet.message`, `fleet.shipMessages`, `fleet.inbox` (argo's), `fleet.follow` and `fleet.events`;
-- ship facts: `fleet.list`, `fleet.ship`, `fleet.shipTimeline`, `fleet.shipWay`, report details (0028), labels;
-- fleet facts: `fleet.needsAttention`, `overdue`, `noShipCanTake`, `health`, `limits`, `labels`, `clearRequests`.
+In the scenario of 0.1, "Charlotte has access to CRM, as does Thomas but Burak does not" becomes a send rule and a read rule. Thomas's PA with `fleet:read` reads the CRM ship's messages only where a read rule lets it, and Burak's ships see nothing of the CRM.
 
-So Thomas's PA with `fleet:read` reads every message to and from the CRM ship, customer data included, even though Burak's ships may not send to it. The squadrons and trierarch plugin APIs read through the same scope.
+56. **Which verbs do network rules name?** (folds in question 14)
+    Options: (a) send, read and manage; force, discover and resend ride them, and the owner's own ship reaches the ships it owns for every verb as a fixed exception, as argo does; (b) one verb per interaction in the table; (c) send and read only, manage bound by ownership alone.
+    Pick: (a). Three verbs cover every interaction that crosses between ships. (b) multiplies rules with no new where. (c) leaves manage outside the network, against 0.B. The owner's exception keeps an owner maintaining its ships (0.C) when no rule names it.
 
 ### 0.3 Single-operator assumptions: what holds, what breaks
 
@@ -90,28 +112,14 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 
 ### 0.5 Questions for Thomas
 
-15. **How is a person in the fleet?** (changed by 0.6: see there) argo stays the one operator; Charlotte and Burak must sign in to gate and steer.
-    Options: (a) each person crews a ship of their own from the console, with their own login and session, holding the scopes argo grants; (b) every person signs in as argo; (c) a person is not in the fleet, their PA ship answers for them.
-    Pick: (a). Every caller stays a ship, each person signs in as themselves, and argo stays the operator.
-16. **Does reach govern reading as well as sending?**
-    Options: (a) no, reading stays fleet-wide; (b) the same rules govern both: whom a ship may send to, it may read; (c) each rule names its verb (send, read), so the scope says what and the rule says where for that verb.
-    Pick: (c). Thomas's ships may send to the CRM ship, and the PRD ship to both tech leads, without either reading the other side's every message; (b) cannot say that.
-17. **Reading a message: reach to which side?**
-    Options: (a) its sender or its recipient; (b) both; (c) its recipient only.
-    Pick: (a). A message the PRD ship sends to Thomas's tech lead is part of that tech lead's timeline.
-18. **Does a ship outside read reach show at all?**
-    Options: (a) not at all; (b) name, type and status only, no timeline, messages, details or labels; (c) everything but payloads.
-    Pick: (b). One connected organisation shares one picture of which ships exist and who crews them; no word of work leaks.
+15. **How is a person in the fleet?** Decided by 0.A: a person's ship is crewed through their own app or a chat, holding its crew token as any crew does (0015); argo keeps the console's login.
+16. **Does reach govern reading as well as sending?** Decided by 0.B: (c), each rule names its verb, and every type of interaction gets a where (0.2, question 56).
+17. **Reading a message: reach to which side?** Decided by 0.B: (a), its sender or its recipient, the pick that follows: a message is part of both ships' timelines.
+18. **Does a ship outside read reach show at all?** Decided by 0.B: (b), name, type and status only: one organisation shares one picture of which ships exist and who crews them, and no word of work leaks.
 19. **Dropped**: who sets the network. The purpose answers it: argo, the one operator, manages the whole fleet; declared rules (0037) stay as they are.
-20. **How does a ship belong to a person?** Charlotte owns the PRD ship; a ship Thomas's tech lead starts is Thomas's.
-    Options: (a) a label per person, owned by that person's ship, which labels the ships it commissions (0031, question 5); (b) one `subfleet` label argo owns, and commission copies the commissioner's value to the new ship; (c) argo labels every new ship by hand.
-    Pick: (b). It keeps Thomas's `subfleet=thomas`, one label for argo's rules to name, and a person's ships stay theirs without argo's work; core copies only a value argo already set on the commissioner.
-21. **What does a person see in the console?** (changed by 0.6: see there)
-    Options: (a) their read reach: the fleet page, their inbox, Needs attention, health and squadrons for what they may read; (b) everything, as argo; (c) their read reach plus counts for the rest.
-    Pick: (a). argo sees everything; a person's console is a reader like any ship (0033).
-22. **Who is told about a ship's trouble?** Overdue, not handled, crashed, needs crew go to argo today.
-    Options: (a) the person whose ship it is, and argo; (b) argo only; (c) the person only, argo for a ship that belongs to nobody.
-    Pick: (a). The person owns the work and argo manages the fleet; both need to know.
+20. **How does a ship belong to a person?** Decided by 0.C: an owner core knows, set by argo or inherited from the commissioner at commission, not a label; how rules see it is question 60.
+21. **Dropped** by 0.A: what a person sees is their own app's; the console is argo's, and for core the question is 16.
+22. **Who is told about a ship's trouble?** Decided by 0.C: the owner, by a message to the owner's ship; argo when no one else owns it, and argo keeps Needs attention as the admin's view.
 23. **Shared plugins.** Squadrons, the trierarch plugin and the networking plugin serve every person.
     Options: (a) they keep fleet-wide reach, as the organisation's own ships, and serve each person only what that person may read (squadrons checks the person's session); (b) one plugin connection per person.
     Pick: (a). One install, one connection (0021); the person's reach bounds what the person gets.
@@ -119,18 +127,16 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 25. **How is an app such as the CRM in the fleet?** "Charlotte has access to CRM, as does Thomas but Burak does not" can only be enforced where Aeolus sees the call.
     Options: (a) the app is a ship: its adapter crews it, ships send it requests and it answers, and send rules decide who reaches it; (b) the app stays outside: sessions call it with their own tools, and Aeolus cannot gate it; (c) the app stays outside, and a label tells each session's harness whether to load the app's tools.
     Pick: (a). Every caller is a ship, the network gates it like any ship, and its traffic falls under question 16's read rules. (c) trusts the session, which is what containment must not do.
-26. **Who gates?** "Humans still gate and steer on the critical points."
-    Options: (a) a ship asks the person it belongs to (question 20), and argo when it belongs to nobody; (b) every question goes to argo, who passes it on; (c) the asker names the person.
-    Pick: (a). The person who owns the work answers it, and no human is the glue; 0038 stays a message to one ship, that person's.
+26. **Who gates?** Decided by 0.C: (a), the owner of the asking ship, argo as fallback.
 27. **Does a request carry its asker's scopes?** The PRD ship cannot commission, but it can ask Thomas's tech lead, which can form a squadron.
     Options: (a) no: the receiving ship acts on its own scopes, and its person gates what it starts; (b) squadrons checks the scopes of the ship that first asked, carried with the message.
     Pick: (a). Aeolus distributes and does not execute (0001); following intent from ship to ship is policy (0016). The gate on Thomas's tech lead is the guard, so the PRD ship directs and Thomas decides.
 
-**Questions 1 to 14 this part could reopen** (answers unchanged until Thomas says so): 5 (labels bound by lineage: question 20 (b) adds a copy at commission), 10 and 13 (the flagship proxies to argo: or to the person the forming ship belongs to, question 26?), 14 (`fleet:manage` bound by lineage: or a manage reach?). Questions 1 and 12 now fit the purpose: argo, the operator, grants and sets reach.
+**Questions 1 to 14 against 0.A to 0.C:** 10 and 13 reopen toward the owner (part 5, 0.10); 14 folds into question 56; 5 (labels bound by lineage) stands, since the owner is a fact, not a label (question 60); 1 and 12 fit: argo grants scopes and sets reach.
 
 ### 0.6 What this means for the console
 
-Thomas (17 Oct): "our questions in console solution is the wrong direction. It can be a plugin or hence just a totally different web app, where a human gets a ship. But it is not core of aeolus ... Same with console taking on every plugin in its UI ... squadrons could perfectly have its own UI running separately, or we do micro front ends." In his direction a human is a ship, reached through whatever app suits them: a separate web app, a plugin, a chat. Core Aeolus is the fleet server and its API, not the human interface. The console's job becomes argo's administration of the fleet. Nothing below is decided; each row is a choice made earlier that needs a second look.
+Thomas (17 Oct): "our questions in console solution is the wrong direction. It can be a plugin or hence just a totally different web app, where a human gets a ship. But it is not core of aeolus ... Same with console taking on every plugin in its UI ... squadrons could perfectly have its own UI running separately, or we do micro front ends." In his direction a human is a ship, reached through whatever app suits them: a separate web app, a plugin, a chat. Core Aeolus is the fleet server and its API, not the human interface. The console's job becomes argo's administration of the fleet. 0.A decides this direction; each row is a choice made earlier that it touches.
 
 | Part | Today | Under this direction | Touches |
 | --- | --- | --- | --- |
@@ -154,27 +160,14 @@ Thomas (17 Oct): "our questions in console solution is the wrong direction. It c
 | Sign-in | argo's email and password, or a hosted one-time ticket (0012, 0020) | Keep for argo; people sign in to their own app | `app/sign-in`, `lib/hosted-sign-in.ts` |
 | Analytics | Off by default, a closed list of console events (0025) | Keep | `lib/analytics*.ts` |
 
-**Questions 15, 21, 22 and 26 against this:**
-
-- 15 changes: a person's ship is crewed through an app outside core (a separate web app, a plugin, a chat), holding that ship's crew token as any crew does (0015), not through a console login. argo keeps the console's login.
-- 21 changes: the console is argo's; what a person sees is what their own app shows of their ship's read reach. The question moves to that app, and for core reduces to question 16.
-- 22 holds, with one change: a person is told by a message to their ship, which their app shows, not by an entry in the console's Needs attention. argo keeps Needs attention.
-- 26 holds: the person the asking ship belongs to answers, in whichever app crews their ship; question 29 decides what the question looks like.
+Questions 15, 21, 22 and 26 are settled by 0.A and 0.C (0.5).
 
 **Questions this table forces:**
 
-28. **Does core keep any human-facing surface beyond argo's administration?**
-    Options: (a) no: core is the fleet server, its API and argo's admin console; people reach the fleet through apps outside core; (b) core's console also gives each person a page for their own ship; (c) the admin console leaves core too, as one more app on the API.
-    Pick: (a). It is Thomas's direction, and the console still needs an admin home for argo; (c) can follow if the console ever becomes just an API client.
-29. **Does the question content type stay a core convention?** Core never reads it (0038), but the protocol text core serves teaches it.
-    Options: (a) it stays a fleet convention in the ship protocol, answered by any app; (b) it moves wholly into the app that answers questions, which teaches its own shape; (c) it goes: a question is a plain message.
-    Pick: (a). Ships of every harness and apps of every kind need one shape to ask and answer; it costs core only protocol text.
-30. **Plugin UIs: apart or inside?**
-    Options: (a) each plugin serves its own UI, the console links to it, and the UI checks argo with `console.session`; (b) micro frontends inside the console; (c) as today, the console renders every plugin.
-    Pick: (a). Each plugin ships and releases its UI with itself, and the console needs no contract for hosting others; micro frontends add that contract for one shared frame.
-31. **What happens to the work on the console's questions now?** #849 (operator inbox and questions redesign) is open.
-    Options: (a) hold it until questions 28 and 29 are answered; (b) finish it for argo's inbox only; (c) close it.
-    Pick: (a). Building more of a surface that may move out of core is the cost this direction warns about.
+28. **Does core keep any human-facing surface beyond argo's administration?** Decided by 0.A: (a), the fleet server, its API and argo's admin console, nothing more.
+29. **Does the question content type stay a core convention?** Decided by 0.A: (a), a fleet convention in the ship protocol, answered by whatever app crews the owner's ship; the console's questions UI is frozen and later moves out.
+30. **Plugin UIs: apart or inside?** Decided by 0.A: (a), each plugin serves its own pages, linked from the console.
+31. **What happens to the work on the console's questions now?** Decided by 0.A: (a), #849 is frozen with the rest of the console's questions UI.
 
 ### 0.8 Fleet access contained by default
 
@@ -248,7 +241,7 @@ Thomas (17 Oct): "I see benefits from containing aeolus access by default. The a
 
 ### 0.9 Discovery
 
-Thomas (17 Oct): "I would like to add a discovery tool for ships. Now we are using networking, asking aeolus who is on the network and is accessible should be a normal call to make. Like a discovery call on an IP network." In his direction any ship asks the fleet which ships it can reach right now, as a normal call. Nothing below is decided.
+Thomas (17 Oct): "I would like to add a discovery tool for ships. Now we are using networking, asking aeolus who is on the network and is accessible should be a normal call to make. Like a discovery call on an IP network." In his direction any ship asks the fleet which ships it can reach right now, as a normal call. 0.B decides that discovery and statements follow the same reach (questions 44, 46, 50); the rest is open.
 
 **Today:**
 
@@ -275,9 +268,9 @@ It answers too the types the caller can send to now, each with how many of its s
 
 | Question | How discovery relates |
 | --- | --- |
-| 16 (does reach govern reading?) | Discovery answers send reach: who will take my message. If 16 picks (c), read reach is a second set, answered by the read procedures, not by discovery (question 46) |
+| 16 (does reach govern reading?) | Discovery answers send reach: who will take my message. With 16 decided (c), read reach is a second set, answered by the read procedures, not by discovery (question 46) |
 | 17 (reading a message, which side) | Untouched: discovery shows ships, never messages |
-| 18 (what shows outside read reach) | Discovery shows of each ship what 18 shows outside read reach, so it never shows more than reading would (question 44). If 18 picks (a), not at all, discovery is the one way a ship learns that another exists |
+| 18 (what shows outside read reach) | Discovery shows of each ship what 18 shows outside read reach, so it never shows more than reading would (question 44). |
 | 25 (an app as a ship) | With 25 (a), the CRM is a ship. Charlotte's PRD ship discovers it with its note; Burak's ships do not, since no rule lets them send to it. Discovery is how a ship finds the apps it may use, with no list kept in a prompt |
 | 0034 (a refusal says nothing about the rules) | Holds. A ship learns the set it reaches, which it could learn by sending; it learns no rule and no reason. Unlike probing by sending, discovery leaves no refusal record for argo (question 45) |
 | Squadrons' hand-offs (0017) | Unchanged: a role still names its hand-offs; discovery adds a way to find ships outside them |
@@ -290,15 +283,11 @@ It answers too the types the caller can send to now, each with how many of its s
 43. **Who may discover?**
     Options: (a) every ship with `messages:send`, no new scope; (b) a scope of its own; (c) every crewed ship, `messages:send` or not.
     Pick: (a). Knowing whom a send can reach is part of sending, as Thomas puts it "a normal call"; a ship that cannot send reaches no one.
-44. **What does it show of each ship?**
-    Options: (a) name, type and status (awaiting crew, crewed), and its statement (questions 47 and 50); (b) (a) plus its labels; (c) (a) plus its crew's report.
-    Pick: (a). It matches what question 18 (b) shows outside read reach, so discovery never shows more than reading would. Labels are what the rules select on, so showing them beside the reach set maps the rules (0034); the report is work, which read reach governs (question 16).
+44. **What does it show of each ship?** Decided by 0.B: (a), name, type, status and statement; no labels, no report.
 45. **Is a discovery call recorded?**
     Options: (a) no, as explainReach records nothing; (b) each call recorded for argo, beside reach refusals.
     Pick: (a). It reveals nothing a send would not, and recording every normal call buries the refusals argo reads.
-46. **Discovery and read reach.**
-    Options: (a) discovery answers send reach only; (b) it answers both, marking per ship whether the caller may send, read or both.
-    Pick: (a). It answers Thomas's question, who is on the network and accessible, in one set. A second verb in its answer waits for question 16.
+46. **Discovery and read reach.** Decided by 0.B: (a), send reach: discovery follows the same reach.
 
 **What a ship states: what it is and what it offers.** Thomas (17 Oct): "I do see potential in having a way that each ship can broadcast what it is. For example issue tracker ship gets crewed, it does a discovery call and the PA agent of Mathilde says he is the PA of the finance responsible and takes on any requests where a go is needed by Mathilde. The CRM application states the capabilities it exposes and how to use them (MCP like right?)." The earlier question 47 (the commission note as the description) is withdrawn by this direction.
 
@@ -359,17 +348,14 @@ But a statement is a claim, so a gate found by statement alone trusts whatever s
 49. **What does "broadcast" mean?**
     Options: (a) stated once and pulled by discovery, with a version so a ship asking again sees a change; (b) pushed to every ship that can reach it on each change; (c) pushed once, when a ship is crewed, to the ships that can reach it.
     Pick: (a). No message goes to every ship, the fleet does not speak for a ship, and no reach question about who gets the push arises; (b) and (c) cost a turn and a delivery per ship per change.
-50. **Who sees a ship's statement?**
-    Options: (a) the ships that can send to it (discovery's set) and argo; (b) every ship; (c) the ships in its read reach (question 16).
-    Pick: (a). Only a ship that can send to it can use it, and a statement can say much about the work.
+50. **Who sees a ship's statement?** Decided by 0.B: (a), the ships that can send to it, and argo.
 51. **Where is it kept, and how large may it be?**
     Options: (a) with the lease, at most 64 KB, apart from the report so a report does not rewrite it; gone on release, the commission note shown until the next crew states; (b) on the ship, kept across crews; (c) with the lease, at most 16 KB, as report details.
     Pick: (a). It belongs to the crew that stated it, as a report does (0028); a ship crewed again by a new version of the CRM's adapter states its new capabilities. 64 KB is the fleet's payload limit and fits a capability list with schemas; 16 KB is sized for a row written on every report.
 52. **How often may a statement change?**
     Options: (a) no limit of its own: an unchanged statement writes nothing, a change writes its event, and the fleet's limits for speed bound the rest; (b) a fixed cap per lease.
     Pick: (a). A cap is policy (0016); the statement changes rarely by nature.
-53. **Statements and gating** (follows question 26, no pick here).
-    Options: (a) ownership alone finds the gate (question 20); a statement only tells; (b) a statement finds the gate: an asker picks the ship that says it gates for that person; (c) both: ownership says whose a ship is, and a PA's statement is trusted for a person only when the PA belongs to that person by ownership.
+53. **Statements and gating.** Decided by 0.C: (c), ownership says whose a ship is, and a PA's statement is trusted for a person only when the PA belongs to that person.
 54. **Does core check a statement's shape?**
     Options: (a) yes, at write, against the shape in common, as every procedure checks its input; it never reads the meaning; (b) no, opaque JSON as report details (0028).
     Pick: (a). Every ship and app must read every other's statement, so one shape in common is what makes discovery useful across harnesses; checking input is not acting on it.
@@ -417,6 +403,76 @@ All of it is a bridge between task lifecycles and durable messaging. As a plugin
 55. **How far does Aeolus speak MCP and A2A?**
     Options: (a) borrow the shapes only: a ship's statement uses the agent card's fields (name, description, skills with id, name, description, tags, examples, input and output modes as content types) and MCP's tool fields (name, title, description, inputSchema, outputSchema), carried as Aeolus data, not readable by outside tools; (b) speak the formats: each ship's statement is a valid A2A agent card, and an app ship's capabilities a valid MCP tool list, served by the fleet, so standard A2A and MCP clients can read them; (c) speak the protocols: outside A2A agents and MCP clients discover fleet ships and talk to them through the fleet (an A2A endpoint per fleet or ship; MCP is already served for ships), with the fleet's durable delivery underneath.
     Pick: (a) now, with the same field names, so (b) later is a mapping and not a rewrite; (c) as a design of its own, as a plugin. (b) alone is mostly form: a valid agent card must name an interface URL and binding, and an MCP tool list implies a server to call, so without (c) the card points at nothing an outside client can use. (c) is where Thomas's "fully using" lives. But the task lifecycle is following work, which core does not do (0001, 0016), and both specs move fast, so it belongs beside core, as squadrons does.
+
+### 0.10 A human is always responsible: the owner
+
+0.C: "it follows the 'a human is always responsible'. Gates are clear, but every ship needs to be maintained. It's like application owners in current IT management." Gating is one part of it: the owner answers the questions its ships ask (question 26). The larger part is maintenance. An application owner in IT is the named person who answers for an application through its life: who runs it, what it may reach, what it costs, what breaks. Here the owner is that person for a ship.
+
+**What the owner maintains:**
+
+| Part | Today | With an owner |
+| --- | --- | --- |
+| Its crew | A crew request is the operator's to-do; a crashed crew is told to argo (0026, 0029) | The owner keeps it crewed: needs crew and crashed go to the owner by message, argo as fallback (question 22) |
+| Its statement | The commission note, and the crew's statement (0.9) | The owner answers for what the ship states. A PA's statement is trusted for a person only when the PA belongs to that person (question 53) |
+| Its scopes and reach | argo grants scopes and sets the network | Unchanged: argo grants and sets rules (decision 1, 0035). The owner asks argo for them, as a message, and argo decides |
+| Its trouble | Overdue, not handled and undeliverable go to Needs attention, argo's (0040, 0041, 0042) | Told to the owner by message; argo keeps Needs attention as the admin's view (question 22) |
+| Its questions and gates | Questions go to argo (0038) | Go to the owner (question 26) |
+| Its life: release, retire | Any `fleet:manage` ship (gap G6) | The owner's ship reaches its ships for manage (question 56); argo any |
+
+**Is an owner mandatory for every ship?** Every ship but argo and the viewer, which are the console's own:
+
+- **An agent ship** is owned by the person who started it, or inherited from the commissioner.
+- **An app ship** such as the CRM is owned by the person responsible for the app.
+- **A ship standing in for an outside party** (question 25) is owned by the person inside the organisation responsible for that party.
+- **A plugin ship** (squadrons, the trierarch plugin, the networking plugin) is commissioned by argo through Connect. Its owner is whoever runs that plugin for the organisation, argo by default.
+- **A trierarch ship**, one per machine, is owned by the machine's owner. It is crewed on someone's machine with that person's model login and keys (0039), which is also the decision review's placement question.
+- **A person's ship** owns itself.
+
+Question 57.
+
+**Does argo count as "a human"?** argo is a ship crewed by the admin person through the console (0012). So owning by argo means the admin answers for it. Thomas's "argo as fallback" makes argo the owner when no one else is. A fleet where argo owns most ships has one human as the glue again, which is what the purpose removes. Question 58.
+
+**When an owner leaves or is retired.** A person leaves the organisation; their ship is retired. The ships they own still run work. Thomas's fallback says argo takes them, until argo gives them to another person. A released person's ship (their app is closed) is not a leave: they still own their ships. Questions 61 and 62.
+
+**What questions 10 and 13 become.** Decision 10 makes the flagship the proxy to the forming ship, or to argo for a squadron argo formed. With owners, the forming ship's owner gates what the squadron starts (question 26) and gets its trouble (question 22); the proxy stays the forming ship. Question 13 (a forming ship that is retired) turns toward the owner: the flagship proxies to the forming ship's owner from then on, argo as fallback. Both are reopened in part 5.
+
+**Questions:**
+
+57. **Is an owner mandatory for every ship?**
+    Options: (a) every ship but argo and the viewer has an owner, argo by default where none is named; (b) mandatory for agent, app and outside-party ships only, plugin and trierarch ships argo's; (c) optional.
+    Pick: (a). "A human is always responsible" holds for every ship, and argo as the default keeps commission working while argo names the person.
+58. **Does argo count as a human for owning?**
+    Options: (a) yes, as the fallback only: argo owns what no one else does, and argo's administration lists the ships argo owns so it can give each a person; (b) no: every ship must name a person's ship as owner, argo's included only through the admin's own person's ship; (c) yes, freely, as any owner.
+    Pick: (a). A human crews argo (0012), so a human is responsible, and listing argo's ships keeps the fallback from becoming the norm. (b) gives the admin a second ship for no gain.
+59. **What does an owner name?**
+    Options: (a) a person's ship, the ship their own app crews (0.A); (b) a person record apart from ships (a name, an email).
+    Pick: (a). Every caller is a ship (0012), and a person's ship is where questions and trouble reach them. A person record is a second identity beside the ship.
+60. **How do network rules see the owner?** Rules select by labels only (0034), and ownership is a fact core knows (0.C).
+    Options: (a) a selector term for the owner beside label terms, with `#` for "same owner"; (b) core keeps an `owner` label argo owns in step with the fact; (c) argo labels each ship's owner by hand.
+    Pick: (a). One source of truth, no label kept in step with it. 0034 refused type because a type is no grouping argo controls; an owner is set by argo or inherited, never by the ship itself, so it cannot widen its own reach.
+61. **What happens to a retired owner's ships?**
+    Options: (a) argo becomes their owner, each listed for argo to give to a person; (b) retiring a person's ship that owns live ships is refused until they are given to someone; (c) they are retired too.
+    Pick: (a). It is Thomas's fallback. (b) stalls an offboarding on a list of ships, and (c) loses running work.
+62. **Who changes a ship's owner?**
+    Options: (a) argo only; (b) the owner gives it to another person, who accepts; (c) argo, or the owner to another person without accepting.
+    Pick: (a). 0.C says set by argo or inherited; a handover by owners is a later step if argo's work grows.
+63. **Who owns a ship a plugin commissions for a requester?** Squadrons commissions a squadron for Thomas's tech lead; inherited from the commissioner, it would be squadrons' owner.
+    Options: (a) commission takes the owner from the commissioner, and a plugin ship may name the requester's owner instead (squadrons names the forming ship's owner); (b) always the commissioner's owner; (c) argo sets it after.
+    Pick: (a). The squadron's ships are Thomas's work, so they are Thomas's; only a plugin, which argo connected, may name an owner other than its own, and only the owner of the ship that asked it.
+
+### Open questions after 17 Oct
+
+- **Decided** by 0.A to 0.C (15): 15, 16, 17, 18, 20, 22, 26, 28, 29, 30, 31, 44, 46, 50, 53.
+- **Dropped** (4): 19, 21, 24, and 14, folded into 56.
+- **Open** (30):
+  - Part 5, scopes and squadrons (4): 10 and 13 (reopened toward the owner), 11, 12.
+  - 0.5, one organisation (3): 23, 25, 27.
+  - 0.8, fleet access contained (6): 37, 38, 39, 40, 41, 42.
+  - 0.9, discovery and statements (9): 43, 45, 47, 48, 49, 51, 52, 54, 55.
+  - 0.2, the verbs (1): 56.
+  - 0.10, the owner (7): 57, 58, 59, 60, 61, 62, 63.
+
+Part 6, the catalogue, stays on hold until these fit.
 
 ---
 
@@ -600,6 +656,8 @@ Questions 1 to 10 carry Thomas's answer as the decision.
 8. **Members of a ship-formed squadron forming in turn.** Decided: (b) "no policy, the squadron blueprint decides. Else it would be us guessing and putting a security stamp on it." A template names the scopes its ships get; squadrons grants them at commission within the subset rule (scopes it holds, and its own namespace).
 9. **Limits on forming.** Decided: (a) "indeed no policy": squadrons' configuration (per fleet, per forming ship, members per squadron), unset is none.
 10. **The forming ship and its squadron.** Decided: (a) "scalable, but through the flagship, that ship is the proxy towards the forming ship. When the squadron was created by argo, it is a proxy to argo. If it was by another ship it is that ship." Mechanism above.
+    Reopened by 0.C (0.10). Options: (a) the answer stands, the proxy stays the forming ship, and the forming ship's owner gates what the squadron starts and gets its trouble; (b) the proxy goes to the forming ship's owner.
+    Pick: (a). The forming ship holds the work's context; its owner gates through it (question 26).
 
 New, open:
 
@@ -609,12 +667,10 @@ New, open:
 12. **Reach between a forming ship and its flagship while network rules are in force.** Question 5 keeps squadrons from labelling the forming ship, so squadrons cannot declare that reach itself.
     Options: (a) argo writes it: argo labels the ships it lets form with a label of its own and adds a rule to and from flagships (`squadron-role=flagship`); a flagship is code run by squadrons, not a session, and relays only for its own forming ship, so reaching every flagship gives a forming ship nothing more; (b) core widens the `labels:assign` bound to ships that sent the owner's ship a message, so squadrons labels the forming ship and declares the rule; (c) only the answer exception of 0034: the forming ship always writes first, the flagship only answers.
     Pick: (a). No new core rule, and reach stays argo's; without rules (all-to-all, the default) nothing is needed.
-13. **A forming ship that is retired.** A send to a retired ship is refused; a released one just waits for crew.
-    Options: (a) the flagship proxies to argo from then on, as for a squadron argo formed; (b) the squadron stands down.
-    Pick: (a). The work in flight is not lost, and argo decides.
-14. **`fleet:manage` bound** (gap G6, forced by the catalogue). Today it acts on any ship.
-    Options: (a) ships it commissioned, argo any; (b) any ship, as today.
-    Pick: (a). Squadrons releases, retires and requests crews only for ships it commissioned, and the trierarch plugin needs no `fleet:manage` at all once `fleet:commission` exists, so nothing breaks.
+13. **A forming ship that is retired.** Reopened by 0.C. A send to a retired ship is refused; a released one just waits for crew.
+    Options: (a) the flagship proxies to the forming ship's owner from then on, argo as fallback; (b) to argo, as for a squadron argo formed; (c) the squadron stands down.
+    Pick: (a). The work in flight is not lost, and the human responsible for it decides.
+14. **`fleet:manage` bound** (gap G6). Folded into question 56 (0.2): manage becomes a network verb, with the owner's ship reaching the ships it owns.
 
 ---
 
