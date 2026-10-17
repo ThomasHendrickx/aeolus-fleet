@@ -45,9 +45,20 @@ Two points the spec text and the proto disagree on, unresolved here:
 
 Every caller is a ship (0012), so each outside party gets a ship in the fleet. A separate process, the A2A gateway, crews those ships and speaks A2A on their behalf, the way the trierarch crews ships and holds their crew tokens (0026, 0.8).
 
+**The gateway translates like NAT, both ways.** Each side sees only the gateway and an alias for the other side.
+
+- **Outside.** An outside party sees the gateway's endpoint and one opaque alias per exposed ship, such as `a7k2q9`.
+  - It never learns a fleet ship's name, id or crew token, nor the fleet's id.
+  - The gateway keeps the alias table: alias to ship id, so a rename changes nothing outside.
+  - Every A2A id the gateway hands out is opaque too: task ids, context ids, and the `messageId` it sends outbound. Each is a keyed hash (HMAC with the gateway's own key) of the fleet message id it stands for. It is the same on every retry, so idempotency holds, and it can be rebuilt without the table, but it reveals nothing.
+  - A card's `name` and `description` come from the ship's statement, never from its ship name.
+- **Inside.** Fleet ships see only the ship that stands for an outside party, by its name, type and labels.
+  - They never see the outside URL, card endpoint or credential. Those stay in the gateway's store.
+  - The statement the gateway writes for an `a2a-agent` ship carries the outside card's skills and description, without its `supportedInterfaces`, `securitySchemes` or `signatures`.
+
 **Direction A: an outside A2A client reaches a fleet ship.**
 
-1. An outside client fetches an agent card from the gateway. The card stands for a fleet ship (or a ship type). Its `supportedInterfaces[0].url` is the gateway, with `tenant` naming the fleet and the ship.
+1. An outside client fetches an agent card from the gateway. The card stands for a fleet ship (or a ship type). Its `supportedInterfaces[0].url` is the gateway, with `tenant` set to the ship's opaque alias, which the gateway maps to the fleet and the ship.
 2. The client sends `SendMessage` (JSON-RPC, or `POST /message:send` over HTTP+JSON). Its credential goes in the `Authorization` header.
 3. The gateway maps the credential to the outside client's ship, of type `a2a-client`, which the gateway crews. It then calls the fleet's `send`:
    - selector: the target ship by name, or a type;
@@ -62,7 +73,7 @@ Every caller is a ship (0012), so each outside party gets a ship in the fleet. A
 
 1. argo, or the gateway with the scope to commission, makes a ship for the outside agent, of type `a2a-agent`. The gateway reads the agent's card from `/.well-known/agent-card.json` and states it as that ship's statement (level 2 in reverse), so fleet ships discover it (0.9).
 2. A fleet ship sends to the `a2a-agent` ship like any ship. Network rules apply by its labels.
-3. The gateway takes the delivery as that ship's crew. It calls the outside agent's `SendMessage` with the fleet message id as `messageId` and the outside credentials it holds. It acks only once the outside agent accepted.
+3. The gateway takes the delivery as that ship's crew. It calls the outside agent's `SendMessage` with the opaque id derived from the fleet message id as `messageId` and the outside credentials it holds. It acks only once the outside agent accepted.
 4. The gateway follows the outside task, by push config to the gateway's own webhook, by `SubscribeToTask`, or by `GetTask` polling. It sends each status change or artifact back to the original sender as a reply (`inReplyTo`). Every such send is durable once the fleet answers OK.
 5. `TASK_STATE_INPUT_REQUIRED` reaches the fleet ship as a reply. The ship's answer, `inReplyTo` that reply, becomes a `SendMessage` with the same `taskId` and `contextId`.
 
@@ -74,8 +85,8 @@ Fit: **C** maps cleanly, **G** maps with a gap (named), **N** does not map.
 
 | A2A 1.0 concept | Aeolus counterpart | Fit | The gap |
 | --- | --- | --- | --- |
-| AgentCard: `name`, `description`, `version`, `provider`, `iconUrl`, `documentationUrl` | A ship's name and its statement (0.9; question 48 already borrows these fields) | C | Exists only once the statement is built. `provider` is the organisation running the fleet; the statement has no such field |
-| Card published at `/.well-known/agent-card.json`, one per host | Discovery (0.9), the fleet's own call | G | One well-known path per host, but a fleet has many ships, and a hosted server has many fleets (0020). Per-ship cards need their own URLs (the gateway's `/a2a/<fleet>/<ship>/agent-card.json`) or a catalogue. A2A does not standardise registries ("does not prescribe a standard API for curated registries") |
+| AgentCard: `name`, `description`, `version`, `provider`, `iconUrl`, `documentationUrl` | A ship's statement (0.9; question 48 already borrows these fields), never its ship name | C | Exists only once the statement is built. `provider` is the organisation running the fleet; the statement has no such field |
+| Card published at `/.well-known/agent-card.json`, one per host | Discovery (0.9), the fleet's own call | G | One well-known path per host, but a fleet has many ships, and a hosted server has many fleets (0020). Per-ship cards need their own URLs (the gateway's `/a2a/<alias>/agent-card.json`) or a catalogue. A2A does not standardise registries ("does not prescribe a standard API for curated registries") |
 | Extended card (`GetExtendedAgentCard`, `capabilities.extendedAgentCard`) | Discovery answers per caller, by reach; question 50 lets only ships that can send to a ship read its statement | C | Fits well: the public card can say little, and the extended card, after auth, shows what the caller's reach allows |
 | `signatures` (JWS over a JCS-canonical card) | None | N | A statement is a claim (0.9). Signing a card means the fleet vouches for it, which it does not. Leave it unsigned, or sign as "served by this fleet" only |
 | `skills[]`: `id`, `name`, `description`, `tags`, `examples`, `inputModes`, `outputModes`, `securityRequirements` | A statement's capabilities | G | Media types map onto content types. But a skill has no input or output schema, and question 48 wants a JSON Schema per capability. The schema would travel in card `extensions` or the skill text. A per-skill `securityRequirements` has no counterpart: scopes are per ship |
@@ -83,7 +94,7 @@ Fit: **C** maps cleanly, **G** maps with a gap (named), **N** does not map.
 | `capabilities.extensions[]` (uri, required, params) | None | G | The way to carry Aeolus's own facts (payload schema, delivery state) in standard form. A gateway-defined extension URI, not yet written |
 | Message: `messageId`, `role`, `parts`, `contextId`, `taskId`, `referenceTaskIds`, `metadata` | Message: id, sender, payload, content type, `inReplyTo`, idempotency key | G | `messageId` maps to the idempotency key (unique per sender). `role` is the side: the `a2a-client` ship is `ROLE_USER`. A2A has no field for "replies to", so `inReplyTo` comes from `taskId` (the task's latest message) |
 | Part: exactly one of `text`, `raw`, `url`, `data`, with `mediaType` and `filename` | One payload string with one content type | G | One text part maps to one payload with its media type, as is. Several parts, `data` or `raw` must travel as a whole A2A message as JSON, content type `application/a2a+json` (the spec's own media type). `raw` bytes go as base64 inside JSON. Over 64 KB is refused (0006), or carried by `url` as a reference |
-| Task: `id`, `status`, `artifacts`, `history`, `metadata` | None in core. A message and its deliveries | N in core, G in the gateway | Core has no task (0001: distribution, not execution). The gateway keeps tasks, with task id equal to the first message's `msg_` id |
+| Task: `id`, `status`, `artifacts`, `history`, `metadata` | None in core. A message and its deliveries | N in core, G in the gateway | Core has no task (0001: distribution, not execution). The gateway keeps tasks, with an opaque task id derived from the first message's `msg_` id |
 | `TASK_STATE_SUBMITTED` | Delivery `pending`, `received` or `handed` | C | Needs the sender to read its own delivery state (see "What exists today") |
 | `TASK_STATE_WORKING` | Delivery `acknowledged` (and `handled`) | G | Acknowledged means received, not working (0001). A gateway can say WORKING after the ack only by convention |
 | `TASK_STATE_COMPLETED`, `FAILED`, `REJECTED`, `INPUT_REQUIRED`, `AUTH_REQUIRED` | Only a reply from the ship can say these | N in core, G in the gateway | Aeolus does not follow work. Only a reply the fleet ship writes in A2A form (`application/a2a+json` holding a status, a message or an artifact) says completed, failed and so on. A plain-text reply is ambiguous: either a final `ROLE_AGENT` message (direct Message, no task) or completed. That is a rule the gateway invents |
@@ -97,7 +108,7 @@ Fit: **C** maps cleanly, **G** maps with a gap (named), **N** does not map.
 | Streaming: `SendStreamingMessage`, `SubscribeToTask` (SSE of `StreamResponse`, the current Task first, closes at a terminal state) | `receive` and `inbox` wait up to 25 s; `NOTIFY` after commit (0003) | G | The gateway holds SSE open and feeds it from the `a2a-client` ship's inbox. Nothing is lost on a dropped stream: `SubscribeToTask` sends the current Task first, from the gateway's store. A stream to a ship that never answers stays open with no end |
 | Push notifications: `TaskPushNotificationConfig` (`url`, `token`, `authentication`), POST of a StreamResponse, "at least once", "MAY give up" | None (a ship pulls; the trierarch pushes into sessions, 0040) | G | The gateway posts webhooks with its own retries. A2A lets a sender give up; the gateway's store keeps the state, so GetTask still answers. Durable fleet-side, best effort at the webhook |
 | Bindings: JSON-RPC, gRPC, HTTP+JSON (functionally equivalent), `A2A-Version` header | tRPC, REST, MCP over one router (0004) | G | The gateway needs at least one binding. JSON-RPC and HTTP+JSON both run on Fastify; gRPC is a separate stack |
-| `tenant` (routes many agents behind one endpoint; clients copy it into every request) | Fleet id plus ship name or id | C | Its format is opaque by the spec, which suits `flt_…/name` |
+| `tenant` (routes many agents behind one endpoint; clients copy it into every request) | The ship's opaque alias, mapped by the gateway to fleet and ship | C | Its format is opaque by the spec, so an alias fits, and no fleet or ship name crosses to the outside |
 | Security schemes: `apiKey`, `http` bearer, `oauth2` (authorization code with PKCE, client credentials, device code), `openIdConnect`, `mtls`; credentials in headers on every request | The crew token as a bearer (REST); the ship secret only to `register` | G | Bearer maps directly (`httpAuthSecurityScheme`, `bearerFormat`). OAuth or OpenID Connect needs an issuer Aeolus does not have (blueprint, "Deferred": short-lived JWTs). mTLS needs certificate handling at Caddy |
 | Authorisation: the server authorises each operation and scopes results to the caller (section 13.1) | Scopes on the server (0002); network rules at send (0034) | C | As long as the outside caller is its own ship. A gateway sending as one shared ship would put every outside caller under one set of rules |
 | Idempotency: send "MAY be idempotent", by `messageId` | `send` is idempotent per sender key | C inbound, G outbound | Inbound is stronger than A2A asks. Outbound, an outside server may run a retried message twice |
@@ -120,7 +131,7 @@ It sits beside squadrons and the trierarch plugin: an optional package, its own 
 | --- | --- |
 | A2A server (inbound) | JSON-RPC and HTTP+JSON bindings at `/a2a/...`, behind Caddy. `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, the push config calls, `GetExtendedAgentCard` |
 | Card server | A public card per exposed ship or type, and the extended card per caller from discovery |
-| Task store | Task id (the first `msg_` id), context id, the caller's ship, state, history, artifacts, push configs, and the last fleet event applied. Scoped per fleet (0007) |
+| Task store | Task id (opaque, derived from the first `msg_` id) and the mapping back, context id, the alias table, the caller's ship, state, history, artifacts, push configs, and the last fleet event applied. Scoped per fleet (0007) |
 | Crew of outside ships | Holds the crew tokens of every `a2a-client` and `a2a-agent` ship, as the trierarch holds its ships' tokens (0.8). Receives and acks for them |
 | Fleet-to-task translator | Turns reply payloads (`application/a2a+json`, plain text) and delivery states into task states. This is where content is read, in the gateway, never in core |
 | A2A client (outbound) | Calls outside agents with the stored credentials, follows their tasks, and sends results back into the fleet as replies |
@@ -129,7 +140,7 @@ It sits beside squadrons and the trierarch plugin: an optional package, its own 
 
 ### Endpoints
 
-- **Cards.** `GET /a2a/<fleet>/<ship>/agent-card.json` (public), and `GET /a2a/<fleet>/extendedAgentCard` (after auth), or the `tenant` form of the HTTP+JSON paths (`/{tenant}/message:send`).
+- **Cards.** `GET /a2a/<alias>/agent-card.json` (public), and `GET /a2a/extendedAgentCard` (after auth, the caller's ship read from its credential), or the `tenant` form of the HTTP+JSON paths (`/{tenant}/message:send`).
 - **Well-known.** `/.well-known/agent-card.json` on a fleet's own host: a card for the fleet's front door, or none (question 2).
 - **Webhook.** `POST /a2a/webhooks/<id>`, where outside agents push to the gateway.
 
@@ -150,10 +161,10 @@ It sits beside squadrons and the trierarch plugin: an optional package, its own 
 
 | Leg | Holds? | Why |
 | --- | --- | --- |
-| Outside client to fleet | Yes | The gateway answers SendMessage only after the fleet's `send` OK. `messageId` is the idempotency key, so a retry or a gateway crash before answering makes no second message. The task id is the message id, so the task is rebuilt from the fleet if the gateway lost its row |
+| Outside client to fleet | Yes | The gateway answers SendMessage only after the fleet's `send` OK. `messageId` is the idempotency key, so a retry or a gateway crash before answering makes no second message. The task id is derived from the message id, so the task is rebuilt from the fleet if the gateway lost its row |
 | Fleet ship's reply to the outside client | Yes, to the gateway's store | The gateway acks a reply only after it stored it in its task store, the "ack on receipt" moment for the gateway's ship. After that, it is the gateway's database's promise |
 | Gateway to outside client by stream or webhook | Best effort, recoverable | SSE drops and webhooks fail. A2A says push is at least once and a sender may give up. GetTask and SubscribeToTask always serve the stored state, so nothing is lost, but nothing reaches a client that never asks again |
-| Fleet ship to outside agent | At least once | The gateway acks the fleet delivery only once the outside agent answered SendMessage. A crash between the outside answer and the ack sends again, with the same `messageId`. The outside agent "MAY" dedupe, so a double run is possible. Five failures make it undeliverable on Health (0040), as for any ship |
+| Fleet ship to outside agent | At least once | The gateway acks the fleet delivery only once the outside agent answered SendMessage. A crash between the outside answer and the ack sends again, with the same derived `messageId`. The outside agent "MAY" dedupe, so a double run is possible. Five failures make it undeliverable on Health (0040), as for any ship |
 | Outside agent's result back to the fleet ship | Yes, once received | Each status or artifact is a fleet send with an idempotency key derived from the outside task id and its event, so it is durable before the gateway acknowledges the webhook |
 | Task state in general | Cannot be guaranteed | COMPLETED and FAILED come from the fleet ship's own replies. A ship that never answers leaves a task WORKING forever. Aeolus has no rule to fail it, and inventing one is policy (0016) or following work (0001) |
 
@@ -185,7 +196,7 @@ One line each:
    - Pick: (a). 0001 keeps core out of following work. (c) breaks every A2A client that expects a task.
 2. **How are cards published, given many ships per fleet and many fleets per hosted server?**
    - Options:
-     - (a) a card per ship at a gateway path, with the `tenant` field, plus a fleet catalogue for discovery;
+     - (a) a card per ship at a gateway path, with an opaque alias as the `tenant`, plus a catalogue for discovery;
      - (b) one card per fleet at the fleet host's `/.well-known/agent-card.json`, its skills the reachable ships;
      - (c) a subdomain per ship.
    - Pick: (a). A card is one agent. (b) blurs which ship answers, and (c) costs DNS and certificates per ship.
