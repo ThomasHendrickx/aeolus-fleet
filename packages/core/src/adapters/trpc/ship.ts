@@ -117,6 +117,8 @@ export const shipRouter = router({
         'Code that runs no model, such as a script, states its package or name and the version it runs, such as nightly-report@1.4.0.',
         'idempotencyKey is a new unique string for every message. Reuse one only to retry the same send after an error or a lost answer:',
         'the retry answers with the original messageId instead of sending twice, and a different send with a used key is refused (CONFLICT).',
+        'isForced: true sends a forced message, one to act on now: its delivery comes before every other in the recipient\'s receive.',
+        'It needs the messages:force scope (FORBIDDEN without it).',
       ].join(' '),
       requiredOfCrews: ['model'],
     })

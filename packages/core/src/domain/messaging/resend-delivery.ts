@@ -89,7 +89,7 @@ export function createResendDelivery(deps: {
       const selector = original.selector;
       const inReplyTo = original.inReplyToMessageId ?? undefined;
       const requestHash = deps.hasher.hash(
-        sendRequestText({ selector, payload: original.payload, contentType: original.contentType, inReplyTo }),
+        sendRequestText({ selector, payload: original.payload, contentType: original.contentType, inReplyTo, isForced: false }),
       );
       const senderKey = { fleetId, senderShipId: original.senderShipId, idempotencyKey: resendKey(delivery.id) };
       await tx.messages.lockIdempotencyKey(senderKey);
@@ -144,6 +144,7 @@ export function createResendDelivery(deps: {
           idempotencyKey: senderKey.idempotencyKey,
           requestHash,
           inReplyTo,
+          isForced: false,
           resendOf: { messageId: original.id, by: caller.shipId },
           at,
         },

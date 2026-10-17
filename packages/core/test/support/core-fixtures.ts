@@ -504,6 +504,7 @@ export function deliveryInFlight(
     attempts,
     handOverNumber: null,
     handedOnceMoreAt: null,
+    isForced: false,
     createdAt: at,
   });
   return { deliveryId, messageId };

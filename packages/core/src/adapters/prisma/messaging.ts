@@ -67,6 +67,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
           attempts: delivery.attempts,
           handOverNumber: delivery.handOverNumber,
           handedOnceMoreAt: delivery.handedOnceMoreAt,
+          isForced: delivery.isForced,
           reachableShipIds: delivery.reachableShipIds ? [...delivery.reachableShipIds] : [],
           createdAt: delivery.createdAt,
         },
@@ -90,31 +91,22 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       // waited for, so two receivers never get the same one (ADR 0003). The
       // limit counts the rows locked, not the rows scanned. Read committed: a
       // row another receive claimed and committed meanwhile is checked again
-      // and no longer matches.
-      const inFlight = await db.$queryRaw<unknown[]>`
+      // and no longer matches. One statement for the order: forced first
+      // (decision 0040), then the crew's own in flight, then pending, each
+      // oldest first.
+      const rows = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
         FROM deliveries
-        WHERE fleet_id = ${fleetId} AND state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId}
-          AND id <> ALL(${[...excluding]}::text[])
-        ORDER BY created_at, id
+        WHERE fleet_id = ${fleetId}
+          AND ((state IN ('received', 'handed') AND claimed_by_lease_id = ${leaseId} AND id <> ALL(${[...excluding]}::text[]))
+               OR (state = 'pending'
+                   AND (recipient_ship_id = ${shipId}
+                        OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))))
+        ORDER BY is_forced DESC, state = 'pending', created_at, id
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED`;
-      const room = limit - inFlight.length;
-      const pending =
-        room > 0
-          ? await db.$queryRaw<unknown[]>`
-              SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-                     claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
-              FROM deliveries
-              WHERE fleet_id = ${fleetId} AND state = 'pending'
-                AND (recipient_ship_id = ${shipId}
-                     OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))
-              ORDER BY created_at, id
-              LIMIT ${room}
-              FOR UPDATE SKIP LOCKED`
-          : [];
-      const deliveries = [...inFlight, ...pending].map(toDeliveryFromSql);
+      const deliveries = rows.map(toDeliveryFromSql);
 
       const messages = await db.message.findMany({
         where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } },
@@ -132,7 +124,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findForUpdate: async (fleetId, deliveryId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND id = ${deliveryId}
         FOR UPDATE`;
@@ -141,7 +133,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
     findOfMessage: async (fleetId, messageId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
-               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, created_at
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
         FROM deliveries
         WHERE fleet_id = ${fleetId} AND message_id = ${messageId}
         LIMIT 1`;
