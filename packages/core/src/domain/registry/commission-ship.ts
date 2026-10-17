@@ -1,4 +1,4 @@
-import { FLEET_SCOPES, type FleetScope, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { FLEET_SCOPES, type CommissionedShipKind, type FleetScope, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -10,7 +10,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import type { ShipRepository } from './ports.js';
-import { commissionAgentShip, type CommissionRefusal } from './ship.js';
+import { commissionShip, type CommissionRefusal } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
 export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
@@ -20,6 +20,8 @@ export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
 export interface CommissionShipInput {
   name: string;
   type: string;
+  /** An agent when left out; only argo commissions a person or app ship (decision 0044). */
+  kind?: CommissionedShipKind;
   note?: string;
   fleetScopes?: readonly FleetScope[];
   /** The caller's own key for this commission, so a retry never commissions twice. */
@@ -45,11 +47,12 @@ export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Pro
 /** The request as one text, so a repeat is known by its hash: the fleet scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
   const fleetScopes = FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope));
-  return JSON.stringify({ name: input.name, type: input.type, note: input.note ?? null, fleetScopes });
+  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, fleetScopes });
 }
 
 /**
- * Use case: the caller commissions an agent ship in its own fleet. The ship
+ * Use case: the caller commissions a ship in its own fleet, an agent unless
+ * it states another kind (only argo commissions a person or app ship). The ship
  * awaits crew and gets its first starting prompt, all in one transaction. The
  * caller's scope (fleet:manage) is checked before this runs. The ship gets
  * the agent scopes and any fleet scopes asked for; any caller with
@@ -100,8 +103,8 @@ export function createCommissionShip(deps: {
       }
 
       await tx.ships.lockName(fleetId, input.name);
-      const commissioned = commissionAgentShip(
-        { ...input, id: deps.ids('ship'), fleetId, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
+      const commissioned = commissionShip(
+        { ...input, id: deps.ids('ship'), fleetId, commissionerKind: caller.kind, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
         { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name) },
       );
       if (!commissioned.isOk) {

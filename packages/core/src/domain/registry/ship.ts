@@ -1,5 +1,6 @@
 import {
   FLEET_SCOPES,
+  type CommissionedShipKind,
   SCOPES,
   type FleetId,
   type FleetScope,
@@ -84,25 +85,38 @@ export function viewerShip(input: { id: ShipId; fleetId: FleetId; createdAt: Dat
 /** The ships no session crews with a secret and no fleet action ends or renames, by kind, as their refusals name them. */
 const PERMANENT_SHIPS: Partial<Record<ShipKind, string>> = { operator: 'the operator ship', viewer: 'the viewer ship' };
 
+/**
+ * Whether the ship is the console's own, argo or the viewer: always crewed,
+ * with no secret. Every other kind is crewed through its lease (decision 0044).
+ */
+export function isConsoleShip(ship: Pick<Ship, 'kind'>): boolean {
+  return PERMANENT_SHIPS[ship.kind] !== undefined;
+}
+
 /** The scopes every agent ship gets at creation: it sends and receives; commissioning may add fleet scopes (ADR 0002). */
 export const AGENT_SCOPES: readonly Scope[] = ['messages:send', 'messages:receive'];
 
 export type CommissionRefusal = DomainError<
-  'INVALID_SHIP_NAME' | 'SHIP_NAME_RESERVED' | 'INVALID_SHIP_TYPE' | 'INVALID_SHIP_NOTE' | 'SHIP_NAME_TAKEN'
+  'INVALID_SHIP_NAME' | 'SHIP_NAME_RESERVED' | 'INVALID_SHIP_TYPE' | 'INVALID_SHIP_NOTE' | 'SHIP_NAME_TAKEN' | 'KIND_COMMISSIONED_BY_ARGO_ONLY'
 >;
 
 /**
- * A new agent ship, awaiting crew, and its ShipCommissioned event. The name is
- * a handle, never `argo`, and unique among the fleet's active ships:
- * `activeShipNamed` is the active ship that already holds it, if any, read
- * while the name is locked.
+ * A new ship, awaiting crew, and its ShipCommissioned event. An agent unless
+ * the commission states another kind; only argo commissions a person or app
+ * ship, to be true to what the ship is (decision 0044). The name is a handle,
+ * never `argo`, and unique among the fleet's active ships: `activeShipNamed`
+ * is the active ship that already holds it, if any, read while the name is
+ * locked.
  */
-export function commissionAgentShip(
+export function commissionShip(
   input: {
     id: ShipId;
     fleetId: FleetId;
     name: string;
     type: string;
+    kind?: CommissionedShipKind;
+    /** The kind of the ship that commissions it. */
+    commissionerKind: ShipKind;
     note?: string;
     /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
     fleetScopes?: readonly FleetScope[];
@@ -112,6 +126,10 @@ export function commissionAgentShip(
   },
   fleet: { activeShipNamed: Ship | undefined },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
+  const { kind = 'agent' } = input;
+  if (kind !== 'agent' && input.commissionerKind !== 'operator') {
+    return refuse('KIND_COMMISSIONED_BY_ARGO_ONLY', `Only argo commissions a ${kind} ship: commission an agent ship instead`);
+  }
   const name = shipName(input.name);
   if (!name.isOk) {
     return name;
@@ -138,7 +156,7 @@ export function commissionAgentShip(
     fleetId,
     name: name.value,
     type: type.value,
-    kind: 'agent',
+    kind,
     scopes: [...AGENT_SCOPES, ...FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope))],
     note: note.value,
     createdAt: at,
@@ -170,7 +188,7 @@ export function shipStatus(ship: Ship, lease: { isCrewed: boolean }): ShipStatus
   }
   // argo and the viewer ship are the console's own: argo's crew is the console, signed in or not
   // (decision 0012), and the viewer ship is a door into it, always open (decision 0022).
-  return lease.isCrewed || ship.kind !== 'agent' ? 'crewed' : 'awaitingCrew';
+  return lease.isCrewed || isConsoleShip(ship) ? 'crewed' : 'awaitingCrew';
 }
 
 const STATUS_WORDS: Record<ShipStatus, string> = {
@@ -187,7 +205,7 @@ export function checkCanIssueStartingPrompt(
   ship: Ship,
   lease: { isCrewed: boolean },
 ): Result<void, DomainError<'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' | 'SHIP_NOT_AWAITING_CREW'>> {
-  if (ship.kind !== 'agent') {
+  if (isConsoleShip(ship)) {
     return refuse(
       'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT',
       `${ship.name} has no secret: only the operator's console sign-in crews it, so it gets no starting prompt`,
