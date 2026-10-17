@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 27, 19 and 24 dropped); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and is open (questions 15 to 31, 19 and 24 dropped; 0.6 for the console); the catalogue in part 6 is on hold until it fits. Thomas answered questions 1 to 10 (part 5); questions 11 to 14 are open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png` (sources in `src/`).
 
@@ -90,7 +90,7 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 
 ### 0.5 Questions for Thomas
 
-15. **How is a person in the fleet?** argo stays the one operator; Charlotte and Burak must sign in to gate and steer.
+15. **How is a person in the fleet?** (changed by 0.6: see there) argo stays the one operator; Charlotte and Burak must sign in to gate and steer.
     Options: (a) each person crews a ship of their own from the console, with their own login and session, holding the scopes argo grants; (b) every person signs in as argo; (c) a person is not in the fleet, their PA ship answers for them.
     Pick: (a). Every caller stays a ship, each person signs in as themselves, and argo stays the operator.
 16. **Does reach govern reading as well as sending?**
@@ -106,7 +106,7 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 20. **How does a ship belong to a person?** Charlotte owns the PRD ship; a ship Thomas's tech lead starts is Thomas's.
     Options: (a) a label per person, owned by that person's ship, which labels the ships it commissions (0031, question 5); (b) one `subfleet` label argo owns, and commission copies the commissioner's value to the new ship; (c) argo labels every new ship by hand.
     Pick: (b). It keeps Thomas's `subfleet=thomas`, one label for argo's rules to name, and a person's ships stay theirs without argo's work; core copies only a value argo already set on the commissioner.
-21. **What does a person see in the console?**
+21. **What does a person see in the console?** (changed by 0.6: see there)
     Options: (a) their read reach: the fleet page, their inbox, Needs attention, health and squadrons for what they may read; (b) everything, as argo; (c) their read reach plus counts for the rest.
     Pick: (a). argo sees everything; a person's console is a reader like any ship (0033).
 22. **Who is told about a ship's trouble?** Overdue, not handled, crashed, needs crew go to argo today.
@@ -127,6 +127,54 @@ Breaks, because today the operator is the only human in the fleet and so the glu
     Pick: (a). Aeolus distributes and does not execute (0001); following intent from ship to ship is policy (0016). The gate on Thomas's tech lead is the guard, so the PRD ship directs and Thomas decides.
 
 **Questions 1 to 14 this part could reopen** (answers unchanged until Thomas says so): 5 (labels bound by lineage: question 20 (b) adds a copy at commission), 10 and 13 (the flagship proxies to argo: or to the person the forming ship belongs to, question 26?), 14 (`fleet:manage` bound by lineage: or a manage reach?). Questions 1 and 12 now fit the purpose: argo, the operator, grants and sets reach.
+
+### 0.6 What this means for the console
+
+Thomas (17 Oct): "our questions in console solution is the wrong direction. It can be a plugin or hence just a totally different web app, where a human gets a ship. But it is not core of aeolus ... Same with console taking on every plugin in its UI ... squadrons could perfectly have its own UI running separately, or we do micro front ends." In his direction a human is a ship, reached through whatever app suits them: a separate web app, a plugin, a chat. Core Aeolus is the fleet server and its API, not the human interface. The console's job becomes argo's administration of the fleet. Nothing below is decided; each row is a choice made earlier that needs a second look.
+
+| Part | Today | Under this direction | Touches |
+| --- | --- | --- | --- |
+| Questions in the inbox | Open questions on top of the operator inbox, the pick preselected, one tap answers (0038); the console's server checks an answer and sends it through `fleet.reply` | Move to a plugin or a separate app where a person's ship answers its questions; leave argo's admin console | `lib/questions.ts`, `question-answer.ts`, `questions-actions.ts`, `features/inbox`; #512, #849, #854, #869, #870 |
+| Question content types | `application/vnd.aeolus.question+json`, answer, withdrawal, replacement; core never reads them, but the ship protocol text it serves teaches them and names argo as the one who answers (0038, rule 5) | Keep as a fleet convention any app can answer, or move into the app that owns them (question 29) | `packages/core/src/adapters/trpc/ship-protocol.ts`, `plugins/aeolus/scripts/aeolus-ask.sh`, `packages/common` |
+| Ship protocol rule 4 | "A question only the operator can answer goes to argo" | Goes to the person the ship belongs to (question 26); the protocol text changes | `ship-protocol.ts`, the aeolus plugin skills |
+| Operator inbox | argo's messages, read, done, reply, compose (0012: "Messages to argo are the operator inbox") | Keep as argo's inbox, the admin's; people's inboxes live in their own app | `app/(console)/inbox`, `features/inbox`, `features/compose`, `lib/inbox*.ts`; #849, #863 |
+| Needs attention | Undeliverable, not handled (Resend, Dismiss), overdue, no ship can take, as the operator's to-do (0040, 0041, 0042) | Keep as argo's view of the fleet's state; telling a person about their ship moves to that ship's messages (question 22) | `app/(console)/needs-attention`, `lib/needs-attention.ts`; #789, #799, #845 |
+| Fleet health | Stuck deliveries by cause and place, the trend (0041, 0042) | Keep: fleet administration | `app/(console)/fleet-health`, `features/health`; #304, #864, #865, #867, #868 |
+| Needs crew | An unassigned crew request is the operator's to-do, with a starting prompt (0029) | Keep: fleet administration | `app/(console)/needs-crew`, `features/needs-crew` |
+| Fleet, ship, labels pages and ship actions | List, ship page, timeline, commission, release, retire, ping, labels | Keep: fleet administration | `features/fleet`, `features/ship`, `features/ship-actions`, `features/labels` |
+| Squadrons pages | The console's server calls squadrons' API with the console session cookie (0017); catalogue, forming, members, messages | Squadrons' own UI, run separately, or a micro frontend in the console (question 30) | `app/(console)/squadrons/**`, `features/squadrons`, `lib/squadrons-*.ts`, `lib/forming-members.ts`; `packages/squadrons` |
+| Trierarchs (machines) pages | The console reads machines from the trierarch plugin (0030), silent machines flagged | As squadrons (question 30) | `app/(console)/trierarchs/**`, `features/trierarchs`, `lib/trierarch-plugin-*.ts`, `lib/machines.ts`; `packages/trierarch-plugin` |
+| Network page | argo edits the rules held by the networking plugin (0036), sees declared rules apart (0037), and the reach graph from `fleet.explainReach` (0034) | Rule editing to the networking plugin's own UI (question 30); the reach graph and refusals, which are core's, stay | `app/(console)/network`, `features/network`, `lib/networking-plugin-*.ts`, `lib/network-rules.ts`; `packages/networking-plugin` |
+| Connect | Settings: the web app's server commissions the plugin's ship and hands its secret to the plugin server to server (0017, 0030, 0036) | Keep as an admin action (commissioning a ship with scopes is argo's), or move into each plugin's own setup | `features/settings`, `lib/connect-plugin.ts` |
+| Plugin presence in the console | Navigation, health and version checks per plugin; which plugins are on reaches the browser only as what a page shows (0033) | Shrinks to links when plugin UIs run apart | `lib/plugin-nav.ts`, `lib/plugin-ships.ts`, `lib/startup-warnings.ts`; #432, #454, #502, #503 |
+| `console.session` | Another service checks a console session from the forwarded cookie (0012, 0022); squadrons serves writes to `fleet:manage` | Stays the way a plugin UI checks argo; a person's app signs in as the person's ship instead (question 15) | `packages/core/src/adapters/trpc/console.ts`, `packages/squadrons/src/adapters/trpc/router.ts` |
+| Notices | The installation sets notices for `everyone`, `operators` or `viewers` (0023) | Keep for the admin console; a person's app shows its own | `features/notices`; installation procedures |
+| Guide | The installation sets one guide per audience (0024) | Keep for the admin console | `features/guide`, `lib/guide.ts`; #690, #721 |
+| Viewer | Read-only sessions of the whole fleet, argo's inbox included (0022) | Keep as a read-only look at the admin console (the hosted demo) | `features/sign-in`, `lib/session.ts` |
+| Sign-in | argo's email and password, or a hosted one-time ticket (0012, 0020) | Keep for argo; people sign in to their own app | `app/sign-in`, `lib/hosted-sign-in.ts` |
+| Analytics | Off by default, a closed list of console events (0025) | Keep | `lib/analytics*.ts` |
+
+**Questions 15, 21, 22 and 26 against this:**
+
+- 15 changes: a person's ship is crewed through an app outside core (a separate web app, a plugin, a chat), holding that ship's crew token as any crew does (0015), not through a console login. argo keeps the console's login.
+- 21 changes: the console is argo's; what a person sees is what their own app shows of their ship's read reach. The question moves to that app, and for core reduces to question 16.
+- 22 holds, with one change: a person is told by a message to their ship, which their app shows, not by an entry in the console's Needs attention. argo keeps Needs attention.
+- 26 holds: the person the asking ship belongs to answers, in whichever app crews their ship; question 29 decides what the question looks like.
+
+**Questions this table forces:**
+
+28. **Does core keep any human-facing surface beyond argo's administration?**
+    Options: (a) no: core is the fleet server, its API and argo's admin console; people reach the fleet through apps outside core; (b) core's console also gives each person a page for their own ship; (c) the admin console leaves core too, as one more app on the API.
+    Pick: (a). It is Thomas's direction, and the console still needs an admin home for argo; (c) can follow if the console ever becomes just an API client.
+29. **Does the question content type stay a core convention?** Core never reads it (0038), but the protocol text core serves teaches it.
+    Options: (a) it stays a fleet convention in the ship protocol, answered by any app; (b) it moves wholly into the app that answers questions, which teaches its own shape; (c) it goes: a question is a plain message.
+    Pick: (a). Ships of every harness and apps of every kind need one shape to ask and answer; it costs core only protocol text.
+30. **Plugin UIs: apart or inside?**
+    Options: (a) each plugin serves its own UI, the console links to it, and the UI checks argo with `console.session`; (b) micro frontends inside the console; (c) as today, the console renders every plugin.
+    Pick: (a). Each plugin ships and releases its UI with itself, and the console needs no contract for hosting others; micro frontends add that contract for one shared frame.
+31. **What happens to the work on the console's questions now?** #849 (operator inbox and questions redesign) is open.
+    Options: (a) hold it until questions 28 and 29 are answered; (b) finish it for argo's inbox only; (c) close it.
+    Pick: (a). Building more of a surface that may move out of core is the cost this direction warns about.
 
 ---
 
