@@ -123,6 +123,36 @@ describe('a tmux server another process started (#883)', () => {
   });
 });
 
+describe("a session and the trierarch's tmux server (#880)", () => {
+  /** Waits for a file a session writes, then reads it. */
+  async function written(path: string): Promise<string> {
+    for (let tries = 0; tries < 100 && !existsSync(path); tries += 1) {
+      await wait(50);
+    }
+    return readFileSync(path, 'utf8');
+  }
+
+  it('gives a session no TMUX or TMUX_PANE that names the server', async () => {
+    const file = join(folder, 'environment');
+    await tmux.start({ shipId: newId('ship'), folder, command: ['sh', '-c', `env > ${file}.part && mv ${file}.part ${file}; sleep 30`] });
+
+    const environment = (await written(file)).split('\n');
+
+    expect(environment.filter((line) => line.startsWith('TMUX=') || line.startsWith('TMUX_PANE='))).toEqual([]);
+  });
+
+  it("leaves the trierarch's server and the other sessions running when a session runs a bare tmux kill-server", async () => {
+    const other = newId('ship');
+    await tmux.start({ shipId: other, folder, command: ['sleep', '30'] });
+    const done = join(folder, 'killed');
+    // A bare tmux in the session, as a test script would run it; its default socket is in the test's own folder.
+    await tmux.start({ shipId: newId('ship'), folder, command: ['sh', '-c', `TMUX_TMPDIR=${folder} tmux kill-server; touch ${done}; sleep 30`] });
+    await written(done);
+
+    await expect(tmux.list()).resolves.toContainEqual({ shipId: other, status: 'running' });
+  });
+});
+
 describe('where the tmux server starts (#537)', () => {
   it('starts the tmux server through the launch command it is given', async () => {
     const launched = createTmux({ server, launch: ['env', 'AEOLUS_LAUNCHED=yes'] });
