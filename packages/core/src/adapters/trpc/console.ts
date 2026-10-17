@@ -80,8 +80,8 @@ export const consoleRouter = router({
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
     }
     const { fleetId, kind, scopes } = use.caller;
-    if (kind === 'agent') {
-      // A console session is the operator's or a viewer's; no agent ever signs in to the console.
+    if (kind !== 'operator' && kind !== 'viewer') {
+      // A console session is the operator's or a viewer's; no other ship ever signs in to the console.
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
     }
     return { fleetId, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes] };

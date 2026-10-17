@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { commissionedShipKindSchema, eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
@@ -34,6 +34,8 @@ export const SHIP_NOTE_MAX_LENGTH = 500;
 export const commissionShipInputSchema = z.object({
   name: shipHandleSchema,
   type: shipHandleSchema,
+  /** What the ship is; an agent when left out (decision 0044). */
+  kind: commissionedShipKindSchema.optional(),
   fleetScopes: z.array(fleetScopeSchema).optional(),
   note: z
     .string()

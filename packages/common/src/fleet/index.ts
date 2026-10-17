@@ -28,10 +28,20 @@ export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 
-/** `argo` is the one ship of kind `operator` in a fleet; every other ship is an `agent`. */
-export const SHIP_KINDS = ['operator', 'agent', 'viewer'] as const;
+/**
+ * What a ship is (decision 0044): `argo` is the one `operator`, the console's
+ * door is the `viewer`, an `agent` is a session, a `person` a human's ship
+ * crewed by their own app or a chat, and an `app` an application or an
+ * outside party, crewed by its adapter.
+ */
+export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app'] as const;
 export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
+
+/** The kinds a commission makes; argo and the viewer ship come with the fleet. */
+export const COMMISSIONED_SHIP_KINDS = ['agent', 'person', 'app'] as const;
+export const commissionedShipKindSchema = z.enum(COMMISSIONED_SHIP_KINDS);
+export type CommissionedShipKind = z.infer<typeof commissionedShipKindSchema>;
 
 /** Where the session crewing a ship runs. `OTHER` carries a short description. */
 export const LOCATION_KINDS = ['DEVICE', 'CLOUD', 'SERVER', 'OTHER'] as const;
