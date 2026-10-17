@@ -4,6 +4,13 @@ Design study by designer-4. Read only: it decides nothing. It takes up Thomas's 
 
 > "I do want to critically look at our plugins being part of aeolus fleet and always same version. We are going to B2B type stuff and don't know if everything all the time needs to be open source and I am noticing that synced versions is making releasing a bit awkward."
 
+## Decided
+
+Thomas, 17 Oct:
+
+- **Versioning (question 2).** Release trains with a minimum-core-version check: "agreed we do need to split but after some rework." The split comes after the scope rework (question 4, step 2).
+- **Licensing (question 1).** "later, I am still alone so no issue yet." Parked until there is more than one contributor. Everything stays Apache-2.0 until then, and so does the one monorepo (question 3).
+
 ## Purpose
 
 Aeolus is going B2B, with one organisation per fleet. Three things should be free to differ per part, where today they cannot:
