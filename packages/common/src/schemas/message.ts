@@ -87,6 +87,8 @@ export const sendInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   /** The id of the message, in the same fleet, that this one replies to. */
   inReplyTo: idSchema('message').optional(),
+  /** A forced send: act now. Its delivery comes first; it needs messages:force (decision 0040). */
+  isForced: z.boolean().optional(),
 });
 
 export type SendInput = z.infer<typeof sendInputSchema>;

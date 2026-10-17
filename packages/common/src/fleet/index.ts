@@ -6,8 +6,12 @@ import { z } from 'zod';
  * states and event types. Core and console use the same words.
  */
 
-/** A permission of a ship, stored on the server with the ship and checked before every call. */
-export const SCOPES = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
+/**
+ * A permission of a ship, stored on the server with the ship and checked
+ * before every call. `messages:force` sends a forced message, one that comes
+ * first (decision 0040).
+ */
+export const SCOPES = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
 
