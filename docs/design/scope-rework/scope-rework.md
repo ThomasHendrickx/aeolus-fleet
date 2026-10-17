@@ -1,6 +1,6 @@
 # Fine-grained scopes for 0.27.0 (#348, #600, #866)
 
-Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and records Thomas's decisions of 17 Oct (0.A to 0.U). Part 5 holds decisions 1 to 13. Part 6 is the scope catalogue fitted to all of them. One question is open (66, listed at the end of part 0).
+Design proposal by designer-2. Part 0 sets the product direction (one organisation, one fleet, one operator, many people, apps and agents) and records Thomas's decisions of 17 Oct (0.A to 0.V). Part 5 holds decisions 1 to 13. Part 6 is the scope catalogue fitted to all of them. No question is open.
 
 Diagrams in this folder: `1-model-a.png`, `2-model-b.png`, `3-model-c.png`, `4-forced-delivery.png`, `5-squadron-forming.png`, `6-contained-calls.png` (sources in `src/`).
 
@@ -41,6 +41,7 @@ The last round (17 Oct), closing part 0:
 - **0.S No hidden reach.** "I just don't like rules that determine behaviour that are not visible. Hidden behaviour is a source of debugging nightmare." Every way a ship can reach another is a rule argo can see, and every change that affects reach or ownership is a visible event (0.11).
 - **0.T Squadrons names the forming ship's owner** (question 64): "agreed". At commission squadrons sets the forming ship's owner on the squadron's ships, shown as an `OwnerSet` event, so the same-owner rule holds (0.Q).
 - **0.U Only argo commissions person and app ships** (question 65): "agreed for now, we can see later how we improve it. But that would be over engineering now." A ship holding `fleet:commission` commissions agents.
+- **0.V A plugin reads for a named ship** (question 66): "indeed b". A plugin ship argo connected asks core to read on behalf of a named ship, and core answers under that ship's read reach; the person's crew token stays in their app.
 
 ### 0.1 Purpose
 
@@ -142,7 +143,7 @@ Breaks, because today the operator is the only human in the fleet and so the glu
 20. **How does a ship belong to a person?** Decided by 0.C: an owner core knows, set by argo or inherited from the commissioner at commission, not a label; how rules see it is question 60.
 21. **Dropped** by 0.A: what a person sees is their own app's; the console is argo's, and for core the question is 16.
 22. **Who is told about a ship's trouble?** Decided by 0.C: the owner, by a message to the owner's ship; argo when no one else owns it, and argo keeps Needs attention as the admin's view.
-23. **Shared plugins.** Decided by 0.K: (a), one connection each with fleet-wide reach, each person served only what that person may read (how: question 66).
+23. **Shared plugins.** Decided by 0.K: (a), one connection each with fleet-wide reach, each person served only what that person may read (how: 0.V).
 24. **Dropped**: argo past every rule. The purpose answers it: the operator manages the whole fleet, so 0034's exception stays and covers reading too.
 25. **How is an app such as the CRM in the fleet?** Decided by 0.D: (a), the app is a ship, of kind `app`; the network gates it like any ship.
 26. **Who gates?** Decided by 0.C: (a), the owner of the asking ship, argo as fallback.
@@ -458,12 +459,11 @@ Question 64 was answered under 0.S (0.T).
 
 ### Open questions after 17 Oct
 
-Part 0 is closed. One question in part 6 is open.
+Part 0 and part 6 are closed: no question is open.
 
-- **Decided** (45): 10, 11, 12, 13, 15 to 18, 20, 22, 23, 25 to 31, 37 to 62, 64, 65. Decision review A to D: 0.D, 0.L, 0.M, 0.N.
+- **Decided** (46): 10, 11, 12, 13, 15 to 18, 20, 22, 23, 25 to 31, 37 to 62, 64, 65, 66. Decision review A to D: 0.D, 0.L, 0.M, 0.N.
 - **Dropped** (5): 14 (folded into 56), 19, 21, 24, 63 (back for plugins through 0.T).
-- **Open** (1):
-  - 66: how a shared plugin knows what a person may read (part 6).
+- **Open**: none.
 
 ---
 
@@ -660,7 +660,7 @@ Decided later (0.O to 0.R):
 
 ## 6. The scope catalogue
 
-Fitted to decisions 1 to 13 (part 5) and 0.A to 0.U (part 0). Scope says what; the where of every scope is a network verb (send, read, manage, 0.E), or identity, ownership or assignment (0.2). argo, the owner and an answer reach by built-in rules, visible like any rule (0.S, 0.11). No rights travel with a message (0.J): core and the plugins check scopes and reach, never the receiving ship.
+Fitted to decisions 1 to 13 (part 5) and 0.A to 0.V (part 0). Scope says what; the where of every scope is a network verb (send, read, manage, 0.E), or identity, ownership or assignment (0.2). argo, the owner and an answer reach by built-in rules, visible like any rule (0.S, 0.11). No rights travel with a message (0.J): core and the plugins check scopes and reach, never the receiving ship.
 
 ### Format
 
@@ -750,6 +750,4 @@ One migration, no compatibility layer (0013):
 **Questions the decisions leave open:**
 
 65. **Who commissions a person or app ship?** Decided by 0.U: (a), argo only, for now; a `fleet:commission` holder commissions agents.
-66. **How does a shared plugin know what a person may read?** (0.K) A person reaches the plugin through their own app, not a console session (0.A).
-    Options: (a) the person's app hands the plugin the person's crew token, and the plugin reads from core with it; (b) a plugin ship argo connected asks core to read for a named ship, and core answers under that ship's read reach.
-    Pick: (b). The crew token stays with the person's app, as 0.G keeps tokens where they belong, and core still decides what the person may read; (a) spreads a credential to every plugin a person uses.
+66. **How does a shared plugin know what a person may read?** Decided by 0.V: (b), core reads for a named ship under that ship's read reach; the person's crew token stays in their app.
