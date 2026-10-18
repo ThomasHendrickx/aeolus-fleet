@@ -135,7 +135,7 @@ export function createFormSquadron(deps: {
       );
     }
 
-    const { attemptId, commission, retireCommissioned } = await beginFormation(deps, { crew, squadronId });
+    const { attemptId, commission, retireCommissioned } = await beginFormation(deps, { crew, squadronId, ownerOf: input.formingShip?.shipId });
     const failed = async (refusal: FleetRefusal): Promise<Result<never, FormRefusal>> => {
       await retireCommissioned();
       return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${refusal.message}`);
