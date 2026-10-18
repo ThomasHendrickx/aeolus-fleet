@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, idSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
 
 import type {
   ClearRequestRepository,
@@ -332,6 +332,13 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     hasActiveShipOfType: async (fleetId, type) => {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, select: { id: true } });
       return row !== null;
+    },
+    scopesHeldIn: async (fleetId, namespace) => {
+      const rows = await db.$queryRaw<{ scope: string }[]>`
+        SELECT DISTINCT held.scope FROM ships s, unnest(s.scopes) AS held(scope)
+        WHERE s.fleet_id = ${fleetId} AND s.retired_at IS NULL AND starts_with(held.scope, ${`${namespace}:`})
+        ORDER BY held.scope`;
+      return rows.map(({ scope }) => scopeNameSchema.parse(scope));
     },
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });

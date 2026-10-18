@@ -35,7 +35,13 @@ export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes']
 
 /** A namespace or an action: lowercase letters, digits and hyphens, starting with a letter, 1 to 32 characters (decision 0046). */
 const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
+export const SCOPE_NAMESPACE_PATTERN = new RegExp(`^${SCOPE_PART}$`);
 export const SCOPE_NAME_PATTERN = new RegExp(`^${SCOPE_PART}:${SCOPE_PART}$`);
+
+/** The most scopes a plugin declares in its namespace (decision 0046). */
+export const NAMESPACE_SCOPES_MAX = 20;
+/** The longest one-line description of a declared scope. */
+export const SCOPE_DESCRIPTION_MAX_LENGTH = 200;
 
 /** Whether the namespace is one core reserves. */
 export function isCoreNamespace(namespace: string): boolean {
@@ -172,6 +178,7 @@ export const EVENT_TYPES = [
   'NetworkPluginRegistered',
   'NetworkPluginUnregistered',
   'BuiltInRuleChanged',
+  'ScopesDeclared',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

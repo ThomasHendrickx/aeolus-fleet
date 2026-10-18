@@ -28,11 +28,7 @@ const SCALE = { scope: 'squadrons:scale', description: 'Add and remove members' 
 
 /** The ship holds the scope, as a grant would leave it. */
 function holds(shipId: ShipId, scope: string): void {
-  const ship = core.state.ships.find((held) => held.id === shipId);
-  if (ship === undefined) {
-    throw new Error(`no ship ${shipId}`);
-  }
-  ship.scopes = [...ship.scopes, scope];
+  core.state.ships = core.state.ships.map((held) => (held.id === shipId ? { ...held, scopes: [...held.scopes, scope] } : held));
 }
 
 describe('declaring scopes (decision 0046)', () => {

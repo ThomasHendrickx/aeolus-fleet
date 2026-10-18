@@ -49,12 +49,14 @@ import type {
   CrewRequestRepository,
   LabelRepository,
   DeclaredNetworkRulesRepository,
+  ScopeNamespaceRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
+import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
@@ -124,6 +126,8 @@ export interface InMemoryState {
   networkSettings: NetworkSettings[];
   /** The network rules each ship declared on the labels it owns (decision 0037): no row for a ship that declares none. */
   declaredNetworkRules: DeclaredNetworkRules[];
+  /** The plugin namespaces, one per declaring ship (decision 0046). */
+  scopeNamespaces: ScopeNamespace[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -150,6 +154,7 @@ export interface InMemoryTx {
   labels: LabelRepository;
   networkSettings: NetworkSettingsRepository;
   declaredNetworkRules: DeclaredNetworkRulesRepository;
+  scopeNamespaces: ScopeNamespaceRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -274,6 +279,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     shipLabels: [],
     networkSettings: [],
     declaredNetworkRules: [],
+    scopeNamespaces: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -473,6 +479,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
         ),
+      scopesHeldIn: (fleetId, namespace) =>
+        Promise.resolve(
+          [...new Set(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null).flatMap((held) => held.scopes.filter((scope) => scope.startsWith(`${namespace}:`))))].toSorted(),
+        ),
     },
     crewRequests: {
       find: (fleetId, shipId) => {
@@ -551,6 +561,31 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && held.shipId === declared.shipId);
         const kept = declared.rules.length === 0 ? [] : [structuredClone(declared)];
         state.declaredNetworkRules.splice(index === -1 ? state.declaredNetworkRules.length : index, index === -1 ? 0 : 1, ...kept);
+        return Promise.resolve();
+      },
+    },
+    scopeNamespaces: {
+      // One test runs one unit of work at a time: nothing to wait for.
+      lockNamespace: () => Promise.resolve(),
+      find: (fleetId, namespace) => Promise.resolve(structuredClone(state.scopeNamespaces.find((held) => held.fleetId === fleetId && held.namespace === namespace))),
+      findByDeclarer: (fleetId, shipId) => Promise.resolve(structuredClone(state.scopeNamespaces.find((held) => held.fleetId === fleetId && held.declaredBy === shipId))),
+      list: (fleetId) =>
+        Promise.resolve(
+          state.scopeNamespaces
+            .filter((held) => held.fleetId === fleetId)
+            .toSorted((first, second) => first.namespace.localeCompare(second.namespace))
+            .map((held) => structuredClone(held)),
+        ),
+      save: (declared) => {
+        const index = state.scopeNamespaces.findIndex((held) => held.fleetId === declared.fleetId && held.namespace === declared.namespace);
+        if (index === -1 && state.scopeNamespaces.some((held) => held.fleetId === declared.fleetId && held.declaredBy === declared.declaredBy)) {
+          return Promise.reject(new Error('unique violation: the ship declared a namespace already'));
+        }
+        state.scopeNamespaces.splice(index === -1 ? state.scopeNamespaces.length : index, index === -1 ? 0 : 1, structuredClone(declared));
+        return Promise.resolve();
+      },
+      remove: (fleetId, namespace) => {
+        state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
         return Promise.resolve();
       },
     },
@@ -1817,6 +1852,7 @@ const FLEET_TABLES = [
   'shipLabels',
   'networkSettings',
   'declaredNetworkRules',
+  'scopeNamespaces',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -1848,6 +1884,7 @@ const TABLES = [
   'shipLabels',
   'networkSettings',
   'declaredNetworkRules',
+  'scopeNamespaces',
   'reachRefusals',
   'events',
   'overdueDeliveries',
