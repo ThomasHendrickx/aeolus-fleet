@@ -157,6 +157,15 @@ describe('following the fleet within read reach (decision 0034)', () => {
     expect(followed.events.map((event) => event.type)).toEqual(['BuiltInRuleChanged']);
   });
 
+  it('answers a ship outside its read reach declaring rules: a rules event concerns no ship', async () => {
+    const declarer = { ...fleet.far, scopes: [...fleet.far.scopes, 'labels:define' as const] };
+    unwrap(await fleet.registry.declareNetworkRules(declarer, { rules: [] }));
+
+    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from }));
+
+    expect(followed.events.map((event) => event.type)).toEqual(['NetworkRulesDeclared']);
+  });
+
   it('answers no event once its wait passes, with the last seq past the events it does not read', async () => {
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 

@@ -5,7 +5,7 @@ import { newKey } from '../../../test/support/keys.js';
 import { idsOf, readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
-import { createReadReachOf, readsMessage, readsShip, type ReadReach } from './read-reach.js';
+import { createReadReachOf, readsEvent, readsMessage, readsShip, type ReadReach } from './read-reach.js';
 
 let fleet: ReadReachScenario;
 let readReachOf: ReturnType<typeof createReadReachOf>;
@@ -151,5 +151,26 @@ describe('the messages a caller reads: through their sender or their recipient (
       readsMessage(reach, { senderId: fleet.far.shipId, recipient: { kind: 'ship', shipId: fleet.argo.shipId }, claimedBy: null }),
       readsMessage(reach, { senderId: fleet.argo.shipId, recipient: { kind: 'ship', shipId: nobody }, claimedBy: null }),
     ]).toEqual([true, true, false]);
+  });
+});
+
+describe('the events a caller reads (decision 0034)', () => {
+  beforeEach(async () => {
+    await fleet.readRulesApply();
+  });
+
+  it('reads an event about a ship only through that ship', async () => {
+    const reach = await readReachOf(fleet.reader);
+
+    expect([
+      readsEvent(reach, { type: 'ShipRenamed', shipId: fleet.near.shipId, message: null }),
+      readsEvent(reach, { type: 'ShipRenamed', shipId: fleet.far.shipId, message: null }),
+    ]).toEqual([true, false]);
+  });
+
+  it.each(['NetworkRulesDeclared', 'NetworkRulesSet', 'BuiltInRuleChanged'] as const)('reads %s whatever ship it names: a rules event concerns no ship', async (type) => {
+    const reach = await readReachOf(fleet.reader);
+
+    expect(readsEvent(reach, { type, shipId: fleet.far.shipId, message: null })).toBe(true);
   });
 });
