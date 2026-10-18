@@ -132,6 +132,7 @@ describe('eventTypeSchema', () => {
       'NetworkPluginUnregistered',
       'BuiltInRuleChanged',
       'ScopesDeclared',
+      'ScopesChanged',
     ]);
   });
 });
