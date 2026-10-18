@@ -2159,7 +2159,7 @@ describe('network rules at the API', () => {
 
     const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
 
-    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: refusedAt });
+    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [], owner: { name: 'argo' } } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
     await expect(codeOf(plugin.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
   });

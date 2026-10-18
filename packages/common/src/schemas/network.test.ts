@@ -95,13 +95,13 @@ describe('setNetworkRulesOutputSchema', () => {
 });
 
 describe('reachRefusalsOutputSchema', () => {
-  it('answers each refusal: who tried to reach whom, both ships with the labels they carried then, the settings version and when', () => {
+  it('answers each refusal: who tried to reach whom, both ships with the labels they carried and their owners then, the settings version and when', () => {
     const carried = { labelId: newId('label'), key: 'trust', valueId: newId('labelValue'), value: 'shared' };
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [carried] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [carried], owner: { id: newId('ship'), name: 'thomas' } },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -113,8 +113,8 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [] }] },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [], owner: null }] },
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -126,8 +126,8 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       settingsVersion: 2,
       whilePluginUnavailable: 'block-all',
     };
@@ -135,12 +135,25 @@ describe('reachRefusalsOutputSchema', () => {
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
   });
 
+  it('refuses a ship without its owner', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-09T19:00:00.000Z',
+      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      settingsVersion: 2,
+      whilePluginUnavailable: null,
+    };
+
+    expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
+  });
+
   it('refuses open-all as what refused it: open-all refuses nothing', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       settingsVersion: 2,
       whilePluginUnavailable: 'open-all',
     };

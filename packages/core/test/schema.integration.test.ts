@@ -449,6 +449,40 @@ describe('the cleared rules on record migration', () => {
   });
 });
 
+describe('the owners on reach refusals migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const ownersOnRefusals = readdirSync(MIGRATIONS).find((name) => name.endsWith('_owners_on_reach_refusals'));
+
+  it('gives every ship of a refusal from before owners none, as no owner was known then', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const toShip = newId('reachRefusal');
+    const toType = newId('reachRefusal');
+    const ship = (name: string) => ({ id: newId('ship'), name, labels: [] });
+    const [planner, vault, keeper] = [ship('planner'), ship('vault'), ship('keeper')];
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.reachRefusal.createMany({
+        data: [
+          { id: toShip, fleetId, at: now, sender: planner, recipient: { kind: 'ship', ship: vault }, settingsVersion: 2 },
+          { id: toType, fleetId, at: now, sender: planner, recipient: { kind: 'type', type: 'keeper', ships: [vault, keeper] }, settingsVersion: 2 },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${ownersOnRefusals ?? 'missing'}/migration.sql`);
+
+      const none = (refused: typeof planner) => ({ ...refused, owner: null });
+      await expect(client.reachRefusal.findMany({ select: { id: true, sender: true, recipient: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+        { id: toShip, sender: none(planner), recipient: { kind: 'ship', ship: none(vault) } },
+        { id: toType, sender: none(planner), recipient: { kind: 'type', type: 'keeper', ships: [none(vault), none(keeper)] } },
+      ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('ships', () => {
   it('keeps a name unique among ships that are not retired', async () => {
     const fleetId = await createFleet();
