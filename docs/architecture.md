@@ -314,7 +314,7 @@ sequenceDiagram
   T->>X: list: pane dead
   T->>F: status restarting
   T->>T: restart policy: wait, attempt n
-  T->>T: aeolus-push.sh died: the store marks what the session held
+  T->>T: aeolus-push.sh died: the store marks what the session held, the turn busy
   T->>X: start again in the same folder (claude --continue)
   Note over T,X: same crew token, lease still held, no new secret
   alt budget spent
