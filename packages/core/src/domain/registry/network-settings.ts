@@ -43,6 +43,8 @@ export interface NetworkRule {
  */
 export interface NetworkPlugin extends NetworkPluginDeclaration {
   shipId: ShipId;
+  /** When the ship first registered; registering again replaces what it declared, not this. */
+  registeredAt: Date;
 }
 
 /**
@@ -102,7 +104,12 @@ export function registerNetworkPlugin(
   const settings: NetworkSettings = {
     ...current,
     version: current.version + 1,
-    plugin: { shipId, whileUnavailable: declaration.whileUnavailable, notRespondingAfterSeconds: declaration.notRespondingAfterSeconds },
+    plugin: {
+      shipId,
+      whileUnavailable: declaration.whileUnavailable,
+      notRespondingAfterSeconds: declaration.notRespondingAfterSeconds,
+      registeredAt: current.plugin?.registeredAt ?? change.at,
+    },
   };
   return ok({
     settings,

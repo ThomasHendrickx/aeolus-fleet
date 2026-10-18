@@ -84,6 +84,7 @@ import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusal
 import type { RegisterNetworkPlugin } from '../../domain/registry/register-network-plugin.js';
 import type { SetNetworkRules } from '../../domain/registry/set-network-rules.js';
 import type { ReadBuiltInRules } from '../../domain/registry/read-built-in-rules.js';
+import type { ReadNetworkPlugin } from '../../domain/registry/read-network-plugin.js';
 import type { SetBuiltInRule } from '../../domain/registry/set-built-in-rule.js';
 import type { UnregisterNetworkPlugin } from '../../domain/registry/unregister-network-plugin.js';
 import type { DeleteLabel } from '../../domain/registry/delete-label.js';
@@ -155,6 +156,7 @@ export interface UseCases {
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
   setBuiltInRule: SetBuiltInRule;
   readBuiltInRules: ReadBuiltInRules;
+  readNetworkPlugin: ReadNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
   declareNetworkRules: DeclareNetworkRules;
   readDeclaredNetworkRules: ReadDeclaredNetworkRules;

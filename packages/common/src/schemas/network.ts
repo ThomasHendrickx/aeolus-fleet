@@ -103,6 +103,13 @@ export type BuiltInRuleState = z.infer<typeof builtInRuleStateSchema>;
 /** Output of `fleet.builtInRules` (fleet:network): every built-in rule as it is now, in the order the rule list shows them, first (decision 0034). */
 export const builtInRulesOutputSchema = z.array(builtInRuleStateSchema);
 
+/**
+ * Output of `fleet.networkPlugin` (fleet:read): the fleet's networking plugin,
+ * its ship and when it registered, or null without one (decision 0035). The
+ * gateway reads it before it switches on for a fleet (interop I-3).
+ */
+export const networkPluginOutputSchema = z.object({ shipId: idSchema('ship'), registeredAt: z.iso.datetime() }).nullable();
+
 /** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
 export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
 

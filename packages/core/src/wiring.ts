@@ -103,6 +103,7 @@ import { createReadDeclaredNetworkRules, type ReadDeclaredNetworkRules } from '.
 import { createRegisterNetworkPlugin, type RegisterNetworkPlugin } from './domain/registry/register-network-plugin.js';
 import { createSetNetworkRules, type SetNetworkRules } from './domain/registry/set-network-rules.js';
 import { createReadBuiltInRules, type ReadBuiltInRules } from './domain/registry/read-built-in-rules.js';
+import { createReadNetworkPlugin, type ReadNetworkPlugin } from './domain/registry/read-network-plugin.js';
 import { createSetBuiltInRule, type SetBuiltInRule } from './domain/registry/set-built-in-rule.js';
 import { createUnregisterNetworkPlugin, type UnregisterNetworkPlugin } from './domain/registry/unregister-network-plugin.js';
 import { createChangeLabelValues, type ChangeLabelValues } from './domain/registry/change-label-values.js';
@@ -179,6 +180,7 @@ export interface UseCases {
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
   setBuiltInRule: SetBuiltInRule;
   readBuiltInRules: ReadBuiltInRules;
+  readNetworkPlugin: ReadNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
   declareNetworkRules: DeclareNetworkRules;
   readDeclaredNetworkRules: ReadDeclaredNetworkRules;
@@ -350,6 +352,7 @@ export function createUseCases(options: {
     unregisterNetworkPlugin: createUnregisterNetworkPlugin({ uow, clock, ids }),
     setBuiltInRule: createSetBuiltInRule({ uow, clock, ids }),
     readBuiltInRules: createReadBuiltInRules({ uow }),
+    readNetworkPlugin: createReadNetworkPlugin({ uow }),
     readReachRefusals: createReadReachRefusals({ reachRefusals: createPrismaReachRefusalRepository(prisma) }),
     declareNetworkRules: createDeclareNetworkRules({ uow, clock, ids }),
     readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(prisma) }),
