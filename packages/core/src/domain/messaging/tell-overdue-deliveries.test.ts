@@ -311,6 +311,21 @@ describe('which ships and deliveries the clocks tell of', () => {
     ]);
   });
 
+  it('never runs for a person ship: a person away is not stuck (interop 5.1)', async () => {
+    const { shipId: thomasId } = unwrap(
+      await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }),
+    );
+    const thomas = crewAboard(core, { fleetId, shipId: thomasId });
+    pushed(thomas);
+    const deliveryId = await sendTo({ kind: 'ship', shipId: thomasId });
+    unwrap(await useCases.pushReceiveDeliveries(thomas, {}));
+    unwrap(await useCases.handOverDelivery(thomas, { deliveryId, handOverNumber: 1 }));
+
+    await after(120 * MINUTE);
+
+    expect(overdueEvents()).toEqual([]);
+  });
+
   it('tells of each ship apart', async () => {
     const { shipId: lookoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'scribe' }));
     const lookout = crewAboard(core, { fleetId, shipId: lookoutId });

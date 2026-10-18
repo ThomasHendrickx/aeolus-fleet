@@ -227,6 +227,23 @@ describe('a stuck delivery', () => {
       ]);
     });
 
+    it('is never stalled at a person ship, handed and not opened for hours or waiting pending: a person away is not stuck (interop 5.1)', () => {
+      const thomas = aShip({ name: 'thomas', type: 'person', isPerson: true });
+      const lease = aLease(thomas, { pushedAt: hoursAgo(5) });
+      const handed = aDelivery(toShip(thomas), { steps: [aStep('received', { at: hoursAgo(4), by: lease }), aStep('handed', { at: hoursAgo(3), by: lease })] });
+      const pending = aDelivery(toShip(thomas), { sentAt: hoursAgo(2) });
+
+      expect(stuckAt(records({ ships: [thomas], leases: [lease], deliveries: [handed, pending] }), NOW)).toEqual([]);
+    });
+
+    it('is never stalled at a person ship on a plain lease, its app not seen since the hand-over', () => {
+      const thomas = aShip({ name: 'thomas', type: 'person', isPerson: true });
+      const lease = aLease(thomas, { lastSeenAt: hoursAgo(3) });
+      const handed = aDelivery(toShip(thomas), { steps: [aStep('handed', { at: hoursAgo(3), by: lease })] });
+
+      expect(stuckAt(records({ ships: [thomas], leases: [lease], deliveries: [handed] }), NOW)).toEqual([]);
+    });
+
     it('is pending to a type for 10 minutes while its pushed ship is idle', () => {
       const { scout, lease } = pushedScout();
 
