@@ -10,13 +10,13 @@
 | `messages:force` | a forced send (0040) | send reach |
 | `messages:resend` | resend or dismiss a stuck delivery | read reach of the message; the resend is checked as its original sender |
 | `fleet:read` | read ships, timelines, messages, labels, events and fleet-wide views | read reach |
-| `fleet:commission` | commission an agent, granting only what it may grant | the new ship's owner (0045) |
+| `fleet:commission` | commission an agent, and with `fleet:on-behalf` an app ship (0044), granting only what it may grant | the new ship's owner (0045) |
 | `fleet:manage` | rename, release, recrew, retire, starting prompt, ping, crew request, clear a worktree | manage reach |
 | `crew:assign`, `crew:run` | as 0029 | any request; assignment |
 | `labels:define` | its labels and rules on them (0037) | labels it owns |
 | `labels:assign` | values of labels it owns | its own ship and ships it commissioned; argo any |
 | `fleet:network` | the networking plugin's calls (0035) | the fleet's rules |
-| `fleet:on-behalf` | a plugin's calls for another ship: read on behalf of a named ship (0034), name the asking ship's owner at commission (0045) | the named ship's read reach |
+| `fleet:on-behalf` | a plugin's calls for another ship: read on behalf of a named ship (0034), name the asking ship's owner at commission, or the owner argo picked for an app ship it commissions (0045) | the named ship's read reach |
 | `scopes:declare` | take up one plugin namespace and declare its scopes | its own namespace |
 | `scopes:grant` | grant and revoke on a live ship | what it may grant |
 

@@ -146,7 +146,7 @@ Two questions decide whether a ship may do something: may it do this at all, and
 
 The first three are never off, so argo can never be locked out and a sender always gets its answer.
 
-**argo's alone.** argo holds every scope and grants any of them. Only argo commissions person and app ships, changes an owner, grants a plugin's scope besides the plugin itself, sees the refused calls and asks which ships a ship reaches and by which rule. A refused sender learns only that it was refused, so a refusal never maps the rules.
+**argo's alone.** argo holds every scope and grants any of them. Only argo commissions person ships (a ship holding `fleet:commission` and `fleet:on-behalf`, the gateway, commissions app ships), changes an owner, grants a plugin's scope besides the plugin itself, sees the refused calls and asks which ships a ship reaches and by which rule. A refused sender learns only that it was refused, so a refusal never maps the rules.
 
 **A worked example.** An organisation wants Charlotte and Thomas, but not Burak, to use its CRM, and gives Charlotte an agent that writes PRDs.
 
