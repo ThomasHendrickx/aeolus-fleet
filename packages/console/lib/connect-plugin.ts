@@ -2,7 +2,7 @@ import type { Scope, ShipStatus } from '@aeolus-fleet/common';
 
 /**
  * Connecting a plugin from the console, squadrons (decision 0017), the
- * trierarch plugin (decision 0030) or the networking plugin (decision 0036): the web app's server commissions the
+ * trierarch plugin (decision 0030), the networking plugin (decision 0036) or the gateway (decision 0048): the web app's server commissions the
  * plugin's ship, or gives the one it had a new starting prompt, and hands its
  * secret to the plugin, server to server. The secret never leaves the one
  * request that carries it; the browser sees only the connection's new state.
@@ -23,6 +23,13 @@ export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', typ
 
 /** The networking plugin's ship: it reads the fleet, registers as its networking plugin and supplies argo's rules. */
 export const NETWORKING_PLUGIN_SHIP: PluginShip = { name: 'networking-plugin', type: 'networking-plugin', scopes: ['fleet:read', 'fleet:network'] };
+
+/**
+ * The gateway's ship: it reads the fleet and commissions an app proxy ship for
+ * each outside party argo approves, naming the owner argo picked; argo labels
+ * proxy ships in the console (decisions 0044 to 0046, interop design I-5).
+ */
+export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */
