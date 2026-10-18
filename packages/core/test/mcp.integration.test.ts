@@ -14,6 +14,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fi
 import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { wholeShips } from './support/ships.js';
 
 // The ship contract as MCP tools, from the official MCP client over HTTP to
 // Postgres and back. A conversation registers with its ship's id and secret
@@ -312,7 +313,7 @@ describe('the ship tools at /mcp', () => {
 
     await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'blocked', note: 'waiting for review' } });
 
-    const listed = await createUseCases({ prisma: database }).listFleet(argo);
+    const listed = wholeShips(await createUseCases({ prisma: database }).listFleet(argo));
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
   });
 

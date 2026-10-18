@@ -14,6 +14,7 @@ import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
+import { wholeShips } from './support/ships.js';
 
 // The ship contract as REST under /api/v1, from plain HTTP requests (as curl
 // makes them) to Postgres and back: register with the ship's id and secret,
@@ -383,7 +384,7 @@ describe('the ship calls at /api/v1', () => {
 
     await ok(request('report', { crewToken, body: { state: 'working', note: 'on PR 89' } }), z.strictObject({}));
 
-    const listed = await createUseCases({ prisma: database }).listFleet(argo);
+    const listed = wholeShips(await createUseCases({ prisma: database }).listFleet(argo));
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'working', note: 'on PR 89' });
   });
 

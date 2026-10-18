@@ -20,6 +20,7 @@ import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 
@@ -44,7 +45,7 @@ beforeEach(async () => {
 });
 
 async function listedScout() {
-  return (await useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+  return wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
 }
 
 function scout() {
@@ -161,7 +162,7 @@ describe('the model and harness a ship shows', () => {
   });
 
   it('shows no model before a send, and none for argo', async () => {
-    const [listedArgo] = await useCases.listFleet(argo);
+    const [listedArgo] = wholeShips(await useCases.listFleet(argo));
 
     expect(listedArgo?.model).toBeNull();
     await expect(listedScout()).resolves.toMatchObject({ model: null });
@@ -215,7 +216,7 @@ describe('listing the fleet', () => {
   it('shows argo crewed from the device the operator signed in on', async () => {
     unwrap(await identityUseCases(core).signIn({ ...OPERATOR, device: 'Mac · Chrome' }));
 
-    const [listedArgo] = await useCases.listFleet(argo);
+    const [listedArgo] = wholeShips(await useCases.listFleet(argo));
 
     expect(listedArgo).toMatchObject({ status: 'crewed', location: { kind: 'OTHER', description: 'Mac · Chrome' } });
   });
@@ -406,7 +407,7 @@ describe('the labels a ship carries, and selecting ships by them', () => {
   }
 
   it('lists each ship with the labels it carries, ids and text, by key then value, and none for a ship without', async () => {
-    const listed = await useCases.listFleet(argo);
+    const listed = wholeShips(await useCases.listFleet(argo));
 
     expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
       ['argo', []],

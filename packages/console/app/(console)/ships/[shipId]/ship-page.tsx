@@ -79,7 +79,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
     show({ tab, messageId: id });
   };
 
-  const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND';
+  // A ship the session does not read whole shows as one it cannot find (decision 0034).
+  const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
   // argo's own side is this console; a ship no session crews has none.
   const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
@@ -103,7 +104,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
       header={
         <>
         <ShipHeader
-          ship={ship.data}
+          ship={ship.data ?? undefined}
           shipId={shipId}
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}

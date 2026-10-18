@@ -3,7 +3,8 @@ import type { ShipId } from '@aeolus-fleet/common';
 import type { Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
-import { listedShipOf, type ListedShip } from './list-fleet.js';
+import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
+import { readsShip, type ReadReachOf } from './read-reach.js';
 import { checkReaches, type CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
 import { shownReportOf, type ShownReport } from './ship-report.js';
@@ -28,7 +29,7 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
 export type GetShip = (
   caller: Caller,
   input: { shipId: ShipId },
-) => Promise<Result<ShipDetail, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
+) => Promise<Result<ShipDetail | ShipOutsideReadReach, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
 
 /** The scopes that read every ship; crew:run reads only the ships assigned to the caller's ship. */
 const READ_SCOPES = ['fleet:read'] as const;
@@ -37,9 +38,10 @@ const READ_SCOPES = ['fleet:read'] as const;
  * Use case: one ship of the caller's fleet, retired ships included: they keep
  * their page. The caller's scope (fleet:read or crew:run) is
  * checked before this runs; crew:run reads only the ships whose crew requests
- * are assigned to the caller's ship.
+ * are assigned to the caller's ship, whole. Any other ship outside the
+ * caller's read reach shows its name, type and status only (decision 0034).
  */
-export function createGetShip(deps: { listing: FleetListing }): GetShip {
+export function createGetShip(deps: { listing: FleetListing; readReach: ReadReachOf }): GetShip {
   return async (caller, { shipId }) => {
     const facts = await deps.listing.ship(caller.fleetId, shipId);
     if (!facts) {
@@ -50,6 +52,9 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
       return reaches;
     }
     const listed = listedShipOf(facts);
+    if (facts.crewRequest?.assignedTo !== caller.shipId && !readsShip(await deps.readReach(caller), shipId)) {
+      return ok(outsideReadReach(listed));
+    }
     const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
     return ok({
       ...listed,

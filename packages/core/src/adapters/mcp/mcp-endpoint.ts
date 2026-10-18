@@ -45,6 +45,18 @@ const crewTokenArgument = z.string();
 
 const objectOutput = z.looseObject({ type: z.literal('object') });
 
+/** Either of several objects, as fleet_ship answers a ship whole or outside read reach (decision 0034). */
+const objectsOutput = z.looseObject({ anyOf: z.array(objectOutput) });
+
+/** The output schema MCP takes, an object's, or none for an answer that is not one. */
+function outputSchemaOf(output: ShipCall['output']): Tool['outputSchema'] {
+  if (output.type === 'object') {
+    return objectOutput.parse(output);
+  }
+  const objects = objectsOutput.safeParse(output);
+  return objects.success ? { ...objects.data, type: 'object' } : undefined;
+}
+
 /** A ship call as an MCP tool: every one but `register` asks for the crew token first. */
 function toolOf(call: ShipCall): Tool {
   const input = call.input?.schema ?? { type: 'object', properties: {}, required: [] };
@@ -61,7 +73,7 @@ function toolOf(call: ShipCall): Tool {
     name: call.name,
     description: call.description,
     inputSchema,
-    ...(call.output.type === 'object' && { outputSchema: objectOutput.parse(call.output) }),
+    ...(outputSchemaOf(call.output) !== undefined && { outputSchema: outputSchemaOf(call.output) }),
   };
 }
 

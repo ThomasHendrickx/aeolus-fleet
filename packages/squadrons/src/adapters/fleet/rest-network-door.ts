@@ -4,7 +4,7 @@
  * refusal reads as the fleet's code and message; a busy fleet is asked again,
  * as the fleet door does.
  */
-import { changeLabelValuesOutputSchema, declareNetworkRulesOutputSchema, defineLabelOutputSchema, fleetListOutputSchema, labelsOutputSchema } from '@aeolus-fleet/common';
+import { changeLabelValuesOutputSchema, declareNetworkRulesOutputSchema, defineLabelOutputSchema, fleetListOutputSchema, isInReadReach, labelsOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { NetworkDoor } from '../../core/network/ports.js';
@@ -31,7 +31,12 @@ export function createRestNetworkDoor(fleetUrl: string, options: DoorOptions = {
     listLabelledShips: async (crewToken) => {
       const listed = await call(door, { path: '/fleet/list', method: 'POST', crewToken, body: {}, answers: fleetListOutputSchema });
       return listed.isOk
-        ? ok(listed.value.filter((ship) => ship.status !== 'retired').map(({ id, labels }) => ({ shipId: id, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) })))
+        ? ok(
+            listed.value
+              .filter(isInReadReach)
+              .filter((ship) => ship.status !== 'retired')
+              .map(({ id, labels }) => ({ shipId: id, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) })),
+          )
         : listed;
     },
     assignLabel: async (crewToken, assignment) => {

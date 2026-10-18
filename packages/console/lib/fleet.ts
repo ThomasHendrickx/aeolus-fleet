@@ -1,3 +1,4 @@
+import { isInReadReach } from '@aeolus-fleet/common/rules';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAccess } from './access';
@@ -11,10 +12,14 @@ import { useTRPC } from './trpc';
  */
 export const LAST_SEEN_REFRESH_MS = 30_000;
 
-/** The fleet snapshot: every ship with its status, prompt state and when it was last seen. */
+/**
+ * The fleet snapshot: every ship with its status, prompt state and when it was
+ * last seen. Only the ships the session reads whole: argo reads every ship, a
+ * viewer every ship while argo leaves the viewer reading on (decision 0034).
+ */
 export function useFleetSnapshot() {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.list.queryOptions(undefined, { refetchInterval: LAST_SEEN_REFRESH_MS }));
+  return useQuery(trpc.fleet.list.queryOptions(undefined, { refetchInterval: LAST_SEEN_REFRESH_MS, select: (ships) => ships.filter(isInReadReach) }));
 }
 
 /** The fleet's labels (#102, decision 0031): each with its values and its owner, for chips and the label filter. */
