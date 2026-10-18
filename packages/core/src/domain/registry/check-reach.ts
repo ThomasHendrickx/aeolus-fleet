@@ -103,10 +103,12 @@ export async function rulesInForceAt(tx: Pick<CheckReachTx, 'leases'>, at: { set
 export interface ShipAsItIs {
   ship: Ship;
   labels: CarriedLabel[];
+  /** Its owner's ship by id and name, none for argo and the viewer (decision 0045). */
+  owner: { id: ShipId; name: string } | null;
 }
 
-/** The ship with the label values it carries now, by key then value, with their texts. */
-export async function shipAsItIs(tx: Pick<CheckReachTx, 'labels'>, ship: Ship): Promise<ShipAsItIs> {
+/** The ship with the label values it carries now, by key then value, with their texts, and its owner. */
+export async function shipAsItIs(tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'> }, ship: Ship): Promise<ShipAsItIs> {
   const labels: CarriedLabel[] = [];
   for (const carried of await tx.labels.carriedBy(ship.fleetId, ship.id)) {
     const label = await tx.labels.find(ship.fleetId, carried.labelId);
@@ -116,13 +118,14 @@ export async function shipAsItIs(tx: Pick<CheckReachTx, 'labels'>, ship: Ship): 
     }
   }
   labels.sort((first, second) => first.key.localeCompare(second.key) || first.value.localeCompare(second.value));
-  return { ship, labels };
+  const owner = ship.owner === null ? undefined : await tx.ships.find(ship.fleetId, ship.owner);
+  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null };
 }
 
 export function reaching({ ship, labels }: ShipAsItIs): ReachingShip {
   return { id: ship.id, owner: ship.owner, kind: ship.kind, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
 }
 
-function refused({ ship, labels }: ShipAsItIs): RefusedShip {
-  return { id: ship.id, name: ship.name, labels };
+function refused({ ship, labels, owner }: ShipAsItIs): RefusedShip {
+  return { id: ship.id, name: ship.name, labels, owner };
 }

@@ -81,10 +81,15 @@ export const registerNetworkPluginInputSchema = z.object({
 
 export type NetworkPluginDeclaration = z.infer<typeof registerNetworkPluginInputSchema>;
 
-/** A ship as a reach refusal saw it: its id, its name and the label values it carried then. */
-const refusedShipSchema = z.object({ id: idSchema('ship'), name: z.string(), labels: z.array(carriedLabelSchema) });
+/** A ship as a reach refusal saw it: its id, its name, the label values it carried then and its owner's ship then, none for argo and the viewer (decision 0045). */
+const refusedShipSchema = z.object({
+  id: idSchema('ship'),
+  name: z.string(),
+  labels: z.array(carriedLabelSchema),
+  owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+});
 
-/** One refused send: who tried to reach whom, both ships as they were, the settings version that refused it and when. */
+/** One refused send: who tried to reach whom, both ships as they were with their owners, the settings version that refused it and when. */
 export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),

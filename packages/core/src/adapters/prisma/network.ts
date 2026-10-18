@@ -25,7 +25,12 @@ const settingsRowSchema = z.object({
   pluginNotRespondingAfterSeconds: z.number().int().nullable(),
 });
 
-const refusedShipSchema = z.object({ id: idSchema('ship'), name: z.string(), labels: z.array(carriedLabelSchema) });
+const refusedShipSchema = z.object({
+  id: idSchema('ship'),
+  name: z.string(),
+  labels: z.array(carriedLabelSchema),
+  owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+});
 
 const refusalRowSchema = z.object({
   id: idSchema('reachRefusal'),
@@ -116,7 +121,7 @@ export function createPrismaReachRefusalRepository(db: Db): ReachRefusalReposito
 }
 
 function shipJson(ship: RefusedShip) {
-  return { id: ship.id, name: ship.name, labels: ship.labels.map((label) => ({ ...label })) };
+  return { id: ship.id, name: ship.name, labels: ship.labels.map((label) => ({ ...label })), owner: ship.owner === null ? null : { ...ship.owner } };
 }
 
 function recipientJson(recipient: ReachRefusal['recipient']) {

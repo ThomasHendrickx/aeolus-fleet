@@ -194,7 +194,7 @@ describe('a send under network rules', () => {
     await expect(core.prisma.reachRefusal.count()).resolves.toBe(1);
   });
 
-  it('records who tried to reach whom, both ships with the labels they carried, the settings version and when', async () => {
+  it('records who tried to reach whom, both ships with the labels they carried and their owners, the settings version and when', async () => {
     refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
     const label = (valueId: LabelValueId, value: string) => ({ labelId: trustId, key: 'trust', valueId, value });
 
@@ -206,8 +206,8 @@ describe('a send under network rules', () => {
           fleetId: argo.fleetId,
           id: read[0]?.id,
           at: core.clock.now(),
-          sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')] },
-          recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')] } },
+          sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
+          recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
           settingsVersion: 2,
           whilePluginUnavailable: null,
         },
@@ -399,7 +399,7 @@ describe('a send to a type under network rules', () => {
     expect(refusal?.recipient).toEqual({
       kind: 'type',
       type: 'keeper',
-      ships: [{ id: unreachable.shipId, name: 'keeper-b', labels: [{ labelId: trustId, key: 'trust', valueId: sensitive, value: 'sensitive' }] }],
+      ships: [{ id: unreachable.shipId, name: 'keeper-b', labels: [{ labelId: trustId, key: 'trust', valueId: sensitive, value: 'sensitive' }], owner: { id: argo.shipId, name: 'argo' } }],
     });
   });
 

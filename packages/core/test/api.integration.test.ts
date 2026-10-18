@@ -208,6 +208,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_forced_delivery$/),
       expect.stringMatching(/^\d{14}_person_and_app_ships$/),
       expect.stringMatching(/^\d{14}_owners$/),
+      expect.stringMatching(/^\d{14}_owners_on_reach_refusals$/),
     ]);
   });
 });
@@ -2152,6 +2153,7 @@ describe('network rules at the API', () => {
     const { version } = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
     const senderToken = await crewedShip();
     const { shipId } = await agentShip();
+    await database.ship.update({ where: { id: shipId }, data: { ownerShipId: argoId } });
     const refusedAt = clock.now().toISOString();
     await refusalOf(
       client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),

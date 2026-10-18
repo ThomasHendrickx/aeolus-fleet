@@ -8,7 +8,7 @@ import { ReachRefusalLog } from './reach-refusal-log';
 const NOW = new Date('2026-10-10T12:00:00.000Z');
 
 function aShip(name: string, ship: { suffix: string; labels?: ReachRefusal['sender']['labels'] }): ReachRefusal['sender'] {
-  return { id: idSchema('ship').parse(`shp_01m4k0000000000000000000${ship.suffix}`), name, labels: ship.labels ?? [] };
+  return { id: idSchema('ship').parse(`shp_01m4k0000000000000000000${ship.suffix}`), name, labels: ship.labels ?? [], owner: null };
 }
 
 const SCOUT = aShip('scout-1', { suffix: '01' });

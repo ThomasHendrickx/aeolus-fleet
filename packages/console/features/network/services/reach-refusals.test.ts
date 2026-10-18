@@ -6,7 +6,7 @@ import { refusalCauseOf, refusalSentenceOf } from './reach-refusals';
 const newId = createIdGenerator();
 
 function aRefusedShip(name: string): ReachRefusal['sender'] {
-  return { id: newId('ship'), name, labels: [] };
+  return { id: newId('ship'), name, labels: [], owner: null };
 }
 
 function aRefusal(overrides: Partial<ReachRefusal> = {}): ReachRefusal {
