@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
-import { refusalOf, unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import { createReadSentMessage, type ReadSentMessage } from './read-sent-message.js';
 
 let scene: HistoryScenario;
