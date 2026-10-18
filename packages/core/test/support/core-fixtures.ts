@@ -183,7 +183,7 @@ export function registryUseCases(core: InMemoryCore) {
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests, ships: core.ships }),
     explainCrewRequest: createExplainCrewRequest(deps),
     requestWorktreeClear: createRequestWorktreeClear(deps),
-    readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests }),
+    readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests, readReach: readReachOf(core) }),
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     setNetworkRules: createSetNetworkRules(deps),

@@ -320,7 +320,7 @@ export function createUseCases(options: {
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
     requestWorktreeClear: createRequestWorktreeClear({ uow, clock, ids }),
-    readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma) }),
+    readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma), readReach }),
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     setNetworkRules: createSetNetworkRules({ uow, clock, ids }),
