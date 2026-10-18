@@ -7,13 +7,39 @@ import { z } from 'zod';
  */
 
 /**
- * A permission of a ship, stored on the server with the ship and checked
- * before every call. `messages:force` sends a forced message, one that comes
- * first (decision 0040).
+ * A core scope: a permission of a ship, stored on the server with the ship
+ * and checked by core before every call. `messages:force` sends a forced
+ * message, one that comes first (decision 0040); `scopes:declare` takes up a
+ * plugin namespace and `scopes:grant` grants and revokes on a live ship
+ * (decision 0046).
  */
-export const SCOPES = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
+export const SCOPES = [
+  'messages:send',
+  'messages:receive',
+  'messages:force',
+  'fleet:read',
+  'fleet:manage',
+  'crew:assign',
+  'crew:run',
+  'labels:define',
+  'labels:assign',
+  'fleet:network',
+  'scopes:declare',
+  'scopes:grant',
+] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
+
+/** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
+export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes'] as const;
+
+/** A namespace or an action: lowercase letters, digits and hyphens, starting with a letter, 1 to 32 characters (decision 0046). */
+const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
+export const SCOPE_NAME_PATTERN = new RegExp(`^${SCOPE_PART}:${SCOPE_PART}$`);
+
+/** Any scope a ship may hold, a core one or a plugin's: `<namespace>:<action>` (decision 0046). */
+export type ScopeName = `${string}:${string}`;
+export const scopeNameSchema = z.custom<ScopeName>((value) => typeof value === 'string' && SCOPE_NAME_PATTERN.test(value), { message: 'A scope is <namespace>:<action>' });
 
 /**
  * The scopes commissioning may add to an agent ship, beside sending and
