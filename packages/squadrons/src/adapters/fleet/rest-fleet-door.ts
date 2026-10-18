@@ -139,7 +139,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
       if (!read.isOk) {
         return read;
       }
-      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries, crewRequest } = read.value;
+      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries, crewRequest, owner } = read.value;
       return ok({
         status,
         scopes,
@@ -149,6 +149,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         openDeliveries,
         inFlightDeliveries,
         hasCrewRequest: crewRequest !== null,
+        ownerShipId: owner?.id ?? null,
       });
     },
     deregister: async (crewToken) => {

@@ -98,8 +98,8 @@ beforeEach(() => {
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
   readAs.length = 0;
   ships = new Map<ShipId, FleetShip>([
-    [PLANNER, { status: 'awaitingCrew', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false }],
-    [TESTER, { status: 'crewed', scopes: [], lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false }],
+    [PLANNER, { status: 'awaitingCrew', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null }],
+    [TESTER, { status: 'crewed', scopes: [], lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null }],
   ]);
 });
 

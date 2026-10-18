@@ -61,7 +61,7 @@ let refusals: { formingShipId: ShipId; key: string; code: string; message: strin
 let handle: HandleManagementDelivery;
 
 function aShip(scopes: string[]): FleetShip {
-  return { status: 'crewed', scopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
+  return { status: 'crewed', scopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null };
 }
 
 function fleetDoor(): FleetDoor {

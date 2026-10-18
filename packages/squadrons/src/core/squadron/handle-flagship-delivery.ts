@@ -11,6 +11,7 @@ import { CHECK_IN, checkInText, ON_STATION, ROLE, STAND_DOWN, STOOD_DOWN } from 
 import { FORM_SCOPE } from './form-messages.js';
 import type { FlagshipMessageLog, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
 import { ARGO_NAME, REFUSED, RELAY, STANDING_DOWN } from './proxy-messages.js';
+import { contactOf, contactSelector, isFromContact, type Contact } from './squadron-contact.js';
 import type { StandDown } from './stand-down.js';
 import type { Member, Squadron } from './squadron.js';
 
@@ -104,15 +105,16 @@ function relayTarget(
  * stands down, a member's stood-down is recorded and acked, then the
  * stand-downs advance, so the member is retired when it holds no open deliveries;
  * a check-in then is answered with a role message saying the squadron stands
- * down. The flagship is the proxy between its squadron and its forming ship,
- * argo for a squadron argo formed (decision 0017): a member's relay goes on to
- * the forming ship, and the forming ship's relay to the member it answers or
- * names, or one ship of the role it names. The forming ship, while it holds
- * squadrons:form, or argo stands a sailing squadron down by message; any other
- * ship is refused. A flagship supports only these messages: anything else,
- * from outside or from a member, is acknowledged and kept for the squadron
- * page, never forwarded, and the forming ship is told (argo for a squadron
- * argo formed), so no message disappears or goes unseen. A ping from argo gets pong instead of ack, as on any ship
+ * down. The flagship is the proxy between its squadron and its contact
+ * (decision 0017): its forming ship, argo for a squadron argo formed, and once
+ * the forming ship is retired that ship's owner, argo when it has none (0.R).
+ * A member's relay goes on to the contact, and the contact's relay to the
+ * member it answers or names, or one ship of the role it names. The contact,
+ * while it holds squadrons:form, or argo stands a sailing squadron down by
+ * message; any other ship is refused. A flagship supports only these
+ * messages: anything else, from outside or from a member, is acknowledged and
+ * kept for the squadron page, never forwarded, and the contact is told, so no
+ * message disappears or goes unseen. A ping from argo gets pong instead of ack, as on any ship
  * (blueprint, "Ping"). A delivery is acked only after it is handled; the delivery id keys
  * every step, so one that comes again gets the same answer and no second change.
  */
@@ -140,9 +142,9 @@ export function createHandleFlagshipDelivery(deps: {
     return sent.isOk ? ok('refused') : err(sent.error);
   };
 
-  // A member's relay goes on to the forming ship, argo for a squadron argo formed, recorded so its answer comes back.
-  const relayToFormingShip = async (squadron: Squadron, relay: { member: Member; delivery: FlagshipDelivery; payload: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
-    const { member, delivery } = relay;
+  // A member's relay goes on to the squadron's contact, recorded so its answer comes back.
+  const relayToContact = async (squadron: Squadron, relay: { contact: Contact; member: Member; delivery: FlagshipDelivery; payload: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+    const { contact, member, delivery } = relay;
     const payload = JSON.stringify({ squadron: squadron.id, member: { name: member.name, role: member.role }, messageId: delivery.messageId, payload: relay.payload });
     if (payloadBytes(payload) > PAYLOAD_MAX_BYTES) {
       return answerRefused(squadron, {
@@ -152,7 +154,7 @@ export function createHandleFlagshipDelivery(deps: {
       });
     }
     const sent = await deps.door.send(squadron.flagship.crewToken, {
-      selector: squadron.formingShip === null ? { kind: 'ship', name: ARGO_NAME } : { kind: 'ship', shipId: squadron.formingShip.shipId },
+      selector: contactSelector(contact),
       contentType: RELAY,
       idempotencyKey: `relay-${delivery.deliveryId}`,
       payload,
@@ -164,8 +166,8 @@ export function createHandleFlagshipDelivery(deps: {
     return ok('relayed');
   };
 
-  // The forming ship's relay goes to the member it answers, or to the member or role it names.
-  const relayFromFormingShip = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+  // The contact's relay goes to the member it answers, or to the member or role it names.
+  const relayFromContact = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
     const { delivery, relay } = relayed;
     const answered = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
     const target = relayTarget(squadron, { answered, to: relay.to });
@@ -182,13 +184,17 @@ export function createHandleFlagshipDelivery(deps: {
     return sent.isOk ? ok('relayed') : err(sent.error);
   };
 
-  // Whether the sender may stand the squadron down: argo always, its forming ship while it holds squadrons:form, read from the fleet.
+  // Whether the sender may stand the squadron down: argo always; its contact, the forming ship or once that is retired its owner, while it holds squadrons:form, read from the fleet.
   const mayStandDown = async (squadron: Squadron, delivery: FlagshipDelivery): Promise<Result<{ code: string; message: string } | undefined, FleetRefusal>> => {
     if (delivery.senderName === ARGO_NAME) {
       return ok(undefined);
     }
-    if (squadron.formingShip?.shipId !== delivery.senderShipId) {
-      return ok({ code: 'NOT_FORMING_SHIP', message: `Only the ship that formed ${squadron.id}, or argo, stands it down` });
+    const contact = await contactOf(deps, squadron);
+    if (!contact.isOk) {
+      return contact;
+    }
+    if (contact.value.kind === 'argo' || !isFromContact(contact.value, delivery)) {
+      return ok({ code: 'NOT_FORMING_SHIP', message: `Only the ship that formed ${squadron.id}, its owner once it is retired, or argo stands it down` });
     }
     const crew = await deps.management.find(squadron.fleetId);
     if (!crew) {
@@ -228,12 +234,16 @@ export function createHandleFlagshipDelivery(deps: {
         headline: `${senderName} sent a flagship a message it does not handle`,
         body: `- Squadron: \`${squadron.id}\`\n- From: ${senderName}\n- Content type: \`${contentType}\`\n\nsquadrons keeps it for the squadron page; nothing was forwarded.`,
       };
-      // A squadron a ship formed tells its forming ship, the squadron's one contact outside it; argo's is told as argo.
-      if (squadron.formingShip === null) {
+      const contact = await contactOf(deps, squadron);
+      if (!contact.isOk) {
+        return err(contact.error);
+      }
+      // The squadron's one contact outside it is told: argo as argo, any other contact by message.
+      if (contact.value.kind === 'argo') {
         await deps.operator.tell({ fleetId: squadron.fleetId, ...notice, key: `kept-${deliveryId}` });
       } else {
         const told = await deps.door.send(crewToken, {
-          selector: { kind: 'ship', shipId: squadron.formingShip.shipId },
+          selector: contactSelector(contact.value),
           contentType: MARKDOWN_CONTENT_TYPE,
           idempotencyKey: `kept-${deliveryId}`,
           payload: argoMessage(notice),
@@ -252,11 +262,19 @@ export function createHandleFlagshipDelivery(deps: {
 
     if (delivery.contentType === RELAY) {
       const relay = parsedPayload(relayPayload, delivery.payload);
-      const isFromFormingShip = squadron.formingShip === null ? delivery.senderName === ARGO_NAME : delivery.senderShipId === squadron.formingShip.shipId;
-      if (relay?.squadron !== squadron.id || (!member && !isFromFormingShip)) {
+      if (relay?.squadron !== squadron.id) {
         return keep();
       }
-      const relayed = member ? await relayToFormingShip(squadron, { member, delivery, payload: relay.payload }) : await relayFromFormingShip(squadron, { delivery, relay });
+      const contact = await contactOf(deps, squadron);
+      if (!contact.isOk) {
+        return err(contact.error);
+      }
+      if (!member && !isFromContact(contact.value, delivery)) {
+        return keep();
+      }
+      const relayed = member
+        ? await relayToContact(squadron, { contact: contact.value, member, delivery, payload: relay.payload })
+        : await relayFromContact(squadron, { delivery, relay });
       return relayed.isOk ? acked(relayed.value) : err(relayed.error);
     }
 

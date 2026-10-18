@@ -112,7 +112,7 @@ const removeMember = createRemoveMember({ door, management, squadrons, clock: { 
 beforeEach(() => {
   held = aSquadron('sailing');
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
-  const crewed: FleetShip = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 2, inFlightDeliveries: 1, hasCrewRequest: false };
+  const crewed: FleetShip = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 2, inFlightDeliveries: 1, hasCrewRequest: false, ownerShipId: null };
   ships = new Map([
     [PLANNER, crewed],
     [TESTER, crewed],
@@ -134,7 +134,7 @@ describe('removing a member', () => {
   });
 
   it('removes the crew request of a member that has one and shows it releasing: it is retired once its crew is released (#343)', async () => {
-    ships.set(TESTER, { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: true });
+    ships.set(TESTER, { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: true, ownerShipId: null });
 
     await expect(removeMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toEqual({ isOk: true, value: undefined });
 
@@ -153,7 +153,7 @@ describe('removing a member', () => {
   });
 
   it('counts a member whose ship is retired already as removed', async () => {
-    ships.set(TESTER, { status: 'retired', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false });
+    ships.set(TESTER, { status: 'retired', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null });
 
     await expect(removeMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', shipId: TESTER })).resolves.toMatchObject({ isOk: true });
     expect(held.members.find((member) => member.shipId === TESTER)?.retiredAt).toEqual(NOW);

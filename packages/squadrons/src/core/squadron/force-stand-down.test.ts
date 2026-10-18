@@ -37,7 +37,7 @@ function aSquadron(state: SquadronState): Squadron {
 }
 
 function aShip(): FleetShip {
-  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 1, inFlightDeliveries: 1, hasCrewRequest: false };
+  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 1, inFlightDeliveries: 1, hasCrewRequest: false, ownerShipId: null };
 }
 
 let held: Squadron;

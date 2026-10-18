@@ -37,7 +37,7 @@ function aSquadron(state: SquadronState = 'standing-down'): Squadron {
 }
 
 function aShip(open: { openDeliveries: number; inFlightDeliveries: number } = { openDeliveries: 0, inFlightDeliveries: 0 }): FleetShip {
-  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, hasCrewRequest: false, ...open };
+  return { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, hasCrewRequest: false, ownerShipId: null, ...open };
 }
 
 let held: Squadron;
@@ -273,11 +273,11 @@ describe('a squadron standing down', () => {
 describe('a member with a crew request (#343)', () => {
   /** The ship's crew is released: the fleet no longer holds its crew request. */
   function released(shipId: ShipId): void {
-    ships.set(shipId, { ...aShip(), hasCrewRequest: false });
+    ships.set(shipId, { ...aShip(), hasCrewRequest: false, ownerShipId: null });
   }
 
   it('removes its crew request once it stood down and holds no open deliveries, and shows it releasing rather than retiring it', async () => {
-    ships.set(PLANNER, { ...aShip(), hasCrewRequest: true });
+    ships.set(PLANNER, { ...aShip(), hasCrewRequest: true, ownerShipId: null });
     await advance(FLEET);
     standDown(PLANNER);
 
@@ -289,7 +289,7 @@ describe('a member with a crew request (#343)', () => {
   });
 
   it('retires it once its crew is released', async () => {
-    ships.set(PLANNER, { ...aShip(), hasCrewRequest: true });
+    ships.set(PLANNER, { ...aShip(), hasCrewRequest: true, ownerShipId: null });
     await advance(FLEET);
     standDown(PLANNER);
     await advance(FLEET);
@@ -303,7 +303,7 @@ describe('a member with a crew request (#343)', () => {
 
   it('removes the crew request of a member that never came on station before retiring it', async () => {
     held = { ...held, members: [aMember(TESTER, { role: 'tester', onStationAt: null })] };
-    ships.set(TESTER, { ...aShip(), hasCrewRequest: true });
+    ships.set(TESTER, { ...aShip(), hasCrewRequest: true, ownerShipId: null });
 
     await advance(FLEET);
 
@@ -313,7 +313,7 @@ describe('a member with a crew request (#343)', () => {
 
   it('retires a member the operator removed from a sailing squadron once its crew is released, and sends no stand-down', async () => {
     held = { ...aSquadron('sailing'), members: [{ ...aMember(TESTER, { role: 'tester', onStationAt: FORMED }), releasingSince: FORMED }] };
-    ships.set(TESTER, { ...aShip(), hasCrewRequest: true });
+    ships.set(TESTER, { ...aShip(), hasCrewRequest: true, ownerShipId: null });
     await advance(FLEET);
     expect(retired).toEqual([]);
 

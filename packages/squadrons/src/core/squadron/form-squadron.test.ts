@@ -103,7 +103,7 @@ function fakeFleet() {
     getShip: (_crewToken, { shipId }) =>
       Promise.resolve(
         shipId === MANAGEMENT
-          ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
+          ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null })
           : err({ code: 'NOT_FOUND', message: 'not used' }),
       ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
