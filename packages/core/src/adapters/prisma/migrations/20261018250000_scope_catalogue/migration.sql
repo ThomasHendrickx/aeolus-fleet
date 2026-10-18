@@ -10,8 +10,9 @@ CREATE OR REPLACE FUNCTION "ships_scopes_are_known"("scopes" TEXT[]) RETURNS BOO
 $$;
 
 -- Each holder keeps what it did within the new bounds: every active ship holding fleet:manage also gets
--- fleet:commission and messages:resend, and each active plugin ship, by its type, holds exactly its set,
--- losing what the set leaves out. Scopes stay in catalogue order, a plugin's own after them. Every ship it
+-- fleet:commission and messages:resend, and each active plugin ship holds exactly its set, losing what the
+-- set leaves out. A plugin's ship is known by its name and type together, as the console connects it: types
+-- are not reserved, so another ship of that type keeps what it holds. Scopes stay in catalogue order, a plugin's own after them. Every ship it
 -- changes gets one ScopesChanged, by the system, naming what it added and took away, at the next number of
 -- its fleet's stream, with an evt_ id as common/src/ids makes them (the time in milliseconds, then 80 random
 -- bits, in lowercase Crockford base32).
@@ -29,14 +30,14 @@ DECLARE
   next_seq bigint;
 BEGIN
   FOR ship IN
-    SELECT "id", "fleet_id", "type", "scopes" FROM "ships"
-    WHERE "retired_at" IS NULL AND ("type" IN ('squadrons', 'trierarch-plugin') OR 'fleet:manage' = ANY("scopes"))
+    SELECT "id", "fleet_id", "name", "type", "scopes" FROM "ships"
+    WHERE "retired_at" IS NULL AND ("name" = "type" AND "type" IN ('squadrons', 'trierarch-plugin') OR 'fleet:manage' = ANY("scopes"))
     ORDER BY "fleet_id", "id"
     FOR UPDATE
   LOOP
-    wanted := CASE ship."type"
-      WHEN 'squadrons' THEN ARRAY['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare']
-      WHEN 'trierarch-plugin' THEN ARRAY['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']
+    wanted := CASE ship."name" || '/' || ship."type"
+      WHEN 'squadrons/squadrons' THEN ARRAY['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare']
+      WHEN 'trierarch-plugin/trierarch-plugin' THEN ARRAY['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']
       ELSE ship."scopes" || ARRAY['fleet:commission', 'messages:resend']
     END;
     SELECT array_agg("scope" ORDER BY coalesce(array_position(catalogue, "scope"), cardinality(catalogue) + 1), "first_at") INTO wanted
