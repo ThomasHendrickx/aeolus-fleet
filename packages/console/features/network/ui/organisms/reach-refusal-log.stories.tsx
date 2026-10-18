@@ -2,7 +2,7 @@ import { idSchema, type ReachRefusal } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { AREA, BLUEPRINT, carried, labelContext, labelledFleet, OS, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, BLUEPRINT, carried, labelContext, labelledFleet, OS, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { ReachRefusalLog } from './reach-refusal-log';
 
 const NOW = new Date('2026-10-10T12:00:00.000Z');

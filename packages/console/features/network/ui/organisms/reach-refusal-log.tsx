@@ -1,12 +1,12 @@
 import type { ReachRefusal } from '@aeolus-fleet/common';
 
-import { chipsOf, type LabelContext } from '../../../lib/labels';
-import { refusalCauseOf, refusalSentenceOf } from '../hooks/reach-refusals';
-import { fullDateTime, relativeTime } from '../../../lib/relative-time';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LabelChip } from '../../../components/molecules/label-chip';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { chipsOf, type LabelContext } from '../../../../lib/labels';
+import { refusalCauseOf, refusalSentenceOf } from '../../services/reach-refusals';
+import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LabelChip } from '../../../../components/molecules/label-chip';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 
 export interface ReachRefusalLogProps {
   /** Newest first, as the fleet lists them; undefined while not known. */

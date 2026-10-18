@@ -2,8 +2,8 @@ import { idSchema, type LabelValueId, type ListedLabel } from '@aeolus-fleet/com
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { BLUEPRINT, labelContext, labelledFleet, OS, OWNERS } from '../../../lib/fixtures/labels.fixtures';
-import type { DeclaredRules } from '../lib/declared-rules';
+import { BLUEPRINT, labelContext, labelledFleet, OS, OWNERS } from '../../../../lib/fixtures/labels.fixtures';
+import type { DeclaredRules } from '../../services/declared-rules';
 import { DeclaredNetworkRules } from './declared-network-rules';
 
 function valueOf(label: ListedLabel, value: string): LabelValueId {

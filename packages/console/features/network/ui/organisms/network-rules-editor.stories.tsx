@@ -2,7 +2,7 @@ import { idSchema, NETWORK_RULES_MAX, SHIP_LABELS_MAX, type LabelValueId, type L
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
-import { AREA, labelContext, labelledFleet, OS, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, labelContext, labelledFleet, OS, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { NetworkRulesEditor } from './network-rules-editor';
 
 function valueOf(label: ListedLabel, value: string): LabelValueId {

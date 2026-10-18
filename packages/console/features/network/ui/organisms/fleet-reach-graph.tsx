@@ -1,10 +1,10 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { Ban, Check, Crosshair } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachMark } from '../lib/reach-graph';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
+import { classNames } from '../../../../lib/class-names';
+import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachMark } from '../../services/reach-graph';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface FleetReachGraphProps {
   /** The fleet's ships that sail, argo first (lib/reach-graph.ts). */

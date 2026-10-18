@@ -6,14 +6,14 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
 
-import type { FilterGroup } from '../../../lib/labels';
-import { TERM_MEANINGS, termKeyOf, type TermChip } from '../../../lib/network-rules';
-import { Button } from '../../../components/atoms/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/atoms/popover';
-import { LabelChip } from '../../../components/molecules/label-chip';
+import type { FilterGroup } from '../../../../lib/labels';
+import { TERM_MEANINGS, termKeyOf, type TermChip } from '../../../../lib/network-rules';
+import { Button } from '../../../../components/atoms/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
+import { LabelChip } from '../../../../components/molecules/label-chip';
 
 // Loads when its popover first opens, not with the page.
-const LabelPicker = dynamic(() => import('../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
+const LabelPicker = dynamic(() => import('../../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface LabelSelectorFieldProps {
   /** What the side is, as a sentence starts it: "From ships with", "To ships with". */

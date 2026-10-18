@@ -134,7 +134,6 @@ const featuresInTheOldLayout = [
   'guide',
   'labels',
   'needs-crew',
-  'network',
   'notices',
   'settings',
   'ship-actions',
