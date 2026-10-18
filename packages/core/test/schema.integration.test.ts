@@ -1005,3 +1005,53 @@ describe('the handed migration', () => {
     }
   });
 });
+
+describe('the owners migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const owners = names.findIndex((name) => name.endsWith('_owners'));
+
+  it("makes argo the owner of every ship of its fleet but argo and the viewer, retired ships included (decision 0045)", async () => {
+    const url = await createEmptyDatabase();
+    for (const name of names.slice(0, owners)) {
+      await executeSqlFile(url, `${MIGRATIONS}/${name}/migration.sql`);
+    }
+    const before = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const viewerId = newId('ship');
+    const scoutId = newId('ship');
+    const retiredId = newId('ship');
+    try {
+      // Raw: the generated client knows the owner column the migration adds.
+      await before.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${fleetId}, 'old fleet', ${now})`;
+      for (const [id, name, kind, retiredAt] of [
+        [argoId, 'argo', 'operator', null],
+        [viewerId, 'viewer', 'viewer', null],
+        [scoutId, 'scout', 'agent', null],
+        [retiredId, 'lookout', 'agent', now],
+      ] as const) {
+        await before.$executeRaw`INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at, retired_at)
+          VALUES (${id}, ${fleetId}, ${name}, ${name}, ${kind}::ship_kind, '{}', ${now}, ${retiredAt})`;
+      }
+    } finally {
+      await before.$disconnect();
+    }
+
+    await executeSqlFile(url, `${MIGRATIONS}/${names[owners] ?? 'missing'}/migration.sql`);
+
+    const after = createPrismaClient(url);
+    try {
+      await expect(after.ship.findMany({ select: { id: true, ownerShipId: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+        { id: argoId, ownerShipId: null },
+        { id: viewerId, ownerShipId: null },
+        { id: scoutId, ownerShipId: argoId },
+        { id: retiredId, ownerShipId: argoId },
+      ]);
+    } finally {
+      await after.$disconnect();
+    }
+  });
+});
