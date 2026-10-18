@@ -25,6 +25,7 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
 | `parameters` | no | Parameter names (handles) with what each stands for, used as `{{name}}` in `charter` and `crew.firstPrompt`; see [Crew settings](#crew-settings). A placeholder the template does not declare is refused |
 | `crew` | no | How its members are crewed, and the model they run (`crew.model`); see [Crew settings](#crew-settings) |
+| `scopes` | no | The scopes its members get at commission, each `<namespace>:<action>`, at most 20. squadrons grants them within the subset rule: scopes its own ship holds, and its own namespace `squadrons` (decision 0017). Forming a blueprint with a template that names any other scope is refused before anything is commissioned |
 
 ## Squadron blueprint
 

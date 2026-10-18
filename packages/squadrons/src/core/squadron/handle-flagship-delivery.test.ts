@@ -42,7 +42,7 @@ function squadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [] },
+      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [], scopes: [] },
       {
         repository: REPO,
         name: 'tester',
@@ -57,7 +57,7 @@ function squadron(): Squadron {
         handoffs: [
           { name: 'on-fail', carries: 'failures' },
           { name: 'on-pass', carries: 'the run' },
-        ], crew: {}, parameters: [],
+        ], crew: {}, parameters: [], scopes: [],
       },
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },

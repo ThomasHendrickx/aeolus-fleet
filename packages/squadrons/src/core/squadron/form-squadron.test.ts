@@ -32,6 +32,7 @@ function templateVersion(name: string, handoffs: string[] = []): TemplateVersion
     handoffs: handoffs.map((handoff) => ({ name: handoff, carries: 'work' })),
     crew: {},
     parameters: [],
+    scopes: [],
   };
 }
 

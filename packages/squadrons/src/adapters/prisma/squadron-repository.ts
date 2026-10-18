@@ -36,6 +36,8 @@ const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
     handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
     crew,
     parameters: z.array(z.object({ name: z.string(), description: z.string() })).default([]),
+    // Snapshots stored before templates named scopes grant none.
+    scopes: z.array(z.string()).default([]),
   }),
 );
 const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
