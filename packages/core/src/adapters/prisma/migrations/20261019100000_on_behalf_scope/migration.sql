@@ -10,12 +10,14 @@ CREATE OR REPLACE FUNCTION "ships_scopes_are_known"("scopes" TEXT[]) RETURNS BOO
 $$;
 
 -- argo holds every scope, and squadrons reads on behalf of a person's ship (decision 0017): every argo and every
--- active squadrons ship gets fleet:on-behalf. Every state change writes its event: each ship it changes gets
+-- active squadrons ship gets fleet:on-behalf, its scopes kept in catalogue order, a plugin's own after them.
+-- Every state change writes its event: each ship it changes gets
 -- ScopesChanged, by the system, taking the next number of its fleet's stream. Its id is an evt_ id as
 -- common/src/ids makes them: the time in milliseconds, then 80 random bits, in lowercase Crockford base32.
 DO $$
 DECLARE
   alphabet CONSTANT text := '0123456789abcdefghjkmnpqrstvwxyz';
+  catalogue CONSTANT text[] := ARRAY['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant'];
   changed record;
   at timestamptz;
   millis bigint;
@@ -23,7 +25,10 @@ DECLARE
   next_seq bigint;
 BEGIN
   FOR changed IN
-    UPDATE "ships" SET "scopes" = array_append("scopes", 'fleet:on-behalf')
+    UPDATE "ships" SET "scopes" = (
+      SELECT array_agg("scope" ORDER BY coalesce(array_position(catalogue, "scope"), cardinality(catalogue) + 1), "place")
+      FROM unnest(array_append("ships"."scopes", 'fleet:on-behalf')) WITH ORDINALITY AS u("scope", "place")
+    )
     WHERE ("kind" = 'operator' OR "type" = 'squadrons') AND "retired_at" IS NULL AND NOT ('fleet:on-behalf' = ANY("scopes"))
     RETURNING "fleet_id", "id"
   LOOP

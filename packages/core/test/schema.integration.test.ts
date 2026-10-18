@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, SCOPES, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { readdirSync } from 'node:fs';
@@ -414,7 +414,7 @@ describe('the scope catalogue migration', () => {
       await executeSqlFile(url, `${MIGRATIONS}/${catalogue ?? ''}/migration.sql`);
 
       const after = new Map((await client.ship.findMany({ select: { id: true, scopes: true } })).map(({ id, scopes }) => [id, scopes]));
-      expect(after.get(ships.argo)).toEqual([...SCOPES]);
+      expect(after.get(ships.argo)).toEqual(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant']);
       expect(after.get(ships.manager)).toEqual(['messages:send', 'messages:receive', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'squadrons:form']);
       expect(after.get(ships.squadrons)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare']);
       expect(after.get(ships.trierarchPlugin)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']);
