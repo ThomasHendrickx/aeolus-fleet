@@ -286,7 +286,7 @@ describe('a ship that declared network rules retired (decision 0037)', () => {
   beforeEach(async () => {
     squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: ['labels:define', 'labels:assign'] });
     const { labelId } = unwrap(await registry.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
-    const sameSquadron = { from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] };
+    const sameSquadron = { verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] };
     unwrap(await createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids })(squadrons, { rules: [sameSquadron] }));
     core.state.events.length = 0;
   });

@@ -180,9 +180,9 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
       {
         shipId: management.shipId,
         rules: [
-          { from: [same], to: [same] },
-          { from: [await valueOf('flagship')], to: [await valueOf('squadrons')] },
-          { from: [await valueOf('squadrons')], to: [await valueOf('flagship')] },
+          { verb: 'send', from: [same], to: [same] },
+          { verb: 'send', from: [await valueOf('flagship')], to: [await valueOf('squadrons')] },
+          { verb: 'send', from: [await valueOf('squadrons')], to: [await valueOf('flagship')] },
         ],
       },
     ]);

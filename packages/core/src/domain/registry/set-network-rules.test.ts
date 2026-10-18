@@ -19,7 +19,7 @@ let setNetworkRules: ReturnType<typeof createSetNetworkRules>;
 
 /** A rule between selectors of fresh value ids: no label needs to exist, as an unknown id matches no ship. */
 function aRule(from = 1, to = 1): NetworkRule {
-  return { from: valueIds(from), to: valueIds(to) };
+  return { verb: 'send', from: valueIds(from), to: valueIds(to) };
 }
 
 const DECLARATION = { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 } as const;
@@ -50,8 +50,8 @@ describe('setting the network rules as the networking plugin', () => {
     core.state.events.length = 0;
   });
 
-  it('keeps the whole list of rules for the fleet at the next version', async () => {
-    const rules = [aRule(2, 1), aRule(0, 0)];
+  it('keeps the whole list of rules, each with its verb, for the fleet at the next version', async () => {
+    const rules: NetworkRule[] = [aRule(2, 1), { ...aRule(0, 0), verb: 'read' }, { ...aRule(1, 0), verb: 'manage' }];
 
     const set = unwrap(await setNetworkRules(setter, { rules }));
 
@@ -137,7 +137,7 @@ describe('setting the network rules as the networking plugin', () => {
   it('refuses a selector that holds an exact value twice', async () => {
     const valueId = core.ids('labelValue');
 
-    const refused = await setNetworkRules(setter, { rules: [{ from: [valueId, valueId], to: [] }] });
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [valueId, valueId], to: [] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${valueId} twice (decision 0034)` });
     expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
@@ -145,7 +145,7 @@ describe('setting the network rules as the networking plugin', () => {
 
   it('keeps terms of any value and of the same value, the latter on both sides', async () => {
     const labelId = core.ids('label');
-    const rules = [{ from: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: SAME_LABEL_VALUE }], to: [core.ids('labelValue'), { labelId, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: SAME_LABEL_VALUE }], to: [core.ids('labelValue'), { labelId, value: SAME_LABEL_VALUE }] }];
 
     expect(unwrap(await setNetworkRules(setter, { rules }))).toEqual({ version: 2 });
     expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2, plugin: plugin() }]);
@@ -154,7 +154,7 @@ describe('setting the network rules as the networking plugin', () => {
   it('refuses a selector that holds a term of any value twice for one label', async () => {
     const labelId = core.ids('label');
 
-    const refused = await setNetworkRules(setter, { rules: [{ from: [], to: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: ANY_LABEL_VALUE }] }] });
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [], to: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: ANY_LABEL_VALUE }] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${labelId}=* twice (decision 0034)` });
   });
@@ -162,7 +162,7 @@ describe('setting the network rules as the networking plugin', () => {
   it('refuses a term of the same value on the sending side only, and stores nothing', async () => {
     const labelId = core.ids('label');
 
-    const refused = await setNetworkRules(setter, { rules: [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] });
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${labelId}=# is on one side only (decision 0034)` });
     expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
@@ -171,7 +171,7 @@ describe('setting the network rules as the networking plugin', () => {
   it('refuses a term of the same value on the receiving side only', async () => {
     const labelId = core.ids('label');
 
-    const refused = await setNetworkRules(setter, { rules: [{ from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }] });
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${labelId}=# is on one side only (decision 0034)` });
   });
@@ -179,7 +179,7 @@ describe('setting the network rules as the networking plugin', () => {
   it('refuses terms of the same value that bind two different labels: each is on one side only', async () => {
     const [squadron, env] = [core.ids('label'), core.ids('label')];
 
-    const refused = await setNetworkRules(setter, { rules: [{ from: [{ labelId: squadron, value: SAME_LABEL_VALUE }], to: [{ labelId: env, value: SAME_LABEL_VALUE }] }] });
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ labelId: squadron, value: SAME_LABEL_VALUE }], to: [{ labelId: env, value: SAME_LABEL_VALUE }] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${squadron}=# is on one side only (decision 0034)` });
   });

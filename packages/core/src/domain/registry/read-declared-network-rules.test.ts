@@ -19,7 +19,7 @@ let readDeclaredNetworkRules: ReturnType<typeof createReadDeclaredNetworkRules>;
 async function declaring(name: string): Promise<{ ship: Caller; rules: NetworkRule[] }> {
   const ship = await shipWithScopes({ registry: registryUseCases(core), argo }, { name, type: name, scopes: ['labels:define', 'labels:assign'] });
   const { labelId } = unwrap(await registryUseCases(core).defineLabel(ship, { key: name, values: ['one'] }));
-  const rules = [{ from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] }];
+  const rules = [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] }];
   unwrap(await createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids })(ship, { rules }));
   return { ship, rules };
 }

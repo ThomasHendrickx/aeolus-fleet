@@ -35,9 +35,9 @@ function theRoleLabel(owner: ShipId = SHIP_ID): void {
   });
 }
 
-const WITHIN_A_SQUADRON = { from: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }], to: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }] };
-const FLAGSHIP_TO_SQUADRONS = { from: [FLAGSHIP], to: [SQUADRONS] };
-const SQUADRONS_TO_FLAGSHIP = { from: [SQUADRONS], to: [FLAGSHIP] };
+const WITHIN_A_SQUADRON = { verb: 'send', from: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }], to: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }] };
+const FLAGSHIP_TO_SQUADRONS = { verb: 'send', from: [FLAGSHIP], to: [SQUADRONS] };
+const SQUADRONS_TO_FLAGSHIP = { verb: 'send', from: [SQUADRONS], to: [FLAGSHIP] };
 
 beforeEach(async () => {
   fleet = fakeNetworkFleet(new Set([CREW_TOKEN]));

@@ -21,7 +21,7 @@ let declareNetworkRules: ReturnType<typeof createDeclareNetworkRules>;
 
 /** Every ship of a squadron reaches the ships of its own squadron. */
 function sameSquadron(): NetworkRule {
-  return { from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [{ labelId: squadronId, value: SAME_LABEL_VALUE }] };
+  return { verb: 'send', from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [{ labelId: squadronId, value: SAME_LABEL_VALUE }] };
 }
 
 beforeEach(async () => {
@@ -40,15 +40,15 @@ beforeEach(async () => {
 });
 
 describe('declaring network rules', () => {
-  it("keeps the caller's rules on the labels it owns: an exact value, any value and the same value", async () => {
-    const rules = [sameSquadron(), { from: [alpha], to: [{ labelId: squadronId, value: ANY_LABEL_VALUE }] }];
+  it("keeps the caller's rules on the labels it owns, each with its verb: an exact value, any value and the same value", async () => {
+    const rules = [sameSquadron(), { verb: 'read' as const, from: [alpha], to: [{ labelId: squadronId, value: ANY_LABEL_VALUE }] }];
 
     expect(unwrap(await declareNetworkRules(squadrons, { rules }))).toEqual({ rules: 2 });
     expect(core.state.declaredNetworkRules).toEqual([{ fleetId, shipId: squadrons.shipId, rules }]);
   });
 
   it('replaces what the ship declared before, keeping what other ships declared', async () => {
-    const trierarchRules = [{ from: [{ labelId: trierarchId, value: ANY_LABEL_VALUE }], to: [{ labelId: trierarchId, value: ANY_LABEL_VALUE }] }];
+    const trierarchRules = [{ verb: 'send', from: [{ labelId: trierarchId, value: ANY_LABEL_VALUE }], to: [{ labelId: trierarchId, value: ANY_LABEL_VALUE }] }];
     unwrap(await declareNetworkRules(trierarchPlugin, { rules: trierarchRules }));
     unwrap(await declareNetworkRules(squadrons, { rules: [sameSquadron(), sameSquadron()] }));
 
@@ -105,7 +105,7 @@ describe('declaring network rules', () => {
   });
 
   it('refuses a rule with the same value on one side only, as the fleet refuses it', async () => {
-    const rule = { from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [] };
+    const rule = { verb: 'send', from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [] };
 
     expect(refusalOf(await declareNetworkRules(squadrons, { rules: [rule] }))).toEqual({
       kind: 'INVALID_NETWORK_RULES',
@@ -114,7 +114,7 @@ describe('declaring network rules', () => {
   });
 
   it('refuses a term on a label another ship owns, naming the label and its owner, keeping and writing nothing', async () => {
-    const rule = { from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [{ labelId: squadronId, value: SAME_LABEL_VALUE }, { labelId: trierarchId, value: ANY_LABEL_VALUE }] };
+    const rule = { verb: 'send', from: [{ labelId: squadronId, value: SAME_LABEL_VALUE }], to: [{ labelId: squadronId, value: SAME_LABEL_VALUE }, { labelId: trierarchId, value: ANY_LABEL_VALUE }] };
 
     expect(refusalOf(await declareNetworkRules(squadrons, { rules: [rule] }))).toEqual({
       kind: 'NOT_THE_LABEL_OWNER',
@@ -125,7 +125,7 @@ describe('declaring network rules', () => {
   });
 
   it('refuses an exact value of a label another ship owns', async () => {
-    expect(refusalOf(await declareNetworkRules(trierarchPlugin, { rules: [{ from: [alpha], to: [] }] }))).toEqual({
+    expect(refusalOf(await declareNetworkRules(trierarchPlugin, { rules: [{ verb: 'send', from: [alpha], to: [] }] }))).toEqual({
       kind: 'NOT_THE_LABEL_OWNER',
       message: 'The label squadron is owned by squadrons: only its owner declares rules on it (decision 0037)',
     });
@@ -134,7 +134,7 @@ describe('declaring network rules', () => {
   it('refuses a label the fleet does not have, as its owner cannot be checked', async () => {
     const unknown = core.ids('label');
 
-    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [{ from: [{ labelId: unknown, value: ANY_LABEL_VALUE }], to: [] }] }))).toEqual({
+    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [{ verb: 'send', from: [{ labelId: unknown, value: ANY_LABEL_VALUE }], to: [] }] }))).toEqual({
       kind: 'LABEL_NOT_FOUND',
       message: `The fleet has no label ${unknown}`,
     });
@@ -143,7 +143,7 @@ describe('declaring network rules', () => {
   it('refuses a label value the fleet does not have', async () => {
     const unknown = core.ids('labelValue');
 
-    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [{ from: [], to: [unknown] }] }))).toEqual({
+    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [{ verb: 'send', from: [], to: [unknown] }] }))).toEqual({
       kind: 'LABEL_VALUE_NOT_FOUND',
       message: `The fleet has no label value ${unknown}`,
     });

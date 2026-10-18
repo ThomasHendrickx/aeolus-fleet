@@ -36,7 +36,7 @@ async function setRules(rules: NetworkRule[] | null): Promise<void> {
 }
 
 /** Shared ships reach shared ships; nothing reaches vault. */
-const sharedToShared = (): NetworkRule[] => [{ from: [value('shared')], to: [value('shared')] }];
+const sharedToShared = (): NetworkRule[] => [{ verb: 'send', from: [value('shared')], to: [value('shared')] }];
 
 function byId(...ships: { shipId: ShipId }[]): ShipId[] {
   return ships.map((ship) => ship.shipId).sort();
@@ -145,7 +145,7 @@ describe('explaining reach under rules', () => {
 
 describe('explaining reach under rules with terms of any or the same value', () => {
   it('answers the ships carrying the label a term of any value asks, whatever its value', async () => {
-    await setRules([{ from: [value('shared')], to: [{ labelId: labelIdOf(core, 'trust'), value: ANY_LABEL_VALUE }] }]);
+    await setRules([{ verb: 'send', from: [value('shared')], to: [{ labelId: labelIdOf(core, 'trust'), value: ANY_LABEL_VALUE }] }]);
 
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
 
@@ -154,7 +154,7 @@ describe('explaining reach under rules with terms of any or the same value', () 
 
   it('answers only the ships carrying the same value of the label a term of the same value asks', async () => {
     const same = { labelId: labelIdOf(core, 'trust'), value: SAME_LABEL_VALUE } as const;
-    await setRules([{ from: [same], to: [same] }]);
+    await setRules([{ verb: 'send', from: [same], to: [same] }]);
 
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
 

@@ -43,7 +43,7 @@ function aMessage(to: Caller, overrides: Partial<MessageToSend> = {}): MessageTo
 /** The ship registers as the fleet's networking plugin and supplies its rules: shared reaches shared. */
 async function registerAs(ship: Caller, whileUnavailable: WhileUnavailable): Promise<void> {
   unwrap(await registry.registerNetworkPlugin(ship, { whileUnavailable, notRespondingAfterSeconds: NOT_RESPONDING_AFTER_SECONDS }));
-  unwrap(await registry.setNetworkRules(ship, { rules: [{ from: [value('shared')], to: [value('shared')] }] }));
+  unwrap(await registry.setNetworkRules(ship, { rules: [{ verb: 'send', from: [value('shared')], to: [value('shared')] }] }));
 }
 
 /** The plugin's crew calls the fleet, as every call of its process does. */

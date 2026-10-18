@@ -134,7 +134,7 @@ export function fakePluginFleet() {
         held.reached();
         await held.released;
       }
-      state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
+      state.rules = rules?.map((rule) => ({ verb: 'send', from: [...rule.from], to: [...rule.to] })) ?? null;
       state.version += 1;
       return ok(undefined);
     },

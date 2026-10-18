@@ -152,7 +152,7 @@ async function dataOf(response: Response): Promise<unknown> {
 }
 
 describe('supplying the fleet (decision 0035)', () => {
-  const RULES = [{ from: [], to: [] }];
+  const RULES = [{ verb: 'send', from: [], to: [] }];
 
   it("registers as the fleet's networking plugin on connect, declaring keep-latest after 300 seconds, with no rules: all-to-all", async () => {
     await connected();
@@ -188,7 +188,7 @@ describe('supplying the fleet (decision 0035)', () => {
     const address = await connected();
     const before = await settings();
 
-    const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) } });
+    const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ verb: 'send', from: [], to: [] })) } });
 
     expect(refused.status).toBe(400);
     expect(await refused.text()).toContain('decision 0037');
@@ -219,14 +219,14 @@ describe('the rules ships declared (decision 0037)', () => {
   it("adds them to argo's rules, supplying the fleet again as soon as a ship declares or withdraws them", async () => {
     const address = await connected();
     apps[0]?.startFollowing();
-    const argos = [{ from: [], to: [] }];
+    const argos = [{ verb: 'send', from: [], to: [] }];
     await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: argos } }));
     const { shipId: squadronsId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['labels:define', 'labels:assign'] }),
     );
     const squadrons = { fleetId: argo.fleetId, shipId: squadronsId, kind: 'agent' as const, scopes: ['labels:define' as const, 'labels:assign' as const] };
     const { labelId } = unwrap(await useCases.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
-    const declared = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    const declared = [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     unwrap(await useCases.declareNetworkRules(squadrons, { rules: declared }));
 
@@ -313,7 +313,7 @@ describe('the installation (decision 0021)', () => {
   it('unregisters from the fleet when switched off: no plugin and no rules there; switched on again, it supplies the kept rules', async () => {
     const { address } = await started(TOKEN);
     const fleetId = argo.fleetId;
-    const rules = [{ from: [], to: [] }];
+    const rules = [{ verb: 'send', from: [], to: [] }];
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
     expect((await connectPlugin(address, { cookie, shipId, secret })).status).toBe(200);
     expect((await mutate(address, { procedure: 'network.setRules', cookie, body: { rules } })).status).toBe(200);

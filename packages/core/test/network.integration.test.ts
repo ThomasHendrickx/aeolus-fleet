@@ -1,4 +1,4 @@
-import { ANY_LABEL_VALUE, createIdGenerator, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, type LabelId, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, type LabelId, type LabelValueId, type MessageId, type NetworkRule } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -86,9 +86,9 @@ describe('the network settings', () => {
     networking = await registeredPlugin();
   });
 
-  it('keep the rules the plugin set, at a version that moves on every set', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [shared], to: [] }] }));
-    const rules = [{ from: [shared, sensitive], to: [sensitive] }, { from: [], to: [] }];
+  it('keep the rules the plugin set, each with its verb, at a version that moves on every set', async () => {
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [] }] }));
+    const rules: NetworkRule[] = [{ verb: 'send', from: [shared, sensitive], to: [sensitive] }, { verb: 'read', from: [], to: [] }, { verb: 'manage', from: [], to: [] }];
 
     expect(unwrap(await core.useCases.setNetworkRules(networking, { rules }))).toEqual({ version: 3 });
     await expect(core.prisma.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true } })).resolves.toEqual([
@@ -149,7 +149,7 @@ describe('the networking plugin (decision 0035)', () => {
 
   it('not responding, its declaration applies, judged by its lease\'s last seen, and the refusal says so', async () => {
     unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
-    unwrap(await core.useCases.setNetworkRules(plugin, { rules: [{ from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.setNetworkRules(plugin, { rules: [{ verb: 'send', from: [shared], to: [sensitive] }] }));
     unwrap(await core.useCases.claimShip({ shipId: plugin.shipId, secret: pluginSecret, location: { kind: 'SERVER' }, harness: 'aeolus-networking' }));
     core.clock.advance(120_000);
     refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
@@ -177,7 +177,7 @@ describe('a send under network rules', () => {
 
   beforeEach(async () => {
     networking = await registeredPlugin();
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [sensitive] }] }));
   });
 
   it('goes through when a rule allows it', async () => {
@@ -241,7 +241,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   const sameTrust = () => ({ labelId: trustId, value: SAME_LABEL_VALUE });
 
   it('keeps the terms as the plugin set them', async () => {
-    const rules = [{ from: [shared, anyTrust()], to: [] }, { from: [sameTrust()], to: [sameTrust()] }];
+    const rules = [{ verb: 'send', from: [shared, anyTrust()], to: [] }, { verb: 'send', from: [sameTrust()], to: [sameTrust()] }];
 
     unwrap(await core.useCases.setNetworkRules(networking, { rules }));
 
@@ -249,7 +249,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   });
 
   it('lets a ship carrying any value of the label send under a term of any value, and no ship without it', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [anyTrust()], to: [] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [anyTrust()], to: [] }] }));
     const loner = await aShip('loner');
 
     unwrap(await core.useCases.sendMessage(vault, aMessage(planner)));
@@ -257,7 +257,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   });
 
   it('lets ships carrying the same value reach each other under a term of the same value, and records the refusal of different values', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [sameTrust()], to: [sameTrust()] }] }));
 
     unwrap(await core.useCases.sendMessage(planner, aMessage(scout)));
     expect(refusalOf(await core.useCases.sendMessage(planner, aMessage(vault)))).toMatchObject({ kind: 'NOT_REACHABLE' });
@@ -269,7 +269,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   });
 
   it('explained to argo, answers only the ships with the same value under a term of the same value', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [sameTrust()], to: [sameTrust()] }] }));
 
     const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
 
@@ -277,7 +277,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   });
 
   it('keeps as claimants of a send to a type only its ships with the same value', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [sameTrust()], to: [sameTrust()] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [sameTrust()], to: [sameTrust()] }] }));
     const { shipId: keeperId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'keeper', type: 'vault' }));
     unwrap(await core.useCases.assignLabel(labeller, { shipId: keeperId, valueId: shared }));
 
@@ -292,7 +292,7 @@ describe('a send and a change of rules', () => {
 
   beforeEach(async () => {
     networking = await registeredPlugin();
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [sensitive] }] }));
   });
 
   it('take turns: a send that comes while a change is under way waits for it and is checked against the new version', async () => {
@@ -376,7 +376,7 @@ describe('a send to a type under network rules', () => {
 
   beforeEach(async () => {
     networking = await registeredPlugin();
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ from: [shared], to: [shared] }] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [shared] }] }));
   });
 
   it('is claimed and counted only by a ship of the type the sender may reach, fixed at send time', async () => {
@@ -413,10 +413,10 @@ describe('a send to a type under network rules', () => {
 });
 
 describe('declared network rules on Postgres (decision 0037)', () => {
-  const sameTrust = () => ({ from: [{ labelId: trustId, value: SAME_LABEL_VALUE }], to: [{ labelId: trustId, value: SAME_LABEL_VALUE }] });
+  const sameTrust = (): NetworkRule => ({ verb: 'send', from: [{ labelId: trustId, value: SAME_LABEL_VALUE }], to: [{ labelId: trustId, value: SAME_LABEL_VALUE }] });
 
   it("keeps each ship's whole list, in ship order, replacing it and withdrawing it with none", async () => {
-    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust(), { from: [shared], to: [{ labelId: trustId, value: ANY_LABEL_VALUE }] }] }));
+    unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust(), { verb: 'send', from: [shared], to: [{ labelId: trustId, value: ANY_LABEL_VALUE }] }] }));
     unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust()] }));
     const plugin = await registeredPlugin();
 

@@ -7,6 +7,7 @@ import {
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
   NETWORK_RULES_MAX,
+  NETWORK_VERBS,
   REACH_REFUSALS_READ_MAX,
   reachRefusalsOutputSchema,
   registerNetworkPluginInputSchema,
@@ -25,6 +26,12 @@ describe('the network limits (decision 0034)', () => {
 describe('the networking plugin limits (decision 0035)', () => {
   it('judge a plugin not responding after a minute at the least and a day at the most', () => {
     expect([NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]).toEqual([60, 86_400]);
+  });
+});
+
+describe('the network verbs (decision 0034)', () => {
+  it('are send, read and manage', () => {
+    expect(NETWORK_VERBS).toEqual(['send', 'read', 'manage']);
   });
 });
 
@@ -51,10 +58,11 @@ describe('registerNetworkPluginInputSchema', () => {
 });
 
 describe('setNetworkRulesInputSchema', () => {
-  it('takes the whole list of rules, each from one selector of exact label values to another, leaving the limits to the server', () => {
+  it('takes the whole list of rules, each with its verb from one selector of exact label values to another, leaving the limits to the server', () => {
     const rules = [
-      { from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
-      { from: [], to: [] },
+      { verb: 'send', from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
+      { verb: 'read', from: [], to: [] },
+      { verb: 'manage', from: [], to: [] },
     ];
 
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
@@ -66,25 +74,31 @@ describe('setNetworkRulesInputSchema', () => {
 
   it('takes a term that holds a label with any value, and one that holds it with the same value as the other side', () => {
     const labelId = newId('label');
-    const rules = [{ from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
+    const rules = [{ verb: 'send', from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
 
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
   });
 
   it('refuses a term of a label with a value written as text, not an id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a term of any or the same value without a label id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a selector that holds a label id alone, without a value', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [newId('label')], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [newId('label')], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a rule without both selectors', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [] }] }).success).toBe(false);
+  });
+
+  it('refuses a rule without its verb, or with a verb that is not send, read or manage', () => {
+    for (const rule of [{ from: [], to: [] }, { verb: 'force', from: [], to: [] }]) {
+      expect(setNetworkRulesInputSchema.safeParse({ rules: [rule] }).success).toBe(false);
+    }
   });
 });
 

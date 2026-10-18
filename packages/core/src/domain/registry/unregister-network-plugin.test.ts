@@ -24,7 +24,7 @@ beforeEach(async () => {
   plugin = await shipWithScopes({ registry: registryUseCases(core), argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
   unwrap(await createRegisterNetworkPlugin(deps)(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
-  unwrap(await createSetNetworkRules(deps)(plugin, { rules: [{ from: [], to: [] }] }));
+  unwrap(await createSetNetworkRules(deps)(plugin, { rules: [{ verb: 'send', from: [], to: [] }] }));
   unregisterNetworkPlugin = createUnregisterNetworkPlugin(deps);
   core.state.events.length = 0;
 });

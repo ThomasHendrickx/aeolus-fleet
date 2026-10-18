@@ -209,6 +209,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_person_and_app_ships$/),
       expect.stringMatching(/^\d{14}_owners$/),
       expect.stringMatching(/^\d{14}_owners_on_reach_refusals$/),
+      expect.stringMatching(/^\d{14}_network_verbs$/),
     ]);
   });
 });
@@ -2037,7 +2038,7 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
 
-    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [], to: [newId('labelValue')] }] });
+    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [], to: [newId('labelValue')] }] });
     const second = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
 
     expect(second.version).toBe(first.version + 1);
@@ -2079,7 +2080,7 @@ describe('network rules at the API', () => {
       await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: valueId ?? newId('labelValue') });
     }
     const sameZone = { labelId: zone.labelId, value: SAME_LABEL_VALUE };
-    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ from: [sameZone], to: [sameZone] }] });
+    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameZone], to: [sameZone] }] });
     const toShip = (shipId: ShipId) => ({ selector: { kind: 'ship' as const, shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL });
 
     await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId: senderId })).resolves.toEqual({ reachableShipIds: [argoId, neighbourId] });
@@ -2091,8 +2092,8 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const labelId = newId('label');
 
-    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
+    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0034');
   });
@@ -2101,7 +2102,7 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const declared = (await plugin.fleet.declaredNetworkRules.query()).reduce((count, ship) => count + ship.rules.length, 0);
 
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ from: [], to: [] })) }));
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ verb: 'send', from: [], to: [] })) }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0037');
@@ -2111,7 +2112,7 @@ describe('network rules at the API', () => {
     const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
     const { shipId } = await declarer.ship.whoami.query();
     const { labelId } = await declarer.fleet.defineLabel.mutate({ key: 'api-declared-squadron', values: ['alpha'] });
-    const rules = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
     await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
@@ -2129,7 +2130,7 @@ describe('network rules at the API', () => {
     const owner = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
     const other = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
     const { labelId } = await owner.fleet.defineLabel.mutate({ key: 'api-declared-trierarch', values: ['agent-host-1'] });
-    const rule = { from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] };
+    const rule = { verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] };
 
     await expect(codeOf(other.fleet.declareNetworkRules.mutate({ rules: [rule] }))).resolves.toBe('FORBIDDEN');
     const refused = await refusalOf(owner.fleet.declareNetworkRules.mutate({ rules: Array.from({ length: 21 }, () => rule) }));
@@ -2178,7 +2179,7 @@ describe('network rules at the API', () => {
 
     const response = await post('setNetworkRules', { rules: [] });
     const sameTeam = { labelId: newId('label'), value: SAME_LABEL_VALUE };
-    const withTerms = await post('setNetworkRules', { rules: [{ from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
+    const withTerms = await post('setNetworkRules', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
 
     expect(response.status).toBe(200);
     expect(withTerms.status).toBe(200);

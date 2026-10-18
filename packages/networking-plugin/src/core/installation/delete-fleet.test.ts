@@ -23,7 +23,7 @@ beforeEach(async () => {
   forgetter = memoryForgetter({ switches, requests });
   deleteFleet = createDeleteFleet({ forgetter, requests, hasher: plainHasher, clock: { now: () => AT }, door: parts.fleet.door, connections: parts.connections });
   await switches.set(FLEET, { isEnabled: true, at: AT });
-  await parts.networks.save(FLEET, { rules: [{ from: [], to: [] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
+  await parts.networks.save(FLEET, { rules: [{ verb: 'send', from: [], to: [] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
   await parts.supplies.supply(FLEET);
 });
 

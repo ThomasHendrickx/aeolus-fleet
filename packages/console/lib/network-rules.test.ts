@@ -65,9 +65,9 @@ describe('the network draft argo edits (decision 0034)', () => {
   });
 
   it('holds each supplied rule, from and to as label value ids', () => {
-    const draft = draftOf([{ from: [OPS], to: [SENSITIVE] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [OPS], to: [SENSITIVE] }], newKey);
 
-    expect(rulesOf(draft)).toEqual([{ from: [OPS], to: [SENSITIVE] }]);
+    expect(rulesOf(draft)).toEqual([{ verb: 'send', from: [OPS], to: [SENSITIVE] }]);
   });
 
   it('saves all-to-all as no rules, and an empty list as rules that allow only argo and replies', () => {
@@ -75,13 +75,13 @@ describe('the network draft argo edits (decision 0034)', () => {
   });
 
   it('turns rules off to all-to-all, dropping every rule', () => {
-    expect(setRulesOn(draftOf([{ from: [OPS], to: [] }], newKey), false)).toEqual({ kind: 'all-to-all' });
+    expect(setRulesOn(draftOf([{ verb: 'send', from: [OPS], to: [] }], newKey), false)).toEqual({ kind: 'all-to-all' });
   });
 
   it('adds a rule from every ship to every ship, the selectors to narrow', () => {
     const draft = addRule(setRulesOn({ kind: 'all-to-all' }, true), { newKey, limits: LIMITS });
 
-    expect(rulesOf(draft)).toEqual([{ from: [], to: [] }]);
+    expect(rulesOf(draft)).toEqual([{ verb: 'send', from: [], to: [] }]);
   });
 
   it('adds rules up to the most a fleet holds, and no more', () => {
@@ -96,66 +96,66 @@ describe('the network draft argo edits (decision 0034)', () => {
   it('removes one rule, keeping the others', () => {
     const draft = draftOf(
       [
-        { from: [OPS], to: [] },
-        { from: [RESEARCH], to: [] },
+        { verb: 'send', from: [OPS], to: [] },
+        { verb: 'send', from: [RESEARCH], to: [] },
       ],
       newKey,
     );
     const first = onlyRule(draft);
 
-    expect(rulesOf(removeRule(draft, first.key))).toEqual([{ from: [RESEARCH], to: [] }]);
+    expect(rulesOf(removeRule(draft, first.key))).toEqual([{ verb: 'send', from: [RESEARCH], to: [] }]);
   });
 
   it('adds a label value to one side of a rule', () => {
-    const draft = draftOf([{ from: [], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [], to: [] }], newKey);
 
-    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS }))).toEqual([{ from: [], to: [SENSITIVE] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS }))).toEqual([{ verb: 'send', from: [], to: [SENSITIVE] }]);
   });
 
   it('adds a value once to a side', () => {
-    const draft = draftOf([{ from: [OPS], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [OPS], to: [] }], newKey);
 
-    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS, limits: LIMITS }))).toEqual([{ from: [OPS], to: [] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS, limits: LIMITS }))).toEqual([{ verb: 'send', from: [OPS], to: [] }]);
   });
 
   it('adds values to a side up to the most a ship carries, and no more', () => {
-    const draft = draftOf([{ from: [OPS, SENSITIVE], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [OPS, SENSITIVE], to: [] }], newKey);
 
-    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: RESEARCH, limits: LIMITS }))).toEqual([{ from: [OPS, SENSITIVE], to: [] }]);
+    expect(rulesOf(addTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: RESEARCH, limits: LIMITS }))).toEqual([{ verb: 'send', from: [OPS, SENSITIVE], to: [] }]);
   });
 
   it('adds a term of any value and one of the same value of a label to a side, each once', () => {
-    const draft = draftOf([{ from: [], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [], to: [] }], newKey);
     const key = onlyRule(draft).key;
     let changed = draft;
     for (const term of [ANY_TEAM, SAME_TEAM, { ...ANY_TEAM }, { ...SAME_TEAM }]) {
       changed = addTerm(changed, { rule: key, side: 'from', term, limits: { ...LIMITS, selectorMax: 4 } });
     }
 
-    expect(rulesOf(changed)).toEqual([{ from: [ANY_TEAM, SAME_TEAM], to: [] }]);
+    expect(rulesOf(changed)).toEqual([{ verb: 'send', from: [ANY_TEAM, SAME_TEAM], to: [] }]);
   });
 
   it('removes a term of any value of a label, keeping the one of the same value', () => {
-    const draft = draftOf([{ from: [ANY_TEAM, SAME_TEAM], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [ANY_TEAM, SAME_TEAM], to: [] }], newKey);
 
-    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: { ...ANY_TEAM } }))).toEqual([{ from: [SAME_TEAM], to: [] }]);
+    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: { ...ANY_TEAM } }))).toEqual([{ verb: 'send', from: [SAME_TEAM], to: [] }]);
   });
 
   it('removes a value from one side of a rule', () => {
-    const draft = draftOf([{ from: [OPS, SENSITIVE], to: [OPS] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [OPS, SENSITIVE], to: [OPS] }], newKey);
 
-    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS }))).toEqual([{ from: [SENSITIVE], to: [OPS] }]);
+    expect(rulesOf(removeTerm(draft, { rule: onlyRule(draft).key, side: 'from', term: OPS }))).toEqual([{ verb: 'send', from: [SENSITIVE], to: [OPS] }]);
   });
 
   it('keeps each rule its key across changes, for the list to keep its rows', () => {
-    const draft = draftOf([{ from: [], to: [] }], newKey);
+    const draft = draftOf([{ verb: 'send', from: [], to: [] }], newKey);
     const key = onlyRule(draft).key;
 
     expect(onlyRule(addTerm(draft, { rule: key, side: 'from', term: OPS, limits: LIMITS })).key).toBe(key);
   });
 
   it('is changed once it differs from the rules the plugin holds, and not when it is the same again', () => {
-    const saved = [{ from: [OPS], to: [] }];
+    const saved = [{ verb: 'send', from: [OPS], to: [] }];
     const draft = draftOf(saved, newKey);
     const changed = addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS });
 
@@ -200,7 +200,7 @@ describe('a term of the same value on one side only (decision 0034)', () => {
   const SAME_TIER = { labelId: TIER.id, value: '#' } as const;
 
   it('says which term of the same value a side holds that the other side does not', () => {
-    const rule = onlyRule(draftOf([{ from: [SAME_TEAM, SAME_TIER], to: [SAME_TEAM] }], newKey));
+    const rule = onlyRule(draftOf([{ verb: 'send', from: [SAME_TEAM, SAME_TIER], to: [SAME_TEAM] }], newKey));
 
     expect([sameValueProblemOf(rule, { side: 'from', context: CONTEXT }), sameValueProblemOf(rule, { side: 'to', context: CONTEXT })]).toEqual([
       'tier=# needs tier=# on the other side: # matches the same value there.',
@@ -210,8 +210,8 @@ describe('a term of the same value on one side only (decision 0034)', () => {
 
   it('keeps a draft from being saved while a rule holds one', () => {
     expect([
-      hasSameValueOnOneSide(draftOf([{ from: [SAME_TEAM], to: [OPS] }], newKey)),
-      hasSameValueOnOneSide(draftOf([{ from: [SAME_TEAM], to: [SAME_TEAM] }], newKey)),
+      hasSameValueOnOneSide(draftOf([{ verb: 'send', from: [SAME_TEAM], to: [OPS] }], newKey)),
+      hasSameValueOnOneSide(draftOf([{ verb: 'send', from: [SAME_TEAM], to: [SAME_TEAM] }], newKey)),
       hasSameValueOnOneSide({ kind: 'all-to-all' }),
     ]).toEqual([true, false, false]);
   });

@@ -449,6 +449,40 @@ describe('the cleared rules on record migration', () => {
   });
 });
 
+describe('the network verbs migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const networkVerbs = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_verbs'));
+
+  it("makes every rule a fleet holds and every rule a ship declared a send rule, as rules allowed only sends before", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const declarerId = newId('ship');
+    const labelId = newId('label');
+    const valueId = newId('labelValue');
+    const rule = { from: [valueId], to: [{ labelId, value: '#' }] };
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.create({ data: { id: declarerId, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: ['labels:define'], createdAt: now } });
+      await client.networkSettings.create({ data: { fleetId, rules: [rule, { from: [], to: [] }], version: 4 } });
+      await client.declaredNetworkRules.create({ data: { fleetId, shipId: declarerId, rules: [rule] } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${networkVerbs ?? 'missing'}/migration.sql`);
+
+      await expect(client.networkSettings.findUniqueOrThrow({ where: { fleetId }, select: { rules: true, version: true } })).resolves.toEqual({
+        rules: [
+          { verb: 'send', ...rule },
+          { verb: 'send', from: [], to: [] },
+        ],
+        version: 4,
+      });
+      await expect(client.declaredNetworkRules.findMany({ select: { rules: true } })).resolves.toEqual([{ rules: [{ verb: 'send', ...rule }] }]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the owners on reach refusals migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const ownersOnRefusals = readdirSync(MIGRATIONS).find((name) => name.endsWith('_owners_on_reach_refusals'));
