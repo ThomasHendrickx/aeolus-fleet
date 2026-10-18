@@ -17,6 +17,9 @@ import {
   reportInputSchema,
   reportLogOutputSchema,
   reportOutputSchema,
+  setStatementInputSchema,
+  setStatementOutputSchema,
+  discoverOutputSchema,
   turnInputSchema,
   turnOutputSchema,
   receiveInputSchema,
@@ -328,6 +331,40 @@ export const shipRouter = router({
       const { report, previousCrew } = okOrThrow(await ctx.useCases.reportLog(ctx.crew));
       return { report: reportOutputOf(report), previousCrew: reportOutputOf(previousCrew) };
     }),
+
+  /**
+   * The crew states what its ship is and offers (decision 0047), whole. No
+   * scope beyond being the crew. Its shape is common's, parsed here.
+   */
+  setStatement: crewProcedure
+    .meta({
+      description: [
+        'States what your ship is and offers, for the ships that can send to it: a summary (at most 1000 characters) and capabilities,',
+        "each with MCP's tool fields name (1 to 128 letters, digits, _, - or .), title, description, inputSchema and outputSchema (JSON Schemas),",
+        "and A2A's inputModes and outputModes: the media types to send it and that come back, the first the one to use.",
+        'Set whole, at most 64 KB as JSON; the same statement again changes nothing. It is kept with your lease and goes when it ends,',
+        'so state it once crewed and again when it changes. Answers its version (decision 0047).',
+      ].join(' '),
+    })
+    .input(setStatementInputSchema)
+    .output(setStatementOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setStatement(ctx.crew, input))),
+
+  /**
+   * The ships and types the caller may send to now, with each ship's
+   * statement (decision 0047). Needs messages:send; records nothing.
+   */
+  discover: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Needs messages:send. Answers the ships you may send to now, as a send would be checked, each with its id, name, type, kind, status and statement,',
+        "and each type with how many of its ships you reach. A statement is its crew's (by crew, with its version) while one is stated,",
+        'else the note it was commissioned with (by commission), else null. You, the viewer and retired ships are left out.',
+        'It answers ships, never rules, and records nothing (decision 0047).',
+      ].join(' '),
+    })
+    .output(discoverOutputSchema)
+    .query(async ({ ctx }) => okOrThrow(await ctx.useCases.discover(ctx.caller))),
 
   /**
    * How many deliveries wait for the crew: what its next receive would hand

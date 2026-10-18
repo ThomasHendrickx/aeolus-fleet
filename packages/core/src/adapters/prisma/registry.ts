@@ -28,6 +28,7 @@ import {
   toShipFromSql,
   toShipLabel,
   toShipReport,
+  toStatedStatement,
   toTurn,
 } from './rows.js';
 
@@ -416,6 +417,24 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           reportDetailsVersion: report.detailsVersion,
         },
       });
+    },
+    findStatementForUpdate: async (fleetId, leaseId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT statement, statement_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
+        FOR UPDATE`;
+      return row === undefined ? undefined : { stated: toStatedStatement(row) };
+    },
+    saveStatement: async ({ fleetId, leaseId, stated }) => {
+      await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { statement: stated.statement, statementVersion: stated.version } });
+    },
+    listOpenStatements: async (fleetId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT ship_id, statement, statement_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ended_at IS NULL`;
+      return rows.map((row) => ({ shipId: toLeaseShipId(row), stated: toStatedStatement(row) }));
     },
     findTurnForUpdate: async (fleetId, leaseId) => {
       const [row] = await db.$queryRaw<unknown[]>`

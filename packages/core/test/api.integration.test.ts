@@ -214,6 +214,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_built_in_rules$/),
       expect.stringMatching(/^\d{14}_network_rules_a_list$/),
       expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
+      expect.stringMatching(/^\d{14}_lease_statements$/),
     ]);
   });
 });
@@ -634,10 +635,10 @@ describe('statements and discovery at the API (decision 0047)', () => {
   };
 
   /** A ship argo commissioned with a note, claimed through register: its id and crew token. */
-  async function crewed(name: string): Promise<{ shipId: ShipId; crew: TRPCClient<AppRouter> }> {
+  async function crewed(name: string): Promise<{ shipId: ShipId; crewToken: string; crew: TRPCClient<AppRouter> }> {
     const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'reviewer', note: `The ${name} of the fleet` });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
-    return { shipId, crew: client({ authorization: `Bearer ${crewToken}` }) };
+    return { shipId, crewToken, crew: client({ authorization: `Bearer ${crewToken}` }) };
   }
 
   async function statementOf(discoverer: TRPCClient<AppRouter>, shipId: ShipId) {
@@ -676,10 +677,16 @@ describe('statements and discovery at the API (decision 0047)', () => {
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-large of the fleet' });
   });
 
-  it('refuse a capability with a field of its own with BAD_REQUEST', async () => {
+  it('refuse a capability with a field of its own with 400, over REST as the typed client cannot send one', async () => {
     const reviewer = await crewed('statement-shape');
 
-    await expect(codeOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Shaped.', capabilities: [{ name: 'shaped', cost: 3 }] }))).resolves.toBe('BAD_REQUEST');
+    const response = await fetch(`${address}/api/v1/ship/setStatement`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${reviewer.crewToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ summary: 'Shaped.', capabilities: [{ name: 'shaped', cost: 3 }] }),
+    });
+
+    expect(response.status).toBe(400);
   });
 
   it('refuse discovery without messages:send with FORBIDDEN', async () => {

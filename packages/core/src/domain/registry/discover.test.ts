@@ -21,7 +21,6 @@ let argo: Caller;
 let planner: Crew;
 let scoutId: ShipId;
 let scout: Crew;
-let vaultId: ShipId;
 
 async function commissioned(name: string, input: { type?: string; note?: string } = {}): Promise<ShipId> {
   return unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: input.type ?? name, ...(input.note === undefined ? {} : { note: input.note }) })).shipId;
@@ -36,7 +35,7 @@ beforeEach(async () => {
   planner = crewAboard(core, { fleetId, shipId: await commissioned('planner') });
   scoutId = await commissioned('scout', { type: 'reviewer' });
   scout = crewAboard(core, { fleetId, shipId: scoutId });
-  vaultId = await commissioned('vault', { type: 'reviewer', note: 'Keeps the release keys' });
+  await commissioned('vault', { type: 'reviewer', note: 'Keeps the release keys' });
   const retiredId = await commissioned('old-scout', { type: 'reviewer' });
   unwrap(await registry.retireShip(argo, { shipId: retiredId }));
   addViewerShip(core, { fleetId });
