@@ -352,6 +352,84 @@ describe('the owner of a new ship (decision 0045)', () => {
   });
 });
 
+describe('an owner a plugin names (decisions 0045, 0017)', () => {
+  let thomas: ShipId;
+  let lead: ShipId;
+
+  beforeEach(async () => {
+    thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })).shipId;
+    lead = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead' })).shipId;
+    const held = core.state.ships.find((ship) => ship.id === lead);
+    if (held) {
+      held.owner = thomas;
+    }
+    core.state.events.length = 0;
+  });
+
+  /** A plugin's ship: for now, one that declared its namespace (the rule waits on Thomas, see isPluginShip). */
+  async function aPluginShip(): Promise<Caller> {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:commission', 'scopes:declare'] }));
+    const squadrons: Caller = { fleetId, shipId, kind: 'agent', scopes: [] };
+    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [{ scope: 'squadrons:form', description: 'Form a squadron by message' }] }));
+    core.state.events.length = 0;
+    return squadrons;
+  }
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  it("is the asking ship's owner when a plugin's ship names it, with OwnerSet saying how", async () => {
+    const squadrons = await aPluginShip();
+
+    const { shipId } = unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'login-flow', type: 'flagship', ownerOf: lead }));
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(thomas);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'askingShipOwner', askingShipId: lead }]);
+  });
+
+  it("is argo when the asking ship is argo, which has no owner of its own", async () => {
+    const squadrons = await aPluginShip();
+
+    const { shipId } = unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'login-flow', type: 'flagship', ownerOf: argoId }));
+
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'askingShipOwner', askingShipId: argoId }]);
+  });
+
+  it("is refused from a ship that is not a plugin's, and nothing is stored", async () => {
+    const manager = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'lead', scopes: ['fleet:commission'] })).shipId;
+    core.state.events.length = 0;
+
+    const refused = await commissionShip({ fleetId, shipId: manager, kind: 'agent', scopes: [] }, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', ownerOf: lead });
+
+    expect(refused).toEqual({
+      isOk: false,
+      error: { kind: 'OWNER_NAMED_BY_PLUGIN_ONLY', message: "Only a plugin's ship names the owner of the ship that asked it: commission without ownerOf" },
+    });
+    expect(shipsNamed('deputy')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('is refused for an asking ship the fleet does not have, and nothing is stored', async () => {
+    const squadrons = await aPluginShip();
+    const unknown: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0000';
+
+    const refused = await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'login-flow', type: 'flagship', ownerOf: unknown });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_FOUND' } });
+    expect(shipsNamed('login-flow')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses the same key for another asking ship', async () => {
+    const squadrons = await aPluginShip();
+    const flagship = { idempotencyKey: 'commission-login-flow', name: 'login-flow', type: 'flagship' };
+    unwrap(await commissionShip(squadrons, { ...flagship, ownerOf: lead }));
+
+    await expect(commissionShip(squadrons, { ...flagship, ownerOf: argoId })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
 describe('the name of a new ship', () => {
   it('is refused while an active ship holds it, and nothing changes', async () => {
     unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
