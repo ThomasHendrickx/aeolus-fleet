@@ -37,6 +37,8 @@ export interface ReceivedDelivery {
   sentAt: Date;
   /** How many times the delivery has been handed over, this time included: its attempts. */
   attempts: number;
+  /** Whether its message was sent forced (decision 0040). */
+  isForced: boolean;
 }
 
 export interface DeliveriesReceived {
@@ -81,6 +83,7 @@ export async function receivedDeliveryOf(
     inReplyTo: message.inReplyToMessageId,
     sentAt: message.createdAt,
     attempts: delivery.attempts,
+    isForced: delivery.isForced,
   });
 }
 

@@ -58,6 +58,8 @@ export const receivedDeliverySchema = z.object({
   sentAt: z.iso.datetime(),
   /** How many times the delivery has been claimed, this receive included. */
   attempts: z.int().positive(),
+  /** Whether its message was sent forced, to act on now (decision 0040). */
+  isForced: z.boolean(),
 });
 
 export type ReceivedDelivery = z.infer<typeof receivedDeliverySchema>;
@@ -165,7 +167,11 @@ export const inboxInputSchema = z
 
 export type InboxInput = z.infer<typeof inboxInputSchema>;
 
-/** Output of `ship.inbox`: how many deliveries the crew's next receive would hand it. */
-export const inboxOutputSchema = z.object({ waiting: z.int().min(0) });
+/**
+ * Output of `ship.inbox`: how many deliveries the crew's next receive would
+ * hand it, and how many of those are forced and not handed over yet: the ones
+ * a computer side hands over at once, busy turn or not (decision 0040).
+ */
+export const inboxOutputSchema = z.object({ waiting: z.int().min(0), forced: z.int().min(0) });
 
 export type InboxOutput = z.infer<typeof inboxOutputSchema>;
