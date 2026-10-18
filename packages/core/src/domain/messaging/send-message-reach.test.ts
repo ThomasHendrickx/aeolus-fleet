@@ -384,8 +384,8 @@ describe('a send to a type while the fleet has network rules', () => {
   it("counts it only in the inbox of a ship that may claim it", async () => {
     await sent(planner, aMessage(toKeepers));
 
-    await expect(messaging.checkInbox(crewAboard(core, vault), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 0 } });
-    await expect(messaging.checkInbox(crewAboard(core, keeper), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 1 } });
+    await expect(messaging.checkInbox(crewAboard(core, vault), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 0, forced: 0 } });
+    await expect(messaging.checkInbox(crewAboard(core, keeper), { waitSeconds: 0 })).resolves.toEqual({ isOk: true, value: { waiting: 1, forced: 0 } });
   });
 
   it('keeps the ships fixed at send time: a ship of the type commissioned after it cannot claim it', async () => {

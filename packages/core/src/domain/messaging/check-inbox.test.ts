@@ -45,12 +45,13 @@ const toScout = (): Selector => ({ kind: 'ship', shipId: scoutId });
 const toReviewers: Selector = { kind: 'type', type: 'reviewer' };
 const toBuilders: Selector = { kind: 'type', type: 'builder' };
 
-async function sendTo(selector: Selector): Promise<DeliveryId> {
+async function sendTo(selector: Selector, options: { isForced?: boolean } = {}): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(argo, {
       selector,
       payload: 'Review PR 48',
       idempotencyKey: `key-${core.ids('message')}`,
+      ...options,
     }),
   );
   return deliveryIdOf(core, messageId);
@@ -58,6 +59,10 @@ async function sendTo(selector: Selector): Promise<DeliveryId> {
 
 async function waiting(crew: Crew, input: { waitSeconds?: number } = {}): Promise<number> {
   return unwrap(await useCases.checkInbox(crew, input)).waiting;
+}
+
+async function inboxOf(crew: Crew) {
+  return unwrap(await useCases.checkInbox(crew, {}));
 }
 
 describe('checking the inbox', () => {
@@ -157,5 +162,50 @@ describe('checking the inbox', () => {
     expect(ended).toEqual(ok(true));
 
     await expect(useCases.checkInbox(scout, {})).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
+  });
+});
+
+describe('forced deliveries in the inbox (decision 0040)', () => {
+  it('counts the forced ones apart, to its ship and to its type, among all that wait', async () => {
+    await sendTo(toScout(), { isForced: true });
+    await sendTo(toReviewers, { isForced: true });
+    await sendTo(toScout());
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 3, forced: 2 });
+  });
+
+  it('counts none when nothing forced waits', async () => {
+    await sendTo(toScout());
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 1, forced: 0 });
+  });
+
+  it('counts a forced one the crew push received and did not hand over yet', async () => {
+    await sendTo(toScout(), { isForced: true });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 1, forced: 1 });
+  });
+
+  it('leaves out a forced one handed over: it is the session\'s to confirm', async () => {
+    const deliveryId = await sendTo(toScout(), { isForced: true });
+    unwrap(await useCases.pushReceiveDeliveries(scout, {}));
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 1, forced: 0 });
+  });
+
+  it('leaves out a forced one a plain receive handed', async () => {
+    await sendTo(toScout(), { isForced: true });
+    unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 1, forced: 0 });
+  });
+
+  it('leaves out a forced one another crew of its type holds', async () => {
+    await sendTo(toReviewers, { isForced: true });
+    unwrap(await useCases.pushReceiveDeliveries(lookout, {}));
+
+    await expect(inboxOf(scout)).resolves.toEqual({ waiting: 0, forced: 0 });
   });
 });

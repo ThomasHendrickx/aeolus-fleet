@@ -70,6 +70,7 @@ describe('receivedDeliverySchema', () => {
     inReplyTo: null,
     sentAt: '2026-09-30T12:00:00.000Z',
     attempts: 1,
+    isForced: false,
   };
 
   it("accepts a delivery to the ship, with its message and its sender's id, name and type", () => {
@@ -88,6 +89,12 @@ describe('receivedDeliverySchema', () => {
     expect(receivedDeliverySchema.parse(toType)).toEqual(toType);
   });
 
+  it('accepts a forced delivery, which says so (decision 0040)', () => {
+    const forced = { ...delivery, isForced: true };
+
+    expect(receivedDeliverySchema.parse(forced)).toEqual(forced);
+  });
+
   it.each([
     ['a delivery id of another kind', { ...delivery, deliveryId: newId('message') }],
     ['a send date that is not ISO 8601', { ...delivery, sentAt: 'yesterday' }],
@@ -95,6 +102,7 @@ describe('receivedDeliverySchema', () => {
     ['a recipient of an unknown kind', { ...delivery, recipient: { kind: 'group', group: 'reviewers' } }],
     ['no sender name', { ...delivery, senderName: undefined }],
     ['no sender type', { ...delivery, senderType: undefined }],
+    ['no word on whether it was forced', { ...delivery, isForced: undefined }],
   ])('rejects %s', (_label, candidate) => {
     expect(receivedDeliverySchema.safeParse(candidate).success).toBe(false);
   });
@@ -144,12 +152,16 @@ describe('inboxInputSchema', () => {
 });
 
 describe('inboxOutputSchema', () => {
-  it('answers how many deliveries wait for the crew', () => {
-    expect(inboxOutputSchema.parse({ waiting: 3 })).toEqual({ waiting: 3 });
+  it('answers how many deliveries wait for the crew, and how many of them are forced and not handed over yet', () => {
+    expect(inboxOutputSchema.parse({ waiting: 3, forced: 1 })).toEqual({ waiting: 3, forced: 1 });
   });
 
-  it('rejects a negative count', () => {
-    expect(inboxOutputSchema.safeParse({ waiting: -1 }).success).toBe(false);
+  it.each([
+    ['a negative count', { waiting: -1, forced: 0 }],
+    ['a negative forced count', { waiting: 1, forced: -1 }],
+    ['no forced count', { waiting: 1 }],
+  ])('rejects %s', (_label, candidate) => {
+    expect(inboxOutputSchema.safeParse(candidate).success).toBe(false);
   });
 });
 
@@ -167,6 +179,7 @@ describe('pushReceivedDeliverySchema', () => {
     inReplyTo: null,
     sentAt: '2026-10-12T12:00:00.000Z',
     attempts: 0,
+    isForced: false,
     state: 'received',
     handOverNumber: null,
   };

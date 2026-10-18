@@ -141,6 +141,7 @@ describe('receiving on Postgres', () => {
           inReplyTo: null,
           sentAt: message.createdAt,
           attempts: 1,
+          isForced: false,
         },
       ],
     });
@@ -404,7 +405,7 @@ describe('checking the inbox on Postgres', () => {
     const queued = await sendTo(toReviewers);
     await sendTo(toShip(lookout));
 
-    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3 } });
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
     await expect(stored(pending)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(queued)).resolves.toMatchObject({ state: 'pending', attempts: 0 });
     await expect(stored(inFlight)).resolves.toMatchObject({ state: 'handed', attempts: 1 });
@@ -417,7 +418,7 @@ describe('checking the inbox on Postgres', () => {
 
     await sendTo(toReviewers);
 
-    await expect(checking).resolves.toEqual({ isOk: true, value: { waiting: 1 } });
+    await expect(checking).resolves.toEqual({ isOk: true, value: { waiting: 1, forced: 0 } });
     expect(Date.now() - startedAt).toBeLessThan(LONG_WAIT_MS);
   });
 });
@@ -442,6 +443,18 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
     await expect(prisma.event.findFirstOrThrow({ where: { type: 'MessageAccepted', deliveryId: forced } })).resolves.toMatchObject({
       details: { forced: true },
     });
+  });
+
+  it('are counted apart in the inbox check until handed, and say they were forced when received', async () => {
+    await sendTo(toShip(scout), { isForced: true });
+    await sendTo(toReviewers, { isForced: true });
+    await sendTo(toShip(scout));
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 2 } });
+
+    const received = unwrap(await useCases.receiveDeliveries(scout, { max: 3 })).deliveries;
+
+    expect(received.map((delivery) => delivery.isForced)).toEqual([true, true, false]);
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 3, forced: 0 } });
   });
 
   it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {
