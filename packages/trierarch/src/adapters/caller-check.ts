@@ -13,8 +13,10 @@ import { runCommand } from './run-command.js';
  *
  * On Linux the caller is the peer of the connection: `ss` names the inode of
  * the socket at its other end, and the processes holding that inode are read
- * from /proc, which also finds a process in a container's own network
- * namespace, where `ss` shows nothing. Each must sit under one of the roots.
+ * from /proc. Linux makes the accepted end of a connection in the connecting
+ * side's network namespace, so a call from the ship's container is looked up
+ * in that container's namespaces too, entered through the session's root, and
+ * never in another ship's. Each holder must sit under one of the roots.
  * Elsewhere no peer resolves yet, so every call is refused.
  */
 export type CallerCheck = (shipId: ShipId, connection: Socket) => Promise<boolean>;
@@ -35,13 +37,29 @@ function descriptorOf(connection: Socket): number | undefined {
   return typeof fd === 'number' && fd >= 0 ? fd : undefined;
 }
 
-/** The inode of the socket at the other end of this process's socket of that inode, as `ss` lists it: `... <local inode> <peer> <peer inode>`. */
-async function peerInodeOf(inode: string, run: typeof runCommand): Promise<string | undefined> {
-  const listed = await run('ss', { args: ['-xH'] });
-  if (listed.status !== 0) {
-    return undefined;
+/** The namespace of that kind a process is in, as /proc names it, such as `net:[4026531840]`. */
+const namespaceOf = (pid: number | 'self', kind: 'net' | 'user') => readlink(`/proc/${String(pid)}/ns/${kind}`).catch(() => undefined);
+
+/**
+ * The Unix sockets `ss` lists: this process's network namespace's, then, when
+ * the root's is another, as a container's is, that one's, entered with its user
+ * namespace, which the trierarch's user owns for a rootless container.
+ */
+async function listings(at: { root: number | undefined; run: typeof runCommand }): Promise<string[]> {
+  const { root, run } = at;
+  const own = await run('ss', { args: ['-xH'] });
+  const listed = [own.status === 0 ? own.stdout : ''];
+  if (root !== undefined && (await namespaceOf(root, 'net')) !== (await namespaceOf('self', 'net'))) {
+    const user = (await namespaceOf(root, 'user')) === (await namespaceOf('self', 'user')) ? [] : ['--user', '--preserve-credentials'];
+    const theirs = await run('nsenter', { args: ['--target', String(root), '--net', ...user, 'ss', '-xH'] });
+    listed.push(theirs.status === 0 ? theirs.stdout : '');
   }
-  for (const line of listed.stdout.split('\n')) {
+  return listed;
+}
+
+/** The inode of the socket at the other end of this process's socket of that inode, as `ss` lists it: `... <local inode> <peer> <peer inode>`. */
+function peerInodeIn(listed: readonly string[], inode: string): string | undefined {
+  for (const line of listed.join('\n').split('\n')) {
     const fields = line.trim().split(/\s+/);
     if (fields.at(-3) === inode) {
       return fields.at(-1);
@@ -105,9 +123,9 @@ export function createCallerCheck(options: {
     }
     try {
       const inode = SOCKET_LINK.exec(await readlink(`/proc/self/fd/${String(fd)}`))?.[1];
-      const peer = inode === undefined ? undefined : await peerInodeOf(inode, run);
-      const holders = peer === undefined ? [] : await holdersOf(peer);
       const root = await options.sessionRootOf(shipId);
+      const peer = inode === undefined ? undefined : peerInodeIn(await listings({ root, run }), inode);
+      const holders = peer === undefined ? [] : await holdersOf(peer);
       const roots = new Set(root === undefined ? [ownPid] : [ownPid, root]);
       const under = await Promise.all(holders.map((holder) => isUnder(holder, roots)));
       return under.length > 0 && under.every(Boolean);
