@@ -467,7 +467,7 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Later | Hook already in v1 |
 | --- | --- |
 | Stored ship classes and orders: the fleet prepares a ship from its class, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
-| Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:manage` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
+| Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:commission` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
 | Group and fleet-wide addressing (n-to-n) | Selector with a kind, one delivery row per recipient |
