@@ -73,6 +73,7 @@ const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
   'labels:define': 'Define labels',
   'labels:assign': 'Assign labels',
   'fleet:network': 'Set network rules',
+  'fleet:on-behalf': 'Read on behalf of a named ship',
 };
 
 /** The open dialog's fields: they start empty each time it opens. */
