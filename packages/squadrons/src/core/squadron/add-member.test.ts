@@ -7,6 +7,7 @@ import type { FleetDoor, ManagementCrew, ManagementCrewStore } from '../manageme
 import { err, ok } from '../shared/result.js';
 import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
 import { createAddMember } from './add-member.js';
+import { NO_LIMITS } from './limits.js';
 import type { SquadronRepository } from './ports.js';
 import type { Member, Squadron, SquadronState } from './squadron.js';
 
@@ -122,7 +123,7 @@ const squadrons: SquadronRepository = {
   },
 };
 
-const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW } });
+const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: NO_LIMITS });
 
 beforeEach(() => {
   held = aSquadron('sailing');
@@ -308,5 +309,27 @@ describe('a crew request for an added member (#343)', () => {
     expect(added).toMatchObject({ isOk: false, error: { kind: 'ADDING_FAILED' } });
     expect(commissioned.map(({ isRetired }) => isRetired)).toEqual([true]);
     expect(held.members).toHaveLength(1);
+  });
+});
+
+describe("squadrons' limit of members per squadron (question 9)", () => {
+  const addWithin = (membersPerSquadron: number) =>
+    createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: { ...NO_LIMITS, membersPerSquadron } });
+
+  it('refuses a member over the limit, naming it, and commissions nothing', async () => {
+    const refused = await addWithin(1)({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'LIMIT_REACHED', message: "The squadron team-a1b2c3 is at squadrons' limit of 1 members, so no member was added" } });
+    expect(commissioned).toEqual([]);
+  });
+
+  it('adds a member up to the limit', async () => {
+    await expect(addWithin(2)({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('does not count a member that is retired or being released', async () => {
+    held = { ...held, members: [{ ...aTester(), retiredAt: NOW }, { ...aTester(), shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-z9z9', releasingSince: NOW }] };
+
+    await expect(addWithin(1)({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' })).resolves.toMatchObject({ isOk: true });
   });
 });
