@@ -228,16 +228,43 @@ describe('aeolus-ask.sh ask', () => {
   });
 });
 
+/** whoami once argo set argo as the ship's owner. */
+const ownedByArgo = { status: 200, body: { ...ownedByThomas.body, ownerShipId: 'shp_01m3tbfspe96yf1rnr4ank9h1f', ownerName: 'argo' } };
+
+/** A crewed folder whose owner is thomas when it asks, and argo from then on. */
+async function crewedWhileTheOwnerChanges(): Promise<StubFleet> {
+  const started = await startRoutedStubFleet({ [WHOAMI_PATH]: [ownedByThomas, ownedByArgo], [SEND_PATH]: [sent] });
+  expect((await runWith('aeolus-identity.sh', { args: ['write', started.url, SHIP_ID, 'scout'], stdin: CREW_TOKEN })).status).toBe(0);
+  return started;
+}
+
+/** Asks a question from the crewed folder and answers its uuid. */
+async function asked(stub: StubFleet): Promise<string> {
+  expect((await run('aeolus-ask.sh', ['ask', ...aQuestion])).status).toBe(0);
+  return questionSchema.parse(sendsOf(stub).at(-1)?.payload).id;
+}
+
 describe('aeolus-ask.sh withdraw', () => {
-  it("sends the ship's owner a withdrawal naming the question", async () => {
+  it('sends the ship it asked a withdrawal naming the question, though argo set another owner since (decision 0038, #929)', async () => {
+    fleet = await crewedWhileTheOwnerChanges();
+    const questionId = await asked(fleet);
+
+    const result = await run('aeolus-ask.sh', ['withdraw', questionId, '--model', 'claude-opus-5-5']);
+
+    expect(result.status).toBe(0);
+    const send = sendsOf(fleet).at(-1);
+    expect(send).toMatchObject({ selector: { kind: 'ship', shipId: OWNER_ID }, contentType: WITHDRAWAL_CONTENT_TYPE });
+    expect(withdrawalSchema.parse(send?.payload)).toEqual({ questionId });
+  });
+
+  it('refuses a question it did not ask from this folder, and sends nothing, as it cannot know the ship asked (#929)', async () => {
     fleet = await crewedAt([sent]);
 
     const result = await run('aeolus-ask.sh', ['withdraw', QUESTION_ID, '--model', 'claude-opus-5-5']);
 
-    expect(result.status).toBe(0);
-    const send = theSend(fleet);
-    expect(send).toMatchObject({ selector: { kind: 'ship', shipId: OWNER_ID }, contentType: WITHDRAWAL_CONTENT_TYPE });
-    expect(withdrawalSchema.parse(send.payload)).toEqual({ questionId: QUESTION_ID });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain(QUESTION_ID);
+    expect(sendsOf(fleet)).toEqual([]);
   });
 
   it('refuses a question id that is not a uuid, and sends nothing', async () => {
@@ -251,25 +278,38 @@ describe('aeolus-ask.sh withdraw', () => {
 });
 
 describe('aeolus-ask.sh replace', () => {
-  it("sends the ship's owner a replacement naming the question, with the new question under a uuid of its own", async () => {
-    fleet = await crewedAt([sent]);
+  it('sends the ship it asked a replacement naming the question, with the new question under a uuid of its own, though argo set another owner since (decision 0038, #929)', async () => {
+    fleet = await crewedWhileTheOwnerChanges();
+    const questionId = await asked(fleet);
 
-    const result = await run('aeolus-ask.sh', ['replace', QUESTION_ID, ...aQuestion]);
+    const result = await run('aeolus-ask.sh', ['replace', questionId, ...aQuestion]);
 
     expect(result.status).toBe(0);
-    const send = theSend(fleet);
+    const send = sendsOf(fleet).at(-1);
     expect(send).toMatchObject({ selector: { kind: 'ship', shipId: OWNER_ID }, contentType: REPLACEMENT_CONTENT_TYPE });
-    const replacement = replacementSchema.parse(send.payload);
-    expect(replacement).toMatchObject({ questionId: QUESTION_ID, question: { title: 'Which port does the console use in development?', pick: { option: 2 } } });
+    const replacement = replacementSchema.parse(send?.payload);
+    expect(replacement).toMatchObject({ questionId, question: { title: 'Which port does the console use in development?', pick: { option: 2 } } });
     expect(result.stdout).toContain(replacement.question.id);
+  });
+
+  it('withdraws a replacement from the ship the question it replaces asked (#929)', async () => {
+    fleet = await crewedWhileTheOwnerChanges();
+    const questionId = await asked(fleet);
+    await run('aeolus-ask.sh', ['replace', questionId, ...aQuestion]);
+    const replacementId = replacementSchema.parse(sendsOf(fleet).at(-1)?.payload).question.id;
+
+    await run('aeolus-ask.sh', ['withdraw', replacementId, '--model', 'claude-opus-5-5']);
+
+    expect(sendsOf(fleet).at(-1)).toMatchObject({ selector: { kind: 'ship', shipId: OWNER_ID }, contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: replacementId } });
   });
 
   it('refuses a replacement whose new question is incomplete, and sends nothing', async () => {
     fleet = await crewedAt([sent]);
+    const questionId = await asked(fleet);
 
-    const result = await run('aeolus-ask.sh', ['replace', QUESTION_ID, '--title', 't']);
+    const result = await run('aeolus-ask.sh', ['replace', questionId, '--title', 't']);
 
     expect(result.status).toBe(2);
-    expect(fleet.calls).toEqual([]);
+    expect(sendsOf(fleet)).toHaveLength(1);
   });
 });
