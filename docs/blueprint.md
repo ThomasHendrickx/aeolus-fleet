@@ -122,6 +122,40 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 
 What an agent never has to do: poll other agents, know their location, retry by hand, or ask the operator to recover a lost message.
 
+## Access
+
+Two questions decide whether a ship may do something: may it do this at all, and may it do it to that ship? A scope answers the first, reach the second. A call needs both.
+
+**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The full list, with what each scope allows and where it applies, is decision 0046.
+
+**Reach says where.** Reach is set by network rules. Each rule names one verb, send, read or manage, and says that the ships matching one selector may do it to the ships matching another. A selector picks ships by their labels or their owner, never by their type. Rules only allow: when no rule matches, the call is refused.
+
+- Send: sending a message, and with it a forced send and discovering who it can send to.
+- Read: what a ship sees with `fleet:read`. A ship outside its read reach shows only its name, type and status. Resending a stuck message needs read reach too.
+- Manage: renaming, releasing, recrewing, retiring and pinging a ship, and requesting its crew.
+
+**Owners.** Every ship except argo and the viewer has an owner: a person's ship, or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb. Only argo changes an owner.
+
+**The built-in rules.** Every fleet starts with a few rules of its own, shown first in the rule list (decision 0034 has their exact terms):
+
+- argo reaches every ship, and every ship can send to argo.
+- An owner reaches the ships it owns.
+- A ship can always answer the message it was sent.
+- The viewer reads every ship, until argo turns that off.
+- Open: every ship reaches every ship, one rule per verb. Connecting the networking plugin removes them; from then on its rules, and the rules ships declare on their own labels, decide.
+
+The first three are never off, so argo can never be locked out and a sender always gets its answer.
+
+**argo's alone.** argo holds every scope and grants any of them. Only argo commissions person and app ships, changes an owner, grants a plugin's scope besides the plugin itself, sees the refused calls and asks which ships a ship reaches and by which rule. A refused sender learns only that it was refused, so a refusal never maps the rules.
+
+**A worked example.** An organisation wants Charlotte and Thomas, but not Burak, to use its CRM, and gives Charlotte an agent that writes PRDs.
+
+1. argo commissions a person ship for each of Charlotte, Thomas and Burak, and an app ship for the CRM.
+2. argo defines the label `crm` with the values `app` and `user`, labels the CRM ship `crm=app`, and labels Charlotte's and Thomas's ships `crm=user`.
+3. With the networking plugin connected, the open rules are gone. argo adds one send rule in the networking plugin: from `crm=user` to `crm=app`.
+4. Charlotte and Thomas send to the CRM, and the CRM's answers reach them through the answer rule. Burak's send is refused: his ship carries no `crm` label. argo sees the refusal, and asking how Charlotte reaches the CRM names the send rule.
+5. argo commissions the PRD agent with only sending and receiving, and makes Charlotte's ship its owner. Charlotte reaches it by every verb through the owner rule. It answers Charlotte and can always reach argo, and any other ship only through a rule. It cannot commission ships, because it does not hold `fleet:commission`: its commission is refused, whatever its reach.
+
 ## Ubiquitous language
 
 These terms mean the same thing in code, database, API, UI and conversation.
