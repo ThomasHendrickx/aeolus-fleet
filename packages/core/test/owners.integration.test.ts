@@ -152,6 +152,66 @@ describe('a retired owner on Postgres', () => {
   });
 });
 
+describe('a commission racing the retire of the owner it inherits on Postgres', () => {
+  let thomasId: ShipId;
+  let scoutId: ShipId;
+  let scout: Caller;
+
+  beforeEach(async () => {
+    ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
+    ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', scopes: ['fleet:commission', 'fleet:on-behalf'] })));
+    scout = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf'] };
+  });
+
+  /** A commission that lets argo retire thomas, committed, right after it first reads the given ship. */
+  function commissionRetiringThomasAfterReading(readShipId: ShipId) {
+    let hasRetired = false;
+    return createCommissionShip({
+      uow: {
+        run: (work) =>
+          createPrismaUnitOfWork(core.prisma).run((tx) =>
+            work({
+              ...tx,
+              ships: {
+                ...tx.ships,
+                find: async (shipFleetId, shipId) => {
+                  const ship = await tx.ships.find(shipFleetId, shipId);
+                  if (shipId === readShipId && !hasRetired) {
+                    hasRetired = true;
+                    unwrap(await core.useCases.retireShip(argo, { shipId: thomasId }));
+                  }
+                  return ship;
+                },
+              },
+            }),
+          ),
+      },
+      clock: core.clock,
+      ids: newId,
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
+    });
+  }
+
+  it("gives the new ship argo, never the retired owner, when the commissioner's owner retires mid-commission", async () => {
+    unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+    const commission = commissionRetiringThomasAfterReading(scoutId);
+
+    const { shipId } = unwrap(await commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer' }));
+
+    await expect(ownerOf(shipId)).resolves.toBe(argoId);
+  });
+
+  it("gives the new ship argo, never the retired owner, when the asking ship's owner retires mid-commission", async () => {
+    const { shipId: askerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'asker', type: 'reviewer' }));
+    unwrap(await core.useCases.setOwner(argo, { shipId: askerId, ownerShipId: thomasId }));
+    const commission = commissionRetiringThomasAfterReading(askerId);
+
+    const { shipId } = unwrap(await commission(scout, { idempotencyKey: newKey(), name: 'helper', type: 'reviewer', ownerOf: askerId }));
+
+    await expect(ownerOf(shipId)).resolves.toBe(argoId);
+  });
+});
+
 describe('the owner read on Postgres', () => {
   it("shows the owner by id and name in whoami and the ship read, none for argo", async () => {
     const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
