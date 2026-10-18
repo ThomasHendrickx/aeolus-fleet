@@ -131,7 +131,7 @@ const refusedShipSchema = z.object({
   owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
 });
 
-/** One refused send: who tried to reach whom, both ships as they were with their owners, the settings version that refused it and when. */
+/** One refused send: who tried to reach whom by which verb, both ships as they were with their owners, the settings version that refused it and when. */
 export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),
@@ -141,6 +141,8 @@ export const reachRefusalSchema = z.object({
     /** A send to a type: the type and each ship of it, none of which the sender may reach. */
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
   ]),
+  /** What the sender tried to do: send, the one verb checked so far. */
+  verb: z.enum(NETWORK_VERBS),
   settingsVersion: z.int().min(1),
   /** What the plugin declared for while it is unavailable, when it refused because the plugin was not responding (decision 0035); null otherwise. */
   whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),

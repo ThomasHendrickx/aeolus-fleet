@@ -605,8 +605,8 @@ describe('the owners on reach refusals migration', () => {
       await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
       await client.reachRefusal.createMany({
         data: [
-          { id: toShip, fleetId, at: now, sender: planner, recipient: { kind: 'ship', ship: vault }, settingsVersion: 2 },
-          { id: toType, fleetId, at: now, sender: planner, recipient: { kind: 'type', type: 'keeper', ships: [vault, keeper] }, settingsVersion: 2 },
+          { id: toShip, fleetId, at: now, sender: planner, recipient: { kind: 'ship', ship: vault }, verb: 'send', settingsVersion: 2 },
+          { id: toType, fleetId, at: now, sender: planner, recipient: { kind: 'type', type: 'keeper', ships: [vault, keeper] }, verb: 'send', settingsVersion: 2 },
         ],
       });
 

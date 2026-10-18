@@ -24,6 +24,7 @@ function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo:
     at: new Date(NOW.getTime() - minutesAgo * 60_000).toISOString(),
     sender: WEBSITE,
     recipient: { kind: 'ship', ship: HEMMA_API },
+    verb: 'send',
     settingsVersion: 7,
     whilePluginUnavailable: null,
     ...rest,

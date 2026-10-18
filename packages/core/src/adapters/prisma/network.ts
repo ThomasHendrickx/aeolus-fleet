@@ -8,7 +8,7 @@
  * rules. The settings are read after the lock, so they are the latest
  * committed.
  */
-import { carriedLabelSchema, idSchema, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
+import { carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/network-settings.js';
@@ -44,6 +44,7 @@ const refusalRowSchema = z.object({
     z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
   ]),
+  verb: z.enum(NETWORK_VERBS),
   settingsVersion: z.number().int().min(1),
   whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
 });
@@ -128,8 +129,8 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
 
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
-    record: async ({ id, fleetId, at, sender, recipient, settingsVersion, whilePluginUnavailable }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), settingsVersion, whilePluginUnavailable } });
+    record: async ({ id, fleetId, at, sender, recipient, verb, settingsVersion, whilePluginUnavailable }) => {
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });

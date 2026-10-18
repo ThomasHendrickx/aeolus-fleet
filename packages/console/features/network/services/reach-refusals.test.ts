@@ -15,6 +15,7 @@ function aRefusal(overrides: Partial<ReachRefusal> = {}): ReachRefusal {
     at: '2026-10-10T09:30:00.000Z',
     sender: aRefusedShip('scout'),
     recipient: { kind: 'ship', ship: aRefusedShip('vault') },
+    verb: 'send',
     settingsVersion: 4,
     whilePluginUnavailable: null,
     ...overrides,
