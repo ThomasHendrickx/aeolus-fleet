@@ -102,6 +102,16 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.safeParse({ name: 'login-flow', type: 'flagship', ownerOf: 'tech-lead', idempotencyKey: 'commission-login-flow' }).success).toBe(false);
   });
 
+  it('accepts the owner argo picked for an app ship the gateway commissions (decision 0045)', () => {
+    const input = { name: 'crm', type: 'crm', kind: 'app', owner: 'shp_01m3tbfspe96yf1rnr4ank0001', idempotencyKey: 'commission-crm' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('rejects an owner that is not a ship id', () => {
+    expect(commissionShipInputSchema.safeParse({ name: 'crm', type: 'crm', kind: 'app', owner: 'thomas', idempotencyKey: 'commission-crm' }).success).toBe(false);
+  });
+
   it.each(['agent', 'person', 'app'])('accepts the kind %s', (kind) => {
     const input = { name: 'thomas', type: 'person', kind, idempotencyKey: 'commission-thomas' };
 
