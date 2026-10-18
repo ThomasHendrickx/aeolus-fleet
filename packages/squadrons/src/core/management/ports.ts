@@ -45,7 +45,7 @@ export interface FleetDoor {
     >
   >;
   /**
-   * Commissions an agent ship as the crew token's ship (fleet:manage) under
+   * Commissions an agent ship as the crew token's ship (fleet:commission) under
    * squadrons' own idempotency key: its id, its crew instructions for a chat, its secret and its crew lines. A
    * repeat under the same key answers the same ship with none of them: its secret
    * was shown once.

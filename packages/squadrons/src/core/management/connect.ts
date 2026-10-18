@@ -9,14 +9,14 @@ export type ConnectRefusal = DomainError<'ALREADY_CONNECTED' | 'SECRET_REFUSED' 
 
 export type Connect = (input: { operatorFleetId: FleetId; shipId: ShipId; secret: string }) => Promise<Result<ConnectionStatus, ConnectRefusal>>;
 
-/** What squadrons does as its management ship: read the fleet and manage it. */
-const MANAGEMENT_SCOPES = ['fleet:read', 'fleet:manage'];
+/** What squadrons does as its management ship: read the fleet, commission its squadrons' ships and manage them (decision 0046). */
+const MANAGEMENT_SCOPES = ['fleet:read', 'fleet:commission', 'fleet:manage'];
 
 /**
  * Use case: the operator connects squadrons. The web app's server hands it
  * the management ship's secret, server to server; squadrons registers with it
  * as a server and keeps only the crew token. The ship must be of the
- * operator's fleet and hold fleet:read and fleet:manage, or squadrons lets it
+ * operator's fleet and hold fleet:read, fleet:commission and fleet:manage, or squadrons lets it
  * go again and keeps nothing. Each fleet has its own connection: connect
  * works only while squadrons is not connected to the operator's fleet,
  * whatever other fleets it serves. The secret is never kept or logged.
@@ -45,7 +45,7 @@ export function createConnect(deps: { door: FleetDoor; store: ManagementCrewStor
     }
     const ship = await deps.door.getShip(crewToken, { shipId });
     if (!ship.isOk || !MANAGEMENT_SCOPES.every((scope) => ship.value.scopes.includes(scope))) {
-      return letGo('MISSING_SCOPES', 'The management ship needs fleet:read and fleet:manage');
+      return letGo('MISSING_SCOPES', 'The management ship needs fleet:read, fleet:commission and fleet:manage');
     }
 
     await deps.store.save({ fleetId: who.value.fleetId, shipId, name: who.value.name, crewToken, crewedAt: deps.clock.now() });
