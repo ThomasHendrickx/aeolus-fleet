@@ -315,7 +315,7 @@ describe('ship.register', () => {
     expect(registered.statusCode).toBe(200);
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
     expect(whoami.json()).toEqual({
-      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer', owner: { id: argoIdOf(core, fleetIdOf(core)), name: 'argo' } } },
+      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer', ownerShipId: argoIdOf(core, fleetIdOf(core)), ownerName: 'argo' } },
     });
   });
 

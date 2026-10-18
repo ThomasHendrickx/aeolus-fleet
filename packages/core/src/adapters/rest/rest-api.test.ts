@@ -368,7 +368,7 @@ describe('a ship call at /api/v1', () => {
 
     expect(registered.statusCode).toBe(200);
     expect(whoami.statusCode).toBe(200);
-    expect(whoami.json()).toEqual({ shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer', owner: { id: argoIdOf(core, fleetId), name: 'argo' } });
+    expect(whoami.json()).toEqual({ shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer', ownerShipId: argoIdOf(core, fleetId), ownerName: 'argo' });
   });
 
   it('takes the crew token from the bearer only: the console session cookie is no crew token', async () => {

@@ -28,14 +28,14 @@ describe('who am I', () => {
 
     await expect(useCases.whoami(scout)).resolves.toEqual({
       isOk: true,
-      value: { shipId, fleetId, name: 'scout', type: 'reviewer', owner: { id: argoId, name: 'argo' } },
+      value: { shipId, fleetId, name: 'scout', type: 'reviewer', ownerShipId: argoId, ownerName: 'argo' },
     });
   });
 
   it('tells argo who it is', async () => {
     await expect(useCases.whoami(argo)).resolves.toEqual({
       isOk: true,
-      value: { shipId: argoId, fleetId, name: 'argo', type: 'operator', owner: null },
+      value: { shipId: argoId, fleetId, name: 'argo', type: 'operator', ownerShipId: null, ownerName: null },
     });
   });
 

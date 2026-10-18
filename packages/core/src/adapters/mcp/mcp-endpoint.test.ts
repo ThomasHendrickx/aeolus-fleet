@@ -372,7 +372,7 @@ describe('a ship tool call', () => {
     const { crewToken } = z.object({ crewToken: z.string() }).parse(registered.structuredContent);
     const whoami = await callTool(client, { name: 'whoami', arguments: { crewToken } });
 
-    const expected = { shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer', owner: { id: argoIdOf(core, fleetId), name: 'argo' } };
+    const expected = { shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer', ownerShipId: argoIdOf(core, fleetId), ownerName: 'argo' };
     expect(whoami.structuredContent).toEqual(expected);
     expect(whoami.content.map((block): unknown => JSON.parse(block.text))).toEqual([expected]);
   });

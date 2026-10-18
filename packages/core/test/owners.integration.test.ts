@@ -159,9 +159,9 @@ describe('the owner read on Postgres', () => {
     unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
     const scout: Caller = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 
-    await expect(core.useCases.whoami(scout)).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
+    await expect(core.useCases.whoami(scout)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: thomasId, ownerName: 'thomas' } });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
     await expect(core.useCases.getShip(argo, { shipId: thomasId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: argoId, name: 'argo' } } });
-    await expect(core.useCases.whoami(argo)).resolves.toMatchObject({ isOk: true, value: { owner: null } });
+    await expect(core.useCases.whoami(argo)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: null, ownerName: null } });
   });
 });

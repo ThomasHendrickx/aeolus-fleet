@@ -89,18 +89,25 @@ describe('registerOutputSchema', () => {
 });
 
 describe('whoamiOutputSchema', () => {
-  const output = { shipId: newId('ship'), fleetId: newId('fleet'), name: 'scout', type: 'reviewer', owner: { id: newId('ship'), name: 'argo' } };
+  const output = { shipId: newId('ship'), fleetId: newId('fleet'), name: 'scout', type: 'reviewer', ownerShipId: newId('ship'), ownerName: 'argo' };
 
   it("accepts the ship's id, fleet, name, type and owner", () => {
     expect(whoamiOutputSchema.parse(output)).toEqual(output);
   });
 
   it("accepts argo's, which has no owner", () => {
-    expect(whoamiOutputSchema.parse({ ...output, owner: null })).toEqual({ ...output, owner: null });
+    const argo = { ...output, ownerShipId: null, ownerName: null };
+
+    expect(whoamiOutputSchema.parse(argo)).toEqual(argo);
   });
 
   it('rejects a missing owner', () => {
-    expect(whoamiOutputSchema.safeParse({ ...output, owner: undefined }).success).toBe(false);
+    expect(whoamiOutputSchema.safeParse({ ...output, ownerShipId: undefined }).success).toBe(false);
+  });
+
+  // The aeolus plugin's scripts read name, shipId and type as the last of their key in the answer (#819's reader).
+  it("names the owner in keys of its own, never a second name, shipId or type", () => {
+    expect(JSON.stringify(whoamiOutputSchema.parse(output)).match(/"(name|shipId|type)"/g)).toEqual(['"shipId"', '"name"', '"type"']);
   });
 
   it('rejects a fleet id of another kind', () => {
