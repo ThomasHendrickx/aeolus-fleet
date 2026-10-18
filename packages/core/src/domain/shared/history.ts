@@ -14,7 +14,7 @@ import {
 } from '@aeolus-fleet/common';
 
 import type { OverdueClock, WaitingState } from '../messaging/public.js';
-import type { Location } from '../registry/public.js';
+import type { Location, MessageParties } from '../registry/public.js';
 import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 
@@ -46,6 +46,16 @@ export interface TimelineEntry {
   /** The message it concerns, with its parties and its content type, by which a ping is told. */
   message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string; model: string | null } | null;
   details: EventDetails;
+}
+
+/** A message's parties as read reach sees them; for a type, `claimedBy` is the ship that claimed it, if one has. */
+export function partiesOf(message: { sender: HistoryParty; recipient: HistoryRecipient }, claimedBy: HistoryParty | null): MessageParties {
+  const { sender, recipient } = message;
+  return {
+    senderId: sender.id,
+    recipient: recipient.kind === 'ship' ? { kind: 'ship', shipId: recipient.ship.id } : recipient,
+    claimedBy: claimedBy?.id ?? null,
+  };
 }
 
 /** A message as a read shows it: whether it is a ping, told by its content type, so no reader repeats that rule. */

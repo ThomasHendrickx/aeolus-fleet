@@ -66,6 +66,7 @@ import { createGetShip } from '../../src/domain/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/domain/registry/list-fleet.js';
+import { createReadReachOf } from '../../src/domain/registry/read-reach.js';
 import { createRecrewShip } from '../../src/domain/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
 import { createSetOwner } from '../../src/domain/registry/set-owner.js';
@@ -228,10 +229,11 @@ export function registryUseCases(core: InMemoryCore) {
 
 /** The history reads for the ship page, wired to the in-memory core. */
 export function historyUseCases(core: InMemoryCore) {
+  const readReach = createReadReachOf({ uow: core.uow, clock: core.clock });
   return {
-    readShipTimeline: createReadShipTimeline({ history: core.history }),
-    readShipMessages: createReadShipMessages({ history: core.history }),
-    readMessage: createReadMessage({ history: core.history }),
+    readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
+    readShipMessages: createReadShipMessages({ history: core.history, readReach }),
+    readMessage: createReadMessage({ history: core.history, readReach }),
     readShipWay: createReadShipWay({ history: core.history }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
     readOverdue: createReadOverdue({ history: core.history }),

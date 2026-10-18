@@ -67,6 +67,7 @@ import { createGetStartingPrompt, type GetStartingPrompt } from './domain/regist
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
 import { createInitialiseFleet, type InitialiseFleet } from './domain/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './domain/registry/list-fleet.js';
+import { createReadReachOf } from './domain/registry/read-reach.js';
 import { createListFleets, type ListFleets } from './domain/registry/list-fleets.js';
 import { createRecrewShip, type RecrewShip } from './domain/registry/recrew-ship.js';
 import { createReleaseShip, type ReleaseShip } from './domain/registry/release-ship.js';
@@ -254,6 +255,7 @@ export function createUseCases(options: {
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
+  const readReach = createReadReachOf({ uow, clock });
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
@@ -372,9 +374,9 @@ export function createUseCases(options: {
       clock,
       wakeups: options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups()),
     }),
-    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
-    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
-    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
+    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
+    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
+    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma) }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
     readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),

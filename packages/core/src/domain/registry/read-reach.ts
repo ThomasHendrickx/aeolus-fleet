@@ -99,3 +99,15 @@ export function readsMessage(reach: ReadReach, message: MessageParties): boolean
   }
   return claimedBy === null ? reach.types.has(recipient.type) : readsShip(reach, claimedBy);
 }
+
+/**
+ * Whether the reach reads an event: through the message it concerns, else
+ * through the ship it concerns. One that concerns neither, such as a label's
+ * or the rules', every reader reads. Who caused it does not count.
+ */
+export function readsEvent(reach: ReadReach, event: { shipId: ShipId | null; message: MessageParties | null }): boolean {
+  if (event.message !== null) {
+    return readsMessage(reach, event.message);
+  }
+  return event.shipId === null || readsShip(reach, event.shipId);
+}
