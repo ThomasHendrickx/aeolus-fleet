@@ -4,4 +4,4 @@
  * trierarch adds it to its first and every wake prompt, and the aeolus
  * plugin's crew skills say the same.
  */
-export const NO_TERMINAL_QUESTIONS = 'No human reads this terminal. Never ask here; ask over the fleet. A question only the operator can answer goes to argo.';
+export const NO_TERMINAL_QUESTIONS = "No human reads this terminal. Never ask here; ask over the fleet. A question only a human can answer goes to your ship's owner (argo when argo owns your ship).";

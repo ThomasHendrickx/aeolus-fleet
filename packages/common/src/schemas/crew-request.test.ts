@@ -162,14 +162,26 @@ describe('giveBackCrewRequestOutputSchema', () => {
 });
 
 describe('assignedCrewRequestsOutputSchema', () => {
-  it('lists each assigned request with its settings, its status and whether its crew is final', () => {
-    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null, isFinal: false }];
+  it("lists each assigned request with its settings, its status, whether its crew is final and its ship's owner", () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: null, isFinal: false, ownerShipId: newId('ship'), ownerName: 'thomas' }];
 
     expect(assignedCrewRequestsOutputSchema.parse(assigned)).toEqual(assigned);
   });
 
   it('rejects an assigned request that does not say whether its crew is final (#477)', () => {
-    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: 'running' }];
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: 'running', ownerShipId: newId('ship'), ownerName: 'thomas' }];
+
+    expect(assignedCrewRequestsOutputSchema.safeParse(assigned).success).toBe(false);
+  });
+
+  it("rejects an assigned request that does not name its ship's owner (decision 0045)", () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: 'running', isFinal: true }];
+
+    expect(assignedCrewRequestsOutputSchema.safeParse(assigned).success).toBe(false);
+  });
+
+  it("rejects an assigned request that names its ship's owner by id alone, as the trierarch tells argo's own apart by its name", () => {
+    const assigned = [{ shipId: newId('ship'), settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-06T17:00:00.000Z', status: 'running', isFinal: true, ownerShipId: newId('ship') }];
 
     expect(assignedCrewRequestsOutputSchema.safeParse(assigned).success).toBe(false);
   });

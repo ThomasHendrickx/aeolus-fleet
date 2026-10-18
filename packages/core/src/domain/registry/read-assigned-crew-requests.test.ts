@@ -39,8 +39,8 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true },
-      { shipId: lookoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false },
+      { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true, ownerShipId: argo.shipId, ownerName: 'argo' },
+      { shipId: lookoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false, ownerShipId: argo.shipId, ownerName: 'argo' },
     ]);
   });
 
@@ -62,6 +62,16 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, settingsVersion: 2, isFinal: false }]);
+  });
+
+  it("name each ship's owner as it is now, so its crash report reaches its owner (decision 0045)", async () => {
+    const scoutId = await requested('scout');
+    unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
+    const { shipId: thomasId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+
+    unwrap(await registry.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+
+    await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, ownerShipId: thomasId, ownerName: 'thomas' }]);
   });
 
   it('are none for a ship nothing is assigned to', async () => {

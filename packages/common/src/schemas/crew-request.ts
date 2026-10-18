@@ -129,6 +129,9 @@ export const assignedCrewRequestsOutputSchema = z.array(
     status: crewStatusSchema.nullable(),
     /** Whether its crew is final (decision 0029): kept whatever status follows, cleared on every new settings version. */
     isFinal: z.boolean(),
+    /** Its ship's owner as it is now, by id and name, where the trierarch sends its trouble (decision 0045); both null for a ship with none. */
+    ownerShipId: idSchema('ship').nullable(),
+    ownerName: z.string().nullable(),
   }),
 );
 
