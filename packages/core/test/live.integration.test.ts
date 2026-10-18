@@ -1,4 +1,4 @@
-import { fleetStreamItemSchema, type FleetStreamItem, type ShipId } from '@aeolus-fleet/common';
+import { fleetStreamItemSchema, type FleetScope, type FleetStreamItem, type ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -34,6 +34,7 @@ let address: string;
 let useCases: UseCases;
 let argo: Caller;
 const browsers: WebSocket[] = [];
+const streams: AbortController[] = [];
 
 beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
@@ -47,6 +48,9 @@ beforeAll(async () => {
 afterEach(() => {
   for (const browser of browsers.splice(0)) {
     browser.close();
+  }
+  for (const stream of streams.splice(0)) {
+    stream.abort();
   }
 });
 
@@ -128,6 +132,58 @@ function heard(following: Following): string[] {
 /** The number of the last event heard. */
 function lastSeq(following: Following): number {
   return Number(following.items.at(-1)?.trackedId);
+}
+
+/**
+ * A crew following the fleet as a ship's client does: over HTTP, as server-sent
+ * events, with its crew token and, for a plugin, the ship it reads on behalf of.
+ */
+function followAsCrew(options: { crewToken: string; onBehalfOf?: ShipId }): Following {
+  const following: Following = { items: [] };
+  const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
+  if (options.onBehalfOf !== undefined) {
+    headers['aeolus-on-behalf-of'] = options.onBehalfOf;
+  }
+  const stopped = new AbortController();
+  streams.push(stopped);
+  const input = encodeURIComponent(JSON.stringify({ lastEventId: null }));
+  void (async () => {
+    const response = await fetch(`${address}/trpc/fleet.events?input=${input}`, { headers, signal: stopped.signal });
+    const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
+    let buffered = '';
+    for (let read = await reader?.read(); read && !read.done; read = await reader?.read()) {
+      buffered += read.value;
+      const messages = buffered.split('\n\n');
+      buffered = messages.pop() ?? '';
+      for (const message of messages) {
+        heardOver(following, message);
+      }
+    }
+  })().catch(() => undefined);
+  return following;
+}
+
+const sseErrorSchema = z.object({ data: z.object({ code: z.string() }) });
+
+/** One server-sent message: an item tracked by its event id, or the error the subscription ended with. */
+function heardOver(following: Following, message: string): void {
+  const fields = new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
+  const data = fields.get('data');
+  if (data === undefined) {
+    return;
+  }
+  if (fields.get('event') === 'serialized-error') {
+    following.refusal = sseErrorSchema.parse(JSON.parse(data)).data.code;
+  } else if (fields.get('event') === undefined && fields.has('id')) {
+    following.items.push({ trackedId: fields.get('id') ?? '', item: fleetStreamItemSchema.parse(JSON.parse(data)) });
+  }
+}
+
+/** A ship argo commissions with the given scopes and a session claims: its id and crew token. */
+async function crewed(name: string, scopes: FleetScope[]): Promise<{ shipId: ShipId; crewToken: string }> {
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer', scopes }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  return { shipId, crewToken };
 }
 
 async function commissionScout(name: string): Promise<{ shipId: ShipId; secret: string }> {
@@ -236,5 +292,30 @@ describe('following the fleet live', () => {
     await signIn();
 
     await expect.poll(() => following.refusal).toBe('UNAUTHORIZED');
+  });
+});
+
+describe('a crew following the fleet live', () => {
+  it('ends once argo revokes its fleet:read, and sends nothing after', async () => {
+    const watcher = await crewed('watcher', ['fleet:read']);
+    const following = followAsCrew({ crewToken: watcher.crewToken });
+    await expect.poll(() => heard(following)).toEqual(['resync']);
+
+    unwrap(await useCases.grantScopes(argo, { shipId: watcher.shipId, grant: [], revoke: ['fleet:read'] }));
+
+    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
+    expect(heard(following)).toEqual(['resync']);
+  });
+
+  it('ends once argo revokes fleet:on-behalf from a plugin reading on behalf of a ship, and sends nothing after', async () => {
+    const plugin = await crewed('plugin', ['fleet:read', 'fleet:on-behalf']);
+    const named = await crewed('named', []);
+    const following = followAsCrew({ crewToken: plugin.crewToken, onBehalfOf: named.shipId });
+    await expect.poll(() => heard(following)).toEqual(['resync']);
+
+    unwrap(await useCases.grantScopes(argo, { shipId: plugin.shipId, grant: [], revoke: ['fleet:on-behalf'] }));
+
+    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
+    expect(heard(following)).toEqual(['resync']);
   });
 });
