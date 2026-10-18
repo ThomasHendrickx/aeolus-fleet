@@ -352,7 +352,7 @@ describe('the owner of a new ship (decision 0045)', () => {
   });
 });
 
-describe('an owner a plugin names (decisions 0045, 0017)', () => {
+describe('an owner named on behalf of the asking ship (decisions 0045, 0017)', () => {
   let thomas: ShipId;
   let lead: ShipId;
 
@@ -366,20 +366,18 @@ describe('an owner a plugin names (decisions 0045, 0017)', () => {
     core.state.events.length = 0;
   });
 
-  /** A plugin's ship: for now, one that declared its namespace (the rule waits on Thomas, see isPluginShip). */
+  /** A plugin's ship: it holds fleet:on-behalf, which argo granted it (decision 0045). */
   async function aPluginShip(): Promise<Caller> {
-    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:commission', 'scopes:declare'] }));
-    const squadrons: Caller = { fleetId, shipId, kind: 'agent', scopes: [] };
-    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [{ scope: 'squadrons:form', description: 'Form a squadron by message' }] }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:commission', 'fleet:on-behalf'] }));
     core.state.events.length = 0;
-    return squadrons;
+    return { fleetId, shipId, kind: 'agent', scopes: [] };
   }
 
   function ownerSetOf(shipId: ShipId) {
     return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
   }
 
-  it("is the asking ship's owner when a plugin's ship names it, with OwnerSet saying how", async () => {
+  it("is the asking ship's owner when a ship holding fleet:on-behalf names it, with OwnerSet saying how", async () => {
     const squadrons = await aPluginShip();
 
     const { shipId } = unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'login-flow', type: 'flagship', ownerOf: lead }));
@@ -396,18 +394,28 @@ describe('an owner a plugin names (decisions 0045, 0017)', () => {
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'askingShipOwner', askingShipId: argoId }]);
   });
 
-  it("is refused from a ship that is not a plugin's, and nothing is stored", async () => {
-    const manager = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'lead', scopes: ['fleet:commission'] })).shipId;
+  it('is refused from a ship without fleet:on-behalf, even one that declared a namespace, and nothing is stored', async () => {
+    const declarer = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'declarer', type: 'plugin', scopes: ['fleet:commission', 'scopes:declare'] })).shipId;
+    const caller: Caller = { fleetId, shipId: declarer, kind: 'agent', scopes: [] };
+    unwrap(await registryUseCases(core).declareScopes(caller, { namespace: 'reviews', scopes: [{ scope: 'reviews:ask', description: 'Ask for a review' }] }));
     core.state.events.length = 0;
 
-    const refused = await commissionShip({ fleetId, shipId: manager, kind: 'agent', scopes: [] }, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', ownerOf: lead });
+    const refused = await commissionShip(caller, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', ownerOf: lead });
 
     expect(refused).toEqual({
       isOk: false,
-      error: { kind: 'OWNER_NAMED_BY_PLUGIN_ONLY', message: "Only a plugin's ship names the owner of the ship that asked it: commission without ownerOf" },
+      error: { kind: 'SCOPE_NOT_HELD', message: 'Naming the ship that asked for this one needs the fleet:on-behalf scope: commission without ownerOf' },
     });
     expect(shipsNamed('deputy')).toEqual([]);
     expect(core.state.events).toEqual([]);
+  });
+
+  it('reads fleet:on-behalf from the fleet, not from the call', async () => {
+    const manager = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'lead', scopes: ['fleet:commission'] })).shipId;
+
+    const refused = await commissionShip({ fleetId, shipId: manager, kind: 'agent', scopes: ['fleet:commission', 'fleet:on-behalf'] }, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', ownerOf: lead });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
   });
 
   it('is refused for an asking ship the fleet does not have, and nothing is stored', async () => {
