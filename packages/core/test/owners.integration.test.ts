@@ -212,6 +212,57 @@ describe('a commission racing the retire of the owner it inherits on Postgres', 
   });
 });
 
+describe('the owner argo picked for an app ship the gateway commissions, on Postgres', () => {
+  let thomasId: ShipId;
+  let gateway: Caller;
+
+  beforeEach(async () => {
+    ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', scopes: ['fleet:commission', 'fleet:on-behalf'] }));
+    gateway = { shipId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf'] };
+  });
+
+  it('stores it as the app ship\'s owner, with OwnerSet saying it was named', async () => {
+    const { shipId } = unwrap(await core.useCases.commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomasId }));
+
+    await expect(ownerOf(shipId)).resolves.toBe(thomasId);
+    await expect(ownerEventsAbout(shipId)).resolves.toEqual([['OwnerSet', { ownerShipId: thomasId, how: 'named' }]]);
+  });
+
+  it('refuses it, storing no ship, when argo retired it just before the commission read it', async () => {
+    let hasRetired = false;
+    const commission = createCommissionShip({
+      uow: {
+        run: (work) =>
+          createPrismaUnitOfWork(core.prisma).run((tx) =>
+            work({
+              ...tx,
+              ships: {
+                ...tx.ships,
+                find: async (shipFleetId, shipId) => {
+                  const ship = await tx.ships.find(shipFleetId, shipId);
+                  if (shipId === gateway.shipId && !hasRetired) {
+                    hasRetired = true;
+                    unwrap(await core.useCases.retireShip(argo, { shipId: thomasId }));
+                  }
+                  return ship;
+                },
+              },
+            }),
+          ),
+      },
+      clock: core.clock,
+      ids: newId,
+      secrets: { hasher: sha256Hasher, random: cryptoRandomTokens },
+    });
+
+    const refused = await commission(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomasId });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+    await expect(core.prisma.ship.count({ where: { fleetId, name: 'crm' } })).resolves.toBe(0);
+  });
+});
+
 describe('the owner read on Postgres', () => {
   it("shows the owner by id and name in whoami and the ship read, none for argo", async () => {
     const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

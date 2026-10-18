@@ -44,14 +44,15 @@ export interface Ship {
 
 /**
  * How a ship got its owner at commission: its commissioner's owner, argo when
- * the commissioner has none, or the owner of the ship that asked a plugin's
- * ship for it, which the plugin named (decision 0045).
+ * the commissioner has none, the owner of the ship that asked a plugin's
+ * ship for it, which the plugin named, or for an app ship the owner argo
+ * picked, which the gateway named (decision 0045).
  */
-export type OwnerSetHow = 'inherited' | 'argoByDefault' | 'askingShipOwner';
+export type OwnerSetHow = 'inherited' | 'argoByDefault' | 'askingShipOwner' | 'named';
 
 /** OwnerSet's details: the owner and how it was set, with the asking ship when a plugin named its owner. */
 export type OwnerSet =
-  | { ownerShipId: ShipId; how: 'inherited' | 'argoByDefault' }
+  | { ownerShipId: ShipId; how: 'inherited' | 'argoByDefault' | 'named' }
   | { ownerShipId: ShipId; how: 'askingShipOwner'; askingShipId: ShipId };
 
 /** The operator ship's name. Reserved: no other ship can take it. */
@@ -130,6 +131,7 @@ export type CommissionRefusal = DomainError<
   | 'SCOPE_NOT_DECLARED'
   | 'SCOPE_NOT_HELD'
   | 'PLUGIN_SCOPE_NOT_YOURS'
+  | 'INVALID_OWNER'
 >;
 
 /**
@@ -157,6 +159,9 @@ export function commissionShip(
     argoShipId: ShipId;
     /** The ship that asked a plugin's ship for this one, whose owner the new ship gets (decision 0045). */
     askingShip?: Ship;
+    /** The id of the owner argo picked for an app ship, as the gateway named it, and that ship as the fleet holds it, if it does (decision 0045). */
+    owner?: ShipId;
+    namedOwner?: Ship;
     note?: string;
     /** Scopes added to the agent scopes (decision 0046). */
     scopes?: readonly string[];
@@ -171,8 +176,14 @@ export function commissionShip(
   },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
-  if (kind !== 'agent' && input.commissioner.kind !== 'operator') {
-    return refuse('KIND_COMMISSIONED_BY_ARGO_ONLY', `Only argo commissions a ${kind} ship: commission an agent ship instead`);
+  const isOnBehalf = input.commissioner.scopes.includes('fleet:on-behalf');
+  if (kind !== 'agent' && input.commissioner.kind !== 'operator' && !(kind === 'app' && isOnBehalf)) {
+    return refuse(
+      'KIND_COMMISSIONED_BY_ARGO_ONLY',
+      kind === 'app'
+        ? 'Only argo, or a ship holding fleet:on-behalf such as the gateway, commissions an app ship: commission an agent ship instead'
+        : `Only argo commissions a ${kind} ship: commission an agent ship instead`,
+    );
   }
   const name = shipName(input.name);
   if (!name.isOk) {
@@ -202,8 +213,14 @@ export function commissionShip(
     }
   }
 
-  if (input.askingShip !== undefined && !input.commissioner.scopes.includes('fleet:on-behalf')) {
+  if (input.askingShip !== undefined && !isOnBehalf) {
     return refuse('SCOPE_NOT_HELD', 'Naming the ship that asked for this one needs the fleet:on-behalf scope: commission without ownerOf');
+  }
+  if (input.owner !== undefined) {
+    const named = checkNamedOwner({ kind, isOnBehalf, askingShip: input.askingShip, namedOwner: input.namedOwner });
+    if (!named.isOk) {
+      return named;
+    }
   }
 
   const { id, fleetId, at, actor } = input;
@@ -281,12 +298,42 @@ export function changeOwner(
 }
 
 /**
+ * The owner argo picked, named at commission: only for an app ship, only by a
+ * ship holding fleet:on-behalf, never beside an asking ship, and an active
+ * person's ship or argo, as any owner is (decision 0045).
+ */
+function checkNamedOwner(named: {
+  kind: CommissionedShipKind;
+  isOnBehalf: boolean;
+  askingShip: Ship | undefined;
+  namedOwner: Ship | undefined;
+}): Result<undefined, DomainError<'SCOPE_NOT_HELD' | 'INVALID_OWNER'>> {
+  if (!named.isOnBehalf) {
+    return refuse('SCOPE_NOT_HELD', 'Naming the owner of a new ship needs the fleet:on-behalf scope: commission without owner');
+  }
+  if (named.kind !== 'app') {
+    return refuse('INVALID_OWNER', "Only an app ship gets the owner argo picked at commission: commission without owner, and argo sets an owner later");
+  }
+  if (named.askingShip !== undefined) {
+    return refuse('INVALID_OWNER', 'Name the owner or the ship that asked, not both');
+  }
+  const { namedOwner } = named;
+  if (namedOwner?.retiredAt !== null || (namedOwner.kind !== 'person' && namedOwner.kind !== 'operator')) {
+    return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  }
+  return ok(undefined);
+}
+
+/**
  * The asking ship's owner, when a plugin's ship named it; else the
  * commissioner's owner, inherited. argo for a ship that has none, as argo
  * itself has none.
  */
-function ownerAtCommission(input: { commissioner: Ship; askingShip?: Ship; argoShipId: ShipId }): OwnerSet {
-  const { commissioner, askingShip, argoShipId } = input;
+function ownerAtCommission(input: { commissioner: Ship; askingShip?: Ship; namedOwner?: Ship; argoShipId: ShipId }): OwnerSet {
+  const { commissioner, askingShip, namedOwner, argoShipId } = input;
+  if (namedOwner !== undefined) {
+    return { ownerShipId: namedOwner.id, how: 'named' };
+  }
   if (askingShip !== undefined) {
     return { ownerShipId: askingShip.owner ?? argoShipId, how: 'askingShipOwner', askingShipId: askingShip.id };
   }
