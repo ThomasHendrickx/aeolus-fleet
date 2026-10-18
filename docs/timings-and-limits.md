@@ -203,6 +203,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 1 to 1024 characters | A template repository's read token | [catalogue/template-repository.ts](../packages/squadrons/src/core/catalogue/template-repository.ts) `TOKEN_MAX_LENGTH` | #161 |
 | 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/squadrons/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | none recorded |
 | at least 32 characters | `INSTALLATION_TOKEN`, when set | [config.ts](../packages/squadrons/src/config.ts) `INSTALLATION_TOKEN_MIN_LENGTH` | [0021](decisions/0021-squadrons-installation.md) |
+| none unless set | Squadrons per fleet, squadrons per forming ship, members per squadron | `SQUADRONS_PER_FLEET`, `SQUADRONS_PER_FORMING_SHIP`, `MEMBERS_PER_SQUADRON` in [config.ts](../packages/squadrons/src/config.ts) | [squadrons.md](squadrons.md#limits) |
 
 ## Trierarch
 
