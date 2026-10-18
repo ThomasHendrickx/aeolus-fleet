@@ -48,19 +48,24 @@ describe('the ships a caller reads (decision 0034)', () => {
     await expect(shipsReadBy(fleet.far)).resolves.toEqual(idsOf(fleet.far));
   });
 
-  it('reads a retired ship a read rule gives it', async () => {
-    await fleet.readRulesApply();
-    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.near.shipId }));
-
-    await expect(shipsReadBy(fleet.reader)).resolves.toEqual(idsOf(fleet.reader, fleet.near));
-  });
-
   it("lets an owner's ship read the ships it owns, through the owner built-in", async () => {
     await fleet.readRulesApply();
     const { shipId: thomasId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     unwrap(await fleet.registry.setOwner(fleet.argo, { shipId: fleet.far.shipId, ownerShipId: thomasId }));
 
     await expect(shipsReadBy({ fleetId: fleet.fleetId, shipId: thomasId, kind: 'person', scopes: ['fleet:read'] })).resolves.toEqual([thomasId, fleet.far.shipId].sort());
+  });
+
+  it('reads a retired ship as it is now: a retire drops its labels, its owner still reads it', async () => {
+    await fleet.readRulesApply();
+    const { shipId: thomasId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await fleet.registry.setOwner(fleet.argo, { shipId: fleet.near.shipId, ownerShipId: thomasId }));
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.near.shipId }));
+
+    expect([await shipsReadBy(fleet.reader), await shipsReadBy({ fleetId: fleet.fleetId, shipId: thomasId, kind: 'person', scopes: ['fleet:read'] })]).toEqual([
+      idsOf(fleet.reader),
+      [thomasId, fleet.near.shipId].sort(),
+    ]);
   });
 
   it('lets argo read every ship whatever the rules', async () => {

@@ -9,3 +9,4 @@ export { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } fr
 export { findOperatorShip, findShip, findViewerShip, type FindShipTx, type ShipTx } from './ships.js';
 export { isConsoleShip, OPERATOR_SHIP_NAME, type Ship } from './ship.js';
 export { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
+export { readsMessage, readsShip, type MessageParties, type ReadReach, type ReadReachOf } from './read-reach.js';
