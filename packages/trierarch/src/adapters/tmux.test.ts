@@ -21,7 +21,7 @@ const SOCKET_ROOT = '/tmp';
 
 let server: string;
 let folder: string;
-let tmux: SessionRuntime;
+let tmux: ReturnType<typeof createTmux>;
 
 beforeEach(() => {
   server = `trierarch-test-${newId('ship').slice(-8)}`;
@@ -73,6 +73,39 @@ describe('sessions in tmux', () => {
 
     // tmux keeps its sockets in $TMUX_TMPDIR/tmux-<uid>/.
     expect(dirname(dirname(socket.stdout.trim()))).toBe(folder);
+  });
+});
+
+/** The parents of a process up to the machine's first, through ps, which Linux and macOS both have. */
+async function ancestorsOf(pid: number): Promise<number[]> {
+  const ancestors: number[] = [];
+  for (let current = pid; current > 1; ) {
+    const parent = Number((await runCommand('ps', { args: ['-o', 'ppid=', '-p', String(current)] })).stdout.trim());
+    if (!Number.isInteger(parent) || parent < 1) {
+      break;
+    }
+    ancestors.push(parent);
+    current = parent;
+  }
+  return ancestors;
+}
+
+describe("a session's root: the process its ship's session runs under, for the socket's caller check (decision 0026)", () => {
+  it("is the session's pane, which every process of the session's command runs under", async () => {
+    const shipId = newId('ship');
+    const pidFile = join(folder, 'command.pid');
+
+    await tmux.start({ shipId, folder, command: ['sh', '-c', `echo $$ > ${pidFile}; sleep 30`] });
+
+    await expect.poll(() => existsSync(pidFile), { timeout: 5000 }).toBe(true);
+    const root = await tmux.sessionRootOf(shipId);
+    expect(root).toBeTypeOf('number');
+    const command = Number(readFileSync(pidFile, 'utf8'));
+    expect([command, ...(await ancestorsOf(command))]).toContain(root);
+  });
+
+  it('is none for a ship with no session', async () => {
+    await expect(tmux.sessionRootOf(newId('ship'))).resolves.toBeUndefined();
   });
 });
 

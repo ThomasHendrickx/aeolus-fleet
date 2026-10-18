@@ -180,7 +180,7 @@ describe('the container a session runs in', () => {
     rmSync(tokenFolder, { recursive: true, force: true });
   });
 
-  function runtimeWith(runner: ReturnType<typeof recordingRunner>, options: { launch?: readonly string[]; binary?: string } = {}): SessionRuntime {
+  function runtimeWith(runner: ReturnType<typeof recordingRunner>, options: { launch?: readonly string[]; binary?: string } = {}): ReturnType<typeof createContainerRuntime> {
     return createContainerRuntime({ binary: options.binary ?? 'podman', image: 'ghcr.io/thomashendrickx/aeolus-session:0.25.0', tokenFile, homes, sockets, ...CAPS, run: runner.run, ...(options.launch !== undefined && { launch: options.launch }) });
   }
 
@@ -258,6 +258,22 @@ describe('the container a session runs in', () => {
       home: ['HOME=/home/ubuntu'],
       others: [],
     });
+  });
+
+  it("names the container's first process, as the host sees it, as the root of the ship's session", async () => {
+    const runner = recordingRunner((args) => (args[0] === 'inspect' ? { stdout: '4242\n' } : {}));
+
+    await expect(runtimeWith(runner).sessionRootOf(shipId)).resolves.toBe(4242);
+    expect(runner.calls.at(-1)?.args).toEqual(['inspect', '--format', '{{.State.Pid}}', `trierarch-${shipId}`]);
+  });
+
+  it.each([
+    { label: 'no container', answer: { status: 125, stdout: '' } },
+    { label: 'a container that runs no more', answer: { stdout: '0\n' } },
+  ])("names no root for $label", async ({ answer }) => {
+    const runner = recordingRunner((args) => (args[0] === 'inspect' ? answer : {}));
+
+    await expect(runtimeWith(runner).sessionRootOf(shipId)).resolves.toBeUndefined();
   });
 
   it('gives the container no restart policy: the trierarch starts a dead one again itself', async () => {
