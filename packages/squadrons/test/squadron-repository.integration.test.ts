@@ -14,6 +14,7 @@ import { createSquadronsDatabase } from './support/database.js';
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const PLANNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0001';
 const TESTER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0002';
+const ARGO: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0a01';
 const AT = new Date('2026-10-03T09:00:00.000Z');
 const LATER = new Date('2026-10-03T09:10:00.000Z');
 const REPO = 'example.com/templates';
@@ -112,21 +113,23 @@ describe('updating a squadron', () => {
     ]);
   });
 
-  it("keeps the key of the add-member request a member was added by, and none for any other", async () => {
+  it("keeps the sender and key of the add-member request a member was added by, and none for any other, the same key from two senders apart", async () => {
     const squadrons = createPrismaSquadronRepository(prisma, clock);
     const [snapshot] = await squadrons.list(FLEET);
     if (!snapshot) {
       expect.fail('the squadron was not stored');
     }
-    const added: Member = { shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {}, addKey: 'add-1' };
+    const addedBy = ({ shipId, name, by }: { shipId: ShipId; name: string; by: ShipId }): Member => ({ shipId, name, role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {}, addRequest: { by, key: 'add-1' } });
+    const added = [addedBy({ shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', by: FORMING }), addedBy({ shipId: 'shp_01m3tbfspe96yf1rnr4ank0004', name: 'tester-w5t1', by: ARGO })];
 
-    await squadrons.update({ before: snapshot, after: { ...snapshot, members: [...snapshot.members, added] } });
+    await squadrons.update({ before: snapshot, after: { ...snapshot, members: [...snapshot.members, ...added] } });
 
     const [stored] = await squadrons.list(FLEET);
-    expect(stored?.members.map(({ name, addKey }) => ({ name, addKey }))).toEqual([
-      { name: 'planner-k3x9', addKey: undefined },
-      { name: 'tester-m4p7', addKey: undefined },
-      { name: 'tester-q8r2', addKey: 'add-1' },
+    expect(stored?.members.map(({ name, addRequest }) => ({ name, addRequest }))).toEqual([
+      { name: 'planner-k3x9', addRequest: undefined },
+      { name: 'tester-m4p7', addRequest: undefined },
+      { name: 'tester-q8r2', addRequest: { by: FORMING, key: 'add-1' } },
+      { name: 'tester-w5t1', addRequest: { by: ARGO, key: 'add-1' } },
     ]);
   });
 

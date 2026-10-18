@@ -343,21 +343,21 @@ describe('adding a member by message to the flagship (decision 0017)', () => {
     return { ...squadron, blueprint: { ...squadron.blueprint, roles }, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
   }
 
-  it("keeps the request's key with the member, so a request that comes again is known", async () => {
+  it("keeps the request's sender and key with the member, so a request that comes again from that sender is known", async () => {
     held = formedByTechLead();
 
-    unwrapAdded(await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } }));
+    unwrapAdded(await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { by: FORMING, key: 'add-1' } }));
 
-    expect(held.members.map(({ name, addKey }) => ({ name, addKey }))).toEqual([
-      { name: 'tester-k3x9', addKey: undefined },
-      { name: 'tester-q8r2', addKey: 'add-1' },
+    expect(held.members.map(({ name, addRequest }) => ({ name, addRequest }))).toEqual([
+      { name: 'tester-k3x9', addRequest: undefined },
+      { name: 'tester-q8r2', addRequest: { by: FORMING, key: 'add-1' } },
     ]);
   });
 
   it("commissions the member with the forming ship's owner (decision 0045)", async () => {
     held = formedByTechLead();
 
-    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } });
+    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { by: FORMING, key: 'add-1' } });
 
     expect(commissioned.map(({ ownerOf }) => ownerOf)).toEqual([FORMING]);
   });
@@ -365,7 +365,7 @@ describe('adding a member by message to the flagship (decision 0017)', () => {
   it('refuses a role whose crew settings name no workspace, and commissions nothing: no crew line travels in a message', async () => {
     held = { ...formedByTechLead(), blueprint: aSquadron('sailing').blueprint };
 
-    const refused = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } });
+    const refused = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { by: FORMING, key: 'add-1' } });
 
     expect(refused).toEqual({
       isOk: false,

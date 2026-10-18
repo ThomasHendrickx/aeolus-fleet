@@ -345,8 +345,8 @@ export function createHandleFlagshipDelivery(deps: {
         const refused = await answerRefused(squadron, { delivery, ...allowed.value });
         return refused.isOk ? acked(refused.value) : refused;
       }
-      // A request that comes again under its key finds the member it added, and gets the same answer.
-      const repeated = squadron.members.find((each) => each.addKey === add.key);
+      // A request that comes again from its sender under its key finds the member it added, and gets the same answer.
+      const repeated = squadron.members.find((each) => each.addRequest?.by === delivery.senderShipId && each.addRequest.key === add.key);
       let added: { name: string; role: string } | undefined = repeated && { name: repeated.name, role: repeated.role };
       if (!added) {
         const adding = await deps.addMember({
@@ -354,7 +354,7 @@ export function createHandleFlagshipDelivery(deps: {
           squadronId: squadron.id,
           role: add.role,
           ...(add.parameters === undefined ? {} : { member: { parameters: add.parameters } }),
-          byMessage: { key: add.key },
+          byMessage: { by: delivery.senderShipId, key: add.key },
         });
         if (!adding.isOk) {
           const refused = await answerRefused(squadron, { delivery, code: adding.error.kind, message: adding.error.message });
