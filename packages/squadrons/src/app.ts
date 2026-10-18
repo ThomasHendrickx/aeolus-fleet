@@ -18,10 +18,12 @@ import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from './adapters/prisma/management-crew-store.js';
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
 import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-message-log.js';
+import { createPrismaFormRefusals } from './adapters/prisma/form-refusals.js';
 import { createPrismaFormationAttempts } from './adapters/prisma/formation-attempts.js';
 import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
 import { watchFlagships, type FlagshipWatch, type FleetReach } from './adapters/flagships/flagship-watch.js';
+import { watchManagementShips, type ManagementWatch } from './adapters/flagships/management-watch.js';
 import { createFleetTurns } from './adapters/flagships/fleet-turns.js';
 import { createSetFleetEnabledInTurn } from './adapters/flagships/set-fleet-enabled-in-turn.js';
 import { squadronsRouter, type SquadronsRouter } from './adapters/trpc/router.js';
@@ -36,6 +38,7 @@ import { createReadConnection, type ReadConnection } from './core/management/rea
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
+import { createHandleManagementDelivery } from './core/squadron/handle-management-delivery.js';
 import { createListSquadrons } from './core/squadron/list-squadrons.js';
 import { createAdvanceStandDowns } from './core/squadron/advance-stand-downs.js';
 import { createStandDown, type StandDown } from './core/squadron/stand-down.js';
@@ -124,6 +127,7 @@ export function createSquadronsApp(options: {
   const keptMessages = createPrismaFlagshipMessageLog(prisma);
   const operator = createOperatorNotices({ door, management: store });
   let flagships: FlagshipWatch | undefined;
+  let managementShips: ManagementWatch | undefined;
   // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
@@ -256,6 +260,7 @@ export function createSquadronsApp(options: {
       }
       await refreshFleet(input.operatorFleetId, 'all');
       await flagships?.rescan();
+      await managementShips?.rescan();
     }
     return connected;
   };
@@ -303,6 +308,7 @@ export function createSquadronsApp(options: {
 
   server.addHook('onClose', async () => {
     await flagships?.stop();
+    await managementShips?.stop();
     await prisma.$disconnect();
   });
 
@@ -361,6 +367,15 @@ export function createSquadronsApp(options: {
         rescanMs,
       });
       void flagships.rescan();
+      managementShips = watchManagementShips({
+        door,
+        management: store,
+        handle: createHandleManagementDelivery({ door, squadrons, refusals: createPrismaFormRefusals(prisma, clock), form: formAndWatch, operator }),
+        isServed,
+        log: server.log,
+        rescanMs,
+      });
+      void managementShips.rescan();
     },
     close: () => server.close(),
   };
