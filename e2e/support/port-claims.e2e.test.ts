@@ -21,6 +21,12 @@ const FIRST_TEST_PORT = 31_000;
 /** Ports each of two runs at once claims. */
 const CLAIMS_PER_RUN = 10;
 
+/**
+ * The ports the two runs claim from: more than they ask for, since two runs that claim one port at once both give it up,
+ * which keeps it unshared but leaves the pool a port short (#899).
+ */
+const POOL_FOR_TWO_RUNS = 3 * CLAIMS_PER_RUN;
+
 /** Claims ports in this file's own child process: another test run, as a full run in another worktree is. */
 const OTHER_RUN = `
 const { claimFreePort } = await import(process.env.PORT_CLAIMS_MODULE);
@@ -105,7 +111,7 @@ describe('the ports the end-to-end tests serve on', () => {
   });
 
   it('are never shared by two runs at once', async () => {
-    const where = claimsOf(FIRST_TEST_PORT, FIRST_TEST_PORT + 2 * CLAIMS_PER_RUN - 1);
+    const where = claimsOf(FIRST_TEST_PORT, FIRST_TEST_PORT + POOL_FOR_TWO_RUNS - 1);
 
     const [one, other] = await Promise.all([
       otherRunClaims(where, { claims: CLAIMS_PER_RUN, isHeld: true }),
