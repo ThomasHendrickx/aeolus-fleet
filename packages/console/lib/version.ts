@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import webPackage from '../package.json';
 import { SESSION_COOKIE } from './console-gate';
+import { gatewayUrlFrom } from './gateway-url';
 import { networkingPluginUrlFrom } from './networking-plugin-url';
 import { serverInternalUrlFrom } from './server-url';
 import { squadronsUrlFrom } from './squadrons-url';
@@ -44,6 +45,7 @@ export interface OperatorVersion {
   squadrons?: string | null;
   trierarchPlugin?: string | null;
   networkingPlugin?: string | null;
+  gateway?: string | null;
 }
 
 async function answerAt(url: string, cookie?: string): Promise<{ isOk: boolean; body: unknown } | null> {
@@ -79,6 +81,7 @@ const PLUGINS = [
   { key: 'squadrons', urlFrom: squadronsUrlFrom },
   { key: 'trierarchPlugin', urlFrom: trierarchPluginUrlFrom },
   { key: 'networkingPlugin', urlFrom: networkingPluginUrlFrom },
+  { key: 'gateway', urlFrom: gatewayUrlFrom },
 ] as const;
 
 /** Each plugin the console has, by its own version; a plugin it does not have is left out. */
