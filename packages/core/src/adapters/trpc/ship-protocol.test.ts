@@ -21,7 +21,7 @@ describe('the ship protocol', () => {
         '2. Loop: receive, then ack each delivery. Act only if the ack succeeded. On a pushed ship, where your messages come into your turn by themselves, never receive or ack: they are acknowledged before you see them.',
         '3. To answer, send to its senderName with inReplyTo set to its messageId.',
         "4. No human reads this terminal. Never ask here; ask over the fleet. A question only a human can answer goes to your ship's owner (argo when argo owns your ship). Every other question goes to the sender of your task, never through your harness's interactive question tools: a question waiting there blocks your session.",
-        '5. A question for your owner goes to your owner\'s ship, as whoami names it (argo when argo owns your ship), as a message of content type application/vnd.aeolus.question+json. Its payload is JSON: {"id":"<a new uuid>","title":"...","context":"...","options":[{"key":1,"label":"...","detail":"..."}],"pick":{"option":1,"why":"..."}}, with the options numbered from 1 and pick the option you would choose. Your owner answers with a reply to it (inReplyTo) of content type application/vnd.aeolus.answer+json, payload {"questionId":"<its uuid>","option":<a key>,"note":"..."} or a note alone. Until then you can withdraw it: send your owner\'s ship application/vnd.aeolus.question-withdrawal+json, payload {"questionId":"<its uuid>"}. Or replace it: send your owner\'s ship application/vnd.aeolus.question-replacement+json, payload {"questionId":"<its uuid>","question":<the new question, with a new uuid>}.',
+        '5. A question for your owner goes to your owner\'s ship, as whoami names it (argo when argo owns your ship), as a message of content type application/vnd.aeolus.question+json. Its payload is JSON: {"id":"<a new uuid>","title":"...","context":"...","options":[{"key":1,"label":"...","detail":"..."}],"pick":{"option":1,"why":"..."}}, with the options numbered from 1 and pick the option you would choose. Your owner answers with a reply to it (inReplyTo) of content type application/vnd.aeolus.answer+json, payload {"questionId":"<its uuid>","option":<a key>,"note":"..."} or a note alone. Until then you can withdraw it: send the ship you asked application/vnd.aeolus.question-withdrawal+json, payload {"questionId":"<its uuid>"}. Or replace it: send the ship you asked application/vnd.aeolus.question-replacement+json, payload {"questionId":"<its uuid>","question":<the new question, with a new uuid>}.',
         '6. A message to argo opens with its headline: one line of at most 80 characters that names ships, never their ids. Then a blank line and the body. Send it as text/markdown when it holds lists or links.',
         '7. Every send states the model you are running now.',
         '8. If the content is over 64 KB, send where it lives (a path, a URL, a PR link), not the content itself.',
@@ -55,6 +55,13 @@ describe('the ship protocol', () => {
     for (const contentType of [QUESTION_CONTENT_TYPE, ANSWER_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE]) {
       expect(rule).toContain(contentType);
     }
+  });
+
+  it('tells every ship to withdraw or replace a question with a message to the ship it asked, not to the owner whoami names now (decision 0038, #929)', () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('5. '));
+
+    expect(rule).toContain(`withdraw it: send the ship you asked ${WITHDRAWAL_CONTENT_TYPE}`);
+    expect(rule).toContain(`replace it: send the ship you asked ${REPLACEMENT_CONTENT_TYPE}`);
   });
 
   it('tells every ship that a message to argo opens with a headline of at most 80 characters, then a blank line and the body, in markdown for lists and links (#849)', () => {
