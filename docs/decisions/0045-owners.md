@@ -1,7 +1,7 @@
 # 0045 Owners
 
 - Every ship but argo and the viewer has one owner: a person's ship (0044), or argo.
-- At commission the owner is the commissioner's owner, argo by default. Plugin and trierarch ships are argo's. A plugin ship may name instead the owner of the ship that asked it, and only that (squadrons names the forming ship's owner, 0017). `OwnerSet` on the new ship names the owner and how it was set.
+- At commission the owner is the commissioner's owner, argo by default. Plugin and trierarch ships are argo's. A plugin ship with `fleet:on-behalf` may name instead the owner of the ship that asked it (squadrons names the forming ship's owner, 0017), or, commissioning an app ship (0044), the owner argo picked for it, a person's ship or argo (the gateway names the person inside who answers for the outside party). `OwnerSet` on the new ship names the owner and how it was set.
 - argo alone changes an owner (`fleet.setOwner`, `OwnerChanged`). When an owner's ship is retired, each ship it owned falls to argo with `OwnerChanged`.
 - argo counts as a human here, as the fallback: a human crews argo (0012).
 - The owner is used in four places, all through what exists:
