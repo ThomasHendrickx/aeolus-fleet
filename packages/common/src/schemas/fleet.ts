@@ -36,7 +36,7 @@ export const commissionShipInputSchema = z.object({
   /** What the ship is; an agent when left out (decision 0044). */
   kind: commissionedShipKindSchema.optional(),
   scopes: z.array(scopeNameSchema).optional(),
-  /** The ship that asked a plugin's ship for this one, whose owner it gets; only a plugin's ship names one (decision 0045). */
+  /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
   note: z
     .string()

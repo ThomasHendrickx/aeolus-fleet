@@ -130,7 +130,6 @@ export type CommissionRefusal = DomainError<
   | 'SCOPE_NOT_DECLARED'
   | 'SCOPE_NOT_HELD'
   | 'PLUGIN_SCOPE_NOT_YOURS'
-  | 'OWNER_NAMED_BY_PLUGIN_ONLY'
 >;
 
 /**
@@ -142,8 +141,9 @@ export type CommissionRefusal = DomainError<
  * locked. It gets the scopes every ship has and those asked for that the
  * commissioner may grant (decision 0046): core scopes in their fixed order,
  * then plugin scopes in name order, each once. Its owner is the
- * commissioner's owner, argo by default; a plugin's ship may name instead the
- * owner of the ship that asked it, and only a plugin's ship (decision 0045).
+ * commissioner's owner, argo by default; a commissioner holding
+ * fleet:on-behalf, a plugin's ship, may name instead the ship that asked it,
+ * whose owner it gets (decision 0045).
  */
 export function commissionShip(
   input: {
@@ -168,8 +168,6 @@ export function commissionShip(
     activeShipNamed: Ship | undefined;
     /** The plugin namespaces the scopes name, with their declarers' names, by namespace. */
     namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }>;
-    /** Whether the commissioner is a plugin's ship, as isPluginShip says. */
-    isCommissionerPlugin: boolean;
   },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
@@ -204,8 +202,8 @@ export function commissionShip(
     }
   }
 
-  if (input.askingShip !== undefined && !fleet.isCommissionerPlugin) {
-    return refuse('OWNER_NAMED_BY_PLUGIN_ONLY', "Only a plugin's ship names the owner of the ship that asked it: commission without ownerOf");
+  if (input.askingShip !== undefined && !input.commissioner.scopes.includes('fleet:on-behalf')) {
+    return refuse('SCOPE_NOT_HELD', 'Naming the ship that asked for this one needs the fleet:on-behalf scope: commission without ownerOf');
   }
 
   const { id, fleetId, at, actor } = input;

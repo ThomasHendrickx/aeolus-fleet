@@ -10,14 +10,12 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
-import { isPluginShip, type PluginShipTx } from './plugin-ship.js';
 import type { ShipRepository } from './ports.js';
 import { commissionShip, type CommissionRefusal } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
+export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
   ships: ShipRepository;
-  scopeNamespaces: NamedNamespacesTx['scopeNamespaces'] & PluginShipTx['scopeNamespaces'];
 }
 
 export interface CommissionShipInput {
@@ -27,7 +25,7 @@ export interface CommissionShipInput {
   kind?: CommissionedShipKind;
   note?: string;
   scopes?: readonly string[];
-  /** The ship that asked the caller, a plugin's ship, for this one: the new ship gets its owner (decision 0045). */
+  /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
   ownerOf?: ShipId;
   /** The caller's own key for this commission, so a retry never commissions twice. */
   idempotencyKey: string;
@@ -64,9 +62,9 @@ function commissionRequestText(input: CommissionShipInput): string {
  * caller's scope (fleet:commission) is checked before this runs. The ship gets
  * the agent scopes and the scopes asked for, each one the caller's ship may
  * grant, read from the server (decision 0046); each plugin namespace they
- * name is locked after the name. Its owner is the caller's owner; a plugin's
- * ship may name the ship that asked it instead, whose owner it gets
- * (decision 0045). The caller's idempotency key makes
+ * name is locked after the name. Its owner is the caller's owner; a caller
+ * holding fleet:on-behalf may name the ship that asked it instead, whose owner
+ * it gets (decision 0045). The caller's idempotency key makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
  * request is refused.
@@ -125,7 +123,7 @@ export function createCommissionShip(deps: {
       const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
         { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
-        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces, isCommissionerPlugin: await isPluginShip(tx, commissioner) },
+        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
       );
       if (!commissioned.isOk) {
         return commissioned;
