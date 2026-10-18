@@ -7,13 +7,72 @@ import { z } from 'zod';
  */
 
 /**
- * A permission of a ship, stored on the server with the ship and checked
- * before every call. `messages:force` sends a forced message, one that comes
- * first (decision 0040).
+ * A core scope: a permission of a ship, stored on the server with the ship
+ * and checked by core before every call. `messages:force` sends a forced
+ * message, one that comes first (decision 0040); `scopes:declare` takes up a
+ * plugin namespace and `scopes:grant` grants and revokes on a live ship
+ * (decision 0046).
  */
-export const SCOPES = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
+export const SCOPES = [
+  'messages:send',
+  'messages:receive',
+  'messages:force',
+  'fleet:read',
+  'fleet:manage',
+  'crew:assign',
+  'crew:run',
+  'labels:define',
+  'labels:assign',
+  'fleet:network',
+  'scopes:declare',
+  'scopes:grant',
+] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
+
+/** What each core scope allows, on one line (decision 0046). */
+export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
+  'messages:send': 'Send, answer and ask other ships',
+  'messages:receive': 'Receive and confirm the deliveries to its own ship',
+  'messages:force': 'Send a forced message, which comes first',
+  'fleet:read': 'Read ships, timelines, messages, labels, events and fleet-wide views',
+  'fleet:manage': 'Commission, rename, release, recrew and retire ships; starting prompts, pings, crew requests and worktree clears',
+  'crew:assign': 'Assign crew requests to trierarchs and explain why none fits',
+  'crew:run': 'Crew the ships whose crew requests are assigned to its ship',
+  'labels:define': 'Define labels, change their values and declare network rules on them',
+  'labels:assign': 'Assign and unassign the values of labels its ship owns',
+  'fleet:network': "The networking plugin's calls: the fleet's network rules",
+  'scopes:declare': 'Take up one plugin namespace and declare its scopes',
+  'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
+};
+
+/** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
+export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes'] as const;
+
+/** A namespace or an action: lowercase letters, digits and hyphens, starting with a letter, 1 to 32 characters (decision 0046). */
+const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
+export const SCOPE_NAMESPACE_PATTERN = new RegExp(`^${SCOPE_PART}$`);
+export const SCOPE_NAME_PATTERN = new RegExp(`^${SCOPE_PART}:${SCOPE_PART}$`);
+
+/** The most scopes a plugin declares in its namespace (decision 0046). */
+export const NAMESPACE_SCOPES_MAX = 20;
+/** The longest one-line description of a declared scope. */
+export const SCOPE_DESCRIPTION_MAX_LENGTH = 200;
+
+/** Whether the namespace is one core reserves. */
+export function isCoreNamespace(namespace: string): boolean {
+  return CORE_NAMESPACES.some((core) => core === namespace);
+}
+
+/**
+ * Any scope a ship may hold (decision 0046): `<namespace>:<action>`, a core
+ * scope when its namespace is a core one, else a plugin's.
+ */
+export const scopeNameSchema = z
+  .string()
+  .regex(SCOPE_NAME_PATTERN, 'A scope is <namespace>:<action>')
+  .refine((scope) => !isCoreNamespace(scope.slice(0, scope.indexOf(':'))) || scopeSchema.safeParse(scope).success, 'No such core scope');
+export type ScopeName = z.infer<typeof scopeNameSchema>;
 
 /**
  * The scopes commissioning may add to an agent ship, beside sending and
@@ -135,6 +194,8 @@ export const EVENT_TYPES = [
   'NetworkPluginRegistered',
   'NetworkPluginUnregistered',
   'BuiltInRuleChanged',
+  'ScopesDeclared',
+  'ScopesChanged',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

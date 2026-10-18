@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
 import type { ClearRequest } from './clear-request.js';
@@ -11,6 +11,7 @@ import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
 import type { ReachRefusal } from './reach-refusal.js';
+import type { ScopeNamespace } from './scope-namespace.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
@@ -125,6 +126,32 @@ export interface ShipRepository {
   setOwner(change: { fleetId: FleetId; shipId: ShipId; ownerShipId: ShipId }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
   retire(change: { fleetId: FleetId; shipId: ShipId; at: Date }): Promise<void>;
+  /** Gives the ship these scopes, in this order, in place of the ones it held (decision 0046). */
+  setScopes(change: { fleetId: FleetId; shipId: ShipId; scopes: readonly ScopeName[] }): Promise<void>;
+  /** The ships not retired that hold any scope of this plugin namespace, each locked as findForUpdate locks it, by id (decision 0046). */
+  listActiveHoldingInForUpdate(fleetId: FleetId, namespace: string): Promise<Ship[]>;
+  /** The scopes of this plugin namespace that a ship not retired holds, each once, by name (decision 0046). */
+  scopesHeldIn(fleetId: FleetId, namespace: string): Promise<ScopeName[]>;
+}
+
+/**
+ * Outbound port: the plugin namespaces of a fleet (decision 0046), one per
+ * declaring ship, unique in the fleet. Lock order: the declaring or granted
+ * ship, then the namespace.
+ */
+export interface ScopeNamespaceRepository {
+  /** Holds the lock on this namespace in the fleet until the unit of work ends: a declaration, and a grant of its scopes, wait for each other. */
+  lockNamespace(fleetId: FleetId, namespace: string): Promise<void>;
+  /** The namespace, read without a lock. */
+  find(fleetId: FleetId, namespace: string): Promise<ScopeNamespace | undefined>;
+  /** The namespace this ship declared, if any. */
+  findByDeclarer(fleetId: FleetId, shipId: ShipId): Promise<ScopeNamespace | undefined>;
+  /** Every plugin namespace of the fleet, by namespace. */
+  list(fleetId: FleetId): Promise<ScopeNamespace[]>;
+  /** Stores the namespace with its whole list of scopes, replacing the list it had. */
+  save(namespace: ScopeNamespace): Promise<void>;
+  /** The namespace goes, freed for another ship. */
+  remove(fleetId: FleetId, namespace: string): Promise<void>;
 }
 
 /** Outbound port: leases, always within one fleet. */

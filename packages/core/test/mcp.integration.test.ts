@@ -76,7 +76,7 @@ async function commissionedWithFleetScopes(
   shipCount += 1;
   const name = `manager-${shipCount}`;
   const { shipId, secret } = unwrap(
-    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes }),
   );
   return { shipId, name, secret: secretOf(secret) };
 }

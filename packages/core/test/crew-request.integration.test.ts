@@ -135,10 +135,10 @@ describe('a crew request on Postgres', () => {
 
   it('is assigned to a trierarch, takes its status, is released through it and is read by it as assigned', async () => {
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
     const { shipId: trierarchId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
@@ -174,7 +174,7 @@ describe('a crew request on Postgres', () => {
 
   it('keeps the reason the assigner writes until assignment, and shows who crewed the ship from the prompt it claimed with', async () => {
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'navarch', type: 'navarch', fleetScopes: ['crew:assign'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'navarch', type: 'navarch', scopes: ['crew:assign'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
@@ -191,10 +191,10 @@ describe('a crew request on Postgres', () => {
 
   it('is given back by its trierarch before its crew is final: unassigned, its lease ended, the trierarch kept until the next settings version (#382)', async () => {
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
     const { shipId: trierarchId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
@@ -223,10 +223,10 @@ describe('a crew request on Postgres', () => {
   });
   it('keeps its crew final once its trierarch saw it working, so a give-back is refused after a crewing status (#472)', async () => {
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
     const { shipId: trierarchId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
@@ -245,10 +245,10 @@ describe('a crew request on Postgres', () => {
 
   it('is read by its trierarch as final once it saw its crew working, and not final again after a new settings version (#477)', async () => {
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
     const { shipId: trierarchId } = unwrap(
-      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };

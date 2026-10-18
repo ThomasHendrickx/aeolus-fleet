@@ -254,7 +254,7 @@ describe('the installation procedures on a hosting server', () => {
     const argo = argoOf(created);
     const scout = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     unwrap(await core.requestCrew(argo, { shipId: scout.shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    const machine = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }));
+    const machine = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }));
     unwrap(await core.requestWorktreeClear(argo, { trierarchShipId: machine.shipId, shipId: scout.shipId, repository: 'aeolus-fleet' }));
     const os = unwrap(await core.defineLabel(argo, { key: 'os', values: ['macos'] }));
     unwrap(await core.assignLabel(argo, { shipId: scout.shipId, valueId: os.values[0]?.id ?? createIdGenerator()('labelValue') }));

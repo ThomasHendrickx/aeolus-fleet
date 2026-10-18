@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, idSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
 
 import type {
   ClearRequestRepository,
@@ -91,6 +91,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
@@ -303,6 +304,15 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR NO KEY UPDATE`;
       return rows.map(toShipFromSql);
     },
+    listActiveHoldingInForUpdate: async (fleetId, namespace) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND retired_at IS NULL AND EXISTS (SELECT 1 FROM unnest(scopes) AS held(scope) WHERE starts_with(held.scope, ${`${namespace}:`}))
+        ORDER BY id
+        FOR NO KEY UPDATE`;
+      return rows.map(toShipFromSql);
+    },
     findForShare: async (fleetId, shipId) => {
       // FOR SHARE, not FOR KEY SHARE: it makes a use case that locks the ship
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
@@ -332,6 +342,16 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     hasActiveShipOfType: async (fleetId, type) => {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, select: { id: true } });
       return row !== null;
+    },
+    setScopes: async ({ fleetId, shipId, scopes }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { scopes: [...scopes] } });
+    },
+    scopesHeldIn: async (fleetId, namespace) => {
+      const rows = await db.$queryRaw<{ scope: string }[]>`
+        SELECT DISTINCT held.scope FROM ships s, unnest(s.scopes) AS held(scope)
+        WHERE s.fleet_id = ${fleetId} AND s.retired_at IS NULL AND starts_with(held.scope, ${`${namespace}:`})
+        ORDER BY held.scope`;
+      return rows.map(({ scope }) => scopeNameSchema.parse(scope));
     },
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });

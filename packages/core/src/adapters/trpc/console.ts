@@ -8,7 +8,9 @@ import {
   setThemeInputSchema,
   setThemeOutputSchema,
   redeemSignInTicketInputSchema,
+  scopeSchema,
   signInInputSchema,
+  type Scope,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
@@ -84,7 +86,9 @@ export const consoleRouter = router({
       // A console session is the operator's or a viewer's; no other ship ever signs in to the console.
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
     }
-    return { fleetId, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes] };
+    // argo and the viewer hold core scopes only: a plugin's scopes are never theirs to hold (decision 0046).
+    const coreScopes = scopes.filter((scope): scope is Scope => scopeSchema.safeParse(scope).success);
+    return { fleetId, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopes };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */

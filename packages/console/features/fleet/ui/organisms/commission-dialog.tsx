@@ -59,7 +59,7 @@ interface CommissionDialogProps {
     onSettingsChange: (settings: CrewSettings | undefined) => void;
   };
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; fleetScopes?: FleetScope[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: FleetScope[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
 }
 
 /** What each fleet scope lets a ship's session do, beside its name. */
@@ -116,7 +116,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
             name,
             type: trimmedType,
             ...(note.trim() === '' ? {} : { note }),
-            ...(fleetScopes.length === 0 ? {} : { fleetScopes: [...fleetScopes] }),
+            ...(fleetScopes.length === 0 ? {} : { scopes: [...fleetScopes] }),
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
           onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });

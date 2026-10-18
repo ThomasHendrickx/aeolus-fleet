@@ -259,6 +259,20 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       const declared = typeof rules === 'number' && rules > 0 ? `Network rules declared: ${String(rules)} rules` : 'Declared network rules withdrawn';
       return { parts: [text(declared), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     }
+    case 'ScopesDeclared': {
+      const scopes = typeof entry.details.scopes === 'number' ? entry.details.scopes : 0;
+      return {
+        parts: [text(`Scopes declared: namespace ${stringDetail(entry, 'namespace') ?? ''}, ${String(scopes)} ${scopes === 1 ? 'scope' : 'scopes'}`), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'fleet',
+      };
+    }
+    case 'ScopesChanged': {
+      const granted = stringDetail(entry, 'added') ?? '';
+      const revoked = stringDetail(entry, 'removed') ?? '';
+      const changes = [...(granted === '' ? [] : [`granted ${granted}`]), ...(revoked === '' ? [] : [`revoked ${revoked}`])];
+      return { parts: [text(`Scopes changed: ${changes.join(', ')}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    }
     case 'NetworkPluginRegistered':
       return {
         parts: [text(`Networking plugin registered: while unavailable ${stringDetail(entry, 'whileUnavailable') ?? ''}, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)],

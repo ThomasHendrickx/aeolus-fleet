@@ -1,11 +1,10 @@
 import {
-  FLEET_SCOPES,
   type CommissionedShipKind,
   SCOPES,
   type FleetId,
-  type FleetScope,
   type LeaseId,
   type Scope,
+  type ScopeName,
   type ShipId,
   type ShipKind,
   type ShipStatus,
@@ -16,6 +15,8 @@ import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import { refuseEndedLease, type Lease, type LeaseEnded, type Location } from './lease.js';
+import { mayGrant } from './scope-grant.js';
+import type { ScopeNamespace } from './scope-namespace.js';
 import { shipName, shipType } from './ship-handle.js';
 import { shipNote } from './ship-note.js';
 
@@ -26,7 +27,8 @@ export interface Ship {
   name: string;
   type: string;
   kind: ShipKind;
-  scopes: readonly Scope[];
+  /** Core scopes and plugin scopes (decision 0046). */
+  scopes: readonly ScopeName[];
   note: string | null;
   createdAt: Date;
   retiredAt: Date | null;
@@ -103,8 +105,22 @@ export function isConsoleShip(ship: Pick<Ship, 'kind'>): boolean {
 /** The scopes every agent ship gets at creation: it sends and receives; commissioning may add fleet scopes (ADR 0002). */
 export const AGENT_SCOPES: readonly Scope[] = ['messages:send', 'messages:receive'];
 
+/** Whether the scope is one of core's, not a plugin's. */
+function isCoreScope(scope: string): boolean {
+  return SCOPES.some((core) => core === scope);
+}
+
 export type CommissionRefusal = DomainError<
-  'INVALID_SHIP_NAME' | 'SHIP_NAME_RESERVED' | 'INVALID_SHIP_TYPE' | 'INVALID_SHIP_NOTE' | 'SHIP_NAME_TAKEN' | 'KIND_COMMISSIONED_BY_ARGO_ONLY'
+  | 'INVALID_SHIP_NAME'
+  | 'SHIP_NAME_RESERVED'
+  | 'INVALID_SHIP_TYPE'
+  | 'INVALID_SHIP_NOTE'
+  | 'SHIP_NAME_TAKEN'
+  | 'KIND_COMMISSIONED_BY_ARGO_ONLY'
+  | 'INVALID_SCOPE'
+  | 'SCOPE_NOT_DECLARED'
+  | 'SCOPE_NOT_HELD'
+  | 'PLUGIN_SCOPE_NOT_YOURS'
 >;
 
 /**
@@ -113,7 +129,9 @@ export type CommissionRefusal = DomainError<
  * ship, to be true to what the ship is (decision 0044). The name is a handle,
  * never `argo`, and unique among the fleet's active ships: `activeShipNamed`
  * is the active ship that already holds it, if any, read while the name is
- * locked.
+ * locked. It gets the scopes every ship has and those asked for that the
+ * commissioner may grant (decision 0046): core scopes in their fixed order,
+ * then plugin scopes in name order, each once.
  */
 export function commissionShip(
   input: {
@@ -126,13 +144,17 @@ export function commissionShip(
     commissioner: Ship;
     argoShipId: ShipId;
     note?: string;
-    /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
-    fleetScopes?: readonly FleetScope[];
+    /** Scopes added to the agent scopes (decision 0046). */
+    scopes?: readonly string[];
     at: Date;
     actor: Actor;
     commission: { by: ShipId; idempotencyKey: string; requestHash: string };
   },
-  fleet: { activeShipNamed: Ship | undefined },
+  fleet: {
+    activeShipNamed: Ship | undefined;
+    /** The plugin namespaces the scopes name, with their declarers' names, by namespace. */
+    namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }>;
+  },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
   if (kind !== 'agent' && input.commissioner.kind !== 'operator') {
@@ -157,6 +179,14 @@ export function commissionShip(
   if (fleet.activeShipNamed) {
     return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
   }
+  const asked = input.scopes ?? [];
+  const granter = { shipId: input.commissioner.id, kind: input.commissioner.kind, scopes: input.commissioner.scopes };
+  for (const scope of asked) {
+    const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces });
+    if (!allowed.isOk) {
+      return allowed;
+    }
+  }
 
   const { id, fleetId, at, actor } = input;
   const owner = ownerAtCommission(input.commissioner, input.argoShipId);
@@ -166,7 +196,7 @@ export function commissionShip(
     name: name.value,
     type: type.value,
     kind,
-    scopes: [...AGENT_SCOPES, ...FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope))],
+    scopes: [...SCOPES.filter((scope) => AGENT_SCOPES.includes(scope) || asked.includes(scope)), ...[...new Set(asked.filter((scope) => !isCoreScope(scope)))].toSorted()],
     note: note.value,
     createdAt: at,
     retiredAt: null,

@@ -78,6 +78,9 @@ const SHIP_TOOLS = [
   'fleet_setBuiltInRule',
   'fleet_declareNetworkRules',
   'fleet_declaredNetworkRules',
+  'fleet_scopes',
+  'fleet_declareScopes',
+  'fleet_grantScopes',
 ];
 
 let core: InMemoryCore;
@@ -261,7 +264,7 @@ describe('the ship tools at /mcp', () => {
 
   it.each([
     ['fleet_list', [/fleet:read/, /every ship/i]],
-    ['fleet_commission', [/fleet:manage/, /fleetScopes/, /starting prompt/i]],
+    ['fleet_commission', [/fleet:manage/, /scopes adds/, /starting prompt/i]],
     ['fleet_release', [/fleet:manage/, /never argo/i]],
     ['fleet_ping', [/fleet:manage/, /pong/]],
     ['fleet_list', [/labels/, /exact/i]],
@@ -278,6 +281,9 @@ describe('the ship tools at /mcp', () => {
     ['fleet_setBuiltInRule', [/fleet:network/, /decision 0034/, /never off/]],
     ['fleet_declareNetworkRules', [/labels:define/, /decision 0037/, /owns/, /at most 20/, /withdraw/, /networking plugin/]],
     ['fleet_declaredNetworkRules', [/fleet:network/, /decision 0037/, /each ship/]],
+    ['fleet_scopes', [/fleet:read/, /core namespaces/, /plugin namespace/]],
+    ['fleet_declareScopes', [/scopes:declare/, /at most 20/, /whole list/, /CONFLICT/, /retires/]],
+    ['fleet_grantScopes', [/scopes:grant/, /next call/, /declarer/, /never revoked/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 

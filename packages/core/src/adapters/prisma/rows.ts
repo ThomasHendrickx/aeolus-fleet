@@ -11,7 +11,7 @@ import {
   carriedLabelSchema,
   labelValueSchema,
   locationKindSchema,
-  scopeSchema,
+  scopeNameSchema,
   shipKindSchema,
   statementSchema,
   type FleetId,
@@ -60,7 +60,7 @@ const shipRow = z.object({
   name: z.string(),
   type: z.string(),
   kind: shipKindSchema,
-  scopes: z.array(scopeSchema),
+  scopes: z.array(scopeNameSchema),
   note: z.string().nullable(),
   createdAt: z.date(),
   retiredAt: z.date().nullable(),
@@ -88,7 +88,7 @@ const shipSqlRow = z
     name: z.string(),
     type: z.string(),
     kind: shipKindSchema,
-    scopes: z.array(scopeSchema),
+    scopes: z.array(scopeNameSchema),
     note: z.string().nullable(),
     created_at: z.date(),
     retired_at: z.date().nullable(),
@@ -462,7 +462,7 @@ const callerSqlRow = z.object({
   ship_id: idSchema('ship'),
   fleet_id: idSchema('fleet'),
   kind: shipKindSchema,
-  scopes: z.array(scopeSchema),
+  scopes: z.array(scopeNameSchema),
 });
 
 export function toAuthenticatedShip(row: unknown): AuthenticatedShip {

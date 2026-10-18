@@ -13,8 +13,9 @@ import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import { unregisterNetworkPlugin } from './network-settings.js';
-import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
+import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
+import { releaseWithDeclarer } from './scope-namespace.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
   ships: ShipRepository;
@@ -23,6 +24,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx {
   labels: LabelRepository;
   networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'find' | 'save'>;
+  scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
@@ -49,7 +51,9 @@ export type RetireShip = (
  * (decision 0037). Each active ship it owned falls to argo, one
  * OwnerChanged each, locked after the ship as a set owner locks the owner
  * first (decision 0045). A retired networking plugin unregisters, its rules going
- * with it: all-to-all (decision 0035). The caller's scope (fleet:manage) is
+ * with it: all-to-all (decision 0035). A plugin namespace it declared goes,
+ * and its scopes leave every ship, one ScopesChanged each (decision 0046).
+ * The caller's scope (fleet:manage) is
  * checked before this runs.
  *
  * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
@@ -154,6 +158,23 @@ export function createRetireShip(deps: {
       if (unregistered.isOk) {
         await tx.networkSettings.save(unregistered.value.settings);
         for (const event of unregistered.value.events) {
+          await recordEvent(recorded, event);
+        }
+      }
+      const declared = await tx.scopeNamespaces.findByDeclarer(fleetId, shipId);
+      if (declared !== undefined) {
+        // The holders first, as every grant locks its ship before the
+        // namespace; then the namespace, so no grant of its scopes commits
+        // in between; then the holders again: a grant that did commit before
+        // the namespace lock holds no lock any more.
+        await tx.ships.listActiveHoldingInForUpdate(fleetId, declared.namespace);
+        await tx.scopeNamespaces.lockNamespace(fleetId, declared.namespace);
+        const released = releaseWithDeclarer(declared, { holders: await tx.ships.listActiveHoldingInForUpdate(fleetId, declared.namespace), at, actor });
+        for (const changed of released.ships) {
+          await tx.ships.setScopes({ fleetId, shipId: changed.id, scopes: changed.scopes });
+        }
+        await tx.scopeNamespaces.remove(fleetId, declared.namespace);
+        for (const event of released.events) {
           await recordEvent(recorded, event);
         }
       }

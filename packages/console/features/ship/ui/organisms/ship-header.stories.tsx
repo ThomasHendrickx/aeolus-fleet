@@ -108,7 +108,7 @@ export const ArgoWithItsLabels: Story = {
 /** A plugin's own ship, squadrons' here: a plugin chip beside its type (#368), with the scopes the console commissions it with. */
 export const PluginShip: Story = {
   args: {
-    ship: { ...CREWED_SHIP, name: SQUADRONS_SHIP.name, type: SQUADRONS_SHIP.type, scopes: ['messages:send', 'messages:receive', ...SQUADRONS_SHIP.fleetScopes] },
+    ship: { ...CREWED_SHIP, name: SQUADRONS_SHIP.name, type: SQUADRONS_SHIP.type, scopes: ['messages:send', 'messages:receive', ...SQUADRONS_SHIP.scopes] },
     isPluginShip: true,
   },
 };

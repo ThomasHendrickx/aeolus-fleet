@@ -63,7 +63,7 @@ async function crewedWithFleetScopes(fleetScopes: FleetScope[]): Promise<{ name:
   shipCount += 1;
   const name = `rest-manager-${shipCount}`;
   const { shipId, secret } = unwrap(
-    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes }),
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes }),
   );
   return { name, shipId, crewToken: await register({ shipId, secret: secretOf(secret) }) };
 }
@@ -181,6 +181,9 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/setBuiltInRule',
       '/fleet/declareNetworkRules',
       '/fleet/declaredNetworkRules',
+      '/fleet/scopes',
+      '/fleet/declareScopes',
+      '/fleet/grantScopes',
     ]);
   });
 
@@ -580,7 +583,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
     shipCount += 1;
     const machine = unwrap(
-      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `rest-trierarch-${shipCount}`, type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `rest-trierarch-${shipCount}`, type: 'trierarch', scopes: ['crew:run'] }),
     );
     const trierarchToken = await register({ shipId: machine.shipId, secret: secretOf(machine.secret) });
     const scout = await commissioned();

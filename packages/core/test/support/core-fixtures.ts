@@ -78,6 +78,9 @@ import { createReport } from '../../src/domain/registry/report.js';
 import { createReportTurn } from '../../src/domain/registry/report-turn.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
 import { createDeclareNetworkRules } from '../../src/domain/registry/declare-network-rules.js';
+import { createDeclareScopes } from '../../src/domain/registry/declare-scopes.js';
+import { createGrantScopes } from '../../src/domain/registry/grant-scopes.js';
+import { createListScopes } from '../../src/domain/registry/list-scopes.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
 import { createDeleteLabel } from '../../src/domain/registry/delete-label.js';
 import { createFindLabelValue } from '../../src/domain/registry/find-label-value.js';
@@ -188,6 +191,9 @@ export function registryUseCases(core: InMemoryCore) {
     readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests, readReach: readReachOf(core) }),
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
+    declareScopes: createDeclareScopes(deps),
+    grantScopes: createGrantScopes(deps),
+    listScopes: createListScopes({ scopeNamespaces: core.scopeNamespaces, ships: core.ships }),
     setNetworkRules: createSetNetworkRules(deps),
     registerNetworkPlugin: createRegisterNetworkPlugin(deps),
     unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),

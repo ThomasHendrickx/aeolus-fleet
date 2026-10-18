@@ -25,6 +25,8 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 63 characters (a-z, 0-9, -) | A label key or value; machine labels too | [rules/label-handle.ts](../packages/common/src/rules/label-handle.ts) `LABEL_HANDLE_MAX_LENGTH` | [0031](decisions/0031-labels.md) |
 | 200 characters, one line | A report note | [schemas/report.ts](../packages/common/src/schemas/report.ts) `REPORT_NOTE_MAX_LENGTH` | [blueprint.md](blueprint.md) |
 | 200 characters, one line | A crew request's reason and a give-back's reason (the trierarch and the trierarch plugin cut theirs to it) | [schemas/crew-request.ts](../packages/common/src/schemas/crew-request.ts) `CREW_REQUEST_REASON_MAX_LENGTH` | [0029](decisions/0029-crew-request.md), #382 |
+| 1 to 32 characters (a-z, 0-9, -, starting with a letter) | Each part of a scope, `<namespace>:<action>` | [fleet/index.ts](../packages/common/src/fleet/index.ts) `SCOPE_NAMESPACE_PATTERN`, `SCOPE_NAME_PATTERN` | [0046](decisions/0046-scope-catalogue.md) |
+| 200 characters, one line | A declared scope's description | [fleet/index.ts](../packages/common/src/fleet/index.ts) `SCOPE_DESCRIPTION_MAX_LENGTH` | [0046](decisions/0046-scope-catalogue.md) |
 | 500 characters | A ship note | [schemas/fleet.ts](../packages/common/src/schemas/fleet.ts) `SHIP_NOTE_MAX_LENGTH` | none recorded |
 | 256 characters | A content type | [schemas/message.ts](../packages/common/src/schemas/message.ts) `CONTENT_TYPE_MAX_LENGTH` | none recorded |
 | 100 characters | A model id on a send | [schemas/message.ts](../packages/common/src/schemas/message.ts) `MODEL_MAX_LENGTH` | [0018](decisions/0018-model-and-harness.md) |
@@ -59,6 +61,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 20 | Label values one ship carries; also machine labels in crew settings and terms in one network rule selector | [schemas/label.ts](../packages/common/src/schemas/label.ts) `SHIP_LABELS_MAX` | [0031](decisions/0031-labels.md), [0034](decisions/0034-network-rules.md) |
 | 200 | Network rules: argo's plus the declared ones | [schemas/network.ts](../packages/common/src/schemas/network.ts) `NETWORK_RULES_MAX` | [0037](decisions/0037-declared-network-rules.md) |
 | 20 | Network rules one ship declares | [schemas/network.ts](../packages/common/src/schemas/network.ts) `DECLARED_NETWORK_RULES_MAX` | [0037](decisions/0037-declared-network-rules.md) |
+| 20 | Scopes one namespace declares | [fleet/index.ts](../packages/common/src/fleet/index.ts) `NAMESPACE_SCOPES_MAX` | [0046](decisions/0046-scope-catalogue.md) |
 | 100 | Pending clear requests per trierarch | [schemas/clear-request.ts](../packages/common/src/schemas/clear-request.ts) `CLEAR_REQUESTS_PER_TRIERARCH_MAX` | [0032](decisions/0032-clear-request.md) |
 | 5 | Notices at once | [schemas/notice.ts](../packages/common/src/schemas/notice.ts) `MAX_NOTICES` | [0023](decisions/0023-notices.md) |
 | 3 | Links per notice | [schemas/notice.ts](../packages/common/src/schemas/notice.ts) `MAX_NOTICE_LINKS` | [0023](decisions/0023-notices.md) |

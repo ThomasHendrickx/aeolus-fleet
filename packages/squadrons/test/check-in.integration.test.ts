@@ -71,7 +71,7 @@ beforeEach(async () => {
   fleetUseCases = useCases;
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
@@ -436,8 +436,8 @@ describe('removing a member with a crew request (#343)', () => {
     const [first] = formed.members;
     const shipId = idSchema('ship').parse(first?.shipId);
     // A trierarch takes the request and starts the member's session, as the plugin and a machine do.
-    const { shipId: pluginId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }));
-    const { shipId: trierarchId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }));
+    const { shipId: pluginId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }));
+    const { shipId: trierarchId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }));
     const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['crew:assign'] };
     const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['crew:run'] };
     unwrap(await fleetUseCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));

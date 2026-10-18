@@ -72,6 +72,8 @@ import type { ReadFleetEvents } from '../../domain/shared/read-fleet-events.js';
 import type { AssignLabel } from '../../domain/registry/assign-label.js';
 import type { DeclareNetworkRules } from '../../domain/registry/declare-network-rules.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
+import type { DeclareScopes } from '../../domain/registry/declare-scopes.js';
+import type { GrantScopes } from '../../domain/registry/grant-scopes.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
 import type { ExplainReach } from '../../domain/registry/explain-reach.js';
 import type { ReadDeclaredNetworkRules } from '../../domain/registry/read-declared-network-rules.js';
@@ -84,6 +86,7 @@ import type { UnregisterNetworkPlugin } from '../../domain/registry/unregister-n
 import type { DeleteLabel } from '../../domain/registry/delete-label.js';
 import type { FindLabelValue } from '../../domain/registry/find-label-value.js';
 import type { ListLabels } from '../../domain/registry/list-labels.js';
+import type { ListScopes } from '../../domain/registry/list-scopes.js';
 import type { UnassignLabel } from '../../domain/registry/unassign-label.js';
 import type { FollowFleet } from '../../domain/shared/follow-fleet.js';
 import type { ReadInbox } from '../../domain/shared/read-inbox.js';
@@ -140,6 +143,9 @@ export interface UseCases {
   confirmWorktreeCleared: ConfirmWorktreeCleared;
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
+  declareScopes: DeclareScopes;
+  grantScopes: GrantScopes;
+  listScopes: ListScopes;
   setNetworkRules: SetNetworkRules;
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;

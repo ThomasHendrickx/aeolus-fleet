@@ -37,7 +37,7 @@ beforeEach(async () => {
   useCases = createUseCases({ prisma: fleetDatabase });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }),
   );
   shipId = commissioned.shipId;
   secret = secretOf(commissioned.secret);
@@ -114,7 +114,7 @@ describe('connecting squadrons', () => {
   });
 
   it('is refused for a ship without fleet:manage', async () => {
-    const reader = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reader', type: 'squadrons', fleetScopes: ['fleet:read'] }));
+    const reader = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reader', type: 'squadrons', scopes: ['fleet:read'] }));
     const { address } = await started();
 
     const refused = await connectSquadrons(address, { cookie, shipId: reader.shipId, secret: secretOf(reader.secret) });

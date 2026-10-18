@@ -43,7 +43,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'networking-plugin',
       type: 'networking-plugin',
-      fleetScopes: ['fleet:read', 'fleet:network'],
+      scopes: ['fleet:read', 'fleet:network'],
     }),
   );
   shipId = commissioned.shipId;
@@ -107,7 +107,7 @@ describe('connecting the networking plugin', () => {
   });
 
   it('is refused for a ship without fleet:network', async () => {
-    const reader = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reader', type: 'networking-plugin', fleetScopes: ['fleet:read'] }));
+    const reader = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reader', type: 'networking-plugin', scopes: ['fleet:read'] }));
     const { address } = await started();
 
     const refused = await connectPlugin(address, { cookie, shipId: reader.shipId, secret: secretOf(reader.secret) });
@@ -265,7 +265,7 @@ describe('the rules ships declared (decision 0037)', () => {
     const argos = [{ verb: 'send', from: [], to: [] }];
     await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: argos } }));
     const { shipId: squadronsId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['labels:define', 'labels:assign'] }),
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['labels:define', 'labels:assign'] }),
     );
     const squadrons = { fleetId: argo.fleetId, shipId: squadronsId, kind: 'agent' as const, scopes: ['labels:define' as const, 'labels:assign' as const] };
     const { labelId } = unwrap(await useCases.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));

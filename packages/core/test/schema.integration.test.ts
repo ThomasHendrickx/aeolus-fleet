@@ -119,6 +119,7 @@ describe('migrations', () => {
       'operators',
       'overdue_deliveries',
       'reach_refusals',
+      'scope_namespaces',
       'ship_labels',
       'ships',
       'sign_in_tickets',
@@ -328,6 +329,115 @@ async function withRulesThatMayBeNone(client: PrismaClient): Promise<void> {
 async function withNoRules(client: PrismaClient, fleetIds: FleetId[]): Promise<void> {
   await client.$executeRaw`UPDATE "network_settings" SET "rules" = NULL WHERE "fleet_id" = ANY(${fleetIds})`;
 }
+
+describe('the declare and grant scopes migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const declareAndGrant = readdirSync(MIGRATIONS).find((name) => name.endsWith('_declare_and_grant_scopes'));
+
+  it("gives every fleet's argo scopes:declare and scopes:grant, as argo holds every scope, and no agent ship (decision 0046)", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const scoutId = newId('ship');
+    const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'];
+    try {
+      // An argo from before the migration: every scope but declaring and granting.
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${declareAndGrant ?? ''}/migration.sql`);
+
+      await expect(client.ship.findMany({ select: { id: true, scopes: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+        { id: argoId, scopes: [...everyScopeBefore, 'scopes:declare', 'scopes:grant'] },
+        { id: scoutId, scopes: ['messages:send', 'messages:receive'] },
+      ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
+describe('the trierarch plugin crew:run migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const crewRun = readdirSync(MIGRATIONS).find((name) => name.endsWith('_trierarch_plugin_crew_run'));
+
+  it('gives every active trierarch-plugin ship crew:run, which it gives the trierarchs it commissions, once, and no other ship (decision 0046)', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const pluginId = newId('ship');
+    const heldId = newId('ship');
+    const retiredId = newId('ship');
+    const scoutId = newId('ship');
+    const pluginScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'];
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: pluginId, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'second-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'], createdAt: now },
+          { id: retiredId, fleetId, name: 'old-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now, retiredAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${crewRun ?? ''}/migration.sql`);
+
+      const ships = await client.ship.findMany({ select: { id: true, scopes: true } });
+      expect(new Map(ships.map(({ id, scopes }) => [id, scopes]))).toEqual(
+        new Map([
+          [pluginId, [...pluginScopes, 'crew:run']],
+          [heldId, ['messages:send', 'messages:receive', 'crew:run']],
+          [retiredId, pluginScopes],
+          [scoutId, ['messages:send', 'messages:receive', 'crew:assign']],
+        ]),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('records ScopesChanged for each ship it changes, adding crew:run, by the system, at the next numbers of its fleet', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const pluginId = newId('ship');
+    const secondId = newId('ship');
+    const heldId = newId('ship');
+    const earlier = newId('event');
+    const pluginScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'];
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.createMany({
+        data: [
+          { id: pluginId, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: secondId, fleetId, name: 'second-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'held-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'], createdAt: now },
+        ],
+      });
+      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: pluginId, details: {}, seq: 1n } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${crewRun ?? ''}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([pluginId, secondId].toSorted());
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, details: { added: 'crew:run', removed: '' }, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+        expect(event.id > earlier).toBe(true);
+      }
+      await expect(client.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 3n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
 
 describe('the rules only through a plugin migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
@@ -688,7 +798,7 @@ describe('operator accounts', () => {
 });
 
 describe('scopes', () => {
-  it('are only the ten known ones', async () => {
+  it('are only the twelve known ones', async () => {
     const id = await createShip(await createFleet());
 
     await expect(
@@ -697,9 +807,9 @@ describe('scopes', () => {
     await expect(
       database.ship.update({
         where: { id },
-        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] },
+        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] },
       }),
-    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] });
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] });
   });
 
   it('are never null', async () => {

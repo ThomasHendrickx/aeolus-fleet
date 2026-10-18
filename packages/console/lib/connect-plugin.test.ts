@@ -34,8 +34,8 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
       return Promise.resolve(state.connection);
     },
     ships: () => Promise.resolve(state.ships.map(({ id, name, type, status }) => ({ id, name, type, status }))),
-    commission: ({ name, type, fleetScopes }) => {
-      state.scopes.push(fleetScopes);
+    commission: ({ name, type, scopes }) => {
+      state.scopes.push(scopes);
       next += 1;
       const ship: FleetShip = { id: `shp_${String(next)}`, name, type, status: 'awaitingCrew', secret: `aeolus_sk_v1_${String(next)}` };
       state.ships.push(ship);
@@ -145,13 +145,13 @@ describe('connecting squadrons from the console', () => {
 });
 
 describe('connecting the trierarch plugin from the console', () => {
-  it('commissions trierarch-plugin of type trierarch-plugin, which reads the fleet, commissions machines, assigns crew requests and labels machines', async () => {
+  it('commissions trierarch-plugin of type trierarch-plugin, which reads the fleet, commissions machines with crew:run, which it holds, assigns crew requests and labels machines', async () => {
     const { state, calls } = fakes();
 
     await expect(connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'trierarch-plugin' } });
 
     expect(state.done).toEqual(['commission trierarch-plugin']);
-    expect(state.scopes).toEqual([['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign']]);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']]);
   });
 
   it('is refused when a ship named trierarch-plugin has another type', async () => {

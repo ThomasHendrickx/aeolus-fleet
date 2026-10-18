@@ -41,6 +41,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     shipLabels: of(state.shipLabels),
     networkSettings: of(state.networkSettings),
     declaredNetworkRules: of(state.declaredNetworkRules),
+    scopeNamespaces: of(state.scopeNamespaces),
     reachRefusals: of(state.reachRefusals),
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),

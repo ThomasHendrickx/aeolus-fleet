@@ -56,7 +56,7 @@ beforeEach(async () => {
   // argo of the created fleet, as its console session makes it.
   const argo = { fleetId, shipId: created.operatorShipId, kind: 'operator' as const, scopes: [...SCOPES] };
   const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });

@@ -215,6 +215,10 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_rules_a_list$/),
       expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
       expect.stringMatching(/^\d{14}_lease_statements$/),
+      expect.stringMatching(/^\d{14}_declare_and_grant_scopes$/),
+      expect.stringMatching(/^\d{14}_plugin_scopes$/),
+      expect.stringMatching(/^\d{14}_scope_namespaces$/),
+      expect.stringMatching(/^\d{14}_trierarch_plugin_crew_run$/),
     ]);
   });
 });
@@ -1874,7 +1878,7 @@ describe('ships with fleet scopes at the API', () => {
     name: string,
     fleetScopes: ('fleet:read' | 'fleet:manage')[],
   ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -1911,7 +1915,7 @@ describe('ships with fleet scopes at the API', () => {
 
 describe('fleet.follow at the API', () => {
   async function crewedReader(name: string): Promise<TRPCClient<AppRouter>> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes: ['fleet:read'] });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:read'] });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return client({ authorization: `Bearer ${crewToken}` });
   }
@@ -1970,6 +1974,57 @@ describe('console.session for another service', () => {
     ]);
 
     expect(statuses).toEqual([401, 401, 401]);
+  });
+});
+
+describe('scopes at the API (decision 0046)', () => {
+  it('let a ship with scopes:declare declare its namespace, and refuse a ship without', async () => {
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const form = { scope: 'api-squadrons:form', description: 'Form a squadron' };
+
+    await expect(declarer.fleet.declareScopes.mutate({ namespace: 'api-squadrons', scopes: [form] })).resolves.toEqual({ namespace: 'api-squadrons', scopes: [form] });
+    await expect(refusalOf(reader.fleet.declareScopes.mutate({ namespace: 'api-builds', scopes: [] }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the scopes:declare scope',
+    });
+  });
+
+  it('answer a namespace another ship took as a conflict', async () => {
+    const first = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    const second = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    await first.fleet.declareScopes.mutate({ namespace: 'api-taken', scopes: [] });
+
+    await expect(codeOf(second.fleet.declareScopes.mutate({ namespace: 'api-taken', scopes: [] }))).resolves.toBe('CONFLICT');
+  });
+
+  it('let a ship with scopes:grant grant a scope it holds, effective at the grantee\'s next call, and refuse a ship without', async () => {
+    const grantee = await agentShip();
+    const granteeToken = `aeolus_ct_v1_${newId('lease')}`;
+    await database.lease.create({ data: { id: newId('lease'), fleetId, shipId: grantee.shipId, location: 'DEVICE', crewTokenHash: sha256Hasher.hash(granteeToken), startedAt: clock.now() } });
+    const asGrantee = client({ authorization: `Bearer ${granteeToken}` });
+    const granter = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'scopes:grant'])}` });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+    await expect(codeOf(asGrantee.fleet.scopes.query())).resolves.toBe('FORBIDDEN');
+
+    await expect(granter.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: ['fleet:read'], revoke: [] })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive', 'fleet:read'] });
+
+    await expect(asGrantee.fleet.scopes.query().then((listed) => listed.slice(0, 5).map(({ namespace }) => namespace))).resolves.toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+    await expect(refusalOf(sender.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: [], revoke: ['fleet:read'] }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the scopes:grant scope',
+    });
+    await expect(codeOf(granter.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: ['fleet:manage'], revoke: [] }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it("list the fleet's namespaces to a ship with fleet:read, core first, and refuse a ship without", async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    const listed = await reader.fleet.scopes.query();
+
+    expect(listed.slice(0, 5).map(({ namespace }) => namespace)).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+    await expect(refusalOf(sender.fleet.scopes.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
   });
 });
 

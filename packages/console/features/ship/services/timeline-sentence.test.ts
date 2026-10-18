@@ -447,6 +447,31 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a plugin declared its namespace and how many scopes (decision 0046)', () => {
+    expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 2 } }))).toEqual({
+      sentence: 'Scopes declared: namespace squadrons, 2 scopes by scout',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says what scopes a ship was granted and revoked, and by whom (decision 0046)', () => {
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: 'fleet:read squadrons:form', removed: 'labels:define' } }))).toEqual({
+      sentence: 'Scopes changed: granted fleet:read squadrons:form, revoked labels:define by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says only what changed', () => {
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: 'fleet:read', removed: '' } })).sentence).toBe('Scopes changed: granted fleet:read by argo');
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: '', removed: 'squadrons:form' } })).sentence).toBe('Scopes changed: revoked squadrons:form by argo');
+  });
+
+  it('says one scope in the singular', () => {
+    expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 1 } })).sentence).toBe('Scopes declared: namespace squadrons, 1 scope by scout');
+  });
+
   it('says a networking plugin registered, what happens while it is unavailable, at which version', () => {
     expect(onScoutsPage(anEntry('NetworkPluginRegistered', { actor: argo, details: { version: 4, whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 } }))).toEqual({
       sentence: 'Networking plugin registered: while unavailable keep-latest, version 4 by argo',
