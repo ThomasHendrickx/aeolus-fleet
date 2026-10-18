@@ -31,6 +31,11 @@
       "@aeolus-fleet/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./testing/postgres-global-setup": {
+      "@aeolus-fleet/source": "./src/testing/postgres-global-setup.ts",
+      "types": "./dist/testing/postgres-global-setup.d.ts",
+      "default": "./dist/testing/postgres-global-setup.js"
     }
   },
   "bin": {

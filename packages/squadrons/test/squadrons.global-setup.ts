@@ -1,9 +1,13 @@
 import type { TestProject } from 'vitest/node';
 
-import { createPrismaClient, databaseUrlOf } from '@aeolus-fleet/core/testing';
+// Types only: vitest loads a global setup outside the test environment, where a workspace package resolves to its unbuilt dist.
+import type {} from '@aeolus-fleet/core/testing';
 
+import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { migrateDatabase } from '../src/adapters/prisma/migrate.js';
-import { SQUADRONS_TEMPLATE } from './support/database.js';
+
+/** The database this setup migrates once; every squadrons database a test asks for is a copy of it. */
+export const SQUADRONS_TEMPLATE = 'aeolus_test_squadrons_template';
 
 /**
  * Migrates squadrons' template once, before any test runs; every squadrons
@@ -21,5 +25,7 @@ export async function setup(project: TestProject): Promise<void> {
   } finally {
     await admin.$disconnect();
   }
-  await migrateDatabase(databaseUrlOf(adminUrl, SQUADRONS_TEMPLATE));
+  const templateUrl = new URL(adminUrl);
+  templateUrl.pathname = `/${SQUADRONS_TEMPLATE}`;
+  await migrateDatabase(templateUrl.toString());
 }

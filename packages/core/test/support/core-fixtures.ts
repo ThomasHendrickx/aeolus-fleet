@@ -1,7 +1,6 @@
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
   idSchema,
-  SCOPES,
   type DeliveryId,
   type FleetId,
   type LeaseId,
