@@ -12,6 +12,9 @@ import type { SavedRules } from './networking-plugin-schemas';
  * Pure: the draft lives in the editor until Save sends it whole.
  */
 
+/** What each verb lets the ships on a rule's left do to those on its right, as the editor and the declared rules say it (decision 0034). */
+export const VERB_WORDS: Readonly<Record<NetworkVerb, string>> = { send: 'May send to', read: 'May read', manage: 'May manage' };
+
 /** One rule in the draft, with a key of its own so its row stays put while it changes. */
 export interface DraftRule {
   key: string;

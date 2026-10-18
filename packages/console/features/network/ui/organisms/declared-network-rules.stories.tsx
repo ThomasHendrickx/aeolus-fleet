@@ -24,7 +24,7 @@ const BY_TRIERARCH_PLUGIN: DeclaredRules = {
   declaredBy: 'trierarch-plugin',
   rules: [
     { verb: 'send', from: [{ labelId: OS.id, value: '*' }], to: [{ labelId: OS.id, value: '*' }] },
-    { verb: 'send', from: [valueOf(OS, 'macos')], to: [] },
+    { verb: 'read', from: [valueOf(OS, 'macos')], to: [] },
   ],
 };
 
@@ -53,6 +53,7 @@ export const Declared: Story = {
     await expect(within(bySquadrons ?? canvasElement).getAllByTestId('network-declared-rule-from-value').map((chip) => chip.textContent)).toEqual(['blueprint=#']);
     await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule')).toHaveLength(2);
     await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule')[1]).toHaveTextContent('Every ship');
+    await expect(within(byTrierarchPlugin ?? canvasElement).getAllByTestId('network-declared-rule-verb').map((verb) => verb.textContent)).toEqual(['May send to', 'May read']);
     await expect(canvas.queryAllByRole('button')).toHaveLength(0);
   },
 };

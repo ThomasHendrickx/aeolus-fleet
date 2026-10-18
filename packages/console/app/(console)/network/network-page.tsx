@@ -9,6 +9,7 @@ import { Button } from '../../../components/atoms/button';
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { BuiltInNetworkRules } from '../../../features/network/ui/organisms/built-in-network-rules';
 import { DeclaredNetworkRules } from '../../../features/network/ui/organisms/declared-network-rules';
 import { FleetReachGraph } from '../../../features/network/ui/organisms/fleet-reach-graph';
 import { NetworkDeclarationForm } from '../../../features/network/ui/organisms/network-declaration-form';
@@ -26,6 +27,8 @@ import { supplyNote } from '../../../lib/network-rules';
 import { useHasNetwork, useNetwork, useSaveNetworkDeclaration, useSaveNetworkRules } from '../../../lib/networking-plugin';
 import { useNow } from '../../../lib/now';
 import { usePluginNav } from '../../../lib/plugin-nav';
+import { useBuiltInRules, useSetViewerRead } from '../../../features/network/hooks/built-in-rules';
+import { builtInRowsOf } from '../../../features/network/services/built-in-rules';
 import { useDeclaredNetworkRules } from '../../../features/network/hooks/declared-rules';
 import { declaredRulesOf } from '../../../features/network/services/declared-rules';
 import { networkPathOf, useShipReach } from '../../../features/network/hooks/reach';
@@ -33,11 +36,11 @@ import { graphShipsOf } from '../../../features/network/services/reach-graph';
 import { useReachRefusals } from '../../../features/network/hooks/reach-refusals';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 
-const DESCRIPTION = 'Who may message whom. The networking plugin supplies these rules to the fleet, which checks them on every send. Only argo sees this page.';
+const DESCRIPTION = 'Who may send to, read or manage whom. The networking plugin supplies these rules to the fleet, which checks them on every send. Only argo sees this page.';
 
 /**
  * Network (#260; decisions 0034 to 0036): the networking plugin's page,
- * argo's alone while the plugin is connected. The rules, all-to-all until
+ * argo's alone while the plugin is connected. The built-in rules first, then the rules, all-to-all until
  * argo sets some, the rules plugins declared apart and read-only (#573),
  * what the plugin declares for while it does not respond,
  * and the fleet graph showing which ships a picked ship reaches, the pick in
@@ -59,6 +62,8 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined);
   const refusals = useReachRefusals(hasNetwork);
   const declared = useDeclaredNetworkRules(hasNetwork);
+  const builtIns = useBuiltInRules(hasNetwork);
+  const viewerRead = useSetViewerRead();
   const saveRules = useSaveNetworkRules();
   const saveDeclaration = useSaveNetworkDeclaration();
   const { networkRulesMax, shipLabelsMax, whileUnavailable, notRespondingAfterMinSeconds, notRespondingAfterMaxSeconds } = useConsoleConstants();
@@ -95,6 +100,16 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   } else {
     content = (
       <>
+        <BuiltInNetworkRules
+          rows={builtIns.data === undefined ? undefined : builtInRowsOf(builtIns.data)}
+          error={builtIns.error?.message}
+          onRetry={() => {
+            void builtIns.refetch();
+          }}
+          isTurning={viewerRead.isPending}
+          turnError={viewerRead.error}
+          onViewerReadChange={viewerRead.setViewerRead}
+        />
         <NetworkRulesEditor
           key={JSON.stringify(network.data.rules)}
           rules={network.data.rules}

@@ -19,6 +19,7 @@ import {
   selectorOf,
   setRulesOn,
   setVerb,
+  VERB_WORDS,
   type NetworkLimits,
   type RuleSide,
 } from '../../../../lib/network-rules';
@@ -56,9 +57,6 @@ const SIDES: readonly { side: RuleSide; label: string }[] = [
   { side: 'from', label: 'From ships with' },
   { side: 'to', label: 'To ships with' },
 ];
-
-/** What each verb lets the ships on the left do to those on the right (decision 0034). */
-const VERBS: Readonly<Record<NetworkVerb, string>> = { send: 'May send to', read: 'May read', manage: 'May manage' };
 
 const isVerb = (value: unknown): value is NetworkVerb => NETWORK_VERBS.some((verb) => verb === value);
 
@@ -129,7 +127,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                           <div className="flex shrink-0 flex-col gap-1">
                             <span className="text-meta text-muted-foreground">Verb</span>
                             <Select
-                              items={VERBS}
+                              items={VERB_WORDS}
                               value={rule.verb}
                               disabled={isSaving}
                               onValueChange={(picked) => {
@@ -144,7 +142,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                               <SelectContent>
                                 {NETWORK_VERBS.map((verb) => (
                                   <SelectItem key={verb} value={verb}>
-                                    {VERBS[verb]}
+                                    {VERB_WORDS[verb]}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
