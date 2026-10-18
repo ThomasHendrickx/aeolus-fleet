@@ -145,6 +145,13 @@ const refusedShipSchema = z.object({
   owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
 });
 
+/**
+ * The request header a plugin ship names the ship it reads on behalf of with,
+ * by id: every fleet:read read then answers with that ship's read reach
+ * (decision 0034). Any other call refuses it.
+ */
+export const ON_BEHALF_OF_HEADER = 'aeolus-on-behalf-of';
+
 /** One refused send: who tried to reach whom by which verb, both ships as they were with their owners, the settings version that refused it and when. */
 export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),

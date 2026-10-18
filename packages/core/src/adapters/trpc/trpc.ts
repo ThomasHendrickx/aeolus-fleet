@@ -1,4 +1,4 @@
-import type { Scope } from '@aeolus-fleet/common';
+import { idSchema, type Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
 import { hasScope, isCrew, type Caller, type Crew } from '../../domain/shared/caller.js';
@@ -391,26 +391,60 @@ const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
 /**
  * A procedure for any caller, whatever its scopes: the base of every scoped
  * procedure, and `whoami`, which tells a caller about itself. The caller comes
- * from the server, never from the request.
+ * from the server, never from the request. Only a fleet:read read takes the
+ * `Aeolus-On-Behalf-Of` header (decision 0034); any other call refuses it.
  */
-export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, next }) => {
-  // A mutation on the console session's cookie changes state: checked before
-  // the session is used, so a forged call does not even renew it. A
-  // subscription is checked too: a browser opens a WebSocket from any page
-  // with the cookie, and no CORS rule keeps that page from reading the
-  // answers. A crew token wins over the cookie, and no browser sends one by
-  // itself.
-  const { bearer, sessionToken } = ctx.credentials;
-  if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
-    checkConsoleOrigin(ctx);
+export const authenticatedProcedure = callerProcedure({ isOnBehalfRead: false });
+
+/** The base of a fleet:read read, which a plugin may make on behalf of a named ship. */
+const readingProcedure = callerProcedure({ isOnBehalfRead: true });
+
+function refuseOnBehalfHeader(ctx: Context): void {
+  if (ctx.credentials.onBehalfOf !== undefined) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only a fleet:read read takes the Aeolus-On-Behalf-Of header' });
   }
-  const caller = await resolveCaller(ctx);
-  if (!caller) {
-    const message = ctx.canUseConsoleSession ? 'Sign in, or call with the crew token register gave you' : CALL_WITH_CREW_TOKEN;
-    throw new TRPCError({ code: 'UNAUTHORIZED', message });
+}
+
+/**
+ * Reads as the ship the `Aeolus-On-Behalf-Of` header names, when it names one:
+ * after the scope check, so the plugin's own scopes open the door, and the
+ * named ship's read reach filters what it reads (decision 0034).
+ */
+async function readerOf(ctx: Context, caller: Caller): Promise<Caller> {
+  const { onBehalfOf } = ctx.credentials;
+  if (onBehalfOf === undefined) {
+    return caller;
   }
-  return next({ ctx: { caller } });
-});
+  const shipId = idSchema('ship').safeParse(onBehalfOf);
+  if (!shipId.success) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'The Aeolus-On-Behalf-Of header names no ship id' });
+  }
+  return okOrThrow(await ctx.useCases.readOnBehalf(caller, { shipId: shipId.data }));
+}
+
+function callerProcedure(options: { isOnBehalfRead: boolean }) {
+  return publicProcedure.use(async ({ ctx, type, next }) => {
+    if (!options.isOnBehalfRead) {
+      refuseOnBehalfHeader(ctx);
+    }
+    // A mutation on the console session's cookie changes state: checked before
+    // the session is used, so a forged call does not even renew it. A
+    // subscription is checked too: a browser opens a WebSocket from any page
+    // with the cookie, and no CORS rule keeps that page from reading the
+    // answers. A crew token wins over the cookie, and no browser sends one by
+    // itself.
+    const { bearer, sessionToken } = ctx.credentials;
+    if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
+      checkConsoleOrigin(ctx);
+    }
+    const caller = await resolveCaller(ctx);
+    if (!caller) {
+      const message = ctx.canUseConsoleSession ? 'Sign in, or call with the crew token register gave you' : CALL_WITH_CREW_TOKEN;
+      throw new TRPCError({ code: 'UNAUTHORIZED', message });
+    }
+    return next({ ctx: { caller } });
+  });
+}
 
 /**
  * A procedure only a crew calls, with the crew token `register` gave it: one
@@ -419,6 +453,7 @@ export const authenticatedProcedure = publicProcedure.use(async ({ ctx, type, ne
  * so it is refused here.
  */
 export const crewProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  refuseOnBehalfHeader(ctx);
   const { bearer } = ctx.credentials;
   const crew = bearer === undefined ? undefined : await crewOf(ctx, bearer);
   if (!crew) {
@@ -446,12 +481,13 @@ export function scopedCrewProcedure(scope: Scope) {
  * the server, never from the request, and are checked before any use case runs.
  */
 export function scopedProcedure(scope: Scope) {
-  return authenticatedProcedure.use(({ ctx, next }) => {
-    if (!hasScope(ctx.caller, scope)) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
-    }
-    return next();
-  });
+  return (scope === 'fleet:read' ? readingProcedure : authenticatedProcedure)
+    .use(async ({ ctx, next }) => {
+      if (!hasScope(ctx.caller, scope)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
+      }
+      return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+    });
 }
 
 /**
@@ -460,12 +496,13 @@ export function scopedProcedure(scope: Scope) {
  * (decision 0029). Checked before any use case runs, as for one scope.
  */
 export function anyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
-  return authenticatedProcedure.use(({ ctx, next }) => {
-    if (!scopes.some((scope) => hasScope(ctx.caller, scope))) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
-    }
-    return next();
-  });
+  return (scopes.includes('fleet:read') ? readingProcedure : authenticatedProcedure)
+    .use(async ({ ctx, next }) => {
+      if (!scopes.some((scope) => hasScope(ctx.caller, scope))) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
+      }
+      return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+    });
 }
 
 /**

@@ -1,12 +1,15 @@
 /**
  * How a request says who it is: a crew token as a bearer token, or the console
- * session cookie. The ship secret travels only in the body of `register`.
+ * session cookie, and for a plugin's read, the ship it reads on behalf of. The
+ * ship secret travels only in the body of `register`.
  *
  * The console session cookie holds the random session token, never the ship secret.
  * httpOnly so scripts cannot read it, Secure so it only travels over HTTPS
  * (browsers accept it on http://localhost for development), SameSite=Strict so
  * no other site's page can make the browser send it.
  */
+import { ON_BEHALF_OF_HEADER } from '@aeolus-fleet/common';
+
 export const SESSION_COOKIE_NAME = 'aeolus_session';
 
 const ATTRIBUTES = 'Path=/; HttpOnly; Secure; SameSite=Strict';
@@ -41,6 +44,12 @@ export function sessionCookie(cookie: { token: string; expiresAt: Date; now: Dat
 /** A Set-Cookie value that removes the cookie, for the same domain it was set for. */
 export function clearedSessionCookie(domain?: string): string {
   return `${SESSION_COOKIE_NAME}=; Max-Age=0; ${scope(domain)}`;
+}
+
+/** The ship a plugin reads on behalf of, from the `Aeolus-On-Behalf-Of` header, if there is one (decision 0034). */
+export function readOnBehalfOf(headers: Readonly<Record<string, string | string[] | undefined>>): string | undefined {
+  const header = headers[ON_BEHALF_OF_HEADER];
+  return Array.isArray(header) ? header.join(',') : header;
 }
 
 /** The token from an `Authorization: Bearer <token>` header, if there is one. */

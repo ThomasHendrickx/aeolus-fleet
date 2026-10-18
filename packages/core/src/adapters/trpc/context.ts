@@ -43,6 +43,7 @@ import type { GetInstallationFleet } from '../../domain/registry/get-installatio
 import type { ListInstallationFleets } from '../../domain/registry/list-installation-fleets.js';
 import type { Deregister } from '../../domain/registry/deregister.js';
 import type { GetShip } from '../../domain/registry/get-ship.js';
+import type { ReadOnBehalf } from '../../domain/registry/read-on-behalf.js';
 import type { GetStartingPrompt } from '../../domain/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../domain/registry/list-fleet.js';
 import type { RecrewShip } from '../../domain/registry/recrew-ship.js';
@@ -124,6 +125,7 @@ export interface UseCases {
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
+  readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
@@ -207,6 +209,8 @@ export interface RequestCredentials {
   bearer?: string;
   /** A console session token from the session cookie. */
   sessionToken?: string;
+  /** The ship a plugin reads on behalf of, as the `Aeolus-On-Behalf-Of` header named it (decision 0034). */
+  onBehalfOf?: string;
 }
 
 /** Writes the console session cookie on the response. */
