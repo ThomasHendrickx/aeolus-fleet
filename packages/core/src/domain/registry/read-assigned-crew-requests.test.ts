@@ -39,8 +39,8 @@ describe("a trierarch's assigned crew requests", () => {
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
 
     await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true, ownerShipId: argo.shipId },
-      { shipId: lookoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false, ownerShipId: argo.shipId },
+      { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true, ownerShipId: argo.shipId, ownerName: 'argo' },
+      { shipId: lookoutId, settings: aCrewSettings({ harness: 'claude-code' }), settingsVersion: 1, requestedAt: core.clock.now(), status: null, isFinal: false, ownerShipId: argo.shipId, ownerName: 'argo' },
     ]);
   });
 
@@ -71,7 +71,7 @@ describe("a trierarch's assigned crew requests", () => {
 
     unwrap(await registry.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
 
-    await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, ownerShipId: thomasId }]);
+    await expect(registry.readAssignedCrewRequests(trierarch)).resolves.toMatchObject([{ shipId: scoutId, ownerShipId: thomasId, ownerName: 'thomas' }]);
   });
 
   it('are none for a ship nothing is assigned to', async () => {

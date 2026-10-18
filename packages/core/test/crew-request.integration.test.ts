@@ -155,7 +155,7 @@ describe('a crew request on Postgres', () => {
       sessionStartedAt: new Date('2026-10-06T17:00:30.000Z'),
     });
     await expect(core.useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual([
-      { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true, ownerShipId: argo.shipId },
+      { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now(), status: 'running', isFinal: true, ownerShipId: argo.shipId, ownerName: 'argo' },
     ]);
     await expect(core.useCases.getShip(trierarch, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { assignedTo: { id: trierarchId, name: 'mac-mini' }, status: 'running' } },
