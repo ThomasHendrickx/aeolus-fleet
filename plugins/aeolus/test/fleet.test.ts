@@ -454,10 +454,10 @@ describe("a folder whose fleet calls go over its trierarch's socket (decision 00
     rmSync(sockets, { recursive: true, force: true });
   });
 
-  /** The folder's identity as the trierarch writes it: its socket, and no crew token. */
-  async function crewedOverTheSocket(answers: readonly StubAnswer[]): Promise<StubFleet> {
+  /** The folder's identity as the trierarch writes it: its socket and the crew token on stdin, which it keeps only as its lease. */
+  async function crewedOverTheSocket(answers: readonly StubAnswer[], crewToken = CREW_TOKEN): Promise<StubFleet> {
     const started = await startStubFleet(answers, { socket });
-    const written = await run('aeolus-identity.sh', { args: ['write', '--wake-by', 'trierarch', '--socket', socket, 'https://fleet.example.com', SHIP_ID, 'scout'] });
+    const written = await run('aeolus-identity.sh', { args: ['write', '--wake-by', 'trierarch', '--socket', socket, 'https://fleet.example.com', SHIP_ID, 'scout'], stdin: crewToken });
     expect(written.status).toBe(0);
     return started;
   }
@@ -466,13 +466,33 @@ describe("a folder whose fleet calls go over its trierarch's socket (decision 00
     return run('aeolus-identity.sh', { args: ['path'] }).then(({ stdout }) => readFileSync(stdout.trim(), 'utf8'));
   }
 
-  it('keeps the socket in the identity file and no crew token, reading none on stdin', async () => {
+  it('keeps the socket and the lease of the crew token in the identity file, never the crew token', async () => {
     fleet = await crewedOverTheSocket([]);
 
     const text = await identityText();
 
     expect(text).toContain(`socket=${socket}\n`);
+    expect(text).toMatch(/^lease=[0-9a-f]{16}$/m);
+    expect(text).not.toContain(CREW_TOKEN);
     expect(text).not.toContain('crewToken=');
+  });
+
+  it('keeps another lease once a new crew token reaches the folder', async () => {
+    fleet = await crewedOverTheSocket([]);
+    const first = /^lease=(.*)$/m.exec(await identityText())?.[1];
+    await fleet.close();
+
+    fleet = await crewedOverTheSocket([], NEW_CREW_TOKEN);
+
+    const next = /^lease=(.*)$/m.exec(await identityText())?.[1];
+    expect(next).toBeDefined();
+    expect(next).not.toBe(first);
+  });
+
+  it('refuses a socket without the crew token on stdin', async () => {
+    const written = await run('aeolus-identity.sh', { args: ['write', '--wake-by', 'trierarch', '--socket', socket, 'https://fleet.example.com', SHIP_ID, 'scout'] });
+
+    expect(written.status).toBe(2);
   });
 
   it('refuses a socket for a folder no trierarch crews', async () => {

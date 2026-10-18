@@ -90,11 +90,11 @@ export function startStubFleet(answers: readonly StubAnswer[], options: { socket
  * states apart what the inbox, receive and ack answer. A path without a
  * script answers 404.
  */
-export function startRoutedStubFleet(routes: Readonly<Record<string, readonly StubAnswer[]>>): Promise<StubFleet> {
+export function startRoutedStubFleet(routes: Readonly<Record<string, readonly StubAnswer[]>>, options: { socket?: string } = {}): Promise<StubFleet> {
   const counts = new Map<string, number>();
   return serve((call) => {
     const count = counts.get(call.path) ?? 0;
     counts.set(call.path, count + 1);
     return nextOf(routes[call.path] ?? [], count) ?? { status: 404, body: {} };
-  });
+  }, options.socket);
 }
