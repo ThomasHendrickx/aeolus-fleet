@@ -175,3 +175,17 @@ model InstallationRequest {
   @@index([fleetId])
   @@map("installation_requests")
 }
+
+/// A form request squadrons refused, by its forming ship and key: a repeat of
+/// the key gets this first answer again (decision 0017).
+model FormRefusal {
+  fleetId       String   @map("fleet_id")
+  formingShipId String   @map("forming_ship_id")
+  key           String
+  code          String
+  message       String
+  refusedAt     DateTime @map("refused_at") @db.Timestamptz(3)
+
+  @@id([fleetId, formingShipId, key])
+  @@map("form_refusals")
+}
