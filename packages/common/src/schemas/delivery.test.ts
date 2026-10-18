@@ -22,6 +22,8 @@ import {
   receiveInputSchema,
   receiveOutputSchema,
   receiveReplyInputSchema,
+  sentMessageInputSchema,
+  sentMessageOutputSchema,
 } from './delivery.js';
 
 const newId = createIdGenerator();
@@ -70,6 +72,46 @@ describe('receiveReplyInputSchema', () => {
     ['no input', undefined],
   ])('refuses %s', (_label, input) => {
     expect(receiveReplyInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('sentMessageInputSchema', () => {
+  it('takes the id of a message the caller sent', () => {
+    const input = { messageId: newId('message') };
+
+    expect(sentMessageInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['no message id', {}],
+    ['a delivery id', { messageId: newId('delivery') }],
+  ])('refuses %s', (_label, input) => {
+    expect(sentMessageInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('sentMessageOutputSchema', () => {
+  it('answers the message, its recipient by name or type, and its delivery with its state and since when, and no payload', () => {
+    const answer = {
+      messageId: newId('message'),
+      sentAt: '2026-10-18T12:00:00.000Z',
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'scout' } },
+      delivery: { deliveryId: newId('delivery'), state: 'handed', since: '2026-10-18T12:00:05.000Z' },
+    };
+
+    expect(sentMessageOutputSchema.parse(answer)).toEqual(answer);
+    expect(sentMessageOutputSchema.parse({ ...answer, recipient: { kind: 'type', type: 'reviewer' } }).recipient).toEqual({ kind: 'type', type: 'reviewer' });
+  });
+
+  it('refuses a delivery state it does not know', () => {
+    const answer = {
+      messageId: newId('message'),
+      sentAt: '2026-10-18T12:00:00.000Z',
+      recipient: { kind: 'type', type: 'reviewer' },
+      delivery: { deliveryId: newId('delivery'), state: 'lost', since: '2026-10-18T12:00:05.000Z' },
+    };
+
+    expect(sentMessageOutputSchema.safeParse(answer).success).toBe(false);
   });
 });
 

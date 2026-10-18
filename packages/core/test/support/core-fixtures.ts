@@ -106,6 +106,7 @@ import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
+import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
 import { createReadHealth } from '../../src/domain/shared/read-health.js';
@@ -256,6 +257,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
     readShipMessages: createReadShipMessages({ history: core.history, readReach }),
     readMessage: createReadMessage({ history: core.history, readReach }),
+    sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
     readHealth: createReadHealth({ health: core.health, clock: core.clock, readReach }),

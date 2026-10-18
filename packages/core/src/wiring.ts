@@ -130,6 +130,7 @@ import { createGetInstallationFleet, type GetInstallationFleet } from './domain/
 import { createListInstallationFleets, type ListInstallationFleets } from './domain/registry/list-installation-fleets.js';
 import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
+import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
 import { createReadHealth, type ReadHealth } from './domain/shared/read-health.js';
@@ -211,6 +212,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;
@@ -403,6 +405,7 @@ export function createUseCases(options: {
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
+    sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
     readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock, readReach }),
