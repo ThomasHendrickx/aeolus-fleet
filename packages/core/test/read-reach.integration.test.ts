@@ -41,7 +41,7 @@ function client(crewToken: string): TRPCClient<AppRouter> {
 /** A ship argo commissions and a session claims: its id, the caller it is and its crew token. */
 async function crewed(ship: { name: string; type: string; fleetScopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: Caller; crewToken: string }> {
   const { name, type, fleetScopes = [] } = ship;
-  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type, fleetScopes }));
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type, scopes: fleetScopes }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   return { shipId, caller: unwrap(await useCases.authenticate.byCrewToken(crewToken)), crewToken };
 }
