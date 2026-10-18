@@ -12,10 +12,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { createSquadronsApp, type SquadronsApp } from '../packages/squadrons/src/app.js';
-import { createSquadronsDatabase } from '../packages/squadrons/test/support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from '../packages/squadrons/test/support/fake-github.js';
-import { seedRepository } from '../packages/squadrons/test/support/repositories.js';
+import { createSquadronsApp, createSquadronsDatabase, seedRepository, startFakeGithub, tagsAt, type FakeGithub, type SquadronsApp } from '@aeolus-fleet/squadrons/testing';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

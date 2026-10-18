@@ -9,7 +9,7 @@ import { createGithubRepositoryReader } from '../src/adapters/github/github-repo
 import { assembleCatalogue } from '../src/core/catalogue/assemble-catalogue.js';
 import { memberCrewOf } from '../src/core/catalogue/member-crew.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 
 // The example set docs/squadrons.md points newcomers to (docs/squadrons-example)
 // is valid: tagged <name>@1 in a repository of the name its blueprints

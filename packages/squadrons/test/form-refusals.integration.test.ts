@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaFormRefusals } from '../src/adapters/prisma/form-refusals.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // The form requests squadrons refused, kept in Postgres so a repeat of a key
 // gets its first answer again, after a restart too (decision 0017).

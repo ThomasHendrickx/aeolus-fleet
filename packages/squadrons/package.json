@@ -24,6 +24,16 @@
       "@aeolus-fleet/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@aeolus-fleet/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./testing/squadrons-global-setup": {
+      "@aeolus-fleet/source": "./src/testing/squadrons-global-setup.ts",
+      "types": "./dist/testing/squadrons-global-setup.d.ts",
+      "default": "./dist/testing/squadrons-global-setup.js"
     }
   },
   "bin": {

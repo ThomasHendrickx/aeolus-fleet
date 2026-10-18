@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGithubRepositoryReader } from '../src/adapters/github/github-repository-reader.js';
 import type { RepositoryToRead } from '../src/core/catalogue/ports.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
-import { shaOf, startFakeGithub, tagsAt, type FakeGithub, type FakeTag } from './support/fake-github.js';
+import { shaOf, startFakeGithub, tagsAt, type FakeGithub, type FakeTag } from '../src/testing/fake-github.js';
 
 // The GitHub reader against a fake GitHub API (S5): tags <name>@<n>, each read
 // at its commit from the repository's path, a missing file meaning no such

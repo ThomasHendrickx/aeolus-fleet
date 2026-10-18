@@ -8,7 +8,7 @@ import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, 
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { connectSquadrons, signIn } from './support/connection.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // squadrons against a real fleet: it starts not connected, with no secret
 // anywhere; the operator connects it, it keeps the crew token in its own

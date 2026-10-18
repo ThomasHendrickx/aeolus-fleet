@@ -8,7 +8,7 @@ import { executeSqlFile } from '@aeolus-fleet/core/testing';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaFleetNetworks } from '../src/adapters/prisma/fleet-networks.js';
-import { createPluginDatabase } from './support/database.js';
+import { createPluginDatabase } from '../src/testing/database.js';
 
 // The database keeps a fleet's declaration within common's bounds, whoever writes it (#758).
 

@@ -1,8 +1,8 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
-import { createPrismaClient } from '../../src/adapters/prisma/client.js';
-import { createPrismaRepositoryStore } from '../../src/adapters/prisma/repository-store.js';
-import { DEFAULT_PATH } from '../../src/core/catalogue/template-repository.js';
+import { createPrismaClient } from '../adapters/prisma/client.js';
+import { createPrismaRepositoryStore } from '../adapters/prisma/repository-store.js';
+import { DEFAULT_PATH } from '../core/catalogue/template-repository.js';
 
 /**
  * Stores a template repository straight in squadrons' database, as the

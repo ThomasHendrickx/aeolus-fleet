@@ -6,9 +6,9 @@ import { z } from 'zod';
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // A ship forming a squadron by message against a real fleet (decision 0017):
 // squadrons declares its namespace, argo grants a tech lead squadrons:form,

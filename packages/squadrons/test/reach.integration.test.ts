@@ -8,9 +8,9 @@ import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, 
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { signIn } from './support/connection.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // The squadron labels and declared network rules against a real fleet (#573,
 // decision 0037): squadrons labels each squadron's ships and its own, declares
