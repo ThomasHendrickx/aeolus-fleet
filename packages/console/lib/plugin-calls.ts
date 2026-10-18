@@ -63,6 +63,9 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
     release: async (shipId) => {
       await trpc({ ...fleet, procedure: 'fleet.release', input: { shipId }, answers: z.unknown() });
     },
+    connectAsPlugin: async (shipId) => {
+      await trpc({ ...fleet, procedure: 'fleet.connectPlugin', input: { shipId }, answers: z.unknown() });
+    },
     startingPrompt: (shipId) => trpc({ ...fleet, procedure: 'fleet.getStartingPrompt', input: { shipId }, answers: startingPromptOutputSchema }),
   };
 }
