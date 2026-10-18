@@ -5,6 +5,7 @@ import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 
@@ -44,5 +45,20 @@ describe('reading the pending clear requests (decision 0032)', () => {
     await expect(registry.readClearRequests(macMini)).resolves.toEqual([
       { trierarchShipId: macMini.shipId, shipId: scoutId, repository: 'aeolus-fleet', requestedBy: argo.shipId, requestedAt: core.clock.now() },
     ]);
+  });
+});
+
+describe('reading the pending clear requests within read reach (decision 0034)', () => {
+  it('answers fleet:read only the requests for the ships it reads', async () => {
+    const fleet = await readReachScenario();
+    await fleet.readRulesApply();
+    const trierarch = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    for (const ship of [fleet.near, fleet.far]) {
+      unwrap(await fleet.registry.requestWorktreeClear(fleet.argo, { trierarchShipId: trierarch.shipId, shipId: ship.shipId, repository: 'aeolus-fleet' }));
+    }
+
+    const read = await fleet.registry.readClearRequests(fleet.reader);
+
+    expect(read.map(({ shipId }) => shipId)).toEqual([fleet.near.shipId]);
   });
 });
