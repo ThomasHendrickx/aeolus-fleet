@@ -16,6 +16,7 @@ import {
   type FleetId,
   type LabelId,
   type LabelValueId,
+  type BuiltInRule,
   type NetworkPluginDeclaration,
   type NetworkVerb,
   type SelectorTerm,
@@ -345,29 +346,52 @@ export interface ReachingShip {
 }
 
 /**
- * Whether the settings let the sender do the verb to the recipient. The
- * built-in rules that are never off hold whatever the rules: argo reaches every ship and every ship reaches
- * argo, an owner's ship reaches the ships it owns (decision 0045), and a ship
- * answers the sender of a message it received. The viewer reads every ship
- * while that is on, and every ship reaches every ship by a verb while open is
- * on for it. Otherwise a rule of the verb must match the sender with its
- * `from` and the recipient with its `to`.
+ * The rule that lets the sender do the verb to the recipient, or undefined
+ * when none does. The built-in rules that are never off hold whatever the
+ * rules: argo reaches every ship and every ship reaches argo, an owner's ship
+ * reaches the ships it owns (decision 0045), and a ship answers the sender of
+ * a message it received. The viewer reads every ship while that is on, and
+ * every ship reaches every ship by a verb while open is on for it. Otherwise
+ * a rule of the verb must match the sender with its `from` and the recipient
+ * with its `to`, named by its place in the list. The built-in rules come
+ * first, in that order, as the rule list shows them.
  */
+export function reachRuleOf(
+  settings: Pick<RulesInForce, 'rules' | 'builtIns'>,
+  send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
+): ReachRule | undefined {
+  const { verb, sender, recipient, isAnswerToSender } = send;
+  const { rules, builtIns } = settings;
+  if (sender.kind === 'operator' || recipient.kind === 'operator') {
+    return { builtIn: 'argo' };
+  }
+  if (recipient.owner === sender.id) {
+    return { builtIn: 'owner' };
+  }
+  if (verb === 'send' && isAnswerToSender) {
+    return { builtIn: 'answer' };
+  }
+  if (verb === 'read' && sender.kind === 'viewer' && builtIns.isViewerReadOn) {
+    return { builtIn: 'viewerRead' };
+  }
+  if (builtIns.open[verb]) {
+    return { builtIn: 'open' };
+  }
+  const index = rules.findIndex(
+    (rule) => rule.verb === verb && matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }),
+  );
+  return index === -1 ? undefined : { index };
+}
+
+/** A built-in rule, or one of the settings' rules by its place in the list. */
+export type ReachRule = { builtIn: BuiltInRule } | { index: number };
+
+/** Whether the settings let the sender do the verb to the recipient: some rule does (see reachRuleOf). */
 export function allowsReach(
   settings: Pick<RulesInForce, 'rules' | 'builtIns'>,
   send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
 ): boolean {
-  const { verb, sender, recipient, isAnswerToSender } = send;
-  const { rules, builtIns } = settings;
-  if (sender.kind === 'operator' || recipient.kind === 'operator' || recipient.owner === sender.id || (verb === 'send' && isAnswerToSender)) {
-    return true;
-  }
-  if ((verb === 'read' && sender.kind === 'viewer' && builtIns.isViewerReadOn) || builtIns.open[verb]) {
-    return true;
-  }
-  return rules.some(
-    (rule) => rule.verb === verb && matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }),
-  );
+  return reachRuleOf(settings, send) !== undefined;
 }
 
 /** A ship matches a selector when every term of it holds, combined with AND. */

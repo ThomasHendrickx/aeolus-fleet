@@ -130,7 +130,7 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
         <FleetReachGraph
           ships={graphShipsOf(fleet.data)}
           pickedShipId={pickedShipId}
-          reachableShipIds={reach.data?.reachableShipIds}
+          reachableShipIds={reach.data}
           reachError={reach.error?.message}
           onPick={(shipId) => {
             router.replace(networkPathOf(shipId), { scroll: false });

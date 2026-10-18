@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import { NETWORK_VERBS, type ExplainedReach, type ReachRule, type ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -6,35 +6,35 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reaching, rulesInForceAt, shipAsItIs, type CheckReachTx } from './check-reach.js';
-import { allowsReach } from './network-settings.js';
-import type { ShipRepository } from './ports.js';
+import type { DeclaredNetworkRules } from './declared-network-rules.js';
+import { reachRuleOf, type NetworkRule, type ReachRule as SettingsRule } from './network-settings.js';
+import type { DeclaredNetworkRulesRepository, ShipRepository } from './ports.js';
 
 export interface ExplainReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'listActive'>;
   labels: CheckReachTx['labels'];
   leases: CheckReachTx['leases'];
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list'>;
 }
 
 export type ExplainReachFailure = DomainError<'NOT_THE_OPERATOR_SHIP' | 'SHIP_NOT_FOUND'>;
 
-export type ExplainReach = (
-  caller: Caller,
-  input: { fromShipId: ShipId; toShipId?: ShipId },
-) => Promise<Result<{ reachableShipIds: ShipId[] }, ExplainReachFailure>>;
+export type ExplainReach = (caller: Caller, input: { fromShipId: ShipId; toShipId?: ShipId }) => Promise<Result<ExplainedReach, ExplainReachFailure>>;
 
 /**
- * Use case: argo asks which ships a ship reaches now, or whether it reaches
- * one ship (design points 11 and 12 on #260). It answers as a send would be
- * checked at this moment: the rules in force, what the networking plugin
- * declared while it does not respond, argo both ways. There is no message, so
- * no answer to a sender. It answers the ships, never the rules or the reasons,
- * and records nothing: an explain is not a send. Only argo; the viewer ship
- * receives nothing, so it is never reached.
+ * Use case: argo asks which ships a ship reaches now, per verb, or whether it
+ * reaches one ship (decision 0034). It answers as a send would be checked at
+ * this moment: the rules in force, what the networking plugin declared while
+ * it does not respond, the built-in rules. Each ship comes with the rule that
+ * allows it: a built-in rule, a rule the plugin supplied, or a rule a ship
+ * declared, named by its declarer, when the plugin supplied it as declared.
+ * There is no message, so no answer to a sender. It records nothing: an
+ * explain is not a send. Only argo.
  */
 export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; clock: Clock }): ExplainReach {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<{ reachableShipIds: ShipId[] }, ExplainReachFailure>> => {
+    deps.uow.run(async (tx): Promise<Result<ExplainedReach, ExplainReachFailure>> => {
       if (caller.kind !== 'operator') {
         return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo explains reach');
       }
@@ -50,14 +50,37 @@ export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; cloc
       }
       const settings = await tx.networkSettings.findForShare(fleetId);
       const inForce = await rulesInForceAt(tx, { settings, now: deps.clock.now() });
+      const declared = await tx.declaredNetworkRules.list(fleetId);
       const sender = reaching(await shipAsItIs(tx, from));
-      const reachableShipIds: ShipId[] = [];
+      const explained: ExplainedReach = { send: [], read: [], manage: [] };
       for (const ship of others) {
         const recipient = reaching(await shipAsItIs(tx, ship));
-        if (allowsReach(inForce, { verb: 'send', sender, recipient, isAnswerToSender: false })) {
-          reachableShipIds.push(ship.id);
+        for (const verb of NETWORK_VERBS) {
+          const rule = reachRuleOf(inForce, { verb, sender, recipient, isAnswerToSender: false });
+          if (rule !== undefined) {
+            explained[verb].push({ shipId: ship.id, rule: namedRule(rule, { rules: inForce.rules, declared }) });
+          }
         }
       }
-      return ok({ reachableShipIds });
+      return ok(explained);
     });
+}
+
+/** A rule of the settings named as argo reads it: a declared one by its declarer and its place in that ship's list, any other as the plugin's. */
+function namedRule(rule: SettingsRule, held: { rules: readonly NetworkRule[]; declared: readonly DeclaredNetworkRules[] }): ReachRule {
+  if ('builtIn' in rule) {
+    return rule;
+  }
+  const text = ruleText(held.rules[rule.index]);
+  for (const { shipId, rules } of held.declared) {
+    const index = rules.findIndex((each) => ruleText(each) === text);
+    if (index !== -1) {
+      return { declared: shipId, index };
+    }
+  }
+  return { plugin: rule.index };
+}
+
+function ruleText(rule: NetworkRule | undefined): string {
+  return JSON.stringify(rule === undefined ? null : [rule.verb, rule.from, rule.to]);
 }

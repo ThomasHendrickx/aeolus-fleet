@@ -154,5 +154,23 @@ export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);
 /** Input of `fleet.explainReach` (argo only): the ship to explain from, and the one ship asked about, or none for every ship. */
 export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional() });
 
-/** Output of `fleet.explainReach`: the ships it reaches now, by id; never the rules or why (design on #260). */
-export const explainReachOutputSchema = z.object({ reachableShipIds: z.array(idSchema('ship')) });
+/**
+ * The rule that lets one ship reach another (decision 0034): a built-in rule;
+ * a rule the networking plugin supplied, by its place in the fleet's list;
+ * or a rule a ship declared, by its declarer and its place in that ship's
+ * list (decision 0037).
+ */
+export const reachRuleSchema = z.union([
+  z.object({ builtIn: z.enum(BUILT_IN_RULES) }),
+  z.object({ plugin: z.int().min(0) }),
+  z.object({ declared: idSchema('ship'), index: z.int().min(0) }),
+]);
+
+export type ReachRule = z.infer<typeof reachRuleSchema>;
+
+const reachedShipsSchema = z.array(z.object({ shipId: idSchema('ship'), rule: reachRuleSchema }));
+
+/** Output of `fleet.explainReach`: per verb, the ships it reaches now, each with the rule that allows it. */
+export const explainReachOutputSchema = z.object({ send: reachedShipsSchema, read: reachedShipsSchema, manage: reachedShipsSchema });
+
+export type ExplainedReach = z.infer<typeof explainReachOutputSchema>;
