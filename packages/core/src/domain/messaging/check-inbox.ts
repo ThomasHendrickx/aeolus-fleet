@@ -5,7 +5,7 @@ import type { DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { inboxWait } from './inbox-wait.js';
-import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
+import type { DeliveryRepository, ReceivableCount, ReceiverWakeups, ReceiverWatch } from './ports.js';
 
 export interface CheckInboxTx extends HoldLeaseTx {
   deliveries: Pick<DeliveryRepository, 'countReceivable'>;
@@ -13,15 +13,14 @@ export interface CheckInboxTx extends HoldLeaseTx {
 
 export type CheckInboxRefusal = DomainError<'INVALID_INBOX_WAIT' | 'SHIP_NOT_FOUND'> | LeaseEnded;
 
-export type CheckInbox = (
-  crew: Crew,
-  input: { waitSeconds?: number },
-) => Promise<Result<{ waiting: number }, CheckInboxRefusal>>;
+export type CheckInbox = (crew: Crew, input: { waitSeconds?: number }) => Promise<Result<ReceivableCount, CheckInboxRefusal>>;
 
 /**
  * Use case: how many deliveries wait for the crew (`inbox`): what its next
  * receive would hand it, its own in flight and those pending for its ship or
- * its type. It claims nothing, so a watcher can ask as often as it likes and
+ * its type, and how many of those are forced and not handed over yet
+ * (decision 0040), so a computer side knows to hand one over at once. It
+ * claims nothing, so a watcher can ask as often as it likes and
  * leave every delivery for the receive. Its scope (messages:receive) is
  * checked before this runs.
  *
@@ -49,28 +48,28 @@ export function createCheckInbox(deps: {
           if (!ship.isOk) {
             return ship;
           }
-          const waiting = await tx.deliveries.countReceivable({
+          const count = await tx.deliveries.countReceivable({
             fleetId: crew.fleetId,
             shipId: crew.shipId,
             type: ship.value.type,
             leaseId: crew.leaseId,
           });
-          return ok({ type: ship.value.type, waiting });
+          return ok({ type: ship.value.type, count });
         });
         if (!look.isOk) {
           return look;
         }
-        const { type, waiting } = look.value;
+        const { type, count } = look.value;
         const remainingMs = until - deps.clock.now().getTime();
-        if (waiting > 0 || remainingMs <= 0) {
-          return ok({ waiting });
+        if (count.waiting > 0 || remainingMs <= 0) {
+          return ok(count);
         }
         if (watch === undefined) {
           watch = deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type });
           continue;
         }
         if ((await watch.next(remainingMs)) === 'timedOut') {
-          return ok({ waiting: 0 });
+          return ok({ waiting: 0, forced: 0 });
         }
       }
     } finally {

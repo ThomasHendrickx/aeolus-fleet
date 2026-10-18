@@ -73,19 +73,18 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         },
       });
     },
-    countReceivable: async ({ fleetId, shipId, type, leaseId }) =>
-      db.delivery.count({
-        where: {
-          fleetId,
-          OR: [
-            { state: { in: ['received', 'handed'] }, claimedByLeaseId: leaseId },
-            {
-              state: 'pending',
-              OR: [{ recipientShipId: shipId }, { recipientType: type, OR: [{ reachableShipIds: { isEmpty: true } }, { reachableShipIds: { has: shipId } }] }],
-            },
-          ],
-        },
-      }),
+    countReceivable: async ({ fleetId, shipId, type, leaseId }) => {
+      const pending = {
+        state: 'pending' as const,
+        OR: [{ recipientShipId: shipId }, { recipientType: type, OR: [{ reachableShipIds: { isEmpty: true } }, { reachableShipIds: { has: shipId } }] }],
+      };
+      const [waiting, forced] = await Promise.all([
+        db.delivery.count({ where: { fleetId, OR: [{ state: { in: ['received', 'handed'] }, claimedByLeaseId: leaseId }, pending] } }),
+        // Forced and not handed over yet (decision 0040): one handed is the session's to confirm.
+        db.delivery.count({ where: { fleetId, isForced: true, OR: [{ state: 'received', claimedByLeaseId: leaseId }, pending] } }),
+      ]);
+      return { waiting, forced };
+    },
     findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding }) => {
       // SKIP LOCKED: a delivery another receive holds is passed over, never
       // waited for, so two receivers never get the same one (ADR 0003). The

@@ -54,6 +54,12 @@ export interface ClaimableDeliveries {
   excluding: readonly DeliveryId[];
 }
 
+/** How many deliveries wait for a crew, and how many of them are forced and not handed over yet. */
+export interface ReceivableCount {
+  waiting: number;
+  forced: number;
+}
+
 /** A delivery a crew may claim, with the message it carries. */
 export interface ClaimableDelivery {
   delivery: Delivery;
@@ -73,10 +79,11 @@ export interface DeliveryRepository {
   findClaimableForUpdate(query: ClaimableDeliveries): Promise<ClaimableDelivery[]>;
   /**
    * How many deliveries the crew's next receive would hand it: those in
-   * flight with its lease, and those pending for its ship or its type. Locks
-   * nothing and claims nothing.
+   * flight with its lease, and those pending for its ship or its type; and of
+   * those, the forced ones not handed over yet: pending, or received with its
+   * lease (decision 0040). Locks nothing and claims nothing.
    */
-  countReceivable(query: Omit<ClaimableDeliveries, 'limit' | 'excluding'>): Promise<number>;
+  countReceivable(query: Omit<ClaimableDeliveries, 'limit' | 'excluding'>): Promise<ReceivableCount>;
   /** The delivery, locked until the unit of work ends. */
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** The one delivery a message has, read without a lock. */

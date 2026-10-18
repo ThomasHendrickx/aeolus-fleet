@@ -919,17 +919,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         });
         return Promise.resolve(claimable);
       },
-      countReceivable: ({ fleetId, shipId, type, leaseId }) =>
-        Promise.resolve(
-          state.deliveries.filter(
-            (delivery) =>
-              delivery.fleetId === fleetId &&
-              ((isInFlight(delivery) && delivery.claimedByLeaseId === leaseId) ||
-                (delivery.state === 'pending' &&
-                  ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
-                    (delivery.recipient.kind === 'type' && delivery.recipient.type === type && (delivery.reachableShipIds?.includes(shipId) ?? true))))),
-          ).length,
-        ),
+      countReceivable: ({ fleetId, shipId, type, leaseId }) => {
+        const isPendingFor = (delivery: Delivery) =>
+          delivery.state === 'pending' &&
+          ((delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId) ||
+            (delivery.recipient.kind === 'type' && delivery.recipient.type === type && (delivery.reachableShipIds?.includes(shipId) ?? true)));
+        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
+        const waiting = ofFleet.filter((delivery) => (isInFlight(delivery) && delivery.claimedByLeaseId === leaseId) || isPendingFor(delivery));
+        const forced = waiting.filter((delivery) => delivery.isForced && (delivery.state === 'received' || isPendingFor(delivery)));
+        return Promise.resolve({ waiting: waiting.length, forced: forced.length });
+      },
       findForUpdate: (fleetId, deliveryId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));

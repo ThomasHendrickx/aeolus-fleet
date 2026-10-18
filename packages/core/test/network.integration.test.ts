@@ -385,8 +385,8 @@ describe('a send to a type under network rules', () => {
     const { messageId } = unwrap(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: toKeepers }));
 
     await expect(core.prisma.delivery.findMany({ select: { reachableShipIds: true } })).resolves.toEqual([{ reachableShipIds: [reachable.shipId] }]);
-    expect(unwrap(await core.useCases.checkInbox(unreachable, { waitSeconds: 0 }))).toEqual({ waiting: 0 });
-    expect(unwrap(await core.useCases.checkInbox(reachable, { waitSeconds: 0 }))).toEqual({ waiting: 1 });
+    expect(unwrap(await core.useCases.checkInbox(unreachable, { waitSeconds: 0 }))).toEqual({ waiting: 0, forced: 0 });
+    expect(unwrap(await core.useCases.checkInbox(reachable, { waitSeconds: 0 }))).toEqual({ waiting: 1, forced: 0 });
     expect(unwrap(await core.useCases.receiveDeliveries(reachable, { max: 10 })).deliveries.map((delivery) => delivery.messageId)).toEqual([messageId]);
   });
 

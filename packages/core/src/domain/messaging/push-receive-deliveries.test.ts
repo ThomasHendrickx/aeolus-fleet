@@ -120,6 +120,7 @@ describe('a push receive', () => {
           inReplyTo: null,
           sentAt: message?.createdAt,
           attempts: 0,
+          isForced: false,
           state: 'received',
           handOverNumber: null,
         },
@@ -377,6 +378,16 @@ describe('a forced delivery (decision 0040)', () => {
 
     expect(await pushReceive(scout)).toEqual([forced]);
     expect(stored(older)?.state).toBe('pending');
+  });
+
+  it('says it was forced, and a plain one says it was not', async () => {
+    const forced = await sendTo(toScout(), { isForced: true });
+    const plain = await sendTo(toScout());
+
+    expect(unwrap(await useCases.pushReceiveDeliveries(scout, { max: 2 })).deliveries).toMatchObject([
+      { deliveryId: forced, isForced: true },
+      { deliveryId: plain, isForced: false },
+    ]);
   });
 
   it('keeps the oldest first among forced deliveries', async () => {

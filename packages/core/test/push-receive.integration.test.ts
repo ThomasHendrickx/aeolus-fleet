@@ -322,6 +322,18 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
     });
   });
 
+  it('are counted apart in the inbox check while received and not handed, and say they were forced', async () => {
+    const forced = await sendTo(toShip(scout), { isForced: true });
+    await sendTo(toShip(scout));
+
+    const [first] = unwrap(await useCases.pushReceiveDeliveries(scout, {})).deliveries;
+
+    expect(first).toMatchObject({ deliveryId: forced, isForced: true });
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 1 } });
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId: forced, handOverNumber: 1 }));
+    await expect(useCases.checkInbox(scout, {})).resolves.toEqual({ isOk: true, value: { waiting: 2, forced: 0 } });
+  });
+
   it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {
     const plain = [await sendTo(toReviewers), await sendTo(toReviewers)];
     const forced = [await sendTo(toReviewers, { isForced: true }), await sendTo(toReviewers, { isForced: true })];

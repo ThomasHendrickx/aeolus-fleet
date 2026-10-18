@@ -854,6 +854,7 @@ describe('ship.receive and ship.ack at the API', () => {
         inReplyTo: null,
         sentAt: clock.now().toISOString(),
         attempts: 1,
+        isForced: false,
       },
     ]);
     await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});
