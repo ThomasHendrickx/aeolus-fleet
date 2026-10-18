@@ -4,6 +4,7 @@ import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let scene: HistoryScenario;
 
@@ -77,5 +78,24 @@ describe('reading the deliveries no ship can take', () => {
     const listed = await scene.history.readNoShipCanTake(scene.argo);
 
     expect(listed.map((entry) => entry.message.id)).toEqual([first, second]);
+  });
+});
+
+describe('reading the deliveries no ship can take within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('lists only the deliveries whose message the caller reads: through the sender, as the type has no ship left', async () => {
+    const fromNear = await fleet.send(fleet.near, { kind: 'type', type: 'keeper' });
+    await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.far.shipId }));
+
+    const [read, all] = [await fleet.history.readNoShipCanTake(fleet.reader), await fleet.history.readNoShipCanTake(fleet.argo)];
+
+    expect([read.map((entry) => entry.message.id), all.length]).toEqual([[fromNear], 2]);
   });
 });

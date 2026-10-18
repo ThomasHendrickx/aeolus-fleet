@@ -5,6 +5,7 @@ import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 /** The claim that makes a delivery never acknowledged undeliverable (docs/blueprint.md, "Key flows"). */
 const UNDELIVERABLE_AT_ATTEMPT = 5;
@@ -217,5 +218,28 @@ describe('reading Needs attention', () => {
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
 
     await expect(scene.history.readNeedsAttention(elsewhere)).resolves.toEqual([]);
+  });
+});
+
+describe('reading Needs attention within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('lists only the deliveries whose message the caller reads', async () => {
+    const toNear = await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.far.shipId });
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
+      fleet.core.clock.advance(1_000);
+      unwrap(await fleet.messaging.receiveDeliveries(fleet.near, { max: 10 }));
+      unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
+    }
+
+    const [read, all] = [await fleet.history.readNeedsAttention(fleet.reader), await fleet.history.readNeedsAttention(fleet.argo)];
+
+    expect([read.map((entry) => entry.message.id), all.length]).toEqual([[toNear], 2]);
   });
 });
