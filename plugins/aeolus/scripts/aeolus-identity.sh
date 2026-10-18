@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # The ship this folder crews, kept in the plugin's data folder.
 #
-#   aeolus-identity.sh write [--wake-by trierarch] <fleetUrl> <shipId> <shipName> [<squadronId>]
+#   aeolus-identity.sh write [--wake-by trierarch [--socket <path>]] <fleetUrl> <shipId> <shipName> [<squadronId>]
 #                       the crew token on stdin, never on the command line, which any local user reads (#822);
-#                       with --wake-by trierarch, the trierarch wakes the folder's sessions, not a watcher
+#                       with --wake-by trierarch, the trierarch wakes the folder's sessions, not a watcher;
+#                       with --socket, the folder calls the fleet over the trierarch's socket and keeps only the token's lease
 #   aeolus-identity.sh check-in <interval>   a squadron member keeps its check-in interval: <n>m or <n>h
 #   aeolus-identity.sh show     the ship and its fleet (never the token), and whether its lease is pushed; exit 1 when none
 #   aeolus-identity.sh turn     the turn marker of a folder a trierarch crews: busy or idle, with when; exit 1 when none
@@ -20,7 +21,7 @@ command="${1:-}"
 
 case "$command" in
   write)
-    usage="usage: aeolus-identity.sh write [--wake-by trierarch [--socket <path>]] <fleetUrl> <shipId> <shipName> [<squadronId>], the crew token on stdin unless a socket is given"
+    usage="usage: aeolus-identity.sh write [--wake-by trierarch [--socket <path>]] <fleetUrl> <shipId> <shipName> [<squadronId>], the crew token on stdin"
     wake_by=""
     socket=""
     shift
@@ -34,18 +35,16 @@ case "$command" in
     # Only a trierarch's folder calls over a socket: the trierarch adds the crew token (decision 0026).
     [ -z "$socket" ] || [ "$wake_by" = trierarch ] || { echo "$usage" >&2; exit 2; }
     { [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; } || { echo "$usage" >&2; exit 2; }
-    token=""
-    if [ -z "$socket" ]; then
-      IFS= read -r token || true
-      [ -n "$token" ] || { echo "$usage" >&2; exit 2; }
-    fi
+    IFS= read -r token || true
+    [ -n "$token" ] || { echo "$usage" >&2; exit 2; }
     folder="$(aeolus_folder)"
     mkdir -p "$(dirname "$file")"
     umask 077
     printf 'fleetUrl=%s\nshipId=%s\nshipName=%s\n' "${1%/}" "$2" "$3" > "$file.tmp"
-    # A folder whose calls go over its trierarch's socket holds no crew token; any other keeps its own.
+    # A folder whose calls go over its trierarch's socket holds no crew token, only the lease it
+    # stands for, so its store and reports still tell its crews apart; any other keeps its own.
     if [ -n "$socket" ]; then
-      printf 'socket=%s\n' "$socket" >> "$file.tmp"
+      printf 'socket=%s\nlease=%s\n' "$socket" "$(aeolus_lease_key "$token")" >> "$file.tmp"
     else
       printf 'crewToken=%s\n' "$token" >> "$file.tmp"
     fi

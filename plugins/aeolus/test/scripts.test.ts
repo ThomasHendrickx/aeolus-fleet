@@ -1837,7 +1837,10 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
       /** The trierarch hands one delivery over to a folder it crews over its socket. */
       async function aHandOverOverTheSocket(): Promise<StubFleet> {
         const socket = join(sockets, 'fleet.sock');
-        fleet = await startRoutedStubFleet({ '/api/v1/ship/pushReceive': [receiving(aDelivery())], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/turn': [taken] }, { socket });
+        fleet = await startRoutedStubFleet(
+          { '/api/v1/ship/pushReceive': [receiving(aDelivery())], '/api/v1/ship/handed': [handedOk], '/api/v1/ship/ack': [acknowledged], '/api/v1/ship/handled': [taken], '/api/v1/ship/turn': [taken] },
+          { socket },
+        );
         expect(run('aeolus-identity.sh', { args: ['write', '--wake-by', 'trierarch', '--socket', socket, fleet.url, SHIP_ID, 'scout'], stdin: CREW_TOKEN }).status).toBe(0);
         aTurnEnded();
         expect(await hand()).toMatchObject({ status: 0, stdout: HAND_OVER_LINE });
@@ -1852,6 +1855,8 @@ describe('the hand-over (#756): the watcher receives one delivery, and the hooks
 
       it('reports the turn busy at the prompt that starts it', async () => {
         const stub = await aHandOverOverTheSocket();
+        await aPrompt();
+        await aTurnEnds();
         stub.calls.length = 0;
 
         await aPrompt();
