@@ -5,6 +5,8 @@ import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from '../src/domain/messaging/delivery.js';
 import { createDismissDelivery } from '../src/domain/messaging/dismiss-delivery.js';
 import { createResendDelivery } from '../src/domain/messaging/resend-delivery.js';
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createReadReachOf } from '../src/domain/registry/read-reach.js';
 import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
@@ -236,6 +238,7 @@ describe('Needs attention on Postgres', () => {
     const original = await undeliverable();
     const messages = await core.prisma.message.count();
     const resendDelivery = createResendDelivery({
+      readReach: readReachOn(core),
       uow: racingUnitOfWork({ prisma: core.prisma, transactions: 3 }, (tx, allArrived) => ({
         ...tx,
         deliveries: {
@@ -273,7 +276,7 @@ describe('Needs attention on Postgres', () => {
         },
       },
     }));
-    const deps = { uow: racing, clock: core.clock, ids: newId };
+    const deps = { uow: racing, clock: core.clock, ids: newId, readReach: readReachOn(core) };
 
     const [dismissed, resent] = await Promise.all([
       createDismissDelivery(deps)(argo, { deliveryId: original.deliveryId }),
@@ -286,3 +289,8 @@ describe('Needs attention on Postgres', () => {
     await expect(core.prisma.event.count({ where: { type: 'DeliveryDismissed' } })).resolves.toBe(1);
   });
 });
+
+/** Read reach worked out in its own unit of work, outside the racing ones. */
+function readReachOn(core: PostgresCore) {
+  return createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock });
+}

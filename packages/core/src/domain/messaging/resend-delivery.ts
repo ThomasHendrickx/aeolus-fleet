@@ -1,6 +1,6 @@
 import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
-import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
+import { checkReach, readsMessage, resolveSelector, type CheckReachTx, type ReadReachOf, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -48,7 +48,9 @@ function resendKey(deliveryId: DeliveryId): string {
 /**
  * Use case: the operator resends an undeliverable or not handled delivery from Needs
  * attention (docs/blueprint.md, "DeliveryUndeliverable"). Its scope
- * (fleet:manage) is checked before this runs. A resend is a retry of the same
+ * (messages:resend) is checked before this runs. A delivery of a message
+ * outside the caller's read reach is answered as none, so its existence does
+ * not show (decision 0046). A resend is a retry of the same
  * delivery: a new message with the original's sender, selector, payload,
  * content type and reply, naming the message it resends, so an answer goes
  * back to whoever asked. In one unit of work it stores the message and its
@@ -73,13 +75,15 @@ export function createResendDelivery(deps: {
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  readReach: ReadReachOf;
 }): ResendDelivery {
   return async (caller, input) => {
+    const readReach = await deps.readReach(caller);
     const outcome = await deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId } | { prevented: NotReachable }, ResendDeliveryRefusal>> => {
       const { fleetId } = caller;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const original = delivery && (await tx.messages.find(fleetId, delivery.messageId));
-      if (!delivery || !original) {
+      if (!delivery || !original || !readsMessage(readReach, { senderId: original.senderShipId, recipient: original.selector, claimedBy: delivery.claimedByShipId })) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
       }
       if (isPingContentType(original.contentType)) {
