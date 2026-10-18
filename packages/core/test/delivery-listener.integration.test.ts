@@ -11,9 +11,9 @@ import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/p
 import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 import { waitingWakeups } from './support/waiting-wakeups.js';
 
 // The delivery listener losing its database connection: it never throws,

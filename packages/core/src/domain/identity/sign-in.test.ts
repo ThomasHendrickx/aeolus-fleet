@@ -9,7 +9,7 @@ import {
   openLeaseOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { createSignIn } from './sign-in.js';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;

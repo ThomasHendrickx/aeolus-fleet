@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 import { inject } from 'vitest';
 
-import { createPrismaClient } from '../../src/adapters/prisma/client.js';
+import { createPrismaClient } from '../adapters/prisma/client.js';
 import { databaseUrlOf, MIGRATED_TEMPLATE } from './migrated-template.js';
 
 /** Creates an empty database in the shared Postgres container and returns its URL. */

@@ -6,7 +6,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/core/src/adap
 import { createApp } from '../packages/core/src/app.js';
 import { runServerCommand } from '../packages/core/test/support/commands.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';

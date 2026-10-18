@@ -10,9 +10,9 @@ import type { Caller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { presentStartingPrompt } from '../src/adapters/trpc/starting-prompt-text.js';
 import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The v1 acceptance test (docs/architecture.md, "Testing"): two ships
 // exchange messages back and forth over MCP, each session knowing only its

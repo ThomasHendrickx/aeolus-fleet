@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
-import { newKey } from '../../../test/support/keys.js';
-import { unwrap } from '../../../test/support/result.js';
+import { newKey } from '../../testing/keys.js';
+import { unwrap } from '../../testing/result.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 const SECOND_MS = 1_000;

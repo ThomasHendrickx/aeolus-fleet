@@ -5,10 +5,10 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import type { Caller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 
 // Manage reach on Postgres (decision 0034): manager, with fleet:manage, and
 // near carry team a; far carries team b; the networking plugin's one rule lets

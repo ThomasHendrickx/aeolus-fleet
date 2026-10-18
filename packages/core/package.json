@@ -26,6 +26,16 @@
       "@aeolus-fleet/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@aeolus-fleet/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./testing/postgres-global-setup": {
+      "@aeolus-fleet/source": "./src/testing/postgres-global-setup.ts",
+      "types": "./dist/testing/postgres-global-setup.d.ts",
+      "default": "./dist/testing/postgres-global-setup.js"
     }
   },
   "bin": {
@@ -62,6 +72,22 @@
     "pg": "^8.23.0",
     "prisma": "^7.10.0",
     "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@testcontainers/postgresql": "^12.2.0",
+    "testcontainers": "^12.2.0",
+    "vitest": "^5.0.3"
+  },
+  "peerDependenciesMeta": {
+    "@testcontainers/postgresql": {
+      "optional": true
+    },
+    "testcontainers": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.2.0",

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
 
 // The racing unit of work the race tests build on: its transactions go on

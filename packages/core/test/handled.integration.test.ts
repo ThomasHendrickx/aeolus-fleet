@@ -11,10 +11,10 @@ import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 
 // Handled, handed once more and not handled on a real Postgres (decision
 // 0040): what each stores and writes, that a handled and a not handled report

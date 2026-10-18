@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { refusalOf, unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 import { BUILT_INS_ON, type NetworkRule } from './network-settings.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';

@@ -1,9 +1,9 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { idsOf, readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 import { createReadReachOf, readsEvent, readsMessage, readsShip, type ReadReach } from './read-reach.js';
 

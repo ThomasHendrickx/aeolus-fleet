@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { deliveryInFlight, openLeaseOf, hostedFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './issue-sign-in-ticket.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './redeem-sign-in-ticket.js';
 

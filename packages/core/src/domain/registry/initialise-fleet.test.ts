@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createInMemoryCore, type InMemoryTx } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { createInitialiseFleet } from './initialise-fleet.js';
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { readReachOf } from '../../../test/support/core-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 
 // A plugin argo connected reads every ship of its fleet, whatever the rules
 // (decision 0034): a built-in rule, never off, so saving rules cannot narrow

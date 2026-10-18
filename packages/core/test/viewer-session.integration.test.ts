@@ -9,10 +9,10 @@ import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, modelOf, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 import { wholeShips } from './support/ships.js';
 
 // The viewer ship from HTTP to Postgres and back (decision 0022): the

@@ -10,10 +10,10 @@ import { createApp } from '../src/app.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The live fleet view's subscription over a WebSocket, from Postgres to the
 // browser: each committed event arrives with its number in commit order, a

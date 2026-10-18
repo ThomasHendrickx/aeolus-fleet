@@ -13,14 +13,14 @@ runs:
       run: |
         {
           echo 'list<<EOF'
-          node packages/core/test/container-images.ts
+          node packages/core/src/testing/container-images.ts
           echo EOF
         } >> "$GITHUB_OUTPUT"
     - id: restore
       uses: actions/cache/restore@v6
       with:
         path: ${{ runner.temp }}/test-images.tar
-        key: test-images-${{ hashFiles('packages/core/test/container-images.ts') }}
+        key: test-images-${{ hashFiles('packages/core/src/testing/container-images.ts') }}
     - name: Load the images from the cache
       if: steps.restore.outputs.cache-hit == 'true'
       shell: bash

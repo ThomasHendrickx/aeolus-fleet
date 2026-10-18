@@ -7,8 +7,8 @@ import { createRenameShip } from '../src/domain/registry/rename-ship.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Renaming on a real Postgres: the new name and ShipRenamed in one
 // transaction, and the name lock that keeps a rename and a commission, or two

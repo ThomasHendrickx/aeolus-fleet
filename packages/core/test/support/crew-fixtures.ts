@@ -2,9 +2,9 @@ import type { FleetId, Scope, ShipId } from '@aeolus-fleet/common';
 
 import type { JsonObject } from '../../src/domain/registry/report-details.js';
 import type { Caller } from '../../src/domain/shared/caller.js';
-import { newKey } from './keys.js';
+import { newKey } from '../../src/testing/keys.js';
 import type { registryUseCases } from './core-fixtures.js';
-import { unwrap } from './result.js';
+import { unwrap } from '../../src/testing/result.js';
 
 /**
  * Ships commissioned by argo with the scopes a test needs: the crew request's

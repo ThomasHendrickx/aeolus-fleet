@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { executeSqlFile } from '../../core/test/support/database.js';
+import { executeSqlFile } from '@aeolus-fleet/core/testing';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaFleetNetworks } from '../src/adapters/prisma/fleet-networks.js';

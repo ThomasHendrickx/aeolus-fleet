@@ -11,10 +11,10 @@ import {
   registryUseCases,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { SendMessage } from './send-message.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
 let sendMessage: SendMessage;

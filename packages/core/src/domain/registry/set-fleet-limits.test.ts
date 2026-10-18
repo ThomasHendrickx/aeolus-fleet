@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { createGetFleetLimits } from './get-fleet-limits.js';
 import { createSetFleetLimits, type SetFleetLimits } from './set-fleet-limits.js';
 import { createSetInstallationSettings } from './set-installation-settings.js';

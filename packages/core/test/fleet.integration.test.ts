@@ -8,8 +8,8 @@ import { createGetStartingPrompt } from '../src/domain/registry/get-starting-pro
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
 
 // The fleet use cases on a real Postgres through the Prisma adapters: what a

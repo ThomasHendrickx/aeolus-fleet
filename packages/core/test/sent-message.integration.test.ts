@@ -6,9 +6,9 @@ import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.j
 import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
-import { refusalOf, unwrap } from './support/result.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
+import { refusalOf, unwrap } from '../src/testing/result.js';
 
 // A sender reading where its message's delivery stands, on a real Postgres:
 // the state and since when, read from the delivery and its events.

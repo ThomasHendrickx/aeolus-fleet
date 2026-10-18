@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller } from './caller.js';
 import type { FleetNewsWatch } from './events.js';
 import { createFollowFleet, type FollowFleet } from './follow-fleet.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;

@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 import { heldUnitOfWork } from './support/postgres-core.js';
 
 // The held unit of work the race tests build on: its transaction keeps the

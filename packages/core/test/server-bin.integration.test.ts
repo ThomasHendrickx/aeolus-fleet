@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL } from './support/core-fixtures.js';
-import { createEmptyDatabase } from './support/database.js';
-import { migrateWhileAnotherHoldsTheLock } from './support/migrate-lock.js';
+import { createEmptyDatabase } from '../src/testing/database.js';
+import { migrateWhileAnotherHoldsTheLock } from '../src/testing/migrate-lock.js';
 
 // `aeolus-core`, the one command an operator runs on the server: start,
 // migrate, fleet:init and operator:reset-password. Run here as `npm run

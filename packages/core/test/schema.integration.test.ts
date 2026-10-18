@@ -5,8 +5,8 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createEmptyDatabase, createMigratedDatabase, executeSqlFile } from './support/database.js';
-import { prisma } from './support/prisma-cli.js';
+import { createEmptyDatabase, createMigratedDatabase, executeSqlFile } from '../src/testing/database.js';
+import { prisma } from '../src/testing/prisma-cli.js';
 
 // The key constraints of docs/architecture.md ("Core tables"), proven against
 // the committed migration on a real Postgres.

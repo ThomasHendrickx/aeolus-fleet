@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleet, initialiseFleet, operatorCaller } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { refusalOf, unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import { createReadReachRefusals } from './read-reach-refusals.js';

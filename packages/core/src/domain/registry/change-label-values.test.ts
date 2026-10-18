@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
-import { refusalOf, unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 
 let core: InMemoryCore;

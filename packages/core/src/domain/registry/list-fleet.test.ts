@@ -15,9 +15,9 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { wholeShips } from '../../../test/support/ships.js';
 

@@ -15,8 +15,8 @@ import {
   racingUnitOfWork,
   type PostgresCore,
 } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Claiming a ship on a real Postgres through the Prisma adapters: what a claim
 // stores and writes, its lock order against concurrent claims and against a

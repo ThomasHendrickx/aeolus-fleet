@@ -2,9 +2,9 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, historyUseCases, hostedFleetWithViewer, hostedFleet, identityUseCases, messagingUseCases, modelOf, openLeaseOf, registryUseCases } from '../../../test/support/core-fixtures.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { SignedIn } from './sign-in.js';
 
 // Viewer sessions (decision 0022): many people view a fleet at once through

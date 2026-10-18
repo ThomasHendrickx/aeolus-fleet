@@ -6,8 +6,8 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Plugins argo connected on a real Postgres (decision 0034): a connected
 // plugin's ship reads every ship whatever the rules, until a release or a

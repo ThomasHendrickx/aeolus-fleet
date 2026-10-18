@@ -6,7 +6,7 @@ import { createPrismaOperatorAccountRepository } from '../src/adapters/prisma/id
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { OperatorAccount } from '../src/domain/identity/operator-account.js';
 import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 
 // The operator account repository on a real Postgres: the email lookup that
 // names no fleet, the fleet-scoped lookup, the password change and the lock.

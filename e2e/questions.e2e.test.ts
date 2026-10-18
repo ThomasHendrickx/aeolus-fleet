@@ -15,12 +15,12 @@ import { createApp } from '../packages/core/src/app.js';
 import type { Caller } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../packages/core/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
-import { unwrap } from '../packages/core/test/support/result.js';
+import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
-import { newKey } from '../packages/core/test/support/keys.js';
+import { newKey } from '../packages/core/src/testing/keys.js';
 
 // Questions to argo, end to end (decision 0038, #849): a ship's session asks
 // argo a question over the REST API, it shows live on top of the inbox with

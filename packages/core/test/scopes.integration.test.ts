@@ -2,9 +2,9 @@ import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { OPERATOR, secretOf } from './support/core-fixtures.js';
-import { newKey } from './support/keys.js';
+import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 
 // Scopes on a real Postgres (decision 0046): a ship holds core scopes and
 // plugin scopes, each <namespace>:<action>.

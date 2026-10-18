@@ -8,8 +8,8 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { FLEET_URL } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Notices from HTTP to Postgres and back (decision 0023): the installation
 // sets them, each console session reads those of its audience, and dismisses

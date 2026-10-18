@@ -11,9 +11,9 @@ import { createApp } from '../src/app.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
 
 // The ship contract as MCP tools, from the official MCP client over HTTP to

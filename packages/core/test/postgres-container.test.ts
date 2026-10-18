@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { POSTGRES_IMAGE } from './container-images.js';
-import { TestPostgres } from './postgres-container.js';
+import { POSTGRES_IMAGE } from '../src/testing/container-images.js';
+import { TestPostgres } from '../src/testing/postgres-container.js';
 
 /** The test Postgres, showing the health check it is created with after the module set its own. */
 class CreatedTestPostgres extends TestPostgres {

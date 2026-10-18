@@ -13,9 +13,9 @@ import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createEmptyDatabase, createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { createEmptyDatabase, createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // A database error's message can carry what the request held: Postgres
 // quotes values back. The log holds such an error by its codes only, so no

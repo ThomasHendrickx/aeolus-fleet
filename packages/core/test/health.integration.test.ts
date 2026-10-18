@@ -7,8 +7,8 @@ import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The fleet health on a real Postgres (decision 0042): the stuck deliveries by
 // cause and place, read from the ships, leases, deliveries and their events,

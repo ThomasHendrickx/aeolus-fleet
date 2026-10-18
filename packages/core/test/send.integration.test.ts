@@ -10,8 +10,8 @@ import type { Caller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { agentCaller, OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Sending a message on a real Postgres through the Prisma adapters: what a
 // send stores, that nothing stays and nobody is woken when it fails, that a

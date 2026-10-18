@@ -10,7 +10,7 @@ import {
   hostedFleet,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { createResetOperatorPassword } from './reset-operator-password.js';
 
 const NEW_PASSWORD = 'staple battery horse correct';

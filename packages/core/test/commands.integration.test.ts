@@ -4,8 +4,8 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
 import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
 
 // The two server commands, run exactly as the operator runs them: through npm,
 // from the repository root, against a real Postgres.
