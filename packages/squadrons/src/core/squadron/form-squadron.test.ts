@@ -67,6 +67,8 @@ interface FleetShip {
   isCrewed: boolean;
   /** The scopes it was commissioned with. */
   scopes: string[];
+  /** The ship whose owner it was commissioned with, if squadrons named one. */
+  ownerOf: ShipId | null;
 }
 
 function fakeFleet() {
@@ -105,7 +107,7 @@ function fakeFleet() {
           : err({ code: 'NOT_FOUND', message: 'not used' }),
       ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey, scopes }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey, scopes, ownerOf }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
@@ -122,7 +124,7 @@ function fakeFleet() {
       next += 1;
       const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`;
       const secret = `aeolus_sk_v1_${name}`;
-      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...scopes] });
+      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...scopes], ownerOf: ownerOf ?? null });
       state.keys.set(idempotencyKey, shipId);
       if (state.answersLost.delete(name)) {
         return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
@@ -600,6 +602,18 @@ describe('forming for a ship that asked by message (decision 0017)', () => {
     unwrapped(await formWith({ catalogue: crewedByRequest() })(forTechLead));
 
     expect(squadrons.held[0]?.formingShip).toEqual({ shipId: FORMING, name: 'tech-lead', formKey: 'form-1' });
+  });
+
+  it("commissions the flagship and every member with the forming ship's owner (decision 0045)", async () => {
+    unwrapped(await formWith({ catalogue: crewedByRequest() })(forTechLead));
+
+    expect(fleet.state.ships.map(({ ownerOf }) => ownerOf)).toEqual([FORMING, FORMING, FORMING, FORMING]);
+  });
+
+  it("commissions argo's squadron with squadrons' own owner, naming no other", async () => {
+    unwrapped(await form(fromHemmaFeature));
+
+    expect(fleet.state.ships.map(({ ownerOf }) => ownerOf)).toEqual([null, null, null, null]);
   });
 
   it('stores no forming ship for a squadron argo formed in the console', async () => {
