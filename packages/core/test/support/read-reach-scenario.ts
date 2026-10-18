@@ -51,7 +51,8 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
     const caller = await shipWithScopes({ registry, argo }, ship);
     return { ...crewAboard(core, caller), scopes: caller.scopes };
   };
-  const labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'labeller', scopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  const labeller = argo;
   const reader = await crewed({ name: 'reader', type: 'reader', scopes: ['fleet:read'] });
   const near = await crewed({ name: 'near', type: 'reviewer', scopes: [] });
   const far = await crewed({ name: 'far', type: 'keeper', scopes: [] });

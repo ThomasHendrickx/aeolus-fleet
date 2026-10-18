@@ -39,7 +39,8 @@ beforeAll(async () => {
   database = createPrismaClient(await createMigratedDatabase());
   useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
-  const labeller = await crewed({ name: 'labeller', type: 'labeller', scopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  const labeller = { caller: argo };
   const networking = await crewed({ name: 'networking', type: 'networking', scopes: ['fleet:network'] });
   const team = unwrap(await useCases.defineLabel(labeller.caller, { key: 'team', values: ['a', 'b'] }));
   assign = async (shipId, value) => {

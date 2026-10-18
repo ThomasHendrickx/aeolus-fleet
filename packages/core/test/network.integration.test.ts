@@ -30,8 +30,9 @@ let trustId: LabelId;
 let shared: LabelValueId;
 let sensitive: LabelValueId;
 
+/** A ship the labeller commissions, so it may label it (decision 0046). */
 async function aShip(name: string): Promise<Caller> {
-  const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: name }));
+  const { shipId } = unwrap(await core.useCases.commissionShip(labeller, { idempotencyKey: newKey(), name, type: name }));
   return { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 }
 
@@ -56,9 +57,9 @@ beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId: labellerId } = unwrap(
-    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', scopes: ['labels:define', 'labels:assign'] }),
+    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] }),
   );
-  labeller = { fleetId: argo.fleetId, shipId: labellerId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
+  labeller = { fleetId: argo.fleetId, shipId: labellerId, kind: 'agent', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] };
   planner = await aShip('planner');
   vault = await aShip('vault');
   const trust = unwrap(await core.useCases.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
@@ -350,7 +351,7 @@ describe('a send under rules with terms of any value and of the same value', () 
 
   it('keeps as claimants of a send to a type only its ships with the same value', async () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [sameTrust()], to: [sameTrust()] }] }));
-    const { shipId: keeperId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'keeper', type: 'vault' }));
+    const { shipId: keeperId } = unwrap(await core.useCases.commissionShip(labeller, { idempotencyKey: newKey(), name: 'keeper', type: 'vault' }));
     unwrap(await core.useCases.assignLabel(labeller, { shipId: keeperId, valueId: shared }));
 
     const { messageId } = unwrap(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: { kind: 'type', type: 'vault' } }));
@@ -436,7 +437,7 @@ describe('a send and a change of rules', () => {
 describe('a send to a type under network rules', () => {
   /** A crewed ship of type keeper, carrying the given trust value. */
   async function crewedKeeper(name: string, trust: LabelValueId): Promise<Crew> {
-    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'keeper' }));
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(labeller, { idempotencyKey: newKey(), name, type: 'keeper' }));
     unwrap(await core.useCases.assignLabel(labeller, { shipId, valueId: trust }));
     const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));

@@ -25,7 +25,7 @@ import { createExplainReach } from './explain-reach.js';
 /**
  * argo asks whether one ship reaches another (design point 11 on #260):
  * planner (trust shared), scout (trust shared) and vault (trust sensitive),
- * labelled by the labeller; the rules come from the fleet's networking plugin.
+ * labelled by argo; the rules come from the fleet's networking plugin.
  */
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -77,7 +77,8 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   explainReach = createExplainReach({ uow: core.uow, clock: core.clock });
-  labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'labeller', scopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  labeller = argo;
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });
@@ -98,7 +99,7 @@ describe('explaining reach while the fleet has no rules', () => {
   it('answers every other ship of the fleet, all-to-all', async () => {
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
 
-    expect(sendReach(explained)).toEqual(byId(argo, labeller, planner, vault, networking));
+    expect(sendReach(explained)).toEqual(byId(argo, planner, vault, networking));
   });
 });
 
@@ -122,7 +123,7 @@ describe('explaining reach under rules', () => {
   it('answers every other ship from argo, who reaches every ship', async () => {
     const explained = unwrap(await explainReach(argo, { fromShipId: argo.shipId }));
 
-    expect(sendReach(explained)).toEqual(byId(labeller, planner, scout, vault, networking));
+    expect(sendReach(explained)).toEqual(byId(planner, scout, vault, networking));
   });
 
   it('answers argo for every ship under an empty list, the fixed exception', async () => {
@@ -209,7 +210,7 @@ describe('explaining reach while the networking plugin is not responding', () =>
 
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId }));
 
-    expect(sendReach(explained)).toEqual(byId(argo, labeller, planner, vault, networking));
+    expect(sendReach(explained)).toEqual(byId(argo, planner, vault, networking));
   });
 
   it('answers by the rules supplied last when the plugin declared keep-latest', async () => {

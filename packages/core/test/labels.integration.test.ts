@@ -38,11 +38,11 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'trierarch-plugin',
       type: 'trierarch-plugin',
-      scopes: ['fleet:read', 'labels:define', 'labels:assign'],
+      scopes: ['fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'],
     }),
   );
-  plugin = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign'] };
-  ({ shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+  plugin = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'] };
+  ({ shipId: builderId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
   const defined = unwrap(await core.useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
   osId = defined.labelId;
   macos = defined.values[0]?.id ?? newId('labelValue');
@@ -98,7 +98,7 @@ describe('labels on Postgres', () => {
   });
 
   it('are read with the fleet: each ship with what it carries, and selected by value ids, combined with AND', async () => {
-    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
+    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
     const hemma = unwrap(await core.useCases.defineLabel(plugin, { key: 'project', values: ['hemma'] })).values[0]?.id ?? newId('labelValue');
     unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
     unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: hemma }));
@@ -110,7 +110,7 @@ describe('labels on Postgres', () => {
   });
 
   it('go with a retired ship, and retire with their owner, every assignment first, freeing the key', async () => {
-    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
+    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
     const core1 = unwrap(await core.useCases.defineLabel(argo, { key: 'team', values: ['core'] })).values[0]?.id ?? newId('labelValue');
     unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
     unwrap(await core.useCases.assignLabel(plugin, { shipId: testerId, valueId: linux }));

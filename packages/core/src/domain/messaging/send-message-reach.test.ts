@@ -70,7 +70,8 @@ beforeEach(async () => {
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   messaging = messagingUseCases(core);
-  labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'networking', scopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  labeller = argo;
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });

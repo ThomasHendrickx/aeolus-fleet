@@ -107,6 +107,13 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
 }
 
 /** An agent ship a session crews, straight into the database, as {@link agentShip} makes it; returns its crew token. */
+/** Marks the ship commissioned by the client's ship, so that ship may label it (decision 0046). */
+async function commissionedBy(commissioner: TRPCClient<AppRouter>, ship: { shipId: ShipId }): Promise<{ shipId: ShipId }> {
+  const { shipId: by } = await commissioner.ship.whoami.query();
+  await database.ship.update({ where: { id: ship.shipId }, data: { commissionedBy: by, commissionKey: newKey(), commissionRequestHash: 'labelled in a test' } });
+  return ship;
+}
+
 async function crewedShip(scopes?: Scope[]): Promise<string> {
   const { shipId } = await agentShip(scopes);
   const crewToken = `aeolus_ct_v1_${newId('lease')}`;
@@ -2055,7 +2062,7 @@ describe('labels at the API', () => {
   it('let the owner with labels:assign assign and unassign a value by its id, and refuse a ship without the scope', async () => {
     const asLabeller = await labeller();
     const definer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
-    const { shipId } = await agentShip();
+    const { shipId } = await commissionedBy(asLabeller, await agentShip());
     const project = await asLabeller.fleet.defineLabel.mutate({ key: 'api-project', values: ['hemma'] });
     const other = await definer.fleet.defineLabel.mutate({ key: 'api-unassignable', values: ['x'] });
     const hemma = project.values[0]?.id ?? newId('labelValue');
@@ -2071,7 +2078,7 @@ describe('labels at the API', () => {
   it('answer each refusal with its code and a message naming what refused it', async () => {
     const asLabeller = await labeller();
     const other = await labeller();
-    const { shipId } = await agentShip();
+    const { shipId } = await commissionedBy(asLabeller, await agentShip());
     const region = await asLabeller.fleet.defineLabel.mutate({ key: 'api-region', values: ['eu'] });
     const eu = region.values[0]?.id ?? newId('labelValue');
 
@@ -2081,6 +2088,7 @@ describe('labels at the API', () => {
     await expect(codeOf(other.fleet.defineLabel.mutate({ key: 'api-region', values: ['us'] }))).resolves.toBe('CONFLICT');
     await expect(codeOf(other.fleet.assignLabel.mutate({ shipId, valueId: eu }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asLabeller.fleet.assignLabel.mutate({ shipId, valueId: newId('labelValue') }))).resolves.toBe('NOT_FOUND');
+    await expect(refusalOf(asLabeller.fleet.assignLabel.mutate({ shipId: (await agentShip()).shipId, valueId: eu }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
     await expect(codeOf(asLabeller.fleet.changeLabelValues.mutate({ labelId: newId('label'), values: ['us'] }))).resolves.toBe('NOT_FOUND');
     await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: eu });
     await expect(codeOf(asLabeller.fleet.changeLabelValues.mutate({ labelId: region.labelId, values: ['us'] }))).resolves.toBe('CONFLICT');
@@ -2088,8 +2096,8 @@ describe('labels at the API', () => {
 
   it('read the labels with fleet:read, and select ships on the fleet list by value ids', async () => {
     const asLabeller = await labeller();
-    const { shipId: builderId } = await agentShip();
-    const { shipId: testerId } = await agentShip();
+    const { shipId: builderId } = await commissionedBy(asLabeller, await agentShip());
+    const { shipId: testerId } = await commissionedBy(asLabeller, await agentShip());
     const stage = await asLabeller.fleet.defineLabel.mutate({ key: 'api-stage', values: ['build', 'test'] });
     const [build, test] = stage.values.map((value) => value.id);
     await asLabeller.fleet.assignLabel.mutate({ shipId: builderId, valueId: build ?? newId('labelValue') });
@@ -2107,7 +2115,7 @@ describe('labels at the API', () => {
   it('select ships through REST: the fleet list takes its value ids in a POST body', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign']);
     const asLabeller = client({ authorization: `Bearer ${crewToken}` });
-    const { shipId } = await agentShip();
+    const { shipId } = await commissionedBy(asLabeller, await agentShip());
     const rest = await asLabeller.fleet.defineLabel.mutate({ key: 'api-rest', values: ['yes'] });
     const yes = rest.values[0]?.id ?? newId('labelValue');
     await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: yes });
@@ -2135,7 +2143,7 @@ describe('labels at the API', () => {
   it('let the owner with labels:define delete a label no ship carries, and refuse one a ship carries, or a ship without the scope', async () => {
     const asLabeller = await labeller();
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
-    const { shipId } = await agentShip();
+    const { shipId } = await commissionedBy(asLabeller, await agentShip());
     const carried = await asLabeller.fleet.defineLabel.mutate({ key: 'api-carried', values: ['yes'] });
     const unused = await asLabeller.fleet.defineLabel.mutate({ key: 'api-unused', values: ['yes'] });
     await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: carried.values[0]?.id ?? newId('labelValue') });
@@ -2204,9 +2212,9 @@ describe('network rules at the API', () => {
     const zone = await asLabeller.fleet.defineLabel.mutate({ key: 'api-reach-zone', values: ['north', 'south'] });
     const [north, south] = zone.values.map((value) => value.id);
     const sender = client({ authorization: `Bearer ${await crewedShip()}` });
-    const { shipId: senderId } = await sender.ship.whoami.query();
-    const { shipId: neighbourId } = await agentShip();
-    const { shipId: strangerId } = await agentShip();
+    const { shipId: senderId } = await commissionedBy(asLabeller, await sender.ship.whoami.query());
+    const { shipId: neighbourId } = await commissionedBy(asLabeller, await agentShip());
+    const { shipId: strangerId } = await commissionedBy(asLabeller, await agentShip());
     for (const [shipId, valueId] of [
       [senderId, north],
       [neighbourId, north],

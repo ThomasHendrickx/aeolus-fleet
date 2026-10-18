@@ -69,7 +69,8 @@ beforeAll(async () => {
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 
-  const labeller = await crewed({ name: 'labeller', type: 'labeller', fleetScopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  const labeller = { caller: argo };
   const readerShip = await crewed({ name: 'reader', type: 'reader', fleetScopes: ['fleet:read'] });
   const near = await crewed({ name: 'near', type: 'reviewer' });
   const far = await crewed({ name: 'far', type: 'keeper' });

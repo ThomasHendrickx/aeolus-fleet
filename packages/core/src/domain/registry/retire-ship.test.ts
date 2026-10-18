@@ -175,16 +175,18 @@ describe('the labels of a retired ship', () => {
   let plugin: Caller;
   let pluginId: ShipId;
   let builderId: ShipId;
+  let runnerId: ShipId;
 
   beforeEach(async () => {
-    plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+    plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'] });
     pluginId = plugin.shipId;
-    ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    ({ shipId: builderId } = unwrap(await registry.commissionShip(plugin, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    ({ shipId: runnerId } = unwrap(await registry.commissionShip(plugin, { idempotencyKey: newKey(), name: 'runner', type: 'reviewer' })));
     unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
     unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
     unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
-    unwrap(await registry.assignLabel(plugin, { shipId: scoutId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: runnerId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await registry.assignLabel(plugin, { shipId: runnerId, valueId: valueIdOf(core, { key: 'project', value: 'hemma' }) }));
     core.clock.advance(60_000);
     core.state.events.length = 0;
   });
@@ -194,13 +196,13 @@ describe('the labels of a retired ship', () => {
   }
 
   it('go with it: the ship carries none, with one LabelUnassigned each, caused by the retirer', async () => {
-    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+    unwrap(await registry.retireShip(argo, { shipId: runnerId }));
 
-    expect(carriedText(core, scoutId)).toEqual([]);
+    expect(carriedText(core, runnerId)).toEqual([]);
     expect(carriedText(core, builderId)).toEqual(['os=macos']);
     expect(eventsOfType('LabelUnassigned').map((event) => [event.actor, event.shipId, event.occurredAt, event.details.key, event.details.value])).toEqual([
-      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'os', 'linux'],
-      [{ kind: 'ship', shipId: argo.shipId }, scoutId, core.clock.now(), 'project', 'hemma'],
+      [{ kind: 'ship', shipId: argo.shipId }, runnerId, core.clock.now(), 'os', 'linux'],
+      [{ kind: 'ship', shipId: argo.shipId }, runnerId, core.clock.now(), 'project', 'hemma'],
     ]);
   });
 
@@ -212,10 +214,10 @@ describe('the labels of a retired ship', () => {
     expect(core.state.labels).toEqual([]);
     expect(core.state.shipLabels).toEqual([]);
     expect(labelEvents()).toEqual([
-      ['LabelUnassigned', scoutId, 'os', 'linux'],
       ['LabelUnassigned', builderId, 'os', 'macos'],
+      ['LabelUnassigned', runnerId, 'os', 'linux'],
       ['LabelRetired', pluginId, 'os', null],
-      ['LabelUnassigned', scoutId, 'project', 'hemma'],
+      ['LabelUnassigned', runnerId, 'project', 'hemma'],
       ['LabelRetired', pluginId, 'project', null],
     ]);
     expect(eventsOfType('LabelRetired')[0]?.details).toEqual({ labelId: osId, key: 'os' });
