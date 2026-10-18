@@ -1973,6 +1973,38 @@ describe('console.session for another service', () => {
   });
 });
 
+describe('scopes at the API (decision 0046)', () => {
+  it('let a ship with scopes:declare declare its namespace, and refuse a ship without', async () => {
+    const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const form = { scope: 'api-squadrons:form', description: 'Form a squadron' };
+
+    await expect(declarer.fleet.declareScopes.mutate({ namespace: 'api-squadrons', scopes: [form] })).resolves.toEqual({ namespace: 'api-squadrons', scopes: [form] });
+    await expect(refusalOf(reader.fleet.declareScopes.mutate({ namespace: 'api-builds', scopes: [] }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the scopes:declare scope',
+    });
+  });
+
+  it('answer a namespace another ship took as a conflict', async () => {
+    const first = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    const second = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:declare'])}` });
+    await first.fleet.declareScopes.mutate({ namespace: 'api-taken', scopes: [] });
+
+    await expect(codeOf(second.fleet.declareScopes.mutate({ namespace: 'api-taken', scopes: [] }))).resolves.toBe('CONFLICT');
+  });
+
+  it("list the fleet's namespaces to a ship with fleet:read, core first, and refuse a ship without", async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    const listed = await reader.fleet.scopes.query();
+
+    expect(listed.slice(0, 5).map(({ namespace }) => namespace)).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+    await expect(refusalOf(sender.fleet.scopes.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
+  });
+});
+
 describe('labels at the API', () => {
   async function labeller(): Promise<TRPCClient<AppRouter>> {
     return client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign'])}` });

@@ -57,3 +57,60 @@ describe("a ship's scopes on Postgres", () => {
     await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject({ isOk: true, value: { shipId, scopes: ['messages:send', 'messages:receive', 'squadrons:form'] } });
   });
 });
+
+describe('declaring scopes on Postgres', () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
+
+  /** A commissioned ship as the caller its crew token resolves to. */
+  async function plugin(name: string) {
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name, type: 'plugin' }));
+    return { shipId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'scopes:declare'] };
+  }
+
+  it('keeps the namespace with its scopes and their descriptions in order, and writes ScopesDeclared in the same transaction', async () => {
+    const squadrons = await plugin('squadrons');
+    const scale = { scope: 'squadrons:scale', description: 'Add and remove members' };
+
+    unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM, scale] }));
+
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({ namespace: 'squadrons', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [FORM, scale] });
+    await expect(core.prisma.event.findMany({ where: { type: 'ScopesDeclared' }, select: { shipId: true, details: true } })).resolves.toEqual([{ shipId: squadrons.shipId, details: { namespace: 'squadrons', scopes: 2 } }]);
+  });
+
+  it('gives a namespace to one of two ships declaring it at once', async () => {
+    const [first, second] = [await plugin('squadrons'), await plugin('rival')];
+
+    const declared = await Promise.all([first, second].map((ship) => core.useCases.declareScopes(ship, { namespace: 'squadrons', scopes: [FORM] })));
+
+    expect(declared.map((result) => (result.isOk ? 'declared' : result.error.kind)).toSorted()).toEqual(['NAMESPACE_TAKEN', 'declared']);
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(5).map(({ namespace }) => namespace))).resolves.toEqual(['squadrons']);
+  });
+
+  it('gives one ship one of two namespaces it declares at once', async () => {
+    const squadrons = await plugin('squadrons');
+
+    const declared = await Promise.all(['squadrons', 'fleets'].map((namespace) => core.useCases.declareScopes(squadrons, { namespace, scopes: [] })));
+
+    expect(declared.map((result) => (result.isOk ? 'declared' : result.error.kind)).toSorted()).toEqual(['SECOND_NAMESPACE', 'declared']);
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(5))).resolves.toHaveLength(1);
+  });
+
+  it('refuses to remove a scope an active ship holds, and keeps the list it had', async () => {
+    const squadrons = await plugin('squadrons');
+    unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
+    const { shipId } = await claimedScout();
+    await core.prisma.ship.update({ where: { id: shipId }, data: { scopes: ['messages:send', 'messages:receive', 'squadrons:form'] } });
+
+    await expect(core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [] })).resolves.toMatchObject({ isOk: false, error: { kind: 'SCOPE_HELD' } });
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1)?.scopes)).resolves.toEqual([FORM]);
+  });
+
+  it("go with their fleet when it is deleted", async () => {
+    const squadrons = await plugin('squadrons');
+    unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
+
+    unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
+
+    await expect(core.prisma.scopeNamespace.count()).resolves.toBe(0);
+  });
+});
