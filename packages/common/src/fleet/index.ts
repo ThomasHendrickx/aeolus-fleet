@@ -17,7 +17,9 @@ export const SCOPES = [
   'messages:send',
   'messages:receive',
   'messages:force',
+  'messages:resend',
   'fleet:read',
+  'fleet:commission',
   'fleet:manage',
   'crew:assign',
   'crew:run',
@@ -35,8 +37,10 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'messages:send': 'Send, answer and ask other ships',
   'messages:receive': 'Receive and confirm the deliveries to its own ship',
   'messages:force': 'Send a forced message, which comes first',
+  'messages:resend': 'Resend or dismiss a stuck delivery of a message its ship reads',
   'fleet:read': 'Read ships, timelines, messages, labels, events and fleet-wide views',
-  'fleet:manage': 'Commission, rename, release, recrew and retire ships; starting prompts, pings, crew requests and worktree clears',
+  'fleet:commission': 'Commission agent ships, granting only what its ship may grant',
+  'fleet:manage': 'Rename, release, recrew and retire the ships it manages; starting prompts, pings, crew requests and worktree clears',
   'crew:assign': 'Assign crew requests to trierarchs and explain why none fits',
   'crew:run': 'Crew the ships whose crew requests are assigned to its ship',
   'labels:define': 'Define labels, change their values and declare network rules on them',
@@ -76,14 +80,17 @@ export type ScopeName = z.infer<typeof scopeNameSchema>;
 
 /**
  * The scopes commissioning may add to an agent ship, beside sending and
- * receiving, which every agent ship has (ADR 0002). `crew:assign` writes crew
+ * receiving, which every agent ship has (ADR 0002). `messages:resend`
+ * resends or dismisses a stuck delivery; `fleet:commission` commissions
+ * agent ships; `fleet:manage` manages the ships in its manage reach (decision
+ * 0046). `crew:assign` writes crew
  * request assignments; `crew:run` crews the ships whose requests are assigned
  * to its ship (decision 0029). `labels:define` defines labels and changes
  * their values; `labels:assign` assigns and unassigns the labels its ship owns
  * (decision 0031). `fleet:network` sets the fleet's network rules (decision
  * 0034).
  */
-export const FLEET_SCOPES = ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
+export const FLEET_SCOPES = ['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 
