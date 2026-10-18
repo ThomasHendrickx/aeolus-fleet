@@ -349,7 +349,7 @@ export function createSquadronsApp(options: {
         door,
         management: store,
         squadrons,
-        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, relays: createPrismaRelayLog(prisma), advanceStandDowns, clock }),
+        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, relays: createPrismaRelayLog(prisma), management: store, standDown: standDownOnly, advanceStandDowns, clock }),
         advanceStandDowns,
         // Only given up: a forming in flight holds its attempt unfinished too.
         recoverFormations: async (fleetId) => {

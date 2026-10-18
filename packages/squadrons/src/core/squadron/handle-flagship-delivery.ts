@@ -3,19 +3,21 @@ import { z } from 'zod';
 
 import { FLAGSHIP } from '../catalogue/catalogue.js';
 import { fillParameters } from '../catalogue/member-crew.js';
-import type { FleetDoor, FleetRefusal, OutgoingMessage, ReceivedMessage } from '../management/ports.js';
+import type { FleetDoor, FleetRefusal, ManagementCrewStore, OutgoingMessage, ReceivedMessage } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
 import type { AdvanceStandDowns } from './advance-stand-downs.js';
-import { CHECK_IN, checkInText, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
+import { CHECK_IN, checkInText, ON_STATION, ROLE, STAND_DOWN, STOOD_DOWN } from './check-in.js';
+import { FORM_SCOPE } from './form-messages.js';
 import type { FlagshipMessageLog, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
-import { ARGO_NAME, REFUSED, RELAY } from './proxy-messages.js';
+import { ARGO_NAME, REFUSED, RELAY, STANDING_DOWN } from './proxy-messages.js';
+import type { StandDown } from './stand-down.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, relayed between its squadron and its forming ship, refused a relay, kept a message it does not handle, or answered argo's ping with pong. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'relayed' | 'refused' | 'kept' | 'ponged';
+/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, stood its squadron down, relayed between its squadron and its forming ship, refused a relay, kept a message it does not handle, or answered argo's ping with pong. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'standing-down' | 'relayed' | 'refused' | 'kept' | 'ponged';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
@@ -115,10 +117,13 @@ export function createHandleFlagshipDelivery(deps: {
   messages: FlagshipMessageLog;
   operator: OperatorNotices;
   relays: RelayLog;
+  /** squadrons' own ship, which reads the forming ship's scopes from the fleet. */
+  management: Pick<ManagementCrewStore, 'find'>;
+  standDown: StandDown;
   advanceStandDowns: AdvanceStandDowns;
   clock: Clock;
 }): HandleFlagshipDelivery {
-  const refuseRelay = async (squadron: Squadron, refusal: { delivery: FlagshipDelivery; code: string; message: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+  const answerRefused = async (squadron: Squadron, refusal: { delivery: FlagshipDelivery; code: string; message: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
     const { delivery, code, message } = refusal;
     const sent = await deps.door.send(squadron.flagship.crewToken, {
       selector: { kind: 'ship', shipId: delivery.senderShipId },
@@ -135,7 +140,7 @@ export function createHandleFlagshipDelivery(deps: {
     const { member, delivery } = relay;
     const payload = JSON.stringify({ squadron: squadron.id, member: { name: member.name, role: member.role }, messageId: delivery.messageId, payload: relay.payload });
     if (payloadBytes(payload) > PAYLOAD_MAX_BYTES) {
-      return refuseRelay(squadron, {
+      return answerRefused(squadron, {
         delivery,
         code: 'PAYLOAD_TOO_LARGE',
         message: `With the relay's envelope the payload is over ${String(PAYLOAD_MAX_BYTES / 1024)} KB: send where the content lives (a path, a URL, a PR link)`,
@@ -160,7 +165,7 @@ export function createHandleFlagshipDelivery(deps: {
     const answered = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
     const target = relayTarget(squadron, { answered, to: relay.to });
     if (!target.isOk) {
-      return refuseRelay(squadron, { delivery, code: 'NO_SUCH_MEMBER', message: target.error });
+      return answerRefused(squadron, { delivery, code: 'NO_SUCH_MEMBER', message: target.error });
     }
     const sent = await deps.door.send(squadron.flagship.crewToken, {
       selector: target.value.selector,
@@ -170,6 +175,25 @@ export function createHandleFlagshipDelivery(deps: {
       payload: JSON.stringify({ squadron: squadron.id, from: delivery.senderName, payload: relay.payload }),
     });
     return sent.isOk ? ok('relayed') : err(sent.error);
+  };
+
+  // Whether the sender may stand the squadron down: argo always, its forming ship while it holds squadrons:form, read from the fleet.
+  const mayStandDown = async (squadron: Squadron, delivery: FlagshipDelivery): Promise<Result<{ code: string; message: string } | undefined, FleetRefusal>> => {
+    if (delivery.senderName === ARGO_NAME) {
+      return ok(undefined);
+    }
+    if (squadron.formingShip?.shipId !== delivery.senderShipId) {
+      return ok({ code: 'NOT_FORMING_SHIP', message: `Only the ship that formed ${squadron.id}, or argo, stands it down` });
+    }
+    const crew = await deps.management.find(squadron.fleetId);
+    if (!crew) {
+      return err({ code: 'NOT_CONNECTED', message: 'squadrons is not connected to this fleet' });
+    }
+    const sender = await deps.door.getShip(crew.crewToken, { shipId: delivery.senderShipId });
+    if (!sender.isOk) {
+      return err(sender.error);
+    }
+    return ok(sender.value.scopes.includes(FORM_SCOPE) ? undefined : { code: 'NEEDS_SCOPE', message: `Standing a squadron down needs ${FORM_SCOPE}, which ${delivery.senderName} does not hold` });
   };
 
   return async (squadron, delivery) => {
@@ -217,6 +241,43 @@ export function createHandleFlagshipDelivery(deps: {
       }
       const relayed = member ? await relayToFormingShip(squadron, { member, delivery, payload: relay.payload }) : await relayFromFormingShip(squadron, { delivery, relay });
       return relayed.isOk ? acked(relayed.value) : err(relayed.error);
+    }
+
+    if (delivery.contentType === STAND_DOWN && !member) {
+      if (parsedPayload(stoodDownPayload, delivery.payload)?.squadron !== squadron.id) {
+        return keep();
+      }
+      const allowed = await mayStandDown(squadron, delivery);
+      if (!allowed.isOk) {
+        return err(allowed.error);
+      }
+      if (allowed.value) {
+        const refused = await answerRefused(squadron, { delivery, ...allowed.value });
+        return refused.isOk ? acked(refused.value) : refused;
+      }
+      // A stand-down that comes again finds the squadron standing down already, and gets the same answer.
+      if (squadron.state !== 'standing-down') {
+        const stood = await deps.standDown({ fleetId: squadron.fleetId, squadronId: squadron.id });
+        if (!stood.isOk) {
+          const refused = await answerRefused(squadron, { delivery, code: stood.error.kind, message: stood.error.message });
+          return refused.isOk ? acked(refused.value) : refused;
+        }
+      }
+      const answered = await deps.door.send(crewToken, {
+        selector: { kind: 'ship', shipId: delivery.senderShipId },
+        contentType: STANDING_DOWN,
+        inReplyTo: delivery.messageId,
+        idempotencyKey: `standing-down-${delivery.deliveryId}`,
+        payload: JSON.stringify({ squadron: squadron.id }),
+      });
+      if (!answered.isOk) {
+        return err(answered.error);
+      }
+      const handled = await acked('standing-down');
+      if (handled.isOk) {
+        await deps.advanceStandDowns(squadron.fleetId);
+      }
+      return handled;
     }
 
     if (delivery.contentType === CHECK_IN) {
