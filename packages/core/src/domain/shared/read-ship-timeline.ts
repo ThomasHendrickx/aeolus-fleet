@@ -28,7 +28,7 @@ export function createReadShipTimeline(deps: { history: ShipHistory; readReach: 
       return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
     }
     const reach = await deps.readReach(caller);
-    const read = timeline.filter((entry) => readsEvent(reach, { shipId: entry.ship?.id ?? null, message: entry.message && partiesOf(entry.message, entry.ship) }));
+    const read = timeline.filter((entry) => readsEvent(reach, { type: entry.type, shipId: entry.ship?.id ?? null, message: entry.message && partiesOf(entry.message, entry.ship) }));
     return ok(read.map((entry) => ({ ...entry, message: entry.message === null ? null : withPing(entry.message) })));
   };
 }

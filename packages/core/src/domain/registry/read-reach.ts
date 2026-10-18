@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { EventType, ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -100,14 +100,17 @@ export function readsMessage(reach: ReadReach, message: MessageParties): boolean
   return claimedBy === null ? reach.types.has(recipient.type) : readsShip(reach, claimedBy);
 }
 
+/** The events about the rules: they concern no ship, whichever ship set or declared them, so every reader reads them. */
+const RULES_EVENTS: ReadonlySet<EventType> = new Set(['NetworkRulesDeclared', 'NetworkRulesSet', 'BuiltInRuleChanged']);
+
 /**
  * Whether the reach reads an event: through the message it concerns, else
- * through the ship it concerns. One that concerns neither, such as a label's
- * or the rules', every reader reads. Who caused it does not count.
+ * through the ship it concerns. One that concerns neither, such as a label's,
+ * or a rules event, every reader reads. Who caused it does not count.
  */
-export function readsEvent(reach: ReadReach, event: { shipId: ShipId | null; message: MessageParties | null }): boolean {
+export function readsEvent(reach: ReadReach, event: { type: EventType; shipId: ShipId | null; message: MessageParties | null }): boolean {
   if (event.message !== null) {
     return readsMessage(reach, event.message);
   }
-  return event.shipId === null || readsShip(reach, event.shipId);
+  return event.shipId === null || RULES_EVENTS.has(event.type) || readsShip(reach, event.shipId);
 }

@@ -22,6 +22,6 @@ export async function eventsRead(
     events.flatMap((event) => (event.messageId === undefined ? [] : [event.messageId])),
   );
   return events.filter((event) =>
-    readsEvent(reach, { shipId: event.shipId ?? null, message: (event.messageId === undefined ? undefined : parties.get(event.messageId)) ?? null }),
+    readsEvent(reach, { type: event.type, shipId: event.shipId ?? null, message: (event.messageId === undefined ? undefined : parties.get(event.messageId)) ?? null }),
   );
 }
