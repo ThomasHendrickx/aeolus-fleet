@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
+
 import { createNetworkingPluginApp, type NetworkingPluginApp } from '../src/app.js';
 import { connectPlugin, mutate, query, signIn } from './support/connection.js';
 import { createPluginDatabase } from './support/database.js';

@@ -10,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type Caller, type PrismaClient, type UseCases } from '@aeolus-fleet/core/testing';
+
 import { scriptEnvironment } from './script-environment.js';
 
 // The aeolus plugin's scripts against a real fleet (#819): the watcher and the

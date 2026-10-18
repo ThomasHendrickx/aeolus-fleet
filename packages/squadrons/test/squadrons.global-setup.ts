@@ -1,7 +1,7 @@
 import type { TestProject } from 'vitest/node';
 
 import { createPrismaClient, databaseUrlOf } from '@aeolus-fleet/core/testing';
-// The shared Postgres container's URL, which core's global setup provides before this one runs.
+
 import { migrateDatabase } from '../src/adapters/prisma/migrate.js';
 import { SQUADRONS_TEMPLATE } from './support/database.js';
 

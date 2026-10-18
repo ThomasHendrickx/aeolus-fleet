@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp, createMigratedDatabase, FLEET_URL } from '@aeolus-fleet/core/testing';
+
 import { requireCoreVersion } from '../src/adapters/fleet/core-version.js';
 
 let fleet: FastifyInstance;

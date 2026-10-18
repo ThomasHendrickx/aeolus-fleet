@@ -1,4 +1,3 @@
-// The shared Postgres container's URL, which the global setup provides to every file.
 import { createCopyOf } from '@aeolus-fleet/core/testing';
 
 /** The database squadrons' global setup migrates once; every squadrons database a test asks for is a copy of it. */

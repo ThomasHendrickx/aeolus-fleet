@@ -9,8 +9,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-// The shared Postgres container's URL, which the global setup provides to every file.
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
+
 import { createClaudeCodeHarness } from '../src/adapters/claude-code.js';
 import { adapterFlagsOf, riskyFlagsOf } from '../src/adapters/harnesses.js';
 import { createClaudeCodeSetup } from '../src/adapters/claude-code-setup.js';
