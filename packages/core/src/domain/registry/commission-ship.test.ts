@@ -121,7 +121,7 @@ describe('the scopes of a new ship', () => {
   }
 
   it('adds fleet:read to the scopes every agent ship has', async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'watcher', type: 'squadron', fleetScopes: ['fleet:read'] }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'watcher', type: 'squadron', scopes: ['fleet:read'] }));
 
     expect(scopesOf('watcher')).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
   });
@@ -131,7 +131,7 @@ describe('the scopes of a new ship', () => {
       await commissionShip(argo, { idempotencyKey: newKey(),
         name: 'manager',
         type: 'squadron',
-        fleetScopes: ['fleet:manage', 'fleet:read', 'fleet:manage'],
+        scopes: ['fleet:manage', 'fleet:read', 'fleet:manage'],
       }),
     );
 
@@ -140,14 +140,14 @@ describe('the scopes of a new ship', () => {
 
   it('adds crew:assign and crew:run, after the fleet scopes (decision 0029)', async () => {
     unwrap(
-      await commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run', 'crew:assign', 'fleet:read'] }),
+      await commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run', 'crew:assign', 'fleet:read'] }),
     );
 
     expect(scopesOf('mac-mini')).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'crew:assign', 'crew:run']);
   });
 
   it('writes the scopes in ShipCommissioned', async () => {
-    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:manage'] }));
 
     expect(core.state.events.find((event) => event.type === 'ShipCommissioned' && event.shipId === shipId)?.details).toMatchObject({
       scopes: 'messages:send messages:receive fleet:manage',
@@ -155,10 +155,10 @@ describe('the scopes of a new ship', () => {
   });
 
   it('lets a ship with fleet:manage commission a ship with fleet scopes: no rule beyond the scopes (ADR 0016)', async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:read', 'fleet:manage'] }));
     const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
 
-    unwrap(await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+    unwrap(await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:manage'] }));
 
     expect(scopesOf('deputy')).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
   });
@@ -170,7 +170,7 @@ describe('the kind of a new ship', () => {
   }
 
   beforeEach(async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'] }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:manage'] }));
   });
 
   it('is an agent when the commission states none', async () => {
@@ -210,7 +210,7 @@ describe('the kind of a new ship', () => {
 
 describe('the owner of a new ship (decision 0045)', () => {
   async function commissioned(caller: Caller, name: string): Promise<ShipId> {
-    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes: ['fleet:manage'] })).shipId;
+    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:manage'] })).shipId;
   }
 
   function ownerSetOf(shipId: ShipId) {
@@ -388,16 +388,16 @@ describe('a commission that comes again', () => {
   });
 
   it('takes the fleet scopes in another order as the same request', async () => {
-    unwrap(await commissionShip(argo, { ...scout, fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    unwrap(await commissionShip(argo, { ...scout, scopes: ['fleet:read', 'fleet:manage'] }));
 
-    await expect(commissionShip(argo, { ...scout, fleetScopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { secret: null } });
+    await expect(commissionShip(argo, { ...scout, scopes: ['fleet:manage', 'fleet:read'] })).resolves.toMatchObject({ isOk: true, value: { secret: null } });
   });
 
   it.each([
     ['another name', { name: 'lookout' }],
     ['another type', { type: 'lookout' }],
     ['another note', { note: 'reviews issues' }],
-    ['other fleet scopes', { fleetScopes: ['fleet:read'] as const }],
+    ['other fleet scopes', { scopes: ['fleet:read'] as const }],
   ])('refuses the same key with %s, and nothing changes', async (_label, change) => {
     unwrap(await commissionShip(argo, scout));
     const before = structuredClone(core.state);
@@ -407,7 +407,7 @@ describe('a commission that comes again', () => {
   });
 
   it("keeps each commissioning ship's keys apart: another ship's same key commissions a new ship", async () => {
-    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', fleetScopes: ['fleet:manage'], idempotencyKey: 'commission-manager' }));
+    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', scopes: ['fleet:manage'], idempotencyKey: 'commission-manager' }));
     const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
     unwrap(await commissionShip(argo, scout));
 

@@ -38,7 +38,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'trierarch-plugin',
       type: 'trierarch-plugin',
-      fleetScopes: ['fleet:read', 'labels:define', 'labels:assign'],
+      scopes: ['fleet:read', 'labels:define', 'labels:assign'],
     }),
   );
   plugin = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'labels:define', 'labels:assign'] };

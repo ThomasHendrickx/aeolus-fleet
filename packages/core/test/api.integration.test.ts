@@ -1877,7 +1877,7 @@ describe('ships with fleet scopes at the API', () => {
     name: string,
     fleetScopes: ('fleet:read' | 'fleet:manage')[],
   ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return { shipId, asShip: client({ authorization: `Bearer ${crewToken}` }) };
   }
@@ -1914,7 +1914,7 @@ describe('ships with fleet scopes at the API', () => {
 
 describe('fleet.follow at the API', () => {
   async function crewedReader(name: string): Promise<TRPCClient<AppRouter>> {
-    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', fleetScopes: ['fleet:read'] });
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:read'] });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
     return client({ authorization: `Bearer ${crewToken}` });
   }

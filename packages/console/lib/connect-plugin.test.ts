@@ -34,8 +34,8 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
       return Promise.resolve(state.connection);
     },
     ships: () => Promise.resolve(state.ships.map(({ id, name, type, status }) => ({ id, name, type, status }))),
-    commission: ({ name, type, fleetScopes }) => {
-      state.scopes.push(fleetScopes);
+    commission: ({ name, type, scopes }) => {
+      state.scopes.push(scopes);
       next += 1;
       const ship: FleetShip = { id: `shp_${String(next)}`, name, type, status: 'awaitingCrew', secret: `aeolus_sk_v1_${String(next)}` };
       state.ships.push(ship);

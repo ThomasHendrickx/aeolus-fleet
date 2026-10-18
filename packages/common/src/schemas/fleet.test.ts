@@ -67,23 +67,29 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts a plugin scope to add to the ship: the fleet checks what the commissioner may grant (decision 0046)', () => {
+    const input = { name: 'former', type: 'reviewer', scopes: ['squadrons:form'], idempotencyKey: 'commission-former' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
   it('accepts fleet scopes to add to the ship', () => {
-    const input = { name: 'manager', type: 'squadron', fleetScopes: ['fleet:read', 'fleet:manage'], idempotencyKey: 'commission-manager' };
+    const input = { name: 'manager', type: 'squadron', scopes: ['fleet:read', 'fleet:manage'], idempotencyKey: 'commission-manager' };
 
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
   it('accepts crew:run among the fleet scopes, for a trierarch', () => {
-    const input = { name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'], idempotencyKey: 'commission-mac-mini' };
+    const input = { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'], idempotencyKey: 'commission-mac-mini' };
 
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
   it.each([
-    ['a message scope, which every agent ship has already', ['messages:send']],
-    ['an unknown scope', ['fleet:own']],
-  ])('rejects %s among the fleet scopes', (_label, fleetScopes) => {
-    expect(commissionShipInputSchema.safeParse({ name: 'manager', type: 'squadron', fleetScopes }).success).toBe(false);
+    ['an unknown core scope', ['fleet:own']],
+    ['a scope with no action', ['squadrons']],
+  ])('rejects %s among the scopes', (_label, scopes) => {
+    expect(commissionShipInputSchema.safeParse({ name: 'manager', type: 'squadron', scopes }).success).toBe(false);
   });
 
   it.each(['agent', 'person', 'app'])('accepts the kind %s', (kind) => {

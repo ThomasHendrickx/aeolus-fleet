@@ -73,7 +73,7 @@ beforeEach(async () => {
   // argo of their fleet: the same scopes, in the other fleet.
   const theirArgo = { ...ourArgo, fleetId: theirFleet.fleetId, shipId: theirFleet.operatorShipId };
   const management = async (argo: typeof ourArgo) =>
-    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }));
   const ourManagement = await management(ourArgo);
   const theirManagement = await management(theirArgo);
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });

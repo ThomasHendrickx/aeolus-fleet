@@ -48,7 +48,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'trierarch-plugin',
       type: 'trierarch-plugin',
-      fleetScopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'],
+      scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'],
     }),
   );
   shipId = commissioned.shipId;
@@ -123,7 +123,7 @@ describe('connecting the trierarch plugin', () => {
   });
 
   it('is refused for a ship without crew:assign', async () => {
-    const manager = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'trierarch-plugin', fleetScopes: ['fleet:read', 'fleet:manage'] }));
+    const manager = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:manage'] }));
     const { address } = await started();
 
     const refused = await connectPlugin(address, { cookie, shipId: manager.shipId, secret: secretOf(manager.secret) });
@@ -362,7 +362,7 @@ describe('a request given back (#382)', () => {
     const door = createRestFleetDoor(fleetUrl);
     const registered = await door.register({ shipId, secret });
     const crewToken = registered.isOk ? registered.value.crewToken : '';
-    const machine = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-studio', type: 'trierarch', fleetScopes: ['crew:run'] }));
+    const machine = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-studio', type: 'trierarch', scopes: ['crew:run'] }));
     const scout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'implementer' }));
     unwrap(await useCases.requestCrew(argo, { shipId: scout.shipId, settings: { workspace: { kind: 'worktree', repository: 'aeolus-fleet' }, options: {} } }));
     await door.assignCrew(crewToken, { shipId: scout.shipId, trierarchShipId: machine.shipId });

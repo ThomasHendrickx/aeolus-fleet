@@ -40,7 +40,7 @@ async function aShip(name: string): Promise<Caller> {
  * unavailable: the one ship that sets the rules (decision 0035).
  */
 async function registeredPlugin(): Promise<Crew> {
-  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', fleetScopes: ['fleet:network'] }));
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
   const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   unwrap(await core.useCases.registerNetworkPlugin(crew, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
@@ -56,7 +56,7 @@ beforeEach(async () => {
   core = await createPostgresCore();
   argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const { shipId: labellerId } = unwrap(
-    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', fleetScopes: ['labels:define', 'labels:assign'] }),
+    await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', scopes: ['labels:define', 'labels:assign'] }),
   );
   labeller = { fleetId: argo.fleetId, shipId: labellerId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
   planner = await aShip('planner');
@@ -118,7 +118,7 @@ describe('the networking plugin (decision 0035)', () => {
   let pluginSecret: string;
 
   beforeEach(async () => {
-    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reach', type: 'networking', fleetScopes: ['fleet:network'] }));
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'reach', type: 'networking', scopes: ['fleet:network'] }));
     plugin = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['fleet:network'] };
     pluginSecret = secretOf(secret);
   });

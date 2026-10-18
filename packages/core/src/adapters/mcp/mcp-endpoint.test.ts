@@ -264,7 +264,7 @@ describe('the ship tools at /mcp', () => {
 
   it.each([
     ['fleet_list', [/fleet:read/, /every ship/i]],
-    ['fleet_commission', [/fleet:manage/, /fleetScopes/, /starting prompt/i]],
+    ['fleet_commission', [/fleet:manage/, /scopes adds/, /starting prompt/i]],
     ['fleet_release', [/fleet:manage/, /never argo/i]],
     ['fleet_ping', [/fleet:manage/, /pong/]],
     ['fleet_list', [/labels/, /exact/i]],

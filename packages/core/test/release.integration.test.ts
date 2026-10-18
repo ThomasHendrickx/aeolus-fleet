@@ -302,10 +302,10 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
 describe('a session its trierarch stops before it acks (#536)', () => {
   it('has its delivery received again by the next session the trierarch crews: released, a new starting prompt, registered', async () => {
     const { shipId: pluginId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', fleetScopes: ['crew:assign'] }),
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
     const { shipId: trierarchId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] }),
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const plugin: Caller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const trierarch: Caller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };

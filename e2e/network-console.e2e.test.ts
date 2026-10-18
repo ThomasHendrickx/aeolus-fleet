@@ -170,7 +170,7 @@ describe('the networking plugin in the console', () => {
     await declared.getByText('No plugin declares rules.').waitFor(WITHIN);
 
     const { shipId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crew-keeper', type: 'plugin', fleetScopes: ['labels:define', 'labels:assign'] }),
+      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crew-keeper', type: 'plugin', scopes: ['labels:define', 'labels:assign'] }),
     );
     const keeper: Caller = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
     const crew = unwrap(await useCases.defineLabel(keeper, { key: 'crew', values: ['blue'] }));
