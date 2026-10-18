@@ -87,7 +87,7 @@ export async function receivedDeliveryOf(
   });
 }
 
-interface ClaimDeps {
+export interface ClaimDeps {
   tx: ReceiveDeliveriesTx;
   ids: IdGenerator;
   at: Date;
@@ -96,16 +96,17 @@ interface ClaimDeps {
 /**
  * Claims up to `max` deliveries for the crew in one unit of work: holds its
  * lease, then takes its own deliveries in flight, then the oldest pending ones
- * for its ship or its type. One that turns undeliverable is handed to no one,
+ * for its ship or its type; with `inReplyTo`, only replies to that message.
+ * One that turns undeliverable is handed to no one,
  * and the next one claimable takes its place. Each one handed over names its
  * sender as Registry holds it now.
  */
-async function claimForCrew(
+export async function claimForCrew(
   deps: ClaimDeps,
-  claim: { crew: Crew; max: number },
+  claim: { crew: Crew; max: number; inReplyTo?: MessageId },
 ): Promise<Result<{ ship: Ship; deliveries: ReceivedDelivery[] }, ReceiveRefusal>> {
   const { tx, ids, at } = deps;
-  const { crew, max } = claim;
+  const { crew, max, inReplyTo } = claim;
   const ship = await holdLease(tx, crew);
   if (!ship.isOk) {
     return ship;
@@ -127,6 +128,7 @@ async function claimForCrew(
       leaseId: crew.leaseId,
       limit,
       excluding: claimed,
+      ...(inReplyTo === undefined ? {} : { inReplyTo }),
     });
     hasMore = claimable.length === limit;
     for (const { delivery, message } of claimable) {

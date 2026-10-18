@@ -52,6 +52,8 @@ export interface ClaimableDeliveries {
   limit: number;
   /** Deliveries this receive has already claimed, left out. */
   excluding: readonly DeliveryId[];
+  /** Set to claim only deliveries of replies to this message, in flight or pending. */
+  inReplyTo?: MessageId;
 }
 
 /** How many deliveries wait for a crew, and how many of them are forced and not handed over yet. */

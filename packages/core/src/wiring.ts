@@ -57,6 +57,7 @@ import { createMarkRead, type MarkRead } from './domain/messaging/mark-read.js';
 import type { ReceiverWakeups } from './domain/messaging/ports.js';
 import { createPushReceiveDeliveries, type PushReceiveDeliveries } from './domain/messaging/push-receive-deliveries.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './domain/messaging/receive-deliveries.js';
+import { createReceiveReply, type ReceiveReply } from './domain/messaging/receive-reply.js';
 import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/reply-to-message.js';
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
@@ -189,6 +190,7 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
+  receiveReply: ReceiveReply;
   pushReceiveDeliveries: PushReceiveDeliveries;
   handOverDelivery: HandOverDelivery;
   reportHandled: ReportHandled;
@@ -357,6 +359,13 @@ export function createUseCases(options: {
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({
+      uow,
+      clock,
+      ids,
+      wakeups,
+      waitMs: options.receiveWaitMs,
+    }),
+    receiveReply: createReceiveReply({
       uow,
       clock,
       ids,

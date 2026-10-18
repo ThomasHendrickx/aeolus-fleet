@@ -38,6 +38,7 @@ import { createPushReceiveDeliveries } from '../../src/domain/messaging/push-rec
 import { createReplyToMessage } from '../../src/domain/messaging/reply-to-message.js';
 import { createDismissDelivery } from '../../src/domain/messaging/dismiss-delivery.js';
 import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deliveries.js';
+import { createReceiveReply } from '../../src/domain/messaging/receive-reply.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
@@ -268,6 +269,7 @@ export function messagingUseCases(core: InMemoryCore) {
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    receiveReply: createReceiveReply({ ...deps, wakeups: core.wakeups }),
     pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     handOverDelivery: createHandOverDelivery(deps),
     reportHandled: createReportHandled(deps),

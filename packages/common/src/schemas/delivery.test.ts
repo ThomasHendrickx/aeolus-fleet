@@ -21,6 +21,7 @@ import {
   receivedDeliverySchema,
   receiveInputSchema,
   receiveOutputSchema,
+  receiveReplyInputSchema,
 } from './delivery.js';
 
 const newId = createIdGenerator();
@@ -53,6 +54,22 @@ describe('receiveInputSchema', () => {
     ['text', '3'],
   ])('rejects a max of %s', (_label, max) => {
     expect(receiveInputSchema.safeParse({ max }).success).toBe(false);
+  });
+});
+
+describe('receiveReplyInputSchema', () => {
+  it('takes the id of the message whose reply to receive', () => {
+    const input = { messageId: newId('message') };
+
+    expect(receiveReplyInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['no message id', {}],
+    ['a delivery id', { messageId: newId('delivery') }],
+    ['no input', undefined],
+  ])('refuses %s', (_label, input) => {
+    expect(receiveReplyInputSchema.safeParse(input).success).toBe(false);
   });
 });
 

@@ -72,6 +72,14 @@ export const receiveOutputSchema = z.object({
 export type ReceiveOutput = z.infer<typeof receiveOutputSchema>;
 
 /**
+ * Input of `ship.receiveReply`: the message whose reply to receive. Its
+ * output is `receiveOutputSchema`, with one delivery at most.
+ */
+export const receiveReplyInputSchema = z.object({ messageId: idSchema('message') });
+
+export type ReceiveReplyInput = z.infer<typeof receiveReplyInputSchema>;
+
+/**
  * One delivery a push receive takes for the crew's computer side (decision
  * 0040): received, not yet handed to the agent and with no attempt counted,
  * or handed already, with the last hand-over number the crew reported.
