@@ -326,7 +326,7 @@ describe('the record of a refused send', () => {
     await setRules([{ from: [value('trust', 'shared')], to: [value('trust', 'shared')] }]);
   });
 
-  it('says who tried to reach whom, both ships with the labels they carried by key, the settings version that refused it and when', async () => {
+  it('says who tried to reach whom, both ships with the labels they carried by key and their owners, the settings version that refused it and when', async () => {
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
     const [refusal] = core.state.reachRefusals;
@@ -337,8 +337,8 @@ describe('the record of a refused send', () => {
         fleetId,
         id: refusal?.id,
         at: core.clock.now(),
-        sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')] },
-        recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')] } },
+        sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')], owner: { id: argo.shipId, name: 'argo' } },
+        recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')], owner: { id: argo.shipId, name: 'argo' } } },
         settingsVersion: 2,
         whilePluginUnavailable: null,
       },
@@ -354,6 +354,19 @@ describe('the record of a refused send', () => {
     const valuesOf = (labels: readonly { key: string; value: string }[] | undefined) => labels?.filter((label) => label.key === 'trust').map((label) => label.value);
     expect([valuesOf(refusal?.sender.labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
     expect(refusal?.settingsVersion).toBe(3);
+  });
+
+  it('keeps the owner each ship had then, by id and name', async () => {
+    const { shipId: thomasId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await registry.setOwner(argo, { shipId: vault.shipId, ownerShipId: thomasId }));
+
+    refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
+
+    const [refusal] = core.state.reachRefusals;
+    expect([refusal?.sender.owner, refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.owner : undefined]).toEqual([
+      { id: argo.shipId, name: 'argo' },
+      { id: thomasId, name: 'thomas' },
+    ]);
   });
 
   it('names the version of the settings that refused it', async () => {
@@ -426,7 +439,7 @@ describe('a send to a type while the fleet has network rules', () => {
     expect(refusalOf(refused)).toEqual(NOT_REACHABLE);
     expect(core.state.deliveries).toEqual([]);
     expect(core.state.reachRefusals.map((refusal) => refusal.recipient)).toEqual([
-      { kind: 'type', type: 'keeper', ships: [{ id: vault.shipId, name: 'vault', labels: [{ labelId: core.state.labels.find((held) => held.key === 'trust')?.id, key: 'trust', valueId: value('trust', 'sensitive'), value: 'sensitive' }] }] },
+      { kind: 'type', type: 'keeper', ships: [{ id: vault.shipId, name: 'vault', labels: [{ labelId: core.state.labels.find((held) => held.key === 'trust')?.id, key: 'trust', valueId: value('trust', 'sensitive'), value: 'sensitive' }], owner: { id: argo.shipId, name: 'argo' } }] },
     ]);
   });
 
