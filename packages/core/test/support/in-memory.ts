@@ -481,6 +481,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships.some((held) => held.fleetId === fleetId && held.type === type && held.retiredAt === null && held.kind !== 'viewer'),
         ),
+      setScopes: ({ fleetId, shipId, scopes }) => {
+        const found = ship(fleetId, shipId);
+        if (found) {
+          found.scopes = [...scopes];
+        }
+        return Promise.resolve();
+      },
       scopesHeldIn: (fleetId, namespace) =>
         Promise.resolve(
           [...new Set(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null).flatMap((held) => held.scopes.filter((scope) => scope.startsWith(`${namespace}:`))))].toSorted(),

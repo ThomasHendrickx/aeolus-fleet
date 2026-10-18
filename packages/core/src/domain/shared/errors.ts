@@ -3,6 +3,7 @@ import { err, type Err } from './result.js';
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
   | 'ASSIGNEE_NOT_ACTIVE'
+  | 'BASE_SCOPE'
   | 'CLEAR_REQUEST_LIMIT_REACHED'
   | 'CLEAR_REQUEST_NOT_FOUND'
   | 'CORE_NAMESPACE'
@@ -37,7 +38,11 @@ export type DomainErrorKind =
   | 'GUIDE_NOT_FOUND'
   | 'GUIDE_STEP_NOT_FOUND'
   | 'IDEMPOTENCY_KEY_REUSED'
+  | 'OWN_SHIP_SCOPES'
+  | 'PLUGIN_SCOPE_NOT_YOURS'
   | 'SCOPE_HELD'
+  | 'SCOPE_NOT_DECLARED'
+  | 'SCOPE_NOT_HELD'
   | 'SECOND_NAMESPACE'
   | 'SHIP_HAS_NO_OWNER'
   | 'KIND_COMMISSIONED_BY_ARGO_ONLY'
@@ -102,6 +107,7 @@ export type DomainErrorKind =
   | 'SHIP_LABEL_LIMIT_REACHED'
   | 'SHIP_LIMIT_REACHED'
   | 'SHIP_NOT_FOUND'
+  | 'SHIP_SCOPES_FIXED'
   | 'SIGN_IN_TICKET_INVALID'
   | 'TOO_MANY_SCOPES'
   | 'UNKNOWN_CREW_TOKEN'

@@ -455,6 +455,19 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says what scopes a ship was granted and revoked, and by whom (decision 0046)', () => {
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: 'fleet:read squadrons:form', removed: 'labels:define' } }))).toEqual({
+      sentence: 'Scopes changed: granted fleet:read squadrons:form, revoked labels:define by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says only what changed', () => {
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: 'fleet:read', removed: '' } })).sentence).toBe('Scopes changed: granted fleet:read by argo');
+    expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: '', removed: 'squadrons:form' } })).sentence).toBe('Scopes changed: revoked squadrons:form by argo');
+  });
+
   it('says one scope in the singular', () => {
     expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 1 } })).sentence).toBe('Scopes declared: namespace squadrons, 1 scope by scout');
   });

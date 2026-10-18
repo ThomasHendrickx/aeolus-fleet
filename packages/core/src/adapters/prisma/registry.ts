@@ -334,6 +334,9 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       const row = await db.ship.findFirst({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, select: { id: true } });
       return row !== null;
     },
+    setScopes: async ({ fleetId, shipId, scopes }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { scopes: [...scopes] } });
+    },
     scopesHeldIn: async (fleetId, namespace) => {
       const rows = await db.$queryRaw<{ scope: string }[]>`
         SELECT DISTINCT held.scope FROM ships s, unnest(s.scopes) AS held(scope)

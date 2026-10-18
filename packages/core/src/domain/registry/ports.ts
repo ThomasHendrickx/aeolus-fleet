@@ -126,6 +126,8 @@ export interface ShipRepository {
   setOwner(change: { fleetId: FleetId; shipId: ShipId; ownerShipId: ShipId }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
   retire(change: { fleetId: FleetId; shipId: ShipId; at: Date }): Promise<void>;
+  /** Gives the ship these scopes, in this order, in place of the ones it held (decision 0046). */
+  setScopes(change: { fleetId: FleetId; shipId: ShipId; scopes: readonly ScopeName[] }): Promise<void>;
   /** The scopes of this plugin namespace that a ship not retired holds, each once, by name (decision 0046). */
   scopesHeldIn(fleetId: FleetId, namespace: string): Promise<ScopeName[]>;
 }
