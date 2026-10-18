@@ -31,6 +31,7 @@ import { createTrust } from '../src/adapters/trust.js';
 import { initTrierarch } from '../src/cli/init.js';
 import type { ObservedSession, SessionRuntime } from '../src/core/ports.js';
 import { RESTART_DELAYS_MS } from '../src/core/restart-policy.js';
+import { createCallerCheck } from '../src/adapters/caller-check.js';
 import { createShipSockets, type ShipSockets } from '../src/adapters/ship-sockets.js';
 import { createRunPass } from '../src/core/run-pass.js';
 import { CONFIGURATION } from './support/in-memory.js';
@@ -190,7 +191,9 @@ async function aTrierarchOnTheFleet(claudeCodeFlags: readonly string[] = CONFIGU
   const clock = at.clock ?? { now: () => new Date() };
   const logger = { warn: () => undefined, action: () => undefined };
   const setup = { configuration, version: '0.0.0', adapterFlags: adapterFlagsOf(configuration), riskyFlags: riskyFlagsOf(configuration) };
-  const sockets = createShipSockets({ root: paths.sockets, fleetUrl: address, crewTokenOf: async (shipId) => (await state.load()).entries[shipId]?.crewToken, log: () => undefined });
+  // The real caller check: the plugin's scripts run as children of this process, as aeolus-push.sh does of the trierarch.
+  const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) });
+  const sockets = createShipSockets({ root: paths.sockets, fleetUrl: address, crewTokenOf: async (shipId) => (await state.load()).entries[shipId]?.crewToken, mayCall, log: () => undefined });
   openSockets = sockets;
   // A new run pass over the same files is the trierarch started again.
   const aRunPass = () => createRunPass({ fleet, harnesses: { 'claude-code': harness }, processes: sessions, workspace, trust: createTrust({ configuration, homeDirectory: home, env: {}, managedSettings: join(home, 'managed') }), state, setup, clock, logger, refuseModel: () => Promise.resolve(), newLaunchId: randomUUID, sockets });

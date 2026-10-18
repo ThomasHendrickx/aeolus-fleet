@@ -1,5 +1,6 @@
 import { chmod, mkdir, rm } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { Socket } from 'node:net';
 import { join } from 'node:path';
 
 import type { ShipId } from '@aeolus-fleet/common';
@@ -11,7 +12,8 @@ import type { ShipId } from '@aeolus-fleet/common';
  * user opens (a container mounts that folder). The trierarch adds the ship's
  * crew token, read at each call so a new crew reaches the same socket, and
  * forwards the call unchanged; the fleet's answer goes back unchanged, a 503
- * included. It checks only the path (the ship API and the ship protocol,
+ * included. It answers only a caller of the ship's own session or of the
+ * trierarch (the caller check), and checks only the path (the ship API and the ship protocol,
  * never register or deregister) and the size, and logs one line per call
  * without the body. It queues nothing: when the fleet gives no answer, the
  * session gets none either.
@@ -75,6 +77,8 @@ export function createShipSockets(options: {
   root: string;
   fleetUrl: string;
   crewTokenOf: (shipId: ShipId) => Promise<string | undefined>;
+  /** Whether the process at the other end of the connection may call the ship's socket. */
+  mayCall: (shipId: ShipId, connection: Socket) => Promise<boolean>;
   log: (line: string) => void;
 }): ShipSockets {
   const servers = new Map<ShipId, { server: Server; path: string }>();
@@ -86,6 +90,11 @@ export function createShipSockets(options: {
     const said = (outcome: string): void => {
       options.log(`${shipId} ${method} ${path} ${outcome}`);
     };
+    if (!(await options.mayCall(shipId, incoming.socket))) {
+      refuse(response, { status: 403, message: "This socket answers only its ship's own session" });
+      said('403');
+      return;
+    }
     if (!isForwarded(method, path)) {
       refuse(response, { status: 403, message: 'This socket forwards only ship calls, never register or deregister' });
       said('403');

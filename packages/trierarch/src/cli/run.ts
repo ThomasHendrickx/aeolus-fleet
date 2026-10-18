@@ -10,6 +10,7 @@ import { createJsonState } from '../adapters/json-state.js';
 import type { TrierarchPaths } from '../adapters/paths.js';
 import { createRestFleet } from '../adapters/rest-fleet.js';
 import { runtimeAdaptersOf } from '../adapters/runtime-adapters.js';
+import { createCallerCheck } from '../adapters/caller-check.js';
 import { createShipSockets } from '../adapters/ship-sockets.js';
 import { sessionsLaunch } from '../adapters/tmux.js';
 import { createTrust } from '../adapters/trust.js';
@@ -91,6 +92,7 @@ export async function runTrierarch(input: { paths: TrierarchPaths; homeDirectory
     root: paths.sockets,
     fleetUrl: crew.fleetUrl,
     crewTokenOf: async (shipId) => (await state.load()).entries[shipId]?.crewToken,
+    mayCall: createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) }),
     log: (line) => {
       logger.info(`fleet call ${line}`);
     },

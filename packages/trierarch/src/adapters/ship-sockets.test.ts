@@ -78,7 +78,7 @@ afterEach(async () => {
 /** One call over a socket, as the plugin's curl makes it; none when the socket gives no answer. */
 function callOver(socket: string, call: { method: string; path: string; body?: string }): Promise<{ status: number; contentType: string | undefined; body: string } | 'no answer'> {
   return new Promise((resolve) => {
-    const outgoing = request({ socketPath: socket, method: call.method, path: call.path, headers: call.body === undefined ? {} : { 'content-type': 'application/json' } }, (incoming) => {
+    const outgoing = request({ socketPath: socket, method: call.method, path: call.path, headers: call.body === undefined ? {} : { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(call.body)) } }, (incoming) => {
       void bodyOf(incoming).then((body) => {
         resolve({ status: incoming.statusCode ?? 0, contentType: incoming.headers['content-type'], body });
       });
