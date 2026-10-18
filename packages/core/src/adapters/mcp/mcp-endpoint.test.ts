@@ -317,6 +317,7 @@ describe('the ship tools at /mcp', () => {
     ['send', [/inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
     ['receiveReply', [/messageId/, /inReplyTo/, /about 25 seconds/i, /stays yours/i, /undeliverable/i, /ack/]],
     ['sentMessage', [/messages:send/, /you sent/i, /state/, /since/, /no payload/i, /MESSAGE_NOT_FOUND/]],
+    ['setStatement', [/waitMs/, /deadlineMs/, /repeatable/, /annotations/]],
     ['pushReceive', [/trierarch or the plugin watcher/i, /not the agent/i, /received/, /no attempt/i, /handed/, /about 25 seconds/i]],
     ['handed', [/hand-over number/i, /same number again/i, /fifth/i, /undeliverable/i, /not the agent/i]],
     ['handed', [/isOnceMore/, /once more/i, /turn died/i]],

@@ -8,9 +8,11 @@ import { contentTypeSchema } from './message.js';
  * A ship's statement (decision 0047): what it is and what it offers, stated
  * by its crew and read by the ships that can send to it. A short summary and
  * capabilities, each borrowing MCP's tool fields (name, title, description,
- * inputSchema, outputSchema) and A2A's skill fields for media types
- * (inputModes, outputModes), so a later gateway maps them as they are
- * (decision 0048). Core checks the shape and acts on none of it.
+ * inputSchema, outputSchema, annotations) and A2A's skill fields for media
+ * types (inputModes, outputModes), so a later gateway maps them as they are
+ * (decision 0048), and what a call through the gateway needs: its wait, its
+ * deadline and whether it is repeatable (interop 3.4, 5.2, 5.3). Core checks
+ * the shape and acts on none of it.
  */
 
 /** The most a statement holds: 64 KB as the UTF-8 bytes of its JSON, as a payload does (decision 0006). */
@@ -27,6 +29,21 @@ const CAPABILITY_NAME_MESSAGE = 'A capability name is 1 to 128 letters, digits, 
 /** A JSON Schema as MCP's tool takes one: a JSON object, never read by the fleet. */
 const jsonSchemaSchema = z.record(z.string(), z.json());
 
+/** The longest a capability may ask the gateway to hold an outside call for its reply: 2 minutes (interop 5.3). */
+export const CAPABILITY_WAIT_MAX_MS = 120_000;
+
+/** The longest deadline a capability may state for a call: 7 days (interop 3.4). */
+export const CAPABILITY_DEADLINE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** MCP's tool annotations as MCP defines them: hints a client trusts only from a trusted server. */
+const toolAnnotationsSchema = z.strictObject({
+  title: z.string().optional(),
+  readOnlyHint: z.boolean().optional(),
+  destructiveHint: z.boolean().optional(),
+  idempotentHint: z.boolean().optional(),
+  openWorldHint: z.boolean().optional(),
+});
+
 /** Media types, as A2A's skill lists them: at least one, the first the one to use. */
 const modesSchema = z.array(contentTypeSchema).min(1, 'Name at least one media type');
 
@@ -41,6 +58,18 @@ export const capabilitySchema = z.strictObject({
   inputModes: modesSchema.optional(),
   /** The media types that come back, the first the one to expect (A2A's skill outputModes). */
   outputModes: modesSchema.optional(),
+  /**
+   * How long the gateway may hold an outside call for the reply, in
+   * milliseconds, capped by its configuration; none is 0, answered at once
+   * with a task or a handle (interop 5.3).
+   */
+  waitMs: z.int().min(0).max(CAPABILITY_WAIT_MAX_MS).optional(),
+  /** How long a call may take before the gateway fails it, in milliseconds; none is no deadline (interop 3.4). */
+  deadlineMs: z.int().min(1).max(CAPABILITY_DEADLINE_MAX_MS).optional(),
+  /** Whether a call that died before it was confirmed may be handed again; none is not (interop 5.2). */
+  repeatable: z.boolean().optional(),
+  /** MCP's tool annotations, as the outside server gave them. */
+  annotations: toolAnnotationsSchema.optional(),
 });
 
 export type Capability = z.infer<typeof capabilitySchema>;
