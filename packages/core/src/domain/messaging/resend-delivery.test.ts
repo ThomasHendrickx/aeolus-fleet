@@ -17,6 +17,8 @@ import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -255,5 +257,40 @@ describe('resending an undeliverable delivery', () => {
       isOk: false,
       error: { kind: 'DELIVERY_NOT_FOUND' },
     });
+  });
+});
+
+/** A ship argo commissioned with the scopes, crewed, as the scenario's ships are. */
+async function crewedIn(fleet: ReadReachScenario, ship: Parameters<typeof shipWithScopes>[1]): Promise<Crew> {
+  const caller = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, ship);
+  return { ...crewAboard(fleet.core, caller), scopes: caller.scopes };
+}
+
+describe('resending within read reach (decision 0046)', () => {
+  let fleet: ReadReachScenario;
+  let resender: Crew;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    resender = await crewedIn(fleet, { name: 'resender', type: 'resender', scopes: ['messages:resend'] });
+    await fleet.carry(resender, 'a');
+  });
+
+  it('resends a stuck delivery of a message it reads, through its recipient', async () => {
+    const deliveryId = await fleet.undeliverable(fleet.far, fleet.near);
+    await fleet.readRulesApply();
+
+    await expect(fleet.messaging.resendDelivery(resender, { deliveryId })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('answers a stuck delivery of a message it does not read as none, and sends nothing', async () => {
+    const distant = await crewedIn(fleet, { name: 'distant', type: 'keeper', scopes: [] });
+    const deliveryId = await fleet.undeliverable(fleet.far, distant);
+    await fleet.readRulesApply();
+    const messages = fleet.core.state.messages.length;
+
+    await expect(fleet.messaging.resendDelivery(resender, { deliveryId })).resolves.toEqual({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND', message: `Delivery ${deliveryId} does not exist` } });
+    expect(fleet.core.state.deliveries.find((held) => held.id === deliveryId)?.state).toBe('undeliverable');
+    expect(fleet.core.state.messages).toHaveLength(messages);
   });
 });
