@@ -45,7 +45,7 @@ describe('shipWayView', () => {
   it('reads a pull lease as served by no trierarch and no plugin, its oldest handed (pulled) and not acknowledged (4.2, 4.4)', () => {
     const view = shipWayView(PULL_WAY, { now: NOW });
 
-    expect(textsOf(view)).toEqual(['No trierarch, no plugin (pull)']);
+    expect(textsOf(view)).toEqual(['Pull: nobody wakes it']);
     expect(view.oldest).toMatchObject({ status: 'handed', isOverdue: false, text: '10 min ago · not acknowledged' });
   });
 
@@ -58,5 +58,15 @@ describe('shipWayView', () => {
 
   it('shows nothing while no session crews the ship', () => {
     expect(shipWayView(NOT_CREWED_WAY, { now: NOW })).toEqual({ lines: [], oldest: null });
+  });
+
+  it.each([
+    ['gateway', 'Gateway'],
+    ['personApp', "Person's app"],
+    ['adapter', 'Adapter'],
+  ] as const)('names the %s its lease stated as what wakes the ship (interop 5.1)', (kind, words) => {
+    const view = shipWayView({ ...NOTHING_WAITING_WAY, lease: { by: { kind }, turn: null } }, { now: NOW });
+
+    expect(textsOf(view)).toEqual([words]);
   });
 });

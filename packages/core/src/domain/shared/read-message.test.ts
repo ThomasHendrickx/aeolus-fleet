@@ -122,6 +122,22 @@ describe("reading a message's way through", () => {
     expect(delivery.way).toMatchObject({ holder: null, isPulled: false, lease: { by: { kind: 'pluginWatcher' }, isEnded: false } });
   });
 
+  it('names the channel each hand-over went through, and the gateway its lease stated as its waker', async () => {
+    const messageId = await toScout();
+    scene.core.clock.advance(1_000);
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, { waker: 'gateway' }));
+    scene.core.clock.advance(1_000);
+    unwrap(await scene.messaging.handOverDelivery(scene.scout, { deliveryId: deliveryOf(messageId), handOverNumber: 1, channel: 'tools/call' }));
+
+    const { delivery } = await read(messageId);
+
+    expect(delivery.history.map((step) => [step.type, step.by?.kind ?? null, step.channel])).toEqual([
+      ['DeliveryHanded', 'gateway', 'tools/call'],
+      ['DeliveryReceived', 'gateway', null],
+      ['MessageAccepted', null, null],
+    ]);
+  });
+
   it('holds a received delivery with the trierarch on its computer that received it', async () => {
     const { builder } = await crewedByTrierarch();
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: builder.shipId } });

@@ -110,6 +110,27 @@ describe('handing over a received delivery', () => {
   });
 });
 
+describe('the channel it was handed through (interop 5.1)', () => {
+  it('keeps the channel the computer side names with DeliveryHanded', async () => {
+    const deliveryId = await received();
+
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1, channel: 'tools/call' }));
+
+    expect(eventsOf('DeliveryHanded').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, attempts: 1, handOverNumber: 1, channel: 'tools/call' }]);
+  });
+
+  it('keeps it with a hand-over once more too', async () => {
+    const deliveryId = await received();
+    unwrap(await handOver(deliveryId, 1));
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+    core.state.events.length = 0;
+
+    unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true, channel: 'tmux' }));
+
+    expect(eventsOf('DeliveryHanded').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, attempts: 1, handOverNumber: 2, onceMore: true, channel: 'tmux' }]);
+  });
+});
+
 describe('handed again', () => {
   it('with the same hand-over number is a lost answer: OK, and nothing changes', async () => {
     const deliveryId = await received();

@@ -265,6 +265,12 @@ describe('a pushed lease', () => {
     ]);
   });
 
+  it('keeps who wakes the ship with LeasePushed, when its first push receive states it', async () => {
+    unwrap(await useCases.pushReceiveDeliveries(scout, { waker: 'gateway' }));
+
+    expect(eventsOf('LeasePushed').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, waker: 'gateway' }]);
+  });
+
   it('writes LeasePushed before the DeliveryReceived of its first push receive', async () => {
     await sendTo(toScout());
 

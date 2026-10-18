@@ -15,6 +15,7 @@ import {
   notHandledInputSchema,
   notHandledOutputSchema,
   pushReceiveOutputSchema,
+  pushReceiveInputSchema,
   pushReceivedDeliverySchema,
   RECEIVE_MAX_DEFAULT,
   RECEIVE_MAX_UPPER_BOUND,
@@ -264,6 +265,38 @@ describe('pushReceivedDeliverySchema', () => {
 
   it('answers a push receive with no deliveries when the wait ended empty', () => {
     expect(pushReceiveOutputSchema.parse({ deliveries: [] })).toEqual({ deliveries: [] });
+  });
+});
+
+describe('pushReceiveInputSchema', () => {
+  it('takes no input, a max, and who wakes the ship', () => {
+    expect(pushReceiveInputSchema.parse(undefined)).toBeUndefined();
+    expect(pushReceiveInputSchema.parse({ max: 3, waker: 'gateway' })).toEqual({ max: 3, waker: 'gateway' });
+  });
+
+  it.each(['trierarch', 'pluginWatcher', 'personApp', 'gateway', 'adapter'])('takes %s as the waker', (waker) => {
+    expect(pushReceiveInputSchema.parse({ waker })).toEqual({ waker });
+  });
+
+  it.each([['a waker it does not know', { waker: 'email' }], ['a max of 11', { max: 11 }]])('rejects %s', (_label, input) => {
+    expect(pushReceiveInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('the channel of a hand-over (interop 5.1)', () => {
+  const handed = (channel: unknown) => ({ deliveryId: newId('delivery'), handOverNumber: 1, channel });
+
+  it.each(['tmux', 'watcher', 'tools/call', 'a2a-push', 'email', 'x'.repeat(32)])('takes %s', (channel) => {
+    expect(handedInputSchema.parse(handed(channel)).channel).toBe(channel);
+  });
+
+  it.each([
+    ['an empty one', ''],
+    ['33 characters', 'x'.repeat(33)],
+    ['capitals', 'Tmux'],
+    ['a space', 'web push'],
+  ])('rejects %s', (_label, channel) => {
+    expect(handedInputSchema.safeParse(handed(channel)).success).toBe(false);
   });
 });
 

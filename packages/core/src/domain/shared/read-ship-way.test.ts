@@ -49,6 +49,31 @@ describe("reading a ship's side of the way", () => {
     expect((await read()).lease).toEqual({ by: { kind: 'pluginWatcher' }, turn: { state: 'busy', at: busyAt } });
   });
 
+  it.each([
+    ['the gateway', 'gateway'],
+    ["the person's app", 'personApp'],
+    ['the adapter', 'adapter'],
+    ['the plugin watcher', 'pluginWatcher'],
+  ] as const)('names %s when its first push receive states it wakes the ship', async (_label, waker) => {
+    scene.core.clock.advance(1_000);
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, { waker }));
+
+    expect((await read()).lease?.by).toEqual({ kind: waker });
+  });
+
+  it('keeps the waker its first push receive stated, whatever a later one states', async () => {
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, { waker: 'gateway' }));
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, { waker: 'adapter' }));
+
+    expect((await read()).lease?.by).toEqual({ kind: 'gateway' });
+  });
+
+  it('reads a trierarch stated by a session no trierarch crewed as what its lease shows: the plugin watcher', async () => {
+    unwrap(await scene.messaging.pushReceiveDeliveries(scene.scout, { waker: 'trierarch' }));
+
+    expect((await read()).lease?.by).toEqual({ kind: 'pluginWatcher' });
+  });
+
   it('names the trierarch on its computer that crewed the session', async () => {
     const { registry, argo, core } = scene;
     const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
