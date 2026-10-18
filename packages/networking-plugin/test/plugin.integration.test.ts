@@ -236,6 +236,28 @@ describe('supplying the fleet (decision 0035)', () => {
   });
 });
 
+describe('the rules by verb (decision 0034)', () => {
+  it("supplies argo's send, read and manage rules, on the owner too, and the fleet lets each verb through by its own rule", async () => {
+    const address = await connected();
+    const { shipId: plannerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'planner', type: 'planner' }));
+    const { shipId: vaultId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'vault', type: 'vault' }));
+    const rules = [
+      { verb: 'send', from: [], to: [] },
+      { verb: 'read', from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] },
+      { verb: 'manage', from: [], to: [{ owner: argo.shipId }] },
+    ];
+
+    await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules } }))).resolves.toEqual({ rules, supply: 'supplied' });
+
+    const explained = unwrap(await useCases.explainReach(argo, { fromShipId: plannerId, toShipId: vaultId }));
+    expect(explained).toEqual({
+      send: [{ shipId: vaultId, rule: { plugin: 0 } }],
+      read: [{ shipId: vaultId, rule: { plugin: 1 } }],
+      manage: [{ shipId: vaultId, rule: { plugin: 2 } }],
+    });
+  });
+});
+
 describe('the rules ships declared (decision 0037)', () => {
   it("adds them to argo's rules, supplying the fleet again as soon as a ship declares or withdraws them", async () => {
     const address = await connected();
