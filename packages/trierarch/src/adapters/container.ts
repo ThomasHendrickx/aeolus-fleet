@@ -55,6 +55,8 @@ export interface ContainerRuntimeOptions {
   readonly tokenFile: string;
   /** Where the ships' homes are kept on the host, one folder per ship, each mounted as its container's home. */
   readonly homes: string;
+  /** Where the ships' sockets are kept on the host, one folder per ship, each mounted at its own path (decision 0026). */
+  readonly sockets: string;
   /** The memory cap of each container, as the runtime takes it (`4g`). */
   readonly memory: string;
   readonly cpus: number;
@@ -86,8 +88,9 @@ function envFileOf(env: Readonly<Record<string, string>>): string {
  * named after its ship id, with tmux inside, so typing and screen reads are an
  * exec into it. Rootless only, with hard memory and cpu caps and no restart
  * policy: the trierarch starts a dead container again itself. The container
- * sees its folder and its ship's own home, as its home, and nothing else of
- * the host, never the runtime's socket. The home is made, for its owner
+ * sees its folder, its ship's own home, as its home, and its ship's socket
+ * folder, at its own path, and nothing else of the host, never the runtime's
+ * socket. The home is made, for its owner
  * alone, when the ship has none yet.
  *
  * The model token and the session's environment reach the container through
@@ -130,6 +133,9 @@ export function createContainerRuntime(options: ContainerRuntimeOptions): Sessio
       const content = envFileOf({ ...env, [MODEL_TOKEN_VARIABLE]: token });
       await stop(shipId);
       const home = shipHome(options.homes, shipId);
+      const shipSockets = join(options.sockets, shipId);
+      // The runtime mounts only a folder that exists, and the ship's socket may not have made it yet.
+      await mkdir(shipSockets, { recursive: true, mode: 0o700 });
       await mkdir(home, { recursive: true, mode: 0o700 });
       const secrets = await mkdtemp(join(tmpdir(), 'aeolus-trierarch-env-'));
       try {
@@ -166,6 +172,9 @@ export function createContainerRuntime(options: ContainerRuntimeOptions): Sessio
           `${folder}:${folder}`,
           '--volume',
           `${home}:${SESSION_HOME}`,
+          // The session calls the fleet over its ship's socket, at the path its identity names.
+          '--volume',
+          `${shipSockets}:${shipSockets}`,
           '--env',
           `HOME=${SESSION_HOME}`,
           '--workdir',
