@@ -11,9 +11,10 @@ export type Contact = { kind: 'argo' } | { kind: 'ship'; shipId: ShipId };
 /**
  * The squadron's contact now (decision 0017, 0.R): argo for a squadron argo
  * formed; its forming ship while that ship is not retired; once it is, the
- * forming ship's owner as the fleet names it, argo when it names none. Read
- * from the fleet as squadrons' own ship, so an owner argo changed counts at
- * once; a read that fails is a refusal, to try again, never argo by default.
+ * forming ship's owner as the fleet names it while the owner is not retired,
+ * argo when it names none or the owner is retired. Read from the fleet as
+ * squadrons' own ship, so an owner argo changed or retired counts at once; a
+ * read that fails is a refusal, to try again, never argo by default.
  */
 export async function contactOf(
   deps: { door: Pick<FleetDoor, 'getShip'>; management: Pick<ManagementCrewStore, 'find'> },
@@ -33,7 +34,15 @@ export async function contactOf(
   if (forming.value.status !== 'retired') {
     return ok({ kind: 'ship', shipId: squadron.formingShip.shipId });
   }
-  return ok(forming.value.ownerShipId === null ? { kind: 'argo' } : { kind: 'ship', shipId: forming.value.ownerShipId });
+  const { ownerShipId } = forming.value;
+  if (ownerShipId === null) {
+    return ok({ kind: 'argo' });
+  }
+  const owner = await deps.door.getShip(crew.crewToken, { shipId: ownerShipId });
+  if (!owner.isOk) {
+    return owner;
+  }
+  return ok(owner.value.status === 'retired' ? { kind: 'argo' } : { kind: 'ship', shipId: ownerShipId });
 }
 
 /** Where a message to the contact goes. */
