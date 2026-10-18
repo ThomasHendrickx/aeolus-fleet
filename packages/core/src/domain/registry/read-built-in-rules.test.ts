@@ -25,7 +25,7 @@ beforeEach(async () => {
 
 describe('reading the built-in rules (decision 0034)', () => {
   it('answers every built-in rule in the order the rule list shows them, all on for a fleet that never changed them', async () => {
-    await expect(readBuiltInRules(argo)).resolves.toEqual([
+    expect(unwrap(await readBuiltInRules(argo))).toEqual([
       { rule: 'argo', isOn: true },
       { rule: 'owner', isOn: true },
       { rule: 'answer', isOn: true },
@@ -42,7 +42,7 @@ describe('reading the built-in rules (decision 0034)', () => {
     unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'read', isOn: false }));
     unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }));
 
-    await expect(readBuiltInRules(argo)).resolves.toEqual([
+    expect(unwrap(await readBuiltInRules(argo))).toEqual([
       { rule: 'argo', isOn: true },
       { rule: 'owner', isOn: true },
       { rule: 'answer', isOn: true },
@@ -57,7 +57,7 @@ describe('reading the built-in rules (decision 0034)', () => {
     unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }));
     const other = await hostedFleet(core);
 
-    await expect(readBuiltInRules(agentCaller({ fleetId: other.fleetId, shipId: other.operatorShipId }))).resolves.toContainEqual({ rule: 'viewerRead', isOn: true });
+    expect(unwrap(await readBuiltInRules(agentCaller({ fleetId: other.fleetId, shipId: other.operatorShipId })))).toContainEqual({ rule: 'viewerRead', isOn: true });
     expect(fleetId).not.toBe(other.fleetId);
   });
 });
