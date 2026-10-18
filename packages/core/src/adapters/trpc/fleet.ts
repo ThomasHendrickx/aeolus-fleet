@@ -624,7 +624,7 @@ export const fleetRouter = router({
     })
     .output(declaredNetworkRulesOutputSchema)
     .query(async ({ ctx }) =>
-      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ shipId, rules }) => ({ shipId, rules: rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) })),
+      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ shipId, rules }) => ({ shipId, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
   /** The sends the network rules refused, newest first: argo's only (decision 0034). */

@@ -54,7 +54,7 @@ export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; cloc
       const reachableShipIds: ShipId[] = [];
       for (const ship of others) {
         const recipient = reaching(await shipAsItIs(tx, ship));
-        if (allowsReach(inForce, { sender, recipient, isAnswerToSender: false })) {
+        if (allowsReach(inForce, { verb: 'send', sender, recipient, isAnswerToSender: false })) {
           reachableShipIds.push(ship.id);
         }
       }

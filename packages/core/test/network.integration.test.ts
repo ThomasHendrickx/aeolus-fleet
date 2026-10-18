@@ -241,7 +241,7 @@ describe('a send under rules with terms of any value and of the same value', () 
   const sameTrust = () => ({ labelId: trustId, value: SAME_LABEL_VALUE });
 
   it('keeps the terms as the plugin set them', async () => {
-    const rules = [{ verb: 'send', from: [shared, anyTrust()], to: [] }, { verb: 'send', from: [sameTrust()], to: [sameTrust()] }];
+    const rules = [{ verb: 'send' as const, from: [shared, anyTrust()], to: [] }, { verb: 'send' as const, from: [sameTrust()], to: [sameTrust()] }];
 
     unwrap(await core.useCases.setNetworkRules(networking, { rules }));
 

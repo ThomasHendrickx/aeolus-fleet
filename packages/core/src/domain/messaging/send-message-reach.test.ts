@@ -241,7 +241,7 @@ describe('a selector term of the same value', () => {
   });
 
   it('binds each label on its own when a rule holds several: both values must be the same', async () => {
-    const rule = { verb: 'send', from: [sameValue('trust'), sameValue('team')], to: [sameValue('trust'), sameValue('team')] };
+    const rule = { verb: 'send' as const, from: [sameValue('trust'), sameValue('team')], to: [sameValue('trust'), sameValue('team')] };
     await setRules([rule]);
 
     expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);

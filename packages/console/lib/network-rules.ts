@@ -1,4 +1,4 @@
-import type { NetworkRule, SelectorTerm } from '@aeolus-fleet/common';
+import type { NetworkRule, NetworkVerb, SelectorTerm } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
@@ -6,14 +6,15 @@ import type { SavedRules } from './networking-plugin-schemas';
 /**
  * The network rules as argo edits them in the networking plugin's editor
  * (decisions 0034, 0036): all-to-all (no rules), or a list of rules, each
- * letting the ships matching one label selector send to those matching
- * another. An empty list allows only the fixed exceptions, argo and replies.
+ * letting the ships matching one label selector do its verb to those
+ * matching another; a rule added here is a send rule. An empty list allows only the fixed exceptions, argo and replies.
  * Pure: the draft lives in the editor until Save sends it whole.
  */
 
 /** One rule in the draft, with a key of its own so its row stays put while it changes. */
 export interface DraftRule {
   key: string;
+  verb: NetworkVerb;
   from: readonly SelectorTerm[];
   to: readonly SelectorTerm[];
 }
@@ -36,12 +37,12 @@ export function draftOf(rules: readonly NetworkRule[] | null, newKey: () => stri
   if (rules === null) {
     return { kind: 'all-to-all' };
   }
-  return { kind: 'rules', rules: rules.map((rule) => ({ key: newKey(), from: [...rule.from], to: [...rule.to] })) };
+  return { kind: 'rules', rules: rules.map((rule) => ({ key: newKey(), verb: rule.verb, from: [...rule.from], to: [...rule.to] })) };
 }
 
 /** What Save sends: null for all-to-all, else every rule. */
 export function rulesOf(draft: NetworkDraft): NetworkRule[] | null {
-  return draft.kind === 'all-to-all' ? null : draft.rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] }));
+  return draft.kind === 'all-to-all' ? null : draft.rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] }));
 }
 
 /** Rules on starts from an empty list; off is all-to-all and drops every rule. */
@@ -52,12 +53,12 @@ export function setRulesOn(draft: NetworkDraft, isOn: boolean): NetworkDraft {
   return draft.kind === 'rules' ? draft : { kind: 'rules', rules: [] };
 }
 
-/** A new rule from every ship to every ship, for the selectors to narrow; none past the most a fleet holds. */
+/** A new send rule from every ship to every ship, for the selectors to narrow; none past the most a fleet holds. */
 export function addRule(draft: NetworkDraft, at: { newKey: () => string; limits: NetworkLimits }): NetworkDraft {
   if (draft.kind === 'all-to-all' || draft.rules.length >= at.limits.rulesMax) {
     return draft;
   }
-  return { kind: 'rules', rules: [...draft.rules, { key: at.newKey(), from: [], to: [] }] };
+  return { kind: 'rules', rules: [...draft.rules, { key: at.newKey(), verb: 'send', from: [], to: [] }] };
 }
 
 export function removeRule(draft: NetworkDraft, key: string): NetworkDraft {

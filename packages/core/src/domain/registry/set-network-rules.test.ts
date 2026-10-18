@@ -145,7 +145,7 @@ describe('setting the network rules as the networking plugin', () => {
 
   it('keeps terms of any value and of the same value, the latter on both sides', async () => {
     const labelId = core.ids('label');
-    const rules = [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: SAME_LABEL_VALUE }], to: [core.ids('labelValue'), { labelId, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send' as const, from: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: SAME_LABEL_VALUE }], to: [core.ids('labelValue'), { labelId, value: SAME_LABEL_VALUE }] }];
 
     expect(unwrap(await setNetworkRules(setter, { rules }))).toEqual({ version: 2 });
     expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2, plugin: plugin() }]);

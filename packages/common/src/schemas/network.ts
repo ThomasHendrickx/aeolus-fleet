@@ -4,9 +4,9 @@ import { idSchema } from '../ids/index.js';
 import { carriedLabelSchema } from './label.js';
 
 /**
- * Network rules (decision 0034): which ships may send to which. A rule says
- * that the ships matching one label selector may send to the ships matching
- * another; a selector is a list of terms that must all hold (an empty one
+ * Network rules (decision 0034): which ships may send to, read or manage
+ * which. A rule names its verb and says that the ships matching one selector
+ * may do it to the ships matching another; a selector is a list of terms that must all hold (an empty one
  * holds for every ship). Allow-only. The limits are the decision's; the server
  * checks them, so every refusal names it.
  */
@@ -38,8 +38,13 @@ export type SelectorTerm = z.infer<typeof selectorTermSchema>;
 /** The ships for which every one of these terms holds, combined with AND. */
 export const labelSelectorSchema = z.array(selectorTermSchema);
 
-/** One rule: the ships matching `from` may send to the ships matching `to`. */
-export const networkRuleSchema = z.object({ from: labelSelectorSchema, to: labelSelectorSchema });
+/** What a rule lets one ship do to another: send to it, read it or manage it (decision 0034). */
+export const NETWORK_VERBS = ['send', 'read', 'manage'] as const;
+
+export type NetworkVerb = (typeof NETWORK_VERBS)[number];
+
+/** One rule: the ships matching `from` may do its verb to the ships matching `to`. */
+export const networkRuleSchema = z.object({ verb: z.enum(NETWORK_VERBS), from: labelSelectorSchema, to: labelSelectorSchema });
 
 export type NetworkRule = z.infer<typeof networkRuleSchema>;
 

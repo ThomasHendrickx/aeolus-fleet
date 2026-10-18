@@ -42,7 +42,7 @@ describe('supplying a fleet the networking plugin serves', () => {
 
   it('registers with what argo declared, then supplies the whole list argo saved', async () => {
     await connected();
-    const rules = [{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }, { verb: 'send', from: [], to: [TEAM_A] }];
+    const rules = [{ verb: 'send' as const, from: [TEAM_A], to: [TEAM_B] }, { verb: 'send' as const, from: [], to: [TEAM_A] }];
     await networks.save(FLEET_ID, { rules, declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
@@ -61,7 +61,7 @@ describe('supplying a fleet the networking plugin serves', () => {
 
   it("adds every rule the fleet's ships declared to argo's list, after argo's (decision 0037)", async () => {
     await connected();
-    const argos = [{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }];
+    const argos = [{ verb: 'send' as const, from: [TEAM_A], to: [TEAM_B] }];
     await networks.save(FLEET_ID, { rules: argos, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
     fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ verb: 'send', from: [TEAM_B], to: [TEAM_B] }] }, { shipId: TRIERARCH_PLUGIN, rules: [{ verb: 'send', from: [], to: [TEAM_A] }] });
 

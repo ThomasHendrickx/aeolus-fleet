@@ -145,7 +145,7 @@ describe('the networking plugin in the console', () => {
     await page.getByTestId('network-rules-save').click();
 
     await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
-    await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([{ from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] }]);
+    await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([{ verb: 'send', from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] }]);
   });
 
   it('shows the rules a plugin declares apart from argo\'s, live, with the plugin that declared them and nothing to edit, and leaves the fleet\'s rules as they were once it retires', async () => {
@@ -160,7 +160,7 @@ describe('the networking plugin in the console', () => {
     );
     const keeper: Caller = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
     const crew = unwrap(await useCases.defineLabel(keeper, { key: 'crew', values: ['blue'] }));
-    unwrap(await useCases.declareNetworkRules(keeper, { rules: [{ from: [{ labelId: crew.labelId, value: '#' }], to: [{ labelId: crew.labelId, value: '#' }] }] }));
+    unwrap(await useCases.declareNetworkRules(keeper, { rules: [{ verb: 'send', from: [{ labelId: crew.labelId, value: '#' }], to: [{ labelId: crew.labelId, value: '#' }] }] }));
 
     await expect.poll(() => declared.getByTestId('network-declared-by').textContent(), WITHIN).toBe('Declared by crew-keeper');
     await expect(declared.getByTestId('network-declared-rule-from-value').textContent()).resolves.toBe('crew=#');
@@ -246,8 +246,8 @@ describe('the networking plugin in the console', () => {
 
     await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
     await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([
-      { from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] },
-      { from: [{ labelId: labelIds.get('team'), value: '#' }], to: [{ labelId: labelIds.get('team'), value: '#' }, { labelId: labelIds.get('tier'), value: '*' }] },
+      { verb: 'send', from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] },
+      { verb: 'send', from: [{ labelId: labelIds.get('team'), value: '#' }], to: [{ labelId: labelIds.get('team'), value: '#' }, { labelId: labelIds.get('tier'), value: '*' }] },
     ]);
   });
 

@@ -226,7 +226,7 @@ describe('the rules ships declared (decision 0037)', () => {
     );
     const squadrons = { fleetId: argo.fleetId, shipId: squadronsId, kind: 'agent' as const, scopes: ['labels:define' as const, 'labels:assign' as const] };
     const { labelId } = unwrap(await useCases.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
-    const declared = [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    const declared = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     unwrap(await useCases.declareNetworkRules(squadrons, { rules: declared }));
 

@@ -155,7 +155,7 @@ describe('the network draft argo edits (decision 0034)', () => {
   });
 
   it('is changed once it differs from the rules the plugin holds, and not when it is the same again', () => {
-    const saved = [{ verb: 'send', from: [OPS], to: [] }];
+    const saved = [{ verb: 'send' as const, from: [OPS], to: [] }];
     const draft = draftOf(saved, newKey);
     const changed = addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS });
 

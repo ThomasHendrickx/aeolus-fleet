@@ -44,18 +44,18 @@ export function createDeclareNetworkRules(deps: { door: NetworkDoor; management:
   };
 }
 
-/** The rules on the labels squadrons owns: within a squadron on its squadron label, and between flagships and its own ship on squadron-role. */
+/** The send rules on the labels squadrons owns: within a squadron on its squadron label, and between flagships and its own ship on squadron-role. */
 function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel | undefined }): NetworkRule[] {
   const rules: NetworkRule[] = [];
   if (labels.squadron !== undefined) {
     const same = { labelId: labels.squadron.labelId, value: SAME_LABEL_VALUE };
-    rules.push({ from: [same], to: [same] });
+    rules.push({ verb: 'send', from: [same], to: [same] });
   }
   const valueOf = (value: string) => labels.role?.values.find((each) => each.value === value)?.valueId;
   const flagship = valueOf(SQUADRON_ROLE_LABEL.flagship);
   const squadrons = valueOf(SQUADRON_ROLE_LABEL.squadrons);
   if (flagship !== undefined && squadrons !== undefined) {
-    rules.push({ from: [flagship], to: [squadrons] }, { from: [squadrons], to: [flagship] });
+    rules.push({ verb: 'send', from: [flagship], to: [squadrons] }, { verb: 'send', from: [squadrons], to: [flagship] });
   }
   return rules;
 }

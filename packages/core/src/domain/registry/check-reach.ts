@@ -58,7 +58,7 @@ export async function checkReach(
     return ok({});
   }
   const sender = await shipAsItIs(tx, senderShip);
-  const allows = (to: ShipAsItIs) => allowsReach(inForce, { sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
+  const allows = (to: ShipAsItIs) => allowsReach(inForce, { verb: 'send', sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
   const refusal = { fleetId, at: send.at, sender: refused(sender), settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
 
   if (recipient.kind === 'type') {

@@ -73,7 +73,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
     },
     save: async ({ fleetId, rules, version, plugin }) => {
       const kept = {
-        rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })),
+        rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),
         version,
         pluginShipId: plugin?.shipId ?? null,
         pluginWhileUnavailable: plugin?.whileUnavailable ?? null,
@@ -102,7 +102,7 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
         await db.declaredNetworkRules.deleteMany({ where: { fleetId, shipId } });
         return;
       }
-      const kept = { rules: rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) };
+      const kept = { rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) };
       await db.declaredNetworkRules.upsert({ where: { fleetId_shipId: { fleetId, shipId } }, create: { fleetId, shipId, ...kept }, update: kept });
     },
   };

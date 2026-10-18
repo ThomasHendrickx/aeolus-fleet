@@ -47,7 +47,7 @@ describe("switching the networking plugin on or off for a fleet", () => {
 });
 
 describe('switching the networking plugin on or off acts on the fleet at once (Thomas on #260)', () => {
-  const RULES = [{ verb: 'send', from: [], to: [] }];
+  const RULES = [{ verb: 'send' as const, from: [], to: [] }];
 
   beforeEach(async () => {
     await setEnabled({ requestId: 'r-on', fleetId: FLEET, isEnabled: true });

@@ -14,6 +14,7 @@ import {
   type LabelId,
   type LabelValueId,
   type NetworkPluginDeclaration,
+  type NetworkVerb,
   type SelectorTerm,
   type ShipId,
   type ShipKind,
@@ -24,8 +25,9 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 
-/** The ships for which every term of `from` holds may send to the ships for which every term of `to` holds. */
+/** The ships for which every term of `from` holds may do its verb to the ships for which every term of `to` holds. */
 export interface NetworkRule {
+  verb: NetworkVerb;
   from: readonly SelectorTerm[];
   to: readonly SelectorTerm[];
 }
@@ -203,7 +205,7 @@ function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
 
 /** A copy of the rule, so what is kept never changes with what was given. */
 export function copyOfRule(rule: NetworkRule): NetworkRule {
-  return { from: rule.from.map(copyOfTerm), to: rule.to.map(copyOfTerm) };
+  return { verb: rule.verb, from: rule.from.map(copyOfTerm), to: rule.to.map(copyOfTerm) };
 }
 
 function copyOfTerm(term: SelectorTerm): SelectorTerm {
@@ -265,19 +267,24 @@ export interface ReachingShip {
 }
 
 /**
- * Whether the settings let the sender reach the recipient. With no rules,
+ * Whether the settings let the sender do the verb to the recipient. With no rules,
  * every ship reaches every ship. The fixed exceptions hold whatever the
  * rules: argo reaches every ship and every ship reaches argo, an owner's
  * ship reaches the ships it owns (decision 0045), and a ship answers the
  * sender of a message it received. Otherwise a rule must match
  * the sender with its `from` and the recipient with its `to`.
  */
-export function allowsReach(settings: Pick<NetworkSettings, 'rules'>, send: { sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean }): boolean {
-  const { sender, recipient, isAnswerToSender } = send;
+export function allowsReach(
+  settings: Pick<NetworkSettings, 'rules'>,
+  send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
+): boolean {
+  const { verb, sender, recipient, isAnswerToSender } = send;
   if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || recipient.owner === sender.id || isAnswerToSender) {
     return true;
   }
-  return settings.rules.some((rule) => matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }));
+  return settings.rules.some(
+    (rule) => rule.verb === verb && matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }),
+  );
 }
 
 /** A ship matches a selector when every term of it holds, combined with AND. */

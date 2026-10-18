@@ -145,7 +145,7 @@ const declarationSchema = registerNetworkPluginInputSchema;
 
 /** A rule list as the API answers it: fresh arrays, none kept as none. */
 function listOf(rules: readonly NetworkRule[] | null): NetworkRule[] | null {
-  return rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
+  return rules?.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) ?? null;
 }
 
 /** What a save did at the fleet: supplied, or waiting for the fleet to answer; `not-connected` and `unregistered` only in a race with a disconnect or a switch. */

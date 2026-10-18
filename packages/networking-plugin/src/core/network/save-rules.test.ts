@@ -102,7 +102,7 @@ describe("saving argo's rules", () => {
 
   it('keeps a rule that binds a label to the same value on both sides', async () => {
     const label = aLabel();
-    const rules = [{ verb: 'send', from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [{ labelId: label, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send' as const, from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [{ labelId: label, value: SAME_LABEL_VALUE }] }];
 
     await expect(saveRules({ fleetId: FLEET_ID, rules })).resolves.toMatchObject({ isOk: true });
   });
