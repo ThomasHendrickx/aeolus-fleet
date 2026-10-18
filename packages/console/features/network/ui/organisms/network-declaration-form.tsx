@@ -3,13 +3,13 @@
 import type { WhileUnavailable } from '@aeolus-fleet/common';
 import { useId, useState } from 'react';
 
-import { secondsProblem, WHILE_UNAVAILABLE_WORDS } from '../lib/network-declaration';
-import type { NetworkDeclaration } from '../../../lib/networking-plugin-schemas';
-import { Button } from '../../../components/atoms/button';
-import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/atoms/select';
-import { InlineError } from '../../../components/molecules/inline-error';
+import { secondsProblem, WHILE_UNAVAILABLE_WORDS } from '../../services/network-declaration';
+import type { NetworkDeclaration } from '../../../../lib/networking-plugin-schemas';
+import { Button } from '../../../../components/atoms/button';
+import { Input } from '../../../../components/atoms/input';
+import { Label } from '../../../../components/atoms/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface NetworkDeclarationFormProps {
   /** What the plugin declares now. */

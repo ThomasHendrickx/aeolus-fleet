@@ -7,7 +7,7 @@ import { createFollowDeclarations } from './follow-declarations.js';
 
 const SQUADRONS: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9003';
 const ALPHA: LabelValueId = 'lbv_01m3tbfspe96yf1rnr4ank9001';
-const DECLARED = [{ from: [ALPHA], to: [ALPHA] }];
+const DECLARED = [{ verb: 'send' as const, from: [ALPHA], to: [ALPHA] }];
 
 let parts: Awaited<ReturnType<typeof suppliedFleet>>;
 let followDeclarations: ReturnType<typeof createFollowDeclarations>;

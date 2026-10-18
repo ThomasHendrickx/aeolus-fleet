@@ -73,6 +73,7 @@ const SHIP_TOOLS = [
   'fleet_setNetworkRules',
   'fleet_registerNetworkPlugin',
   'fleet_unregisterNetworkPlugin',
+  'fleet_setBuiltInRule',
   'fleet_declareNetworkRules',
   'fleet_declaredNetworkRules',
 ];
@@ -269,9 +270,10 @@ describe('the ship tools at /mcp', () => {
     ['fleet_unassignLabel', [/labels:assign/, /owner/]],
     ['fleet_deleteLabel', [/labels:define/, /owner/, /carr/]],
     ['fleet_findLabelValue', [/fleet:read/, /lowercas/i]],
-    ['fleet_setNetworkRules', [/fleet:network/, /decision 0034/, /all-to-all/, /networking plugin/, /"\*"/, /"#"/, /one side only/]],
+    ['fleet_setNetworkRules', [/fleet:network/, /decision 0034/, /send, read or manage/, /owner/, /built-in/, /networking plugin/, /"\*"/, /"#"/, /one side only/]],
     ['fleet_registerNetworkPlugin', [/fleet:network/, /decision 0035/, /block-all/, /open-all/, /keep-latest/, /not responding/]],
     ['fleet_unregisterNetworkPlugin', [/fleet:network/, /decision 0035/, /all-to-all/]],
+    ['fleet_setBuiltInRule', [/fleet:network/, /decision 0034/, /never off/]],
     ['fleet_declareNetworkRules', [/labels:define/, /decision 0037/, /owns/, /at most 20/, /withdraw/, /networking plugin/]],
     ['fleet_declaredNetworkRules', [/fleet:network/, /decision 0037/, /each ship/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {

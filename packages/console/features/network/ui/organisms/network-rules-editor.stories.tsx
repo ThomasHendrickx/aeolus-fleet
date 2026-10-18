@@ -2,7 +2,7 @@ import { idSchema, NETWORK_RULES_MAX, SHIP_LABELS_MAX, type LabelValueId, type L
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
-import { AREA, labelContext, labelledFleet, OS, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, labelContext, labelledFleet, OS, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { NetworkRulesEditor } from './network-rules-editor';
 
 function valueOf(label: ListedLabel, value: string): LabelValueId {
@@ -15,8 +15,8 @@ function valueOf(label: ListedLabel, value: string): LabelValueId {
 
 const CONTEXT = labelContext(labelledFleet());
 const RULES = [
-  { from: [valueOf(PROJECT, 'hemma')], to: [valueOf(PROJECT, 'hemma')] },
-  { from: [valueOf(AREA, 'review')], to: [valueOf(PROJECT, 'aeolus'), valueOf(AREA, 'backend')] },
+  { verb: 'send' as const, from: [valueOf(PROJECT, 'hemma')], to: [valueOf(PROJECT, 'hemma')] },
+  { verb: 'send' as const, from: [valueOf(AREA, 'review')], to: [valueOf(PROJECT, 'aeolus'), valueOf(AREA, 'backend')] },
 ];
 
 const meta = {
@@ -42,7 +42,7 @@ export const WithRules: Story = {};
 /** An empty list: only argo and answers get through. */
 export const NoRuleAllows: Story = { args: { rules: [] } };
 /** A rule names a value the fleet no longer has: that side matches no ship (decision 0034). */
-export const RemovedLabel: Story = { args: { rules: [{ from: [idSchema('labelValue').parse('lbv_01m4jtkdcqe51e0v00c76eec2d')], to: [] }] } };
+export const RemovedLabel: Story = { args: { rules: [{ verb: 'send', from: [idSchema('labelValue').parse('lbv_01m4jtkdcqe51e0v00c76eec2d')], to: [] }] } };
 /** As many rules as a fleet holds: no Add rule. */
 export const AtLimit: Story = { args: { limits: { rulesMax: 2, selectorMax: SHIP_LABELS_MAX } } };
 export const Saving: Story = { args: { isSaving: true } };
@@ -64,14 +64,14 @@ export const ConfirmingOff: Story = {
 export const WithTerms: Story = {
   args: {
     rules: [
-      { from: [valueOf(OS, 'macos'), { labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] },
-      { from: [valueOf(AREA, 'review')], to: [{ labelId: PROJECT.id, value: '*' }] },
+      { verb: 'send', from: [valueOf(OS, 'macos'), { labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] },
+      { verb: 'send', from: [valueOf(AREA, 'review')], to: [{ labelId: PROJECT.id, value: '*' }] },
     ],
   },
 };
 /** A same value taken off one side: the other side says it needs one too, and Save stays off as the fleet refuses it. */
 export const SameValueOnOneSide: Story = {
-  args: { rules: [{ from: [{ labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] }] },
+  args: { rules: [{ verb: 'send', from: [{ labelId: PROJECT.id, value: '#' }], to: [{ labelId: PROJECT.id, value: '#' }] }] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(within(canvas.getByTestId('network-rule-to')).getByRole('button', { name: 'Remove project=#' }));

@@ -76,6 +76,7 @@ import type { ReadDeclaredNetworkRules } from '../../domain/registry/read-declar
 import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusals.js';
 import type { RegisterNetworkPlugin } from '../../domain/registry/register-network-plugin.js';
 import type { SetNetworkRules } from '../../domain/registry/set-network-rules.js';
+import type { SetBuiltInRule } from '../../domain/registry/set-built-in-rule.js';
 import type { UnregisterNetworkPlugin } from '../../domain/registry/unregister-network-plugin.js';
 import type { DeleteLabel } from '../../domain/registry/delete-label.js';
 import type { FindLabelValue } from '../../domain/registry/find-label-value.js';
@@ -137,6 +138,7 @@ export interface UseCases {
   setNetworkRules: SetNetworkRules;
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
+  setBuiltInRule: SetBuiltInRule;
   readReachRefusals: ReadReachRefusals;
   declareNetworkRules: DeclareNetworkRules;
   readDeclaredNetworkRules: ReadDeclaredNetworkRules;

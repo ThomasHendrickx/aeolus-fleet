@@ -22,7 +22,7 @@ describe('saving what argo declares for while the plugin is unavailable', () => 
   });
 
   it('keeps the rules argo saved, and supplies them again', async () => {
-    const rules = [{ from: [], to: [] }];
+    const rules = [{ verb: 'send' as const, from: [], to: [] }];
     await parts.networks.save(FLEET_ID, { rules, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
 
     await saveDeclaration({ fleetId: FLEET_ID, declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 60 } });

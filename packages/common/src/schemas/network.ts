@@ -4,9 +4,9 @@ import { idSchema } from '../ids/index.js';
 import { carriedLabelSchema } from './label.js';
 
 /**
- * Network rules (decision 0034): which ships may send to which. A rule says
- * that the ships matching one label selector may send to the ships matching
- * another; a selector is a list of terms that must all hold (an empty one
+ * Network rules (decision 0034): which ships may send to, read or manage
+ * which. A rule names its verb and says that the ships matching one selector
+ * may do it to the ships matching another; a selector is a list of terms that must all hold (an empty one
  * holds for every ship). Allow-only. The limits are the decision's; the server
  * checks them, so every refusal names it.
  */
@@ -28,23 +28,65 @@ export const SAME_LABEL_VALUE = '#' as const;
 
 /**
  * One term of a selector: an exact label value, written as its id, which
- * names its label; or a label with any value (`*`) or with the same value as
- * the other side's (`#`), which binds the same label there only.
+ * names its label; a label with any value (`*`) or with the same value as
+ * the other side's (`#`), which binds the same label there only; or the
+ * owner (decision 0045): an owner's ship by its id, any owner (`*`), or the
+ * same owner as the other side's (`#`), which binds the owner there.
  */
-export const selectorTermSchema = z.union([idSchema('labelValue'), z.object({ labelId: idSchema('label'), value: z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE]) })]);
+export const selectorTermSchema = z.union([
+  idSchema('labelValue'),
+  z.object({ labelId: idSchema('label'), value: z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE]) }),
+  z.object({ owner: z.union([idSchema('ship'), z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE])]) }),
+]);
 
 export type SelectorTerm = z.infer<typeof selectorTermSchema>;
+
+/** A term of the owner (decision 0045). */
+export type OwnerTerm = Extract<SelectorTerm, { owner: unknown }>;
+
+/** A term on a label: an exact value, or a label with any or the same value. */
+export type LabelTerm = Exclude<SelectorTerm, OwnerTerm>;
+
+export function isOwnerTerm(term: SelectorTerm): term is OwnerTerm {
+  return typeof term !== 'string' && 'owner' in term;
+}
 
 /** The ships for which every one of these terms holds, combined with AND. */
 export const labelSelectorSchema = z.array(selectorTermSchema);
 
-/** One rule: the ships matching `from` may send to the ships matching `to`. */
-export const networkRuleSchema = z.object({ from: labelSelectorSchema, to: labelSelectorSchema });
+/** What a rule lets one ship do to another: send to it, read it or manage it (decision 0034). */
+export const NETWORK_VERBS = ['send', 'read', 'manage'] as const;
+
+export type NetworkVerb = (typeof NETWORK_VERBS)[number];
+
+/** One rule: the ships matching `from` may do its verb to the ships matching `to`. */
+export const networkRuleSchema = z.object({ verb: z.enum(NETWORK_VERBS), from: labelSelectorSchema, to: labelSelectorSchema });
 
 export type NetworkRule = z.infer<typeof networkRuleSchema>;
 
-/** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on, or none for all-to-all. */
-export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema).nullable() });
+/** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on beside the built-in ones. */
+export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema) });
+
+/**
+ * The built-in rules, core's own (decision 0034): argo to and from every ship,
+ * the owner's ship to the ships it owns, and an answer to the sender of the
+ * message it answers, which are never off; the viewer reading every ship,
+ * which argo turns off or on; and open, every ship to every ship, one per
+ * verb, which the networking plugin turns off or on.
+ */
+export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'viewerRead', 'open'] as const;
+
+export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
+
+/** The built-in rules that are never off. */
+export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer'] as const satisfies readonly BuiltInRule[];
+
+/** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off, open for one verb, which it names and no other rule does. */
+export const setBuiltInRuleInputSchema = z
+  .object({ rule: z.enum(BUILT_IN_RULES), verb: z.enum(NETWORK_VERBS).optional(), isOn: z.boolean() })
+  .refine((input) => (input.rule === 'open') === (input.verb !== undefined), { message: 'open names its verb, and no other built-in rule names one', path: ['verb'] });
+
+export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
 
 /** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
 export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
@@ -81,10 +123,15 @@ export const registerNetworkPluginInputSchema = z.object({
 
 export type NetworkPluginDeclaration = z.infer<typeof registerNetworkPluginInputSchema>;
 
-/** A ship as a reach refusal saw it: its id, its name and the label values it carried then. */
-const refusedShipSchema = z.object({ id: idSchema('ship'), name: z.string(), labels: z.array(carriedLabelSchema) });
+/** A ship as a reach refusal saw it: its id, its name, the label values it carried then and its owner's ship then, none for argo and the viewer (decision 0045). */
+const refusedShipSchema = z.object({
+  id: idSchema('ship'),
+  name: z.string(),
+  labels: z.array(carriedLabelSchema),
+  owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+});
 
-/** One refused send: who tried to reach whom, both ships as they were, the settings version that refused it and when. */
+/** One refused send: who tried to reach whom by which verb, both ships as they were with their owners, the settings version that refused it and when. */
 export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),
@@ -94,6 +141,8 @@ export const reachRefusalSchema = z.object({
     /** A send to a type: the type and each ship of it, none of which the sender may reach. */
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
   ]),
+  /** What the sender tried to do: send, the one verb checked so far. */
+  verb: z.enum(NETWORK_VERBS),
   settingsVersion: z.int().min(1),
   /** What the plugin declared for while it is unavailable, when it refused because the plugin was not responding (decision 0035); null otherwise. */
   whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
@@ -107,5 +156,23 @@ export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);
 /** Input of `fleet.explainReach` (argo only): the ship to explain from, and the one ship asked about, or none for every ship. */
 export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional() });
 
-/** Output of `fleet.explainReach`: the ships it reaches now, by id; never the rules or why (design on #260). */
-export const explainReachOutputSchema = z.object({ reachableShipIds: z.array(idSchema('ship')) });
+/**
+ * The rule that lets one ship reach another (decision 0034): a built-in rule;
+ * a rule the networking plugin supplied, by its place in the fleet's list;
+ * or a rule a ship declared, by its declarer and its place in that ship's
+ * list (decision 0037).
+ */
+export const reachRuleSchema = z.union([
+  z.object({ builtIn: z.enum(BUILT_IN_RULES) }),
+  z.object({ plugin: z.int().min(0) }),
+  z.object({ declared: idSchema('ship'), index: z.int().min(0) }),
+]);
+
+export type ReachRule = z.infer<typeof reachRuleSchema>;
+
+const reachedShipsSchema = z.array(z.object({ shipId: idSchema('ship'), rule: reachRuleSchema }));
+
+/** Output of `fleet.explainReach`: per verb, the ships it reaches now, each with the rule that allows it. */
+export const explainReachOutputSchema = z.object({ send: reachedShipsSchema, read: reachedShipsSchema, manage: reachedShipsSchema });
+
+export type ExplainedReach = z.infer<typeof explainReachOutputSchema>;

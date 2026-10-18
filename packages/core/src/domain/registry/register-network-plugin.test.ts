@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
+import { BUILT_INS_ON } from './network-settings.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -29,13 +30,13 @@ beforeEach(async () => {
 describe('registering a networking plugin', () => {
   it("makes the caller's ship the fleet's networking plugin, with what it declared, at the next version", async () => {
     expect(unwrap(await registerNetworkPlugin(plugin, BLOCK_ALL))).toEqual({ version: 1 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL } }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL } }]);
   });
 
   it('starts from no rules, as a fleet without a plugin has none, until it supplies its own', async () => {
     unwrap(await registerNetworkPlugin(plugin, BLOCK_ALL));
 
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
   });
 
   it('writes NetworkPluginRegistered, caused by the plugin, with the version and what it declared', async () => {

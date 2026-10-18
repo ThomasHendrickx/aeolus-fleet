@@ -40,10 +40,11 @@ function aMessage(to: Caller, overrides: Partial<MessageToSend> = {}): MessageTo
   return { selector: { kind: 'ship', shipId: to.shipId }, payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/260', idempotencyKey: newKey(), model: SESSION_MODEL, ...overrides };
 }
 
-/** The ship registers as the fleet's networking plugin and supplies its rules: shared reaches shared. */
+/** The ship registers as the fleet's networking plugin and supplies its rules, turning open for send off: shared reaches shared. */
 async function registerAs(ship: Caller, whileUnavailable: WhileUnavailable): Promise<void> {
   unwrap(await registry.registerNetworkPlugin(ship, { whileUnavailable, notRespondingAfterSeconds: NOT_RESPONDING_AFTER_SECONDS }));
-  unwrap(await registry.setNetworkRules(ship, { rules: [{ from: [value('shared')], to: [value('shared')] }] }));
+  unwrap(await registry.setNetworkRules(ship, { rules: [{ verb: 'send', from: [value('shared')], to: [value('shared')] }] }));
+  unwrap(await registry.setBuiltInRule(ship, { rule: 'open', verb: 'send', isOn: false }));
 }
 
 /** The plugin's crew calls the fleet, as every call of its process does. */
@@ -99,7 +100,7 @@ describe('a send while the networking plugin responds', () => {
   it('records a refusal as one of the rules, not of an unavailable plugin', async () => {
     refusalOf(await messaging.sendMessage(planner, aMessage(vault)));
 
-    expect(core.state.reachRefusals).toEqual([expect.objectContaining({ settingsVersion: 2, whilePluginUnavailable: null })]);
+    expect(core.state.reachRefusals).toEqual([expect.objectContaining({ settingsVersion: 3, whilePluginUnavailable: null })]);
   });
 });
 
@@ -120,7 +121,15 @@ describe('a send while the networking plugin, declared block-all, is not respond
 
     refusalOf(await messaging.sendMessage(planner, aMessage(scout)));
 
-    expect(core.state.reachRefusals).toEqual([expect.objectContaining({ settingsVersion: 2, whilePluginUnavailable: 'block-all' })]);
+    expect(core.state.reachRefusals).toEqual([expect.objectContaining({ settingsVersion: 3, whilePluginUnavailable: 'block-all' })]);
+  });
+
+  it('is refused even while open is on for send: only the built-in rules that are never off hold', async () => {
+    unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'send', isOn: true }));
+    await pluginCalls();
+    pluginGoesQuiet();
+
+    expect(refusalOf(await messaging.sendMessage(vault, aMessage(scout)))).toEqual(NOT_REACHABLE);
   });
 
   it('lets argo send to every ship and every ship send to argo', async () => {

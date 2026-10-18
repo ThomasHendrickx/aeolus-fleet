@@ -109,7 +109,7 @@ export function fakeNetworkFleet(liveTokens: Set<string>) {
       if (refused) {
         return refused;
       }
-      state.declarations.push(rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })));
+      state.declarations.push(rules.map((rule) => ({ verb: 'send', from: [...rule.from], to: [...rule.to] })));
       return Promise.resolve(ok({ rules: rules.length }));
     },
   };

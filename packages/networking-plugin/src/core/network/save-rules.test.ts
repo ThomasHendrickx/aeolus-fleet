@@ -22,7 +22,7 @@ function aLabel(): LabelId {
 }
 
 function aRule(from = 1, to = 1): NetworkRule {
-  return { from: Array.from({ length: from }, aValue), to: Array.from({ length: to }, aValue) };
+  return { verb: 'send', from: Array.from({ length: from }, aValue), to: Array.from({ length: to }, aValue) };
 }
 
 beforeEach(async () => {
@@ -39,12 +39,12 @@ describe("saving argo's rules", () => {
     await expect(parts.networks.find(FLEET_ID)).resolves.toMatchObject({ rules });
   });
 
-  it('keeps none apart from an empty list: none is all-to-all, an empty list only the fixed exceptions', async () => {
+  it('keeps none apart from an empty list: none is all-to-all with open on, an empty list only the built-in rules that are never off', async () => {
     await saveRules({ fleetId: FLEET_ID, rules: [] });
-    expect(parts.fleet.state.rules).toEqual([]);
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: false, read: false, manage: false }]);
 
     await saveRules({ fleetId: FLEET_ID, rules: null });
-    expect(parts.fleet.state.rules).toBeNull();
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('keeps what argo declared for while the plugin is unavailable', async () => {
@@ -85,7 +85,7 @@ describe("saving argo's rules", () => {
   it('refuses a selector that names a label value twice', async () => {
     const twice = aValue();
 
-    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [twice, twice], to: [] }] })).resolves.toEqual({
+    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ verb: 'send', from: [twice, twice], to: [] }] })).resolves.toEqual({
       isOk: false,
       error: { kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${twice} twice (decision 0034)` },
     });
@@ -94,7 +94,7 @@ describe("saving argo's rules", () => {
   it('refuses a selector that names a label with any value twice', async () => {
     const label = aLabel();
 
-    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [], to: [{ labelId: label, value: ANY_LABEL_VALUE }, { labelId: label, value: ANY_LABEL_VALUE }] }] })).resolves.toEqual({
+    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ verb: 'send', from: [], to: [{ labelId: label, value: ANY_LABEL_VALUE }, { labelId: label, value: ANY_LABEL_VALUE }] }] })).resolves.toEqual({
       isOk: false,
       error: { kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${label}=* twice (decision 0034)` },
     });
@@ -102,7 +102,7 @@ describe("saving argo's rules", () => {
 
   it('keeps a rule that binds a label to the same value on both sides', async () => {
     const label = aLabel();
-    const rules = [{ from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [{ labelId: label, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send' as const, from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [{ labelId: label, value: SAME_LABEL_VALUE }] }];
 
     await expect(saveRules({ fleetId: FLEET_ID, rules })).resolves.toMatchObject({ isOk: true });
   });
@@ -110,7 +110,7 @@ describe("saving argo's rules", () => {
   it('refuses a rule with the same value on one side only, keeping and supplying nothing', async () => {
     const label = aLabel();
 
-    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [] }] })).resolves.toEqual({
+    await expect(saveRules({ fleetId: FLEET_ID, rules: [{ verb: 'send', from: [{ labelId: label, value: SAME_LABEL_VALUE }], to: [] }] })).resolves.toEqual({
       isOk: false,
       error: { kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${label}=# is on one side only (decision 0034)` },
     });

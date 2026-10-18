@@ -10,7 +10,7 @@ function aListedShip(name: string): Pick<ListedShip, 'id' | 'name'> {
 }
 
 function aRule(): NetworkRule {
-  return { from: [{ labelId: newId('label'), value: '#' }], to: [{ labelId: newId('label'), value: '#' }] };
+  return { verb: 'send', from: [{ labelId: newId('label'), value: '#' }], to: [{ labelId: newId('label'), value: '#' }] };
 }
 
 function declaredBy(shipId: ShipId, rules: NetworkRule[] = [aRule()]): { shipId: ShipId; rules: NetworkRule[] } {

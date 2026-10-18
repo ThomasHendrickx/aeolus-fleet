@@ -4,14 +4,15 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { skipToken, useQuery } from '@tanstack/react-query';
 
 import { useTRPC } from '../../../lib/trpc';
+import { sendReachOf } from '../services/reach-graph';
 
 /**
- * What the picked ship reaches now, as the fleet explains it to argo (design
- * point 11 on #260): the ships, never why. Asked only while a ship is picked.
+ * The ships the picked ship sends to now, as the fleet explains it to argo
+ * (decision 0034), by id. Asked only while a ship is picked.
  */
 export function useShipReach(pickedShipId: ShipId | undefined) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.explainReach.queryOptions(pickedShipId === undefined ? skipToken : { fromShipId: pickedShipId }));
+  return useQuery({ ...trpc.fleet.explainReach.queryOptions(pickedShipId === undefined ? skipToken : { fromShipId: pickedShipId }), select: sendReachOf });
 }
 
 /** Network's path with the ship picked on the fleet graph, if any. */

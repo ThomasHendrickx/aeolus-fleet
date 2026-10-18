@@ -1,4 +1,4 @@
-import { NETWORK_RULES_MAX, SAME_LABEL_VALUE, SHIP_LABELS_MAX, type LabelId, type NetworkRule, type SelectorTerm } from '@aeolus-fleet/common';
+import { isOwnerTerm, NETWORK_RULES_MAX, SAME_LABEL_VALUE, SHIP_LABELS_MAX, type LabelId, type NetworkRule, type SelectorTerm } from '@aeolus-fleet/common';
 
 /**
  * What breaks the limits, said for argo as the fleet says it, naming the
@@ -37,11 +37,14 @@ function sameValueOnOneSide(rule: NetworkRule): string | undefined {
   return alone === undefined ? undefined : `A term of the same value binds its label on both sides: ${termText({ labelId: alone, value: SAME_LABEL_VALUE })} is on one side only (decision 0034)`;
 }
 
-/** A term as a refusal names it: an exact value by its id, any other by its label id and symbol. */
+/** A term as a refusal names it: an exact value by its id, a label term by its label id and symbol, an owner term by `owner` and its value. */
 function termText(term: SelectorTerm): string {
-  return typeof term === 'string' ? term : `${term.labelId}=${term.value}`;
+  if (typeof term === 'string') {
+    return term;
+  }
+  return isOwnerTerm(term) ? `owner=${term.owner}` : `${term.labelId}=${term.value}`;
 }
 
 function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
-  return selector.flatMap((term) => (typeof term !== 'string' && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
+  return selector.flatMap((term) => (typeof term !== 'string' && !isOwnerTerm(term) && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
 }

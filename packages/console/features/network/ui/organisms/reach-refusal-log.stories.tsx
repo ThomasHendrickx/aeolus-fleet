@@ -2,13 +2,13 @@ import { idSchema, type ReachRefusal } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { AREA, BLUEPRINT, carried, labelContext, labelledFleet, OS, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, BLUEPRINT, carried, labelContext, labelledFleet, OS, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { ReachRefusalLog } from './reach-refusal-log';
 
 const NOW = new Date('2026-10-10T12:00:00.000Z');
 
 function aShip(name: string, ship: { suffix: string; labels?: ReachRefusal['sender']['labels'] }): ReachRefusal['sender'] {
-  return { id: idSchema('ship').parse(`shp_01m4k0000000000000000000${ship.suffix}`), name, labels: ship.labels ?? [] };
+  return { id: idSchema('ship').parse(`shp_01m4k0000000000000000000${ship.suffix}`), name, labels: ship.labels ?? [], owner: null };
 }
 
 const SCOUT = aShip('scout-1', { suffix: '01' });
@@ -24,6 +24,7 @@ function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo:
     at: new Date(NOW.getTime() - minutesAgo * 60_000).toISOString(),
     sender: WEBSITE,
     recipient: { kind: 'ship', ship: HEMMA_API },
+    verb: 'send',
     settingsVersion: 7,
     whilePluginUnavailable: null,
     ...rest,

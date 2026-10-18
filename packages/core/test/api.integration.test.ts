@@ -208,6 +208,11 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_forced_delivery$/),
       expect.stringMatching(/^\d{14}_person_and_app_ships$/),
       expect.stringMatching(/^\d{14}_owners$/),
+      expect.stringMatching(/^\d{14}_owners_on_reach_refusals$/),
+      expect.stringMatching(/^\d{14}_network_verbs$/),
+      expect.stringMatching(/^\d{14}_built_in_rules$/),
+      expect.stringMatching(/^\d{14}_network_rules_a_list$/),
+      expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
     ]);
   });
 });
@@ -2023,6 +2028,7 @@ describe('network rules at the API', () => {
   async function networker(): Promise<TRPCClient<AppRouter>> {
     asNetworker = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
     await asNetworker.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS });
+    await asNetworker.fleet.setBuiltInRule.mutate({ rule: 'open', verb: 'send', isOn: false });
     return asNetworker;
   }
 
@@ -2036,7 +2042,7 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
 
-    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [], to: [newId('labelValue')] }] });
+    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [], to: [newId('labelValue')] }] });
     const second = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
 
     expect(second.version).toBe(first.version + 1);
@@ -2050,15 +2056,19 @@ describe('network rules at the API', () => {
     await expect(codeOf(unregistered.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
   });
 
-  it('let argo explain which ships a ship reaches, answering only the ships, and refuse every other ship, the rule setter too', async () => {
+  it('let argo explain which ships a ship reaches per verb, naming the rule, and refuse every other ship, the rule setter too', async () => {
     const plugin = await networker();
     await plugin.fleet.setNetworkRules.mutate({ rules: [] });
     const { shipId: fromShipId } = await agentShip();
     const { shipId: toShipId } = await agentShip();
     const argo = await signedInArgo();
 
-    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId })).resolves.toEqual({ reachableShipIds: [] });
-    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId: argoId })).resolves.toEqual({ reachableShipIds: [argoId] });
+    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId })).resolves.toEqual({
+      send: [],
+      read: [{ shipId: toShipId, rule: { builtIn: 'open' } }],
+      manage: [{ shipId: toShipId, rule: { builtIn: 'open' } }],
+    });
+    await expect(argo.fleet.explainReach.query({ fromShipId, toShipId: argoId })).resolves.toMatchObject({ send: [{ shipId: argoId, rule: { builtIn: 'argo' } }] });
     await expect(codeOf(plugin.fleet.explainReach.query({ fromShipId }))).resolves.toBe('FORBIDDEN');
   });
 
@@ -2078,10 +2088,15 @@ describe('network rules at the API', () => {
       await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: valueId ?? newId('labelValue') });
     }
     const sameZone = { labelId: zone.labelId, value: SAME_LABEL_VALUE };
-    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ from: [sameZone], to: [sameZone] }] });
+    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameZone], to: [sameZone] }] });
     const toShip = (shipId: ShipId) => ({ selector: { kind: 'ship' as const, shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL });
 
-    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId: senderId })).resolves.toEqual({ reachableShipIds: [argoId, neighbourId] });
+    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId: senderId })).resolves.toMatchObject({
+      send: [
+        { shipId: argoId, rule: { builtIn: 'argo' } },
+        { shipId: neighbourId, rule: { plugin: 0 } },
+      ],
+    });
     expect((await sender.ship.send.mutate(toShip(neighbourId))).messageId).toMatch(/^msg_/);
     await expect(refusalOf(sender.ship.send.mutate(toShip(strangerId)))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The network rules do not allow this send' });
   });
@@ -2090,8 +2105,8 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const labelId = newId('label');
 
-    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
+    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0034');
   });
@@ -2100,7 +2115,7 @@ describe('network rules at the API', () => {
     const plugin = await networker();
     const declared = (await plugin.fleet.declaredNetworkRules.query()).reduce((count, ship) => count + ship.rules.length, 0);
 
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ from: [], to: [] })) }));
+    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ verb: 'send', from: [], to: [] })) }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0037');
@@ -2110,7 +2125,7 @@ describe('network rules at the API', () => {
     const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
     const { shipId } = await declarer.ship.whoami.query();
     const { labelId } = await declarer.fleet.defineLabel.mutate({ key: 'api-declared-squadron', values: ['alpha'] });
-    const rules = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    const rules = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
     await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
@@ -2128,7 +2143,7 @@ describe('network rules at the API', () => {
     const owner = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
     const other = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define'])}` });
     const { labelId } = await owner.fleet.defineLabel.mutate({ key: 'api-declared-trierarch', values: ['agent-host-1'] });
-    const rule = { from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] };
+    const rule = { verb: 'send' as const, from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] };
 
     await expect(codeOf(other.fleet.declareNetworkRules.mutate({ rules: [rule] }))).resolves.toBe('FORBIDDEN');
     const refused = await refusalOf(owner.fleet.declareNetworkRules.mutate({ rules: Array.from({ length: 21 }, () => rule) }));
@@ -2152,6 +2167,7 @@ describe('network rules at the API', () => {
     const { version } = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
     const senderToken = await crewedShip();
     const { shipId } = await agentShip();
+    await database.ship.update({ where: { id: shipId }, data: { ownerShipId: argoId } });
     const refusedAt = clock.now().toISOString();
     await refusalOf(
       client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
@@ -2159,7 +2175,7 @@ describe('network rules at the API', () => {
 
     const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
 
-    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [] } }, settingsVersion: version, at: refusedAt });
+    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [], owner: { name: 'argo' } } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
     await expect(codeOf(plugin.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
   });
@@ -2176,12 +2192,22 @@ describe('network rules at the API', () => {
 
     const response = await post('setNetworkRules', { rules: [] });
     const sameTeam = { labelId: newId('label'), value: SAME_LABEL_VALUE };
-    const withTerms = await post('setNetworkRules', { rules: [{ from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
+    const withTerms = await post('setNetworkRules', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
 
     expect(response.status).toBe(200);
     expect(withTerms.status).toBe(200);
     expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
+    expect((await post('setBuiltInRule', { rule: 'open', verb: 'manage', isOn: false })).status).toBe(200);
     expect((await post('unregisterNetworkPlugin', {})).status).toBe(200);
+  });
+
+  it('let argo turn the viewer reading off and on, and refuse turning a built-in rule that is never off with FORBIDDEN naming decision 0034', async () => {
+    const asArgo = await signedInArgo();
+
+    const off = await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
+    await expect(asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true })).resolves.toEqual({ version: off.version + 1 });
+    await expect(refusalOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'owner', isOn: false }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The built-in rule owner is never off (decision 0034)' });
+    await expect(codeOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'open', isOn: false }))).resolves.toBe('BAD_REQUEST');
   });
 });
 

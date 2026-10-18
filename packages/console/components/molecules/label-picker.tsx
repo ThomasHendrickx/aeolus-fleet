@@ -1,6 +1,6 @@
 'use client';
 
-import type { SelectorTerm } from '@aeolus-fleet/common';
+import type { LabelTerm } from '@aeolus-fleet/common';
 import { Boxes, ChevronLeft, ChevronRight, Search, Ship, ShipWheel } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,14 +21,14 @@ interface LabelPickerProps {
   /** What each value's count counts: ships, or machines for a crew request's machine labels. */
   countWord?: 'ship' | 'machine';
   /** A rule's side also picks a key with any value (`*`) or the same value as the other side (`#`), offered before its values (decision 0034). */
-  terms?: { picked: readonly LabelTerm[]; onPick: (term: LabelTerm) => void };
+  terms?: { picked: readonly AnyOrSameTerm[]; onPick: (term: AnyOrSameTerm) => void };
 }
 
 /** A term of a label with any value or the same value as the other side's. */
-type LabelTerm = Exclude<SelectorTerm, string>;
+type AnyOrSameTerm = Exclude<LabelTerm, string>;
 
 /** The terms a key offers before its values. */
-const TERMS: readonly { value: LabelTerm['value']; testId: string }[] = [
+const TERMS: readonly { value: AnyOrSameTerm['value']; testId: string }[] = [
   { value: '*', testId: 'label-picker-any' },
   { value: '#', testId: 'label-picker-same' },
 ];

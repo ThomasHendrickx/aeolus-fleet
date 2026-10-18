@@ -23,7 +23,7 @@ beforeEach(async () => {
   forgetter = memoryForgetter({ switches, requests });
   deleteFleet = createDeleteFleet({ forgetter, requests, hasher: plainHasher, clock: { now: () => AT }, door: parts.fleet.door, connections: parts.connections });
   await switches.set(FLEET, { isEnabled: true, at: AT });
-  await parts.networks.save(FLEET, { rules: [{ from: [], to: [] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
+  await parts.networks.save(FLEET, { rules: [{ verb: 'send', from: [], to: [] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
   await parts.supplies.supply(FLEET);
 });
 
@@ -56,7 +56,7 @@ describe('deleting a fleet the networking plugin is connected to (decision 0035)
     await expect(deleteFleet({ requestId: 'r-1', fleetId: FLEET })).resolves.toEqual({ isOk: true, value: {} });
 
     expect(parts.fleet.state.plugin).toBeNull();
-    expect(parts.fleet.state.rules).toBeNull();
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('is refused while the fleet does not answer, forgetting nothing, so the same request id deletes it once the fleet answers', async () => {

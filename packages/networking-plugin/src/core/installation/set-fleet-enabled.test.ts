@@ -47,7 +47,7 @@ describe("switching the networking plugin on or off for a fleet", () => {
 });
 
 describe('switching the networking plugin on or off acts on the fleet at once (Thomas on #260)', () => {
-  const RULES = [{ from: [], to: [] }];
+  const RULES = [{ verb: 'send' as const, from: [], to: [] }];
 
   beforeEach(async () => {
     await setEnabled({ requestId: 'r-on', fleetId: FLEET, isEnabled: true });
@@ -59,7 +59,7 @@ describe('switching the networking plugin on or off acts on the fleet at once (T
     await setEnabled({ requestId: 'r-off', fleetId: FLEET, isEnabled: false });
 
     expect(parts.fleet.state.plugin).toBeNull();
-    expect(parts.fleet.state.rules).toBeNull();
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('switched on again, it registers with what argo declared and supplies the rules it kept', async () => {

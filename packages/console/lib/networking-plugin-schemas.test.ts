@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { networkSchema, savedDeclarationSchema, savedRulesSchema } from './networking-plugin-schemas';
 
-const RULE = { from: ['lbv_01m4jtkdcqe51e0v00c76eec2d'], to: [] };
+const RULE = { verb: 'send', from: ['lbv_01m4jtkdcqe51e0v00c76eec2d'], to: [] };
 const DECLARATION = { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 };
 
 describe("the networking plugin's answers, parsed on the web app's server (decision 0033)", () => {

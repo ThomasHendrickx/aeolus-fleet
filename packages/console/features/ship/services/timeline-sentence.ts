@@ -271,6 +271,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'ended',
         icon: 'fleet',
       };
+    case 'BuiltInRuleChanged': {
+      const verb = stringDetail(entry, 'verb');
+      const rule = entry.details.rule === 'viewerRead' ? 'viewer read' : `${stringDetail(entry, 'rule') ?? ''}${verb === undefined ? '' : ` for ${verb}`}`;
+      const turned = entry.details.isOn === true ? 'on' : 'off';
+      return { parts: [text(`Built-in rule ${rule} turned ${turned}, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    }
     case 'LabelDeleted':
       return { parts: [text(`Label ${labelOf(entry)} deleted`)], tone: 'ended', icon: 'retired' };
     case 'LabelAssigned':

@@ -95,6 +95,7 @@ describe('eventTypeSchema', () => {
       'NetworkRulesDeclared',
       'NetworkPluginRegistered',
       'NetworkPluginUnregistered',
+      'BuiltInRuleChanged',
     ]);
   });
 });

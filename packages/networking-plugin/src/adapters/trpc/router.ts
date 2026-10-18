@@ -10,7 +10,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
-import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, setNetworkRulesInputSchema, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
+import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -145,7 +145,7 @@ const declarationSchema = registerNetworkPluginInputSchema;
 
 /** A rule list as the API answers it: fresh arrays, none kept as none. */
 function listOf(rules: readonly NetworkRule[] | null): NetworkRule[] | null {
-  return rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
+  return rules?.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) ?? null;
 }
 
 /** What a save did at the fleet: supplied, or waiting for the fleet to answer; `not-connected` and `unregistered` only in a race with a disconnect or a switch. */
@@ -202,7 +202,7 @@ export const networkingPluginRouter = t.router({
       }),
     /** Saves argo's rules, the whole list or none for all-to-all, and supplies them to the fleet at once. */
     setRules: argoProcedure
-      .input(setNetworkRulesInputSchema)
+      .input(z.object({ rules: ruleListSchema }))
       .output(z.object({ rules: ruleListSchema, supply: supplySchema }))
       .mutation(async ({ ctx, input }) => {
         const saved = await ctx.saveRules({ fleetId: ctx.fleetId, rules: input.rules });

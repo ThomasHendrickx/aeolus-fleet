@@ -2,7 +2,7 @@ import { idSchema, type ShipId } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import type { GraphShip } from '../lib/reach-graph';
+import type { GraphShip } from '../../services/reach-graph';
 import { FleetReachGraph } from './fleet-reach-graph';
 
 function aShip(name: string, suffix: string): GraphShip {

@@ -138,10 +138,22 @@ async function redeem(ticket: string): Promise<string> {
 }
 
 /** The fleet's network settings as the server holds them: what the plugin supplied. */
+/** Open on for every verb: every ship reaches every ship (decision 0034). */
+const OPEN = { builtInOpenSend: true, builtInOpenRead: true, builtInOpenManage: true };
+
 async function settings() {
   return fleetDatabase.networkSettings.findUnique({
     where: { fleetId: argo.fleetId },
-    select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true },
+    select: {
+      rules: true,
+      version: true,
+      pluginShipId: true,
+      pluginWhileUnavailable: true,
+      pluginNotRespondingAfterSeconds: true,
+      builtInOpenSend: true,
+      builtInOpenRead: true,
+      builtInOpenManage: true,
+    },
   });
 }
 
@@ -152,24 +164,33 @@ async function dataOf(response: Response): Promise<unknown> {
 }
 
 describe('supplying the fleet (decision 0035)', () => {
-  const RULES = [{ from: [], to: [] }];
+  const RULES = [{ verb: 'send', from: [], to: [] }];
 
   it("registers as the fleet's networking plugin on connect, declaring keep-latest after 300 seconds, with no rules: all-to-all", async () => {
     await connected();
 
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 });
   });
 
-  it('supplies the rules argo saves to the fleet at once, and reads them back', async () => {
+  it('supplies the rules argo saves to the fleet at once, turning open off for every verb, and reads them back', async () => {
     const address = await connected();
 
     await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }))).resolves.toEqual({ rules: RULES, supply: 'supplied' });
 
-    await expect(settings()).resolves.toMatchObject({ rules: RULES });
+    await expect(settings()).resolves.toMatchObject({ rules: RULES, builtInOpenSend: false, builtInOpenRead: false, builtInOpenManage: false });
     await expect(dataOf(await query(address, { procedure: 'network.get', cookie }))).resolves.toEqual({
       rules: RULES,
       declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 },
     });
+  });
+
+  it("saves argo's none as none and supplies the fleet an empty list with open on for every verb: all-to-all", async () => {
+    const address = await connected();
+    await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }));
+
+    await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: null } }))).resolves.toEqual({ rules: null, supply: 'supplied' });
+
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN });
   });
 
   it('registers again with what argo declares, keeping the rules', async () => {
@@ -188,7 +209,7 @@ describe('supplying the fleet (decision 0035)', () => {
     const address = await connected();
     const before = await settings();
 
-    const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ from: [], to: [] })) } });
+    const refused = await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: Array.from({ length: 201 }, () => ({ verb: 'send', from: [], to: [] })) } });
 
     expect(refused.status).toBe(400);
     expect(await refused.text()).toContain('decision 0037');
@@ -219,14 +240,14 @@ describe('the rules ships declared (decision 0037)', () => {
   it("adds them to argo's rules, supplying the fleet again as soon as a ship declares or withdraws them", async () => {
     const address = await connected();
     apps[0]?.startFollowing();
-    const argos = [{ from: [], to: [] }];
+    const argos = [{ verb: 'send', from: [], to: [] }];
     await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: argos } }));
     const { shipId: squadronsId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', fleetScopes: ['labels:define', 'labels:assign'] }),
     );
     const squadrons = { fleetId: argo.fleetId, shipId: squadronsId, kind: 'agent' as const, scopes: ['labels:define' as const, 'labels:assign' as const] };
     const { labelId } = unwrap(await useCases.defineLabel(squadrons, { key: 'squadron', values: ['alpha'] }));
-    const declared = [{ from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    const declared = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     unwrap(await useCases.declareNetworkRules(squadrons, { rules: declared }));
 
@@ -313,13 +334,13 @@ describe('the installation (decision 0021)', () => {
   it('unregisters from the fleet when switched off: no plugin and no rules there; switched on again, it supplies the kept rules', async () => {
     const { address } = await started(TOKEN);
     const fleetId = argo.fleetId;
-    const rules = [{ from: [], to: [] }];
+    const rules = [{ verb: 'send', from: [], to: [] }];
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
     expect((await connectPlugin(address, { cookie, shipId, secret })).status).toBe(200);
     expect((await mutate(address, { procedure: 'network.setRules', cookie, body: { rules } })).status).toBe(200);
 
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: false } });
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: null });
 
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
     await expect(settings()).resolves.toMatchObject({ rules, pluginShipId: shipId });
@@ -333,7 +354,7 @@ describe('the installation (decision 0021)', () => {
 
     expect((await installation(address, { procedure: 'installation.delete', body: { requestId: newKey(), fleetId } })).status).toBe(200);
 
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: null });
   });
 
   it("forgets the fleet's connection and switch when the fleet is deleted", async () => {

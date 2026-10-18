@@ -455,6 +455,22 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the networking plugin turned open off for a verb, and the version', () => {
+    expect(onScoutsPage(anEntry('BuiltInRuleChanged', { actor: argo, details: { rule: 'open', verb: 'send', isOn: false, version: 6 } }))).toEqual({
+      sentence: 'Built-in rule open for send turned off, version 6 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says argo turned the viewer reading on', () => {
+    expect(onScoutsPage(anEntry('BuiltInRuleChanged', { actor: argo, details: { rule: 'viewerRead', isOn: true, version: 7 } }))).toEqual({
+      sentence: 'Built-in rule viewer read turned on, version 7 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
   it('names the label its owner deleted', () => {
     expect(onScoutsPage(anEntry('LabelDeleted', { actor: argo, details: { key: 'os' } }))).toEqual({
       sentence: 'Label os deleted',

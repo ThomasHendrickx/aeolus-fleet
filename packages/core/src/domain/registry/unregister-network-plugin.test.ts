@@ -9,6 +9,7 @@ import type { Caller } from '../shared/caller.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 import { createUnregisterNetworkPlugin } from './unregister-network-plugin.js';
+import { BUILT_INS_ON } from './network-settings.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -24,15 +25,16 @@ beforeEach(async () => {
   plugin = await shipWithScopes({ registry: registryUseCases(core), argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
   unwrap(await createRegisterNetworkPlugin(deps)(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
-  unwrap(await createSetNetworkRules(deps)(plugin, { rules: [{ from: [], to: [] }] }));
+  unwrap(await createSetNetworkRules(deps)(plugin, { rules: [{ verb: 'send', from: [], to: [] }] }));
+  unwrap(await registryUseCases(core).setBuiltInRule(plugin, { rule: 'open', verb: 'send', isOn: false }));
   unregisterNetworkPlugin = createUnregisterNetworkPlugin(deps);
   core.state.events.length = 0;
 });
 
 describe('unregistering the networking plugin', () => {
-  it('leaves the fleet without a plugin and without rules, all-to-all, at the next version', async () => {
-    expect(unwrap(await unregisterNetworkPlugin(plugin))).toEqual({ version: 3 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 3, plugin: null }]);
+  it('leaves the fleet without a plugin and without rules, open on again for every verb, at the next version', async () => {
+    expect(unwrap(await unregisterNetworkPlugin(plugin))).toEqual({ version: 4 });
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 4, plugin: null }]);
   });
 
   it('writes NetworkPluginUnregistered, caused by the plugin, with the version', async () => {
@@ -44,7 +46,7 @@ describe('unregistering the networking plugin', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: plugin.shipId },
         shipId: plugin.shipId,
-        details: { version: 3 },
+        details: { version: 4 },
       }),
     ]);
   });
@@ -53,7 +55,7 @@ describe('unregistering the networking plugin', () => {
     const refused = await unregisterNetworkPlugin(argo);
 
     expect(refusalOf(refused)).toEqual({ kind: 'NOT_THE_NETWORK_PLUGIN', message: "Only the fleet's networking plugin does this (decision 0035)" });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 2, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 3, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
     expect(core.state.events).toEqual([]);
   });
 

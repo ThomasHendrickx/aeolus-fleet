@@ -4,7 +4,7 @@ import type { NetworkRule } from '@aeolus-fleet/common';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { filterGroupsOf, type LabelContext } from '../../../lib/labels';
+import { filterGroupsOf, type LabelContext } from '../../../../lib/labels';
 import {
   addRule,
   addTerm,
@@ -19,7 +19,7 @@ import {
   setRulesOn,
   type NetworkLimits,
   type RuleSide,
-} from '../../../lib/network-rules';
+} from '../../../../lib/network-rules';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -28,10 +28,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../components/atoms/alert-dialog';
-import { Button } from '../../../components/atoms/button';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { InlineError } from '../../../components/molecules/inline-error';
+} from '../../../../components/atoms/alert-dialog';
+import { Button } from '../../../../components/atoms/button';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelSelectorField } from '../molecules/label-selector-field';
 
 interface NetworkRulesEditorProps {

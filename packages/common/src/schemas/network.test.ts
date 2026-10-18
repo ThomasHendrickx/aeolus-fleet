@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  BUILT_IN_RULES,
   explainReachInputSchema,
+  FIXED_BUILT_IN_RULES,
   explainReachOutputSchema,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
   NETWORK_RULES_MAX,
+  NETWORK_VERBS,
   REACH_REFUSALS_READ_MAX,
   reachRefusalsOutputSchema,
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
+  setBuiltInRuleInputSchema,
   setNetworkRulesOutputSchema,
 } from './network.js';
 
@@ -25,6 +29,12 @@ describe('the network limits (decision 0034)', () => {
 describe('the networking plugin limits (decision 0035)', () => {
   it('judge a plugin not responding after a minute at the least and a day at the most', () => {
     expect([NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]).toEqual([60, 86_400]);
+  });
+});
+
+describe('the network verbs (decision 0034)', () => {
+  it('are send, read and manage', () => {
+    expect(NETWORK_VERBS).toEqual(['send', 'read', 'manage']);
   });
 });
 
@@ -51,40 +61,84 @@ describe('registerNetworkPluginInputSchema', () => {
 });
 
 describe('setNetworkRulesInputSchema', () => {
-  it('takes the whole list of rules, each from one selector of exact label values to another, leaving the limits to the server', () => {
+  it('takes the whole list of rules, each with its verb from one selector of exact label values to another, leaving the limits to the server', () => {
     const rules = [
-      { from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
-      { from: [], to: [] },
+      { verb: 'send', from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
+      { verb: 'read', from: [], to: [] },
+      { verb: 'manage', from: [], to: [] },
     ];
 
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
   });
 
-  it('takes none for no rules: all-to-all', () => {
-    expect(setNetworkRulesInputSchema.parse({ rules: null })).toEqual({ rules: null });
+  it('refuses none: the rules are a list, and open says all-to-all (decision 0034)', () => {
+    expect(setNetworkRulesInputSchema.safeParse({ rules: null }).success).toBe(false);
   });
 
   it('takes a term that holds a label with any value, and one that holds it with the same value as the other side', () => {
     const labelId = newId('label');
-    const rules = [{ from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
+    const rules = [{ verb: 'send', from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
 
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
   });
 
+  it("takes a term of the owner: an owner's ship by its id, any owner, and the same owner as the other side", () => {
+    const rules = [{ verb: 'send', from: [{ owner: newId('ship') }, { owner: '*' }, { owner: '#' }], to: [{ owner: '#' }] }];
+
+    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+  });
+
+  it('refuses a term of the owner that is not a ship id, any or the same', () => {
+    for (const owner of [newId('labelValue'), 'argo']) {
+      expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ owner }], to: [] }] }).success).toBe(false);
+    }
+  });
+
   it('refuses a term of a label with a value written as text, not an id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a term of any or the same value without a label id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a selector that holds a label id alone, without a value', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [newId('label')], to: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [newId('label')], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a rule without both selectors', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ from: [] }] }).success).toBe(false);
+    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [] }] }).success).toBe(false);
+  });
+
+  it('refuses a rule without its verb, or with a verb that is not send, read or manage', () => {
+    for (const rule of [{ from: [], to: [] }, { verb: 'force', from: [], to: [] }]) {
+      expect(setNetworkRulesInputSchema.safeParse({ rules: [rule] }).success).toBe(false);
+    }
+  });
+});
+
+describe('the built-in rules (decision 0034)', () => {
+  it('are argo, the owner, the answer, the viewer reading and open, the first three never off', () => {
+    expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
+      ['argo', 'owner', 'answer', 'viewerRead', 'open'],
+      ['argo', 'owner', 'answer'],
+    ]);
+  });
+});
+
+describe('setBuiltInRuleInputSchema', () => {
+  it.each(['send', 'read', 'manage'])('takes open for one verb, on or off: %s', (verb) => {
+    expect(setBuiltInRuleInputSchema.parse({ rule: 'open', verb, isOn: false })).toEqual({ rule: 'open', verb, isOn: false });
+  });
+
+  it.each(['argo', 'owner', 'answer', 'viewerRead'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
+    expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
+  });
+
+  it('refuses open without a verb, another rule with one, and a rule that is not built in', () => {
+    for (const input of [{ rule: 'open', isOn: false }, { rule: 'viewerRead', verb: 'read', isOn: false }, { rule: 'everyone', isOn: false }]) {
+      expect(setBuiltInRuleInputSchema.safeParse(input).success).toBe(false);
+    }
   });
 });
 
@@ -95,13 +149,14 @@ describe('setNetworkRulesOutputSchema', () => {
 });
 
 describe('reachRefusalsOutputSchema', () => {
-  it('answers each refusal: who tried to reach whom, both ships with the labels they carried then, the settings version and when', () => {
+  it('answers each refusal: who tried to reach whom, both ships with the labels they carried and their owners then, the settings version and when', () => {
     const carried = { labelId: newId('label'), key: 'trust', valueId: newId('labelValue'), value: 'shared' };
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [carried] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [carried], owner: { id: newId('ship'), name: 'thomas' } },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -113,8 +168,9 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [] }] },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [], owner: null }] },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -126,8 +182,9 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: 'block-all',
     };
@@ -135,12 +192,27 @@ describe('reachRefusalsOutputSchema', () => {
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
   });
 
+  it('refuses a ship without its owner', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-09T19:00:00.000Z',
+      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
+      settingsVersion: 2,
+      whilePluginUnavailable: null,
+    };
+
+    expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
+  });
+
   it('refuses open-all as what refused it: open-all refuses nothing', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [] } },
+      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: 'open-all',
     };
@@ -163,9 +235,17 @@ describe('explainReachInputSchema', () => {
 });
 
 describe('explainReachOutputSchema', () => {
-  it('answers the ships reached, by id, and nothing about why', () => {
-    const reachableShipIds = [newId('ship')];
+  it('answers per verb the ships reached, each with the rule that allows it: built in, the plugin\'s by place, or declared by its declarer and place', () => {
+    const explained = {
+      send: [{ shipId: newId('ship'), rule: { builtIn: 'owner' } }],
+      read: [{ shipId: newId('ship'), rule: { plugin: 3 } }],
+      manage: [{ shipId: newId('ship'), rule: { declared: newId('ship'), index: 0 } }],
+    };
 
-    expect(explainReachOutputSchema.parse({ reachableShipIds, reasons: ['rule 1'] })).toEqual({ reachableShipIds });
+    expect(explainReachOutputSchema.parse(explained)).toEqual(explained);
+  });
+
+  it('refuses a rule that is not built in, the plugin\'s or declared', () => {
+    expect(explainReachOutputSchema.safeParse({ send: [{ shipId: newId('ship'), rule: { builtIn: 'everyone' } }], read: [], manage: [] }).success).toBe(false);
   });
 });

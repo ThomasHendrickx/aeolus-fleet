@@ -1,4 +1,4 @@
-import type { ListedShip, ShipId } from '@aeolus-fleet/common';
+import type { ExplainedReach, ListedShip, ShipId } from '@aeolus-fleet/common';
 
 /**
  * The fleet graph's reach mode (design point 12 on #260): the fleet's ships
@@ -7,6 +7,11 @@ import type { ListedShip, ShipId } from '@aeolus-fleet/common';
  * reaches comes from the fleet's explain call, never worked out here: the
  * browser holds no rules (decision 0033).
  */
+
+/** The ships the graph shows as reached: the ones the explain answers for send, by id. */
+export function sendReachOf(explained: ExplainedReach): ShipId[] {
+  return explained.send.map((reached) => reached.shipId);
+}
 
 /** A ship as the graph draws it. */
 export interface GraphShip {

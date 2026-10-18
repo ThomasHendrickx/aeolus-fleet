@@ -14,11 +14,11 @@ export interface SetNetworkRulesTx {
   events: EventLog;
 }
 
-export type SetNetworkRules = (caller: Caller, input: { rules: readonly NetworkRule[] | null }) => Promise<Result<{ version: number }, SetNetworkRulesRefusal>>;
+export type SetNetworkRules = (caller: Caller, input: { rules: readonly NetworkRule[] }) => Promise<Result<{ version: number }, SetNetworkRulesRefusal>>;
 
 /**
- * Use case: the caller sets the fleet's network rules, the whole list, or
- * none for all-to-all (decision 0034), argo's with the rules the fleet's
+ * Use case: the caller sets the fleet's network rules, the whole list beside
+ * the built-in ones (decision 0034), argo's with the rules the fleet's
  * ships declared added (decision 0037), which the limit counts. Its scope (fleet:network, which argo
  * holds) is checked before this runs. In one unit of work, holding the
  * settings exclusively so no send is checked halfway: the settings at their

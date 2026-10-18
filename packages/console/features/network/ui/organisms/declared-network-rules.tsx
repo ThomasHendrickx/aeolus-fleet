@@ -2,13 +2,13 @@ import type { SelectorTerm } from '@aeolus-fleet/common';
 import { ArrowRight, CircleAlert } from 'lucide-react';
 import { Fragment } from 'react';
 
-import type { LabelContext } from '../../../lib/labels';
-import { selectorOf, TERM_MEANINGS, termKeyOf, type RuleSide } from '../../../lib/network-rules';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LabelChip } from '../../../components/molecules/label-chip';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
-import type { DeclaredRules } from '../lib/declared-rules';
+import type { LabelContext } from '../../../../lib/labels';
+import { selectorOf, TERM_MEANINGS, termKeyOf, type RuleSide } from '../../../../lib/network-rules';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LabelChip } from '../../../../components/molecules/label-chip';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import type { DeclaredRules } from '../../services/declared-rules';
 
 export interface DeclaredNetworkRulesProps {
   /** Each plugin's declared rules, by its name; undefined while not known. */

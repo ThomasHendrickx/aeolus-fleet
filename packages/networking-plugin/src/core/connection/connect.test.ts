@@ -36,7 +36,7 @@ describe('connecting the networking plugin', () => {
     await connect({ secret: 'aeolus_sk_v1_good' });
 
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('is refused while the networking plugin is connected to the fleet: connect only from not connected', async () => {

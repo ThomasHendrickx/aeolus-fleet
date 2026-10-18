@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { NETWORK_VERBS, type FleetId } from '@aeolus-fleet/common';
 
 import type { ConnectionStore, FleetDoor, FleetRefusal } from '../connection/ports.js';
 import type { IsServed } from '../installation/served.js';
@@ -23,7 +23,8 @@ const NOT_THE_PLUGIN = 'FORBIDDEN';
  * it (decision 0035, Thomas on #260). Served (switched on), it registers with
  * what argo declared, then supplies the whole list argo saved with every
  * rule the fleet's ships declared added (decision 0037), or none for
- * all-to-all. Not served (switched off), it unregisters, taking the rules from
+ * all-to-all, and turns the open rules off while argo's rules apply and on
+ * for all-to-all (decision 0034). Not served (switched off), it unregisters, taking the rules from
  * the fleet and keeping its own for when it is on again; a fleet that says its
  * ship is not the plugin is unregistered already. A refusal leaves the fleet
  * to be supplied again later; a crew token the fleet no longer takes is
@@ -56,9 +57,19 @@ export function createSupplyFleet(deps: { door: FleetDoor; connections: Connecti
     if (!declared.isOk) {
       return failed(declared.error);
     }
-    // Rules only allow: argo's none is all-to-all, and declared rules add nothing to it.
-    const rules = network.rules === null ? null : [...network.rules, ...declared.value.flatMap((ship) => ship.rules)];
+    // Rules only allow: argo's none is all-to-all, open on, and declared rules add nothing to it.
+    const rules = network.rules === null ? [] : [...network.rules, ...declared.value.flatMap((ship) => ship.rules)];
     const supplied = await deps.door.setNetworkRules(crew.crewToken, rules);
-    return supplied.isOk ? ok('supplied') : failed(supplied.error);
+    if (!supplied.isOk) {
+      return failed(supplied.error);
+    }
+    // Open lets every ship reach every ship: off while argo's rules apply, on for all-to-all.
+    for (const verb of NETWORK_VERBS) {
+      const opened = await deps.door.setBuiltInRule(crew.crewToken, { rule: 'open', verb, isOn: network.rules === null });
+      if (!opened.isOk) {
+        return failed(opened.error);
+      }
+    }
+    return ok('supplied');
   };
 }

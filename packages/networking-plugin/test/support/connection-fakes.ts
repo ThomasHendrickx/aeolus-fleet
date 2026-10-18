@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type NetworkPluginDeclaration, type NetworkRule, type ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type NetworkPluginDeclaration, type NetworkRule, type NetworkVerb, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConnectionStore, FleetDoor, FleetRefusal, PluginBinding, PluginCrew } from '../../src/core/connection/ports.js';
 import type { FleetNetwork, FleetNetworks } from '../../src/core/network/ports.js';
@@ -17,8 +17,12 @@ export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
  * ping until answered with pong, which only a ping takes.
  */
 export function fakePluginFleet() {
-  /** The fleet's networking plugin, what it declared, or none; and its rules, none for all-to-all. */
-  const network: { plugin: NetworkPluginDeclaration | null; rules: readonly NetworkRule[] | null } = { plugin: null, rules: null };
+  /** The fleet's networking plugin, what it declared, or none; its rules; and open per verb (decision 0034). */
+  const network: { plugin: NetworkPluginDeclaration | null; rules: readonly NetworkRule[]; open: Record<NetworkVerb, boolean> } = {
+    plugin: null,
+    rules: [],
+    open: { send: true, read: true, manage: true },
+  };
   const state = {
     secret: 'aeolus_sk_v1_good',
     fleetId: FLEET_ID,
@@ -114,7 +118,8 @@ export function fakePluginFleet() {
         return notThePlugin();
       }
       state.plugin = null;
-      state.rules = null;
+      state.rules = [];
+      state.open = { send: true, read: true, manage: true };
       state.version += 1;
       return Promise.resolve(ok(undefined));
     },
@@ -134,9 +139,26 @@ export function fakePluginFleet() {
         held.reached();
         await held.released;
       }
-      state.rules = rules?.map((rule) => ({ from: [...rule.from], to: [...rule.to] })) ?? null;
+      state.rules = rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] }));
       state.version += 1;
       return ok(undefined);
+    },
+    setBuiltInRule: (crewToken, input) => {
+      if (!state.isAnswering) {
+        return unavailable();
+      }
+      if (!state.liveTokens.has(crewToken)) {
+        return released();
+      }
+      const { verb } = input;
+      if (input.rule !== 'open' || verb === undefined || state.plugin === null) {
+        return notThePlugin();
+      }
+      if (state.open[verb] !== input.isOn) {
+        state.open = { ...state.open, [verb]: input.isOn };
+        state.version += 1;
+      }
+      return Promise.resolve(ok(undefined));
     },
     declaredNetworkRules: (crewToken) => {
       if (!state.isAnswering) {

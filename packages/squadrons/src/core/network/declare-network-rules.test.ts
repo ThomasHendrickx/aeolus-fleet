@@ -35,9 +35,9 @@ function theRoleLabel(owner: ShipId = SHIP_ID): void {
   });
 }
 
-const WITHIN_A_SQUADRON = { from: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }], to: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }] };
-const FLAGSHIP_TO_SQUADRONS = { from: [FLAGSHIP], to: [SQUADRONS] };
-const SQUADRONS_TO_FLAGSHIP = { from: [SQUADRONS], to: [FLAGSHIP] };
+const WITHIN_A_SQUADRON = { verb: 'send', from: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }], to: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }] };
+const FLAGSHIP_TO_SQUADRONS = { verb: 'send', from: [FLAGSHIP], to: [SQUADRONS] };
+const SQUADRONS_TO_FLAGSHIP = { verb: 'send', from: [SQUADRONS], to: [FLAGSHIP] };
 
 beforeEach(async () => {
   fleet = fakeNetworkFleet(new Set([CREW_TOKEN]));
@@ -65,8 +65,8 @@ describe('squadrons declaring the network rules its squadrons need (#573)', () =
     await declare(FLEET_ID);
 
     const terms = fleet.state.declarations.flat().flatMap((rule) => [...rule.from, ...rule.to]);
-    expect(terms.some((term) => typeof term !== 'string' && term.value === ANY_LABEL_VALUE)).toBe(false);
-    expect(terms.some((term) => typeof term !== 'string' && term.labelId === ROLE)).toBe(false);
+    expect(terms.some((term) => typeof term !== 'string' && 'value' in term && term.value === ANY_LABEL_VALUE)).toBe(false);
+    expect(terms.some((term) => typeof term !== 'string' && 'labelId' in term && term.labelId === ROLE)).toBe(false);
   });
 
   it('declares once in this process while its labels stay the same', async () => {

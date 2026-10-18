@@ -21,7 +21,7 @@ export function createPrismaFleetNetworks(db: Db): FleetNetworks {
     },
     save: async (fleetId, { rules, declaration }) => {
       // None is all-to-all, kept as SQL NULL; an empty list stays a list.
-      const columns = { rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ from: [...rule.from], to: [...rule.to] })), ...declaration };
+      const columns = { rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })), ...declaration };
       await db.fleetNetwork.upsert({ where: { fleetId }, create: { fleetId, ...columns }, update: columns });
     },
   };

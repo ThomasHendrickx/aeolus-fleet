@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
-import type { FilterGroup, FilterKey } from '../../../lib/labels';
-import type { TermChip } from '../../../lib/network-rules';
+import type { FilterGroup, FilterKey } from '../../../../lib/labels';
+import type { TermChip } from '../../../../lib/network-rules';
 import { LabelSelectorField } from './label-selector-field';
 
 const values = (key: string, counts: Record<string, number>): FilterKey['values'] => Object.entries(counts).map(([value, shipCount]) => ({ valueId: `lbv_${key}_${value}`, value, shipCount }));

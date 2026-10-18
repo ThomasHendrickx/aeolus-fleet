@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, SetBuiltInRuleInput, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -34,8 +34,10 @@ export interface FleetDoor {
   registerNetworkPlugin(crewToken: string, declaration: NetworkPluginDeclaration): Promise<Result<undefined, FleetRefusal>>;
   /** The plugin unregisters, its rules going with it; FORBIDDEN when its ship is not the fleet's plugin. */
   unregisterNetworkPlugin(crewToken: string): Promise<Result<undefined, FleetRefusal>>;
-  /** Sets the fleet's rules, the whole list, or none for all-to-all; only the fleet's plugin may (decision 0034). */
-  setNetworkRules(crewToken: string, rules: readonly NetworkRule[] | null): Promise<Result<undefined, FleetRefusal>>;
+  /** Sets the fleet's rules, the whole list beside the built-in ones; only the fleet's plugin may (decision 0034). */
+  setNetworkRules(crewToken: string, rules: readonly NetworkRule[]): Promise<Result<undefined, FleetRefusal>>;
+  /** Turns a built-in rule on or off; the plugin turns open on or off, one verb at a time (decision 0034). */
+  setBuiltInRule(crewToken: string, input: SetBuiltInRuleInput): Promise<Result<undefined, FleetRefusal>>;
   /** The rules the fleet's ships declared, each ship with its whole list (fleet:network, decision 0037). */
   declaredNetworkRules(crewToken: string): Promise<Result<{ shipId: ShipId; rules: NetworkRule[] }[], FleetRefusal>>;
   /**

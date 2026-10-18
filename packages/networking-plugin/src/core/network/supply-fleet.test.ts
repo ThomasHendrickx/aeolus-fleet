@@ -37,17 +37,29 @@ describe('supplying a fleet the networking plugin serves', () => {
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
+    expect(fleet.state.open).toEqual({ send: true, read: true, manage: true });
   });
 
-  it('registers with what argo declared, then supplies the whole list argo saved', async () => {
+  it('registers with what argo declared, then supplies the whole list argo saved, turning open off for every verb (decision 0034)', async () => {
     await connected();
-    const rules = [{ from: [TEAM_A], to: [TEAM_B] }, { from: [], to: [TEAM_A] }];
+    const rules = [{ verb: 'send' as const, from: [TEAM_A], to: [TEAM_B] }, { verb: 'send' as const, from: [], to: [TEAM_A] }];
     await networks.save(FLEET_ID, { rules, declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
     expect(fleet.state.rules).toEqual(rules);
+    expect(fleet.state.open).toEqual({ send: false, read: false, manage: false });
+  });
+
+  it('turns open on again for every verb when argo saves no rules: all-to-all', async () => {
+    await connected();
+    await networks.save(FLEET_ID, { rules: [], declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+    await supplyFleet(FLEET_ID);
+    await networks.save(FLEET_ID, { rules: null, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+
+    await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
+    expect(fleet.state.open).toEqual({ send: true, read: true, manage: true });
   });
 
   it('supplies an empty list as an empty list: only the fixed exceptions, not all-to-all', async () => {
@@ -61,31 +73,31 @@ describe('supplying a fleet the networking plugin serves', () => {
 
   it("adds every rule the fleet's ships declared to argo's list, after argo's (decision 0037)", async () => {
     await connected();
-    const argos = [{ from: [TEAM_A], to: [TEAM_B] }];
+    const argos = [{ verb: 'send' as const, from: [TEAM_A], to: [TEAM_B] }];
     await networks.save(FLEET_ID, { rules: argos, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
-    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] }, { shipId: TRIERARCH_PLUGIN, rules: [{ from: [], to: [TEAM_A] }] });
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ verb: 'send', from: [TEAM_B], to: [TEAM_B] }] }, { shipId: TRIERARCH_PLUGIN, rules: [{ verb: 'send', from: [], to: [TEAM_A] }] });
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
-    expect(fleet.state.rules).toEqual([...argos, { from: [TEAM_B], to: [TEAM_B] }, { from: [], to: [TEAM_A] }]);
+    expect(fleet.state.rules).toEqual([...argos, { verb: 'send', from: [TEAM_B], to: [TEAM_B] }, { verb: 'send', from: [], to: [TEAM_A] }]);
   });
 
   it('adds declared rules to an empty list, which allows only the fixed exceptions', async () => {
     await connected();
     await networks.save(FLEET_ID, { rules: [], declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
-    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] });
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ verb: 'send', from: [TEAM_B], to: [TEAM_B] }] });
 
     await supplyFleet(FLEET_ID);
 
-    expect(fleet.state.rules).toEqual([{ from: [TEAM_B], to: [TEAM_B] }]);
+    expect(fleet.state.rules).toEqual([{ verb: 'send', from: [TEAM_B], to: [TEAM_B] }]);
   });
 
   it("keeps argo's none as none: rules only allow, so declared rules add nothing to all-to-all", async () => {
     await connected();
-    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ from: [TEAM_B], to: [TEAM_B] }] });
+    fleet.state.declared.push({ shipId: SQUADRONS, rules: [{ verb: 'send', from: [TEAM_B], to: [TEAM_B] }] });
 
     await supplyFleet(FLEET_ID);
 
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('supplies nothing to a fleet it is not connected to', async () => {
@@ -113,7 +125,7 @@ describe('supplying a fleet the networking plugin does not serve (switched off)'
   beforeEach(async () => {
     await connected();
     await supplyFleet(FLEET_ID);
-    await networks.save(FLEET_ID, { rules: [{ from: [TEAM_A], to: [TEAM_B] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
+    await networks.save(FLEET_ID, { rules: [{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }], declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
     await supplyFleet(FLEET_ID);
     await switches.set(FLEET_ID, { isEnabled: false, at: AT });
   });
@@ -121,8 +133,8 @@ describe('supplying a fleet the networking plugin does not serve (switched off)'
   it('unregisters: no plugin and no rules, all-to-all, and keeps the rules it holds for when it is on again', async () => {
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'unregistered' });
     expect(fleet.state.plugin).toBeNull();
-    expect(fleet.state.rules).toBeNull();
-    await expect(networks.find(FLEET_ID)).resolves.toMatchObject({ rules: [{ from: [TEAM_A], to: [TEAM_B] }] });
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
+    await expect(networks.find(FLEET_ID)).resolves.toMatchObject({ rules: [{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }] });
   });
 
   it('counts a fleet that says its ship is not the plugin as unregistered already', async () => {
@@ -137,6 +149,6 @@ describe('supplying a fleet the networking plugin does not serve (switched off)'
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
-    expect(fleet.state.rules).toEqual([{ from: [TEAM_A], to: [TEAM_B] }]);
+    expect(fleet.state.rules).toEqual([{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }]);
   });
 });

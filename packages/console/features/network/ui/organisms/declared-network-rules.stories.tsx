@@ -2,8 +2,8 @@ import { idSchema, type LabelValueId, type ListedLabel } from '@aeolus-fleet/com
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { BLUEPRINT, labelContext, labelledFleet, OS, OWNERS } from '../../../lib/fixtures/labels.fixtures';
-import type { DeclaredRules } from '../lib/declared-rules';
+import { BLUEPRINT, labelContext, labelledFleet, OS, OWNERS } from '../../../../lib/fixtures/labels.fixtures';
+import type { DeclaredRules } from '../../services/declared-rules';
 import { DeclaredNetworkRules } from './declared-network-rules';
 
 function valueOf(label: ListedLabel, value: string): LabelValueId {
@@ -17,14 +17,14 @@ function valueOf(label: ListedLabel, value: string): LabelValueId {
 const BY_SQUADRONS: DeclaredRules = {
   shipId: OWNERS.squadrons.id,
   declaredBy: 'squadrons',
-  rules: [{ from: [{ labelId: BLUEPRINT.id, value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }],
+  rules: [{ verb: 'send', from: [{ labelId: BLUEPRINT.id, value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }],
 };
 const BY_TRIERARCH_PLUGIN: DeclaredRules = {
   shipId: OWNERS.trierarchPlugin.id,
   declaredBy: 'trierarch-plugin',
   rules: [
-    { from: [{ labelId: OS.id, value: '*' }], to: [{ labelId: OS.id, value: '*' }] },
-    { from: [valueOf(OS, 'macos')], to: [] },
+    { verb: 'send', from: [{ labelId: OS.id, value: '*' }], to: [{ labelId: OS.id, value: '*' }] },
+    { verb: 'send', from: [valueOf(OS, 'macos')], to: [] },
   ],
 };
 
@@ -60,7 +60,7 @@ export const Declared: Story = {
 /** A term on a label the fleet no longer has matches no ship, and says so. */
 export const RemovedLabel: Story = {
   args: {
-    declared: [{ ...BY_SQUADRONS, rules: [{ from: [{ labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankzz00'), value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }] }],
+    declared: [{ ...BY_SQUADRONS, rules: [{ verb: 'send', from: [{ labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankzz00'), value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }] }],
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByTestId('network-declared-rule-from-unknown')).toHaveTextContent('A removed label');
