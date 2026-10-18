@@ -8,6 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
+import { isGrantable } from './scopes.js';
 import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { Member } from './squadron.js';
 
@@ -105,6 +106,17 @@ export function createFormSquadron(deps: {
         return refuse('FORMING_FAILED', `The ${over.text} of ${slot} is over ${String(over.maxKb)} KB once filled, so nothing was formed`);
       }
     }
+    // Every scope a template names is one squadrons may grant, checked before anything is commissioned (decision 0017).
+    const own = await deps.door.getShip(crew.crewToken, { shipId: crew.shipId });
+    if (!own.isOk) {
+      return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${own.error.message}`);
+    }
+    for (const template of used) {
+      const ungranted = template?.scopes.find((scope) => !isGrantable(scope, own.value.scopes));
+      if (template && ungranted !== undefined) {
+        return refuse('FORMING_FAILED', `The template ${template.name}@${String(template.version)} names ${ungranted}, a scope squadrons cannot grant, so nothing was formed`);
+      }
+    }
     // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: slots.flatMap((each) => each.crew ?? []) });
     if (!labels.isOk) {
@@ -122,7 +134,7 @@ export function createFormSquadron(deps: {
       return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${refusal.message}`);
     };
 
-    const flagship = await commission('flagship', { names: () => squadronId, type: 'flagship' });
+    const flagship = await commission('flagship', { names: () => squadronId, type: 'flagship', scopes: [] });
     if (!flagship.isOk) {
       return failed(flagship.error);
     }
@@ -138,7 +150,7 @@ export function createFormSquadron(deps: {
         blueprint.memberNames === 'prefixed'
           ? () => `${squadronId}:${role.name}-${String(number)}`
           : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
-      const member = await commission(slot, { names, type: `${squadronId}:${role.name}` });
+      const member = await commission(slot, { names, type: `${squadronId}:${role.name}`, scopes: used[index]?.scopes ?? [] });
       if (!member.isOk) {
         return failed(member.error);
       }

@@ -46,13 +46,13 @@ export interface FleetDoor {
   >;
   /**
    * Commissions an agent ship as the crew token's ship (fleet:commission) under
-   * squadrons' own idempotency key: its id, its crew instructions for a chat, its secret and its crew lines. A
+   * squadrons' own idempotency key, with the scopes it gets: its id, its crew instructions for a chat, its secret and its crew lines. A
    * repeat under the same key answers the same ship with none of them: its secret
    * was shown once.
    */
   commission(
     crewToken: string,
-    ship: { name: string; type: string; idempotencyKey: string },
+    ship: { name: string; type: string; scopes: readonly string[]; idempotencyKey: string },
   ): Promise<
     Result<
       {

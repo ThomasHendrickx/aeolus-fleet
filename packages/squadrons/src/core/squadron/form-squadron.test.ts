@@ -122,7 +122,7 @@ function fakeFleet() {
       next += 1;
       const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`;
       const secret = `aeolus_sk_v1_${name}`;
-      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...(scopes ?? [])] });
+      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...scopes] });
       state.keys.set(idempotencyKey, shipId);
       if (state.answersLost.delete(name)) {
         return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
