@@ -414,6 +414,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      listActiveOwnedByForUpdate: (fleetId, ownerShipId) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && held.owner === ownerShipId && held.retiredAt === null)
+            .toSorted((first, second) => first.id.localeCompare(second.id))
+            .map((held) => ({ ...held })),
+        ),
       setOwner: ({ fleetId, shipId, ownerShipId }) => {
         const found = ship(fleetId, shipId);
         if (found) {

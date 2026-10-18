@@ -293,6 +293,15 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR NO KEY UPDATE`;
       return row ? toShipFromSql(row) : undefined;
     },
+    listActiveOwnedByForUpdate: async (fleetId, ownerShipId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId} AND retired_at IS NULL
+        ORDER BY id
+        FOR NO KEY UPDATE`;
+      return rows.map(toShipFromSql);
+    },
     findForShare: async (fleetId, shipId) => {
       // FOR SHARE, not FOR KEY SHARE: it makes a use case that locks the ship
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,

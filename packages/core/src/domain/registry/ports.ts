@@ -116,6 +116,8 @@ export interface ShipRepository {
   listActiveOfType(fleetId: FleetId, type: string): Promise<Ship[]>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;
+  /** The active ships the owner owns, each locked as findForUpdate locks it, by id (decision 0045). */
+  listActiveOwnedByForUpdate(fleetId: FleetId, ownerShipId: ShipId): Promise<Ship[]>;
   /** Gives the ship a new owner (decision 0045). */
   setOwner(change: { fleetId: FleetId; shipId: ShipId; ownerShipId: ShipId }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
