@@ -90,6 +90,46 @@ export async function checkReach(
 
 const NOT_REACHABLE_MESSAGE = 'The network rules do not allow this send';
 
+/** The ports a read's reach check reads and writes, inside the read's unit of work. */
+export type CheckReadTx = Omit<CheckReachTx, 'ships'> & { ships: Pick<ShipRepository, 'find'> };
+
+/**
+ * Whether the read rules let the reader read one ship now, for a read that
+ * a ship outside read reach refuses rather than filters (decision 0034). A
+ * ship always reads itself. A refusal is recorded here, in the read's unit of
+ * work, as a send's is, with the verb read: its caller commits only the record.
+ */
+export async function checkRead(
+  deps: { tx: CheckReadTx; ids: IdGenerator },
+  read: { fleetId: FleetId; readerShipId: ShipId; shipId: ShipId; at: Date },
+): Promise<Result<undefined, NotReachable>> {
+  const { tx, ids } = deps;
+  const { fleetId, at } = read;
+  const settings = await tx.networkSettings.findForShare(fleetId);
+  const inForce = await rulesInForceAt(tx, { settings, now: at });
+  const readerShip = await tx.ships.find(fleetId, read.readerShipId);
+  const readShip = await tx.ships.find(fleetId, read.shipId);
+  if (!readerShip || !readShip || readerShip.id === readShip.id) {
+    return ok(undefined);
+  }
+  const reader = await shipAsItIs(tx, readerShip);
+  const ship = await shipAsItIs(tx, readShip);
+  if (allowsReach(inForce, { verb: 'read', sender: reaching(reader), recipient: reaching(ship), isAnswerToSender: false })) {
+    return ok(undefined);
+  }
+  await tx.reachRefusals.record({
+    fleetId,
+    id: ids('reachRefusal'),
+    at,
+    sender: refused(reader),
+    recipient: { kind: 'ship', ship: refused(ship) },
+    verb: 'read',
+    settingsVersion: settings.version,
+    whilePluginUnavailable: inForce.whilePluginUnavailable,
+  });
+  return refuse('NOT_REACHABLE', 'The network rules do not allow this read');
+}
+
 /** The rules in force at the send: the plugin's crew last seen, read without a lock, says whether it responds. */
 export async function rulesInForceAt(tx: Pick<CheckReachTx, 'leases'>, at: { settings: NetworkSettings; now: Date }): Promise<RulesInForce> {
   const { settings, now } = at;

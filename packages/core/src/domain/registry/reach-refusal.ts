@@ -23,7 +23,7 @@ export interface ReachRefusal {
   sender: RefusedShip;
   /** The ship it was for, or the type and each ship of it, none of which the sender may reach. */
   recipient: { kind: 'ship'; ship: RefusedShip } | { kind: 'type'; type: string; ships: readonly RefusedShip[] };
-  /** What the sender tried to do: send, the one verb checked so far (decision 0034). */
+  /** What the sender tried to do: send, or read for a read refused rather than filtered (decision 0034). */
   verb: NetworkVerb;
   settingsVersion: number;
   /** What the networking plugin declared, when it refused while the plugin was not responding (decision 0035); null otherwise. */

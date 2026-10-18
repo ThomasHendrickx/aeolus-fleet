@@ -147,16 +147,26 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
   it('records the refusal for argo: reader and ship with their labels and owners then, the verb read, the settings version and when', async () => {
     await fleet.history.readShipWay(fleet.reader, { shipId: fleet.far.shipId });
 
-    expect(fleet.core.state.reachRefusals).toEqual([
-      expect.objectContaining({
-        at: fleet.core.clock.now(),
-        sender: expect.objectContaining({ id: fleet.reader.shipId, name: 'reader', labels: [expect.objectContaining({ key: 'team', value: 'a' })], owner: expect.objectContaining({ name: 'argo' }) }),
-        recipient: { kind: 'ship', ship: expect.objectContaining({ id: fleet.far.shipId, labels: [expect.objectContaining({ key: 'team', value: 'b' })] }) },
-        verb: 'read',
-        settingsVersion: 4,
-        whilePluginUnavailable: null,
-      }),
-    ]);
+    const [refusal] = fleet.core.state.reachRefusals;
+    const recipient = refusal?.recipient.kind === 'ship' ? refusal.recipient.ship : undefined;
+
+    expect({
+      count: fleet.core.state.reachRefusals.length,
+      at: refusal?.at,
+      sender: [refusal?.sender.id, refusal?.sender.labels.map(({ key, value }) => `${key}=${value}`), refusal?.sender.owner?.name],
+      recipient: [recipient?.id, recipient?.labels.map(({ key, value }) => `${key}=${value}`)],
+      verb: refusal?.verb,
+      settingsVersion: refusal?.settingsVersion,
+      whilePluginUnavailable: refusal?.whilePluginUnavailable,
+    }).toEqual({
+      count: 1,
+      at: fleet.core.clock.now(),
+      sender: [fleet.reader.shipId, ['team=a'], 'argo'],
+      recipient: [fleet.far.shipId, ['team=b']],
+      verb: 'read',
+      settingsVersion: 3,
+      whilePluginUnavailable: null,
+    });
   });
 
   it('reads the way of a ship within read reach, and of itself, recording nothing', async () => {

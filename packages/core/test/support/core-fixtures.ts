@@ -234,7 +234,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
     readShipMessages: createReadShipMessages({ history: core.history, readReach }),
     readMessage: createReadMessage({ history: core.history, readReach }),
-    readShipWay: createReadShipWay({ history: core.history }),
+    readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history }),
     readOverdue: createReadOverdue({ history: core.history }),
     readNoShipCanTake: createReadNoShipCanTake({ history: core.history }),

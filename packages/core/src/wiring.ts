@@ -377,7 +377,7 @@ export function createUseCases(options: {
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
-    readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma) }),
+    readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
     readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
     readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma) }),
