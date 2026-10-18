@@ -6,6 +6,7 @@ import type { FleetDoor, FleetShip, ManagementCrew, ManagementCrewStore, Outgoin
 import { err, ok } from '../shared/result.js';
 import { issuedPrompt } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
+import { NO_LIMITS } from './limits.js';
 import { createFormSquadron } from './form-squadron.js';
 import { FORM, FORM_REFUSED, FORMED } from './form-messages.js';
 import { createHandleManagementDelivery, type HandleManagementDelivery } from './handle-management-delivery.js';
@@ -169,7 +170,7 @@ beforeEach(() => {
   refusals = [];
   const door = fleetDoor();
   const attempts = memoryAttempts();
-  const form = createFormSquadron({ door, management, squadrons, attempts, catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT } });
+  const form = createFormSquadron({ door, management, squadrons, attempts, catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT }, limits: NO_LIMITS });
   handle = createHandleManagementDelivery({ door, squadrons, refusals: formRefusals, form, operator });
 });
 

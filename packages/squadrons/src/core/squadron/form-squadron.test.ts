@@ -658,7 +658,7 @@ describe("squadrons' limits on forming (question 9)", () => {
     squadrons.held.forEach((each) => {
       each.state = 'disbanded';
     });
-    suffixes = ['k3x9', 'm4p7', 'q8r2'];
+    suffixes = ['p1p1', 'p2p2', 'p3p3'];
 
     await expect(limited({ perFleet: 1 })({ ...fromHemmaFeature, squadronId: 'second' })).resolves.toMatchObject({ isOk: true });
   });
@@ -667,7 +667,7 @@ describe("squadrons' limits on forming (question 9)", () => {
     unwrapped(await limited({ perFormingShip: 1 })(byTechLead('form-1')));
 
     const refused = await limited({ perFormingShip: 1 })({ ...byTechLead('form-2'), squadronId: 'second' });
-    suffixes = ['k3x9', 'm4p7', 'q8r2'];
+    suffixes = ['p1p1', 'p2p2', 'p3p3'];
     const forArgo = await limited({ perFormingShip: 1 })({ ...fromHemmaFeature, squadronId: 'third' });
 
     expect(refused).toEqual({

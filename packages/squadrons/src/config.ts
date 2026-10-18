@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { SquadronLimits } from './core/squadron/limits.js';
+
 /** The shortest installation token squadrons takes, as the server does (decision 0020). */
 const INSTALLATION_TOKEN_MIN_LENGTH = 32;
 
@@ -10,6 +12,9 @@ const environmentSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65_535).default(4100),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, { error: `must hold at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters` }).optional(),
+  SQUADRONS_PER_FLEET: z.coerce.number().int().positive().optional(),
+  SQUADRONS_PER_FORMING_SHIP: z.coerce.number().int().positive().optional(),
+  MEMBERS_PER_SQUADRON: z.coerce.number().int().positive().optional(),
 });
 
 /** What `aeolus-squadrons migrate` reads: the database alone. */
@@ -34,6 +39,8 @@ export interface Config {
    * self-hosted squadrons needs; set, a fleet is served once switched on.
    */
   installationToken: string | undefined;
+  /** squadrons' limits on forming (question 9), each none while unset. */
+  limits: SquadronLimits;
 }
 
 export class ConfigError extends Error {
@@ -58,6 +65,11 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     port: variables.PORT,
     logLevel: variables.LOG_LEVEL,
     installationToken: variables.INSTALLATION_TOKEN,
+    limits: {
+      perFleet: variables.SQUADRONS_PER_FLEET ?? null,
+      perFormingShip: variables.SQUADRONS_PER_FORMING_SHIP ?? null,
+      membersPerSquadron: variables.MEMBERS_PER_SQUADRON ?? null,
+    },
   };
 }
 

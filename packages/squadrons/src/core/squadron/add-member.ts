@@ -6,12 +6,13 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
+import { addingOverLimit, type SquadronLimits } from './limits.js';
 import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 
 const MEMBER_SUFFIX_LENGTH = 4;
 
-export type AddRefusal = DomainError<'MANAGEMENT_SHIP_NOT_CREWED' | 'SQUADRON_NOT_FOUND' | 'NOT_SAILING' | 'ROLE_NOT_FOUND' | 'ADDING_FAILED'>;
+export type AddRefusal = DomainError<'MANAGEMENT_SHIP_NOT_CREWED' | 'SQUADRON_NOT_FOUND' | 'NOT_SAILING' | 'ROLE_NOT_FOUND' | 'ADDING_FAILED' | 'LIMIT_REACHED'>;
 
 /** The new member with its crew lines, launch note and pinned model: shown once, never stored. */
 export interface AddedMember {
@@ -41,7 +42,8 @@ export type AddMember = (input: {
  * as at forming. It checks in like any member; the
  * squadron stays Sailing. The member is stored and its attempt finished in
  * one unit of work, so a crash before that retires the ship at the next
- * start and a crash after it keeps the member.
+ * start and a crash after it keeps the member. squadrons' limit of members
+ * per squadron (question 9) is checked before anything is commissioned.
  */
 export function createAddMember(deps: {
   door: FleetDoor;
@@ -50,6 +52,7 @@ export function createAddMember(deps: {
   attempts: FormationAttempts;
   random: RandomNames;
   clock: Clock;
+  limits: SquadronLimits;
 }): AddMember {
   return async ({ fleetId, squadronId, role: roleName, member: form }) => {
     const crew = await deps.management.find(fleetId);
@@ -62,6 +65,10 @@ export function createAddMember(deps: {
     }
     if (squadron.state !== 'sailing') {
       return refuse('NOT_SAILING', `The squadron ${squadronId} is ${squadron.state}: members are added only while it sails`);
+    }
+    const atLimit = addingOverLimit(deps.limits, squadron);
+    if (atLimit !== undefined) {
+      return refuse('LIMIT_REACHED', `${atLimit}, so no member was added`);
     }
     const role = squadron.blueprint.roles.find((each) => each.name === roleName);
     if (!role) {
