@@ -10,7 +10,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
-import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, setNetworkRulesInputSchema, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
+import { idempotencyKeySchema, idSchema, networkRuleSchema, registerNetworkPluginInputSchema, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
@@ -202,7 +202,7 @@ export const networkingPluginRouter = t.router({
       }),
     /** Saves argo's rules, the whole list or none for all-to-all, and supplies them to the fleet at once. */
     setRules: argoProcedure
-      .input(setNetworkRulesInputSchema)
+      .input(z.object({ rules: ruleListSchema }))
       .output(z.object({ rules: ruleListSchema, supply: supplySchema }))
       .mutation(async ({ ctx, input }) => {
         const saved = await ctx.saveRules({ fleetId: ctx.fleetId, rules: input.rules });

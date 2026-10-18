@@ -260,7 +260,12 @@ describe('the networking plugin in the console', () => {
     await page.getByTestId('network-rules-off-confirm').click();
 
     await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may message every ship');
-    await expect.poll(async () => (await settings()).rules, WITHIN).toBeNull();
+    await expect
+      .poll(async () => {
+        const { rules, builtInOpenSend, builtInOpenRead, builtInOpenManage } = await settings();
+        return { rules, open: [builtInOpenSend, builtInOpenRead, builtInOpenManage] };
+      }, WITHIN)
+      .toEqual({ rules: [], open: [true, true, true] });
   });
 
   it('on a phone without the trierarch plugin, reaches Settings and, while the plugin is connected, Network from the account sheet', async () => {
