@@ -13,7 +13,7 @@ let readOnBehalf: ReadOnBehalf;
 beforeEach(async () => {
   fleet = await readReachScenario();
   await fleet.readRulesApply();
-  plugin = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read'] });
+  plugin = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:on-behalf'] });
   readOnBehalf = createReadOnBehalf({ ships: fleet.core.ships });
 });
 
@@ -59,6 +59,10 @@ describe('reading on behalf of a named ship (decision 0034)', () => {
     const refusals = [refusalOf(await readOnBehalf(plugin, { shipId: fleet.core.ids('ship') })), refusalOf(await readOnBehalf(plugin, { shipId: fleet.far.shipId }))];
 
     expect(refusals.map((refusal) => refusal.kind)).toEqual(['SHIP_NOT_FOUND', 'SHIP_NOT_FOUND']);
+  });
+
+  it('refuses a ship without fleet:on-behalf: fleet:read alone reads only as itself', async () => {
+    expect(refusalOf(await readOnBehalf(fleet.reader, { shipId: fleet.near.shipId }))).toEqual({ kind: 'SCOPE_NOT_HELD', message: 'Reading on behalf of a ship needs the fleet:on-behalf scope' });
   });
 
   it('refuses a caller without fleet:read', async () => {

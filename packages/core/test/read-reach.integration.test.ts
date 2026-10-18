@@ -29,6 +29,7 @@ let useCases: UseCases;
 let argo: Caller;
 let reader: TRPCClient<AppRouter>;
 let plugin: { crewToken: string; on: (shipId: string) => TRPCClient<AppRouter> };
+let readerNamingNear: TRPCClient<AppRouter>;
 let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId; networking: ShipId; ghost: ShipId };
 let teamB: LabelValueId;
 let farToNear: MessageId;
@@ -81,10 +82,11 @@ beforeAll(async () => {
   const ghost = await crewed({ name: 'ghost', type: 'ghost' });
   const trierarch = await crewed({ name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] });
   const networking = await crewed({ name: 'networking', type: 'networking', fleetScopes: ['fleet:network'] });
-  const squadrons = await crewed({ name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read'] });
+  const squadrons = await crewed({ name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:on-behalf'] });
   plugin = { crewToken: squadrons.crewToken, on: (shipId) => client(squadrons.crewToken, { [ON_BEHALF_OF]: shipId }) };
   ids = { reader: readerShip.shipId, near: near.shipId, far: far.shipId, trierarch: trierarch.shipId, networking: networking.shipId, ghost: ghost.shipId };
   reader = client(readerShip.crewToken);
+  readerNamingNear = client(readerShip.crewToken, { [ON_BEHALF_OF]: near.shipId });
 
   const team = unwrap(await useCases.defineLabel(labeller.caller, { key: 'team', values: ['a', 'b'] }));
   const [teamA, b] = team.values.map((value) => value.id);
@@ -268,6 +270,10 @@ describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)',
 
   it('refuses the header on a call that is no fleet:read read, and a header that names no ship id, as bad requests', async () => {
     await expect(Promise.all([codeOf(plugin.on(ids.near).ship.whoami.query()), codeOf(plugin.on('scout').fleet.list.query())])).resolves.toEqual(['BAD_REQUEST', 'BAD_REQUEST']);
+  });
+
+  it('refuses a ship without fleet:on-behalf, which reads only as itself, as forbidden', async () => {
+    await expect(codeOf(readerNamingNear.fleet.ship.query({ shipId: ids.near }))).resolves.toBe('FORBIDDEN');
   });
 
   it('refuses to read on behalf of argo as forbidden, and of a retired ship as not found', async () => {
