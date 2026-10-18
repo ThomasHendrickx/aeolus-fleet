@@ -11,8 +11,9 @@ export interface ShipIdentity {
   fleetId: FleetId;
   name: string;
   type: string;
-  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
-  owner: { id: ShipId; name: string } | null;
+  /** Its owner's id and name, both null for argo and the viewer (decision 0045). */
+  ownerShipId: ShipId | null;
+  ownerName: string | null;
 }
 
 export type Whoami = (caller: Caller) => Promise<Result<ShipIdentity, DomainError<'SHIP_NOT_FOUND'>>>;
@@ -29,6 +30,6 @@ export function createWhoami(deps: { ships: Pick<ShipRepository, 'find'> }): Who
       return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} does not exist`);
     }
     const owner = ship.owner === null ? undefined : await deps.ships.find(caller.fleetId, ship.owner);
-    return ok({ shipId: ship.id, fleetId: ship.fleetId, name: ship.name, type: ship.type, owner: owner ? { id: owner.id, name: owner.name } : null });
+    return ok({ shipId: ship.id, fleetId: ship.fleetId, name: ship.name, type: ship.type, ownerShipId: owner?.id ?? null, ownerName: owner?.name ?? null });
   };
 }

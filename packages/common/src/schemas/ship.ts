@@ -79,8 +79,13 @@ export const whoamiOutputSchema = z.object({
   fleetId: idSchema('fleet'),
   name: z.string(),
   type: z.string(),
-  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
-  owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  /**
+   * Its owner's id and name, both null for argo and the viewer (decision
+   * 0045). Keys of their own: the aeolus plugin's scripts read name, shipId
+   * and type as the last such key in the answer.
+   */
+  ownerShipId: idSchema('ship').nullable(),
+  ownerName: z.string().nullable(),
 });
 
 export type WhoamiOutput = z.infer<typeof whoamiOutputSchema>;
