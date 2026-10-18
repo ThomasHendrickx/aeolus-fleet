@@ -151,3 +151,17 @@ describe('a retired owner on Postgres', () => {
     await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
 });
+
+describe('the owner read on Postgres', () => {
+  it("shows the owner by id and name in whoami and the ship read, none for argo", async () => {
+    const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    const { shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+    const scout: Caller = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
+
+    await expect(core.useCases.whoami(scout)).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
+    await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
+    await expect(core.useCases.getShip(argo, { shipId: thomasId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: argoId, name: 'argo' } } });
+    await expect(core.useCases.whoami(argo)).resolves.toMatchObject({ isOk: true, value: { owner: null } });
+  });
+});

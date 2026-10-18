@@ -89,10 +89,18 @@ describe('registerOutputSchema', () => {
 });
 
 describe('whoamiOutputSchema', () => {
-  const output = { shipId: newId('ship'), fleetId: newId('fleet'), name: 'scout', type: 'reviewer' };
+  const output = { shipId: newId('ship'), fleetId: newId('fleet'), name: 'scout', type: 'reviewer', owner: { id: newId('ship'), name: 'argo' } };
 
-  it("accepts the ship's id, fleet, name and type", () => {
+  it("accepts the ship's id, fleet, name, type and owner", () => {
     expect(whoamiOutputSchema.parse(output)).toEqual(output);
+  });
+
+  it("accepts argo's, which has no owner", () => {
+    expect(whoamiOutputSchema.parse({ ...output, owner: null })).toEqual({ ...output, owner: null });
+  });
+
+  it('rejects a missing owner', () => {
+    expect(whoamiOutputSchema.safeParse({ ...output, owner: undefined }).success).toBe(false);
   });
 
   it('rejects a fleet id of another kind', () => {

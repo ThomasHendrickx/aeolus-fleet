@@ -22,20 +22,20 @@ beforeEach(async () => {
 });
 
 describe('who am I', () => {
-  it('tells a crewed ship its id, fleet, name and type', async () => {
+  it('tells a crewed ship its id, fleet, name, type and owner (decision 0045)', async () => {
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const scout: Caller = { shipId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 
     await expect(useCases.whoami(scout)).resolves.toEqual({
       isOk: true,
-      value: { shipId, fleetId, name: 'scout', type: 'reviewer' },
+      value: { shipId, fleetId, name: 'scout', type: 'reviewer', owner: { id: argoId, name: 'argo' } },
     });
   });
 
   it('tells argo who it is', async () => {
     await expect(useCases.whoami(argo)).resolves.toEqual({
       isOk: true,
-      value: { shipId: argoId, fleetId, name: 'argo', type: 'operator' },
+      value: { shipId: argoId, fleetId, name: 'argo', type: 'operator', owner: null },
     });
   });
 

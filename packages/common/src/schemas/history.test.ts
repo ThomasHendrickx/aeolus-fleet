@@ -50,6 +50,7 @@ describe('shipDetailOutputSchema', () => {
     retiredAt: null,
     inFlightDeliveries: 1,
     openDeliveries: 3,
+    owner: { id: newId('ship'), name: 'argo' },
   };
 
   it('accepts a ship with its commissioned date, when its crew came aboard and when it retired', () => {
@@ -76,6 +77,7 @@ describe('shipDetailOutputSchema', () => {
     ['a missing crewed since', { ...ship, crewedSince: undefined }],
     ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],
     ['a negative count of open deliveries', { ...ship, openDeliveries: -1 }],
+    ['a missing owner', { ...ship, owner: undefined }],
   ])('rejects %s', (_label, detail) => {
     expect(shipDetailOutputSchema.safeParse(detail).success).toBe(false);
   });

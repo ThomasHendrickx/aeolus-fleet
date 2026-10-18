@@ -52,7 +52,19 @@ describe('getting one ship', () => {
       retiredAt: null,
       inFlightDeliveries: 0,
       openDeliveries: 0,
+      owner: { id: argo.shipId, name: 'argo' },
     });
+  });
+
+  it("gives its owner by id and name, a person's ship once argo set it (decision 0045)", async () => {
+    const { shipId: thomasId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
+  });
+
+  it('gives argo no owner', async () => {
+    await expect(useCases.getShip(argo, { shipId: argo.shipId })).resolves.toMatchObject({ isOk: true, value: { owner: null } });
   });
 
   it('gives since when the session crewing it has held it', async () => {
