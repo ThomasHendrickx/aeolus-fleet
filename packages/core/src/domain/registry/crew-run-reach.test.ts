@@ -40,6 +40,15 @@ describe('a ship with crew:run', () => {
     await expect(registry.getShip(trierarch, { shipId: assignedId })).resolves.toMatchObject({ isOk: true, value: { id: assignedId } });
   });
 
+  it('reads an assigned ship whole whatever the read rules: assignment, not read reach (decision 0034)', async () => {
+    const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+    crewAboard(core, networking);
+    unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
+    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
+
+    await expect(registry.getShip({ ...trierarch, scopes: [...trierarch.scopes, 'fleet:read'] }, { shipId: assignedId })).resolves.toMatchObject({ isOk: true, value: { id: assignedId, kind: 'agent' } });
+  });
+
   it('gets the starting prompt of an assigned ship', async () => {
     await expect(registry.getStartingPrompt(trierarch, { shipId: assignedId })).resolves.toMatchObject({ isOk: true });
   });

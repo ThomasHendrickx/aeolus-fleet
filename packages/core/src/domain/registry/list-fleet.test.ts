@@ -19,6 +19,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 
@@ -435,5 +436,34 @@ describe('the labels a ship carries, and selecting ships by them', () => {
 
   it('lists every ship when it selects by no value', async () => {
     await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(5);
+  });
+});
+
+describe('listing the fleet within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('lists a ship outside read reach by its name, type and status only', async () => {
+    const status = (await fleet.registry.listFleet(fleet.argo)).find((ship) => ship.id === fleet.far.shipId)?.status;
+
+    const listed = await fleet.registry.listFleet(fleet.reader);
+
+    expect(listed.find((ship) => ship.id === fleet.far.shipId)).toEqual({ id: fleet.far.shipId, name: 'far', type: 'keeper', status, isInReadReach: false });
+  });
+
+  it('lists a ship within read reach whole', async () => {
+    const listed = await fleet.registry.listFleet(fleet.reader);
+
+    expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).find((ship) => ship.id === fleet.near.shipId));
+  });
+
+  it('never matches a ship outside read reach by the label values it carries', async () => {
+    const [byB, byA] = [await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('b')] }), await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('a')] })];
+
+    expect([byB, byA.map((ship) => ship.id).sort()]).toEqual([[], [fleet.reader.shipId, fleet.near.shipId].sort()]);
   });
 });
