@@ -2030,4 +2030,35 @@ describe('contained access: the crew token stays with the trierarch (decision 00
     expect(trierarch.state.current().entries[shipId]?.crewToken).toBe(trierarch.fleet.shipOf(shipId).crewToken);
     expect(trierarch.harness.identities.get(SCOUT_FOLDER)?.socket).toBe(InMemoryShipSockets.pathOf(shipId));
   });
+  /** The ship's entry as a trierarch before decision 0026 kept it: its crew token only in the folder's identity, none in the state. */
+  async function withoutCrewTokenInState(trierarch: ReturnType<typeof aTrierarch>, shipId: ShipId): Promise<void> {
+    const state = trierarch.state.current();
+    const entry = state.entries[shipId];
+    if (entry !== undefined) {
+      const { crewToken, ...older } = entry;
+      expect(crewToken).toBeDefined();
+      await trierarch.state.save({ ...state, entries: { ...state.entries, [shipId]: older } });
+    }
+  }
+
+  it.each(['running', 'restarting'] as const)('crews a %s ship again when its entry holds no crew token, in the same folder, without telling argo', async (entryState) => {
+    const trierarch = aTrierarch();
+    const shipId = await aCrewedShip(trierarch);
+    const first = trierarch.fleet.shipOf(shipId).crewToken;
+    await withoutCrewTokenInState(trierarch, shipId);
+    const state = trierarch.state.current();
+    const entry = state.entries[shipId];
+    if (entry !== undefined && entryState === 'restarting') {
+      await trierarch.state.save({ ...state, entries: { ...state.entries, [shipId]: { ...entry, state: 'restarting', restartAt: '2026-10-06T09:00:00.000Z' } } });
+    }
+
+    await trierarch.pass();
+
+    const crewToken = trierarch.state.current().entries[shipId]?.crewToken;
+    expect(crewToken).toBe(trierarch.fleet.shipOf(shipId).crewToken);
+    expect(crewToken).not.toBe(first);
+    expect(trierarch.state.current().entries[shipId]?.folder).toBe(SCOUT_FOLDER);
+    expect(trierarch.harness.launches).toHaveLength(2);
+    expect(trierarch.fleet.toArgo).toEqual([]);
+  });
 });
