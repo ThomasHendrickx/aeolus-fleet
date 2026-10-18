@@ -397,7 +397,7 @@ export function createUseCases(options: {
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
     readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock, readReach }),
-    readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
+    readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

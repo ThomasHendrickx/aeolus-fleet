@@ -15,6 +15,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
 let messaging: ReturnType<typeof messagingUseCases>;
@@ -150,5 +151,29 @@ describe("reading argo's inbox", () => {
     await toArgo(captain, 'Promote?');
 
     await expect(history.readInbox({ ...argo, fleetId: core.ids('fleet') }, { filter: 'all' })).resolves.toEqual([]);
+  });
+});
+
+describe("a viewer reading argo's inbox", () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it("reads argo's inbox while viewer reading is on", async () => {
+    const asked = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    const inbox = await fleet.history.readInbox(fleet.viewer, { filter: 'all' });
+
+    expect(inbox.map((entry) => entry.message.id)).toEqual([asked]);
+  });
+
+  it('reads no message of it once argo turns viewer reading off', async () => {
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
+
+    await expect(fleet.history.readInbox(fleet.viewer, { filter: 'all' })).resolves.toEqual([]);
   });
 });
