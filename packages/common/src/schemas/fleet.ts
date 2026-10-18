@@ -38,6 +38,8 @@ export const commissionShipInputSchema = z.object({
   scopes: z.array(scopeNameSchema).optional(),
   /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
+  /** The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf (decision 0045). */
+  owner: idSchema('ship').optional(),
   note: z
     .string()
     .trim()

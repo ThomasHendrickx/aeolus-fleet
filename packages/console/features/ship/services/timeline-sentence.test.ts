@@ -549,6 +549,11 @@ describe('timelineSentence', () => {
       tone: 'ended',
       icon: 'commissioned',
     });
+    expect(onScoutsPage(anEntry('OwnerSet', { actor: { id: newId('ship'), name: 'gateway' }, details: { ownerShipId: 'shp_thomas', how: 'named' } }))).toEqual({
+      sentence: 'Owner set: named by gateway',
+      tone: 'ended',
+      icon: 'commissioned',
+    });
   });
 
   it('says a ship changed owner, by argo or because its owner retired', () => {

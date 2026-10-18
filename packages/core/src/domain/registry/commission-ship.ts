@@ -27,6 +27,8 @@ export interface CommissionShipInput {
   scopes?: readonly string[];
   /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
   ownerOf?: ShipId;
+  /** The owner argo picked for an app ship that a ship holding fleet:on-behalf, the gateway, commissions (decision 0045). */
+  owner?: ShipId;
   /** The caller's own key for this commission, so a retry never commissions twice. */
   idempotencyKey: string;
 }
@@ -52,7 +54,15 @@ export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Pro
 /** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
   const scopes = [...new Set(input.scopes)].toSorted();
-  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, scopes, ownerOf: input.ownerOf ?? null });
+  return JSON.stringify({
+    name: input.name,
+    type: input.type,
+    kind: input.kind ?? 'agent',
+    note: input.note ?? null,
+    scopes,
+    ownerOf: input.ownerOf ?? null,
+    owner: input.owner ?? null,
+  });
 }
 
 /**
@@ -77,14 +87,16 @@ async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; 
 
 /**
  * Use case: the caller commissions a ship in its own fleet, an agent unless
- * it states another kind (only argo commissions a person or app ship). The ship
+ * it states another kind (only argo commissions a person ship; an app ship
+ * also a caller holding fleet:on-behalf, the gateway). The ship
  * awaits crew and gets its first starting prompt, all in one transaction. The
  * caller's scope (fleet:commission) is checked before this runs. The ship gets
  * the agent scopes and the scopes asked for, each one the caller's ship may
  * grant, read from the server (decision 0046); each plugin namespace they
  * name is locked after the name. Its owner is the caller's owner; a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
- * it gets (decision 0045). The caller's idempotency key makes
+ * it gets, or for an app ship the owner argo picked (decision 0045). The
+ * caller's idempotency key makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
  * request is refused.
@@ -139,10 +151,12 @@ export function createCommissionShip(deps: {
       if (input.ownerOf !== undefined && askingShip === undefined) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.ownerOf}, named as the ship that asked, does not exist`);
       }
+      // Held FOR SHARE, as an asking ship's owner is: a retire of the named owner waits, so the new ship never keeps a retired owner.
+      const namedOwner = input.owner === undefined ? undefined : await tx.ships.findForShare(fleetId, input.owner);
       await tx.ships.lockName(fleetId, input.name);
       const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
-        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
+        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
         { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
       );
       if (!commissioned.isOk) {

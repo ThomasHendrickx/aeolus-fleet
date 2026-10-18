@@ -59,6 +59,15 @@ function by(actor: Party | null): SentencePart[] {
   return actor ? [text(' by '), ship(actor)] : [];
 }
 
+/** How a ship got its owner at commission (decision 0045). */
+function ownerSetParts(entry: TimelineEntry): SentencePart[] {
+  const how = stringDetail(entry, 'how');
+  if (how === 'inherited') {
+    return [text("Owner set: its commissioner's owner")];
+  }
+  return how === 'named' ? [text('Owner set: named'), ...by(entry.actor)] : [text('Owner set: argo by default')];
+}
+
 /** Where the claiming session runs: the description it reported, otherwise its kind. */
 function claimedWhere(entry: TimelineEntry): string {
   const description = stringDetail(entry, 'locationDescription');
@@ -172,11 +181,7 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       };
     }
     case 'OwnerSet':
-      return {
-        parts: [text(stringDetail(entry, 'how') === 'inherited' ? "Owner set: its commissioner's owner" : 'Owner set: argo by default')],
-        tone: 'ended',
-        icon: 'commissioned',
-      };
+      return { parts: ownerSetParts(entry), tone: 'ended', icon: 'commissioned' };
     case 'OwnerChanged':
       return {
         parts: stringDetail(entry, 'why') === 'ownerRetired' ? [text('Owner retired: argo owns it now')] : [text('Owner changed'), ...by(entry.actor)],

@@ -438,6 +438,120 @@ describe('an owner named on behalf of the asking ship (decisions 0045, 0017)', (
   });
 });
 
+describe('an app ship commissioned by the gateway, with the owner argo picked (decisions 0044, 0045)', () => {
+  let thomas: ShipId;
+
+  beforeEach(async () => {
+    thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })).shipId;
+    core.state.events.length = 0;
+  });
+
+  /** The gateway's ship: argo granted it fleet:commission and fleet:on-behalf. */
+  async function theGateway(scopes: string[] = ['fleet:commission', 'fleet:on-behalf']): Promise<Caller> {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', scopes }));
+    core.state.events.length = 0;
+    return { fleetId, shipId, kind: 'agent', scopes: [] };
+  }
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  it('commissions an app ship owned by the person argo picked, with OwnerSet saying it was named', async () => {
+    const gateway = await theGateway();
+
+    const { shipId } = unwrap(await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomas }));
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)).toMatchObject({ kind: 'app', owner: thomas, scopes: ['messages:send', 'messages:receive'] });
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'named' }]);
+  });
+
+  it('takes argo as the owner it names', async () => {
+    const gateway = await theGateway();
+
+    const { shipId } = unwrap(await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: argoId }));
+
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'named' }]);
+  });
+
+  it("gives an app ship with no owner named the gateway's own owner, argo, inherited", async () => {
+    const gateway = await theGateway();
+
+    const { shipId } = unwrap(await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' }));
+
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+  });
+
+  it('refuses an app ship from a ship with fleet:commission but without fleet:on-behalf, storing nothing', async () => {
+    const commissioner = await theGateway(['fleet:commission']);
+
+    const refused = await commissionShip(commissioner, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(shipsNamed('crm')).toEqual([]);
+  });
+
+  it('refuses a person ship from the gateway: only argo commissions a person ship', async () => {
+    const gateway = await theGateway();
+
+    const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person', owner: thomas });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(shipsNamed('charlotte')).toEqual([]);
+  });
+
+  it('refuses an owner named for an agent ship: only an app ship gets the owner argo picked', async () => {
+    const gateway = await theGateway();
+
+    const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', owner: thomas });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+    expect(shipsNamed('deputy')).toEqual([]);
+  });
+
+  it('refuses an owner named without fleet:on-behalf', async () => {
+    const commissioner = await theGateway(['fleet:commission']);
+
+    const refused = await commissionShip(commissioner, { idempotencyKey: newKey(), name: 'deputy', type: 'lead', owner: thomas });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+  });
+
+  it('refuses an owner and an asking ship named together', async () => {
+    const gateway = await theGateway();
+
+    const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner: thomas, ownerOf: argoId });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+  });
+
+  it.each([
+    ['an agent ship', async (): Promise<ShipId> => unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).shipId],
+    ['a retired person ship', async (): Promise<ShipId> => {
+      const shipId = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'leaver', type: 'person', kind: 'person' })).shipId;
+      unwrap(await registryUseCases(core).retireShip(argo, { shipId }));
+      return shipId;
+    }],
+    ['a ship the fleet does not have', (): Promise<ShipId> => Promise.resolve(core.ids('ship'))],
+  ])('refuses %s as the owner, storing nothing', async (_label, ownerOf) => {
+    const owner = await ownerOf();
+    const gateway = await theGateway();
+
+    const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app', owner });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_OWNER' } });
+    expect(shipsNamed('crm')).toEqual([]);
+  });
+
+  it('refuses the same key for another owner', async () => {
+    const gateway = await theGateway();
+    const crm = { idempotencyKey: 'commission-crm', name: 'crm', type: 'crm', kind: 'app' } as const;
+    unwrap(await commissionShip(gateway, { ...crm, owner: thomas }));
+
+    await expect(commissionShip(gateway, { ...crm, owner: argoId })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
 describe('the name of a new ship', () => {
   it('is refused while an active ship holds it, and nothing changes', async () => {
     unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
