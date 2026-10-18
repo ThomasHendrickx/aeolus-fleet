@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
+import { createSetOwner } from '../src/domain/registry/set-owner.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, type PostgresCore } from './support/postgres-core.js';
@@ -67,6 +68,41 @@ describe('the owner set at commission on Postgres', () => {
     });
 
     await expect(failingCommission(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).rejects.toThrow('disk full');
+
+    await expect(everyRow(core.prisma)).resolves.toBe(before);
+  });
+});
+
+describe('setting an owner on Postgres', () => {
+  let scoutId: ShipId;
+  let thomasId: ShipId;
+
+  beforeEach(async () => {
+    ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
+    ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
+  });
+
+  it('stores the new owner with OwnerChanged', async () => {
+    unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+
+    await expect(ownerOf(scoutId)).resolves.toBe(thomasId);
+    await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
+      ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+    ]);
+  });
+
+  it('stores nothing when its OwnerChanged cannot be written', async () => {
+    const before = await everyRow(core.prisma);
+    const failingSetOwner = createSetOwner({
+      uow: {
+        run: (work) => createPrismaUnitOfWork(core.prisma).run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } })),
+      },
+      clock: core.clock,
+      ids: newId,
+    });
+
+    await expect(failingSetOwner(argo, { shipId: scoutId, ownerShipId: thomasId })).rejects.toThrow('disk full');
 
     await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
