@@ -488,6 +488,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      listActiveHoldingInForUpdate: (fleetId, namespace) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.scopes.some((scope) => scope.startsWith(`${namespace}:`)))
+            .toSorted((first, second) => first.id.localeCompare(second.id))
+            .map((held) => ({ ...held })),
+        ),
       scopesHeldIn: (fleetId, namespace) =>
         Promise.resolve(
           [...new Set(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null).flatMap((held) => held.scopes.filter((scope) => scope.startsWith(`${namespace}:`))))].toSorted(),

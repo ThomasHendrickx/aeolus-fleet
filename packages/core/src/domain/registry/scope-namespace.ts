@@ -12,6 +12,7 @@ import {
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
+import type { Ship } from './ship.js';
 
 /** One scope a plugin declared, with its one-line description. */
 export interface DeclaredScope {
@@ -108,4 +109,25 @@ function declaredScopes(
     declared.push({ scope, description });
   }
   return ok(declared);
+}
+
+/**
+ * The namespace goes with its retiring declarer (decision 0046): each active
+ * ship that holds any of its scopes loses them, keeping its other scopes, one
+ * ScopesChanged each.
+ */
+export function releaseWithDeclarer(namespace: ScopeNamespace, at: { holders: readonly Ship[]; at: Date; actor: Actor }): { ships: Ship[]; events: NewEvent[] } {
+  const isOfNamespace = (scope: string) => scope.startsWith(`${namespace.namespace}:`);
+  const changed = at.holders.filter((ship) => ship.id !== namespace.declaredBy && ship.scopes.some(isOfNamespace));
+  return {
+    ships: changed.map((ship) => ({ ...ship, scopes: ship.scopes.filter((scope) => !isOfNamespace(scope)) })),
+    events: changed.map((ship) => ({
+      fleetId: ship.fleetId,
+      type: 'ScopesChanged',
+      occurredAt: at.at,
+      actor: at.actor,
+      shipId: ship.id,
+      details: { added: '', removed: ship.scopes.filter(isOfNamespace).join(' ') },
+    })),
+  };
 }

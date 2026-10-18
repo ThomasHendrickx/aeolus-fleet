@@ -128,6 +128,8 @@ export interface ShipRepository {
   retire(change: { fleetId: FleetId; shipId: ShipId; at: Date }): Promise<void>;
   /** Gives the ship these scopes, in this order, in place of the ones it held (decision 0046). */
   setScopes(change: { fleetId: FleetId; shipId: ShipId; scopes: readonly ScopeName[] }): Promise<void>;
+  /** The ships not retired that hold any scope of this plugin namespace, each locked as findForUpdate locks it, by id (decision 0046). */
+  listActiveHoldingInForUpdate(fleetId: FleetId, namespace: string): Promise<Ship[]>;
   /** The scopes of this plugin namespace that a ship not retired holds, each once, by name (decision 0046). */
   scopesHeldIn(fleetId: FleetId, namespace: string): Promise<ScopeName[]>;
 }
