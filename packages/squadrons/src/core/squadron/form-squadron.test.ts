@@ -586,3 +586,34 @@ function unwrapped<T>(result: Result<T, unknown>): T {
   }
   return result.value;
 }
+
+describe('forming for a ship that asked by message (decision 0017)', () => {
+  const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
+  const forTechLead = { ...fromHemmaFeature, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  /** Every role crewed by request: each names a workspace. */
+  function crewedByRequest(): Catalogue {
+    const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+    return { ...catalogue, blueprints: [{ ...blueprintVersion, roles }] };
+  }
+
+  it('stores the ship that formed it with the key of its form request', async () => {
+    unwrapped(await formWith({ catalogue: crewedByRequest() })(forTechLead));
+
+    expect(squadrons.held[0]?.formingShip).toEqual({ shipId: FORMING, name: 'tech-lead', formKey: 'form-1' });
+  });
+
+  it('stores no forming ship for a squadron argo formed in the console', async () => {
+    unwrapped(await form(fromHemmaFeature));
+
+    expect(squadrons.held[0]?.formingShip).toBeNull();
+  });
+
+  it('refuses a role whose crew settings name no workspace, naming it, and commissions nothing: no crew line travels in a message', async () => {
+    const formed = await form(forTechLead);
+
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    assert(!formed.isOk);
+    expect(formed.error.message).toContain('planner-1');
+    expect(fleet.state.ships).toEqual([]);
+  });
+});
