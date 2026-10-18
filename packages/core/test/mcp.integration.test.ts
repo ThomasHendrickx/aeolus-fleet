@@ -223,7 +223,7 @@ describe('the ship tools at /mcp', () => {
   });
 
   it('lets a ship with fleet:read and fleet:manage list the fleet and commission a ship through the fleet tools', async () => {
-    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const session = await connect();
     const crewToken = await register(session, manager);
 
@@ -241,7 +241,7 @@ describe('the ship tools at /mcp', () => {
   });
 
   it('refuses through fleet_crewRequest settings no trierarch could take, with the reason, and stores nothing (#809)', async () => {
-    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
     const session = await connect();
     const crewToken = await register(session, manager);
@@ -254,7 +254,7 @@ describe('the ship tools at /mcp', () => {
   });
 
   it('refuses through fleet_crewRequest a machine label that is no label value of the fleet, with the reason, and stores nothing (#811)', async () => {
-    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
     const session = await connect();
     const crewToken = await register(session, manager);

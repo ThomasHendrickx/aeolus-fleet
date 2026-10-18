@@ -315,7 +315,7 @@ describe('the fleet procedures at the API', () => {
     await expect(codeOf(client().fleet.list.query())).resolves.toBe('UNAUTHORIZED');
   });
 
-  it('refuse fleet.commission and fleet.getStartingPrompt to an agent ship, which lacks fleet:manage', async () => {
+  it('refuse fleet.commission and fleet.getStartingPrompt to an agent ship, which lacks fleet:commission and fleet:manage', async () => {
     const agent = client({ authorization: `Bearer ${await crewedShip()}` });
 
     await expect(codeOf(agent.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'stowaway', type: 'reviewer' }))).resolves.toBe(
@@ -331,7 +331,7 @@ describe('the fleet procedures at the API', () => {
     await expect(codeOf(agent.fleet.list.query())).resolves.toBe('FORBIDDEN');
   });
 
-  it('serve fleet.list to a ship with fleet:read, and refuse it fleet.commission without fleet:manage', async () => {
+  it('serve fleet.list to a ship with fleet:read, and refuse it fleet.commission without fleet:commission', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
 
     const listed = await reader.fleet.list.query();
@@ -1403,7 +1403,7 @@ describe('Needs attention at the API', () => {
     });
   });
 
-  it('dismiss one for fleet:manage; it leaves the list, and a second dismiss is OK', async () => {
+  it('dismiss one for messages:resend; it leaves the list, and a second dismiss is OK', async () => {
     const asArgo = await signedInArgo();
     const { deliveryId } = await undeliverableFromArgo(asArgo);
 
@@ -1413,7 +1413,7 @@ describe('Needs attention at the API', () => {
     await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId }))).resolves.toBe('CONFLICT');
   });
 
-  it('resend one for fleet:manage, answering the new message, which names the original', async () => {
+  it('resend one for messages:resend, answering the new message, which names the original', async () => {
     const asArgo = await signedInArgo();
     const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
 
@@ -1434,12 +1434,12 @@ describe('Needs attention at the API', () => {
     await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('NOT_FOUND');
   });
 
-  it('refuse dismiss and resend without fleet:manage, and the list without fleet:read', async () => {
-    const reader = client({ authorization: `Bearer ${await crewedShip(['fleet:read'])}` });
+  it('refuse dismiss and resend without messages:resend, fleet:manage included, and the list without fleet:read (decision 0046)', async () => {
+    const manager = client({ authorization: `Bearer ${await crewedShip(['fleet:read', 'fleet:manage'])}` });
     const agent = client({ authorization: `Bearer ${await crewedShip()}` });
 
-    await expect(codeOf(reader.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(reader.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toBe('FORBIDDEN');
+    await expect(refusalOf(manager.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
+    await expect(refusalOf(manager.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
     await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
   });
 });
@@ -1877,7 +1877,7 @@ describe('ship names and types with a colon at the API', () => {
 describe('ships with fleet scopes at the API', () => {
   async function commissionedAndCrewed(
     name: string,
-    fleetScopes: ('fleet:read' | 'fleet:manage')[],
+    fleetScopes: ('fleet:read' | 'fleet:commission' | 'fleet:manage')[],
   ): Promise<{ shipId: ShipId; asShip: TRPCClient<AppRouter> }> {
     const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes });
     const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'SERVER' }, harness: 'claude-code' });
@@ -1900,16 +1900,16 @@ describe('ships with fleet scopes at the API', () => {
     expect(listed.map((ship) => ship.name)).toContain('scoped-reader');
   });
 
-  it('let a ship with fleet:manage commission a ship, and refuse it to a ship with only fleet:read', async () => {
+  it('let a ship with fleet:commission commission a ship, and refuse it to a ship with only fleet:read and fleet:manage (decision 0046)', async () => {
+    const { asShip: commissioner } = await commissionedAndCrewed('scoped-commissioner', ['fleet:read', 'fleet:commission']);
     const { asShip: manager } = await commissionedAndCrewed('scoped-manager', ['fleet:read', 'fleet:manage']);
-    const { asShip: reader } = await commissionedAndCrewed('scoped-onlooker', ['fleet:read']);
 
-    const { shipId } = await manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-member', type: 'squadron' });
+    const { shipId } = await commissioner.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-member', type: 'squadron' });
 
     expect(shipId).toMatch(/^shp_/);
-    await expect(refusalOf(reader.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
+    await expect(refusalOf(manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
-      message: 'This call needs the fleet:manage scope',
+      message: 'This call needs the fleet:commission scope',
     });
   });
 });

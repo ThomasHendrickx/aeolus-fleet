@@ -833,7 +833,7 @@ describe("state-changing console calls come from the console's origin", () => {
 
   it('does not check the Origin of a mutation called with a crew token: no browser sends one by itself', async () => {
     start();
-    const crewToken = crewedAgent(['fleet:manage']);
+    const crewToken = crewedAgent(['fleet:commission']);
 
     const response = await commission({ authorization: `Bearer ${crewToken}` });
 

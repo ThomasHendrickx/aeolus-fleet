@@ -71,7 +71,7 @@ beforeAll(async () => {
   useCases = createUseCases({ prisma: database, clock });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const management = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
 
   const webUrl = await reserveWebUrl();

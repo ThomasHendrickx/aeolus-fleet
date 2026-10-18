@@ -133,7 +133,7 @@ describe('Settings, Squadrons', () => {
     await page.getByText('Connected as').waitFor();
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1|Ship secret/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'squadrons', retiredAt: null } });
-    expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] });
+    expect(ship).toMatchObject({ type: 'squadrons', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'] });
     await expect(isCrewed('squadrons')).resolves.toBe(true);
   });
 

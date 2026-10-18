@@ -37,7 +37,7 @@ beforeEach(async () => {
   useCases = createUseCases({ prisma: fleetDatabase });
   argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
   shipId = commissioned.shipId;
   secret = secretOf(commissioned.secret);
