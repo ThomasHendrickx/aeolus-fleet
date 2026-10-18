@@ -375,14 +375,22 @@ export async function refuseIfSignedInElsewhere(ctx: Context, sessionToken: stri
 }
 
 /**
- * Refuses a live subscription whose caller no longer holds: its console
- * session ended, or its crew's lease did. A subscription outlives the call
- * that opened it, so it asks again each time it has news.
+ * The caller of a live subscription as it stands now, read from the server
+ * again: refused once its console session or its crew's lease ended, or once
+ * it lost the scope the subscription needs; a plugin reading on behalf of a
+ * ship reads as that ship again, so a revoked fleet:on-behalf ends it too
+ * (decision 0046). A subscription outlives the call that opened it, so it
+ * asks again each time it has news.
  */
-export async function checkCallerStillHolds(ctx: Context): Promise<void> {
-  if (!(await resolveCaller(ctx))) {
+export async function callerStillHolding(ctx: Context, scope: Scope): Promise<Caller> {
+  const caller = await resolveCaller(ctx);
+  if (!caller) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
   }
+  if (!hasScope(caller, scope)) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
+  }
+  return readerOf(ctx, caller);
 }
 
 /** What a caller without a valid crew token is told, at a door for ships and for a crew procedure. */
