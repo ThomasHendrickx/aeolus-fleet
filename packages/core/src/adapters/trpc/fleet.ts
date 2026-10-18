@@ -487,8 +487,8 @@ export const fleetRouter = router({
   declareScopes: scopedProcedure('scopes:declare')
     .meta({
       description: [
-        'Needs scopes:declare. Takes up one plugin namespace for your ship, for good, with its whole list of scopes: each <namespace>:<action> with a one-line description, at most 20.',
-        'Call it again with the whole list to add scopes or change descriptions; removing a scope a ship holds is CONFLICT. Core stores your scopes and never checks them: your plugin enforces them.',
+        'Needs scopes:declare. Takes up one plugin namespace for your ship, kept until it retires, with its whole list of scopes: each <namespace>:<action> with a one-line description, at most 20.',
+        'Declaring the whole list once more adds scopes or changes descriptions; removing a scope a ship holds is CONFLICT. Core stores your scopes and never checks them: your plugin enforces them.',
         'A core namespace is refused; a namespace another ship took, or a second namespace, is CONFLICT. The namespace goes when your ship retires.',
       ].join(' '),
     })

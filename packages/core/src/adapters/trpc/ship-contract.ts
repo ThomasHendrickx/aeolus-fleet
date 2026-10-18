@@ -142,6 +142,9 @@ const FLEET_ACTIONS = [
   'setBuiltInRule',
   'declareNetworkRules',
   'declaredNetworkRules',
+  'scopes',
+  'declareScopes',
+  'grantScopes',
 ] as const;
 
 type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof appRouter.fleet)[(typeof FLEET_ACTIONS)[number]];
