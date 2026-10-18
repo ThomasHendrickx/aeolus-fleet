@@ -68,11 +68,13 @@ model Fleet {
   @@map("fleets")
 }
 
-/// `argo` is the one operator ship of a fleet; every other ship is an agent.
+/// What a ship is (decision 0044): argo the one operator, the viewer, an agent session, a person's ship or an app's.
 enum ShipKind {
   operator
   agent
   viewer
+  person
+  app
 
   @@map("ship_kind")
 }

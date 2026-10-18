@@ -96,6 +96,17 @@ describe('the fleet health on Postgres', () => {
     });
   });
 
+  it('leaves out a delivery pending to a person ship awaiting crew, now and in the trend (decision 0044)', async () => {
+    const thomas = unwrap(await core.useCases.commissionShip(argo, { name: 'thomas', type: 'person', kind: 'person', idempotencyKey: newKey() }));
+    await sendTo({ kind: 'ship', shipId: thomas.shipId });
+    core.clock.advance(2 * HOUR_MS);
+
+    const health = await core.useCases.readHealth(argo);
+
+    expect(health.stuck).toEqual([]);
+    expect(health.stuckPerHour.slice(-3).map((hour) => hour.count)).toEqual([0, 0, 0]);
+  });
+
   it('places a delivery handed on a plain lease whose session went quiet for 10 minutes at its ship', async () => {
     await sendTo(toScout());
     core.clock.advance(SECOND_MS);

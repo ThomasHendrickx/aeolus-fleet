@@ -170,6 +170,26 @@ describe('an agent ship', () => {
   });
 });
 
+describe.each(['person', 'app'] as const)('a %s ship', (kind) => {
+  const ship: Ship = { ...scout, name: `${kind}-one`, kind };
+
+  it('awaits crew while no app or chat holds its lease', () => {
+    expect(shipStatus(ship, { isCrewed: false })).toBe('awaitingCrew');
+  });
+
+  it('is crewed while its lease is held', () => {
+    expect(shipStatus(ship, { isCrewed: true })).toBe('crewed');
+  });
+
+  it('gets a starting prompt while it awaits crew', () => {
+    expect(checkCanIssueStartingPrompt(ship, { isCrewed: false })).toEqual(allowed);
+  });
+
+  it('can be claimed with its secret', () => {
+    expect(claimShip({ ship, heldLease: undefined }, aClaim())).toMatchObject({ isOk: true });
+  });
+});
+
 describe('releasing a ship', () => {
   it('ends the lease of the session crewing it', () => {
     const lease = aLeaseOn(scout);

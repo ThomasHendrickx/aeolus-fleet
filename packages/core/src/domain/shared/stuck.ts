@@ -28,12 +28,17 @@ export interface StuckDelivery {
   since: Date;
 }
 
-/** A ship as the rule reads it over time; argo and the viewer ship are always crewed. */
+/**
+ * A ship as the rule reads it over time; argo and the viewer ship are always
+ * crewed. A person ship awaiting crew is its person away, never stuck
+ * (decision 0044).
+ */
 export interface ShipRecord {
   shipId: ShipId;
   name: string;
   type: string;
   isAlwaysCrewed: boolean;
+  isPerson: boolean;
   commissionedAt: Date;
   retiredAt: Date | null;
 }
@@ -220,7 +225,7 @@ class FleetAt {
     }
     const crewed = takers.filter((ship) => this.isCrewed(ship));
     if (crewed.length === 0) {
-      return { cause: 'waitingForCrew', place: placeOf(delivery.recipient) };
+      return takers.some((ship) => ship.isPerson) ? undefined : { cause: 'waitingForCrew', place: placeOf(delivery.recipient) };
     }
     const leases = crewed.flatMap((ship) => this.leaseOf(ship.shipId) ?? []);
     const overdue = this.overdueOn({ state: 'pending', since }, leases);

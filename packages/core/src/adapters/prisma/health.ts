@@ -4,10 +4,11 @@
  * events, and the deliveries acknowledged in a window. No
  * table of its own: a read, never stored.
  */
-import { idSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
+import { idSchema, shipKindSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { HealthRecords } from '../../domain/shared/health.js';
+import { isConsoleShip } from '../../domain/registry/public.js';
 import { stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
 import { toSequencedEvent } from './rows.js';
@@ -16,7 +17,7 @@ const shipRow = z.object({
   id: idSchema('ship'),
   name: z.string(),
   type: z.string(),
-  kind: z.string(),
+  kind: shipKindSchema,
   created_at: z.date(),
   retired_at: z.date().nullable(),
 });
@@ -106,7 +107,8 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
           shipId: ship.id,
           name: ship.name,
           type: ship.type,
-          isAlwaysCrewed: ship.kind !== 'agent',
+          isAlwaysCrewed: isConsoleShip(ship),
+          isPerson: ship.kind === 'person',
           commissionedAt: ship.created_at,
           retiredAt: ship.retired_at,
         })),

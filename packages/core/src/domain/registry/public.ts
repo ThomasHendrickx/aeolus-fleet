@@ -7,5 +7,5 @@ export { findPingableShip, type PingableShipTx, type UnpingableShip } from './pi
 export { checkReach, type CheckReachTx, type NotReachable } from './check-reach.js';
 export { resolveSelector, type ResolveSelectorTx, type UnresolvableSelector } from './resolve-selector.js';
 export { findOperatorShip, findShip, findViewerShip, type FindShipTx, type ShipTx } from './ships.js';
-export { OPERATOR_SHIP_NAME, type Ship } from './ship.js';
+export { isConsoleShip, OPERATOR_SHIP_NAME, type Ship } from './ship.js';
 export { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';

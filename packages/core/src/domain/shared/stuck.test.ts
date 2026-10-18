@@ -19,7 +19,7 @@ function hoursAgo(hours: number): Date {
 }
 
 function aShip(overrides: Partial<ShipRecord> = {}): ShipRecord {
-  return { shipId: newId('ship'), name: 'scout', type: 'reviewer', isAlwaysCrewed: false, commissionedAt: WEEK_AGO, retiredAt: null, ...overrides };
+  return { shipId: newId('ship'), name: 'scout', type: 'reviewer', isAlwaysCrewed: false, isPerson: false, commissionedAt: WEEK_AGO, retiredAt: null, ...overrides };
 }
 
 function aLease(ship: ShipRecord, overrides: Partial<LeaseRecord> = {}): LeaseRecord {
@@ -126,6 +126,19 @@ describe('a stuck delivery', () => {
       const second = aShip({ name: 'lookout' });
 
       expect(stuckAt(records({ ships: [first, second], leases: [aLease(second)], deliveries: [aDelivery(toType('reviewer'))] }), NOW)).toEqual([]);
+    });
+
+    it('is never stuck pending to a person ship awaiting crew: the person is away (decision 0044)', () => {
+      const thomas = aShip({ name: 'thomas', type: 'person', isPerson: true });
+
+      expect(stuckAt(records({ ships: [thomas], deliveries: [aDelivery(toShip(thomas), { sentAt: hoursAgo(33) })] }), NOW)).toEqual([]);
+    });
+
+    it('is not stuck pending to a type whose ships await crew when one of them is a person ship', () => {
+      const scout = aShip();
+      const thomas = aShip({ name: 'thomas', isPerson: true });
+
+      expect(stuckAt(records({ ships: [scout, thomas], deliveries: [aDelivery(toType('reviewer'))] }), NOW)).toEqual([]);
     });
 
     it('is never pending to argo, which is always crewed', () => {
