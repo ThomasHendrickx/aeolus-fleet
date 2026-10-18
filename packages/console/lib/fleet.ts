@@ -43,6 +43,12 @@ export function useLabelContext(): LabelContext | undefined {
   return labelContextOf(labels.data, { ships: fleet.data, isOperator: !access.isViewer });
 }
 
+/** The fleet's scopes by namespace, each with its one-line description: the core ones, then each plugin's (decision 0046). */
+export function useFleetScopes() {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.scopes.queryOptions());
+}
+
 /** Refreshes the fleet snapshot, and every ship page read, after a change to the fleet. */
 function useRefreshFleetSnapshot(): () => Promise<void> {
   const trpc = useTRPC();
