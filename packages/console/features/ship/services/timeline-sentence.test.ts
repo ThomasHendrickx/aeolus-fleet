@@ -293,6 +293,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says the crew stated what its ship is and offers, with the version and how many capabilities', () => {
+    expect(onScoutsPage(anEntry('StatementSet', { actor: scout, details: { version: 2, capabilities: 3 } }))).toEqual({
+      sentence: 'Stated what it is and offers: 3 capabilities, version 2',
+      tone: 'ended',
+      icon: 'reported',
+    });
+  });
+
   it('says what the crew reported without a note', () => {
     expect(onScoutsPage(anEntry('ShipReported', { actor: scout, details: { state: 'working', note: null } }))).toMatchObject({
       sentence: 'Reported working',
