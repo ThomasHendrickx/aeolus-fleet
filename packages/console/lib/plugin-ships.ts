@@ -1,5 +1,6 @@
 'use client';
 
+import { useGatewaySettings } from './gateway';
 import type { ShownConnection } from './shown-connection';
 import { useNetworkingPluginSettings } from './networking-plugin';
 import { useSquadronsSettings } from './squadrons';
@@ -7,7 +8,7 @@ import { useTrierarchPluginSettings } from './trierarch-plugin';
 
 /**
  * The ships the console's plugins run as (#368): squadrons' management ship,
- * the trierarch plugin's ship and the networking plugin's, the one each is connected as or was last.
+ * the trierarch plugin's ship, the networking plugin's and the gateway's, the one each is connected as or was last.
  * A trierarch's ship, a machine, is no plugin ship.
  */
 export function pluginShipIdsOf(plugins: readonly (ShownConnection | undefined)[]): ReadonlySet<string> {
@@ -27,5 +28,6 @@ export function usePluginShipIds(): ReadonlySet<string> {
   const squadrons = useSquadronsSettings();
   const trierarchPlugin = useTrierarchPluginSettings();
   const networkingPlugin = useNetworkingPluginSettings();
-  return pluginShipIdsOf([squadrons.data, trierarchPlugin.data, networkingPlugin.data]);
+  const gateway = useGatewaySettings();
+  return pluginShipIdsOf([squadrons.data, trierarchPlugin.data, networkingPlugin.data, gateway.data]);
 }

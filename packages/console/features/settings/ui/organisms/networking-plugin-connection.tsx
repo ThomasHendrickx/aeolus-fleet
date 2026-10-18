@@ -1,10 +1,10 @@
 import { Link2, Network } from 'lucide-react';
 import Link from 'next/link';
 
-import type { ShownConnection } from '../../../lib/shown-connection';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import type { ShownConnection } from '../../../../lib/shown-connection';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 
 interface NetworkingPluginConnectionProps {
   /** The networking plugin as the web app's server reads it; undefined while it loads. */

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { consoleRead } from './console-read';
 import { parseCrewSettings } from './crew-settings-read';
+import { readGatewayConnection } from './gateway-reads';
 import { readInbox, readThread } from './inbox-reads';
 import { readNetwork, readNetworkingPluginConnection } from './networking-plugin-reads';
 import { listRepositories, listSquadrons, readBlueprintCrew, readCatalogue, readKeptMessages, readSquadronsConnection } from './squadrons-reads';
@@ -25,6 +26,7 @@ export const CONSOLE_READS = {
   repositories: consoleRead(z.undefined(), listRepositories),
   'networking-plugin-connection': consoleRead(z.undefined(), readNetworkingPluginConnection),
   network: consoleRead(z.undefined(), readNetwork),
+  'gateway-connection': consoleRead(z.undefined(), readGatewayConnection),
   'trierarch-plugin-connection': consoleRead(z.undefined(), readTrierarchPluginConnection),
   'trierarch-plugin-version': consoleRead(z.undefined(), async () => ({ kind: 'answered', data: (await readTrierarchPluginVersion()) ?? null })),
   machines: consoleRead(z.undefined(), listMachines),

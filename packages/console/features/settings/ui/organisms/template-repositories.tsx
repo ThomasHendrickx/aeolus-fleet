@@ -3,9 +3,9 @@
 import { CircleAlert, KeyRound, Plus, RotateCw, TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { relativeTime } from '../../../lib/relative-time';
-import { leftOutLabel, repositoryContents, type NamedVersions, type RepositoryContents } from '../../../lib/repository';
-import type { Catalogue, TemplateRepository } from '../../../lib/squadrons-schemas';
+import { relativeTime } from '../../../../lib/relative-time';
+import { leftOutLabel, repositoryContents, type NamedVersions, type RepositoryContents } from '../../../../lib/repository';
+import type { Catalogue, TemplateRepository } from '../../../../lib/squadrons-schemas';
 import {
   AlertDialog,
   AlertDialogClose,
@@ -14,15 +14,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../components/atoms/alert-dialog';
-import { Button } from '../../../components/atoms/button';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
-import { RepositoryName } from '../../../components/molecules/repository-name';
+} from '../../../../components/atoms/alert-dialog';
+import { Button } from '../../../../components/atoms/button';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Input } from '../../../../components/atoms/input';
+import { Label } from '../../../../components/atoms/label';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { RepositoryName } from '../../../../components/molecules/repository-name';
 
 /** Where squadrons looks in a repository when no path is given (docs/squadrons.md, "Files in git"). */
 const DEFAULT_PATH = '.aeolus/squadrons';
