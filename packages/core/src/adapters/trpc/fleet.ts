@@ -366,7 +366,7 @@ export const fleetRouter = router({
   clearRequests: anyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        "Needs fleet:read or crew:run. The pending clear requests: with fleet:read every trierarch's, with crew:run those to your ship.",
+        "Needs fleet:read or crew:run. The pending clear requests: with fleet:read every trierarch's for the ships in your read reach (decision 0034), with crew:run those to your ship.",
         'Each names the trierarch, the worktree by its ship and repository, who asked and when.',
       ].join(' '),
     })
@@ -851,8 +851,8 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:read. The fleet\'s events after afterSeq, oldest first, up to max (1 to 100, 100 when left out):',
-        'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details.',
-        'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects.',
+        'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details. Only the events in your read reach (decision 0034): a message\'s through its sender or recipient, any other through the ship it concerns.',
+        'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects: it counts the events you do not read too.',
         'Without afterSeq it answers no events and the current lastSeq to start from.',
         'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
       ].join(' '),
