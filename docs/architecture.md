@@ -453,7 +453,7 @@ Lint and CI enforce these rules (slice 1b).
 | Observability | Structured logs to stdout, a `/health` endpoint, and the events table as the full history |
 | Testing | Unit tests on the core with in-memory adapters; integration tests on a real Postgres; the v1 acceptance test end to end (two ships exchange messages over MCP; one is released mid-delivery, the message is claimed again, nothing is lost); a Playwright smoke test for the console |
 | CI and release | GitHub Actions: lint, typecheck, tests on every push. Releases publish the published packages (decision 0008) to npm with trusted publishing (the same OIDC setup as Tiphys) and tag the released commit `v<version>`, so a version on npm always matches a tag in git, and push the session image (`packages/trierarch/image`, decision 0039) to `ghcr.io/thomashendrickx/aeolus-session:<version>`; CI builds and smoke-tests it on every push. The server's container images are your infra repo's concern, not the product's |
-| Versioning | Ship REST lives under `/api/v1`; every published package is released together with one semantic version. Before 1.0.0, breaking changes are allowed |
+| Versioning | Ship REST lives under `/api/v1`. Each release train has one semantic version, and every package outside core checks a minimum core version at start (decision 0049, docs/compatibility.md). Before 1.0.0, breaking changes are allowed |
 
 ## Decision record
 
@@ -470,7 +470,7 @@ Lint and CI enforce these rules (slice 1b).
 | Network exposure | Public HTTPS, kept simple for now |
 | Payload size | 64 KB maximum; messages carry references, not content |
 | License | Apache-2.0 |
-| Repository | New public repo `aeolus-fleet`, plus private `aeolus-fleet-infra`. The packages stay in one repo while they share one version |
+| Repository | One public repo per release train, `aeolus-fleet` for core (decision 0049), plus private `aeolus-fleet-infra` |
 | Operator | The ship `argo`, crewed only through the operator's email and password login; scopes on the server |
 
 Still open, deliberately later: heartbeats and wake-ups (likely a ship class concern), and operator-editable scopes.
