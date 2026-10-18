@@ -261,6 +261,28 @@ describe('the fixed exceptions', () => {
     await expect(sent(vault, aMessage({ kind: 'ship', name: 'argo' }))).resolves.toMatch(/^msg_/);
   });
 
+  describe("an owner's ship (decision 0045)", () => {
+    let thomas: Caller;
+
+    beforeEach(async () => {
+      const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+      thomas = { fleetId, shipId, kind: 'person', scopes: ['messages:send', 'messages:receive'] };
+      unwrap(await registry.setOwner(argo, { shipId: vault.shipId, ownerShipId: thomas.shipId }));
+    });
+
+    it('sends to a ship it owns whatever the rules', async () => {
+      await expect(sent(thomas, aMessage(toShip(vault), { model: undefined }))).resolves.toMatch(/^msg_/);
+    });
+
+    it('is not reached by the ship it owns', async () => {
+      expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(thomas))))).toEqual(NOT_REACHABLE);
+    });
+
+    it('does not send to a ship it does not own', async () => {
+      expect(refusalOf(await messaging.sendMessage(thomas, aMessage(toShip(scout), { model: undefined })))).toEqual(NOT_REACHABLE);
+    });
+  });
+
   it('refuse every other send when the rules are an empty list', async () => {
     expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);
   });
