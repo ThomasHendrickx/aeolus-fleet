@@ -149,7 +149,11 @@ async function observe(state: TrierarchState, deps: RunPassDeps): Promise<Observ
       continue;
     }
     const { crewToken } = entry;
-    if (crewToken === undefined || !(await harness.hasIdentity({ shipId: entry.shipId, folder }))) {
+    // An entry with no crew token in the state is crewed again (decision 0026), so its identity says nothing.
+    if (crewToken === undefined) {
+      continue;
+    }
+    if (!(await harness.hasIdentity({ shipId: entry.shipId, folder }))) {
       withoutIdentity.push(entry.shipId);
       continue;
     }
