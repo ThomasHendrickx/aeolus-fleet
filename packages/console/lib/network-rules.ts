@@ -1,4 +1,4 @@
-import type { NetworkRule, NetworkVerb, SelectorTerm } from '@aeolus-fleet/common';
+import { isOwnerTerm, type LabelTerm, type NetworkRule, type NetworkVerb, type SelectorTerm } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
@@ -92,9 +92,12 @@ function isSameTerm(one: SelectorTerm, other: SelectorTerm): boolean {
   return termKeyOf(one) === termKeyOf(other);
 }
 
-/** A term as one text, unique per term: a value id, or `<label id>=*` and `<label id>=#`, for comparing and for a list's keys. */
+/** A term as one text, unique per term: a value id, `<label id>=*` and `<label id>=#`, or `owner=<value>`, for comparing and for a list's keys. */
 export function termKeyOf(term: SelectorTerm): string {
-  return typeof term === 'string' ? term : `${term.labelId}=${term.value}`;
+  if (typeof term === 'string') {
+    return term;
+  }
+  return isOwnerTerm(term) ? `owner=${term.owner}` : `${term.labelId}=${term.value}`;
 }
 
 /** Whether the draft differs from the rules the plugin holds; all-to-all is never an empty list. */
@@ -103,18 +106,19 @@ export function isChanged(draft: NetworkDraft, saved: readonly NetworkRule[] | n
 }
 
 /** What a term of any value and one of the same value match, as the picker offers them and their chips say. */
-export const TERM_MEANINGS: Readonly<Record<Exclude<SelectorTerm, string>['value'], string>> = { '*': 'Any value', '#': 'The same value as the other side' };
+export const TERM_MEANINGS: Readonly<Record<Exclude<LabelTerm, string>['value'], string>> = { '*': 'Any value', '#': 'The same value as the other side' };
 
 /** One term of a rule's side as a chip: `key=value`, `key=*` or `key=#`, with its label's owner, and the term it shows. */
 export interface TermChip extends Pick<LabelChip, 'labelId' | 'key' | 'value' | 'mark' | 'ownerName'> {
-  term: SelectorTerm;
+  term: LabelTerm;
 }
 
 /**
  * One side of a rule as the editor shows it: a chip per term, an exact value
  * as `key=value`, any value as `key=*` and the same value as the other side's
  * as `key=#`; and the terms whose value or label the fleet no longer has,
- * which match no ship (decision 0034).
+ * which match no ship (decision 0034), with any term of the owner, which
+ * the editor does not show as a chip.
  */
 export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: TermChip[]; unknown: SelectorTerm[] } {
   const chips: TermChip[] = [];
@@ -131,6 +135,9 @@ export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext
 }
 
 function chipOf(term: SelectorTerm, context: LabelContext): TermChip | undefined {
+  if (isOwnerTerm(term)) {
+    return undefined;
+  }
   if (typeof term === 'string') {
     const [chip] = pickedChips([term], context);
     return chip === undefined ? undefined : { labelId: chip.labelId, key: chip.key, value: chip.value, mark: chip.mark, ownerName: chip.ownerName, term };
@@ -148,15 +155,17 @@ function chipOf(term: SelectorTerm, context: LabelContext): TermChip | undefined
  * does not: the fleet refuses such a rule, as `#` matches the value the ship
  * on the other side carries (decision 0034).
  */
-function sameValueAlone(rule: DraftRule, side: RuleSide): SelectorTerm[] {
+function sameValueAlone(rule: DraftRule, side: RuleSide): Exclude<LabelTerm, string>[] {
   const other = rule[side === 'from' ? 'to' : 'from'];
-  return rule[side].filter((term) => typeof term !== 'string' && term.value === '#' && !other.some((each) => isSameTerm(each, term)));
+  return rule[side].filter(
+    (term): term is Exclude<LabelTerm, string> => typeof term !== 'string' && !isOwnerTerm(term) && term.value === '#' && !other.some((each) => isSameTerm(each, term)),
+  );
 }
 
 /** What the editor says under a side that holds a term of the same value the other side does not; undefined when none. */
 export function sameValueProblemOf(rule: DraftRule, at: { side: RuleSide; context: LabelContext }): string | undefined {
   const [term] = sameValueAlone(rule, at.side);
-  if (term === undefined || typeof term === 'string') {
+  if (term === undefined) {
     return undefined;
   }
   const key = at.context.labels.find((label) => label.id === term.labelId)?.key ?? term.labelId;

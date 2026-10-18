@@ -28,12 +28,28 @@ export const SAME_LABEL_VALUE = '#' as const;
 
 /**
  * One term of a selector: an exact label value, written as its id, which
- * names its label; or a label with any value (`*`) or with the same value as
- * the other side's (`#`), which binds the same label there only.
+ * names its label; a label with any value (`*`) or with the same value as
+ * the other side's (`#`), which binds the same label there only; or the
+ * owner (decision 0045): an owner's ship by its id, any owner (`*`), or the
+ * same owner as the other side's (`#`), which binds the owner there.
  */
-export const selectorTermSchema = z.union([idSchema('labelValue'), z.object({ labelId: idSchema('label'), value: z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE]) })]);
+export const selectorTermSchema = z.union([
+  idSchema('labelValue'),
+  z.object({ labelId: idSchema('label'), value: z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE]) }),
+  z.object({ owner: z.union([idSchema('ship'), z.enum([ANY_LABEL_VALUE, SAME_LABEL_VALUE])]) }),
+]);
 
 export type SelectorTerm = z.infer<typeof selectorTermSchema>;
+
+/** A term of the owner (decision 0045). */
+export type OwnerTerm = Extract<SelectorTerm, { owner: unknown }>;
+
+/** A term on a label: an exact value, or a label with any or the same value. */
+export type LabelTerm = Exclude<SelectorTerm, OwnerTerm>;
+
+export function isOwnerTerm(term: SelectorTerm): term is OwnerTerm {
+  return typeof term !== 'string' && 'owner' in term;
+}
 
 /** The ships for which every one of these terms holds, combined with AND. */
 export const labelSelectorSchema = z.array(selectorTermSchema);

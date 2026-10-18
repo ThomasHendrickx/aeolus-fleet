@@ -65,8 +65,8 @@ describe('squadrons declaring the network rules its squadrons need (#573)', () =
     await declare(FLEET_ID);
 
     const terms = fleet.state.declarations.flat().flatMap((rule) => [...rule.from, ...rule.to]);
-    expect(terms.some((term) => typeof term !== 'string' && term.value === ANY_LABEL_VALUE)).toBe(false);
-    expect(terms.some((term) => typeof term !== 'string' && term.labelId === ROLE)).toBe(false);
+    expect(terms.some((term) => typeof term !== 'string' && 'value' in term && term.value === ANY_LABEL_VALUE)).toBe(false);
+    expect(terms.some((term) => typeof term !== 'string' && 'labelId' in term && term.labelId === ROLE)).toBe(false);
   });
 
   it('declares once in this process while its labels stay the same', async () => {

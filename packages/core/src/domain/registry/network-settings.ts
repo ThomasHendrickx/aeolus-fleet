@@ -10,6 +10,7 @@ import {
   NETWORK_RULES_MAX,
   SAME_LABEL_VALUE,
   SHIP_LABELS_MAX,
+  isOwnerTerm,
   type FleetId,
   type LabelId,
   type LabelValueId,
@@ -191,16 +192,28 @@ function invalidSelector(selector: readonly SelectorTerm[]): string | undefined 
 function sameValueOnOneSide(rule: NetworkRule): string | undefined {
   const [from, to] = [sameValueLabels(rule.from), sameValueLabels(rule.to)];
   const alone = [...from.filter((labelId) => !to.includes(labelId)), ...to.filter((labelId) => !from.includes(labelId))][0];
-  return alone === undefined ? undefined : `A term of the same value binds its label on both sides: ${termText({ labelId: alone, value: SAME_LABEL_VALUE })} is on one side only`;
+  if (alone !== undefined) {
+    return `A term of the same value binds its label on both sides: ${termText({ labelId: alone, value: SAME_LABEL_VALUE })} is on one side only`;
+  }
+  return hasSameOwner(rule.from) === hasSameOwner(rule.to)
+    ? undefined
+    : `A term of the same owner binds the owner on both sides: ${termText({ owner: SAME_LABEL_VALUE })} is on one side only`;
 }
 
-/** A term as a refusal names it: an exact value by its id, any other by its label id and symbol. */
-function termText(term: SelectorTerm): string {
-  return typeof term === 'string' ? term : `${term.labelId}=${term.value}`;
+/** A term as a refusal names it: an exact value by its id, a label term by its label id and symbol, an owner term by `owner` and its value. */
+export function termText(term: SelectorTerm): string {
+  if (typeof term === 'string') {
+    return term;
+  }
+  return isOwnerTerm(term) ? `owner=${term.owner}` : `${term.labelId}=${term.value}`;
 }
 
 function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
-  return selector.flatMap((term) => (typeof term !== 'string' && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
+  return selector.flatMap((term) => (typeof term !== 'string' && !isOwnerTerm(term) && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
+}
+
+function hasSameOwner(selector: readonly SelectorTerm[]): boolean {
+  return selector.some((term) => isOwnerTerm(term) && term.owner === SAME_LABEL_VALUE);
 }
 
 /** A copy of the rule, so what is kept never changes with what was given. */
@@ -296,12 +309,24 @@ function matches(selector: readonly SelectorTerm[], sides: { ship: ReachingShip;
  * An exact value holds for a ship carrying it; any value for a ship carrying
  * a value of the label; the same value when the ship and the other side carry
  * one value of the label both, each such term on its own (a ship may carry
- * several values of one label, decision 0031).
+ * several values of one label, decision 0031). A term of the owner holds for
+ * a ship owned by that ship, for a ship with an owner, or for a ship with the
+ * same owner as the other side.
  */
 function holds(term: SelectorTerm, sides: { ship: ReachingShip; otherSide: ReachingShip }): boolean {
   const { ship, otherSide } = sides;
   if (typeof term === 'string') {
     return ship.labels.some((label) => label.valueId === term);
+  }
+  if (isOwnerTerm(term)) {
+    switch (term.owner) {
+      case ANY_LABEL_VALUE:
+        return ship.owner !== null;
+      case SAME_LABEL_VALUE:
+        return ship.owner !== null && ship.owner === otherSide.owner;
+      default:
+        return ship.owner === term.owner;
+    }
   }
   const values = ship.labels.filter((label) => label.labelId === term.labelId);
   switch (term.value) {

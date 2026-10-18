@@ -5,13 +5,13 @@
  * supplies the list. Only rules on labels the ship owns keep them safe: only
  * it assigns those labels, so its rules reach no ship it did not label.
  */
-import { DECLARED_NETWORK_RULES_MAX, type FleetId, type LabelId, type LabelValueId, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
+import { DECLARED_NETWORK_RULES_MAX, isOwnerTerm, type FleetId, type LabelId, type LabelTerm, type LabelValueId, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Label } from './label.js';
-import { copyOfRule, invalidRule, type NetworkRule } from './network-settings.js';
+import { copyOfRule, invalidRule, termText, type NetworkRule } from './network-settings.js';
 
 /** One ship's declared rules, its whole list; a ship that declares none holds none. */
 export interface DeclaredNetworkRules {
@@ -32,7 +32,7 @@ export interface NamedLabels {
 export function namedInRules(rules: readonly NetworkRule[]): { labelIds: LabelId[]; valueIds: LabelValueId[] } {
   const terms = rules.flatMap((rule) => [...rule.from, ...rule.to]);
   return {
-    labelIds: [...new Set(terms.flatMap((term) => (typeof term === 'string' ? [] : [term.labelId])))],
+    labelIds: [...new Set(terms.flatMap((term) => (typeof term !== 'string' && !isOwnerTerm(term) ? [term.labelId] : [])))],
     valueIds: [...new Set(terms.flatMap((term) => (typeof term === 'string' ? [term] : [])))],
   };
 }
@@ -41,7 +41,8 @@ export function namedInRules(rules: readonly NetworkRule[]): { labelIds: LabelId
  * The ship declares its whole list from now on, replacing what it declared
  * before; an empty list withdraws them. At most 20, each rule within
  * decision 0034's own limits, and every term on a label the ship owns: an
- * exact value's label, and the label of a term of any or the same value. An
+ * exact value's label, and the label of a term of any or the same value; a
+ * term of the owner is on no label, so it is refused. An
  * id the fleet does not have is refused, as its owner cannot be checked.
  * NetworkRulesDeclared names the ship and the number of rules, never them.
  */
@@ -57,7 +58,12 @@ export function declareNetworkRules(
   if (invalid !== undefined) {
     return refuse('INVALID_NETWORK_RULES', `${invalid} (decision 0034)`);
   }
-  for (const term of rules.flatMap((rule) => [...rule.from, ...rule.to])) {
+  const terms = rules.flatMap((rule) => [...rule.from, ...rule.to]);
+  const ownerTerm = terms.find(isOwnerTerm);
+  if (ownerTerm !== undefined) {
+    return refuse('INVALID_NETWORK_RULES', `A declared rule holds only terms on labels the ship owns: ${termText(ownerTerm)} is a term of the owner (decision 0037)`);
+  }
+  for (const term of terms.filter((each): each is LabelTerm => !isOwnerTerm(each))) {
     const owned = checkOwnedTerm(named, { term, shipId });
     if (!owned.isOk) {
       return owned;
@@ -86,7 +92,7 @@ function declaredEvent(declared: { fleetId: FleetId; shipId: ShipId; rules: numb
   return { type: 'NetworkRulesDeclared', fleetId: declared.fleetId, occurredAt: declared.at, actor: declared.actor, shipId: declared.shipId, details: { rules: declared.rules } };
 }
 
-function checkOwnedTerm(named: NamedLabels, declaring: { term: SelectorTerm; shipId: ShipId }): Result<void, DeclareNetworkRulesRefusal> {
+function checkOwnedTerm(named: NamedLabels, declaring: { term: LabelTerm; shipId: ShipId }): Result<void, DeclareNetworkRulesRefusal> {
   const { term, shipId } = declaring;
   const label =
     typeof term === 'string' ? named.labels.find((each) => each.values.some((value) => value.id === term)) : named.labels.find((each) => each.id === term.labelId);
