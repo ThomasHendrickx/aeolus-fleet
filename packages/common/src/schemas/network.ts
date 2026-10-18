@@ -64,8 +64,8 @@ export const networkRuleSchema = z.object({ verb: z.enum(NETWORK_VERBS), from: l
 
 export type NetworkRule = z.infer<typeof networkRuleSchema>;
 
-/** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on, or none for all-to-all. */
-export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema).nullable() });
+/** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on beside the built-in ones. */
+export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema) });
 
 /**
  * The built-in rules, core's own (decision 0034): argo to and from every ship,

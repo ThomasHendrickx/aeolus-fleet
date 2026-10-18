@@ -563,15 +563,15 @@ export const fleetRouter = router({
     .output(findLabelValueOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.findLabelValue(ctx.caller, input))),
 
-  /** Sets the fleet's network rules, the whole list, or none for all-to-all (decision 0034). */
+  /** Sets the fleet's network rules beside the built-in ones, the whole list (decision 0034). */
   setNetworkRules: scopedProcedure('fleet:network')
     .meta({
       description: [
-        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule lets the ships for which every term in from holds send to the ships for which every term in to holds; an empty selector matches every ship.",
-        'A term is a label value id, the ship carries that value; or { labelId, value: "*" }, the ship carries any value of the label; or { labelId, value: "#" }, the ships on both sides carry the same value of the label. A "#" binds its label on both sides, each on its own, so a "#" on one side only is refused.',
-        'Allow-only: with rules set, a send no rule allows is refused. argo reaches every ship and every ship reaches argo, and a ship always answers the sender of a message it received.',
-        'An empty list allows only those; rules null clears them, back to all-to-all. At most 200 rules, each selector at most 20 terms, each once (decision 0034). Answers the new version.',
-        "Only the fleet's networking plugin sets them, argo included: without a registered plugin the fleet has no rules, all-to-all, and every set is refused (decision 0035).",
+        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule names its verb, send, read or manage, and lets the ships for which every term in from holds do it to the ships for which every term in to holds; an empty selector matches every ship.",
+        'A term is a label value id, the ship carries that value; { labelId, value: "*" }, the ship carries any value of the label; { labelId, value: "#" }, the ships on both sides carry the same value of the label; or { owner } with a ship id, "*" or "#", for the owner the same way. A "#" binds its label or the owner on both sides, so a "#" on one side only is refused.',
+        'Allow-only, beside the built-in rules: argo reaches every ship and every ship reaches argo, an owner\'s ship reaches the ships it owns, and a ship always answers the sender of a message it received; open lets every ship reach every ship by a verb until the plugin turns it off with fleet.setBuiltInRule.',
+        'An empty list allows only the built-in rules. At most 200 rules, each selector at most 20 terms, each once (decision 0034). Answers the new version.',
+        "Only the fleet's networking plugin sets them, argo included: without a registered plugin the fleet has no rules, open is on, and every set is refused (decision 0035).",
       ].join(' '),
     })
     .input(setNetworkRulesInputSchema)
@@ -583,7 +583,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs fleet:network. Makes your ship the fleet's networking plugin: from then on only it sets the network rules, until it unregisters or is retired. One plugin a fleet: another ship's registration is refused until it unregisters; yours again replaces what you declared.",
-        'whileUnavailable says what happens to every send while the plugin is unavailable: block-all (only argo and answers go through), open-all (every send, as with no rules) or keep-latest (the rules it set last).',
+        'whileUnavailable says what happens to every send while the plugin is unavailable: block-all (only the built-in rules that are never off: argo, owners and answers), open-all (every send, as with open on) or keep-latest (the rules and open as it left them).',
         'It is unavailable while its ship holds no lease, or is not responding: no call from its crew for longer than notRespondingAfterSeconds (60 to 86400), judged at each send (decision 0035). Answers the new version.',
       ].join(' '),
     })
@@ -596,7 +596,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs fleet:network, and only the fleet's networking plugin calls it: the plugin unregisters, as when it is switched off or deleted for the fleet.",
-        'Its rules go with it: no plugin is all-to-all (decision 0035). Answers the new version.',
+        'Its rules go with it and open is on again: no plugin is all-to-all (decision 0035). Answers the new version.',
       ].join(' '),
     })
     .output(setNetworkRulesOutputSchema)
@@ -621,7 +621,7 @@ export const fleetRouter = router({
       description: [
         'Needs labels:define. Declares the network rules your ship needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037).',
         'Every term of every rule must be on a label your ship owns: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
-        'You declare at most 20 rules, each as fleet.setNetworkRules takes them. Declared rules are not in force by themselves: the fleet\'s networking plugin adds them to argo\'s rules when it supplies the list. Answers how many rules you declare now.',
+        'You declare at most 20 rules, each as fleet.setNetworkRules takes them but without a term of the owner, which is on no label. Declared rules are not in force by themselves: the fleet\'s networking plugin adds them to argo\'s rules when it supplies the list. Answers how many rules you declare now.',
       ].join(' '),
     })
     .input(declareNetworkRulesInputSchema)

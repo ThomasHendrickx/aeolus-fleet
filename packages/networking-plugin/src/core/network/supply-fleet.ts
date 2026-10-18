@@ -57,8 +57,8 @@ export function createSupplyFleet(deps: { door: FleetDoor; connections: Connecti
     if (!declared.isOk) {
       return failed(declared.error);
     }
-    // Rules only allow: argo's none is all-to-all, and declared rules add nothing to it.
-    const rules = network.rules === null ? null : [...network.rules, ...declared.value.flatMap((ship) => ship.rules)];
+    // Rules only allow: argo's none is all-to-all, open on, and declared rules add nothing to it.
+    const rules = network.rules === null ? [] : [...network.rules, ...declared.value.flatMap((ship) => ship.rules)];
     const supplied = await deps.door.setNetworkRules(crew.crewToken, rules);
     if (!supplied.isOk) {
       return failed(supplied.error);

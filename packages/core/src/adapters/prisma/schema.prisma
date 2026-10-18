@@ -357,7 +357,7 @@ model ShipLabel {
 /// set take turns on an advisory lock on them (network.ts).
 model NetworkSettings {
   fleetId                         String  @id @map("fleet_id")
-  rules                           Json?
+  rules                           Json    @default("[]")
   /// The built-in rules that can be off (decision 0034): the viewer reading,
   /// argo's, and open per verb, the networking plugin's. On at fleet create.
   builtInViewerRead               Boolean @default(true) @map("built_in_viewer_read")

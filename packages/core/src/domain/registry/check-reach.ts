@@ -34,9 +34,9 @@ export interface Reach {
  * that comes after it is checked against the new version.
  *
  * For a type, the ships of it the sender may reach now are the ones that may
- * claim the delivery, fixed here; none of them refuses the send. With no
- * rules, with open on for send, or from argo, who reaches every ship, any
- * ship of the type may.
+ * claim the delivery, fixed here; none of them refuses the send. With open
+ * on for send, or from argo, who reaches every ship, any ship of the type
+ * may.
  *
  * A refusal is recorded here, in the send's unit of work, with the ships and
  * the label values they carry now and the settings version: the send stores
@@ -55,7 +55,7 @@ export async function checkReach(
   const settings = await tx.networkSettings.findForShare(fleetId);
   const inForce = await rulesInForceAt(tx, { settings, now: send.at });
   const senderShip = await tx.ships.find(fleetId, send.senderShipId);
-  if (inForce.rules === null || inForce.builtIns.open.send || !senderShip || senderShip.kind === 'operator') {
+  if (inForce.builtIns.open.send || !senderShip || senderShip.kind === 'operator') {
     return ok({});
   }
   const sender = await shipAsItIs(tx, senderShip);

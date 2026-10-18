@@ -15,10 +15,9 @@ import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/n
 import type { DeclaredNetworkRulesRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
 import type { ReachRefusal, RefusedShip } from '../../domain/registry/reach-refusal.js';
 import type { Db } from './client.js';
-import { Prisma } from './generated/client.js';
 
 const settingsRowSchema = z.object({
-  rules: z.array(networkRuleSchema).nullable(),
+  rules: z.array(networkRuleSchema),
   version: z.number().int().min(0),
   pluginShipId: idSchema('ship').nullable(),
   pluginWhileUnavailable: z.enum(WHILE_UNAVAILABLE).nullable(),
@@ -88,7 +87,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
     },
     save: async ({ fleetId, rules, builtIns, version, plugin }) => {
       const kept = {
-        rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),
+        rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),
         builtInViewerRead: builtIns.isViewerReadOn,
         builtInOpenSend: builtIns.open.send,
         builtInOpenRead: builtIns.open.read,
