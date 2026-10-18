@@ -116,6 +116,8 @@ export interface DeliveryChange {
   by: ComputerSide | null;
   /** The number of a pushed hand-over; none for a plain receive's. */
   handOverNumber: number | null;
+  /** The channel a pushed hand-over went through, as its computer side named it (interop 5.1). */
+  channel: string | null;
   /** A push receive of a delivery its crew already held. */
   isAgain: boolean;
   /** A confirmed message handed once more after its turn died. */

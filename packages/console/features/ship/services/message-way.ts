@@ -1,4 +1,4 @@
-import { isPingContentType, type DeliveryHolder, type DeliveryState, type MessageDetail } from '@aeolus-fleet/common';
+import { isPingContentType, type ComputerSide, type DeliveryHolder, type DeliveryState, type MessageDetail } from '@aeolus-fleet/common';
 
 import type { Machine } from '../../../lib/trierarch-plugin-schemas';
 import { duration, relativeTime, sinceTime } from '../../../lib/relative-time';
@@ -36,17 +36,37 @@ function line(icon: WayIcon, said: { tone: WayTone; text: string }): WayLine {
   return { icon, ...said };
 }
 
-/** Who holds it, by its part: "Fleet", "Trierarch on mac-mini", "Plugin watcher", "Agent". */
+/** Who holds it, by its part: "Fleet", "Trierarch on mac-mini", "Plugin watcher", "Gateway", "Agent". */
 function holderWords(holder: DeliveryHolder): { icon: WayIcon; words: string } {
   switch (holder.kind) {
     case 'fleet':
       return { icon: 'fleet', words: 'Fleet' };
-    case 'trierarch':
-      return { icon: 'computer', words: `Trierarch on ${holder.trierarch.name}` };
-    case 'pluginWatcher':
-      return { icon: 'watcher', words: 'Plugin watcher' };
     case 'agent':
       return { icon: 'agent', words: 'Agent' };
+    case 'trierarch':
+    case 'pluginWatcher':
+    case 'personApp':
+    case 'gateway':
+    case 'adapter': {
+      const { icon, text } = holderWordsOf(holder);
+      return { icon, words: text };
+    }
+  }
+}
+
+/** The computer side as one line: its icon and its words, "Trierarch on mac-mini", "Plugin watcher", "Gateway". */
+export function holderWordsOf(side: ComputerSide): { icon: WayIcon; text: string } {
+  switch (side.kind) {
+    case 'trierarch':
+      return { icon: 'computer', text: `Trierarch on ${side.trierarch.name}` };
+    case 'pluginWatcher':
+      return { icon: 'watcher', text: 'Plugin watcher' };
+    case 'personApp':
+      return { icon: 'computer', text: "Person's app" };
+    case 'gateway':
+      return { icon: 'computer', text: 'Gateway' };
+    case 'adapter':
+      return { icon: 'computer', text: 'Adapter' };
   }
 }
 

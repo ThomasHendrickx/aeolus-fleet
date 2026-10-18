@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  deliveryHistoryEntrySchema,
   messageInputSchema,
   messageOutputSchema,
   shipDetailOutputSchema,
@@ -167,7 +168,7 @@ describe('messageInputSchema', () => {
 
 describe('messageOutputSchema', () => {
   const trierarch = { id: newId('ship'), name: 'mac-mini' };
-  const step = { location: null, harness: null, attempts: null, by: null, handOverNumber: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null };
+  const step = { location: null, harness: null, attempts: null, by: null, handOverNumber: null, channel: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null };
   const message = {
     id: newId('message'),
     sender: scout,
@@ -249,6 +250,21 @@ describe('messageOutputSchema', () => {
     const way = { ...message.delivery.way, holder: { kind: 'session' } };
 
     expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, way } }).success).toBe(false);
+  });
+});
+
+describe('who wakes a lease and the channel a hand-over went through (interop 5.1)', () => {
+  const step = { location: null, harness: null, attempts: 1, by: { kind: 'gateway' }, handOverNumber: 1, channel: 'tools/call', isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null };
+  const handed = { ...step, seq: 2, type: 'DeliveryHanded', occurredAt: AT, ship: planner };
+
+  it.each(['gateway', 'personApp', 'adapter'])('takes the %s as the computer side of a step', (kind) => {
+    const entry = { ...handed, by: { kind } };
+
+    expect(deliveryHistoryEntrySchema.parse(entry)).toEqual(entry);
+  });
+
+  it('takes the channel a hand-over went through', () => {
+    expect(deliveryHistoryEntrySchema.parse(handed).channel).toBe('tools/call');
   });
 });
 

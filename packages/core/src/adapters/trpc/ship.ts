@@ -13,6 +13,7 @@ import {
   PING_CONTENT_TYPE,
   pongInputSchema,
   pongOutputSchema,
+  pushReceiveInputSchema,
   pushReceiveOutputSchema,
   reportInputSchema,
   reportLogOutputSchema,
@@ -195,13 +196,16 @@ export const shipRouter = router({
         'each with its message, its sender, its state and its last hand-over number. A pending one becomes received: yours, with no attempt counted.',
         'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
+        'Your first pushReceive may state waker, what wakes the ship: trierarch, pluginWatcher, personApp, gateway or adapter; the lease keeps the first one, and the ship\'s page shows it.',
         'Report each hand-over to the agent with handed.',
       ].join(' '),
     })
-    .input(receiveInputSchema)
+    .input(pushReceiveInputSchema)
     .output(pushReceiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      const { deliveries } = okOrThrow(await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max }));
+      const { deliveries } = okOrThrow(
+        await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
+      );
       return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
     }),
 
@@ -218,6 +222,7 @@ export const shipRouter = router({
         'It answers the state: handed, acknowledged when the agent already confirmed it, or undeliverable at the fifth attempt, when nothing may be handed.',
         'When a confirmed (acknowledged) message\'s turn died, hand it once more with isOnceMore: true and your next number:',
         'it stays acknowledged and counts no attempt. A message is handed once more only once.',
+        'channel names how you handed it over, such as tmux, watcher, email or tools/call (1 to 32 of a-z, 0-9, /, . and -); the delivery\'s history shows it.',
       ].join(' '),
     })
     .input(handedInputSchema)

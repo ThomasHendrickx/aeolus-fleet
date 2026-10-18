@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -98,7 +98,7 @@ export interface InMemoryState {
   ships: Ship[];
   leases: Lease[];
   /** The leases a push receive marked pushed, and from when. */
-  pushedLeases: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
+  pushedLeases: { fleetId: FleetId; leaseId: Lease['id']; at: Date; waker?: LeaseWaker | null }[];
   credentials: Credential[];
   operatorAccounts: OperatorAccount[];
   consoleSessions: ConsoleSession[];
@@ -803,11 +803,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         );
         return Promise.resolve(lease && { ...lease });
       },
-      markPushed: ({ fleetId, leaseId, at }) => {
+      markPushed: ({ fleetId, leaseId, at, waker }) => {
         const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
         const isMarked = isOpen && !state.pushedLeases.some((pushed) => pushed.fleetId === fleetId && pushed.leaseId === leaseId);
         if (isMarked) {
-          state.pushedLeases.push({ fleetId, leaseId, at });
+          state.pushedLeases.push({ fleetId, leaseId, at, waker });
         }
         return Promise.resolve(isMarked);
       },
@@ -1511,6 +1511,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       harness: lease.harness,
       trierarch: crewedBy && !isOperator ? crewedBy : null,
       isPushed: state.pushedLeases.some((held) => held.fleetId === lease.fleetId && held.leaseId === lease.id),
+      waker: state.pushedLeases.find((held) => held.fleetId === lease.fleetId && held.leaseId === lease.id)?.waker ?? null,
       isEnded: lease.endedAt !== null,
       endReason: LEASE_END_REASONS.find((known) => known === reason) ?? null,
       turn: turn && { ...turn },

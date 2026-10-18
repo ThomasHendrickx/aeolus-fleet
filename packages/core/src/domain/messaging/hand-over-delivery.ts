@@ -19,7 +19,7 @@ export type HandOverDeliveryRefusal = DomainError<'DELIVERY_NOT_FOUND'> | HandOv
 
 export type HandOverDelivery = (
   crew: Crew,
-  input: { deliveryId: DeliveryId; handOverNumber: number; isOnceMore?: boolean },
+  input: { deliveryId: DeliveryId; handOverNumber: number; isOnceMore?: boolean; channel?: string },
 ) => Promise<Result<{ state: HandedState }, HandOverDeliveryRefusal>>;
 
 /**
@@ -52,6 +52,7 @@ export function createHandOverDelivery(deps: {
         crew,
         handOverNumber: input.handOverNumber,
         isOnceMore: input.isOnceMore === true,
+        ...(input.channel === undefined ? {} : { channel: input.channel }),
         at: deps.clock.now(),
       });
       if (!handedOver.isOk) {

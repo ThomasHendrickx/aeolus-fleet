@@ -148,6 +148,16 @@ enum ReportState {
 }
 
 /// A pushed session's turn, as its hooks report it (decision 0040).
+enum LeaseWaker {
+  trierarch
+  pluginWatcher
+  personApp
+  gateway
+  adapter
+
+  @@map("lease_waker")
+}
+
 enum TurnState {
   idle
   busy
@@ -195,6 +205,8 @@ model Lease {
   statementVersion     Int          @default(0) @map("statement_version")
   /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
   pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
+  /// What wakes the ship, as its first push receive stated it; null when it stated none (interop 5.1).
+  waker                LeaseWaker?
   /// The session's turn as its hooks last reported it, and when they saw it change; null until they report (decision 0040).
   turn                 TurnState?
   turnAt               DateTime?    @map("turn_at") @db.Timestamptz(3)

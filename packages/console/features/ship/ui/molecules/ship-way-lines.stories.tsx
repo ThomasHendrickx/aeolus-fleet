@@ -58,7 +58,7 @@ export const NothingWaiting: Story = { args: { view: shipWayView(NOTHING_WAITING
 export const Pull: Story = {
   args: { view: shipWayView(PULL_WAY, { now: NOW }) },
   play: async ({ canvas }) => {
-    await expect(canvas.getByTestId('ship-way-line')).toHaveTextContent('No trierarch, no plugin (pull)');
+    await expect(canvas.getByTestId('ship-way-line')).toHaveTextContent('Pull: nobody wakes it');
     await expect(canvas.getByTestId('ship-way-oldest')).toHaveTextContent('Handed (pulled)');
   },
 };

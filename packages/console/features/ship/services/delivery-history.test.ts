@@ -22,6 +22,7 @@ function anEntry(type: DeliveryHistoryEntry['type'], overrides: Partial<Delivery
     attempts: null,
     by: null,
     handOverNumber: null,
+    channel: null,
     isAgain: false,
     isOnceMore: false,
     overdue: null,
@@ -93,6 +94,19 @@ describe('deliveryHistorySentence', () => {
     expect(sentence(anEntry('DeliveryHanded', { ship: planner, by: atMacMini, handOverNumber: 2, attempts: 2 }))).toBe(
       'Handed to planner (no. 2) by the trierarch on mac-mini.',
     );
+  });
+
+  it('says which channel it was handed through, by the gateway (interop 5.1)', () => {
+    expect(sentence(anEntry('DeliveryHanded', { ship: planner, by: { kind: 'gateway' }, handOverNumber: 1, attempts: 1, channel: 'tools/call' }))).toBe(
+      'Handed to planner (no. 1) by the gateway via tools/call.',
+    );
+  });
+
+  it.each([
+    [{ kind: 'personApp' } as const, "the person's app"],
+    [{ kind: 'adapter' } as const, 'the adapter'],
+  ])('names %o as the computer side that received it', (by, words) => {
+    expect(sentence(anEntry('DeliveryReceived', { ship: planner, by }))).toBe(`Received by ${words} for planner.`);
   });
 
   it('says it was handed once more after its turn died', () => {

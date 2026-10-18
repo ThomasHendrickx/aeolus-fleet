@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
 import type { ClearRequest } from './clear-request.js';
@@ -202,8 +202,9 @@ export interface LeaseRepository {
    * Marks the open lease pushed from `at`, keeping an earlier mark, before
    * anything else of the lease is locked: two marks take turns and never
    * deadlock with the units of work holding it. True when this call marked it.
+   * The waker it states is kept with the first mark only (interop 5.1).
    */
-  markPushed(pushed: { fleetId: FleetId; leaseId: LeaseId; at: Date }): Promise<boolean>;
+  markPushed(pushed: { fleetId: FleetId; leaseId: LeaseId; at: Date; waker: LeaseWaker | null }): Promise<boolean>;
   /** Whether a push receive marked the lease pushed. */
   isPushed(fleetId: FleetId, leaseId: LeaseId): Promise<boolean>;
 }
