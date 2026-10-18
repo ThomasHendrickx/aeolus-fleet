@@ -250,10 +250,13 @@ describe('a send under network rules', () => {
     ]);
   });
 
-  it('explained to argo, answers the ships the sender reaches now, read from the store', async () => {
+  it('explained to argo, answers the ships the sender reaches now, each with the rule that allows it, read from the store', async () => {
     const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
 
-    expect(explained.reachableShipIds).toEqual([argo.shipId, vault.shipId]);
+    expect(explained.send).toEqual([
+      { shipId: argo.shipId, rule: { builtIn: 'argo' } },
+      { shipId: vault.shipId, rule: { plugin: 0 } },
+    ]);
   });
 
   it('lets a ship answer the sender of a message it received', async () => {
@@ -321,7 +324,7 @@ describe('a send under rules with terms of any value and of the same value', () 
 
     const explained = unwrap(await core.useCases.explainReach(argo, { fromShipId: planner.shipId }));
 
-    expect(explained.reachableShipIds).toEqual([argo.shipId, scout.shipId]);
+    expect(explained.send.map((reached) => reached.shipId)).toEqual([argo.shipId, scout.shipId]);
   });
 
   it('keeps as claimants of a send to a type only its ships with the same value', async () => {

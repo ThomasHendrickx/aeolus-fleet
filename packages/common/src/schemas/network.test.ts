@@ -230,9 +230,17 @@ describe('explainReachInputSchema', () => {
 });
 
 describe('explainReachOutputSchema', () => {
-  it('answers the ships reached, by id, and nothing about why', () => {
-    const reachableShipIds = [newId('ship')];
+  it('answers per verb the ships reached, each with the rule that allows it: built in, the plugin\'s by place, or declared by its declarer and place', () => {
+    const explained = {
+      send: [{ shipId: newId('ship'), rule: { builtIn: 'owner' } }],
+      read: [{ shipId: newId('ship'), rule: { plugin: 3 } }],
+      manage: [{ shipId: newId('ship'), rule: { declared: newId('ship'), index: 0 } }],
+    };
 
-    expect(explainReachOutputSchema.parse({ reachableShipIds, reasons: ['rule 1'] })).toEqual({ reachableShipIds });
+    expect(explainReachOutputSchema.parse(explained)).toEqual(explained);
+  });
+
+  it('refuses a rule that is not built in, the plugin\'s or declared', () => {
+    expect(explainReachOutputSchema.safeParse({ send: [{ shipId: newId('ship'), rule: { builtIn: 'everyone' } }], read: [], manage: [] }).success).toBe(false);
   });
 });

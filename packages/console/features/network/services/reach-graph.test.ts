@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { graphNodesOf, graphShipsOf, reachSummaryOf, type GraphShip } from './reach-graph';
+import { graphNodesOf, graphShipsOf, reachSummaryOf, sendReachOf, type GraphShip } from './reach-graph';
 
 const newId = createIdGenerator();
 
@@ -104,5 +104,15 @@ describe('the reach summary', () => {
 
   it('says when the picked ship is the only ship', () => {
     expect(reachSummaryOf(graphNodesOf([argo], { pickedShipId: argo.id, reachableShipIds: [] }))).toBe('argo is the only ship of the fleet.');
+  });
+});
+
+describe('the reach the graph shows', () => {
+  it('is the ships the explain answers for send, whatever they read or manage', () => {
+    const [planner, vault] = [newId('ship'), newId('ship')];
+
+    expect(
+      sendReachOf({ send: [{ shipId: planner, rule: { plugin: 0 } }], read: [{ shipId: vault, rule: { builtIn: 'open' } }], manage: [{ shipId: vault, rule: { builtIn: 'open' } }] }),
+    ).toEqual([planner]);
   });
 });
