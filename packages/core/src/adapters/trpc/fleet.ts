@@ -687,10 +687,11 @@ export const fleetRouter = router({
   reachRefusals: scopedProcedure('fleet:read')
     .output(reachRefusalsOutputSchema)
     .query(async ({ ctx }) =>
-      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
+      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
         id,
         at: at.toISOString(),
         sender: { ...sender, labels: [...sender.labels] },
+        askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
         recipient:
           recipient.kind === 'ship'
             ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }

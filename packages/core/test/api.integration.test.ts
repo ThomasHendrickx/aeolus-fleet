@@ -227,6 +227,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_scope_namespaces$/),
       expect.stringMatching(/^\d{14}_trierarch_plugin_crew_run$/),
       expect.stringMatching(/^\d{14}_scope_catalogue$/),
+      expect.stringMatching(/^\d{14}_reach_refusal_asked_by$/),
+      expect.stringMatching(/^\d{14}_on_behalf_scope$/),
     ]);
   });
 });

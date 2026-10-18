@@ -66,6 +66,7 @@ import { createCommissionShip, type CommissionShip } from './domain/registry/com
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './domain/registry/get-starting-prompt.js';
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
+import { createReadOnBehalf, type ReadOnBehalf } from './domain/registry/read-on-behalf.js';
 import { createInitialiseFleet, type InitialiseFleet } from './domain/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './domain/registry/list-fleet.js';
 import { createReadReachOf } from './domain/registry/read-reach.js';
@@ -149,6 +150,7 @@ export interface UseCases {
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
+  readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
@@ -318,6 +320,7 @@ export function createUseCases(options: {
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    readOnBehalf: createReadOnBehalf({ ships: createPrismaShipRepository(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),

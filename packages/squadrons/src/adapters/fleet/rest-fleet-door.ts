@@ -10,7 +10,7 @@
  */
 import { setTimeout as wait } from 'node:timers/promises';
 
-import { busyWaitMs, crewLineSchema, FLEET_BUSY_WAITS_MS, findLabelValueOutputSchema, idSchema, receivedDeliverySchema, shipDetailOutputSchema } from '@aeolus-fleet/common';
+import { busyWaitMs, crewLineSchema, FLEET_BUSY_WAITS_MS, findLabelValueOutputSchema, idSchema, ON_BEHALF_OF_HEADER, receivedDeliverySchema, shipDetailOutputSchema, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -42,6 +42,8 @@ interface FleetCall<T> {
   signal?: AbortSignal;
   /** A bulk operation, whose work grows with the fleet's history: not made again while the fleet is busy. */
   isBulk?: boolean;
+  /** For a fleet:read read on behalf of a person's ship: the fleet answers with that ship's read reach (decision 0034). */
+  onBehalfOf?: ShipId;
 }
 
 /** Where the fleet answers, how long to wait before each next call while it is busy, the draw for each wait, and how a drawn wait is waited. */
@@ -71,6 +73,9 @@ async function callOnce<T>(fleetUrl: string, request: FleetCall<T>): Promise<Res
   }
   if (request.body !== undefined) {
     headers['content-type'] = 'application/json';
+  }
+  if (request.onBehalfOf !== undefined) {
+    headers[ON_BEHALF_OF_HEADER] = request.onBehalfOf;
   }
   let response: Response;
   let body: unknown;

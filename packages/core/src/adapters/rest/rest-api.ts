@@ -12,7 +12,7 @@
 import fastifyApiReference from '@scalar/fastify-api-reference';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { readBearer } from '../http/request-credentials.js';
+import { readBearer, readOnBehalfOf } from '../http/request-credentials.js';
 import type { Context, RequestCredentials } from '../trpc/context.js';
 import { callShip, refusalBody, SHIP_CALLS, unexpectedFailure } from '../trpc/ship-contract.js';
 import { API_TITLE, openApiDocument } from './openapi.js';
@@ -55,7 +55,7 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
       handler: async (request, reply) => {
         try {
           const result = await callShip(call, {
-            ctx: options.contextFor(request, { bearer: readBearer(request.headers.authorization) }),
+            ctx: options.contextFor(request, { bearer: readBearer(request.headers.authorization), onBehalfOf: readOnBehalfOf(request.headers) }),
             input: request.body,
             log: request.log,
           });

@@ -14,7 +14,7 @@ import type { Context, FleetEventWatches, RequestCredentials, SessionCookie, Use
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
-import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
+import { clearedSessionCookie, readBearer, readOnBehalfOf, readSessionToken, sessionCookie } from './request-credentials.js';
 import { runningVersions } from './version.js';
 import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation.js';
 
@@ -216,6 +216,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
           credentials: {
             bearer: readBearer(req.headers.authorization),
             sessionToken: readSessionToken(req.headers.cookie),
+            onBehalfOf: readOnBehalfOf(req.headers),
           },
           canUseConsoleSession: true,
           sessionCookie: {

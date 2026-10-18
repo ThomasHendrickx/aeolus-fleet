@@ -408,6 +408,7 @@ describe('the record of a refused send', () => {
         id: refusal?.id,
         at: core.clock.now(),
         sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')], owner: { id: argo.shipId, name: 'argo' } },
+        askedBy: null,
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')], owner: { id: argo.shipId, name: 'argo' } } },
         verb: 'send',
         settingsVersion: 3,

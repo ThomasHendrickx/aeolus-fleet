@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { aFleetAnswering, BUSY } from '../../../test/support/fake-fleet.js';
-import { createRestFleetDoor } from './rest-fleet-door.js';
+import { call, createRestFleetDoor, restDoor } from './rest-fleet-door.js';
 
 const MESSAGE_ID = 'msg_01m3tbfspe96yf1rnr4ank9h1d';
 const SHIP_ID = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -90,6 +91,24 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
 
       await expect(ended).resolves.toMatchObject({ name: 'AbortError' });
       expect(asked).toHaveLength(1);
+    });
+  });
+});
+
+describe('a fleet:read read on behalf of a named ship (decision 0034)', () => {
+  it("names the ship in the Aeolus-On-Behalf-Of header, so the fleet answers with that ship's read reach", async () => {
+    await aFleetAnswering([{ status: 200, body: {} }], async (fleetUrl, asked) => {
+      await call(restDoor(fleetUrl), { path: '/fleet/ship', method: 'POST', crewToken: 'aeolus_ct_v1_x', onBehalfOf: SHIP_ID, body: { shipId: SHIP_ID }, answers: z.unknown() });
+
+      expect(asked.map(({ headers }) => headers['aeolus-on-behalf-of'])).toEqual([SHIP_ID]);
+    });
+  });
+
+  it('names no ship on a read for squadrons itself', async () => {
+    await aFleetAnswering([{ status: 200, body: {} }], async (fleetUrl, asked) => {
+      await call(restDoor(fleetUrl), { path: '/fleet/ship', method: 'POST', crewToken: 'aeolus_ct_v1_x', body: { shipId: SHIP_ID }, answers: z.unknown() });
+
+      expect(asked.map(({ headers }) => 'aeolus-on-behalf-of' in headers)).toEqual([false]);
     });
   });
 });

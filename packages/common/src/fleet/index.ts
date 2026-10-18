@@ -9,7 +9,8 @@ import { z } from 'zod';
 /**
  * A core scope: a permission of a ship, stored on the server with the ship
  * and checked by core before every call. `messages:force` sends a forced
- * message, one that comes first (decision 0040); `scopes:declare` takes up a
+ * message, one that comes first (decision 0040); `fleet:on-behalf` reads on
+ * behalf of a named ship (decision 0034); `scopes:declare` takes up a
  * plugin namespace and `scopes:grant` grants and revokes on a live ship
  * (decision 0046).
  */
@@ -26,6 +27,7 @@ export const SCOPES = [
   'labels:define',
   'labels:assign',
   'fleet:network',
+  'fleet:on-behalf',
   'scopes:declare',
   'scopes:grant',
 ] as const;
@@ -46,6 +48,7 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'labels:define': 'Define labels, change their values and declare network rules on them',
   'labels:assign': 'Assign and unassign the values of labels its ship owns',
   'fleet:network': "The networking plugin's calls: the fleet's network rules",
+  'fleet:on-behalf': "Read on behalf of a named ship, with that ship's read reach",
   'scopes:declare': 'Take up one plugin namespace and declare its scopes',
   'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
 };
@@ -88,9 +91,9 @@ export type ScopeName = z.infer<typeof scopeNameSchema>;
  * to its ship (decision 0029). `labels:define` defines labels and changes
  * their values; `labels:assign` assigns and unassigns the labels its ship owns
  * (decision 0031). `fleet:network` sets the fleet's network rules (decision
- * 0034).
+ * 0034). `fleet:on-behalf` reads on behalf of a named ship (decision 0034).
  */
-export const FLEET_SCOPES = ['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] as const;
+export const FLEET_SCOPES = ['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf'] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
 

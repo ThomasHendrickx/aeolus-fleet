@@ -8,7 +8,7 @@ import { historyScenario, type HistoryScenario } from '../../../test/support/his
 import { newKey } from '../../../test/support/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
-import type { Crew } from './caller.js';
+import type { Caller, Crew } from './caller.js';
 
 let scene: HistoryScenario;
 
@@ -167,6 +167,20 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
       settingsVersion: 3,
       whilePluginUnavailable: null,
     });
+  });
+
+  it("records no asker for a ship's own read", async () => {
+    await fleet.history.readShipWay(fleet.reader, { shipId: fleet.far.shipId });
+
+    expect(fleet.core.state.reachRefusals.map((refusal) => refusal.askedBy)).toEqual([null]);
+  });
+
+  it('records a read on behalf with the named ship as the reader and the plugin that asked beside it, as it was then', async () => {
+    const onBehalf: Caller = { fleetId: fleet.fleetId, shipId: fleet.reader.shipId, kind: 'agent', scopes: ['fleet:read'], askedBy: fleet.networking.shipId };
+
+    await fleet.history.readShipWay(onBehalf, { shipId: fleet.far.shipId });
+
+    expect(fleet.core.state.reachRefusals.map(({ sender, askedBy }) => [sender.id, askedBy?.id, askedBy?.name])).toEqual([[fleet.reader.shipId, fleet.networking.shipId, 'networking']]);
   });
 
   it('reads the way of a ship within read reach, and of itself, recording nothing', async () => {

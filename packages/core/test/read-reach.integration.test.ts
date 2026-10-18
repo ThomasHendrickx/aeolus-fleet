@@ -13,7 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './
 import { createMigratedDatabase } from './support/database.js';
 import { newKey } from './support/keys.js';
 import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { refusalOf, unwrap } from './support/result.js';
 
 // Read reach from HTTP to Postgres and back (decision 0034): reader, with
 // fleet:read, and near carry team a; far carries team b; the networking
@@ -28,15 +28,20 @@ let address: string;
 let useCases: UseCases;
 let argo: Caller;
 let reader: TRPCClient<AppRouter>;
-let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId };
+let plugin: { crewToken: string; on: (shipId: string) => TRPCClient<AppRouter> };
+let readerNamingNear: TRPCClient<AppRouter>;
+let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId; networking: ShipId; ghost: ShipId };
 let teamB: LabelValueId;
 let farToNear: MessageId;
 let farToArgo: MessageId;
 let readerFrom: number;
 
-function client(crewToken: string): TRPCClient<AppRouter> {
-  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { authorization: `Bearer ${crewToken}` } })] });
+function client(crewToken: string, headers: Record<string, string> = {}): TRPCClient<AppRouter> {
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { ...headers, authorization: `Bearer ${crewToken}` } })] });
 }
+
+/** The header a plugin names the ship it reads for with (decision 0034). */
+const ON_BEHALF_OF = 'aeolus-on-behalf-of';
 
 /** A ship argo commissions and a session claims: its id, the caller it is and its crew token. */
 async function crewed(ship: { name: string; type: string; fleetScopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: Caller; crewToken: string }> {
@@ -77,8 +82,11 @@ beforeAll(async () => {
   const ghost = await crewed({ name: 'ghost', type: 'ghost' });
   const trierarch = await crewed({ name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] });
   const networking = await crewed({ name: 'networking', type: 'networking', fleetScopes: ['fleet:network'] });
-  ids = { reader: readerShip.shipId, near: near.shipId, far: far.shipId, trierarch: trierarch.shipId };
+  const squadrons = await crewed({ name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:on-behalf'] });
+  plugin = { crewToken: squadrons.crewToken, on: (shipId) => client(squadrons.crewToken, { [ON_BEHALF_OF]: shipId }) };
+  ids = { reader: readerShip.shipId, near: near.shipId, far: far.shipId, trierarch: trierarch.shipId, networking: networking.shipId, ghost: ghost.shipId };
   reader = client(readerShip.crewToken);
+  readerNamingNear = client(readerShip.crewToken, { [ON_BEHALF_OF]: near.shipId });
 
   const team = unwrap(await useCases.defineLabel(labeller.caller, { key: 'team', values: ['a', 'b'] }));
   const [teamA, b] = team.values.map((value) => value.id);
@@ -166,6 +174,17 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     expect([code, refusals.map(({ sender, recipient }) => [sender.id, recipient.kind === 'ship' ? recipient.ship.id : recipient.type])]).toEqual(['FORBIDDEN', [[ids.reader, ids.far]]]);
   });
 
+  it('keeps a refused read on behalf with the plugin that asked beside the named ship, and a ship\'s own refused read with none', async () => {
+    const onBehalf: Caller = { fleetId: argo.fleetId, shipId: ids.reader, kind: 'agent', scopes: ['fleet:read'], askedBy: ids.networking };
+    refusalOf(await useCases.readShipWay(onBehalf, { shipId: ids.far }));
+
+    const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
+    expect(refusals.map(({ sender, askedBy }) => [sender.id, askedBy && [askedBy.id, askedBy.name]])).toEqual([
+      [ids.reader, [ids.networking, 'networking']],
+      [ids.reader, null],
+    ]);
+  });
+
   it('fleet.noShipCanTake and fleet.health count only the deliveries whose message it reads', async () => {
     const [stuck, health] = [await reader.fleet.noShipCanTake.query(), await reader.fleet.health.query()];
 
@@ -200,5 +219,64 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     const ship = unwrap(await useCases.getShip(argo, { shipId: ids.far }));
 
     expect(ship).toMatchObject({ id: ids.far, kind: 'agent' });
+  });
+});
+
+describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)', () => {
+  it('answers every fleet:read query on behalf of reader as reader reads it itself', async () => {
+    const asked = (as: TRPCClient<AppRouter>) =>
+      Promise.all([
+        as.fleet.list.query(),
+        as.fleet.ship.query({ shipId: ids.far }),
+        as.fleet.ship.query({ shipId: ids.near }),
+        as.fleet.shipTimeline.query({ shipId: ids.far }),
+        as.fleet.shipMessages.query({ shipId: ids.far }),
+        as.fleet.message.query({ messageId: farToNear }),
+        codeOf(as.fleet.message.query({ messageId: farToArgo })),
+        codeOf(as.fleet.shipWay.query({ shipId: ids.far })),
+        as.fleet.noShipCanTake.query(),
+        as.fleet.health.query(),
+        as.fleet.needsAttention.query(),
+        as.fleet.overdue.query(),
+        as.fleet.clearRequests.query(),
+        as.fleet.inbox.query({ filter: 'all' }),
+        as.fleet.follow.query({ afterSeq: readerFrom }),
+        codeOf(as.fleet.reachRefusals.query()),
+      ]);
+
+    expect(await asked(plugin.on(ids.reader))).toEqual(await asked(reader));
+  });
+
+  it("reads with the named ship's read reach whatever its own scopes: near holds no fleet:read and reads reader whole, far by name, type and status only", async () => {
+    const onBehalf = plugin.on(ids.near);
+
+    const [whole, far] = [await onBehalf.fleet.ship.query({ shipId: ids.reader }), await onBehalf.fleet.ship.query({ shipId: ids.far })];
+
+    expect([whole, far]).toEqual([
+      expect.objectContaining({ id: ids.reader, labels: [expect.objectContaining({ key: 'team', value: 'a' })] }),
+      { id: ids.far, name: 'far', type: 'keeper', status: 'crewed', isInReadReach: false },
+    ]);
+  });
+
+  it('answers on the REST door too', async () => {
+    const response = await fetch(`${address}/api/v1/fleet/ship`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${plugin.crewToken}`, [ON_BEHALF_OF]: ids.near, 'content-type': 'application/json' },
+      body: JSON.stringify({ shipId: ids.reader }),
+    });
+
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({ id: ids.reader, labels: [expect.objectContaining({ key: 'team', value: 'a' })] }));
+  });
+
+  it('refuses the header on a call that is no fleet:read read, and a header that names no ship id, as bad requests', async () => {
+    await expect(Promise.all([codeOf(plugin.on(ids.near).ship.whoami.query()), codeOf(plugin.on('scout').fleet.list.query())])).resolves.toEqual(['BAD_REQUEST', 'BAD_REQUEST']);
+  });
+
+  it('refuses a ship without fleet:on-behalf, which reads only as itself, as forbidden', async () => {
+    await expect(codeOf(readerNamingNear.fleet.ship.query({ shipId: ids.near }))).resolves.toBe('FORBIDDEN');
+  });
+
+  it('refuses to read on behalf of argo as forbidden, and of a retired ship as not found', async () => {
+    await expect(Promise.all([codeOf(plugin.on(argo.shipId).fleet.list.query()), codeOf(plugin.on(ids.ghost).fleet.list.query())])).resolves.toEqual(['FORBIDDEN', 'NOT_FOUND']);
   });
 });

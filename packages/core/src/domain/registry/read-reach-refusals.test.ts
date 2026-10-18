@@ -20,6 +20,7 @@ function aRefusal(onFleet: FleetId = fleetId): ReachRefusal {
     id: core.ids('reachRefusal'),
     at: core.clock.now(),
     sender: { id: core.ids('ship'), name: 'planner', labels: [], owner: null },
+    askedBy: null,
     recipient: { kind: 'ship', ship: { id: core.ids('ship'), name: 'vault', labels: [], owner: null } },
     verb: 'send',
     settingsVersion: 1,
