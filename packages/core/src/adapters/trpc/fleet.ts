@@ -154,6 +154,7 @@ export const fleetRouter = router({
       description: [
         'Needs fleet:commission. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'scopes adds scopes to the two every ship has, each one your ship may grant: a core scope it holds (argo holds every one), or a declared scope of the namespace it declared. fleet_grantScopes changes them later.',
+        "ownerOf, only from a plugin's ship, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
         'the retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
