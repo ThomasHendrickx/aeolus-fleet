@@ -87,8 +87,9 @@ let formingShipScopes: string[];
 /** Whether the forming ship is retired, and its owner, as the fleet answers squadrons' own ship. */
 let formingShipStatus: 'crewed' | 'retired';
 let formingShipOwner: ShipId | null;
-/** The scopes the forming ship's owner holds now. */
+/** The scopes the forming ship's owner holds now, and whether it is retired. */
 let ownerScopes: string[];
+let ownerStatus: 'crewed' | 'retired';
 const acked: DeliveryId[] = [];
 const ponged: DeliveryId[] = [];
 let isPongRefused: boolean;
@@ -107,7 +108,7 @@ const door: FleetDoor = {
       return Promise.resolve(ok({ ...ship, status: formingShipStatus, scopes: formingShipScopes, ownerShipId: formingShipOwner }));
     }
     if (crewToken === MANAGEMENT_CREW_TOKEN && shipId === OWNER) {
-      return Promise.resolve(ok({ ...ship, status: 'crewed' as const, scopes: ownerScopes, ownerShipId: null }));
+      return Promise.resolve(ok({ ...ship, status: ownerStatus, scopes: ownerScopes, ownerShipId: null }));
     }
     return Promise.resolve(err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }));
   },
@@ -245,6 +246,7 @@ beforeEach(() => {
   formingShipStatus = 'crewed';
   formingShipOwner = OWNER;
   ownerScopes = ['messages:send', 'messages:receive', 'squadrons:form'];
+  ownerStatus = 'crewed';
   commissioned.length = 0;
   crewRequests.clear();
   now = NOW;
@@ -772,6 +774,14 @@ describe('a retired forming ship: its owner takes its place (0.R)', () => {
     expect(sent.map(({ selector }) => selector)).toEqual([{ kind: 'ship', name: 'argo' }]);
   });
 
+  it("sends a member's relay on to argo when the forming ship's owner is retired too", async () => {
+    ownerStatus = 'retired';
+
+    await handle(held, delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } }));
+
+    expect(sent.map(({ selector }) => selector)).toEqual([{ kind: 'ship', name: 'argo' }]);
+  });
+
   it('still sends to the forming ship while it is not retired', async () => {
     formingShipStatus = 'crewed';
 
@@ -808,6 +818,16 @@ describe('a retired forming ship: its owner takes its place (0.R)', () => {
 
   it('tells argo of a message it keeps when the retired forming ship has no owner the fleet names', async () => {
     formingShipOwner = null;
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+
+    await handle(held, unknown);
+
+    expect(sent).toEqual([]);
+    expect(told.map(({ key }) => key)).toEqual([`kept-${unknown.deliveryId}`]);
+  });
+
+  it("tells argo of a message it keeps when the forming ship's owner is retired too", async () => {
+    ownerStatus = 'retired';
     const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
 
     await handle(held, unknown);
