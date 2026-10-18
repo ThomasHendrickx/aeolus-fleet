@@ -125,8 +125,8 @@ const templateSchema = z.object({
     .optional(),
 });
 
-/** `<repository>#<name>@<n>`: a configured repository, a template's name, and its tag's version. */
-const templateReference = z
+/** `<repository>#<name>@<n>`: a configured repository, a template's or blueprint's name, and its tag's version. */
+export const templateReference = z
   .string(expecting('<repository>#<name>@<n>'))
   .regex(/^[^#\s]+#[a-z0-9:-]+@[1-9]\d*$/, 'must be <repository>#<name>@<n>')
   .transform((raw): TemplateReference => {

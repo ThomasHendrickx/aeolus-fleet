@@ -113,7 +113,7 @@ const squadrons: SquadronRepository = {
 };
 
 const formRefusals: FormRefusals = {
-  find: (_fleetId, formingShipId, key) => Promise.resolve(refusals.find((each) => each.formingShipId === formingShipId && each.key === key)),
+  find: (_fleetId, { formingShipId, key }) => Promise.resolve(refusals.find((each) => each.formingShipId === formingShipId && each.key === key)),
   keep: (refusal) => {
     refusals.push(refusal);
     return Promise.resolve();
@@ -277,7 +277,8 @@ describe('a ship forming a squadron by message to squadrons (decision 0017)', ()
   });
 
   it('acknowledges nothing while it cannot read the sender, so the delivery comes again', async () => {
-    const stranger = { ...aFormRequest(formDelivery), senderShipId: 'shp_01m3tbfspe96yf1rnr4ank9z99' satisfies ShipId };
+    const unknownShip: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9z99';
+    const stranger = { ...aFormRequest(formDelivery), senderShipId: unknownShip };
 
     const handled = await handle(CREW, stranger);
 

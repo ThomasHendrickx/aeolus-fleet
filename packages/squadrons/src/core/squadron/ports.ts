@@ -79,3 +79,17 @@ export interface OperatorNotices {
 export interface RandomNames {
   suffix(length: number): string;
 }
+
+/** A form request squadrons refused: kept by its forming ship and key, so a repeat gets the first answer again. */
+export interface FormRefusal {
+  formingShipId: ShipId;
+  key: string;
+  code: string;
+  message: string;
+}
+
+/** Outbound port: the form requests squadrons refused, within one fleet. */
+export interface FormRefusals {
+  find(fleetId: FleetId, request: { formingShipId: ShipId; key: string }): Promise<FormRefusal | undefined>;
+  keep(refusal: FormRefusal & { fleetId: FleetId }): Promise<void>;
+}
